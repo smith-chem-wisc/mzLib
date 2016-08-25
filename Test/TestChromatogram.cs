@@ -44,7 +44,7 @@ namespace Test
             var b = a.CreateSmoothChromatogram(SmoothingType.BoxCar, 4);
             Assert.IsTrue(b.GetTimes().SequenceEqual(new double[3] { 2, 3, 4 }));
             Assert.IsTrue(b.GetIntensities().SequenceEqual(new double[3] { 3, 4, 4 }));
-            var c = new Chromatogram(a);
+            new Chromatogram(a);
 
             Chromatogram d = new Chromatogram(new double[9] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new double[9] { 10, 0, 2, 6, 2, 0, 1, 10, 1 }, false);
             // Finds the APEX! Not nearest peak!
