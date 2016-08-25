@@ -1072,7 +1072,7 @@ namespace Test
         {
             ChemicalFormula formula = new ChemicalFormula("C5H8NO");
 
-            IsotopicDistribution d = new IsotopicDistribution(formula, Math.Pow(2, -20));
+            IsotopicDistribution d = new IsotopicDistribution(formula, Math.Pow(2, -14));
 
             Assert.AreEqual(324, d.Intensities.Count);
 
