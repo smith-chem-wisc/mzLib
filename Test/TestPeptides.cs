@@ -603,7 +603,7 @@ namespace Test
             Peptide A = new Peptide("A");
             Modification a = new Modification(1, "Modification without chemical formula", ModificationSites.A);
             A.AddModification(a);
-            Assert.Throws<InvalidCastException>(() => { var asdf = A.GetChemicalFormula(); }, "Modification Modification without chemical formula does not have a chemical formula!");
+            Assert.Throws<InvalidCastException>(() => { A.GetChemicalFormula(); }, "Modification Modification without chemical formula does not have a chemical formula!");
         }
 
         [Test]

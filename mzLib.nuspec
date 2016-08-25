@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>MassSpecFiles</id>
+    <version>0.0.1</version>
+    <title>MassSpecFiles</title>
+    <authors>Stefan S.</authors>
+    <owners>Stefan S.</owners>
+    <licenseUrl>http://www.gnu.org/licenses/lgpl-3.0.txt</licenseUrl>
+    <projectUrl>https://github.com/stefanks/mzLib</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>description</description>
+    <releaseNotes>Clean version</releaseNotes>
+    <copyright>Copyright 2016</copyright>
+    <tags>Chemistry Spectrometry</tags>
+    <dependencies>
+      <dependency id="Zlib.Portable" version="1.11.0"/>
+      <dependency id="MathNet.Numerics" version="3.10.0"/>
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="mzLib\Chemistry\bin\Release\Chemistry.dll" target="lib" /> 
+    <file src="mzLib\MassSpecFiles\mzIdentML\bin\Release\mzIdentML.dll" target="lib" /> 
+    <file src="mzLib\MassSpecFiles\MzML\bin\Release\MzML.dll" target="lib" /> 
+    <file src="mzLib\MassSpecFiles\Thermo\bin\Release\Thermo.dll" target="lib" /> 
+    <file src="mzLib\MassSpectrometry\bin\Release\MassSpectrometry.dll" target="lib" /> 
+    <file src="mzLib\Proteomics\bin\Release\Proteomics.dll" target="lib" /> 
+    <file src="mzLib\Spectra\bin\Release\Spectra.dll" target="lib" /> 
+    <file src="mzLib\UsefulProteomicsDatabases\bin\ReleaseUsefulProteomicsDatabases\.dll" target="lib" /> 
+  </files>
+</package>
