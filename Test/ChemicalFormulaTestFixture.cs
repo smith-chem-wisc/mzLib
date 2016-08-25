@@ -541,7 +541,7 @@ namespace Test
         [Test]
         public void InvalidChemicalElement()
         {
-            Assert.Throws<KeyNotFoundException>(() => { Element e = PeriodicTable.GetElement("Faa"); });
+            Assert.Throws<KeyNotFoundException>(() => { PeriodicTable.GetElement("Faa"); });
         }
 
         [Test]
