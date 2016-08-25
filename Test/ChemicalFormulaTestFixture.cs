@@ -1101,7 +1101,7 @@ namespace Test
 
             Assert.AreEqual("objectWithMass", Assert.Throws<ArgumentNullException>(() => { ok5.ToMZ(0); }).ParamName);
 
-            var ok7 = new PhysicalObjectWithChemicalFormula("C");
+            new PhysicalObjectWithChemicalFormula("C");
         }
 
         [Test]
@@ -1153,11 +1153,11 @@ namespace Test
         public void IsoTest()
         {
             ChemicalFormula formula = new ChemicalFormula("C5H8NO");
-            
+
             IsotopicDistribution d = new IsotopicDistribution(formula, Math.Pow(2, -20));
 
             Assert.AreEqual(324, d.Intensities.Count);
-            
+
             d = new IsotopicDistribution(formula, Math.Pow(2, -1));
 
             Assert.AreEqual(17, d.Intensities.Count);
