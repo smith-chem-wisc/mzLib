@@ -267,7 +267,7 @@ namespace Test
         [Test]
         public void InexistingElement()
         {
-            Assert.Throws<KeyNotFoundException>(() => { var formulaA = new ChemicalFormula("Q"); });
+            Assert.Throws<KeyNotFoundException>(() => { new ChemicalFormula("Q"); });
         }
 
         [Test]
