@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package >
   <metadata>
-    <id>MassSpecFiles</id>
+    <id>mzLib</id>
     <version>0.0.1</version>
-    <title>MassSpecFiles</title>
+    <title>mzLib</title>
     <authors>Stefan S.</authors>
     <owners>Stefan S.</owners>
     <licenseUrl>http://www.gnu.org/licenses/lgpl-3.0.txt</licenseUrl>
@@ -15,7 +15,7 @@
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
       <dependency id="Zlib.Portable" version="1.11.0"/>
-      <dependency id="MathNet.Numerics" version="3.10.0"/>
+      <dependency id="MathNet.Numerics" version="3.13.0"/>
     </dependencies>
   </metadata>
   <files>
