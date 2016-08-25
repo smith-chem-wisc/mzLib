@@ -575,22 +575,22 @@ namespace Test
         public void TestChemicalFormula()
         {
 
-            var ye = AminoAcid.GetResidue('A');
+            AminoAcid.GetResidue('A');
 
 
             Peptide A = new Peptide("A");
 
-            var yeas = AminoAcid.GetResidue('A');
+            AminoAcid.GetResidue('A');
 
             ChemicalFormula ok = new ChemicalFormula(AminoAcid.GetResidue('A').ThisChemicalFormula);
             ok.Add(new ChemicalFormulaTerminus("OH"));
             ok.Add(new ChemicalFormulaTerminus("H"));
 
 
-            var ye2 = AminoAcid.GetResidue('A');
+            AminoAcid.GetResidue('A');
 
 
-            var ye3 = AminoAcid.GetResidue('A');
+            AminoAcid.GetResidue('A');
 
 
 
