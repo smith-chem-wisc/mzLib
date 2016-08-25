@@ -535,7 +535,7 @@ namespace Test
         [Test]
         public void BadFormula()
         {
-            Assert.Throws<FormatException>(() => { var formulaA = new ChemicalFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
+            Assert.Throws<FormatException>(() => {  new ChemicalFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
         }
 
         [Test]
