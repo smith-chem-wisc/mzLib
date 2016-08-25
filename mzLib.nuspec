@@ -26,6 +26,6 @@
     <file src="mzLib\MassSpectrometry\bin\Release\MassSpectrometry.dll" target="lib" /> 
     <file src="mzLib\Proteomics\bin\Release\Proteomics.dll" target="lib" /> 
     <file src="mzLib\Spectra\bin\Release\Spectra.dll" target="lib" /> 
-    <file src="mzLib\UsefulProteomicsDatabases\bin\ReleaseUsefulProteomicsDatabases\.dll" target="lib" /> 
+    <file src="mzLib\UsefulProteomicsDatabases\bin\Release\UsefulProteomicsDatabases\.dll" target="lib" /> 
   </files>
 </package>

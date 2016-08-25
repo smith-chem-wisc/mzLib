@@ -137,9 +137,16 @@ namespace UsefulProteomicsDatabases
 
         public static void LoadElements(string elementLocation)
         {
-            if (!File.Exists(elementLocation))
-                UpdateElements(elementLocation);
-            PeriodicTableLoader.Load(elementLocation);
+            try
+            {
+                if (!File.Exists(elementLocation))
+                    UpdateElements(elementLocation);
+                PeriodicTableLoader.Load(elementLocation);
+            }
+            catch (ArgumentException)
+            {
+
+            }
 
         }
 

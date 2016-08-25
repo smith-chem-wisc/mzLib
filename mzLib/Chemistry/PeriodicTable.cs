@@ -40,12 +40,6 @@ namespace Chemistry
         /// </summary>
         private static Element[] _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
 
-        public static void Clear()
-        {
-            _elements = new Dictionary<string, Element>();
-            _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
-        }
-
         /// <summary>
         /// Populate the periodic table by calling this method
         /// </summary>

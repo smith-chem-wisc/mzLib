@@ -41,12 +41,17 @@ namespace Test
         {
             var peptide = new Peptide("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR");
             ChemicalFormulaModification carbamidomethylationOfCMod = new ChemicalFormulaModification("H3C2NO", "carbamidomethylation of C", ModificationSites.C);
-
-
             peptide.AddModification(carbamidomethylationOfCMod);
 
+            Console.WriteLine("Created modified peptide");
+
             DefaultMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
+
+            Console.WriteLine("Created ms1");
+
             DefaultMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
+
+            Console.WriteLine("Created ms2");
 
             MsDataScan<IMzSpectrum<MzPeak>>[] Scans = new MsDataScan<IMzSpectrum<MzPeak>>[2];
             Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.newSpectrumApplyFunctionToX(b => b + 0.000001 * b + 0.000001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
@@ -54,7 +59,7 @@ namespace Test
             Scans[1] = new MsDataScan<IMzSpectrum<MzPeak>>(2, MS2.newSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 0.141146966879759, 1134.26091302033);
 
             var myMsDataFile = new FakeMsDataFile(@"myFakeFile.mzML", Scans);
-            
+
             MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(myMsDataFile, Path.Combine(Path.GetDirectoryName(myMsDataFile.FilePath), Path.GetFileNameWithoutExtension(myMsDataFile.FilePath)) + ".mzML");
 
             Mzml okay = new Mzml(@"myFakeFile.mzML");
@@ -88,6 +93,9 @@ namespace Test
         {
 
             IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
+
+            Console.WriteLine("f=" + f.Formula);
+            Console.WriteLine("isodist.Intensities.Count=" + isodist.Intensities.Count);
             IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
             massSpectrum1 = massSpectrum1.newSpectrumFilterByNumberOfMostIntense(5);
 
