@@ -851,14 +851,14 @@ namespace Proteomics
         /// Adds the modification at specific sites on this amino acid polymer, combining modifications if a modification is already present
         /// </summary>
         /// <param name="modification">The modification to set</param>
-        /// <param name="residueNumber">The residue number to set the modification at</param>
-        public virtual void AddModification(IHasMass modification, int residueNumber)
+        /// <param name="location">The location to set the modification at</param>
+        public virtual void AddModification(IHasMass modification, int location)
         {
-            if (residueNumber > Length || residueNumber < 1)
-                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, residueNumber));
+            if (location > Length+1 || location < 0)
+                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, location));
 
-            IHasMass currentMod = GetModification(residueNumber);
-            ReplaceMod(residueNumber, currentMod == null ? modification : new ModificationCollection(currentMod, modification));
+            IHasMass currentMod = GetModification(location);
+            ReplaceMod(location, currentMod == null ? modification : new ModificationCollection(currentMod, modification));
         }
 
         /// <summary>
