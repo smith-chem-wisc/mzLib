@@ -46,6 +46,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="mzIdentML1_1_0.cs" />
     <Compile Include="mzIdentML1_1_1.cs" />
     <Compile Include="MzidIdentifications.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
