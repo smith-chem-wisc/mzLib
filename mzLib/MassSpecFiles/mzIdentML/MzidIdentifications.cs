@@ -27,160 +27,349 @@ namespace MzIdentML
 {
     public class MzidIdentifications : Identifications
     {
-        private mzIdentML.Generated.MzIdentMLType dd;
+        private mzIdentML.Generated.MzIdentMLType dd = null;
+        private mzIdentML110.Generated.MzIdentMLType dd110 = null;
         public MzidIdentifications(string mzidFile)
         {
-            XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML.Generated.MzIdentMLType));
-            Stream stream = new FileStream(mzidFile, FileMode.Open);
-            // Read the XML file into the variable
-            dd = _indexedSerializer.Deserialize(stream) as mzIdentML.Generated.MzIdentMLType;
+            try
+            {
+                using (Stream stream = new FileStream(mzidFile, FileMode.Open))
+                {
+                    XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML.Generated.MzIdentMLType));
+                    // Read the XML file into the variable
+                    dd = _indexedSerializer.Deserialize(stream) as mzIdentML.Generated.MzIdentMLType;
+                }
+            }
+            catch
+            {
+                using (Stream stream = new FileStream(mzidFile, FileMode.Open))
+                {
+                    XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType));
+                    // Read the XML file into the variable
+                    dd110 = _indexedSerializer.Deserialize(stream) as mzIdentML110.Generated.MzIdentMLType;
+                }
+            }
         }
 
         public double calculatedMassToCharge(int sirIndex)
         {
-            return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+            }
         }
 
         public int chargeState(int sirIndex)
         {
-            return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+
+            }
         }
 
         public double experimentalMassToCharge(int sirIndex)
         {
-            return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+
+            }
         }
 
         public Tolerance parentTolerance
         {
             get
             {
-                var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
-                if (hm[0].unitName.Equals("dalton"))
-                    return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
-                else
-                    return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                try
+                {
+                    var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
+                    if (hm[0].unitName.Equals("dalton"))
+                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
+                    else
+                        return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                }
+                catch
+                {
+                    var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
+                    if (hm[0].unitName.Equals("dalton"))
+                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
+                    else
+                        return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+
+                }
             }
         }
         public Tolerance fragmentTolerance
         {
             get
             {
-                var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
-                if (hm[0].unitName.Equals("dalton"))
-                    return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
-                else
-                    return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                try
+                {
+                    var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
+                    if (hm[0].unitName.Equals("dalton"))
+                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
+                    else
+                        return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                }
+                catch
+                {
+                    var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
+                    if (hm[0].unitName.Equals("dalton"))
+                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
+                    else
+                        return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                }
             }
         }
         public int Count
         {
             get
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult.Count();
+                try
+                {
+                    return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult.Count();
+                }
+                catch
+                {
+                    return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult.Count();
+
+                }
             }
         }
 
         public bool isDecoy(int sirIndex)
         {
-            int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
-            return dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].isDecoy;
+            try
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                return dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].isDecoy;
+            }
+            catch
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                return dd110.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].isDecoy;
+
+            }
         }
 
         public string modificationAcession(int sirIndex, int i)
         {
-            int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
-            var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
-            foreach (var ok in dd.SequenceCollection.Peptide)
+            try
             {
-                if (ok.id.Equals(peptideRef))
-                    return ok.Modification[i].cvParam[0].accession;
+                int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
+                foreach (var ok in dd.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                        return ok.Modification[i].cvParam[0].accession;
+                }
+                return null;
             }
-            return null;
+            catch
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd110.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
+                foreach (var ok in dd110.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                        return ok.Modification[i].cvParam[0].accession;
+                }
+                return null;
+
+            }
         }
 
         public string modificationDictionary(int sirIndex, int i)
         {
-            int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
-            var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
-
-            foreach (var ok in dd.SequenceCollection.Peptide)
+            try
             {
-                if (ok.id.Equals(peptideRef))
-                    return ok.Modification[i].cvParam[0].cvRef;
-            }
+                int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
 
-            return null;
+                foreach (var ok in dd.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                        return ok.Modification[i].cvParam[0].cvRef;
+                }
+
+                return null;
+            }
+            catch
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd110.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
+
+                foreach (var ok in dd110.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                        return ok.Modification[i].cvParam[0].cvRef;
+                }
+
+                return null;
+
+            }
 
         }
 
         public int modificationLocation(int sirIndex, int i)
         {
-            int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
-            var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
-
-
-            foreach (var ok in dd.SequenceCollection.Peptide)
+            try
             {
-                if (ok.id.Equals(peptideRef))
+                int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
 
-                    return ok.Modification[i].location;
+
+                foreach (var ok in dd.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+
+                        return ok.Modification[i].location;
+                }
+
+                return -1;
             }
+            catch
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd110.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
 
-            return -1;
+
+                foreach (var ok in dd110.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+
+                        return ok.Modification[i].location;
+                }
+
+                return -1;
+
+            }
 
         }
 
         public int NumModifications(int sirIndex)
         {
-            int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
-            var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
-
-
-            foreach (var ok in dd.SequenceCollection.Peptide)
+            try
             {
-                if (ok.id.Equals(peptideRef))
-                {
-                    if (ok.Modification == null)
-                        return 0;
-                    return ok.Modification.Length;
+                int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
 
+
+                foreach (var ok in dd.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                    {
+                        if (ok.Modification == null)
+                            return 0;
+                        return ok.Modification.Length;
+
+                    }
                 }
+                return -1;
             }
-            return -1;
+            catch
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd110.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
+
+
+                foreach (var ok in dd110.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                    {
+                        if (ok.Modification == null)
+                            return 0;
+                        return ok.Modification.Length;
+
+                    }
+                }
+                return -1;
+            }
         }
 
         public string PeptideSequenceWithoutModifications(int sirIndex)
         {
-            int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
-            var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
-
-
-            foreach (var ok in dd.SequenceCollection.Peptide)
+            try
             {
-                if (ok.id.Equals(peptideRef))
-                    return ok.PeptideSequence;
-            }
+                int peptideEvidenceIndex = GetLastNumberFromString(dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
 
-            return null;
+
+                foreach (var ok in dd.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                        return ok.PeptideSequence;
+                }
+
+                return null;
+            }
+            catch
+            {
+                int peptideEvidenceIndex = GetLastNumberFromString(dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref);
+                var peptideRef = dd110.SequenceCollection.PeptideEvidence[peptideEvidenceIndex - 1].peptide_ref;
+
+
+                foreach (var ok in dd110.SequenceCollection.Peptide)
+                {
+                    if (ok.id.Equals(peptideRef))
+                        return ok.PeptideSequence;
+                }
+
+                return null;
+
+            }
         }
 
         public int ms2spectrumIndex(int sirIndex)
         {
-            if (dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
+            try
+            {
+                if (dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
                 || dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
-            {
-                string ms2spectrumID = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
-                return GetLastNumberFromString(ms2spectrumID);
-            }
-            else if (dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
-            {
-                var spectrumID = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
+                {
+                    string ms2spectrumID = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
+                    return GetLastNumberFromString(ms2spectrumID);
+                }
+                else if (dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
+                {
+                    var spectrumID = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
 
-                return GetLastNumberBeforeDot(spectrumID);
+                    return GetLastNumberBeforeDot(spectrumID);
+                }
+                else
+                    return -1;
             }
-            else
-                return -1;
+            catch
+            {
+                if (dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
+       || dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
+                {
+                    string ms2spectrumID = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
+                    return GetLastNumberFromString(ms2spectrumID);
+                }
+                else if (dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
+                {
+                    var spectrumID = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
+
+                    return GetLastNumberBeforeDot(spectrumID);
+                }
+                else
+                    return -1;
+
+            }
         }
 
         private static int GetLastNumberFromString(string s)
