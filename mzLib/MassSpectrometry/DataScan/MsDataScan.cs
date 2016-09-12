@@ -230,50 +230,5 @@ namespace MassSpectrometry
             SelectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
             return true;
         }
-
-        public void attemptToRefinePrecursorMonoisotopicPeak(ISpectrum<MzPeak> ms1Spectrum, double worstA = 0.0005, double worstA2 = 0.0005, double distBetweenPeaks = 1.003, double factorOfErrorAllowed = 3, double intensityDecreaseAllowed = 0.2)
-        {
-            double startMZ = selectedIonGuessMonoisotopicMZ;
-
-            MzPeak goodPeak = ms1Spectrum.GetClosestPeak(startMZ);
-
-            double checkPeak = goodPeak.MZ;
-            double checkPeak2 = goodPeak.MZ;
-
-            double checkIntensity = goodPeak.Intensity;
-
-            int i = 0;
-            while (true)
-            {
-                i++;
-                checkPeak = checkPeak - distBetweenPeaks / selectedIonGuessChargeStateGuess;
-                checkPeak2 = goodPeak.MZ - distBetweenPeaks / selectedIonGuessChargeStateGuess;
-                var peak = ms1Spectrum.GetClosestPeak(checkPeak);
-                var a = Math.Abs(peak.MZ - checkPeak);
-                var a2 = Math.Abs(peak.MZ - checkPeak2);
-                var b = peak.Intensity;
-                // HACK
-                if (a < worstA * factorOfErrorAllowed && a2 < worstA2 * factorOfErrorAllowed && b >= checkIntensity * intensityDecreaseAllowed)
-                {
-                    goodPeak = peak;
-                    checkIntensity = b;
-                    if (i == 1)
-                    {
-                        worstA = a;
-                        worstA2 = a2;
-                    }
-                    else
-                    {
-                        worstA = Math.Max(a, worstA);
-                        worstA2 = Math.Max(a2, worstA2);
-                    }
-                }
-                else
-                    break;
-            }
-
-            selectedIonGuessMonoisotopicMZ = goodPeak.MZ;
-            selectedIonGuessMonoisotopicIntensity = goodPeak.Intensity;
-        }
     }
 }

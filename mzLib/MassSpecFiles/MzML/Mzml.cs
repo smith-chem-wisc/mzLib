@@ -650,12 +650,12 @@ namespace IO.MzML
             //_indexedmzMLConnection.mzML.softwareList.software[1].cvParam[0].accession = "MS:1000693";
 
             _indexedmzMLConnection.mzML.softwareList.software[0] = new Generated.SoftwareType();
-            _indexedmzMLConnection.mzML.softwareList.software[0].id = "StefanSoftware";
+            _indexedmzMLConnection.mzML.softwareList.software[0].id = "mzLib";
             _indexedmzMLConnection.mzML.softwareList.software[0].version = "1";
             _indexedmzMLConnection.mzML.softwareList.software[0].cvParam = new Generated.CVParamType[1];
             _indexedmzMLConnection.mzML.softwareList.software[0].cvParam[0] = new Generated.CVParamType();
             _indexedmzMLConnection.mzML.softwareList.software[0].cvParam[0].accession = "MS:1000799";
-            _indexedmzMLConnection.mzML.softwareList.software[0].cvParam[0].value = "StefanSoftware";
+            _indexedmzMLConnection.mzML.softwareList.software[0].cvParam[0].value = "mzLib";
 
 
             // Leaving empty. Can't figure out the configurations. 
@@ -668,7 +668,7 @@ namespace IO.MzML
             _indexedmzMLConnection.mzML.dataProcessingList.count = "1";
             _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing = new Generated.DataProcessingType[1];
             _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing[0] = new Generated.DataProcessingType();
-            _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing[0].id = "StefanDataProcessing";
+            _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing[0].id = "mzLibProcessing";
 
 
             _indexedmzMLConnection.mzML.run = new Generated.RunType();
@@ -681,7 +681,7 @@ namespace IO.MzML
 
             _indexedmzMLConnection.mzML.run.spectrumList = new Generated.SpectrumListType();
             _indexedmzMLConnection.mzML.run.spectrumList.count = (myMsDataFile.LastSpectrumNumber - myMsDataFile.FirstSpectrumNumber + 1).ToString();
-            _indexedmzMLConnection.mzML.run.spectrumList.defaultDataProcessingRef = "StefanDataProcessing";
+            _indexedmzMLConnection.mzML.run.spectrumList.defaultDataProcessingRef = "mzLibProcessing";
             _indexedmzMLConnection.mzML.run.spectrumList.spectrum = new Generated.SpectrumType[myMsDataFile.LastSpectrumNumber - myMsDataFile.FirstSpectrumNumber + 1];
 
             // Loop over all spectra
