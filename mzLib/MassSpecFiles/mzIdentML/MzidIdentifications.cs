@@ -164,7 +164,18 @@ namespace MzIdentML
 
             }
         }
+        public bool passThreshold(int sirIndex)
+        {
 
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].passThreshold;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].passThreshold;
+            }
+        }
         public string modificationAcession(int sirIndex, int i)
         {
             try
