@@ -245,7 +245,7 @@ namespace IO.MzML
             string filter = GetScanFilter(spectrumNumber);
 
             if (filter == null)
-                throw new ArgumentNullException("Cannot get analyzer for spectrum number " + spectrumNumber + " because scan filter is not present!");
+                return MZAnalyzerType.Unknown;
 
             string type = MZAnalyzerTypeRegex.Match(filter).Captures[0].Value;
 
@@ -254,9 +254,9 @@ namespace IO.MzML
                 case "ITMS":
                     return MZAnalyzerType.IonTrap2D;
                 case "TQMS":
-                    throw new InvalidDataException("Not sure what TQMS is");
+                    return MZAnalyzerType.Unknown;
                 case "SQMS":
-                    throw new InvalidDataException("Not sure what SQMS is");
+                    return MZAnalyzerType.Unknown;
                 case "TOFMS":
                     return MZAnalyzerType.TOF;
                 case "FTMS":

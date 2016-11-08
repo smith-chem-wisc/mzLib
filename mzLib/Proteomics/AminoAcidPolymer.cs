@@ -31,15 +31,6 @@ namespace Proteomics
     /// </summary>
     public abstract class AminoAcidPolymer : IEquatable<AminoAcidPolymer>, IHasMass
     {
-        #region Static Properties
-
-        /// <summary>
-        /// Defines if newly generated Amino Acid Polymers will store the amino acid sequence as a string
-        /// or generate the string dynamically. If true, certain operations will be quicker at the cost of
-        /// increased memory consumption. Default value is True.
-        /// </summary>
-
-        #endregion Static Properties
 
         #region Instance Variables
 
