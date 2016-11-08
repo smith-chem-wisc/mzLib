@@ -179,21 +179,18 @@ namespace IO.MzML
             double high = double.NaN;
             double low = double.NaN;
 
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[spectrumNumber].scanList.scan[0].scanWindowList.scanWindow[0].cvParam)
-            {
-                if (cv.accession.Equals(_scanWindowLowerLimit))
+            if (_mzMLConnection.run.spectrumList.spectrum[spectrumNumber].scanList.scan[0].scanWindowList != null)
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[spectrumNumber].scanList.scan[0].scanWindowList.scanWindow[0].cvParam)
                 {
-                    low = double.Parse(cv.value);
+                    if (cv.accession.Equals(_scanWindowLowerLimit))
+                    {
+                        low = double.Parse(cv.value);
+                    }
+                    if (cv.accession.Equals(_scanWindowUpperLimit))
+                    {
+                        high = double.Parse(cv.value);
+                    }
                 }
-                if (cv.accession.Equals(_scanWindowUpperLimit))
-                {
-                    high = double.Parse(cv.value);
-                }
-            }
-            if (double.IsNaN(low) || double.IsNaN(high))
-            {
-                throw new ArgumentNullException("Could not find scan window MZ range for " + spectrumNumber + 1);
-            }
             return new MzRange(low, high);
         }
 
@@ -495,8 +492,7 @@ namespace IO.MzML
                     return double.Parse(cv.value);
                 }
             }
-            throw new ArgumentNullException("Could not determine isolation mz for " + spectrumNumber + 1);
-
+            return double.NaN;
         }
 
         protected override MsDataScan<DefaultMzSpectrum> GetMsDataScanFromFile(int spectrumNumber)
