@@ -466,7 +466,7 @@ namespace IO.MzML
                     return Convert.ToDouble(cv.value);
                 }
             }
-            throw new ArgumentNullException("Could not determine precursor intensity of spectrum " + spectrumNumber + 1);
+            return double.NaN;
         }
 
         private double GetPrecursorMz(int spectrumNumber)
@@ -569,8 +569,7 @@ namespace IO.MzML
                     return Convert.ToDouble(cv.value);
                 }
             }
-            throw new ArgumentNullException("Could not determine precursor intensity of spectrum " + spectrumNumber + 1);
-
+            return double.NaN;
         }
 
         private double GetPrecursorMonoisotopicMZ(int spectrumNumber)
