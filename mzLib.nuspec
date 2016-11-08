@@ -7,9 +7,9 @@
     <authors>Stefan S.</authors>
     <owners>Stefan S.</owners>
     <licenseUrl>http://www.gnu.org/licenses/lgpl-3.0.txt</licenseUrl>
-    <projectUrl>https://github.com/stefanks/mzLib</projectUrl>
+    <projectUrl>https://github.com/smith-chem-wisc/mzLib</projectUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <description>description</description>
+    <description>Library for mass spectrometry projects.</description>
     <releaseNotes>Clean version</releaseNotes>
     <copyright>Copyright 2016</copyright>
     <tags>Chemistry Spectrometry</tags>
