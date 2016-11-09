@@ -155,13 +155,14 @@ namespace IO.MzML
             throw new ArgumentNullException("Could not find MSn level for spectrum number " + spectrumNumber + 1);
         }
 
+        // ZERO MEANS UNKNOWN CHARGE STATE, NOT ACTUALLY ZERO!!!
         private int GetPrecusorCharge(int spectrumNumber)
         {
             // PRECURSOR ARE ONLY IN MS2 SPECTRA!!!
             spectrumNumber--;
 
             if (_mzMLConnection.run.spectrumList.spectrum[spectrumNumber].precursorList == null)
-                throw new ArgumentNullException("Couldn't find precursor charge in spectrum number " + spectrumNumber + 1 + ", possibly an MS1 Spectrum!");
+                return 0;
 
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[spectrumNumber].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam)
             {
@@ -170,7 +171,7 @@ namespace IO.MzML
                     return short.Parse(cv.value);
                 }
             }
-            throw new ArgumentNullException("Couldn't find precursor charge in spectrum number " + spectrumNumber + 1);
+            return 0;
         }
 
         private MzRange GetScanWindowMzRange(int spectrumNumber)
@@ -200,6 +201,9 @@ namespace IO.MzML
             spectrumNumber--;
             double low = double.NaN;
             double high = double.NaN;
+
+            if (_mzMLConnection.run.spectrumList.spectrum[spectrumNumber].precursorList.precursor[0].isolationWindow == null)
+                return double.NaN;
 
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[spectrumNumber].precursorList.precursor[0].isolationWindow.cvParam)
             {
@@ -485,6 +489,8 @@ namespace IO.MzML
         private double GetIsolationMz(int spectrumNumber)
         {
             spectrumNumber--;
+            if (_mzMLConnection.run.spectrumList.spectrum[spectrumNumber].precursorList.precursor[0].isolationWindow == null)
+                return double.NaN;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[spectrumNumber].precursorList.precursor[0].isolationWindow.cvParam)
             {
                 if (cv.accession.Equals(_isolationWindowTargetMZ))
@@ -602,7 +608,11 @@ namespace IO.MzML
 
         private int GetPrecursorScanNumber(int v)
         {
-            return Convert.ToInt32(Regex.Match(GetPrecursorID(v), @"\d+$").Value);
+            do
+            {
+                v--;
+            } while (GetScan(v).MsnOrder!=1);
+            return GetScan(v).ScanNumber;
         }
     }
 
