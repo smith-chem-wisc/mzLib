@@ -13,7 +13,7 @@ namespace MassSpectrometry
         bool isDecoy(int matchIndex);
         bool passThreshold(int matchIndex);
 
-        int ms2spectrumIndex(int matchIndex);
+        string ms2spectrumID(int matchIndex);
 
         double calculatedMassToCharge(int matchIndex);
 
