@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using IO.MzML;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,16 @@ namespace Benchmark
     {
         private static void Main(string[] args)
         {
+            //var hm = new Mzml(@"C:\Users\stepa\Data\FromRob\20160128_fraction2-Sample001.mzml");
+
+            //hm.Open();
+
+            //var ya = hm.GetScan(1);
+            //ya = hm.GetScan(24046);
+            //ya = hm.GetScan(24047);
+
+
+
             string gitStatus = string.Empty;
             Stream stream = null;
             try
