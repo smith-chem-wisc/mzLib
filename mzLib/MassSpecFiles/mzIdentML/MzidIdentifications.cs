@@ -344,41 +344,39 @@ namespace MzIdentML
             }
         }
 
-        public int ms2spectrumIndex(int sirIndex)
+        public string ms2spectrumID(int sirIndex)
         {
             try
             {
                 if (dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
                 || dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
                 {
-                    string ms2spectrumID = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
-                    return GetLastNumberFromString(ms2spectrumID);
+                    return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
+
                 }
                 else if (dd.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
                 {
-                    var spectrumID = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
+                    return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
 
-                    return GetLastNumberBeforeDot(spectrumID);
                 }
                 else
-                    return -1;
+                    return null;
             }
             catch
             {
                 if (dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
        || dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
                 {
-                    string ms2spectrumID = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
-                    return GetLastNumberFromString(ms2spectrumID);
+                    return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
+
                 }
                 else if (dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
                 {
-                    var spectrumID = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
+                    return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
 
-                    return GetLastNumberBeforeDot(spectrumID);
                 }
                 else
-                    return -1;
+                    return null;
 
             }
         }
@@ -386,12 +384,6 @@ namespace MzIdentML
         private static int GetLastNumberFromString(string s)
         {
             return Convert.ToInt32(Regex.Match(s, @"\d+$").Value);
-        }
-
-        private static int GetLastNumberBeforeDot(string s)
-        {
-            var hm = Regex.Match(s, @"(?<=\.)\d+(?=\.\d+$)").Value;
-            return Convert.ToInt32(hm);
         }
     }
 }

@@ -199,7 +199,7 @@ namespace Test
             Assert.AreEqual("UNIMOD:4", identifications.modificationAcession(0, 0));
             Assert.AreEqual("UNIMOD", identifications.modificationDictionary(0, 0));
             Assert.AreEqual(17, identifications.modificationLocation(0, 0));
-            Assert.AreEqual(2, identifications.ms2spectrumIndex(0));
+            Assert.AreEqual("spectrum 2", identifications.ms2spectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
 
