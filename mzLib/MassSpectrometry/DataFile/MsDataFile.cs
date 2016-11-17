@@ -61,32 +61,18 @@ namespace MassSpectrometry
         }
 
         public MsDataFileType FileType { get; private set; }
-
-        bool _firstSpectrumNumberSet = false;
-        int _firstSpectrumNumber;
-        public virtual int FirstSpectrumNumber
+        
+        bool _numSpectraSet = false;
+        int _numSpectra;
+        public virtual int NumSpectra
         {
             get
             {
-                if (_firstSpectrumNumberSet)
-                    return _firstSpectrumNumber;
-                _firstSpectrumNumberSet = true;
-                _firstSpectrumNumber = GetFirstSpectrumNumber();
-                return _firstSpectrumNumber;
-            }
-        }
-
-        bool _lastSpectrumNumberSet = false;
-        int _lastSpectrumNumber;
-        public virtual int LastSpectrumNumber
-        {
-            get
-            {
-                if (_lastSpectrumNumberSet)
-                    return _lastSpectrumNumber;
-                _lastSpectrumNumberSet = true;
-                _lastSpectrumNumber = GetLastSpectrumNumber();
-                return _lastSpectrumNumber;
+                if (_numSpectraSet)
+                    return _numSpectra;
+                _numSpectraSet = true;
+                _numSpectra = GetNumSpectra();
+                return _numSpectra;
             }
         }
 
@@ -108,34 +94,34 @@ namespace MassSpectrometry
         /// <summary>
         /// Get the MS Scan at the specific spectrum number.
         /// </summary>
-        /// <param name="scanNumber">The spectrum number to get the MS Scan at</param>
+        /// <param name="oneBasedScanNumber">The spectrum number to get the MS Scan at</param>
         /// <returns></returns>
-        public virtual IMsDataScan<TSpectrum> GetScan(int scanNumber)
+        public virtual IMsDataScan<TSpectrum> GetOneBasedScan(int oneBasedScanNumber)
         {
             if (!CacheScans)
-                return GetMsDataScanFromFile(scanNumber);
+                return GetMsDataOneBasedScanFromFile(oneBasedScanNumber);
             if (Scans == null)
-                Scans = new MsDataScan<TSpectrum>[LastSpectrumNumber - FirstSpectrumNumber + 1];
-            if (Scans[scanNumber - FirstSpectrumNumber] == null)
+                Scans = new MsDataScan<TSpectrum>[NumSpectra];
+            if (Scans[oneBasedScanNumber - 1] == null)
             {
-                Scans[scanNumber - FirstSpectrumNumber] = GetMsDataScanFromFile(scanNumber);
+                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromFile(oneBasedScanNumber);
             }
 
-            return Scans[scanNumber - FirstSpectrumNumber];
+            return Scans[oneBasedScanNumber - 1];
         }
 
         public virtual void LoadAllScansInMemory()
         {
             if (Scans == null)
             {
-                Scans = new MsDataScan<TSpectrum>[LastSpectrumNumber - FirstSpectrumNumber + 1];
+                Scans = new MsDataScan<TSpectrum>[NumSpectra ];
             }
 
-            for (int scanNumber = FirstSpectrumNumber; scanNumber <= LastSpectrumNumber; scanNumber++)
+            for (int scanNumber = 1; scanNumber <= NumSpectra; scanNumber++)
             {
-                if (Scans[scanNumber - FirstSpectrumNumber] == null)
+                if (Scans[scanNumber - 1] == null)
                 {
-                    Scans[scanNumber - FirstSpectrumNumber] = GetMsDataScanFromFile(scanNumber);
+                    Scans[scanNumber - 1] = GetMsDataOneBasedScanFromFile(scanNumber);
                 }
             }
         }
@@ -147,28 +133,29 @@ namespace MassSpectrometry
             Array.Clear(Scans, 0, Scans.Length);
         }
 
-        protected abstract MsDataScan<TSpectrum> GetMsDataScanFromFile(int spectrumNumber);
+        protected abstract MsDataScan<TSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
 
         public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScans()
         {
-            return GetMsScansInIndexRange(FirstSpectrumNumber, LastSpectrumNumber);
+            return GetMsScansInIndexRange(1, NumSpectra);
         }
 
         public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
-            for (int spectrumNumber = FirstSpectrumNumber; spectrumNumber <= LastSpectrumNumber; spectrumNumber++)
+            for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
             {
-                yield return GetScan(spectrumNumber);
+                yield return GetOneBasedScan(oneBasedSpectrumNumber);
             }
         }
 
         public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
-            int spectrumNumber = GetSpectrumNumber(firstRT - 0.0000001);
-            while (spectrumNumber <= LastSpectrumNumber)
+            int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
+            while (oneBasedSpectrumNumber <= NumSpectra)
             {
-                IMsDataScan<TSpectrum> scan = GetScan(spectrumNumber++);
+                IMsDataScan<TSpectrum> scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
+                oneBasedSpectrumNumber++;
                 if (rt < firstRT)
                     continue;
                 if (rt > lastRT)
@@ -177,16 +164,14 @@ namespace MassSpectrometry
             }
         }
 
-        public abstract int GetSpectrumNumber(double retentionTime);
+        public abstract int GetClosestOneBasedSpectrumNumber(double retentionTime);
 
         public override string ToString()
         {
             return string.Format("{0} ({1})", Name, Enum.GetName(typeof(MsDataFileType), FileType));
         }
-
-        protected abstract int GetFirstSpectrumNumber();
-
-        protected abstract int GetLastSpectrumNumber();
+        
+        protected abstract int GetNumSpectra();
         public abstract void Open();
     }
 }

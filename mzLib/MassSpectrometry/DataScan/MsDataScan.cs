@@ -31,7 +31,7 @@ namespace MassSpectrometry
         private double selectedIonGuessMZ;
         private DissociationType dissociationType;
         private double isolationWidth;
-        private int precursorScanNumber;
+        private int oneBasedPrecursorScanNumber;
         private double selectedIonGuessMonoisotopicIntensity;
         private double selectedIonGuessMonoisotopicMZ;
 
@@ -40,7 +40,7 @@ namespace MassSpectrometry
         /// </summary>
         public TSpectrum MassSpectrum { get; private set; }
 
-        public int ScanNumber { get; private set; }
+        public int OneBasedScanNumber { get; private set; }
 
         public int MsnOrder { get; private set; }
 
@@ -62,9 +62,9 @@ namespace MassSpectrometry
 
         public double TotalIonCurrent { get; private set; }
 
-        public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
+        public MsDataScan(int OneBasedScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
         {
-            this.ScanNumber = ScanNumber;
+            this.OneBasedScanNumber = OneBasedScanNumber;
             this.MassSpectrum = MassSpectrum;
             this.id = id;
             this.MsnOrder = MsnOrder;
@@ -77,7 +77,7 @@ namespace MassSpectrometry
             this.InjectionTime = InjectionTime;
             this.TotalIonCurrent = TotalIonCurrent;
         }
-        public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int precursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
+        public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
             : this(ScanNumber, MassSpectrum, id, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, InjectionTime, TotalIonCurrent)
         {
             this.isolationMZ = isolationMZ;
@@ -87,15 +87,14 @@ namespace MassSpectrometry
             this.selectedIonGuessMZ = selectedIonGuessMZ;
             this.dissociationType = dissociationType;
             this.isolationWidth = isolationWidth;
-            this.precursorScanNumber = precursorScanNumber;
+            this.oneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
             this.selectedIonGuessMonoisotopicIntensity = selectedIonGuessMonoisotopicIntensity;
             this.selectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
-
         }
 
         public override string ToString()
         {
-            return string.Format("Scan #{0}", ScanNumber);
+            return string.Format("Scan #{0}", OneBasedScanNumber);
         }
 
 
@@ -191,14 +190,14 @@ namespace MassSpectrometry
 
         }
 
-        public bool TryGetPrecursorScanNumber(out int PrecursorScanNumber)
+        public bool TryGetPrecursorOneBasedScanNumber(out int OneBasedPrecursorScanNumber)
         {
             if (MsnOrder == 1)
             {
-                PrecursorScanNumber = -1;
+                OneBasedPrecursorScanNumber = 0;
                 return false;
             }
-            PrecursorScanNumber = precursorScanNumber;
+            OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
             return true;
         }
 

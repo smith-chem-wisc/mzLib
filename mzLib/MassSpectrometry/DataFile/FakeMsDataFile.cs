@@ -29,31 +29,26 @@ namespace MassSpectrometry
             this.FakeScans = FakeScans;
         }
 
-        public override int GetSpectrumNumber(double retentionTime)
+        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             int ok = Array.BinarySearch(Scans.Select(b => b.RetentionTime).ToArray(), retentionTime);
             if (ok < 0)
                 ok = ~ok;
-            return ok + FirstSpectrumNumber;
+            return ok + 1;
         }
 
         public override void Open()
         {
         }
 
-        protected override int GetFirstSpectrumNumber()
-        {
-            return 1;
-        }
-
-        protected override int GetLastSpectrumNumber()
+        protected override int GetNumSpectra()
         {
             return FakeScans.Count();
         }
 
-        protected override MsDataScan<IMzSpectrum<MzPeak>> GetMsDataScanFromFile(int spectrumNumber)
+        protected override MsDataScan<IMzSpectrum<MzPeak>> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
         {
-            return FakeScans[spectrumNumber - 1];
+            return FakeScans[oneBasedSpectrumNumber - 1];
         }
     }
 }

@@ -26,7 +26,7 @@ namespace MassSpectrometry
         where TSpectrum : IMzSpectrum<MzPeak>
     {
         TSpectrum MassSpectrum { get; }
-        int ScanNumber { get; }
+        int OneBasedScanNumber { get; }
         int MsnOrder { get; }
         double RetentionTime { get; }
         MzRange ScanWindowRange { get; }
@@ -37,7 +37,7 @@ namespace MassSpectrometry
         double TotalIonCurrent { get; }
         Polarity Polarity { get; }
         MZAnalyzerType MzAnalyzer { get; }
-        bool TryGetPrecursorScanNumber(out int precursorScanNumber);
+        bool TryGetPrecursorOneBasedScanNumber(out int precursorOneBasedScanNumber);
         bool TryGetPrecursorID(out string PrecursorID);
         bool TryGetSelectedIonGuessChargeStateGuess(out int SelectedIonGuessChargeStateGuess);
         bool TryGetSelectedIonGuessMonoisotopicIntensity(out double SelectedIonGuessMonoisotopicIntensity);
