@@ -25,10 +25,9 @@ namespace MassSpectrometry
     public interface IMsDataFile<out TSpectrum> : IEnumerable<IMsDataScan<TSpectrum>>
         where TSpectrum : IMzSpectrum<MzPeak>
     {
-        IMsDataScan<TSpectrum> GetScan(int scanNumber);
+        IMsDataScan<TSpectrum> GetOneBasedScan(int oneBasedScanNumber);
         string Name { get; }
-        int FirstSpectrumNumber { get; }
-        int LastSpectrumNumber { get; }
+        int NumSpectra { get; }
         string FilePath { get; }
         void Open();
         void LoadAllScansInMemory();

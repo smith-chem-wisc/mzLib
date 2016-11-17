@@ -31,7 +31,7 @@ namespace Test
             a.Open();
             Assert.AreEqual(true, a.IsIndexedMzML);
 
-            var ya = a.GetScan(1).MassSpectrum;
+            var ya = a.GetOneBasedScan(1).MassSpectrum;
 
         }
 
@@ -64,10 +64,10 @@ namespace Test
 
             Mzml okay = new Mzml(@"myFakeFile.mzML");
             okay.Open();
-            okay.GetScan(2);
+            okay.GetOneBasedScan(2);
 
-            Assert.AreEqual(1, okay.GetSpectrumNumber(1));
-            Assert.AreEqual(2, okay.GetSpectrumNumber(2));
+            Assert.AreEqual(1, okay.GetClosestOneBasedSpectrumNumber(1));
+            Assert.AreEqual(2, okay.GetClosestOneBasedSpectrumNumber(2));
         }
 
         private DefaultMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)

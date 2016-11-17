@@ -15,11 +15,11 @@ namespace Benchmark
 
             //hm.Open();
 
-            //var ya = hm.GetScan(1);
-            //ya = hm.GetScan(24046);
-            //ya = hm.GetScan(24047);
+            //var ya = hm.GetOneBasedScan(1);
+            //ya = hm.GetOneBasedScan(24046);
+            //ya = hm.GetOneBasedScan(24047);
 
-
+            //MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(hm, "dd");
 
             string gitStatus = string.Empty;
             Stream stream = null;

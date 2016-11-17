@@ -86,18 +86,14 @@ namespace IO.Thermo
             _rawConnection.SetCurrentController(0, 1); // first 0 is for mass spectrometer
         }
 
-        protected override int GetFirstSpectrumNumber()
-        {
-            int spectrumNumber = 0;
-            _rawConnection.GetFirstSpectrumNumber(ref spectrumNumber);
-            return spectrumNumber;
-        }
 
-        protected override int GetLastSpectrumNumber()
+        protected override int GetNumSpectra()
         {
-            int spectrumNumber = 0;
-            _rawConnection.GetLastSpectrumNumber(ref spectrumNumber);
-            return spectrumNumber;
+            int lastspectrumNumber = -1;
+            _rawConnection.GetLastSpectrumNumber(ref lastspectrumNumber);
+            int firstspectrumNumber = -1;
+            _rawConnection.GetFirstSpectrumNumber(ref firstspectrumNumber);
+            return lastspectrumNumber - firstspectrumNumber + 1;
         }
 
         private int GetParentSpectrumNumber(int spectrumNumber)
@@ -194,7 +190,7 @@ namespace IO.Thermo
         private double GetPrecursorMonoisotopicMZ(int spectrumNumber)
         {
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
-            var ms1Spectrum = GetScan(parentScanNumber).MassSpectrum;
+            var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
             if (trailerMZ == -1)
                 return GetSelectedIonMZ(spectrumNumber);
@@ -271,7 +267,7 @@ namespace IO.Thermo
             return charge * (int)GetPolarity(spectrumNumber);
         }
 
-        public override int GetSpectrumNumber(double retentionTime)
+        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             int spectrumNumber = 0;
             _rawConnection.ScanNumFromRT(retentionTime, ref spectrumNumber);
@@ -354,7 +350,7 @@ namespace IO.Thermo
         {
             double mz = -1;
             _rawConnection.GetPrecursorMassForScanNum(scanNumber, 2, ref mz);
-            return GetScan(GetPrecursor(scanNumber)).MassSpectrum.GetClosestPeak(mz).Intensity;
+            return GetOneBasedScan(GetPrecursor(scanNumber)).MassSpectrum.GetClosestPeak(mz).Intensity;
         }
 
 
@@ -370,7 +366,7 @@ namespace IO.Thermo
             return spectrumNumber + 1;
         }
 
-        protected override MsDataScan<ThermoSpectrum> GetMsDataScanFromFile(int spectrumNumber)
+        protected override MsDataScan<ThermoSpectrum> GetMsDataOneBasedScanFromFile(int spectrumNumber)
         {
             var precursorID = GetPrecursorID(spectrumNumber);
 
@@ -408,7 +404,7 @@ namespace IO.Thermo
         private double GetPrecursorMonoisotopicIntensity(int spectrumNumber)
         {
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
-            var ms1Spectrum = GetScan(parentScanNumber).MassSpectrum;
+            var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
             if (trailerMZ == -1)
                 return GetSelectedIonIntensity(spectrumNumber);
@@ -424,7 +420,7 @@ namespace IO.Thermo
             _rawConnection.GetPrecursorMassForScanNum(spectrumNumber, 2, ref mz);
 
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
-            var ms1Spectrum = GetScan(parentScanNumber).MassSpectrum;
+            var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             MzPeak peak = ms1Spectrum.GetClosestPeak(mz);
             return peak.MZ;
         }
