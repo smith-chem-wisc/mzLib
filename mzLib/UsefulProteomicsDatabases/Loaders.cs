@@ -180,6 +180,7 @@ namespace UsefulProteomicsDatabases
                 string feature_type = null;
                 int psimod_accession_number = 0;
                 string chemicalFormulaLine = null;
+                string name = null;
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
@@ -193,6 +194,9 @@ namespace UsefulProteomicsDatabases
                             case "CF":
                                 chemicalFormulaLine = line.Substring(5);
                                 break;
+                            case "ID":
+                                name = line.Substring(5);
+                                break;
                             case "DR":
                                 if (line.Contains("PSI-MOD"))
                                     psimod_accession_number = int.Parse(PSI_MOD_ACCESSION_NUMBER_REGEX.Match(line.Substring(5)).Groups[2].Value);
@@ -200,9 +204,10 @@ namespace UsefulProteomicsDatabases
                             case "//":
                                 // Only mod_res, not intrachain. 
                                 if (feature_type == "MOD_RES" && !string.IsNullOrEmpty(chemicalFormulaLine) && !modifications.ContainsKey(psimod_accession_number))
-                                    modifications.Add(psimod_accession_number, new ChemicalFormulaModification(chemicalFormulaLine));
+                                    modifications.Add(psimod_accession_number, new ChemicalFormulaModification(chemicalFormulaLine, name));
                                 feature_type = null;
                                 chemicalFormulaLine = null;
+                                name = null;
                                 break;
                         }
                     }
