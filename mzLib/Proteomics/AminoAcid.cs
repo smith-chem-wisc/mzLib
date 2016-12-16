@@ -48,7 +48,8 @@ namespace Proteomics
             {"Tryptophan",     new AminoAcid("Tryptophan", 'W', "Trp","C11H10N2O",  ModificationSites.W)},
             {"Tyrosine",       new AminoAcid("Tyrosine", 'Y', "Try","C9H9NO2",  ModificationSites.Y)},
             {"Valine",         new AminoAcid("Valine", 'V', "Val","C5H9NO",  ModificationSites.V)},
-    };
+        };
+
         private static readonly AminoAcid[] ResiduesByLetter = new AminoAcid['z' + 1]
         {
             null,null,null,null,null,null,null,null,null,null,null,null,null,
@@ -57,7 +58,7 @@ namespace Proteomics
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             Residues["Alanine"],
-            null,
+            null, // B
             Residues["Cysteine"],
             Residues["Aspartic Acid"],
             Residues["Glutamic Acid"],
@@ -65,12 +66,12 @@ namespace Proteomics
             Residues["Glycine"],
             Residues["Histidine"],
             Residues["Isoleucine"],
-            null,
+            null, // J
             Residues["Lysine"],
             Residues["Leucine"],
             Residues["Methionine"],
             Residues["Asparagine"],
-            null,
+            null, // O
             Residues["Proline"],
             Residues["Glutamine"],
             Residues["Arginine"],
@@ -79,9 +80,9 @@ namespace Proteomics
             Residues["Selenocysteine"],
             Residues["Valine"],
             Residues["Tryptophan"],
-            null,
+            null, // X
             Residues["Tyrosine"],
-            null,
+            null, // Z
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,
@@ -115,11 +116,10 @@ namespace Proteomics
             return residue != null;
         }
 
-        public static bool TryGetResidue(string symbol, out AminoAcid residue)
+        public static bool TryGetResidue(string name, out AminoAcid residue)
         {
-            return Residues.TryGetValue(symbol, out residue);
+            return Residues.TryGetValue(name, out residue);
         }
-
 
         internal AminoAcid(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, ChemicalFormula chemicalFormula, ModificationSites site)
         {

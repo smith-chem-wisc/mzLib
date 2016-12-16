@@ -44,7 +44,7 @@ namespace Proteomics
 
         public void AddModification(Modification modification)
         {
-            if (!Sites.ContainsSite(modification.Sites))
+            if (!Sites.ContainsSites(modification.Sites))
                 throw new ArgumentException("Unable to add a modification with sites other than " + Sites);
 
             _modifications.Add(modification.MonoisotopicMass, modification);

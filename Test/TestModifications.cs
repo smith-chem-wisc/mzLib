@@ -56,31 +56,20 @@ namespace Test
         {
             // Empty modification, has no name and by default has Sites = ModificationSites.Any
             var a = ModificationSites.A | ModificationSites.E;
-            var b = a.Set('C');
-            Assert.AreEqual(ModificationSites.A | ModificationSites.E | ModificationSites.C, b);
+            Assert.AreEqual(ModificationSites.A | ModificationSites.E, a);
 
         }
-
-        [Test]
-        public void ModificationSitesTest2()
-        {
-            // Empty modification, has no name and by default has Sites = ModificationSites.Any
-            var a = ModificationSites.A | ModificationSites.E;
-            var b = a.Set(AminoAcid.GetResidue("D"));
-            Assert.AreEqual(ModificationSites.A | ModificationSites.E | ModificationSites.D, b);
-        }
-
         [Test]
         public void Sites()
         {
             // Empty modification, has no name and by default has Sites = ModificationSites.Any
             var a = ModificationSites.A | ModificationSites.C | ModificationSites.E;
-            Assert.IsTrue(a.ContainsSite(ModificationSites.E));
+            Assert.IsTrue(a.ContainsSites(ModificationSites.E));
 
-            Assert.IsTrue(a.ContainsSite(ModificationSites.A | ModificationSites.C));
-            Assert.IsFalse(a.ContainsSite(ModificationSites.N));
-            Assert.IsFalse(a.ContainsSite(ModificationSites.N | ModificationSites.C));
-            var b = a.GetActiveSites();
+            Assert.IsTrue(a.ContainsSites(ModificationSites.A | ModificationSites.C));
+            Assert.IsFalse(a.ContainsSites(ModificationSites.N));
+            Assert.IsFalse(a.ContainsSites(ModificationSites.N | ModificationSites.C));
+            var b = a.EnumerateActiveSites();
             Assert.IsTrue(b.Count() == 3);
         }
 
@@ -141,9 +130,9 @@ namespace Test
         [Test]
         public void ModificationSitesTest55()
         {
-            Assert.IsTrue(ModificationSites.E.ContainsSite(ModificationSites.Any));
-            Assert.IsFalse(ModificationSites.E.ContainsSite(ModificationSites.None));
-            Assert.IsTrue(ModificationSites.None.ContainsSite(ModificationSites.None));
+            Assert.IsTrue(ModificationSites.E.ContainsSites(ModificationSites.Any));
+            Assert.IsFalse(ModificationSites.E.ContainsSites(ModificationSites.None));
+            Assert.IsTrue(ModificationSites.None.ContainsSites(ModificationSites.None));
         }
 
 

@@ -1201,14 +1201,8 @@ namespace Proteomics
                                 inMod = true;
                                 break;
 
-                            case '-': // start of a c-teriminal modification
+                            case '-': // End of an n-terminus mod or start of a c-terminus mod
                                 cterminalMod = (index > 0);
-                                break;
-
-                            case ' ': // ignore spaces
-                                break;
-
-                            case '*': // ignore *
                                 break;
 
                             default:
