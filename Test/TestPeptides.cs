@@ -149,41 +149,6 @@ namespace Test
 
             Assert.AreEqual("THGEAK[25.132]K", peptide.ToString());
         }
-        [Test]
-        public void ParseSequenceWithSpaces()
-        {
-            Peptide peptide1 = new Peptide("TTGSSS SSS SK");
-            Peptide peptide2 = new Peptide("TTGSSSSSSSK");
-
-            Assert.AreEqual(peptide1, peptide2);
-        }
-
-        [Test]
-        public void ParseSequenceWithTrailingSpaces()
-        {
-            Peptide peptide1 = new Peptide("TTGSSSSSSSK   ");
-            Peptide peptide2 = new Peptide("TTGSSSSSSSK");
-
-            Assert.AreEqual(peptide1, peptide2);
-        }
-
-        [Test]
-        public void ParseSequenceWithPreceedingSpaces()
-        {
-            Peptide peptide1 = new Peptide("   TTGSSSSSSSK");
-            Peptide peptide2 = new Peptide("TTGSSSSSSSK");
-
-            Assert.AreEqual(peptide1, peptide2);
-        }
-
-        [Test]
-        public void ParseSequenceWithSpacesEverywhere()
-        {
-            Peptide peptide1 = new Peptide("   TTGS  SSSS  SSK   ");
-            Peptide peptide2 = new Peptide("TTGSSSSSSSK");
-
-            Assert.AreEqual(peptide1, peptide2);
-        }
 
         [Test]
         public void ParseNamedChemicalModificationInvalidName()

@@ -58,27 +58,7 @@ namespace Proteomics
 
     public static class ModificationSiteExtensions
     {
-        // DOES NOT MODIFY IN PLACE!
-        public static ModificationSites Set(this ModificationSites sites, char aminoAcid)
-        {
-            AminoAcid aa;
-            if (AminoAcid.TryGetResidue(aminoAcid, out aa))
-            {
-                sites |= aa.Site;
-            }
-            return sites;
-        }
-
-        // DOES NOT MODIFY IN PLACE!
-        public static ModificationSites Set(this ModificationSites sites, AminoAcid aminoAcid)
-        {
-            if (aminoAcid != null)
-                sites |= aminoAcid.Site;
-
-            return sites;
-        }
-
-        public static IEnumerable<ModificationSites> GetActiveSites(this ModificationSites sites)
+        public static IEnumerable<ModificationSites> EnumerateActiveSites(this ModificationSites sites)
         {
             foreach (ModificationSites site in Enum.GetValues(typeof(ModificationSites)))
             {
@@ -93,7 +73,7 @@ namespace Proteomics
             }
         }
 
-        public static bool ContainsSite(this ModificationSites sites, ModificationSites otherSites)
+        public static bool ContainsSites(this ModificationSites sites, ModificationSites otherSites)
         {
             // By convention, if the other site is 'Any', they are always equal
             if (otherSites == ModificationSites.Any)
