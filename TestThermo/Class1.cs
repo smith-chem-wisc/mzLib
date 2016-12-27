@@ -16,7 +16,6 @@ namespace TestThermo
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
         }
 
-
         [Test]
         public void LoadThermoTest()
         {
@@ -32,7 +31,6 @@ namespace TestThermo
             Assert.AreEqual("controllerType=0 controllerNumber=1 scan=53", scan.id);
             Assert.AreEqual("+ c ESI Full ms [400.00-2000.00]", scan.ScanFilter);
 
-
             var spectrum = a.GetOneBasedScan(53).MassSpectrum;
 
             var peak = spectrum.PeakWithHighestY;
@@ -40,7 +38,6 @@ namespace TestThermo
 
             Assert.AreEqual(1, spectrum.newSpectrumFilterByY(7.5e4).Count);
             Assert.AreEqual(2, spectrum.newSpectrumExtract(new DoubleRange(923, 928)).Count);
-
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 
@@ -55,9 +52,7 @@ namespace TestThermo
             Assert.AreEqual(0, a.GetMSXPrecursors(1289).Count);
             Assert.AreEqual(1, a.GetMSXPrecursors(1290).Count);
             Assert.AreEqual(1194.53, a.GetMSXPrecursors(1290).First());
-
         }
-
 
         [Test]
         public void ThermoLoadError()
@@ -65,6 +60,7 @@ namespace TestThermo
             ThermoRawFile a = new ThermoRawFile(@"aaa.RAW");
             Assert.Throws<IOException>(() => { a.Open(); });
         }
+
         [Test]
         public void LoadThermoTest2()
         {
@@ -82,8 +78,6 @@ namespace TestThermo
             Assert.AreEqual(77561752, a.GetTIC(1));
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
-
-
             Assert.AreEqual(0.98, a.GetElapsedScanTime(100), 0.01);
 
             var cromatogram = a.GetTICChroma();
@@ -95,7 +89,6 @@ namespace TestThermo
 
             var newSpectrum = new ThermoSpectrum(a.GetOneBasedScan(51).MassSpectrum);
             Assert.AreEqual(22246 / 5574.8, newSpectrum.GetSignalToNoise(1), 0.01);
-
 
             Assert.AreEqual(1, newSpectrum.GetCharges()[1]);
             Assert.AreEqual(102604, newSpectrum.GetResolutions()[1]);

@@ -1065,8 +1065,6 @@ namespace Test
             Assert.AreEqual(new ChemicalFormula("CO"), formulaB);
         }
 
-
-
         [Test]
         public void IsoTest()
         {

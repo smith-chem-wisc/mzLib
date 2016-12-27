@@ -26,7 +26,6 @@ namespace Test
     [TestFixture]
     public sealed class ChromatogramTestFixture
     {
-
         [Test]
         public void ChromatogramTest()
         {
@@ -44,7 +43,6 @@ namespace Test
             Assert.AreEqual(new DoubleRange(1, 2), d.GetPeakWidth(1));
             Assert.AreEqual(new DoubleRange(2, 6), d.GetPeakWidth(3));
             Assert.AreEqual(new DoubleRange(6, 9), d.GetPeakWidth(9));
-
 
             var elutionProfile = d.GetElutionProfile(new DoubleRange(3, 7));
 
@@ -67,7 +65,6 @@ namespace Test
             Assert.AreEqual("Count = 9 TIC = 32", d.ToString());
             Assert.AreEqual(10, d.GetApex().Intensity);
             Assert.AreEqual(1, d.GetApex().Time);
-
         }
 
         [Test]

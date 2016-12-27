@@ -1,18 +1,18 @@
 ﻿// Copyright 2016 Stefan Solnts// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
-// 
+//
 // This file (Spectrum.cs) is part of MassSpectrometry.
-// 
+//
 // MassSpectrometry is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // MassSpectrometry is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
@@ -29,6 +29,7 @@ namespace Spectra
         #region properties
 
         protected TPeak[] peakList;
+
         public virtual TPeak this[int index]
         {
             get
@@ -48,6 +49,7 @@ namespace Spectra
         public double[] yArray { get; private set; }
 
         private double yofPeakWithHighestY = double.NaN;
+
         public double YofPeakWithHighestY
         {
             get
@@ -59,6 +61,7 @@ namespace Spectra
         }
 
         private double sumOfAllY = double.NaN;
+
         public double SumOfAllY
         {
             get
@@ -78,6 +81,7 @@ namespace Spectra
         }
 
         private TPeak peakWithHighestY = null;
+
         public TPeak PeakWithHighestY
         {
             get
@@ -88,7 +92,7 @@ namespace Spectra
             }
         }
 
-        #endregion
+        #endregion properties
 
         #region Constructors
 
@@ -124,7 +128,6 @@ namespace Spectra
         {
         }
 
-
         /// <summary>
         /// Initializes a new spectrum
         /// </summary>
@@ -145,7 +148,7 @@ namespace Spectra
             peakList = new TPeak[Count];
         }
 
-        #endregion
+        #endregion Constructors
 
         #region public methods
 
@@ -154,7 +157,7 @@ namespace Spectra
             return string.Format("{0} (Peaks {1})", Range, Count);
         }
 
-        #endregion
+        #endregion public methods
 
         #region implementing ISpectrum
 
@@ -174,21 +177,18 @@ namespace Spectra
         {
             var ok = withRangesRemoved(xRanges);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
-
         }
 
         public ISpectrum<Peak> newSpectrumExtract(double minX, double maxX)
         {
             var ok = extract(minX, maxX);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
-
         }
 
         public ISpectrum<Peak> newSpectrumFilterByY(double minY, double maxY)
         {
             var ok = filterByY(minY, maxY);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
-
         }
 
         public ISpectrum<Peak> newSpectrumApplyFunctionToX(Func<double, double> convertor)
@@ -205,7 +205,6 @@ namespace Spectra
             Buffer.BlockCopy(yArray, 0, data, size * Count, size * Count);
             return data;
         }
-
 
         public ISpectrum<Peak> newSpectrumFilterByY(DoubleRange yRange)
         {
@@ -227,20 +226,17 @@ namespace Spectra
             return this[GetClosestPeakIndex(x)];
         }
 
-
         public double GetClosestPeakXvalue(double x)
         {
             return xArray[GetClosestPeakIndex(x)];
         }
 
-
-        #endregion
+        #endregion implementing ISpectrum
 
         #region protected methods
 
         protected Tuple<double[], double[]> applyFunctionToX(Func<double, double> convertor)
         {
-
             double[] modifiedXarray = new double[Count];
             for (int i = 0; i < Count; i++)
                 modifiedXarray[i] = convertor(xArray[i]);
@@ -248,9 +244,9 @@ namespace Spectra
             Array.Copy(yArray, newYarray, yArray.Length);
             return new Tuple<double[], double[]>(modifiedXarray, newYarray);
         }
+
         protected Tuple<double[], double[]> withRangeRemoved(double minX, double maxX)
         {
-
             int count = Count;
 
             // Peaks to remove
@@ -285,6 +281,7 @@ namespace Spectra
             }
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
+
         protected Tuple<double[], double[]> withRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
             int count = Count;
@@ -312,7 +309,6 @@ namespace Spectra
             // The size of the cleaned spectrum
             int cleanCount = count - indiciesToRemove.Count;
 
-
             // Create the storage for the cleaned spectrum
             double[] newXarray = new double[cleanCount];
             double[] newYarray = new double[cleanCount];
@@ -330,9 +326,9 @@ namespace Spectra
 
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
+
         protected Tuple<double[], double[]> filterByY(double minY, double maxY)
         {
-
             int count = Count;
             double[] newXarray = new double[count];
             double[] newYarray = new double[count];
@@ -356,6 +352,7 @@ namespace Spectra
 
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
+
         protected Tuple<double[], double[]> extract(double minX, double maxX)
         {
             int index = GetClosestPeakIndex(minX);
@@ -380,6 +377,7 @@ namespace Spectra
 
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
+
         protected Tuple<double[], double[]> filterByNumberOfMostIntense(int topNPeaks)
         {
             double[] newXarray = new double[xArray.Length];
@@ -433,9 +431,10 @@ namespace Spectra
             return indexm1;
         }
 
-        #endregion
+        #endregion protected methods
 
         #region enumeration
+
         public IEnumerator<TPeak> GetEnumerator()
         {
             for (int i = 0; i < Count; i++)
@@ -481,7 +480,6 @@ namespace Spectra
             peakWithHighestY = null;
         }
 
-        #endregion
-
+        #endregion enumeration
     }
 }

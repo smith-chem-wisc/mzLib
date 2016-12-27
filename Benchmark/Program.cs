@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using IO.MzML;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;

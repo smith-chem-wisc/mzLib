@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Created with Liquid XML Studio 1.0.8.0 (http://www.liquid-technologies.com) -->
-<xs:schema xmlns:dx="http://psi.hupo.org/ms/mzml" 
+<xs:schema xmlns:dx="http://psi.hupo.org/ms/mzml"
 		   xmlns:xs="http://www.w3.org/2001/XMLSchema"
-		   targetNamespace="http://psi.hupo.org/ms/mzml" 
-		   attributeFormDefault="unqualified" 
-		   elementFormDefault="qualified" 
+		   targetNamespace="http://psi.hupo.org/ms/mzml"
+		   attributeFormDefault="unqualified"
+		   elementFormDefault="qualified"
 		   version="1.1.1">
   <xs:include schemaLocation="mzML1.1.0.xsd" />
   <xs:complexType name="IndexListType">

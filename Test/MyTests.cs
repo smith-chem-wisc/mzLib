@@ -3,11 +3,9 @@ using Proteomics;
 
 namespace Test
 {
-
     [TestFixture]
     public sealed class MyTests
     {
-
         [Test]
         public void ModificationCollectionTest()
         {

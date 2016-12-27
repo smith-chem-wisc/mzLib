@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
-// 
+//
 // This file (Peptide.cs) is part of Proteomics.
-// 
+//
 // Proteomics is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // Proteomics is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
@@ -50,7 +50,6 @@ namespace Proteomics
 
         public Peptide()
         {
-
         }
 
         public Peptide(string sequence) : base(sequence)
@@ -60,8 +59,8 @@ namespace Proteomics
         public Peptide(AminoAcidPolymer aminoAcidPolymer)
             : this(aminoAcidPolymer, true)
         {
-
         }
+
         /// <summary>
         /// Create a new peptide based on another amino acid polymer
         /// </summary>
@@ -78,8 +77,8 @@ namespace Proteomics
         public Peptide(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length)
             : this(aminoAcidPolymer, firstResidue, length, true)
         {
-
         }
+
         public Peptide(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length, bool includeModifications)
             : base(aminoAcidPolymer, firstResidue, length, includeModifications)
         {
@@ -129,7 +128,6 @@ namespace Proteomics
                 }
             }
         }
-
 
         public Peptide GetSubPeptide(int firstResidue, int length)
         {

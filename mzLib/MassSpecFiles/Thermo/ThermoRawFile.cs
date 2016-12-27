@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016 Stefan Solntsev
-// 
+//
 // This file (ThermoRawFile.cs) is part of MassSpecFiles.
-// 
+//
 // MassSpecFiles is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // MassSpecFiles is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
@@ -86,7 +86,6 @@ namespace IO.Thermo
             _rawConnection.SetCurrentController(0, 1); // first 0 is for mass spectrometer
         }
 
-
         protected override int GetNumSpectra()
         {
             int lastspectrumNumber = -1;
@@ -122,7 +121,6 @@ namespace IO.Thermo
             return filter;
         }
 
-
         private string GetSpectrumID(int spectrumNumber)
         {
             int pnControllerType = 0;
@@ -130,7 +128,6 @@ namespace IO.Thermo
             _rawConnection.GetCurrentController(ref pnControllerType, ref pnControllerNumber);
             return "controllerType=" + pnControllerType + " controllerNumber=" + pnControllerNumber + " scan=" + spectrumNumber;
         }
-
 
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
 
@@ -182,6 +179,7 @@ namespace IO.Thermo
             {
                 case ThermoMzAnalyzer.FTMS:
                     return MZAnalyzerType.Orbitrap;
+
                 default:
                     return MZAnalyzerType.Unknown;
             }
@@ -311,7 +309,7 @@ namespace IO.Thermo
             object pvarPeakFlags = null;
             int pnArraySize = 0;
 
-            //(int nChroType1, int nChroOperator, int nChroType2, string bstrFilter, string bstrMassRanges1, string bstrMassRanges2, double dDelay, ref double pdStartTime, 
+            //(int nChroType1, int nChroOperator, int nChroType2, string bstrFilter, string bstrMassRanges1, string bstrMassRanges2, double dDelay, ref double pdStartTime,
             //ref double pdEndTime, int nSmoothingType, int nSmoothingValue, ref object pvarChroData, ref object pvarPeakFlags, ref int pnArraySize);
             _rawConnection.GetChroData(nChroType1, nChroOperator, nChroType2, bstrFilter, bstrMassRanges1, bstrMassRanges2, dDelay, dStartTime, dEndTime, nSmoothingType, nSmoothingValue, ref pvarChroData, ref pvarPeakFlags, ref pnArraySize);
 
@@ -353,8 +351,6 @@ namespace IO.Thermo
             return GetOneBasedScan(GetPrecursor(scanNumber)).MassSpectrum.GetClosestPeak(mz).Intensity;
         }
 
-
-
         private int GetPrecursor(int spectrumNumber)
         {
             int ms_order = -1;
@@ -384,16 +380,12 @@ namespace IO.Thermo
                 ref highMass, ref totalIonCurrent, ref basePeakMass, ref basePeakIntensity,
                 ref numberOfChannels, ref uniformTime, ref frequency);
 
-
             MzRange ScanWindowRange = new MzRange(lowMass, highMass);
-
-
 
             double retentionTime = 0;
             _rawConnection.RTFromScanNum(spectrumNumber, ref retentionTime);
             int msnOrder = 0;
             _rawConnection.GetMSOrderForScanNum(spectrumNumber, ref msnOrder);
-
 
             if (precursorID.Equals(GetSpectrumID(spectrumNumber)))
                 return new MsDataScan<ThermoSpectrum>(spectrumNumber, GetSpectrumFromRawFile(spectrumNumber), GetSpectrumID(spectrumNumber), msnOrder, GetIsCentroid(spectrumNumber), GetPolarity(spectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(spectrumNumber), GetMzAnalyzer(spectrumNumber), GetInjectionTime(spectrumNumber), totalIonCurrent);

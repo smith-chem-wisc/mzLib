@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-
 using System;
 using System.Collections.Generic;
 
@@ -26,14 +25,23 @@ namespace Spectra
         where TPeak : MzPeak
     {
         new MzRange Range { get; }
+
         new IMzSpectrum<MzPeak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+
         new IMzSpectrum<MzPeak> newSpectrumExtract(DoubleRange xRange);
+
         new IMzSpectrum<MzPeak> newSpectrumExtract(double minX, double maxX);
+
         new IMzSpectrum<MzPeak> newSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+
         new IMzSpectrum<MzPeak> newSpectrumWithRangeRemoved(DoubleRange xRange);
+
         new IMzSpectrum<MzPeak> newSpectrumWithRangeRemoved(double minX, double maxX);
+
         new IMzSpectrum<MzPeak> newSpectrumFilterByY(double minY, double maxY);
+
         new IMzSpectrum<MzPeak> newSpectrumFilterByY(DoubleRange yRange);
+
         new IMzSpectrum<MzPeak> newSpectrumApplyFunctionToX(Func<double, double> convertor);
     }
 }

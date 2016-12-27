@@ -11,6 +11,7 @@ namespace MassSpectrometry
         Tolerance fragmentTolerance { get; }
 
         bool isDecoy(int matchIndex);
+
         bool passThreshold(int matchIndex);
 
         string ms2spectrumID(int matchIndex);
