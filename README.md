@@ -2,6 +2,7 @@
 
 A library for mass spectrometry projects.
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/69dc1651613b42dea67520ce22e5e44f)](https://www.codacy.com/app/solntsev/mzLib?utm_source=github.com&utm_medium=referral&utm_content=smith-chem-wisc/mzLib&utm_campaign=badger)
  [![Build status](https://ci.appveyor.com/api/projects/status/d6jjrjfk8ou3waky/branch/master?svg=true)](https://ci.appveyor.com/project/stefanks/mzlib/branch/master)
  [![Build Status](https://travis-ci.org/smith-chem-wisc/mzLib.svg?branch=master)](https://travis-ci.org/smith-chem-wisc/mzLib)
  [![Coverage Status](https://coveralls.io/repos/github/smith-chem-wisc/mzLib/badge.svg?branch=master)](https://coveralls.io/github/smith-chem-wisc/mzLib?branch=master)
