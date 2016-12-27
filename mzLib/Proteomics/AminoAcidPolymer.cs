@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
-// 
+//
 // This file (AminoAcidPolymer.cs) is part of Proteomics.
-// 
+//
 // Proteomics is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // Proteomics is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
@@ -31,7 +31,6 @@ namespace Proteomics
     /// </summary>
     public abstract class AminoAcidPolymer : IEquatable<AminoAcidPolymer>, IHasMass
     {
-
         #region Instance Variables
 
         /// <summary>
@@ -49,6 +48,7 @@ namespace Proteomics
         /// as index 0 and Count - 1 represent the N and C terminus, respectively
         /// </summary>
         private IHasMass[] _modifications;
+
         public ReadOnlyCollection<IHasMass> Modifications
         {
             get
@@ -61,7 +61,6 @@ namespace Proteomics
         /// All of the amino acid residues indexed by position from N to C.
         /// </summary>
         private AminoAcid[] aminoAcids;
-
 
         #endregion Instance Variables
 
@@ -148,7 +147,6 @@ namespace Proteomics
                 if (isCterm)
                     CTerminusModification = aminoAcidPolymer.CTerminusModification;
             }
-
         }
 
         #endregion Constructors
@@ -367,7 +365,6 @@ namespace Proteomics
             return GetSiteDeterminingFragments(this, other, type);
         }
 
-
         public IEnumerable<Fragment> Fragment(FragmentTypes types)
         {
             return Fragment(types, false);
@@ -384,11 +381,11 @@ namespace Proteomics
             return Fragment(types, 1, Length - 1, calculateChemicalFormula);
         }
 
-
         public IEnumerable<Fragment> Fragment(FragmentTypes types, int number)
         {
             return Fragment(types, number, false);
         }
+
         public IEnumerable<Fragment> Fragment(FragmentTypes types, int number, bool calculateChemicalFormula)
         {
             return Fragment(types, number, number, calculateChemicalFormula);
@@ -845,7 +842,7 @@ namespace Proteomics
         /// <param name="location">The location to set the modification at</param>
         public virtual void AddModification(IHasMass modification, int location)
         {
-            if (location > Length+1 || location < 0)
+            if (location > Length + 1 || location < 0)
                 throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, location));
 
             IHasMass currentMod = GetModification(location);
@@ -986,7 +983,6 @@ namespace Proteomics
             return formula;
         }
 
-
         #endregion ChemicalFormula
 
         #region Object
@@ -1098,13 +1094,15 @@ namespace Proteomics
             return true;
         }
 
-        class ModWithOnlyMass : IHasMass
+        private class ModWithOnlyMass : IHasMass
         {
             private double mass;
+
             public ModWithOnlyMass(double mass)
             {
                 this.mass = mass;
             }
+
             public double MonoisotopicMass
             {
                 get
@@ -1112,6 +1110,7 @@ namespace Proteomics
                     return mass;
                 }
             }
+
             public override string ToString()
             {
                 return mass.ToString(CultureInfo.InvariantCulture);
@@ -1215,7 +1214,6 @@ namespace Proteomics
             if (inMod)
                 throw new ArgumentException("Couldn't find the closing ] for a modification in this sequence: " + sequence);
 
-
             Length = index;
             MonoisotopicMass += monoMass;
             Array.Resize(ref aminoAcids, Length);
@@ -1230,7 +1228,6 @@ namespace Proteomics
         #region Statics Methods
 
         #region Fragmentation
-
 
         /// <summary>
         /// Returns all fragments that are present in either fragmentation of A or B, but not in both
@@ -1269,7 +1266,6 @@ namespace Proteomics
         /// <returns>A collection of clevage points and the length of the cut (Item1 = index, Item2 = length)</returns>
         public static IEnumerable<DigestionPoint> GetDigestionPoints(string sequence, IEnumerable<IProtease> proteases, int maxMissedCleavages, int minLength, int maxLength, bool methionineInitiator, bool semiDigestion)
         {
-
             int[] indices = GetCleavageIndexes(sequence, proteases).ToArray();
 
             bool includeMethionineCut = methionineInitiator && sequence[0] == 'M';
@@ -1325,7 +1321,6 @@ namespace Proteomics
             }
         }
 
-
         public static IEnumerable<int> GetCleavageIndexes(string sequence, IEnumerable<IProtease> proteases)
         {
             return GetCleavageIndexes(sequence, proteases, true);
@@ -1370,6 +1365,7 @@ namespace Proteomics
         {
             return Digest(sequence, protease, 3, 1, int.MaxValue, true, false);
         }
+
         public static IEnumerable<string> Digest(AminoAcidPolymer sequence, IProtease protease, int maxMissedCleavages, int minLength, int maxLength, bool methionineInitiator, bool semiDigestion)
         {
             return Digest(sequence.Sequence, new[] { protease }, maxMissedCleavages, minLength, maxLength, methionineInitiator, semiDigestion);

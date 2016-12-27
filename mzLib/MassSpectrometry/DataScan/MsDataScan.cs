@@ -77,6 +77,7 @@ namespace MassSpectrometry
             this.InjectionTime = InjectionTime;
             this.TotalIonCurrent = TotalIonCurrent;
         }
+
         public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
             : this(ScanNumber, MassSpectrum, id, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, InjectionTime, TotalIonCurrent)
         {
@@ -96,7 +97,6 @@ namespace MassSpectrometry
         {
             return string.Format("Scan #{0}", OneBasedScanNumber);
         }
-
 
         public bool TryGetPrecursorID(out string PrecursorID)
         {
@@ -163,6 +163,7 @@ namespace MassSpectrometry
             IsolationWidth = isolationWidth;
             return true;
         }
+
         public bool TryGetIsolationMZ(out double IsolationMZ)
         {
             if (MsnOrder == 1)
@@ -187,7 +188,6 @@ namespace MassSpectrometry
             IsolationRange = new MzRange(isolationMz - isolationWidth / 2, isolationMz + isolationWidth / 2);
 
             return true;
-
         }
 
         public bool TryGetPrecursorOneBasedScanNumber(out int OneBasedPrecursorScanNumber)

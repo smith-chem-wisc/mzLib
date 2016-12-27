@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016 Stefan Solntsev
-// 
+//
 // This file (Chromatogram.cs) is part of MassSpectrometry.
-// 
+//
 // MassSpectrometry is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // MassSpectrometry is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
@@ -48,6 +48,7 @@ namespace MassSpectrometry
                     double[] newTimes = xArray.BoxCarSmooth(points);
                     double[] newIntensities = yArray.BoxCarSmooth(points);
                     return new Chromatogram(newTimes, newIntensities, false);
+
                 default:
                     return new Chromatogram(this);
             }
@@ -57,13 +58,11 @@ namespace MassSpectrometry
         {
             return new ChromatographicPeak(xArray[index], yArray[index]);
         }
-
     }
 
     public abstract class Chromatogram<TPeak> : Spectrum<TPeak>
         where TPeak : Peak
     {
-
         public double FirstTime
         {
             get { return xArray[0]; }
@@ -295,6 +294,5 @@ namespace MassSpectrometry
         {
             return string.Format("Count = {0:N0} TIC = {1:G4}", Count, yArray.Sum());
         }
-
     }
 }

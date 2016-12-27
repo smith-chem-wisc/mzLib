@@ -34,19 +34,33 @@ namespace Spectra
         DoubleRange Range { get; }
         TPeak PeakWithHighestY { get; }
         TPeak this[int index] { get; }
+
         double[,] CopyTo2DArray();
+
         void replaceXbyApplyingFunction(Func<TPeak, double> convertor);
+
         int NumPeaksWithinRange(double minX, double maxX);
+
         TPeak GetClosestPeak(double x);
+
         double GetClosestPeakXvalue(double x);
+
         ISpectrum<Peak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+
         ISpectrum<Peak> newSpectrumExtract(DoubleRange xRange);
+
         ISpectrum<Peak> newSpectrumExtract(double minX, double maxX);
+
         ISpectrum<Peak> newSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+
         ISpectrum<Peak> newSpectrumWithRangeRemoved(DoubleRange xRange);
+
         ISpectrum<Peak> newSpectrumWithRangeRemoved(double minX, double maxX);
+
         ISpectrum<Peak> newSpectrumFilterByY(double minY, double maxY);
+
         ISpectrum<Peak> newSpectrumFilterByY(DoubleRange yRange);
+
         ISpectrum<Peak> newSpectrumApplyFunctionToX(Func<double, double> convertor);
     }
 }

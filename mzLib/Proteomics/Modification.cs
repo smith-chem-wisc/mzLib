@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
-// 
+//
 // This file (Modification.cs) is part of Proteomics.
-// 
+//
 // Proteomics is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // Proteomics is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
@@ -58,19 +58,18 @@ namespace Proteomics
         public Modification()
             : this(0.0, "", ModificationSites.Any)
         {
-
         }
+
         public Modification(double monoMass)
             : this(monoMass, "", ModificationSites.Any)
         {
-
         }
 
         public Modification(double monoMass, string name)
             : this(monoMass, name, ModificationSites.Any)
         {
-
         }
+
         public Modification(double monoMass, string name, ModificationSites sites)
         {
             MonoisotopicMass = monoMass;
@@ -93,7 +92,6 @@ namespace Proteomics
             Modification modObj = obj as Modification;
             return modObj != null && Equals(modObj);
         }
-
 
         public bool Equals(Modification other)
         {

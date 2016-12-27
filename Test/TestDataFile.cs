@@ -64,8 +64,6 @@ namespace Test
             myMsDataFile.Open();
         }
 
-
-
         private DefaultMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
@@ -87,7 +85,6 @@ namespace Test
 
         private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-
             IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1, 0.001);
             DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
 
@@ -140,7 +137,6 @@ namespace Test
         [Test]
         public void DataFileTest()
         {
-
             MsDataScan<IMzSpectrum<MzPeak>> theSpectrum = new MsDataScan<IMzSpectrum<MzPeak>>(1, _mzSpectrumA, "first spectrum", 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, 1, _mzSpectrumA.SumOfAllY);
 
             MsDataScan<IMzSpectrum<MzPeak>>[] theList = new MsDataScan<IMzSpectrum<MzPeak>>[1];
@@ -155,12 +151,10 @@ namespace Test
             Assert.AreEqual(1, thefile.NumSpectra);
             Assert.AreEqual(1, thefile.NumSpectra);
 
-
             Assert.IsTrue(thefile.GetOneBasedScan(1).isCentroid);
 
             foreach (var ok in thefile.GetMsScans())
                 Assert.AreEqual(new MzRange(300, 1000), ok.ScanWindowRange);
-
 
             IMsDataFile<IMzSpectrum<MzPeak>> okyee = thefile;
 
@@ -174,13 +168,11 @@ namespace Test
 
             Assert.AreEqual(1, ok1);
 
-
             int ok2 = 0;
             foreach (var i in thefile.GetMsScansInTimeRange(2, 4))
                 ok2 += 1;
 
             Assert.AreEqual(0, ok2);
-
 
             int ok3 = 0;
             foreach (var i in thefile.GetMsScansInTimeRange(-4, -2))
@@ -204,7 +196,6 @@ namespace Test
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMZ(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicIntensity(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicMZ(out yahh));
-
         }
 
         [Test]
@@ -263,7 +254,6 @@ namespace Test
                 Assert.IsFalse((b as IMsDataScan<IMzSpectrum<MzPeak>>).isCentroid);
             foreach (var b in myMsDataFile)
                 Assert.AreEqual(Polarity.Positive, b.Polarity);
-
         }
     }
 }

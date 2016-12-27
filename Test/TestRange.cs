@@ -26,7 +26,6 @@ namespace Test
     [TestFixture]
     public sealed class RangeTest
     {
-
         [Test]
         public void RangeSubRange()
         {
@@ -277,7 +276,6 @@ namespace Test
             Assert.AreEqual(range1, range2);
         }
 
-
         [Test]
         public void RangeFromRange()
         {
@@ -313,6 +311,5 @@ namespace Test
             ok.Add(new DoubleRange(1, 2));
             Assert.AreEqual(2, ok.Count);
         }
-
     }
 }

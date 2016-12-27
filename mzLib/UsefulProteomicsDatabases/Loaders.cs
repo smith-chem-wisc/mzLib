@@ -1,21 +1,20 @@
 ﻿// Copyright 2016 Stefan Solntsev
 //
 // This file (Loaders.cs) is part of UsefulProteomicsDatabases.
-// 
+//
 // UsefulProteomicsDatabases is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // UsefulProteomicsDatabases is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with UsefulProteomicsDatabases. If not, see <http://www.gnu.org/licenses/>.
 
-using Chemistry;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -145,9 +144,7 @@ namespace UsefulProteomicsDatabases
             }
             catch (ArgumentException)
             {
-
             }
-
         }
 
         public static Generated.unimod LoadUnimod(string unimodLocation)
@@ -158,7 +155,6 @@ namespace UsefulProteomicsDatabases
                 UpdateUnimod(unimodLocation);
             return unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open)) as Generated.unimod;
         }
-
 
         public static Generated.obo LoadPsiMod(string psimodLocation)
         {
@@ -191,18 +187,22 @@ namespace UsefulProteomicsDatabases
                             case "FT":
                                 feature_type = line.Substring(5);
                                 break;
+
                             case "CF":
                                 chemicalFormulaLine = line.Substring(5);
                                 break;
+
                             case "ID":
                                 name = line.Substring(5);
                                 break;
+
                             case "DR":
                                 if (line.Contains("PSI-MOD"))
                                     psimod_accession_number = int.Parse(PSI_MOD_ACCESSION_NUMBER_REGEX.Match(line.Substring(5)).Groups[2].Value);
                                 break;
+
                             case "//":
-                                // Only mod_res, not intrachain. 
+                                // Only mod_res, not intrachain.
                                 if (feature_type == "MOD_RES" && !string.IsNullOrEmpty(chemicalFormulaLine) && !modifications.ContainsKey(psimod_accession_number))
                                     modifications.Add(psimod_accession_number, new ChemicalFormulaModification(chemicalFormulaLine, name));
                                 feature_type = null;

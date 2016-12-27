@@ -163,7 +163,6 @@ namespace Test
             Assert.IsFalse(tol.Within(500, 500.005));
         }
 
-
         [Test]
         public void ToleranceNewTest()
         {
@@ -187,6 +186,5 @@ namespace Test
 
             Assert.AreEqual("±1.0000 PPM", tol.ToString());
         }
-
     }
 }

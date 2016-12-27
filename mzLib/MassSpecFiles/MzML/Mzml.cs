@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016 Stefan Solntsev
-// 
+//
 // This file (Mzml.cs) is part of MassSpecFiles.
-// 
+//
 // MassSpecFiles is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // MassSpecFiles is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
@@ -69,7 +69,6 @@ namespace IO.MzML
         private const string _scanWindowLowerLimit = "MS:1000501";
         private const string _scanWindowUpperLimit = "MS:1000500";
 
-
         private static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
         private static XmlSerializer _mzMLSerializer = new XmlSerializer(typeof(Generated.mzMLType));
 
@@ -80,6 +79,7 @@ namespace IO.MzML
             : base(filePath, true, MsDataFileType.Mzml)
         {
         }
+
         public override void Open()
         {
             if (_mzMLConnection == null)
@@ -124,16 +124,22 @@ namespace IO.MzML
                 {
                     case _CID:
                         return DissociationType.CID;
+
                     case _ISCID:
                         return DissociationType.ISCID;
+
                     case _HCD:
                         return DissociationType.HCD;
+
                     case _ETD:
                         return DissociationType.ETD;
+
                     case _MPD:
                         return DissociationType.MPD;
+
                     case _PQD:
                         return DissociationType.PQD;
+
                     case _DefaultDissociation:
                         return DissociationType.Unknown;
                 }
@@ -189,7 +195,6 @@ namespace IO.MzML
             return new MzRange(low, high);
         }
 
-
         private double GetIsolationWidth(int oneBasedSpectrumNumber)
         {
             double low = double.NaN;
@@ -233,7 +238,6 @@ namespace IO.MzML
 
         private MZAnalyzerType GetMzAnalyzer(int oneBasedSpectrumNumber)
         {
-
             string filter = GetOneBasedScanFilter(oneBasedSpectrumNumber);
 
             if (filter == null)
@@ -245,38 +249,50 @@ namespace IO.MzML
             {
                 case "ITMS":
                     return MZAnalyzerType.IonTrap2D;
+
                 case "TQMS":
                     return MZAnalyzerType.Unknown;
+
                 case "SQMS":
                     return MZAnalyzerType.Unknown;
+
                 case "TOFMS":
                     return MZAnalyzerType.TOF;
+
                 case "FTMS":
                     return MZAnalyzerType.Orbitrap;
+
                 case "Sector":
                     return MZAnalyzerType.Sector;
             }
 
             // Maybe in the beginning of the file, there is a single analyzer?
-            // Gets the first analyzer used.        
+            // Gets the first analyzer used.
             string analyzer = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession;
 
             switch (analyzer)
             {
                 case _quadrupole:
                     return MZAnalyzerType.Quadrupole;
+
                 case _linearIonTrap:
                     return MZAnalyzerType.IonTrap2D;
+
                 case _IonTrap3D:
                     return MZAnalyzerType.IonTrap3D;
+
                 case _orbitrap:
                     return MZAnalyzerType.Orbitrap;
+
                 case _TOF:
                     return MZAnalyzerType.TOF;
+
                 case _FTICR:
                     return MZAnalyzerType.FTICR;
+
                 case _magneticSector:
                     return MZAnalyzerType.Sector;
+
                 default:
                     return MZAnalyzerType.Unknown;
             }
@@ -284,7 +300,6 @@ namespace IO.MzML
 
         private Polarity GetPolarity(int oneBasedSpectrumNumber)
         {
-
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
             {
                 if (cv.accession.Equals(_negativePolarity))
@@ -366,7 +381,6 @@ namespace IO.MzML
 
         public static byte[] ConvertDoublestoBase64(double[] toConvert, bool zlibCompressed)
         {
-
             var mem = new MemoryStream();
             for (int i = 0; i < toConvert.Length; i++)
             {
@@ -382,8 +396,6 @@ namespace IO.MzML
             return bytes;
         }
 
-
-
         /// <summary>
         /// Converts a 64-based encoded byte array into an double[]
         /// </summary>
@@ -392,7 +404,6 @@ namespace IO.MzML
         /// <returns>a decompressed, de-encoded double[]</returns>
         private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
         {
-
             // Add capability of compressed data
             if (zlibCompressed)
                 bytes = ZlibStream.UncompressBuffer(bytes);
@@ -541,10 +552,9 @@ namespace IO.MzML
             var ok = new DefaultMzSpectrum(masses, intensities, false);
 
             if (GetMsnOrder(OneBasedSpectrumNumber) == 1)
-                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber ), GetMsnOrder(OneBasedSpectrumNumber ), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber));
+                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber));
             else
-                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber ), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber), GetPrecursorID(OneBasedSpectrumNumber), GetPrecursorMz(OneBasedSpectrumNumber), GetPrecusorCharge(OneBasedSpectrumNumber), GetPrecursorIntensity(OneBasedSpectrumNumber), GetIsolationMz(OneBasedSpectrumNumber), GetIsolationWidth(OneBasedSpectrumNumber), GetDissociationType(OneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(OneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(OneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(OneBasedSpectrumNumber));
-
+                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber), GetPrecursorID(OneBasedSpectrumNumber), GetPrecursorMz(OneBasedSpectrumNumber), GetPrecusorCharge(OneBasedSpectrumNumber), GetPrecursorIntensity(OneBasedSpectrumNumber), GetIsolationMz(OneBasedSpectrumNumber), GetIsolationWidth(OneBasedSpectrumNumber), GetDissociationType(OneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(OneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(OneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(OneBasedSpectrumNumber));
         }
 
         private double GetPrecursorMonoisotopicIntensity(int spectrumNumber)
@@ -571,7 +581,6 @@ namespace IO.MzML
                 }
             }
             throw new ArgumentNullException("Could not determine precursor monoisotopic mass for " + spectrumNumber + 1);
-
         }
 
         private double GetTotalIonCurrent(int spectrumNumber)
@@ -585,7 +594,6 @@ namespace IO.MzML
                 }
             }
             throw new ArgumentNullException("Could not determine total ion current " + spectrumNumber + 1);
-
         }
 
         private int GetOneBasedPrecursorScanNumber(int v)
@@ -597,7 +605,4 @@ namespace IO.MzML
             return v;
         }
     }
-
-
 }
-

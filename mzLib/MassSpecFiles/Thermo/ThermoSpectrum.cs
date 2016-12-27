@@ -1,18 +1,18 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016 Stefan Solntsev
-// 
+//
 // This file (ThermoSpectrum.cs) is part of MassSpecFiles.
-// 
+//
 // MassSpecFiles is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // MassSpecFiles is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 // FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
@@ -27,7 +27,6 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
-
         private readonly double[] _noises;
         private readonly double[] _resolutions;
         private readonly int[] _charges;
@@ -86,7 +85,6 @@ namespace IO.Thermo
         public ThermoSpectrum(ThermoSpectrum thermoSpectrum)
             : this(thermoSpectrum.xArray, thermoSpectrum.yArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions)
         {
-
         }
 
         public double GetSignalToNoise(int index)
@@ -144,7 +142,6 @@ namespace IO.Thermo
 
         public new ThermoSpectrum newSpectrumExtract(double minMZ, double maxMZ)
         {
-
             int index = GetClosestPeakIndex(minMZ);
             if (this[index].X < minMZ)
                 index++;
@@ -185,10 +182,8 @@ namespace IO.Thermo
             return new ThermoSpectrum(mz, intensity, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
         }
 
-
         public new ThermoSpectrum newSpectrumFilterByY(double minIntensity = 0, double maxIntensity = double.MaxValue)
         {
-
             int count = Count;
             double[] mz = new double[count];
             double[] intensities = new double[count];
@@ -214,7 +209,6 @@ namespace IO.Thermo
                 }
             }
 
-
             if (j != count)
             {
                 Array.Resize(ref mz, j);
@@ -226,6 +220,5 @@ namespace IO.Thermo
 
             return new ThermoSpectrum(mz, intensities, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
         }
-
     }
 }

@@ -39,7 +39,6 @@ namespace Test
             _mzSpectrumA = new DefaultMzSpectrum(mz, intensities, false);
         }
 
-
         #region Properties
 
         [Test]
@@ -158,7 +157,6 @@ namespace Test
             Assert.AreEqual(range, _mzSpectrumA.Range);
         }
 
-
         [Test]
         public void SpectrumFilterCount()
         {
@@ -182,7 +180,6 @@ namespace Test
 
             var bsrg = _mzSpectrumA[0];
         }
-
 
         [Test]
         public void FilterByNumberOfMostIntenseTest()
@@ -216,7 +213,6 @@ namespace Test
             Assert.IsTrue(_mzSpectrumA.newSpectrumFilterByNumberOfMostIntense(2)[0].MZ < _mzSpectrumA.newSpectrumFilterByNumberOfMostIntense(2)[1].MZ);
         }
 
-
         [Test]
         public void FilterByMZ()
         {
@@ -244,7 +240,6 @@ namespace Test
             Assert.AreNotEqual(ok[0], _mzSpectrumA[0]);
             Assert.AreEqual(ok[0].Y, _mzSpectrumA[0].Y);
 
-
             var ok2 = new DefaultSpectrum(_mzSpectrumA.xArray, _mzSpectrumA.yArray, true);
 
             ok2.xArray[0] = 0;
@@ -254,7 +249,6 @@ namespace Test
 
             ok3.xArray[0] = 0;
             Assert.AreEqual(ok3.xArray[0], _mzSpectrumA.xArray[0]);
-
         }
 
         [Test]
@@ -289,7 +283,6 @@ namespace Test
         [Test]
         public void IMzSpectrumTpeakTest()
         {
-
             //double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             //double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
@@ -314,9 +307,7 @@ namespace Test
 
             Assert.AreEqual(15, ok2.newSpectrumWithRangeRemoved(0, 1).Count);
 
-
             Assert.AreEqual(2, ok2.newSpectrumWithRangesRemoved(new List<DoubleRange>() { new DoubleRange(329, 400), new DoubleRange(400, 723) }).Count);
-
         }
 
         [Test]
@@ -340,7 +331,6 @@ namespace Test
             Assert.AreEqual(1, ok2.Range.Minimum);
             Assert.AreEqual(5, ok2.Range.Maximum);
         }
-
 
         [Test]
         public void TestNumPeaksWithinRange()
@@ -374,7 +364,6 @@ namespace Test
 
             Assert.AreEqual(0, thisSpectrum.NumPeaksWithinRange(-2, -1));
 
-
             Assert.AreEqual("[1 - 7] (Peaks 7)", thisSpectrum.ToString());
 
             Assert.AreEqual(7, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(7).Count);
@@ -384,7 +373,6 @@ namespace Test
             Assert.AreEqual(2, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(3).FirstX);
 
             Assert.AreEqual(0, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(0).Count);
-
 
             Assert.AreEqual(2, thisSpectrum.newSpectrumWithRangeRemoved(2, 6).Count);
             Assert.AreEqual(0, thisSpectrum.newSpectrumWithRangeRemoved(0, 100).Count);
@@ -406,7 +394,6 @@ namespace Test
 
             Assert.AreEqual(2, thisSpectrum.newSpectrumApplyFunctionToX(b => b * 2).FirstX);
 
-
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(6.6).X);
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(7).X);
@@ -422,6 +409,5 @@ namespace Test
             }
             Assert.AreEqual(1 + 2 + 3 + 4 + 5 + 6 + 7, dudu);
         }
-
     }
 }

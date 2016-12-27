@@ -32,9 +32,7 @@ namespace Test
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
-
         }
-
 
         [Test]
         public void WriteMzmlTest()
@@ -91,7 +89,6 @@ namespace Test
 
         private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-
             IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
 
             Console.WriteLine("f=" + f.Formula);
@@ -126,9 +123,6 @@ namespace Test
 
             return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
-
-
-
 
         [Test]
         public void mzidTest()
@@ -183,8 +177,6 @@ namespace Test
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0].name = "Carbamidomethyl";
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0].cvRef = "UNIMOD";
 
-
-
             TextWriter writer = new StreamWriter("myIdentifications.mzid");
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
@@ -202,8 +194,6 @@ namespace Test
             Assert.AreEqual("spectrum 2", identifications.ms2spectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
-
-
         }
     }
 }

@@ -1,10 +1,6 @@
 ﻿using MassSpectrometry;
 using Spectra;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace IO.MzML
 {
@@ -53,8 +49,7 @@ namespace IO.MzML
             _indexedmzMLConnection.mzML.softwareList.software[0].cvParam[0].accession = "MS:1000799";
             _indexedmzMLConnection.mzML.softwareList.software[0].cvParam[0].value = "mzLib";
 
-
-            // Leaving empty. Can't figure out the configurations. 
+            // Leaving empty. Can't figure out the configurations.
             // ToDo: read instrumentConfigurationList from mzML file
             _indexedmzMLConnection.mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType();
 
@@ -65,7 +60,6 @@ namespace IO.MzML
             _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing = new Generated.DataProcessingType[1];
             _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing[0] = new Generated.DataProcessingType();
             _indexedmzMLConnection.mzML.dataProcessingList.dataProcessing[0].id = "mzLibProcessing";
-
 
             _indexedmzMLConnection.mzML.run = new Generated.RunType();
 
@@ -136,7 +130,6 @@ namespace IO.MzML
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[2].value = selectedIonGuesssMonoisotopicIntensity.ToString();
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[2].accession = "MS:1000042";
 
-
                     MzRange isolationRange;
                     myMsDataFile.GetOneBasedScan(i).TryGetIsolationRange(out isolationRange);
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow = new Generated.ParamGroupType();
@@ -154,7 +147,6 @@ namespace IO.MzML
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[2].name = "isolation window upper offset";
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[2].value = (isolationRange.Width / 2).ToString();
 
-
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation = new Generated.ParamGroupType();
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam = new Generated.CVParamType[1];
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0] = new Generated.CVParamType();
@@ -167,18 +159,17 @@ namespace IO.MzML
                             _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = "MS:1000422";
                             _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = "beam-type collision-induced dissociation";
                             break;
+
                         case DissociationType.CID:
                             _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = "MS:1000133";
                             _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = "collision-induced dissociation";
                             break;
+
                         case DissociationType.Unknown:
                             _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = "MS:1000044";
                             _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = "dissociation method";
                             break;
                     }
-
-
-
                 }
 
                 // OPTIONAL, but need for CSMSL reader. ms level
@@ -234,7 +225,6 @@ namespace IO.MzML
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[6].value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.ToString();
                 }
 
-
                 // Total ion current
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[7] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[7].name = "total ion current";
@@ -272,7 +262,6 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam[1].name = "scan window upper limit";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam[1].accession = "MS:1000500";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam[1].value = myMsDataFile.GetOneBasedScan(i).ScanWindowRange.Maximum.ToString();
-
 
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType();
 
@@ -313,8 +302,6 @@ namespace IO.MzML
             }
 
             Mzml.Write(outputFile, _indexedmzMLConnection);
-
         }
-
     }
 }
