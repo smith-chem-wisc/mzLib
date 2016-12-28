@@ -132,7 +132,8 @@ namespace Proteomics
             {
                 for (int i = 0, j = firstResidue; i < length; i++, j++)
                 {
-                    var aa = aminoAcids[i] = otherAminoAcids[j];
+                    var aa = otherAminoAcids[j];
+                    aminoAcids[i] = aa;
                     monoMass += aa.MonoisotopicMass;
                 }
             }
@@ -386,7 +387,7 @@ namespace Proteomics
             return Fragment(types, number, number, calculateChemicalFormula);
         }
 
-        
+
         public IEnumerable<Fragment> Fragment(FragmentTypes types, int minIndex, int maxIndex)
         {
             return Fragment(types, minIndex, maxIndex, false);
@@ -1092,7 +1093,7 @@ namespace Proteomics
 
         private class ModWithOnlyMass : IHasMass
         {
-            private double mass;
+            private readonly double mass;
 
             public ModWithOnlyMass(double mass)
             {
@@ -1118,10 +1119,8 @@ namespace Proteomics
         /// </summary>
         /// <param name="sequence"></param>
         /// <returns></returns>
-        private bool ParseSequence(string sequence)
+        private void ParseSequence(string sequence)
         {
-            if (string.IsNullOrEmpty(sequence))
-                return false;
 
             bool inMod = false;
             bool cterminalMod = false; // n or c terminal modification
@@ -1215,8 +1214,6 @@ namespace Proteomics
             Array.Resize(ref aminoAcids, Length);
             if (_modifications != null)
                 Array.Resize(ref _modifications, Length + 2);
-
-            return true;
         }
 
         #endregion Private Methods
