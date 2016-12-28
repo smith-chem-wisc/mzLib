@@ -154,7 +154,10 @@ namespace Test
             Assert.IsTrue(thefile.GetOneBasedScan(1).isCentroid);
 
             foreach (var ok in thefile.GetMsScans())
-                Assert.AreEqual(new MzRange(300, 1000), ok.ScanWindowRange);
+            {
+                Assert.AreEqual(300, ok.ScanWindowRange.Minimum, 1e-9);
+                Assert.AreEqual(1000, ok.ScanWindowRange.Maximum, 1e-9);
+            }
 
             IMsDataFile<IMzSpectrum<MzPeak>> okyee = thefile;
 
