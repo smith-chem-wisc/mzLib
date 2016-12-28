@@ -22,7 +22,6 @@ using Spectra;
 using System;
 using System.IO;
 using System.Text.RegularExpressions;
-using System.Xml.Serialization;
 
 namespace IO.MzML
 {
@@ -68,7 +67,7 @@ namespace IO.MzML
         private const string _totalIonCurrent = "MS:1000285";
         private const string _scanWindowLowerLimit = "MS:1000501";
         private const string _scanWindowUpperLimit = "MS:1000500";
-        
+
         private Generated.indexedmzML _indexedmzMLConnection;
         private Generated.mzMLType _mzMLConnection;
 
@@ -99,6 +98,12 @@ namespace IO.MzML
                     }
                 }
             }
+        }
+        public override void Close()
+        {
+            ClearCachedScans();
+            _indexedmzMLConnection = null;
+            _mzMLConnection = null;
         }
 
         public bool IsIndexedMzML

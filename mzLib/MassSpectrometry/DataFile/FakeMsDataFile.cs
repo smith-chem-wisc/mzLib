@@ -51,5 +51,9 @@ namespace MassSpectrometry
         {
             return FakeScans[oneBasedSpectrumNumber - 1];
         }
+
+        public override void Close()
+        {
+        }
     }
 }
