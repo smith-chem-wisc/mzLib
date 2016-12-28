@@ -59,11 +59,11 @@ namespace Test
         public void PeptideCountElements()
         {
             Peptide pep = new Peptide("G");
-
+            pep.AddModification(new Modification(1));
             Assert.AreEqual(5, pep.ElementCountWithIsotopes("H"));
-
             Isotope isotope = PeriodicTable.GetElement("H").PrincipalIsotope;
             Assert.AreEqual(0, pep.SpecificIsotopeCount(isotope));
+
         }
 
         [Test]

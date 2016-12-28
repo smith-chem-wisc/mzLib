@@ -60,7 +60,9 @@
     <Compile Include="DataScan\MsDataScan.cs" />
     <Compile Include="Enums\MzAnalyzerType.cs" />
     <Compile Include="Enums\Polarity.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SonarQubeExclude>true</SonarQubeExclude>
+    </Compile>
     <Compile Include="Enums\SmoothingType.cs" />
   </ItemGroup>
   <ItemGroup>

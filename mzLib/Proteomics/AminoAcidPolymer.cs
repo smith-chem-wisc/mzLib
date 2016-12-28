@@ -386,17 +386,18 @@ namespace Proteomics
             return Fragment(types, number, number, calculateChemicalFormula);
         }
 
-        public IEnumerable<Fragment> Fragment(FragmentTypes types, int min, int max)
+        
+        public IEnumerable<Fragment> Fragment(FragmentTypes types, int minIndex, int maxIndex)
         {
-            return Fragment(types, min, max, false);
+            return Fragment(types, minIndex, maxIndex, false);
         }
 
-        public IEnumerable<Fragment> Fragment(FragmentTypes types, int min, int max, bool calculateChemicalFormula)
+        public IEnumerable<Fragment> Fragment(FragmentTypes types, int minIndex, int maxIndex, bool calculateChemicalFormula)
         {
-            if (min > max)
+            if (minIndex > maxIndex)
                 throw new ArgumentOutOfRangeException();
 
-            if (min < 1 || max > Length - 1)
+            if (minIndex < 1 || maxIndex > Length - 1)
                 throw new IndexOutOfRangeException();
 
             foreach (FragmentTypes type in types.GetIndividualFragmentTypes())
@@ -416,7 +417,7 @@ namespace Proteomics
                 bool first = true;
                 bool hasMod = _modifications != null;
 
-                for (int i = 0; i <= max; i++)
+                for (int i = 0; i <= maxIndex; i++)
                 {
                     int aaIndex = isCTerminal ? Length - i : i - 1;
 
@@ -473,7 +474,7 @@ namespace Proteomics
                         }
                     }
 
-                    if (i < min)
+                    if (i < minIndex)
                         continue;
 
                     if (isChemicalFormula)
