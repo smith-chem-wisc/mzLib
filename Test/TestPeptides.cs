@@ -56,6 +56,17 @@ namespace Test
         }
 
         [Test]
+        public void PeptideCountElements()
+        {
+            Peptide pep = new Peptide("G");
+
+            Assert.AreEqual(5, pep.ElementCountWithIsotopes("H"));
+
+            Isotope isotope = PeriodicTable.GetElement("H").PrincipalIsotope;
+            Assert.AreEqual(0, pep.SpecificIsotopeCount(isotope));
+        }
+
+        [Test]
         public void PeptideMassTryptic()
         {
             ChemicalFormula formula = new ChemicalFormula("C37H66N12O21");
@@ -328,7 +339,7 @@ namespace Test
         {
             Peptide pepA = new Peptide();
 
-            Assert.AreEqual(String.Empty, pepA.Sequence);
+            Assert.AreEqual(String.Empty, pepA.BaseSequence);
         }
 
         [Test]
@@ -455,7 +466,7 @@ namespace Test
         public void GetLeucineSequence()
         {
             Peptide pepA = new Peptide("DERIEK");
-            string leuSeq = pepA.LeucineSequence;
+            string leuSeq = pepA.BaseLeucineSequence;
 
             Assert.AreEqual("DERLEK", leuSeq);
         }
@@ -465,7 +476,7 @@ namespace Test
         {
             Peptide pepA = new Peptide("DERLEK");
 
-            string leuSeq = pepA.LeucineSequence;
+            string leuSeq = pepA.BaseLeucineSequence;
 
             Assert.AreEqual("DERLEK", leuSeq);
         }
@@ -598,6 +609,9 @@ namespace Test
             Assert.AreEqual(7, _mockTrypticPeptide.ResidueCount(AminoAcid.GetResidue('S')));
             Assert.AreEqual(2, _mockTrypticPeptide.ResidueCount(AminoAcid.GetResidue('S'), 2, 3));
             Assert.AreEqual(3, _mockTrypticPeptide.ResidueCount('S', 2, 4));
+
+            Peptide peptide = new Peptide("III-[C2H3NO]");
+            Assert.AreEqual("LLL-[C2H3NO]", peptide.GetSequenceWithModifications(true));
         }
 
         [Test]
@@ -634,7 +648,7 @@ namespace Test
     {
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)
         {
-            return GetDigestionSites(aminoAcidSequence.Sequence);
+            return GetDigestionSites(aminoAcidSequence.BaseSequence);
         }
 
         public IEnumerable<int> GetDigestionSites(string aminoAcidSequence)

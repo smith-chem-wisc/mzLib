@@ -196,11 +196,11 @@ namespace Proteomics
         /// Returns the amino acid sequence with all isoleucines (I) replaced with leucines (L);
         /// </summary>
         /// <returns>The amino acid sequence with all I's into L's</returns>
-        public virtual string LeucineSequence
+        public virtual string BaseLeucineSequence
         {
             get
             {
-                return Sequence.Replace('I', 'L');
+                return BaseSequence.Replace('I', 'L');
             }
         }
 
@@ -227,7 +227,7 @@ namespace Proteomics
         /// <summary>
         /// Gets the base amino acid sequence
         /// </summary>
-        public string Sequence
+        public string BaseSequence
         {
             get
             {
@@ -243,7 +243,7 @@ namespace Proteomics
         public string GetSequenceWithModifications(bool leucineSequence)
         {
             if (_modifications == null)
-                return (leucineSequence) ? LeucineSequence : Sequence;
+                return (leucineSequence) ? BaseLeucineSequence : BaseSequence;
 
             StringBuilder modSeqSb = new StringBuilder(Length);
 
@@ -327,6 +327,8 @@ namespace Proteomics
             // Modifications count (if the mod is a IHasChemicalFormula)
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountWithIsotopes(element));
+
+            count += new ChemicalFormula("H2O").CountWithIsotopes(element);
             return count;
         }
 
@@ -337,17 +339,10 @@ namespace Proteomics
             // Modifications count (if the mod is a IHasChemicalFormula)
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountSpecificIsotopes(isotope));
+
+            count += new ChemicalFormula("H2O").CountSpecificIsotopes(isotope);
+
             return count;
-        }
-
-        public bool Contains(AminoAcidPolymer item)
-        {
-            return Contains(item.Sequence);
-        }
-
-        public bool Contains(string sequence)
-        {
-            return Sequence.Contains(sequence);
         }
 
         #endregion Amino Acid Sequence
@@ -994,7 +989,7 @@ namespace Proteomics
 
         public override int GetHashCode()
         {
-            return Sequence.GetHashCode();
+            return BaseSequence.GetHashCode();
         }
 
         public override bool Equals(object obj)
@@ -1366,9 +1361,9 @@ namespace Proteomics
             return Digest(sequence, protease, 3, 1, int.MaxValue, true, false);
         }
 
-        public static IEnumerable<string> Digest(AminoAcidPolymer sequence, IProtease protease, int maxMissedCleavages, int minLength, int maxLength, bool methionineInitiator, bool semiDigestion)
+        public static IEnumerable<string> Digest(AminoAcidPolymer polymer, IProtease protease, int maxMissedCleavages, int minLength, int maxLength, bool methionineInitiator, bool semiDigestion)
         {
-            return Digest(sequence.Sequence, new[] { protease }, maxMissedCleavages, minLength, maxLength, methionineInitiator, semiDigestion);
+            return Digest(polymer.BaseSequence, new[] { protease }, maxMissedCleavages, minLength, maxLength, methionineInitiator, semiDigestion);
         }
 
         #endregion Digestion
