@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Chemistry
@@ -123,7 +124,7 @@ namespace Chemistry
         {
             get
             {
-                return isotopes.Count();
+                return isotopes.Count;
             }
         }
 
@@ -142,7 +143,7 @@ namespace Chemistry
             }
         }
 
-        public double ProtonCount
+        public int ProtonCount
         {
             get
             {
@@ -150,14 +151,11 @@ namespace Chemistry
             }
         }
 
-        public double NeutronCount
+        public int NeutronCount()
         {
-            get
-            {
-                if (elements.Count > 0)
-                    throw new NotSupportedException("Cannot know for sure what the number of neutrons is!");
-                return isotopes.Sum(b => b.Key.Neutrons * b.Value);
-            }
+            if (elements.Count > 0)
+                throw new NotSupportedException("Cannot know for sure what the number of neutrons is!");
+            return isotopes.Sum(b => b.Key.Neutrons * b.Value);
         }
 
         /// <summary>
@@ -505,25 +503,25 @@ namespace Chemistry
         /// </summary>
         private string GetHillNotation()
         {
-            string s = "";
+            StringBuilder s = new StringBuilder();
 
             // Find carbons
             if (elements.ContainsKey(PeriodicTable.GetElement(Constants.CarbonAtomicNumber)))
-                s += "C" + (elements[PeriodicTable.GetElement(Constants.CarbonAtomicNumber)] == 1 ? "" : "" + elements[PeriodicTable.GetElement(Constants.CarbonAtomicNumber)]);
+                s.Append("C" + (elements[PeriodicTable.GetElement(Constants.CarbonAtomicNumber)] == 1 ? "" : "" + elements[PeriodicTable.GetElement(Constants.CarbonAtomicNumber)]));
 
             // Find carbon isotopes
             foreach (var i in PeriodicTable.GetElement(Constants.CarbonAtomicNumber).Isotopes)
                 if (isotopes.ContainsKey(i))
-                    s += "C{" + i.MassNumber + "}" + (isotopes[i] == 1 ? "" : "" + isotopes[i]);
+                    s.Append("C{" + i.MassNumber + "}" + (isotopes[i] == 1 ? "" : "" + isotopes[i]));
 
             // Find hydrogens
             if (elements.ContainsKey(PeriodicTable.GetElement(Constants.HydrogenAtomicNumber)))
-                s += "H" + (elements[PeriodicTable.GetElement(Constants.HydrogenAtomicNumber)] == 1 ? "" : "" + elements[PeriodicTable.GetElement(Constants.HydrogenAtomicNumber)]);
+                s.Append("H" + (elements[PeriodicTable.GetElement(Constants.HydrogenAtomicNumber)] == 1 ? "" : "" + elements[PeriodicTable.GetElement(Constants.HydrogenAtomicNumber)]));
 
             // Find hydrogen isotopes
             foreach (var i in PeriodicTable.GetElement(Constants.HydrogenAtomicNumber).Isotopes)
                 if (isotopes.ContainsKey(i))
-                    s += "H{" + i.MassNumber + "}" + (isotopes[i] == 1 ? "" : "" + isotopes[i]);
+                    s.Append("H{" + i.MassNumber + "}" + (isotopes[i] == 1 ? "" : "" + isotopes[i]));
 
             List<string> otherParts = new List<string>();
 

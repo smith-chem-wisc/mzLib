@@ -958,14 +958,14 @@ namespace Test
         public void NeutronCount()
         {
             ChemicalFormula formulaA = new ChemicalFormula("C{12}O{16}");
-            Assert.AreEqual(14, formulaA.NeutronCount);
+            Assert.AreEqual(14, formulaA.NeutronCount());
         }
 
         [Test]
         public void NeutronCountFail()
         {
             ChemicalFormula formulaA = new ChemicalFormula("CO");
-            Assert.Throws<NotSupportedException>(() => { var a = formulaA.NeutronCount; }, "Cannot know for sure what the number of neutrons is!");
+            Assert.Throws<NotSupportedException>(() => { formulaA.NeutronCount(); }, "Cannot know for sure what the number of neutrons is!");
         }
 
         [Test]
