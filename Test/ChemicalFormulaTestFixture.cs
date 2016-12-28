@@ -965,7 +965,7 @@ namespace Test
         public void NeutronCountFail()
         {
             ChemicalFormula formulaA = new ChemicalFormula("CO");
-            Assert.Throws<NotSupportedException>(() => { var a = formulaA.NeutronCount(); }, "Cannot know for sure what the number of neutrons is!");
+            Assert.Throws<NotSupportedException>(() => { formulaA.NeutronCount(); }, "Cannot know for sure what the number of neutrons is!");
         }
 
         [Test]
