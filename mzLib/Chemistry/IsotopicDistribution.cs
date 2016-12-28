@@ -132,14 +132,7 @@ namespace Chemistry
         /// Calculates the fineResolution and mergeFineResolution parameters
         /// </summary>
         /// <remarks>
-        /// Takes your guess for fine resolution, and messes it up
-        /// If smaller than 1e-4, set to 1e-4
-        /// If smaller than 1e-3, set to 1e-3
-        /// If smaller than 1e-2, set to 1e-2
-        /// If between 1e-2 and 1, set to 1e-2, but merge fine resolution set to original fine resolution
-        /// If bigger than 1, set to 0.9
-        /// DIVIDE FINE RESOLUTION BY 2 AT THE END
-        /// </remarks>
+
         /// <returns>Tuple of fineResolution and mergeFineResolution</returns>
         private static Tuple<double, double> GetNewFineAndMergeResolutions(double monoisotopicMass, double fineResolution)
         {
@@ -182,7 +175,7 @@ namespace Chemistry
                 {
                     double power = tPolynomial[i].Power;
 
-                    if (power == 0)
+                    if (double.IsNaN(power))
                         continue;
 
                     double probability = tPolynomial[i].Probablity;
@@ -202,7 +195,7 @@ namespace Chemistry
                             tempPolynomial.Power = tempPolynomial.Power + tPolynomial[j].Power * tPolynomial[j].Probablity;
                             tempPolynomial.Probablity = tempPolynomial.Probablity + tPolynomial[j].Probablity;
                             tPolynomial[i] = new Polynomial { Power = tempPolynomial.Power / tempPolynomial.Probablity, Probablity = tempPolynomial.Probablity };
-                            tPolynomial[j] = new Polynomial();
+                            tPolynomial[j] = new Polynomial { Probablity = double.NaN, Power = double.NaN };
                         }
                         else
                             break;
@@ -213,7 +206,7 @@ namespace Chemistry
             }
 
             // return only non-zero terms
-            return tPolynomial.Where(poly => poly.Power != 0).ToList();
+            return tPolynomial.Where(poly => !double.IsNaN(poly.Power)).ToList();
         }
 
         private static List<Polynomial> MultiplyFinePolynomial(List<List<Composition>> elementalComposition, double _fineResolution, double _mwResolution, double _fineMinProb)
@@ -317,7 +310,7 @@ namespace Chemistry
             {
                 j = maxIndex - fgidPolynomial.Count;
                 for (i = 0; i <= j; i++)
-                    fgidPolynomial.Add(new Polynomial());
+                    fgidPolynomial.Add(new Polynomial { Probablity = double.NaN, Power = double.NaN });
             }
 
             for (int t = 0; t < tPolynomial.Count; t++)
@@ -333,7 +326,12 @@ namespace Chemistry
 
                     Polynomial tempPolynomial = fgidPolynomial[index];
 
-                    fgidPolynomial[index] = new Polynomial { Power = tempPolynomial.Power + power * prob, Probablity = tempPolynomial.Probablity + prob };
+                    var poww = tempPolynomial.Power;
+                    var probb = tempPolynomial.Probablity;
+                    if (double.IsNaN(poww) || double.IsNaN(prob))
+                        fgidPolynomial[index] = new Polynomial { Power = power * prob, Probablity = prob };
+                    else
+                        fgidPolynomial[index] = new Polynomial { Power = poww + power * prob, Probablity = probb + prob };
                 }
             }
 
@@ -341,7 +339,7 @@ namespace Chemistry
             j = 0;
             for (i = 0; i < fgidPolynomial.Count; i++)
             {
-                if (fgidPolynomial[i].Probablity != 0)
+                if (!double.IsNaN(fgidPolynomial[i].Probablity))
                 {
                     if (j < index)
                     {
@@ -352,7 +350,7 @@ namespace Chemistry
                         tPolynomial.Add(new Polynomial { Power = fgidPolynomial[i].Power / fgidPolynomial[i].Probablity, Probablity = fgidPolynomial[i].Probablity });
                 }
 
-                fgidPolynomial[i] = new Polynomial();
+                fgidPolynomial[i] = new Polynomial { Probablity = double.NaN, Power = double.NaN }; ;
             }
 
             if (j < index)
