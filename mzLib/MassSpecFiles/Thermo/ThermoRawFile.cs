@@ -190,7 +190,7 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            if (trailerMZ == -1)
+            if (double.IsNaN(trailerMZ))
                 return GetSelectedIonMZ(spectrumNumber);
             else
             {
@@ -214,10 +214,10 @@ namespace IO.Thermo
                     if (monoisotopic_mz > 0.0)
                         return monoisotopic_mz;
                     else
-                        return -1;
+                        return double.NaN;
                 }
             }
-            return -1;
+            return double.NaN;
         }
 
         private double GetIsolationWidth(int spectrumNumber)
@@ -398,7 +398,7 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            if (trailerMZ == -1)
+            if (double.IsNaN(trailerMZ))
                 return GetSelectedIonIntensity(spectrumNumber);
             else
             {
