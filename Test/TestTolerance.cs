@@ -167,7 +167,8 @@ namespace Test
         public void ToleranceNewTest()
         {
             var tol = new Tolerance(ToleranceUnit.Absolute, 9, 10);
-            Assert.AreEqual(new DoubleRange(4, 6), tol.GetRange(5));
+            Assert.AreEqual(4, tol.GetRange(5).Minimum);
+            Assert.AreEqual(6, tol.GetRange(5).Maximum);
         }
 
         [Test]

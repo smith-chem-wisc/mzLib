@@ -179,14 +179,6 @@ namespace Test
             Assert.AreEqual(1, comp);
         }
 
-        [Test]
-        public void RangesAreEquivalent()
-        {
-            var range1 = new DoubleRange(3, 10);
-            var range2 = new DoubleRange(3, 10);
-
-            Assert.AreEqual(range1, range2);
-        }
 
         [Test]
         public void RangesAreEquivalentNotReference()
@@ -273,7 +265,8 @@ namespace Test
             var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
             var range2 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, -4));
 
-            Assert.AreEqual(range1, range2);
+            Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
+            Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
         }
 
         [Test]
@@ -281,7 +274,8 @@ namespace Test
         {
             var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
             var range2 = new DoubleRange(range1);
-            Assert.AreEqual(range1, range2);
+            Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
+            Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
         }
 
         [Test]
@@ -298,18 +292,19 @@ namespace Test
             DoubleRange range1 = new DoubleRange(new DoubleRange(1000000 - 1, 1000000 + 1));
             DoubleRange range2 = new DoubleRange(1000000, new Tolerance(ToleranceUnit.PPM, 1));
 
-            Assert.IsTrue(range1.Equals(range2));
+            Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
+            Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
             Assert.AreEqual("[999999 - 1000001]", range1.ToString());
         }
 
-        [Test]
-        public void TestHashSet()
-        {
-            HashSet<DoubleRange> ok = new HashSet<DoubleRange>();
-            ok.Add(new DoubleRange(1, 2));
-            ok.Add(new DoubleRange(2, 3));
-            ok.Add(new DoubleRange(1, 2));
-            Assert.AreEqual(2, ok.Count);
-        }
+        //[Test]
+        //public void TestHashSet()
+        //{
+        //    HashSet<DoubleRange> ok = new HashSet<DoubleRange>();
+        //    ok.Add(new DoubleRange(1, 2));
+        //    ok.Add(new DoubleRange(2, 3));
+        //    ok.Add(new DoubleRange(1, 2));
+        //    Assert.AreEqual(2, ok.Count);
+        //}
     }
 }

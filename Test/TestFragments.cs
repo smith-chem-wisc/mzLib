@@ -63,6 +63,25 @@ namespace Test
             Assert.AreEqual(19, fragments.Count);
         }
 
+
+        [Test]
+        public void FragmentAnotherTest()
+        {
+            List<Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1, 2).ToList();
+
+            Assert.AreEqual(2, fragments.Count);
+        }
+
+
+        [Test]
+        public void FragmentNTermModTest()
+        {
+            _mockPeptideEveryAminoAcid.AddModification(new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus));
+            Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification>() { new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus) }));
+
+        }
+
         [Test]
         public void FragmentModifications()
         {

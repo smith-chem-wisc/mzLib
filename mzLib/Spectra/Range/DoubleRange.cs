@@ -182,22 +182,5 @@ namespace Spectra
         {
             return CompareTo(item).Equals(0);
         }
-
-        public bool Equals(DoubleRange other)
-        {
-            return Maximum == other.Maximum && Minimum == other.Minimum;
-        }
-
-        public override int GetHashCode()
-        {
-            return Minimum.GetHashCode() + (Maximum.GetHashCode() << 3);
-        }
-
-        public override bool Equals(object obj)
-        {
-            DoubleRange other = obj as DoubleRange;
-
-            return other != null && Equals(other);
-        }
     }
 }
