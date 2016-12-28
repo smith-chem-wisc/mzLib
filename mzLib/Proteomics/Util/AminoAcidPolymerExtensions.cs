@@ -40,15 +40,15 @@ namespace Proteomics
             return GetSequenceCoverage(baseSequence, sequences, true);
         }
 
-        public static int[] GetSequenceCoverage(this AminoAcidPolymer baseSequence, IEnumerable<AminoAcidPolymer> sequences, bool useLeucineSequence)
+        public static int[] GetSequenceCoverage(this AminoAcidPolymer baseSequence, IEnumerable<AminoAcidPolymer> allPolymers, bool useLeucineSequence)
         {
             int[] bits = new int[baseSequence.Length];
 
-            string masterSequence = useLeucineSequence ? baseSequence.LeucineSequence : baseSequence.Sequence;
+            string masterSequence = useLeucineSequence ? baseSequence.BaseLeucineSequence : baseSequence.BaseSequence;
 
-            foreach (AminoAcidPolymer sequence in sequences)
+            foreach (AminoAcidPolymer polymer in allPolymers)
             {
-                string seq = useLeucineSequence ? sequence.LeucineSequence : sequence.Sequence;
+                string seq = useLeucineSequence ? polymer.BaseLeucineSequence : polymer.BaseSequence;
 
                 int startIndex = 0;
                 while (true)
@@ -60,7 +60,7 @@ namespace Proteomics
                         break;
                     }
 
-                    for (int aa = index; aa < index + sequence.Length; aa++)
+                    for (int aa = index; aa < index + polymer.Length; aa++)
                     {
                         bits[aa]++;
                     }

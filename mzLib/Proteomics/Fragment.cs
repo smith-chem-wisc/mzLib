@@ -70,7 +70,7 @@ namespace Proteomics
         {
             get
             {
-                string parentSeq = Parent.Sequence;
+                string parentSeq = Parent.BaseSequence;
                 if (FragmentType.GetTerminus() == Terminus.N)
                 {
                     return parentSeq.Substring(0, Number);
