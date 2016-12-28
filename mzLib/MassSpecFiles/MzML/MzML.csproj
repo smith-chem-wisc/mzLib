@@ -94,12 +94,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include="XSD\mzML1.1.0.xsd">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="XSD\mzML1.1.1_idx.xsd">
-      <SubType>Designer</SubType>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\MassSpectrometry\MassSpectrometry.csproj">

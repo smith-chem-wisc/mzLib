@@ -1,11 +1,15 @@
 ﻿using MassSpectrometry;
 using Spectra;
 using System;
+using System.IO;
+using System.Xml.Serialization;
 
 namespace IO.MzML
 {
     public static class MzmlMethods
     {
+        internal static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
+        internal static XmlSerializer _mzMLSerializer = new XmlSerializer(typeof(Generated.mzMLType));
         public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(IMsDataFile<IMzSpectrum<MzPeak>> myMsDataFile, string outputFile)
         {
             Generated.indexedmzML _indexedmzMLConnection = new Generated.indexedmzML();
@@ -301,7 +305,14 @@ namespace IO.MzML
                 //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[1].cvParam[0].name = "zlib compression";
             }
 
-            Mzml.Write(outputFile, _indexedmzMLConnection);
+            Write(outputFile, _indexedmzMLConnection);
+        }
+
+        public static void Write(string filePath, Generated.indexedmzML _indexedmzMLConnection)
+        {
+            TextWriter writer = new StreamWriter(filePath);
+            _indexedSerializer.Serialize(writer, _indexedmzMLConnection);
+            writer.Close();
         }
     }
 }

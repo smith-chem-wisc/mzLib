@@ -68,10 +68,7 @@ namespace IO.MzML
         private const string _totalIonCurrent = "MS:1000285";
         private const string _scanWindowLowerLimit = "MS:1000501";
         private const string _scanWindowUpperLimit = "MS:1000500";
-
-        private static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
-        private static XmlSerializer _mzMLSerializer = new XmlSerializer(typeof(Generated.mzMLType));
-
+        
         private Generated.indexedmzML _indexedmzMLConnection;
         private Generated.mzMLType _mzMLConnection;
 
@@ -87,14 +84,14 @@ namespace IO.MzML
                 Stream stream = new FileStream(FilePath, FileMode.Open);
                 try
                 {
-                    _indexedmzMLConnection = _indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
+                    _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
                     _mzMLConnection = _indexedmzMLConnection.mzML;
                 }
                 catch (Exception)
                 {
                     try
                     {
-                        _mzMLConnection = _mzMLSerializer.Deserialize(stream) as Generated.mzMLType;
+                        _mzMLConnection = MzmlMethods._mzMLSerializer.Deserialize(stream) as Generated.mzMLType;
                     }
                     catch (Exception)
                     {
@@ -102,13 +99,6 @@ namespace IO.MzML
                     }
                 }
             }
-        }
-
-        public static void Write(string filePath, Generated.indexedmzML _indexedmzMLConnection)
-        {
-            TextWriter writer = new StreamWriter(filePath);
-            _indexedSerializer.Serialize(writer, _indexedmzMLConnection);
-            writer.Close();
         }
 
         public bool IsIndexedMzML
