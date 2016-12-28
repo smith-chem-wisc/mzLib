@@ -31,7 +31,7 @@ namespace MassSpectrometry
         string FilePath { get; }
 
         void Open();
-
         void LoadAllScansInMemory();
+        void Close();
     }
 }

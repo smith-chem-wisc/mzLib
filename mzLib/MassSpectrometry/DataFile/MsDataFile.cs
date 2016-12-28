@@ -111,7 +111,7 @@ namespace MassSpectrometry
             return Scans[oneBasedScanNumber - 1];
         }
 
-        public virtual void LoadAllScansInMemory()
+        public void LoadAllScansInMemory()
         {
             if (Scans == null)
             {
@@ -175,5 +175,6 @@ namespace MassSpectrometry
         protected abstract int GetNumSpectra();
 
         public abstract void Open();
+        public abstract void Close();
     }
 }

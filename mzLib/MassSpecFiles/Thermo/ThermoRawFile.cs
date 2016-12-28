@@ -85,6 +85,12 @@ namespace IO.Thermo
             _rawConnection.Open(FilePath);
             _rawConnection.SetCurrentController(0, 1); // first 0 is for mass spectrometer
         }
+        public override void Close()
+        {
+            ClearCachedScans();
+            _rawConnection.Close();
+            _rawConnection = null;
+        }
 
         protected override int GetNumSpectra()
         {
