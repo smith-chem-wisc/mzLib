@@ -301,7 +301,6 @@ namespace Chemistry
             double deltaMass = (_fineResolution / _mwResolution);
             double minProbability = _fineMinProb;
 
-            int index = 0;
             double minMass = tPolynomial[0].Power + fPolynomial[0].Power;
             double maxMass = tPolynomial[i - 1].Power + fPolynomial[j - 1].Power;
 
@@ -322,20 +321,20 @@ namespace Chemistry
                         continue;
 
                     double power = tPolynomial[t].Power + fPolynomial[f].Power;
-                    index = (int)(Math.Abs(power - minMass) / deltaMass + 0.5);
+                    var indext = (int)(Math.Abs(power - minMass) / deltaMass + 0.5);
 
-                    Polynomial tempPolynomial = fgidPolynomial[index];
+                    Polynomial tempPolynomial = fgidPolynomial[indext];
 
                     var poww = tempPolynomial.Power;
                     var probb = tempPolynomial.Probablity;
                     if (double.IsNaN(poww) || double.IsNaN(prob))
-                        fgidPolynomial[index] = new Polynomial { Power = power * prob, Probablity = prob };
+                        fgidPolynomial[indext] = new Polynomial { Power = power * prob, Probablity = prob };
                     else
-                        fgidPolynomial[index] = new Polynomial { Power = poww + power * prob, Probablity = probb + prob };
+                        fgidPolynomial[indext] = new Polynomial { Power = poww + power * prob, Probablity = probb + prob };
                 }
             }
 
-            index = tPolynomial.Count;
+            var index = tPolynomial.Count;
             j = 0;
             for (i = 0; i < fgidPolynomial.Count; i++)
             {
@@ -398,10 +397,6 @@ namespace Chemistry
         {
             if (n <= 1)
                 return 0;
-
-            //if (n > 50000)
-            //    return n * Math.Log(n) - n + 0.5 * Math.Log(6.28318530717959 * n) + 0.08333333333333 / n - 0.00333333333333 / (n * n * n);
-
             while (_factorLnTop <= n)
             {
                 int j = _factorLnTop++;
