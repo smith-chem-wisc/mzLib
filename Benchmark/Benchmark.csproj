@@ -107,6 +107,10 @@
       <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
       <Name>Spectra</Name>
     </ProjectReference>
+    <ProjectReference Include="..\mzLib\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
+      <Project>{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}</Project>
+      <Name>UsefulProteomicsDatabases</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
