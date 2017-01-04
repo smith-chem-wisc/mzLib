@@ -10,6 +10,18 @@ namespace Benchmark
     {
         private static void Main(string[] args)
         {
+
+
+
+            //Loaders.LoadElements(@"lal.dat");
+            //var heh = Loaders.LoadUnimod(@"unimod.dat");
+
+            //foreach (var huuh in heh.modifications.OrderBy(b => b.mono_mass))
+            //    if (huuh.composition.Contains("-") && !huuh.full_name.Contains("substitution"))
+            //        Console.WriteLine(huuh.mono_mass + "\t" + huuh.full_name + "\t" + huuh.composition);
+
+
+
             //var hm = new Mzml(@"C:\Users\stepa\Data\FromRob\20160128_fraction2-Sample001.mzml");
 
             //hm.Open();
@@ -73,8 +85,8 @@ namespace Benchmark
             }
             PopulatePeriodicTable();
 
-            using (System.IO.StreamWriter file =
-            new System.IO.StreamWriter(@"..\..\..\Benchmark.txt"))
+            using (StreamWriter file =
+            new StreamWriter(@"..\..\..\Benchmark.txt"))
             {
                 file.WriteLine("At compile time, date and time:");
                 file.WriteLine(compileTime);
