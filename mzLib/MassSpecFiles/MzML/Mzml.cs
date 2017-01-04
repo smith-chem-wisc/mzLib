@@ -18,8 +18,10 @@
 
 using Ionic.Zlib;
 using MassSpectrometry;
+using MathNet.Numerics.Statistics;
 using Spectra;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
@@ -71,9 +73,10 @@ namespace IO.MzML
         private Generated.indexedmzML _indexedmzMLConnection;
         private Generated.mzMLType _mzMLConnection;
 
-        public Mzml(string filePath)
+        public Mzml(string filePath, int maxPeaksPerScan = int.MaxValue)
             : base(filePath, true, MsDataFileType.Mzml)
         {
+            this.maxPeaksPerScan = maxPeaksPerScan;
         }
 
         public override void Open()
@@ -230,6 +233,7 @@ namespace IO.MzML
         }
 
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
+        private int maxPeaksPerScan;
 
         private MZAnalyzerType GetMzAnalyzer(int oneBasedSpectrumNumber)
         {
@@ -539,9 +543,25 @@ namespace IO.MzML
                 }
             }
 
+
             if (masses == null || intensities == null)
             {
                 throw new InvalidDataException("Unable to find spectral data for spectrum number " + OneBasedSpectrumNumber);
+            }
+
+            if (masses.Length > maxPeaksPerScan)
+            {
+                var cutoffIntensity = intensities.Quantile(1.0 - (double)maxPeaksPerScan / masses.Length);
+                List<double> newMasses = new List<double>(maxPeaksPerScan);
+                List<double> newIntensities = new List<double>(maxPeaksPerScan);
+                for (int i = 0; i < masses.Length; i++)
+                    if (intensities[i] >= cutoffIntensity)
+                    {
+                        newMasses.Add(masses[i]);
+                        newIntensities.Add(intensities[i]);
+                    }
+                masses = newMasses.ToArray();
+                intensities = newIntensities.ToArray();
             }
 
             var ok = new DefaultMzSpectrum(masses, intensities, false);
