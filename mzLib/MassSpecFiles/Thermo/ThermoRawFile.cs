@@ -67,9 +67,11 @@ namespace IO.Thermo
 
         private IXRawfile5 _rawConnection;
 
-        public ThermoRawFile(string filePath)
+        public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
             : base(filePath, true, MsDataFileType.ThermoRawFile)
         {
+            if (maxPeaksPerScan != int.MaxValue)
+                throw new NotImplementedException();
         }
 
         public override void Open()
