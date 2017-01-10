@@ -36,7 +36,11 @@ Isotopic distribution of a chemical compound can be calculated from its chemical
 
 ### Proteomics
 
-Peptides can be created for a sequence of amino acids:
+Peptides can be created for a sequence of amino acids
+
+### Mass Spectrometry
+
+Spectra can be read from raw files. 
 
 ## License
 Code heavily borrowed from https://github.com/dbaileychess/CSMSL and distrubuted under the appropriate license, LGPL.
