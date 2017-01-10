@@ -100,6 +100,15 @@ namespace TestThermo
             var hm = newSpectrum.newSpectrumExtract(501, 502);
 
             Assert.AreEqual(0, hm.Count);
+
+            Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Count);
+
+            a.Close();
+
+            var b = new ThermoRawFile(@"05-13-16_cali_MS_60K-res_MS.raw", 400);
+            b.Open();
+
+            Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
         }
     }
 }
