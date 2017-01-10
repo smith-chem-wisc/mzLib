@@ -40,7 +40,7 @@ Peptides can be created for a sequence of amino acids
 
 ### Mass Spectrometry
 
-Spectrac can be read from raw files. 
+Spectra can be read from raw files. 
 
 ## License
 Code heavily borrowed from https://github.com/dbaileychess/CSMSL and distrubuted under the appropriate license, LGPL.
