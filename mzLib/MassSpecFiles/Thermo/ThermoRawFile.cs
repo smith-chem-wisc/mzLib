@@ -17,6 +17,7 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
+using MathNet.Numerics.Statistics;
 using MSFileReaderLib;
 using Spectra;
 using System;
@@ -70,8 +71,7 @@ namespace IO.Thermo
         public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
             : base(filePath, true, MsDataFileType.ThermoRawFile)
         {
-            if (maxPeaksPerScan != int.MaxValue)
-                throw new NotImplementedException();
+            this.maxPeaksPerScan = maxPeaksPerScan;
         }
 
         public override void Open()
@@ -147,14 +147,43 @@ namespace IO.Thermo
 
         protected ThermoSpectrum GetSpectrumFromRawFile(int spectrumNumber)
         {
+            double[,] data;
             try
             {
-                return new ThermoSpectrum(GetLabeledData(spectrumNumber));
+                data = GetLabeledData(spectrumNumber);
             }
             catch (ArgumentNullException)
             {
-                return new ThermoSpectrum(GetUnlabeledData(spectrumNumber, true));
+                data = GetUnlabeledData(spectrumNumber, true);
             }
+
+            int arrayLength = data.GetLength(1);
+            if (arrayLength > maxPeaksPerScan)
+            {
+                double[] intensityArray = new double[arrayLength];
+                for (int i = 0; i < arrayLength; i++)
+                    intensityArray[i] = data[1, i];
+                var cutoffIntensity = intensityArray.Quantile(1.0 - (double)maxPeaksPerScan / arrayLength);
+
+                int thiscOUNT = 0;
+                for (int j = 0; j < arrayLength; j++)
+                    if (data[1, j] >= cutoffIntensity)
+                        thiscOUNT++;
+
+
+                double[,] newData = new double[data.GetLength(0), thiscOUNT];
+                int okIndex = 0;
+                for (int j = 0; j < arrayLength; j++)
+                    if (data[1, j] >= cutoffIntensity)
+                    {
+                        for (int i = 0; i < data.GetLength(0); i++)
+                            newData[i, okIndex] = data[i, j];
+                        okIndex++;
+                    }
+                data = newData;
+            }
+
+            return new ThermoSpectrum(data);
         }
 
         private double[,] GetUnlabeledData(int spectrumNumber, bool useCentroid)
@@ -327,6 +356,7 @@ namespace IO.Thermo
         }
 
         private readonly static Regex _msxRegex = new Regex(@"([\d.]+)@", RegexOptions.Compiled);
+        private int maxPeaksPerScan;
 
         public List<double> GetMSXPrecursors(int spectrumNumber)
         {
