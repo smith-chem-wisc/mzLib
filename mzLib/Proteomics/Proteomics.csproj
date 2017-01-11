@@ -48,7 +48,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AminoAcid.cs" />
+    <Compile Include="Residue.cs" />
     <Compile Include="AminoAcidPolymer.cs" />
     <Compile Include="ChemicalFormulaFragment.cs" />
     <Compile Include="ChemicalFormulaModification.cs" />

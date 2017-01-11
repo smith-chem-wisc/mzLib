@@ -167,7 +167,7 @@ namespace Test
         [Test]
         public void SetAminoAcidModification()
         {
-            var Asparagine = AminoAcid.GetResidue("N");
+            var Asparagine = Residue.GetResidue("N");
             _mockPeptideEveryAminoAcid.SetModification(new ChemicalFormulaModification("Fe"), Asparagine);
 
             Assert.AreEqual("ACDEFGHIKLMN[Fe]PQRSTVWY", _mockPeptideEveryAminoAcid.ToString());
@@ -545,19 +545,19 @@ namespace Test
         [Test]
         public void TestChemicalFormula()
         {
-            AminoAcid.GetResidue('A');
+            Residue.GetResidue('A');
 
             Peptide A = new Peptide("A");
 
-            AminoAcid.GetResidue('A');
+            Residue.GetResidue('A');
 
-            ChemicalFormula ok = new ChemicalFormula(AminoAcid.GetResidue('A').ThisChemicalFormula);
+            ChemicalFormula ok = new ChemicalFormula(Residue.GetResidue('A').ThisChemicalFormula);
             ok.Add(new ChemicalFormulaTerminus("OH"));
             ok.Add(new ChemicalFormulaTerminus("H"));
 
-            AminoAcid.GetResidue('A');
+            Residue.GetResidue('A');
 
-            AminoAcid.GetResidue('A');
+            Residue.GetResidue('A');
 
             Assert.AreEqual(ok, A.GetChemicalFormula());
         }
@@ -597,7 +597,7 @@ namespace Test
         public void TestAApolymerContains()
         {
             Assert.IsFalse(_mockTrypticPeptide.Contains('A'));
-            Assert.IsTrue(_mockTrypticPeptide.Contains(AminoAcid.GetResidue('T')));
+            Assert.IsTrue(_mockTrypticPeptide.Contains(Residue.GetResidue('T')));
         }
 
         [Test]
@@ -606,8 +606,8 @@ namespace Test
             Assert.AreEqual("ACDEFGHLKLMNPQRSTVWY", _mockPeptideEveryAminoAcid.GetSequenceWithModifications(true));
             Assert.AreEqual(20, _mockPeptideEveryAminoAcid.ResidueCount());
             Assert.AreEqual(7, _mockTrypticPeptide.ResidueCount('S'));
-            Assert.AreEqual(7, _mockTrypticPeptide.ResidueCount(AminoAcid.GetResidue('S')));
-            Assert.AreEqual(2, _mockTrypticPeptide.ResidueCount(AminoAcid.GetResidue('S'), 2, 3));
+            Assert.AreEqual(7, _mockTrypticPeptide.ResidueCount(Residue.GetResidue('S')));
+            Assert.AreEqual(2, _mockTrypticPeptide.ResidueCount(Residue.GetResidue('S'), 2, 3));
             Assert.AreEqual(3, _mockTrypticPeptide.ResidueCount('S', 2, 4));
 
             Peptide peptide = new Peptide("III-[C2H3NO]");

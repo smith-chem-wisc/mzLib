@@ -60,7 +60,7 @@ namespace Proteomics
         /// <summary>
         /// All of the amino acid residues indexed by position from N to C.
         /// </summary>
-        private AminoAcid[] aminoAcids;
+        private Residue[] residues;
 
         #endregion Instance Variables
 
@@ -80,7 +80,7 @@ namespace Proteomics
         {
             MonoisotopicMass = 0;
             Length = sequence.Length;
-            aminoAcids = new AminoAcid[Length];
+            residues = new Residue[Length];
             NTerminus = nTerm;
             CTerminus = cTerm;
             ParseSequence(sequence);
@@ -99,7 +99,7 @@ namespace Proteomics
                 throw new ArgumentOutOfRangeException("length", "The length + firstResidue value is too large");
 
             Length = length;
-            aminoAcids = new AminoAcid[length];
+            residues = new Residue[length];
 
             bool isNterm = firstResidue == 0;
             bool isCterm = length + firstResidue == aminoAcidPolymer.Length;
@@ -109,7 +109,7 @@ namespace Proteomics
 
             double monoMass = _nTerminus.MonoisotopicMass + _cTerminus.MonoisotopicMass;
 
-            AminoAcid[] otherAminoAcids = aminoAcidPolymer.aminoAcids;
+            Residue[] otherAminoAcids = aminoAcidPolymer.residues;
 
             if (includeModifications && aminoAcidPolymer.ContainsModifications())
             {
@@ -117,7 +117,7 @@ namespace Proteomics
                 for (int i = 0; i < length; i++)
                 {
                     var aa = otherAminoAcids[i + firstResidue];
-                    aminoAcids[i] = aa;
+                    residues[i] = aa;
                     monoMass += aa.MonoisotopicMass;
 
                     IHasMass mod = aminoAcidPolymer._modifications[i + firstResidue + 1];
@@ -133,7 +133,7 @@ namespace Proteomics
                 for (int i = 0, j = firstResidue; i < length; i++, j++)
                 {
                     var aa = otherAminoAcids[j];
-                    aminoAcids[i] = aa;
+                    residues[i] = aa;
                     monoMass += aa.MonoisotopicMass;
                 }
             }
@@ -186,11 +186,11 @@ namespace Proteomics
 
         #region Amino Acid Sequence
 
-        public AminoAcid GetResidue(int position)
+        public Residue GetResidue(int position)
         {
             if (position < 0 || position >= Length)
                 return null;
-            return aminoAcids[position];
+            return residues[position];
         }
 
         /// <summary>
@@ -212,7 +212,7 @@ namespace Proteomics
         /// <returns>True if any amino acid residue is the same as the specified character</returns>
         public bool Contains(char residue)
         {
-            return aminoAcids.Any(aa => aa.Letter.Equals(residue));
+            return residues.Any(aa => aa.Letter.Equals(residue));
         }
 
         /// <summary>
@@ -220,9 +220,9 @@ namespace Proteomics
         /// </summary>
         /// <param name="residue">The residue to check for</param>
         /// <returns>True if the polymer contains the specified residue, False otherwise</returns>
-        public bool Contains(AminoAcid residue)
+        public bool Contains(Residue residue)
         {
-            return aminoAcids.Contains(residue);
+            return residues.Contains(residue);
         }
 
         /// <summary>
@@ -232,7 +232,7 @@ namespace Proteomics
         {
             get
             {
-                return new string(aminoAcids.Select(aa => aa.Letter).ToArray());
+                return new string(residues.Select(aa => aa.Letter).ToArray());
             }
         }
 
@@ -261,10 +261,10 @@ namespace Proteomics
             // Handle Amino Acid Residues
             for (int i = 0; i < Length; i++)
             {
-                if (leucineSequence && aminoAcids[i].Letter == 'I')
+                if (leucineSequence && residues[i].Letter == 'I')
                     modSeqSb.Append('L');
                 else
-                    modSeqSb.Append(aminoAcids[i].Letter);
+                    modSeqSb.Append(residues[i].Letter);
 
                 // Handle Amino Acid Modification (1-based)
                 if ((mod = _modifications[i + 1]) != null && mod.MonoisotopicMass > 0 && !mod.MonoisotopicMass.MassEquals(0))
@@ -295,9 +295,9 @@ namespace Proteomics
             return Length;
         }
 
-        public int ResidueCount(AminoAcid aminoAcid)
+        public int ResidueCount(Residue aminoAcid)
         {
-            return aminoAcid == null ? 0 : aminoAcids.Count(aar => aar.Equals(aminoAcid));
+            return aminoAcid == null ? 0 : residues.Count(aar => aar.Equals(aminoAcid));
         }
 
         /// <summary>
@@ -308,23 +308,23 @@ namespace Proteomics
         /// <returns>The number of amino acid residues that have the same letter in this polymer</returns>
         public int ResidueCount(char residueLetter)
         {
-            return aminoAcids.Count(aar => aar.Letter.Equals(residueLetter));
+            return residues.Count(aar => aar.Letter.Equals(residueLetter));
         }
 
         public int ResidueCount(char residueLetter, int index, int length)
         {
-            return aminoAcids.SubArray(index, length).Count(aar => aar.Letter.Equals(residueLetter));
+            return residues.SubArray(index, length).Count(aar => aar.Letter.Equals(residueLetter));
         }
 
-        public int ResidueCount(AminoAcid aminoAcid, int index, int length)
+        public int ResidueCount(Residue aminoAcid, int index, int length)
         {
-            return aminoAcids.SubArray(index, length).Count(aar => aar.Equals(aminoAcid));
+            return residues.SubArray(index, length).Count(aar => aar.Equals(aminoAcid));
         }
 
         public int ElementCountWithIsotopes(string element)
         {
             // Residues count
-            int count = aminoAcids.Sum(aar => aar.ThisChemicalFormula.CountWithIsotopes(element));
+            int count = residues.Sum(aar => aar.ThisChemicalFormula.CountWithIsotopes(element));
             // Modifications count (if the mod is a IHasChemicalFormula)
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountWithIsotopes(element));
@@ -336,7 +336,7 @@ namespace Proteomics
         public int SpecificIsotopeCount(Isotope isotope)
         {
             // Residues count
-            int count = aminoAcids.Sum(aar => aar.ThisChemicalFormula.CountSpecificIsotopes(isotope));
+            int count = residues.Sum(aar => aar.ThisChemicalFormula.CountSpecificIsotopes(isotope));
             // Modifications count (if the mod is a IHasChemicalFormula)
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountSpecificIsotopes(isotope));
@@ -450,8 +450,8 @@ namespace Proteomics
                         continue;
                     }
 
-                    monoMass += aminoAcids[aaIndex].MonoisotopicMass;
-                    formula.Add(aminoAcids[aaIndex]);
+                    monoMass += residues[aaIndex].MonoisotopicMass;
+                    formula.Add(residues[aaIndex]);
 
                     if (hasMod)
                     {
@@ -640,7 +640,7 @@ namespace Proteomics
 
             for (int i = 0; i < Length; i++)
             {
-                ModificationSites site = aminoAcids[i].Site;
+                ModificationSites site = residues[i].Site;
                 if ((sites & site) == site)
                 {
                     ReplaceMod(i + 1, modification);
@@ -668,7 +668,7 @@ namespace Proteomics
             int count = 0;
             for (int i = 0; i < Length; i++)
             {
-                if (!letter.Equals(aminoAcids[i].Letter))
+                if (!letter.Equals(residues[i].Letter))
                     continue;
 
                 ReplaceMod(i + 1, modification);
@@ -684,12 +684,12 @@ namespace Proteomics
         /// <param name="modification">The modification to set</param>
         /// <param name="residue">The residue to set the modification at</param>
         /// <returns>The number of modifications added to this amino acid polymer</returns>
-        public virtual int SetModification(IHasMass modification, AminoAcid residue)
+        public virtual int SetModification(IHasMass modification, Residue residue)
         {
             int count = 0;
             for (int i = 0; i < Length; i++)
             {
-                if (!residue.Letter.Equals(aminoAcids[i].Letter))
+                if (!residue.Letter.Equals(residues[i].Letter))
                     continue;
                 ReplaceMod(i + 1, modification);
                 count++;
@@ -813,7 +813,7 @@ namespace Proteomics
 
             for (int i = 0; i < Length; i++)
             {
-                ModificationSites site = aminoAcids[i].Site;
+                ModificationSites site = residues[i].Site;
                 if ((sites & site) == site)
                 {
                     currentMod = _modifications[i + 1];
@@ -884,7 +884,7 @@ namespace Proteomics
                 if (_modifications[modIndex] == null)
                     continue;
 
-                ModificationSites curSite = aminoAcids[i].Site;
+                ModificationSites curSite = residues[i].Site;
 
                 if ((curSite & sites) == curSite)
                 {
@@ -974,7 +974,7 @@ namespace Proteomics
             // Handle Amino Acid Residues
             for (int i = 0; i < Length; i++)
             {
-                formula.Add(aminoAcids[i].ThisChemicalFormula);
+                formula.Add(residues[i].ThisChemicalFormula);
             }
 
             return formula;
@@ -1032,7 +1032,7 @@ namespace Proteomics
                     continue; // uneven arrays, so skip these two conditions
                 }
 
-                if (!aminoAcids[i - 1].Equals(other.aminoAcids[i - 1]))
+                if (!residues[i - 1].Equals(other.residues[i - 1]))
                 {
                     return false;
                 }
@@ -1180,11 +1180,11 @@ namespace Proteomics
                 }
                 else
                 {
-                    AminoAcid residue;
+                    Residue residue;
                     //char upperletter = char.ToUpper(letter); // moved to amino acid dictionary
-                    if (AminoAcid.TryGetResidue(letter, out residue))
+                    if (Residue.TryGetResidue(letter, out residue))
                     {
-                        aminoAcids[index++] = residue;
+                        residues[index++] = residue;
                         monoMass += residue.MonoisotopicMass;
                     }
                     else
@@ -1211,7 +1211,7 @@ namespace Proteomics
 
             Length = index;
             MonoisotopicMass += monoMass;
-            Array.Resize(ref aminoAcids, Length);
+            Array.Resize(ref residues, Length);
             if (_modifications != null)
                 Array.Resize(ref _modifications, Length + 2);
         }
