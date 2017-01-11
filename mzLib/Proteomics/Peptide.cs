@@ -41,12 +41,12 @@ namespace Proteomics
         /// <summary>
         /// The preceding amino acid in its parent
         /// </summary>
-        public AminoAcid PreviousAminoAcid { get; set; }
+        public Residue PreviousResidue { get; set; }
 
         /// <summary>
         /// The next amino acid in its parent
         /// </summary>
-        public AminoAcid NextAminoAcid { get; set; }
+        public Residue NextResidue { get; set; }
 
         public Peptide()
         {
@@ -85,8 +85,8 @@ namespace Proteomics
             Parent = aminoAcidPolymer;
             StartResidue = firstResidue;
             EndResidue = firstResidue + length - 1;
-            PreviousAminoAcid = aminoAcidPolymer.GetResidue(StartResidue - 1);
-            NextAminoAcid = aminoAcidPolymer.GetResidue(EndResidue + 1);
+            PreviousResidue = aminoAcidPolymer.GetResidue(StartResidue - 1);
+            NextResidue = aminoAcidPolymer.GetResidue(EndResidue + 1);
         }
 
         public IEnumerable<Peptide> GenerateAllModificationCombinations()
