@@ -39,9 +39,7 @@ namespace Test
             Residue aa = Residue.GetResidue('A');
 
             Assert.AreEqual("Alanine", aa.Name);
-
         }
-
 
         [Test]
         public void ResidueMonoisotopicMassTest()

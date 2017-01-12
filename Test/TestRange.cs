@@ -19,7 +19,6 @@
 using NUnit.Framework;
 using Spectra;
 using System;
-using System.Collections.Generic;
 
 namespace Test
 {
@@ -178,7 +177,6 @@ namespace Test
 
             Assert.AreEqual(1, comp);
         }
-
 
         [Test]
         public void RangesAreEquivalentNotReference()

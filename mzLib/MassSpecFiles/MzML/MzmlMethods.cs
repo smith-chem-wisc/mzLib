@@ -10,6 +10,7 @@ namespace IO.MzML
     {
         internal static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
         internal static XmlSerializer _mzMLSerializer = new XmlSerializer(typeof(Generated.mzMLType));
+
         public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(IMsDataFile<IMzSpectrum<MzPeak>> myMsDataFile, string outputFile)
         {
             Generated.indexedmzML _indexedmzMLConnection = new Generated.indexedmzML();
