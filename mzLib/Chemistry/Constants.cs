@@ -25,7 +25,7 @@ namespace Chemistry
     /// Sources include:
     /// http://physics.nist.gov/cuu/Constants/index.html
     /// </summary>
-    internal static class Constants
+    public static class Constants
     {
         /// <summary>
         /// The mass of the subatomic particle with a single elementary charge in atomic
@@ -36,15 +36,15 @@ namespace Chemistry
         /// <summary>
         /// The largest number of elements to consider
         /// </summary>
-        public const int MaximumNumberOfElementsAllowed = 128;
+        internal const int MaximumNumberOfElementsAllowed = 128;
 
         /// <summary>
         /// The largest mass number
         /// </summary>
-        public const int MaximumMassNumberPossible = 295;
+        internal const int MaximumMassNumberPossible = 295;
 
-        public const int CarbonAtomicNumber = 6;
+        internal const int CarbonAtomicNumber = 6;
 
-        public const int HydrogenAtomicNumber = 1;
+        internal const int HydrogenAtomicNumber = 1;
     }
 }
