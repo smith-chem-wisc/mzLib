@@ -154,7 +154,7 @@ namespace Test
         {
             MzRange range = new MzRange(328.73795, 723.35345);
 
-            Assert.AreEqual(0, _mzSpectrumA.Range.Minimum - range.Minimum,1e-9);
+            Assert.AreEqual(0, _mzSpectrumA.Range.Minimum - range.Minimum, 1e-9);
             Assert.AreEqual(0, _mzSpectrumA.Range.Maximum - range.Maximum, 1e-9);
         }
 

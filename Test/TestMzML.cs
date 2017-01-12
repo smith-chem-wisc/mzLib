@@ -32,6 +32,8 @@ namespace Test
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
+
+            a.Close();
         }
 
         [Test]
@@ -195,6 +197,7 @@ namespace Test
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
         }
+
         [Test]
         public void mzid110Test()
         {

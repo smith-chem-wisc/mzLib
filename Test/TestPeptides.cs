@@ -63,7 +63,6 @@ namespace Test
             Assert.AreEqual(5, pep.ElementCountWithIsotopes("H"));
             Isotope isotope = PeriodicTable.GetElement("H").PrincipalIsotope;
             Assert.AreEqual(0, pep.SpecificIsotopeCount(isotope));
-
         }
 
         [Test]

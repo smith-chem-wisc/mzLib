@@ -84,24 +84,11 @@ namespace IO.MzML
             if (_mzMLConnection == null)
             {
                 Stream stream = new FileStream(FilePath, FileMode.Open);
-                try
-                {
-                    _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
-                    _mzMLConnection = _indexedmzMLConnection.mzML;
-                }
-                catch (Exception)
-                {
-                    try
-                    {
-                        _mzMLConnection = MzmlMethods._mzMLSerializer.Deserialize(stream) as Generated.mzMLType;
-                    }
-                    catch (Exception)
-                    {
-                        throw new InvalidDataException("Unable to parse " + FilePath + " as an mzML file!");
-                    }
-                }
+                _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
+                _mzMLConnection = _indexedmzMLConnection.mzML;
             }
         }
+
         public override void Close()
         {
             ClearCachedScans();
@@ -161,7 +148,7 @@ namespace IO.MzML
         private int GetPrecusorCharge(int oneBasedSpectrumNumber)
         {
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList == null)
-                return 0;
+                throw new ArgumentNullException("Could not find precursor charge for spectrum number " + oneBasedSpectrumNumber);
 
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam)
             {
@@ -170,7 +157,7 @@ namespace IO.MzML
                     return short.Parse(cv.value);
                 }
             }
-            return 0;
+            throw new ArgumentNullException("Could not find precursor charge for spectrum number " + oneBasedSpectrumNumber);
         }
 
         private MzRange GetScanWindowMzRange(int oneBasedSpectrumNumber)
@@ -542,7 +529,6 @@ namespace IO.MzML
                     intensities = data;
                 }
             }
-
 
             if (masses == null || intensities == null)
             {

@@ -387,7 +387,6 @@ namespace Proteomics
             return Fragment(types, number, number, calculateChemicalFormula);
         }
 
-
         public IEnumerable<Fragment> Fragment(FragmentTypes types, int minIndex, int maxIndex)
         {
             return Fragment(types, minIndex, maxIndex, false);
@@ -1121,7 +1120,6 @@ namespace Proteomics
         /// <returns></returns>
         private void ParseSequence(string sequence)
         {
-
             bool inMod = false;
             bool cterminalMod = false; // n or c terminal modification
             int index = 0;

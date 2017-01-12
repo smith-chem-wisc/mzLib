@@ -64,7 +64,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
+    <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseLoaderTests.cs" />
     <Compile Include="ElementsAndIsotopesTests.cs" />
     <Compile Include="ChemicalFormulaTestFixture.cs" />

@@ -87,6 +87,7 @@ namespace IO.Thermo
             _rawConnection.Open(FilePath);
             _rawConnection.SetCurrentController(0, 1); // first 0 is for mass spectrometer
         }
+
         public override void Close()
         {
             ClearCachedScans();
@@ -169,7 +170,6 @@ namespace IO.Thermo
                 for (int j = 0; j < arrayLength; j++)
                     if (data[1, j] >= cutoffIntensity)
                         thiscOUNT++;
-
 
                 double[,] newData = new double[data.GetLength(0), thiscOUNT];
                 int okIndex = 0;
