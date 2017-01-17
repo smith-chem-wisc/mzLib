@@ -26,75 +26,24 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : Peak
     {
-        #region properties
+
+        #region Protected Fields
 
         protected TPeak[] peakList;
 
-        public virtual TPeak this[int index]
-        {
-            get
-            {
-                if (peakList[index] == null)
-                    peakList[index] = (TPeak)Activator.CreateInstance(typeof(TPeak), new object[] { xArray[index], yArray[index] });
-                return peakList[index];
-            }
-        }
+        #endregion Protected Fields
 
-        public double FirstX { get { return xArray[0]; } }
-        public double LastX { get { return xArray[Count - 1]; } }
-
-        public int Count { get { return xArray.Length; } }
-
-        public double[] xArray { get; private set; }
-        public double[] yArray { get; private set; }
+        #region Private Fields
 
         private double yofPeakWithHighestY = double.NaN;
 
-        public double YofPeakWithHighestY
-        {
-            get
-            {
-                if (double.IsNaN(yofPeakWithHighestY))
-                    yofPeakWithHighestY = yArray.Max();
-                return yofPeakWithHighestY;
-            }
-        }
-
         private double sumOfAllY = double.NaN;
-
-        public double SumOfAllY
-        {
-            get
-            {
-                if (double.IsNaN(sumOfAllY))
-                    sumOfAllY = yArray.Sum();
-                return sumOfAllY;
-            }
-        }
-
-        public DoubleRange Range
-        {
-            get
-            {
-                return new DoubleRange(FirstX, LastX);
-            }
-        }
 
         private TPeak peakWithHighestY = null;
 
-        public TPeak PeakWithHighestY
-        {
-            get
-            {
-                if (peakWithHighestY == null)
-                    peakWithHighestY = this[Array.IndexOf(yArray, yArray.Max())];
-                return peakWithHighestY;
-            }
-        }
+        #endregion Private Fields
 
-        #endregion properties
-
-        #region Constructors
+        #region Protected Constructors
 
         /// <summary>
         /// Initializes a new spectrum
@@ -148,18 +97,80 @@ namespace Spectra
             peakList = new TPeak[Count];
         }
 
-        #endregion Constructors
+        #endregion Protected Constructors
 
-        #region public methods
+        #region Public Properties
+
+        public double FirstX { get { return xArray[0]; } }
+
+        public double LastX { get { return xArray[Count - 1]; } }
+
+        public int Count { get { return xArray.Length; } }
+
+        public double[] xArray { get; private set; }
+
+        public double[] yArray { get; private set; }
+
+        public double YofPeakWithHighestY
+        {
+            get
+            {
+                if (double.IsNaN(yofPeakWithHighestY))
+                    yofPeakWithHighestY = yArray.Max();
+                return yofPeakWithHighestY;
+            }
+        }
+
+        public double SumOfAllY
+        {
+            get
+            {
+                if (double.IsNaN(sumOfAllY))
+                    sumOfAllY = yArray.Sum();
+                return sumOfAllY;
+            }
+        }
+
+        public DoubleRange Range
+        {
+            get
+            {
+                return new DoubleRange(FirstX, LastX);
+            }
+        }
+
+        public TPeak PeakWithHighestY
+        {
+            get
+            {
+                if (peakWithHighestY == null)
+                    peakWithHighestY = this[Array.IndexOf(yArray, yArray.Max())];
+                return peakWithHighestY;
+            }
+        }
+
+        #endregion Public Properties
+
+        #region Public Indexers
+
+        public virtual TPeak this[int index]
+        {
+            get
+            {
+                if (peakList[index] == null)
+                    peakList[index] = (TPeak)Activator.CreateInstance(typeof(TPeak), new object[] { xArray[index], yArray[index] });
+                return peakList[index];
+            }
+        }
+
+        #endregion Public Indexers
+
+        #region Public Methods
 
         public override string ToString()
         {
             return string.Format("{0} (Peaks {1})", Range, Count);
         }
-
-        #endregion public methods
-
-        #region implementing ISpectrum
 
         public ISpectrum<Peak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
@@ -231,9 +242,46 @@ namespace Spectra
             return xArray[GetClosestPeakIndex(x)];
         }
 
-        #endregion implementing ISpectrum
+        public IEnumerator<TPeak> GetEnumerator()
+        {
+            for (int i = 0; i < Count; i++)
+                yield return this[i];
+        }
 
-        #region protected methods
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public int NumPeaksWithinRange(double minX, double maxX)
+        {
+            int index = Array.BinarySearch(xArray, minX);
+
+            if (index < 0)
+                index = ~index;
+
+            if (index >= Count)
+                return 0;
+
+            int startingIndex = index;
+
+            // TODO: replace by binary search here as well
+            while (index < Count && xArray[index] <= maxX)
+                index++;
+
+            return index - startingIndex;
+        }
+
+        public void replaceXbyApplyingFunction(Func<TPeak, double> convertor)
+        {
+            for (int i = 0; i < Count; i++)
+                xArray[i] = convertor(this[i]);
+            resetSpectrum();
+        }
+
+        #endregion Public Methods
+
+        #region Protected Methods
 
         protected Tuple<double[], double[]> applyFunctionToX(Func<double, double> convertor)
         {
@@ -431,46 +479,9 @@ namespace Spectra
             return indexm1;
         }
 
-        #endregion protected methods
+        #endregion Protected Methods
 
-        #region enumeration
-
-        public IEnumerator<TPeak> GetEnumerator()
-        {
-            for (int i = 0; i < Count; i++)
-                yield return this[i];
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        public int NumPeaksWithinRange(double minX, double maxX)
-        {
-            int index = Array.BinarySearch(xArray, minX);
-
-            if (index < 0)
-                index = ~index;
-
-            if (index >= Count)
-                return 0;
-
-            int startingIndex = index;
-
-            // TODO: replace by binary search here as well
-            while (index < Count && xArray[index] <= maxX)
-                index++;
-
-            return index - startingIndex;
-        }
-
-        public void replaceXbyApplyingFunction(Func<TPeak, double> convertor)
-        {
-            for (int i = 0; i < Count; i++)
-                xArray[i] = convertor(this[i]);
-            resetSpectrum();
-        }
+        #region Private Methods
 
         private void resetSpectrum()
         {
@@ -480,6 +491,7 @@ namespace Spectra
             peakWithHighestY = null;
         }
 
-        #endregion enumeration
+        #endregion Private Methods
+
     }
 }
