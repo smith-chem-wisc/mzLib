@@ -8,6 +8,119 @@ namespace Benchmark
 {
     internal class Program
     {
+
+        #region Private Methods
+
+        private static void BenchmarkFormula(StreamWriter file)
+        {
+            file.WriteLine("Starting benchmark BenchmarkFormula");
+
+            int numRepetitions = 100000;
+
+            Stopwatch stopWatch = new Stopwatch();
+
+            var a = new ChemicalFormula("H1H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
+            stopWatch.Restart();
+            for (int i = 0; i < numRepetitions; i++)
+            {
+                var b = a.Formula + i;
+            }
+            stopWatch.Stop();
+            file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
+
+            file.WriteLine("Benchmark BenchmarkFormula finished");
+        }
+
+        private static void BenchmarkFormula2(StreamWriter file)
+        {
+            file.WriteLine("Starting benchmark BenchmarkFormula2");
+
+            int numRepetitions = 100000;
+
+            Stopwatch stopWatch = new Stopwatch();
+
+            stopWatch.Restart();
+            for (int i = 0; i < numRepetitions; i++)
+            {
+                var a = new ChemicalFormula("H" + i + "H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
+                var b = a.Formula + i;
+            }
+            stopWatch.Stop();
+            file.WriteLine("Time for creating and getting formulas: " + stopWatch.Elapsed);
+
+            file.WriteLine("Benchmark BenchmarkFormula2 finished");
+        }
+
+        private static void BenchmarkGettingIsotopes(StreamWriter file)
+        {
+            file.WriteLine("Starting benchmark BenchmarkGettingIsotopes");
+
+            int numRepetitions = 10000000;
+
+            Stopwatch stopWatch = new Stopwatch();
+
+            long a = 0;
+            stopWatch.Restart();
+            for (int i = 0; i < numRepetitions; i++)
+            {
+                a += PeriodicTable.GetElement(20).Isotopes.Count();
+            }
+            stopWatch.Stop();
+            file.WriteLine("Time for getting isotopes1: " + stopWatch.Elapsed + " a = " + a);
+
+            file.WriteLine("Benchmark BenchmarkGettingIsotopes finished");
+        }
+
+        private static void BenchmarkIsotopicDistribution(StreamWriter file)
+        {
+            file.WriteLine("Starting benchmark BenchmarkIsotopicDistribution");
+
+            int numRepetitions = 100;
+
+            Stopwatch stopWatch = new Stopwatch();
+
+            var a = new ChemicalFormula("H100C100N100O100S100");
+            double b = 0;
+            stopWatch.Restart();
+            for (int i = 0; i < numRepetitions; i++)
+            {
+                b += new IsotopicDistribution(a).Intensities.First();
+            }
+            stopWatch.Stop();
+            file.WriteLine("Time for generating isotopic distributions: " + stopWatch.Elapsed + " a = " + a);
+
+            file.WriteLine("Benchmark BenchmarkIsotopicDistribution finished");
+        }
+
+        private static void BenchmarkTimeGettingElementFromPeriodicTable(StreamWriter file)
+        {
+            file.WriteLine("Starting benchmark BenchmarkTimeGettingElementFromPeriodicTable");
+
+            int numRepetitions = 100000000;
+
+            Stopwatch stopWatch = new Stopwatch();
+
+            stopWatch.Restart();
+            for (int i = 0; i < numRepetitions; i++)
+            {
+                var a = PeriodicTable.GetElement(1);
+                var b = a.Protons + a.AverageMass + 4;
+            }
+            stopWatch.Stop();
+            file.WriteLine("Time for getting by atomic number: " + stopWatch.Elapsed);
+
+            stopWatch.Restart();
+            for (int i = 0; i < numRepetitions; i++)
+            {
+                var a = PeriodicTable.GetElement("H");
+                var b = a.Protons + a.AverageMass + 4;
+            }
+            stopWatch.Stop();
+            file.WriteLine("Time for getting by atomic symbol: " + stopWatch.Elapsed);
+
+            file.WriteLine("Benchmark BenchmarkTimeGettingElementFromPeriodicTable finished");
+        }
+
         private static void Main(string[] args)
         {
             //Loaders.LoadElements(@"lal.dat");
@@ -105,27 +218,6 @@ namespace Benchmark
             }
         }
 
-        private static void BenchmarkIsotopicDistribution(StreamWriter file)
-        {
-            file.WriteLine("Starting benchmark BenchmarkIsotopicDistribution");
-
-            int numRepetitions = 100;
-
-            Stopwatch stopWatch = new Stopwatch();
-
-            var a = new ChemicalFormula("H100C100N100O100S100");
-            double b = 0;
-            stopWatch.Restart();
-            for (int i = 0; i < numRepetitions; i++)
-            {
-                b += new IsotopicDistribution(a).Intensities.First();
-            }
-            stopWatch.Stop();
-            file.WriteLine("Time for generating isotopic distributions: " + stopWatch.Elapsed + " a = " + a);
-
-            file.WriteLine("Benchmark BenchmarkIsotopicDistribution finished");
-        }
-
         private static void PopulatePeriodicTable()
         {
             var elementH = new Element("H", 1, 1.007975);
@@ -194,93 +286,7 @@ namespace Benchmark
             elementZr.AddIsotope(94, 93.9063108, 0.1738);
         }
 
-        private static void BenchmarkGettingIsotopes(StreamWriter file)
-        {
-            file.WriteLine("Starting benchmark BenchmarkGettingIsotopes");
+        #endregion Private Methods
 
-            int numRepetitions = 10000000;
-
-            Stopwatch stopWatch = new Stopwatch();
-
-            long a = 0;
-            stopWatch.Restart();
-            for (int i = 0; i < numRepetitions; i++)
-            {
-                a += PeriodicTable.GetElement(20).Isotopes.Count();
-            }
-            stopWatch.Stop();
-            file.WriteLine("Time for getting isotopes1: " + stopWatch.Elapsed + " a = " + a);
-
-            file.WriteLine("Benchmark BenchmarkGettingIsotopes finished");
-        }
-
-        private static void BenchmarkFormula(StreamWriter file)
-        {
-            file.WriteLine("Starting benchmark BenchmarkFormula");
-
-            int numRepetitions = 100000;
-
-            Stopwatch stopWatch = new Stopwatch();
-
-            var a = new ChemicalFormula("H1H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
-            stopWatch.Restart();
-            for (int i = 0; i < numRepetitions; i++)
-            {
-                var b = a.Formula + i;
-            }
-            stopWatch.Stop();
-            file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
-
-            file.WriteLine("Benchmark BenchmarkFormula finished");
-        }
-
-        private static void BenchmarkFormula2(StreamWriter file)
-        {
-            file.WriteLine("Starting benchmark BenchmarkFormula2");
-
-            int numRepetitions = 100000;
-
-            Stopwatch stopWatch = new Stopwatch();
-
-            stopWatch.Restart();
-            for (int i = 0; i < numRepetitions; i++)
-            {
-                var a = new ChemicalFormula("H" + i + "H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
-                var b = a.Formula + i;
-            }
-            stopWatch.Stop();
-            file.WriteLine("Time for creating and getting formulas: " + stopWatch.Elapsed);
-
-            file.WriteLine("Benchmark BenchmarkFormula2 finished");
-        }
-
-        private static void BenchmarkTimeGettingElementFromPeriodicTable(StreamWriter file)
-        {
-            file.WriteLine("Starting benchmark BenchmarkTimeGettingElementFromPeriodicTable");
-
-            int numRepetitions = 100000000;
-
-            Stopwatch stopWatch = new Stopwatch();
-
-            stopWatch.Restart();
-            for (int i = 0; i < numRepetitions; i++)
-            {
-                var a = PeriodicTable.GetElement(1);
-                var b = a.Protons + a.AverageMass + 4;
-            }
-            stopWatch.Stop();
-            file.WriteLine("Time for getting by atomic number: " + stopWatch.Elapsed);
-
-            stopWatch.Restart();
-            for (int i = 0; i < numRepetitions; i++)
-            {
-                var a = PeriodicTable.GetElement("H");
-                var b = a.Protons + a.AverageMass + 4;
-            }
-            stopWatch.Stop();
-            file.WriteLine("Time for getting by atomic symbol: " + stopWatch.Elapsed);
-
-            file.WriteLine("Benchmark BenchmarkTimeGettingElementFromPeriodicTable finished");
-        }
     }
 }
