@@ -18,7 +18,6 @@
 
 using NUnit.Framework;
 using Proteomics;
-using System;
 
 namespace Test
 {
@@ -27,12 +26,6 @@ namespace Test
     {
 
         #region Public Methods
-
-        [Test]
-        public void GetNullResidue()
-        {
-            Assert.Throws<ArgumentNullException>(() => { Residue.GetResidue(null); });
-        }
 
         [Test]
         public void GetResidueByCharacter()

@@ -17,7 +17,6 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using System;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -28,49 +27,22 @@ namespace Proteomics
 
         #region Public Fields
 
-        public static readonly double[] ResidueMonoisotopicMass = new double['z' + 1]
-        {
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            ResiduesDictionary["Alanine"].MonoisotopicMass,
-            double.NaN, // B
-            ResiduesDictionary["Cysteine"].MonoisotopicMass,
-            ResiduesDictionary["Aspartic Acid"].MonoisotopicMass,
-            ResiduesDictionary["Glutamic Acid"].MonoisotopicMass,
-            ResiduesDictionary["Phenylalanine"].MonoisotopicMass,
-            ResiduesDictionary["Glycine"].MonoisotopicMass,
-            ResiduesDictionary["Histidine"].MonoisotopicMass,
-            ResiduesDictionary["Isoleucine"].MonoisotopicMass,
-            ResiduesDictionary["Isoleucine"].MonoisotopicMass, // J - SPECIAL CASE!!!
-            ResiduesDictionary["Lysine"].MonoisotopicMass,
-            ResiduesDictionary["Leucine"].MonoisotopicMass,
-            ResiduesDictionary["Methionine"].MonoisotopicMass,
-            ResiduesDictionary["Asparagine"].MonoisotopicMass,
-            double.NaN, // O
-            ResiduesDictionary["Proline"].MonoisotopicMass,
-            ResiduesDictionary["Glutamine"].MonoisotopicMass,
-            ResiduesDictionary["Arginine"].MonoisotopicMass,
-            ResiduesDictionary["Serine"].MonoisotopicMass,
-            ResiduesDictionary["Threonine"].MonoisotopicMass,
-            ResiduesDictionary["Selenocysteine"].MonoisotopicMass,
-            ResiduesDictionary["Valine"].MonoisotopicMass,
-            ResiduesDictionary["Tryptophan"].MonoisotopicMass,
-            double.NaN, // X
-            ResiduesDictionary["Tyrosine"].MonoisotopicMass,
-            double.NaN, // Z
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-        };
+        public static readonly double[] ResidueMonoisotopicMass;
 
         #endregion Public Fields
 
         #region Private Fields
 
-        private static readonly Dictionary<string, Residue> ResiduesDictionary = new Dictionary<string, Residue>
+        private static readonly Dictionary<string, Residue> ResiduesDictionary;
+        private static readonly Residue[] ResiduesByLetter;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
+        static Residue()
+        {
+            ResiduesDictionary = new Dictionary<string, Residue>
         {
             {"Alanine",        new Residue("Alanine",       'A', "Ala","C3H5NO",   ModificationSites.A)},
             {"Arginine",       new Residue("Arginine",      'R', "Arg","C6H12N4O", ModificationSites.R)},
@@ -95,7 +67,7 @@ namespace Proteomics
             {"Valine",         new Residue("Valine", 'V', "Val","C5H9NO",  ModificationSites.V)},
         };
 
-        private static readonly Residue[] ResiduesByLetter = new Residue['z' + 1]
+            ResiduesByLetter = new Residue['z' + 1]
         {
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,null,null,null,null,null,null,null,
@@ -132,8 +104,46 @@ namespace Proteomics
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,
         };
+            ResidueMonoisotopicMass = new double['z' + 1]
+        {
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            ResiduesDictionary["Alanine"].MonoisotopicMass,
+            double.NaN, // B
+            ResiduesDictionary["Cysteine"].MonoisotopicMass,
+            ResiduesDictionary["Aspartic Acid"].MonoisotopicMass,
+            ResiduesDictionary["Glutamic Acid"].MonoisotopicMass,
+            ResiduesDictionary["Phenylalanine"].MonoisotopicMass,
+            ResiduesDictionary["Glycine"].MonoisotopicMass,
+            ResiduesDictionary["Histidine"].MonoisotopicMass,
+            ResiduesDictionary["Isoleucine"].MonoisotopicMass,
+            ResiduesDictionary["Isoleucine"].MonoisotopicMass, // J - SPECIAL CASE!!!
+            ResiduesDictionary["Lysine"].MonoisotopicMass,
+            ResiduesDictionary["Leucine"].MonoisotopicMass,
+            ResiduesDictionary["Methionine"].MonoisotopicMass,
+            ResiduesDictionary["Asparagine"].MonoisotopicMass,
+            double.NaN, // O
+            ResiduesDictionary["Proline"].MonoisotopicMass,
+            ResiduesDictionary["Glutamine"].MonoisotopicMass,
+            ResiduesDictionary["Arginine"].MonoisotopicMass,
+            ResiduesDictionary["Serine"].MonoisotopicMass,
+            ResiduesDictionary["Threonine"].MonoisotopicMass,
+            ResiduesDictionary["Selenocysteine"].MonoisotopicMass,
+            ResiduesDictionary["Valine"].MonoisotopicMass,
+            ResiduesDictionary["Tryptophan"].MonoisotopicMass,
+            double.NaN, // X
+            ResiduesDictionary["Tyrosine"].MonoisotopicMass,
+            double.NaN, // Z
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+        };
+        }
 
-        #endregion Private Fields
+        #endregion Public Constructors
 
         #region Internal Constructors
 
@@ -174,8 +184,6 @@ namespace Proteomics
         /// <returns></returns>
         public static Residue GetResidue(string symbol)
         {
-            if (symbol == null)
-                throw new ArgumentNullException("symbol", "Cannot get residue of null parameter");
             return symbol.Length == 1 ? ResiduesByLetter[symbol[0]] : ResiduesDictionary[symbol];
         }
 
