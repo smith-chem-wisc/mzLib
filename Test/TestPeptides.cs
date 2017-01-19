@@ -68,8 +68,15 @@ namespace Test
             Peptide pep = new Peptide("G");
             pep.AddModification(new Modification(1));
             Assert.AreEqual(5, pep.ElementCountWithIsotopes("H"));
+
+            pep.AddModification(new ChemicalFormulaModification("H{1}"));
+            Assert.AreEqual(5, pep.ElementCountWithIsotopes("H")); // NOTHING HAS BEEN ADDED!
+
+            pep.AddModification(new ChemicalFormulaModification("H{1}", ModificationSites.G));
+            Assert.AreEqual(6, pep.ElementCountWithIsotopes("H"));
+
             Isotope isotope = PeriodicTable.GetElement("H").PrincipalIsotope;
-            Assert.AreEqual(0, pep.SpecificIsotopeCount(isotope));
+            Assert.AreEqual(1, pep.SpecificIsotopeCount(isotope));
         }
 
         [Test]
