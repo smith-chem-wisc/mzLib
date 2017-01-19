@@ -138,6 +138,24 @@ namespace Test
             peptide.AddModification(new ObjectWithMass100(), 0);
 
             Assert.AreEqual("[mass: 100]-TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
+
+            Assert.AreEqual(1, peptide.AddModification(new ObjectWithMass100(), Terminus.C));
+
+            Assert.AreEqual(3, peptide.ModificationCount());
+
+            Assert.AreEqual(0, peptide.ReplaceModification(new ObjectWithMass100(), new ObjectWithMass100()));
+
+            Assert.That(() => peptide.ReplaceModification(null, new ObjectWithMass100()),
+            Throws.TypeOf<ArgumentException>()
+            .With.Property("Message")
+            .EqualTo("Cannot replace a null modification"));
+
+            peptide.SetModification(new ObjectWithMass100(), new int[] { 1, 11 });
+            Assert.AreEqual(4, peptide.ModificationCount());
+
+            Modification mod1 = new Modification(5, "mass 5 on T", ModificationSites.T);
+            peptide.SetModifications(new List<Modification> { mod1 });
+            Assert.AreEqual(5, peptide.ModificationCount());
         }
 
         [Test]
