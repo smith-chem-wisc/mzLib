@@ -29,16 +29,9 @@ namespace IO.MzML
 {
     public class Mzml : MsDataFile<DefaultMzSpectrum>
     {
-        private static string _msnOrderAccession = "MS:1000511";
-        private static string _precursorCharge = "MS:1000041";
-        private static string _precursorMass = "MS:1000744";
-        private static string _isolationWindowTargetMZ = "MS:1000827";
-        private static string _isolationWindowLowerOffset = "MS:1000828";
-        private static string _isolationWindowUpperOffset = "MS:1000829";
-        private static string _retentionTime = "MS:1000016";
-        private static string _ionInjectionTime = "MS:1000927";
-        private static string _mzArray = "MS:1000514";
-        private static string _intensityArray = "MS:1000515";
+
+        #region Private Fields
+
         private const string _CID = "MS:1000133";
         private const string _ISCID = "MS:1001880";
         private const string _HCD = "MS:1000422";
@@ -69,22 +62,70 @@ namespace IO.MzML
         private const string _totalIonCurrent = "MS:1000285";
         private const string _scanWindowLowerLimit = "MS:1000501";
         private const string _scanWindowUpperLimit = "MS:1000500";
-
+        private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
+        private static string _msnOrderAccession = "MS:1000511";
+        private static string _precursorCharge = "MS:1000041";
+        private static string _precursorMass = "MS:1000744";
+        private static string _isolationWindowTargetMZ = "MS:1000827";
+        private static string _isolationWindowLowerOffset = "MS:1000828";
+        private static string _isolationWindowUpperOffset = "MS:1000829";
+        private static string _retentionTime = "MS:1000016";
+        private static string _ionInjectionTime = "MS:1000927";
+        private static string _mzArray = "MS:1000514";
+        private static string _intensityArray = "MS:1000515";
         private Generated.indexedmzML _indexedmzMLConnection;
         private Generated.mzMLType _mzMLConnection;
 
+        private int maxPeaksPerScan;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
         public Mzml(string filePath, int maxPeaksPerScan = int.MaxValue)
-            : base(filePath, true, MsDataFileType.Mzml)
+                    : base(filePath, true, MsDataFileType.Mzml)
         {
             this.maxPeaksPerScan = maxPeaksPerScan;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public bool IsIndexedMzML
+        {
+            get { return _indexedmzMLConnection != null; }
+        }
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public static byte[] ConvertDoublestoBase64(double[] toConvert, bool zlibCompressed)
+        {
+            var mem = new MemoryStream();
+            for (int i = 0; i < toConvert.Length; i++)
+            {
+                byte[] ok = BitConverter.GetBytes(toConvert[i]);
+                mem.Write(ok, 0, ok.Length);
+            }
+            mem.Position = 0;
+
+            byte[] bytes = mem.ToArray();
+            if (zlibCompressed)
+                bytes = ZlibStream.CompressBuffer(bytes);
+
+            return bytes;
         }
 
         public override void Open()
         {
             if (_mzMLConnection == null)
             {
-                Stream stream = new FileStream(FilePath, FileMode.Open);
-                _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
+                using (Stream stream = new FileStream(FilePath, FileMode.Open))
+                {
+                    _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
+                }
                 _mzMLConnection = _indexedmzMLConnection.mzML;
             }
         }
@@ -96,9 +137,145 @@ namespace IO.MzML
             _mzMLConnection = null;
         }
 
-        public bool IsIndexedMzML
+        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
-            get { return _indexedmzMLConnection != null; }
+            // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
+            int totalSpectra = Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
+            double bestDiff = double.MaxValue;
+            for (int i = 0; i < totalSpectra; i++)
+            {
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[i].scanList.scan[0].cvParam)
+                {
+                    if (cv.accession.Equals(_retentionTime))
+                    {
+                        double diff = Math.Abs(double.Parse(cv.value) - retentionTime);
+                        if (diff > bestDiff)
+                            return i;
+                        else
+                            bestDiff = diff;
+                    }
+                }
+            }
+            return totalSpectra;
+        }
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
+        protected override int GetNumSpectra()
+        {
+            return Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
+        }
+
+        protected override MsDataScan<DefaultMzSpectrum> GetMsDataOneBasedScanFromFile(int OneBasedSpectrumNumber)
+        {
+            double[] masses = null;
+            double[] intensities = null;
+
+            foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[OneBasedSpectrumNumber - 1].binaryDataArrayList.binaryDataArray)
+            {
+                bool compressed = false;
+                bool mzArray = false;
+                bool intensityArray = false;
+                bool is32bit = true;
+                foreach (Generated.CVParamType cv in binaryData.cvParam)
+                {
+                    if (cv.accession.Equals(_zlibCompression))
+                    {
+                        compressed = true;
+                    }
+                    if (cv.accession.Equals(_64bit))
+                    {
+                        is32bit = false;
+                    }
+                    if (cv.accession.Equals(_32bit))
+                    {
+                        is32bit = true;
+                    }
+                    if (cv.accession.Equals(_mzArray))
+                    {
+                        mzArray = true;
+                    }
+                    if (cv.accession.Equals(_intensityArray))
+                    {
+                        intensityArray = true;
+                    }
+                }
+
+                double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
+                if (mzArray)
+                {
+                    masses = data;
+                }
+
+                if (intensityArray)
+                {
+                    intensities = data;
+                }
+            }
+
+            if (masses == null || intensities == null)
+            {
+                throw new InvalidDataException("Unable to find spectral data for spectrum number " + OneBasedSpectrumNumber);
+            }
+
+            if (masses.Length > maxPeaksPerScan)
+            {
+                var cutoffIntensity = intensities.Quantile(1.0 - (double)maxPeaksPerScan / masses.Length);
+                List<double> newMasses = new List<double>(maxPeaksPerScan);
+                List<double> newIntensities = new List<double>(maxPeaksPerScan);
+                for (int i = 0; i < masses.Length; i++)
+                    if (intensities[i] >= cutoffIntensity)
+                    {
+                        newMasses.Add(masses[i]);
+                        newIntensities.Add(intensities[i]);
+                    }
+                masses = newMasses.ToArray();
+                intensities = newIntensities.ToArray();
+            }
+
+            var ok = new DefaultMzSpectrum(masses, intensities, false);
+
+            if (GetMsnOrder(OneBasedSpectrumNumber) == 1)
+                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber));
+            else
+                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber), GetPrecursorID(OneBasedSpectrumNumber), GetPrecursorMz(OneBasedSpectrumNumber), GetPrecusorCharge(OneBasedSpectrumNumber), GetPrecursorIntensity(OneBasedSpectrumNumber), GetIsolationMz(OneBasedSpectrumNumber), GetIsolationWidth(OneBasedSpectrumNumber), GetDissociationType(OneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(OneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(OneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(OneBasedSpectrumNumber));
+        }
+
+        #endregion Protected Methods
+
+        #region Private Methods
+
+        /// <summary>
+        /// Converts a 64-based encoded byte array into an double[]
+        /// </summary>
+        /// <param name="bytes">the 64-bit encoded byte array</param>
+        /// <param name="zlibCompressed">Specifies if the byte array is zlib compressed</param>
+        /// <returns>a decompressed, de-encoded double[]</returns>
+        private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
+        {
+            // Add capability of compressed data
+            if (zlibCompressed)
+                bytes = ZlibStream.UncompressBuffer(bytes);
+
+            int size = is32bit ? sizeof(float) : sizeof(double);
+
+            int length = bytes.Length / size;
+            double[] convertedArray = new double[length];
+
+            for (int i = 0; i < length; i++)
+            {
+                if (is32bit)
+                {
+                    convertedArray[i] = BitConverter.ToSingle(bytes, i * size);
+                }
+                else
+                {
+                    convertedArray[i] = BitConverter.ToDouble(bytes, i * size);
+                }
+            }
+            return convertedArray;
         }
 
         private DissociationType GetDissociationType(int oneBasedSpectrumNumber)
@@ -219,9 +396,6 @@ namespace IO.MzML
             return null;
         }
 
-        private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
-        private int maxPeaksPerScan;
-
         private MZAnalyzerType GetMzAnalyzer(int oneBasedSpectrumNumber)
         {
             string filter = GetOneBasedScanFilter(oneBasedSpectrumNumber);
@@ -338,81 +512,6 @@ namespace IO.MzML
             return -1;
         }
 
-        protected override int GetNumSpectra()
-        {
-            return Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
-        }
-
-        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
-        {
-            // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
-            int totalSpectra = Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
-            double bestDiff = double.MaxValue;
-            for (int i = 0; i < totalSpectra; i++)
-            {
-                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[i].scanList.scan[0].cvParam)
-                {
-                    if (cv.accession.Equals(_retentionTime))
-                    {
-                        double diff = Math.Abs(double.Parse(cv.value) - retentionTime);
-                        if (diff > bestDiff)
-                            return i;
-                        else
-                            bestDiff = diff;
-                    }
-                }
-            }
-            return totalSpectra;
-        }
-
-        public static byte[] ConvertDoublestoBase64(double[] toConvert, bool zlibCompressed)
-        {
-            var mem = new MemoryStream();
-            for (int i = 0; i < toConvert.Length; i++)
-            {
-                byte[] ok = BitConverter.GetBytes(toConvert[i]);
-                mem.Write(ok, 0, ok.Length);
-            }
-            mem.Position = 0;
-
-            byte[] bytes = mem.ToArray();
-            if (zlibCompressed)
-                bytes = ZlibStream.CompressBuffer(bytes);
-
-            return bytes;
-        }
-
-        /// <summary>
-        /// Converts a 64-based encoded byte array into an double[]
-        /// </summary>
-        /// <param name="bytes">the 64-bit encoded byte array</param>
-        /// <param name="zlibCompressed">Specifies if the byte array is zlib compressed</param>
-        /// <returns>a decompressed, de-encoded double[]</returns>
-        private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
-        {
-            // Add capability of compressed data
-            if (zlibCompressed)
-                bytes = ZlibStream.UncompressBuffer(bytes);
-
-            int size = is32bit ? sizeof(float) : sizeof(double);
-
-            int length = bytes.Length / size;
-            double[] convertedArray = new double[length];
-
-            for (int i = 0; i < length; i++)
-            {
-                if (is32bit)
-                {
-                    convertedArray[i] = BitConverter.ToSingle(bytes, i * size);
-                }
-                else
-                {
-                    convertedArray[i] = BitConverter.ToDouble(bytes, i * size);
-                }
-            }
-            return convertedArray;
-        }
-
         private bool GetIsCentroid(int spectrumNumber)
         {
             spectrumNumber--;
@@ -483,81 +582,6 @@ namespace IO.MzML
             return double.NaN;
         }
 
-        protected override MsDataScan<DefaultMzSpectrum> GetMsDataOneBasedScanFromFile(int OneBasedSpectrumNumber)
-        {
-            double[] masses = null;
-            double[] intensities = null;
-
-            foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[OneBasedSpectrumNumber - 1].binaryDataArrayList.binaryDataArray)
-            {
-                bool compressed = false;
-                bool mzArray = false;
-                bool intensityArray = false;
-                bool is32bit = true;
-                foreach (Generated.CVParamType cv in binaryData.cvParam)
-                {
-                    if (cv.accession.Equals(_zlibCompression))
-                    {
-                        compressed = true;
-                    }
-                    if (cv.accession.Equals(_64bit))
-                    {
-                        is32bit = false;
-                    }
-                    if (cv.accession.Equals(_32bit))
-                    {
-                        is32bit = true;
-                    }
-                    if (cv.accession.Equals(_mzArray))
-                    {
-                        mzArray = true;
-                    }
-                    if (cv.accession.Equals(_intensityArray))
-                    {
-                        intensityArray = true;
-                    }
-                }
-
-                double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
-                if (mzArray)
-                {
-                    masses = data;
-                }
-
-                if (intensityArray)
-                {
-                    intensities = data;
-                }
-            }
-
-            if (masses == null || intensities == null)
-            {
-                throw new InvalidDataException("Unable to find spectral data for spectrum number " + OneBasedSpectrumNumber);
-            }
-
-            if (masses.Length > maxPeaksPerScan)
-            {
-                var cutoffIntensity = intensities.Quantile(1.0 - (double)maxPeaksPerScan / masses.Length);
-                List<double> newMasses = new List<double>(maxPeaksPerScan);
-                List<double> newIntensities = new List<double>(maxPeaksPerScan);
-                for (int i = 0; i < masses.Length; i++)
-                    if (intensities[i] >= cutoffIntensity)
-                    {
-                        newMasses.Add(masses[i]);
-                        newIntensities.Add(intensities[i]);
-                    }
-                masses = newMasses.ToArray();
-                intensities = newIntensities.ToArray();
-            }
-
-            var ok = new DefaultMzSpectrum(masses, intensities, false);
-
-            if (GetMsnOrder(OneBasedSpectrumNumber) == 1)
-                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber));
-            else
-                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber), GetPrecursorID(OneBasedSpectrumNumber), GetPrecursorMz(OneBasedSpectrumNumber), GetPrecusorCharge(OneBasedSpectrumNumber), GetPrecursorIntensity(OneBasedSpectrumNumber), GetIsolationMz(OneBasedSpectrumNumber), GetIsolationWidth(OneBasedSpectrumNumber), GetDissociationType(OneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(OneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(OneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(OneBasedSpectrumNumber));
-        }
-
         private double GetPrecursorMonoisotopicIntensity(int spectrumNumber)
         {
             spectrumNumber--;
@@ -605,5 +629,8 @@ namespace IO.MzML
             } while (GetOneBasedScan(v).MsnOrder != 1);
             return v;
         }
+
+        #endregion Private Methods
+
     }
 }
