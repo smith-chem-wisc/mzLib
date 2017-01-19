@@ -10,6 +10,9 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
+
+        #region Public Methods
+
         [OneTimeSetUp]
         public void setup()
         {
@@ -36,7 +39,7 @@ namespace TestThermo
             var peak = spectrum.PeakWithHighestY;
             Assert.AreEqual(75501, peak.Intensity);
 
-            Assert.AreEqual(1, spectrum.newSpectrumFilterByY(7.5e4).Count);
+            Assert.AreEqual(1, spectrum.NewSpectrumFilterByY(7.5e4).Count);
             Assert.AreEqual(2, spectrum.NewSpectrumExtract(new DoubleRange(923, 928)).Count);
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
@@ -69,9 +72,9 @@ namespace TestThermo
             Assert.AreEqual(360, a.NumSpectra);
             var ok = a.GetOneBasedScan(1).MassSpectrum.GetNoises();
             Assert.AreEqual(2401.57, ok[0], 0.01);
-            ThermoSpectrum ok2 = a.GetOneBasedScan(1).MassSpectrum.newSpectrumExtract(0, 500);
-            Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.newSpectrumExtract(0, 500).LastX);
-            Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.newSpectrumFilterByY(5e6).Count);
+            ThermoSpectrum ok2 = a.GetOneBasedScan(1).MassSpectrum.NewSpectrumExtract(0, 500);
+            Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumExtract(0, 500).LastX);
+            Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumFilterByY(5e6).Count);
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
             Assert.AreEqual("(195.0874,1.0214E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
@@ -93,11 +96,11 @@ namespace TestThermo
             Assert.AreEqual(1, newSpectrum.GetCharges()[1]);
             Assert.AreEqual(102604, newSpectrum.GetResolutions()[1]);
 
-            Assert.AreEqual(181, newSpectrum.newSpectrumExtract(500, 1000).Count);
+            Assert.AreEqual(181, newSpectrum.NewSpectrumExtract(500, 1000).Count);
 
-            Assert.AreEqual(0, newSpectrum.newSpectrumExtract(-3, -2).Count);
+            Assert.AreEqual(0, newSpectrum.NewSpectrumExtract(-3, -2).Count);
 
-            var hm = newSpectrum.newSpectrumExtract(501, 502);
+            var hm = newSpectrum.NewSpectrumExtract(501, 502);
 
             Assert.AreEqual(0, hm.Count);
 
@@ -110,5 +113,8 @@ namespace TestThermo
 
             Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
         }
+
+        #endregion Public Methods
+
     }
 }

@@ -233,16 +233,6 @@ namespace Proteomics
         /// </summary>
         public static IEnumerable<Fragment> GetSiteDeterminingFragments(AminoAcidPolymer peptideA, AminoAcidPolymer peptideB, FragmentTypes types)
         {
-            if (peptideA == null)
-            {
-                // Only b is not null, return all of its fragments
-                if (peptideB != null)
-                    return peptideB.Fragment(types);
-                throw new ArgumentNullException("Both peptides cannot be null");
-            }
-            if (peptideB == null)
-                return peptideA.Fragment(types);
-
             HashSet<Fragment> aFrags = new HashSet<Fragment>(peptideA.Fragment(types));
             aFrags.SymmetricExceptWith(peptideB.Fragment(types));
             return aFrags;

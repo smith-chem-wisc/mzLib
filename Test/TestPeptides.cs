@@ -674,6 +674,18 @@ namespace Test
             Assert.AreEqual(1 + 3 + 1 + (8 - 1) + 1 + 1, yee.Count);
         }
 
+        [Test]
+        public void BadSeqeunce()
+        {
+            Assert.That(() => new Peptide("ABC"), Throws.TypeOf<ArgumentException>()
+            .With.Property("Message")
+            .EqualTo("Amino Acid Letter B does not exist in the Amino Acid Dictionary. B is also not a valid character"));
+
+            Assert.That(() => new Peptide("A["), Throws.TypeOf<ArgumentException>()
+            .With.Property("Message")
+            .EqualTo("Couldn't find the closing ] for a modification in this sequence: A["));
+        }
+
         #endregion Public Methods
 
         #region Private Classes
