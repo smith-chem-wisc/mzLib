@@ -373,6 +373,9 @@ namespace Test
             Peptide pepA = new Peptide("DEREK");
             Peptide pepB = new Peptide("DEREK");
             Assert.AreEqual(pepA, pepB);
+
+            Peptide pepC = new Peptide("DEREKK");
+            Assert.AreNotEqual(pepA, pepC);
         }
 
         [Test]
@@ -389,7 +392,8 @@ namespace Test
             Peptide pepA = new Peptide("DEREK");
             Peptide pepB = new Peptide("DEREK");
             pepB.SetModification(new ChemicalFormulaModification("H2O"), 'R');
-
+            Assert.AreNotEqual(pepA, pepB);
+            pepA.SetModification(new ChemicalFormulaModification("H2O2"), 'R');
             Assert.AreNotEqual(pepA, pepB);
         }
 
