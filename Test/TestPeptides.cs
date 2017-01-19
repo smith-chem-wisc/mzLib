@@ -459,6 +459,18 @@ namespace Test
         }
 
         [Test]
+        public void PeptideHashing()
+        {
+            Peptide pep1 = new Peptide("DEREK");
+            Peptide pep2 = new Peptide("DEREKN");
+            Peptide pep3 = new Peptide("DEREKM");
+            Peptide pep4 = new Peptide("DEREKM");
+            HashSet<Peptide> uu = new HashSet<Peptide> { pep1, pep2, pep3, pep4 };
+            uu.Add(new Peptide("DEREKN"));
+            Assert.AreEqual(3, uu.Count);
+        }
+
+        [Test]
         public void PeptideParitalClonelWithInternalModificationTwoMods()
         {
             Peptide pepA = new Peptide("DE[Al]R[Fe]EK");
