@@ -471,6 +471,20 @@ namespace Test
         }
 
         [Test]
+        public void ClearMods()
+        {
+            Peptide pepA = new Peptide("DE[Al]R[Fe]EK");
+            pepA.ClearModifications(new ChemicalFormulaModification("Al"));
+            Assert.AreEqual("DER[Fe]EK", pepA.ToString());
+            pepA.ClearModifications(new ChemicalFormulaModification("C"));
+            Assert.AreEqual("DER[Fe]EK", pepA.ToString());
+            pepA.ClearModifications();
+            Assert.AreEqual("DEREK", pepA.ToString());
+            pepA.ClearModifications();
+            Assert.AreEqual("DEREK", pepA.ToString());
+        }
+
+        [Test]
         public void PeptideParitalClonelWithInternalModificationTwoMods()
         {
             Peptide pepA = new Peptide("DE[Al]R[Fe]EK");
