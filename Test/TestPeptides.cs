@@ -126,6 +126,14 @@ namespace Test
             Peptide peptide = new Peptide("TTGSSSSSSSK[H2O]-[C2H3NO]");
 
             Assert.AreEqual("TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
+
+            peptide.NTerminus = new ChemicalFormulaTerminus("N");
+
+            Assert.AreEqual("TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
+
+            ChemicalFormula formulaA = new ChemicalFormula("C39H70N14O23");
+            var formulaB = peptide.GetChemicalFormula();
+            Assert.AreEqual(formulaA, formulaB);
         }
 
         [Test]

@@ -1154,9 +1154,6 @@ namespace Proteomics
 
         private void ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
         {
-            if (Equals(value, terminus))
-                return;
-
             if (terminus != null)
                 MonoisotopicMass -= terminus.MonoisotopicMass;
 
