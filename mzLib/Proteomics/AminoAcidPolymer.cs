@@ -959,9 +959,6 @@ namespace Proteomics
         /// <param name="location">The location to set the modification at</param>
         public virtual void AddModification(IHasMass modification, int location)
         {
-            if (location > Length + 1 || location < 0)
-                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, location));
-
             IHasMass currentMod = GetModification(location);
             ReplaceMod(location, currentMod == null ? modification : new ModificationCollection(currentMod, modification));
         }

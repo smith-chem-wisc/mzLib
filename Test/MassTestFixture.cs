@@ -41,6 +41,10 @@ namespace Test
                 return 100;
             }
         }
+        public override string ToString()
+        {
+            return "mass: 100";
+        }
     }
 
     [TestFixture]

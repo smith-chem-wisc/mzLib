@@ -134,6 +134,10 @@ namespace Test
             ChemicalFormula formulaA = new ChemicalFormula("C39H70N14O23");
             var formulaB = peptide.GetChemicalFormula();
             Assert.AreEqual(formulaA, formulaB);
+
+            peptide.AddModification(new ObjectWithMass100(), 0);
+
+            Assert.AreEqual("[mass: 100]-TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
         }
 
         [Test]
@@ -483,6 +487,8 @@ namespace Test
             pepA.ClearModifications();
             Assert.AreEqual("DEREK", pepA.ToString());
             pepA.ClearModifications(ModificationSites.Any);
+            Assert.AreEqual("DEREK", pepA.ToString());
+            pepA.ClearModifications(Terminus.C);
             Assert.AreEqual("DEREK", pepA.ToString());
         }
 
