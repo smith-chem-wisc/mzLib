@@ -37,7 +37,7 @@ namespace TestThermo
             Assert.AreEqual(75501, peak.Intensity);
 
             Assert.AreEqual(1, spectrum.newSpectrumFilterByY(7.5e4).Count);
-            Assert.AreEqual(2, spectrum.newSpectrumExtract(new DoubleRange(923, 928)).Count);
+            Assert.AreEqual(2, spectrum.NewSpectrumExtract(new DoubleRange(923, 928)).Count);
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 

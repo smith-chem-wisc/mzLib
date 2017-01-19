@@ -60,9 +60,9 @@ namespace Test
             DefaultMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             MsDataScan<IMzSpectrum<MzPeak>>[] Scans = new MsDataScan<IMzSpectrum<MzPeak>>[2];
-            Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.newSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
+            Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
 
-            Scans[1] = new MsDataScan<IMzSpectrum<MzPeak>>(2, MS2.newSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00002), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 0.32374, 693.6550);
+            Scans[1] = new MsDataScan<IMzSpectrum<MzPeak>>(2, MS2.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00002), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 0.32374, 693.6550);
 
             myMsDataFile = new FakeMsDataFile("myFakeFile", Scans);
 
@@ -240,7 +240,7 @@ namespace Test
             DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
 
             var chargeToLookAt = minCharge;
-            var correctedSpectrum = massSpectrum1.newSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
+            var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
 
             List<double> allMasses = new List<double>();
             List<double> allIntensitiess = new List<double>();
@@ -256,7 +256,7 @@ namespace Test
                     }
                 }
                 chargeToLookAt += 1;
-                correctedSpectrum = massSpectrum1.newSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
+                correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
             }
 
             var allMassesArray = allMasses.ToArray();
