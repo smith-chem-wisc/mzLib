@@ -482,6 +482,8 @@ namespace Test
             Assert.AreEqual("DEREK", pepA.ToString());
             pepA.ClearModifications();
             Assert.AreEqual("DEREK", pepA.ToString());
+            pepA.ClearModifications(ModificationSites.Any);
+            Assert.AreEqual("DEREK", pepA.ToString());
         }
 
         [Test]
