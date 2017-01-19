@@ -151,7 +151,7 @@ namespace Test
             Assert.AreEqual(1, thefile.NumSpectra);
             Assert.AreEqual(1, thefile.NumSpectra);
 
-            Assert.IsTrue(thefile.GetOneBasedScan(1).isCentroid);
+            Assert.IsTrue(thefile.GetOneBasedScan(1).IsCentroid);
 
             foreach (var ok in thefile.GetMsScans())
             {
@@ -242,7 +242,7 @@ namespace Test
             myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMZ(out hehehe1);
             Assert.AreNotEqual(0, hehehe1);
 
-            myMsDataFile.GetOneBasedScan(2).tranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, 0, 0);
+            myMsDataFile.GetOneBasedScan(2).TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, 0, 0);
 
             Assert.AreEqual("Scan #2", myMsDataFile.GetOneBasedScan(2).ToString());
 
@@ -254,7 +254,7 @@ namespace Test
 
             IEnumerable a = myMsDataFile;
             foreach (var b in a)
-                Assert.IsFalse((b as IMsDataScan<IMzSpectrum<MzPeak>>).isCentroid);
+                Assert.IsFalse((b as IMsDataScan<IMzSpectrum<MzPeak>>).IsCentroid);
             foreach (var b in myMsDataFile)
                 Assert.AreEqual(Polarity.Positive, b.Polarity);
         }

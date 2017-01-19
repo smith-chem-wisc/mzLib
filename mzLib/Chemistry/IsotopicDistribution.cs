@@ -43,22 +43,21 @@ namespace Chemistry
     /// </remarks>
     public class IsotopicDistribution
     {
+
+        #region Private Fields
+
         private const double defaultFineResolution = 0.01;
         private const double defaultMinProbability = 1e-200;
         private const double defaultMolecularWeightResolution = 1e-12;
 
+        private static readonly double[] factorLnArray = new double[50003];
+        private static int _factorLnTop = 1;
         private double[] masses;
         private double[] intensities;
 
-        public ReadOnlyCollection<double> Masses
-        {
-            get { return new ReadOnlyCollection<double>(masses); }
-        }
+        #endregion Private Fields
 
-        public ReadOnlyCollection<double> Intensities
-        {
-            get { return new ReadOnlyCollection<double>(intensities); }
-        }
+        #region Public Constructors
 
         public IsotopicDistribution(ChemicalFormula formula) : this(ValidateFormulaForIsotopologueComputation(formula), defaultFineResolution, defaultMinProbability, defaultMolecularWeightResolution)
         {
@@ -82,7 +81,7 @@ namespace Chemistry
             List<List<Composition>> elementalComposition = new List<List<Composition>>();
 
             // Get all the unique elements that might have isotopes
-            foreach (var elementAndCount in formula.elements)
+            foreach (var elementAndCount in formula.Elements)
             {
                 int count = elementAndCount.Value;
                 List<Composition> isotopeComposition = new List<Composition>();
@@ -114,12 +113,30 @@ namespace Chemistry
             CalculateFineGrain(elementalComposition, molecularWeightResolution, _mergeFineResolution, fineResolution, minProbability);
 
             double additionalMass = 0;
-            foreach (var isotopeAndCount in formula.isotopes)
+            foreach (var isotopeAndCount in formula.Isotopes)
                 additionalMass += isotopeAndCount.Key.AtomicMass * isotopeAndCount.Value;
 
             for (int i = 0; i < Masses.Count(); i++)
                 masses[i] += additionalMass;
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public ReadOnlyCollection<double> Masses
+        {
+            get { return new ReadOnlyCollection<double>(masses); }
+        }
+
+        public ReadOnlyCollection<double> Intensities
+        {
+            get { return new ReadOnlyCollection<double>(intensities); }
+        }
+
+        #endregion Public Properties
+
+        #region Private Methods
 
         private static ChemicalFormula ValidateFormulaForIsotopologueComputation(ChemicalFormula formula)
         {
@@ -137,29 +154,6 @@ namespace Chemistry
         private static Tuple<double, double> GetNewFineAndMergeResolutions(double monoisotopicMass, double fineResolution)
         {
             return new Tuple<double, double>(fineResolution / 2.0, fineResolution);
-        }
-
-        private void CalculateFineGrain(List<List<Composition>> elementalComposition, double _mwResolution, double _mergeFineResolution, double _fineResolution, double _fineMinProb)
-        {
-            List<Polynomial> fPolynomial = MultiplyFinePolynomial(elementalComposition, _fineResolution, _mwResolution, _fineMinProb);
-            fPolynomial = MergeFinePolynomial(fPolynomial, _mwResolution, _mergeFineResolution);
-
-            // Convert polynomial to spectrum
-            int count = fPolynomial.Count;
-            masses = new double[count];
-            intensities = new double[count];
-            double totalProbability = 0;
-            double basePeak = 0;
-            int i = 0;
-            foreach (Polynomial polynomial in fPolynomial)
-            {
-                totalProbability += polynomial.Probablity;
-                if (polynomial.Probablity > basePeak)
-                    basePeak = polynomial.Probablity;
-                masses[i] = polynomial.Power * _mwResolution;
-                intensities[i] = polynomial.Probablity;
-                i++;
-            }
         }
 
         private static List<Polynomial> MergeFinePolynomial(List<Polynomial> tPolynomial, double _mwResolution, double _mergeFineResolution)
@@ -349,7 +343,7 @@ namespace Chemistry
                         tPolynomial.Add(new Polynomial { Power = fgidPolynomial[i].Power / fgidPolynomial[i].Probablity, Probablity = fgidPolynomial[i].Probablity });
                 }
 
-                fgidPolynomial[i] = new Polynomial { Probablity = double.NaN, Power = double.NaN }; ;
+                fgidPolynomial[i] = new Polynomial { Probablity = double.NaN, Power = double.NaN };
             }
 
             if (j < index)
@@ -389,10 +383,6 @@ namespace Chemistry
             }
         }
 
-        private static readonly double[] factorLnArray = new double[50003];
-
-        private static int _factorLnTop = 1;
-
         private static double FactorLn(int n)
         {
             if (n <= 1)
@@ -405,20 +395,66 @@ namespace Chemistry
             return factorLnArray[n];
         }
 
+        private void CalculateFineGrain(List<List<Composition>> elementalComposition, double _mwResolution, double _mergeFineResolution, double _fineResolution, double _fineMinProb)
+        {
+            List<Polynomial> fPolynomial = MultiplyFinePolynomial(elementalComposition, _fineResolution, _mwResolution, _fineMinProb);
+            fPolynomial = MergeFinePolynomial(fPolynomial, _mwResolution, _mergeFineResolution);
+
+            // Convert polynomial to spectrum
+            int count = fPolynomial.Count;
+            masses = new double[count];
+            intensities = new double[count];
+            double totalProbability = 0;
+            double basePeak = 0;
+            int i = 0;
+            foreach (Polynomial polynomial in fPolynomial)
+            {
+                totalProbability += polynomial.Probablity;
+                if (polynomial.Probablity > basePeak)
+                    basePeak = polynomial.Probablity;
+                masses[i] = polynomial.Power * _mwResolution;
+                intensities[i] = polynomial.Probablity;
+                i++;
+            }
+        }
+
+        #endregion Private Methods
+
+        #region Private Structs
+
+        // TODO: Benchmark class vs struct here...
+        private struct Polynomial
+        {
+
+            #region Public Fields
+
+            public double Power;
+            public double Probablity;
+
+            #endregion Public Fields
+
+        }
+
+        #endregion Private Structs
+
+        #region Private Classes
+
         private class Composition
         {
+
+            #region Public Fields
+
             public double Power;
             public double Probability;
             public double LogProbability;
             public double MolecularWeight;
             public int Atoms;
+
+            #endregion Public Fields
+
         }
 
-        // TODO: Benchmark class vs struct here...
-        private struct Polynomial
-        {
-            public double Power;
-            public double Probablity;
-        }
+        #endregion Private Classes
+
     }
 }

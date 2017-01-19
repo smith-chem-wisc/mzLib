@@ -1043,10 +1043,10 @@ namespace Proteomics
 
         #region Private Methods
 
-        private bool ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
+        private void ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
         {
             if (Equals(value, terminus))
-                return false;
+                return;
 
             if (terminus != null)
                 MonoisotopicMass -= terminus.MonoisotopicMass;
@@ -1055,8 +1055,6 @@ namespace Proteomics
 
             if (value != null)
                 MonoisotopicMass += value.MonoisotopicMass;
-
-            return true;
         }
 
         /// <summary>
@@ -1064,7 +1062,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="index">The residue index to replace at</param>
         /// <param name="mod">The modification to replace with</param>
-        private bool ReplaceMod(int index, IHasMass mod)
+        private void ReplaceMod(int index, IHasMass mod)
         {
             // No error checking here as all validation will occur before this method is call. This is to prevent
             // unneeded bounds checking
@@ -1077,7 +1075,7 @@ namespace Proteomics
             IHasMass oldMod = _modifications[index]; // Get the mod at the index, if present
 
             if (Equals(mod, oldMod))
-                return false; // Same modifications, no change is required
+                return; // Same modifications, no change is required
 
             if (oldMod != null)
                 MonoisotopicMass -= oldMod.MonoisotopicMass; // remove the old mod mass
@@ -1086,8 +1084,6 @@ namespace Proteomics
 
             if (mod != null)
                 MonoisotopicMass += mod.MonoisotopicMass; // add the new mod mass
-
-            return true;
         }
 
         private class ModWithOnlyMass : IHasMass

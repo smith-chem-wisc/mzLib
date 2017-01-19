@@ -23,12 +23,23 @@ namespace MassSpectrometry
 {
     public class FakeMsDataFile : MsDataFile<IMzSpectrum<MzPeak>>
     {
-        private MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans;
+
+        #region Private Fields
+
+        private readonly MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans;
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         public FakeMsDataFile(string filePath, MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans) : base(filePath, true, MsDataFileType.UnKnown)
         {
             this.FakeScans = FakeScans;
         }
+
+        #endregion Public Constructors
+
+        #region Public Methods
 
         public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
@@ -42,6 +53,14 @@ namespace MassSpectrometry
         {
         }
 
+        public override void Close()
+        {
+        }
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
         protected override int GetNumSpectra()
         {
             return FakeScans.Count();
@@ -52,8 +71,7 @@ namespace MassSpectrometry
             return FakeScans[oneBasedSpectrumNumber - 1];
         }
 
-        public override void Close()
-        {
-        }
+        #endregion Protected Methods
+
     }
 }

@@ -54,9 +54,9 @@ namespace MassSpectrometry
 
         public string ScanFilter { get; private set; }
 
-        public bool isCentroid { get; private set; }
+        public bool IsCentroid { get; private set; }
 
-        public string id { get; private set; }
+        public string Id { get; private set; }
 
         public double InjectionTime { get; private set; }
 
@@ -66,9 +66,9 @@ namespace MassSpectrometry
         {
             this.OneBasedScanNumber = OneBasedScanNumber;
             this.MassSpectrum = MassSpectrum;
-            this.id = id;
+            this.Id = id;
             this.MsnOrder = MsnOrder;
-            this.isCentroid = isCentroid;
+            this.IsCentroid = isCentroid;
             this.Polarity = Polarity;
             this.RetentionTime = RetentionTime;
             this.ScanWindowRange = ScanWindowRange;
@@ -201,7 +201,7 @@ namespace MassSpectrometry
             return true;
         }
 
-        public void tranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ)
+        public void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ)
         {
             MassSpectrum.replaceXbyApplyingFunction(convertorForSpectrum);
             this.selectedIonGuessMZ = selectedIonGuessMZ;

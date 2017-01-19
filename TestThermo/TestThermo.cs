@@ -28,7 +28,7 @@ namespace TestThermo
             var scan = a.GetOneBasedScan(53);
             Assert.AreEqual(1.2623333333333333, scan.RetentionTime);
             Assert.AreEqual(1, scan.MsnOrder);
-            Assert.AreEqual("controllerType=0 controllerNumber=1 scan=53", scan.id);
+            Assert.AreEqual("controllerType=0 controllerNumber=1 scan=53", scan.Id);
             Assert.AreEqual("+ c ESI Full ms [400.00-2000.00]", scan.ScanFilter);
 
             var spectrum = a.GetOneBasedScan(53).MassSpectrum;
