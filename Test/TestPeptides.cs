@@ -28,8 +28,15 @@ namespace Test
     [TestFixture]
     public sealed class TestPeptides
     {
+
+        #region Private Fields
+
         private Peptide _mockPeptideEveryAminoAcid;
         private Peptide _mockTrypticPeptide;
+
+        #endregion Private Fields
+
+        #region Public Methods
 
         [SetUp]
         public void SetUp()
@@ -641,10 +648,30 @@ namespace Test
             Peptide a = new Peptide("LDNLQQEIDFLTALYQAELSQM[O]QTQISETNVILSM[O]DNNR");
             Assert.AreEqual(2, a.ModificationCount());
         }
+
+        [Test]
+        public void TestGetDigestionPointsWithMethionine()
+        {
+            var ok = AminoAcidPolymer.GetDigestionPoints("MDERLEKDERLE", new List<TestProtease> { new TestProtease() }, 0, 0, 10000, true, false).ToList();
+            Assert.AreEqual(1, ok[0].Index); // Methionine cleaved, digestion is at 1
+            Assert.AreEqual(4, ok[0].Length); // The test protease cleaves at index 4, so after L.
+            Assert.AreEqual(0, ok[1].Index); // Regular digestion 1
+            Assert.AreEqual(5, ok[1].Length); // Regular digestion 1
+            Assert.AreEqual(5, ok[2].Index); // Regular digestion 2
+            Assert.AreEqual(1, ok[2].Length); // Regular digestion 2
+            Assert.AreEqual(6, ok[3].Index); // Regular digestion 3
+            Assert.AreEqual(6, ok[3].Length); // Regular digestion 3
+        }
+
+        #endregion Public Methods
+
     }
 
     internal class TestProtease : IProtease
     {
+
+        #region Public Methods
+
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)
         {
             return GetDigestionSites(aminoAcidSequence.BaseSequence);
@@ -665,5 +692,8 @@ namespace Test
         {
             throw new NotImplementedException();
         }
+
+        #endregion Public Methods
+
     }
 }
