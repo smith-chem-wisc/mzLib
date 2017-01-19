@@ -27,8 +27,15 @@ namespace MzIdentML
 {
     public class MzidIdentifications : Identifications
     {
+
+        #region Private Fields
+
         private mzIdentML.Generated.MzIdentMLType dd = null;
         private mzIdentML110.Generated.MzIdentMLType dd110 = null;
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         public MzidIdentifications(string mzidFile)
         {
@@ -52,43 +59,11 @@ namespace MzIdentML
             }
         }
 
-        public double calculatedMassToCharge(int sirIndex)
-        {
-            try
-            {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
-            }
-            catch
-            {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
-            }
-        }
+        #endregion Public Constructors
 
-        public int chargeState(int sirIndex)
-        {
-            try
-            {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
-            }
-            catch
-            {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
-            }
-        }
+        #region Public Properties
 
-        public double experimentalMassToCharge(int sirIndex)
-        {
-            try
-            {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
-            }
-            catch
-            {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
-            }
-        }
-
-        public Tolerance parentTolerance
+        public Tolerance ParentTolerance
         {
             get
             {
@@ -111,7 +86,7 @@ namespace MzIdentML
             }
         }
 
-        public Tolerance fragmentTolerance
+        public Tolerance FragmentTolerance
         {
             get
             {
@@ -149,6 +124,46 @@ namespace MzIdentML
             }
         }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public double CalculatedMassToCharge(int sirIndex)
+        {
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+            }
+        }
+
+        public int ChargeState(int sirIndex)
+        {
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+            }
+        }
+
+        public double ExperimentalMassToCharge(int sirIndex)
+        {
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+            }
+        }
+
         public bool isDecoy(int sirIndex)
         {
             try
@@ -163,7 +178,7 @@ namespace MzIdentML
             }
         }
 
-        public bool passThreshold(int sirIndex)
+        public bool PassThreshold(int sirIndex)
         {
             try
             {
@@ -175,7 +190,7 @@ namespace MzIdentML
             }
         }
 
-        public string modificationAcession(int sirIndex, int i)
+        public string ModificationAcession(int sirIndex, int i)
         {
             try
             {
@@ -201,7 +216,7 @@ namespace MzIdentML
             }
         }
 
-        public string modificationDictionary(int sirIndex, int i)
+        public string ModificationDictionary(int sirIndex, int i)
         {
             try
             {
@@ -231,7 +246,7 @@ namespace MzIdentML
             }
         }
 
-        public int modificationLocation(int sirIndex, int i)
+        public int ModificationLocation(int sirIndex, int i)
         {
             try
             {
@@ -329,7 +344,7 @@ namespace MzIdentML
             }
         }
 
-        public string ms2spectrumID(int sirIndex)
+        public string Ms2spectrumID(int sirIndex)
         {
             try
             {
@@ -361,9 +376,16 @@ namespace MzIdentML
             }
         }
 
+        #endregion Public Methods
+
+        #region Private Methods
+
         private static int GetLastNumberFromString(string s)
         {
             return Convert.ToInt32(Regex.Match(s, @"\d+$").Value);
         }
+
+        #endregion Private Methods
+
     }
 }

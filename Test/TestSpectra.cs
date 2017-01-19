@@ -28,7 +28,14 @@ namespace Test
     [TestFixture]
     public sealed class SpectrumTestFixture
     {
+
+        #region Private Fields
+
         private DefaultMzSpectrum _mzSpectrumA;
+
+        #endregion Private Fields
+
+        #region Public Methods
 
         [SetUp]
         public void Setup()
@@ -38,8 +45,6 @@ namespace Test
 
             _mzSpectrumA = new DefaultMzSpectrum(mz, intensities, false);
         }
-
-        #region Properties
 
         [Test]
         public void SpectrumCount()
@@ -58,8 +63,6 @@ namespace Test
         {
             Assert.AreEqual(723.35345, _mzSpectrumA.LastX);
         }
-
-        #endregion Properties
 
         [Test]
         public void SpectrumBasePeakIntensity()
@@ -109,8 +112,6 @@ namespace Test
             Assert.AreEqual(482.90393, intensity);
         }
 
-        #region Contains Peak
-
         [Test]
         public void SpectrumContainsPeak()
         {
@@ -146,8 +147,6 @@ namespace Test
         {
             Assert.AreEqual(0, _mzSpectrumA.NumPeaksWithinRange(603.4243 - 0.001, 603.4243 + 0.001));
         }
-
-        #endregion Contains Peak
 
         [Test]
         public void SpectrumMassRange()
@@ -367,33 +366,33 @@ namespace Test
 
             Assert.AreEqual("[1 - 7] (Peaks 7)", thisSpectrum.ToString());
 
-            Assert.AreEqual(7, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(7).Count);
-            Assert.AreEqual(1, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(1).Count);
-            Assert.AreEqual(4, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(1).FirstX);
+            Assert.AreEqual(7, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(7).Count);
+            Assert.AreEqual(1, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(1).Count);
+            Assert.AreEqual(4, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(1).FirstX);
 
-            Assert.AreEqual(2, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(3).FirstX);
+            Assert.AreEqual(2, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(3).FirstX);
 
-            Assert.AreEqual(0, thisSpectrum.newSpectrumFilterByNumberOfMostIntense(0).Count);
+            Assert.AreEqual(0, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(0).Count);
 
-            Assert.AreEqual(2, thisSpectrum.newSpectrumWithRangeRemoved(2, 6).Count);
-            Assert.AreEqual(0, thisSpectrum.newSpectrumWithRangeRemoved(0, 100).Count);
+            Assert.AreEqual(2, thisSpectrum.NewSpectrumWithRangeRemoved(2, 6).Count);
+            Assert.AreEqual(0, thisSpectrum.NewSpectrumWithRangeRemoved(0, 100).Count);
 
-            Assert.AreEqual(6, thisSpectrum.newSpectrumWithRangeRemoved(7, 100).Count);
+            Assert.AreEqual(6, thisSpectrum.NewSpectrumWithRangeRemoved(7, 100).Count);
 
-            Assert.AreEqual(1, thisSpectrum.newSpectrumWithRangeRemoved(new DoubleRange(double.MinValue, 6)).Count);
+            Assert.AreEqual(1, thisSpectrum.NewSpectrumWithRangeRemoved(new DoubleRange(double.MinValue, 6)).Count);
 
             List<DoubleRange> xRanges = new List<DoubleRange>();
             xRanges.Add(new DoubleRange(2, 5));
             xRanges.Add(new DoubleRange(3, 6));
-            Assert.AreEqual(2, thisSpectrum.newSpectrumWithRangesRemoved(xRanges).Count);
+            Assert.AreEqual(2, thisSpectrum.NewSpectrumWithRangesRemoved(xRanges).Count);
 
-            Assert.AreEqual(3, thisSpectrum.newSpectrumExtract(new DoubleRange(4.5, 10)).Count);
+            Assert.AreEqual(3, thisSpectrum.NewSpectrumExtract(new DoubleRange(4.5, 10)).Count);
 
-            Assert.AreEqual(2, thisSpectrum.newSpectrumFilterByY(new DoubleRange(1.5, 2.5)).Count);
+            Assert.AreEqual(2, thisSpectrum.NewSpectrumFilterByY(new DoubleRange(1.5, 2.5)).Count);
 
-            Assert.AreEqual(3, thisSpectrum.newSpectrumFilterByY(1.5, double.MaxValue).Count);
+            Assert.AreEqual(3, thisSpectrum.NewSpectrumFilterByY(1.5, double.MaxValue).Count);
 
-            Assert.AreEqual(2, thisSpectrum.newSpectrumApplyFunctionToX(b => b * 2).FirstX);
+            Assert.AreEqual(2, thisSpectrum.NewSpectrumApplyFunctionToX(b => b * 2).FirstX);
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(6.6).X);
 
@@ -410,5 +409,8 @@ namespace Test
             }
             Assert.AreEqual(1 + 2 + 3 + 4 + 5 + 6 + 7, dudu);
         }
+
+        #endregion Public Methods
+
     }
 }
