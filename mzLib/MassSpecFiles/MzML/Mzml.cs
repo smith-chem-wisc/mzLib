@@ -100,23 +100,6 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static byte[] ConvertDoublestoBase64(double[] toConvert, bool zlibCompressed)
-        {
-            var mem = new MemoryStream();
-            for (int i = 0; i < toConvert.Length; i++)
-            {
-                byte[] ok = BitConverter.GetBytes(toConvert[i]);
-                mem.Write(ok, 0, ok.Length);
-            }
-            mem.Position = 0;
-
-            byte[] bytes = mem.ToArray();
-            if (zlibCompressed)
-                bytes = ZlibStream.CompressBuffer(bytes);
-
-            return bytes;
-        }
-
         public override void Open()
         {
             if (_mzMLConnection == null)

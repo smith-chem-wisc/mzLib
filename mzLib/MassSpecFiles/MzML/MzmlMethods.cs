@@ -284,7 +284,7 @@ namespace IO.MzML
 
                 // M/Z Data
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].binary = Mzml.ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.xArray, false);
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].binary = ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.xArray);
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].encodedLength = (4 * Math.Ceiling(((double)_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].binary.Length / 3))).ToString();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam = new Generated.CVParamType[2];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam[0] = new Generated.CVParamType();
@@ -299,7 +299,7 @@ namespace IO.MzML
 
                 // Intensity Data
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1] = new Generated.BinaryDataArrayType();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].binary = Mzml.ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.yArray, false);
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].binary = ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.yArray);
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].encodedLength = (4 * Math.Ceiling(((double)_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].binary.Length / 3))).ToString();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam = new Generated.CVParamType[2];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam[0] = new Generated.CVParamType();
@@ -316,7 +316,26 @@ namespace IO.MzML
             Write(outputFile, _indexedmzMLConnection);
         }
 
-        public static void Write(string filePath, Generated.indexedmzML _indexedmzMLConnection)
+        #endregion Public Methods
+
+        #region Private Methods
+
+        private static byte[] ConvertDoublestoBase64(double[] toConvert)
+        {
+            var mem = new MemoryStream();
+            for (int i = 0; i < toConvert.Length; i++)
+            {
+                byte[] ok = BitConverter.GetBytes(toConvert[i]);
+                mem.Write(ok, 0, ok.Length);
+            }
+            mem.Position = 0;
+
+            byte[] bytes = mem.ToArray();
+
+            return bytes;
+        }
+
+        private static void Write(string filePath, Generated.indexedmzML _indexedmzMLConnection)
         {
             using (TextWriter writer = new StreamWriter(filePath))
             {
@@ -324,7 +343,7 @@ namespace IO.MzML
             }
         }
 
-        #endregion Public Methods
+        #endregion Private Methods
 
     }
 }
