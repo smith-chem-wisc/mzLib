@@ -8,8 +8,15 @@ namespace IO.MzML
 {
     public static class MzmlMethods
     {
+
+        #region Internal Fields
+
         internal static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
         internal static XmlSerializer _mzMLSerializer = new XmlSerializer(typeof(Generated.mzMLType));
+
+        #endregion Internal Fields
+
+        #region Public Methods
 
         public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(IMsDataFile<IMzSpectrum<MzPeak>> myMsDataFile, string outputFile)
         {
@@ -311,9 +318,13 @@ namespace IO.MzML
 
         public static void Write(string filePath, Generated.indexedmzML _indexedmzMLConnection)
         {
-            TextWriter writer = new StreamWriter(filePath);
-            _indexedSerializer.Serialize(writer, _indexedmzMLConnection);
-            writer.Close();
+            using (TextWriter writer = new StreamWriter(filePath))
+            {
+                _indexedSerializer.Serialize(writer, _indexedmzMLConnection);
+            }
         }
+
+        #endregion Public Methods
+
     }
 }
