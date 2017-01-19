@@ -671,7 +671,6 @@ namespace Test
             IEqualityComparer<DigestionPointAndLength> jj = new OkComparer();
             var yee = new HashSet<DigestionPointAndLength>(ok, jj);
 
-            Console.WriteLine(string.Join(" ; ", yee.Select(b => "(" + b.Index + "," + b.Length + ")")));
             Assert.AreEqual(1 + 3 + 1 + (8 - 1) + 1 + 1, yee.Count);
         }
 

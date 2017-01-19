@@ -275,24 +275,18 @@ namespace Proteomics
                 {
                     int len = indices[i + offset] - indices[i];
 
-                    Console.WriteLine("len = " + len);
-
                     // Case for initiator methionine
                     if (indices[i] == -1 && includeMethionineCut)
                     {
-                        Console.WriteLine("Case for initiator methionine:");
                         int newLength = len - 1;
                         if (newLength >= minLength && newLength <= maxLength)
                         {
-                            Console.WriteLine("  " + (1) + "," + (newLength));
                             yield return new DigestionPointAndLength(1, newLength); if (semiDigestion)
                             {
-                                Console.WriteLine("Semi:");
                                 for (int j = 1; j < newLength; j++)
                                 {
                                     if (j >= minLength && j <= maxLength)
                                     {
-                                        Console.WriteLine(" " + (1) + "," + j);
                                         yield return new DigestionPointAndLength(1, j);
                                     }
                                 }
@@ -300,26 +294,20 @@ namespace Proteomics
                         }
                     }
 
-                    Console.WriteLine("Reg case: i = " + i);
-
                     if (len < minLength || len > maxLength)
                         continue;
 
-                    Console.WriteLine((indices[i] + 1) + "," + len);
                     yield return new DigestionPointAndLength(indices[i] + 1, len);
                     if (semiDigestion)
                     {
-                        Console.WriteLine("Semi:");
                         for (int j = 1; j < len; j++)
                         {
                             if (len - j >= minLength && len - j <= maxLength)
                             {
-                                Console.WriteLine(" " + (indices[i] + 1 + j) + "," + (len - j));
                                 yield return new DigestionPointAndLength(indices[i] + 1 + j, len - j);
                             }
                             if (j >= minLength && j <= maxLength)
                             {
-                                Console.WriteLine(" " + (indices[i] + 1) + "," + j);
                                 yield return new DigestionPointAndLength(indices[i] + 1, j);
                             }
                         }

@@ -109,7 +109,6 @@ namespace IO.Thermo
             {
                 int n = 0;
                 _rawConnection.GetNumInstMethods(ref n);
-                Console.WriteLine("number of instrument methods:" + n);
 
                 string s;
                 for (int i = 0; i < n; i++)

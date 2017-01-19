@@ -46,15 +46,9 @@ namespace Test
             ChemicalFormulaModification carbamidomethylationOfCMod = new ChemicalFormulaModification("H3C2NO", "carbamidomethylation of C", ModificationSites.C);
             peptide.AddModification(carbamidomethylationOfCMod);
 
-            Console.WriteLine("Created modified peptide");
-
             DefaultMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
 
-            Console.WriteLine("Created ms1");
-
             DefaultMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
-
-            Console.WriteLine("Created ms2");
 
             MsDataScan<IMzSpectrum<MzPeak>>[] Scans = new MsDataScan<IMzSpectrum<MzPeak>>[2];
             Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.newSpectrumApplyFunctionToX(b => b + 0.000001 * b + 0.000001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
@@ -244,8 +238,6 @@ namespace Test
         {
             IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
 
-            Console.WriteLine("f=" + f.Formula);
-            Console.WriteLine("isodist.Intensities.Count=" + isodist.Intensities.Count);
             IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
             massSpectrum1 = massSpectrum1.newSpectrumFilterByNumberOfMostIntense(5);
 
