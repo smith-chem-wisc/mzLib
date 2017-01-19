@@ -24,18 +24,25 @@ namespace MassSpectrometry
     public interface IMsDataScan<out TSpectrum>
         where TSpectrum : IMzSpectrum<MzPeak>
     {
+
+        #region Public Properties
+
         TSpectrum MassSpectrum { get; }
         int OneBasedScanNumber { get; }
         int MsnOrder { get; }
         double RetentionTime { get; }
         MzRange ScanWindowRange { get; }
         string ScanFilter { get; }
-        string id { get; }
-        bool isCentroid { get; }
+        string Id { get; }
+        bool IsCentroid { get; }
         double InjectionTime { get; }
         double TotalIonCurrent { get; }
         Polarity Polarity { get; }
         MZAnalyzerType MzAnalyzer { get; }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         bool TryGetPrecursorOneBasedScanNumber(out int precursorOneBasedScanNumber);
 
@@ -59,6 +66,9 @@ namespace MassSpectrometry
 
         bool TryGetIsolationRange(out MzRange IsolationRange);
 
-        void tranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
+        void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
+
+        #endregion Public Methods
+
     }
 }

@@ -12,7 +12,6 @@ namespace IO.MzML
         #region Internal Fields
 
         internal static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
-        internal static XmlSerializer _mzMLSerializer = new XmlSerializer(typeof(Generated.mzMLType));
 
         #endregion Internal Fields
 
@@ -94,7 +93,7 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].defaultArrayLength = myMsDataFile.GetOneBasedScan(i).MassSpectrum.Count;
 
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].index = i.ToString();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].id = myMsDataFile.GetOneBasedScan(i).id;
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].id = myMsDataFile.GetOneBasedScan(i).Id;
 
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam = new Generated.CVParamType[8];
 
@@ -192,7 +191,7 @@ namespace IO.MzML
 
                 // Centroid?
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2] = new Generated.CVParamType();
-                if (myMsDataFile.GetOneBasedScan(i).isCentroid)
+                if (myMsDataFile.GetOneBasedScan(i).IsCentroid)
                 {
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].name = "centroid spectrum";
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].accession = "MS:1000127";
@@ -220,7 +219,7 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4].name = "spectrum title";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4].accession = "MS:1000796";
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4].value = myMsDataFile.GetOneBasedScan(i).id;
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4].value = myMsDataFile.GetOneBasedScan(i).Id;
 
                 if ((myMsDataFile.GetOneBasedScan(i).MassSpectrum.Count) > 0)
                 {

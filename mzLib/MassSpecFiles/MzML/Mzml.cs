@@ -62,21 +62,20 @@ namespace IO.MzML
         private const string _totalIonCurrent = "MS:1000285";
         private const string _scanWindowLowerLimit = "MS:1000501";
         private const string _scanWindowUpperLimit = "MS:1000500";
+        private const string _msnOrderAccession = "MS:1000511";
+        private const string _precursorCharge = "MS:1000041";
+        private const string _precursorMass = "MS:1000744";
+        private const string _isolationWindowTargetMZ = "MS:1000827";
+        private const string _isolationWindowLowerOffset = "MS:1000828";
+        private const string _isolationWindowUpperOffset = "MS:1000829";
+        private const string _retentionTime = "MS:1000016";
+        private const string _ionInjectionTime = "MS:1000927";
+        private const string _mzArray = "MS:1000514";
+        private const string _intensityArray = "MS:1000515";
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
-        private static string _msnOrderAccession = "MS:1000511";
-        private static string _precursorCharge = "MS:1000041";
-        private static string _precursorMass = "MS:1000744";
-        private static string _isolationWindowTargetMZ = "MS:1000827";
-        private static string _isolationWindowLowerOffset = "MS:1000828";
-        private static string _isolationWindowUpperOffset = "MS:1000829";
-        private static string _retentionTime = "MS:1000016";
-        private static string _ionInjectionTime = "MS:1000927";
-        private static string _mzArray = "MS:1000514";
-        private static string _intensityArray = "MS:1000515";
+        private readonly int maxPeaksPerScan;
         private Generated.indexedmzML _indexedmzMLConnection;
         private Generated.mzMLType _mzMLConnection;
-
-        private int maxPeaksPerScan;
 
         #endregion Private Fields
 

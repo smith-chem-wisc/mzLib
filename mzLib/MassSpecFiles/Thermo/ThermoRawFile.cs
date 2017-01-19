@@ -31,26 +31,30 @@ namespace IO.Thermo
 {
     public class ThermoRawFile : MsDataFile<ThermoSpectrum>
     {
-        internal enum RawLabelDataColumn
+
+        #region Private Fields
+
+        private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
+
+        private static readonly Regex _msxRegex = new Regex(@"([\d.]+)@", RegexOptions.Compiled);
+
+        private readonly int maxPeaksPerScan;
+
+        private IXRawfile5 _rawConnection;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
+        public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
+            : base(filePath, true, MsDataFileType.ThermoRawFile)
         {
-            MZ = 0,
-            Intensity = 1,
-            Resolution = 2,
-            NoiseBaseline = 3,
-            NoiseLevel = 4,
-            Charge = 5
+            this.maxPeaksPerScan = maxPeaksPerScan;
         }
 
-        private enum ThermoMzAnalyzer
-        {
-            None = -1,
-            ITMS = 0,
-            TQMS = 1,
-            SQMS = 2,
-            TOFMS = 3,
-            FTMS = 4,
-            Sector = 5
-        }
+        #endregion Public Constructors
+
+        #region Public Enums
 
         public enum Smoothing
         {
@@ -66,13 +70,62 @@ namespace IO.Thermo
             Relative = 2
         };
 
-        private IXRawfile5 _rawConnection;
+        #endregion Public Enums
 
-        public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
-            : base(filePath, true, MsDataFileType.ThermoRawFile)
+        #region Internal Enums
+
+        internal enum RawLabelDataColumn
         {
-            this.maxPeaksPerScan = maxPeaksPerScan;
+            MZ = 0,
+            Intensity = 1,
+            Resolution = 2,
+            NoiseBaseline = 3,
+            NoiseLevel = 4,
+            Charge = 5
         }
+
+        #endregion Internal Enums
+
+        #region Private Enums
+
+        private enum ThermoMzAnalyzer
+        {
+            None = -1,
+            ITMS = 0,
+            TQMS = 1,
+            SQMS = 2,
+            TOFMS = 3,
+            FTMS = 4,
+            Sector = 5
+        }
+
+        #endregion Private Enums
+
+        #region Public Properties
+
+        public bool monoisotopicPrecursorSelectionEnabled
+        {
+            get
+            {
+                int n = 0;
+                _rawConnection.GetNumInstMethods(ref n);
+                Console.WriteLine("number of instrument methods:" + n);
+
+                string s;
+                for (int i = 0; i < n; i++)
+                {
+                    s = null;
+                    _rawConnection.GetInstMethod(i, ref s);
+                    if (Regex.IsMatch(s, "Monoisotopic precursor selection enabled"))
+                        return true;
+                }
+                return false;
+            }
+        }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public override void Open()
         {
@@ -95,20 +148,6 @@ namespace IO.Thermo
             _rawConnection = null;
         }
 
-        protected override int GetNumSpectra()
-        {
-            int lastspectrumNumber = -1;
-            _rawConnection.GetLastSpectrumNumber(ref lastspectrumNumber);
-            int firstspectrumNumber = -1;
-            _rawConnection.GetFirstSpectrumNumber(ref firstspectrumNumber);
-            return lastspectrumNumber - firstspectrumNumber + 1;
-        }
-
-        private int GetParentSpectrumNumber(int spectrumNumber)
-        {
-            return Convert.ToInt32(Regex.Match(GetPrecursorID(spectrumNumber), @"\d+$").Value);
-        }
-
         public string GetSofwareVersion()
         {
             string softwareVersion = null;
@@ -116,34 +155,102 @@ namespace IO.Thermo
             return softwareVersion;
         }
 
-        private object GetExtraValue(int spectrumNumber, string filter)
+        public double GetElapsedScanTime(int spectrumNumber)
         {
-            object value = null;
-            _rawConnection.GetTrailerExtraValueForScanNum(spectrumNumber, filter, ref value);
-            return value;
+            object elapsedScanTime = GetExtraValue(spectrumNumber, "Elapsed Scan Time (sec):");
+            return Convert.ToDouble(elapsedScanTime);
         }
 
-        private string GetScanFilter(int spectrumNumber)
+        public double GetTIC(int spectrumNumber)
         {
-            string filter = null;
-            _rawConnection.GetFilterForScanNum(spectrumNumber, ref filter);
-            return filter;
+            int numberOfPackets = -1;
+            double startTime = double.NaN;
+            double lowMass = double.NaN;
+            double highMass = double.NaN;
+            double totalIonCurrent = double.NaN;
+            double basePeakMass = double.NaN;
+            double basePeakIntensity = double.NaN;
+            int numberOfChannels = -1;
+            int uniformTime = -1;
+            double frequency = double.NaN;
+            _rawConnection.GetScanHeaderInfoForScanNum(spectrumNumber, ref numberOfPackets, ref startTime, ref lowMass,
+                ref highMass,
+                ref totalIonCurrent, ref basePeakMass, ref basePeakIntensity,
+                ref numberOfChannels, ref uniformTime, ref frequency);
+
+            return totalIonCurrent;
         }
 
-        private string GetSpectrumID(int spectrumNumber)
+        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
-            int pnControllerType = 0;
-            int pnControllerNumber = 0;
-            _rawConnection.GetCurrentController(ref pnControllerType, ref pnControllerNumber);
-            return "controllerType=" + pnControllerType + " controllerNumber=" + pnControllerNumber + " scan=" + spectrumNumber;
+            int spectrumNumber = 0;
+            _rawConnection.ScanNumFromRT(retentionTime, ref spectrumNumber);
+            return spectrumNumber;
         }
 
-        private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
-
-        private Polarity GetPolarity(int spectrumNumber)
+        public string GetInstrumentName()
         {
-            string filter = GetScanFilter(spectrumNumber);
-            return PolarityRegex.IsMatch(filter) ? Polarity.Positive : Polarity.Negative;
+            string name = null;
+            _rawConnection.GetInstName(ref name);
+            return name;
+        }
+
+        public string GetInstrumentModel()
+        {
+            string model = null;
+            _rawConnection.GetInstModel(ref model);
+            return model;
+        }
+
+        public Chromatogram GetTICChroma()
+        {
+            int nChroType1 = 1; //1=TIC 0=MassRange
+            int nChroOperator = 0;
+            int nChroType2 = 0;
+            string bstrFilter = null;
+            string bstrMassRanges1 = null;
+            string bstrMassRanges2 = null;
+            double dDelay = 0.0;
+            double dStartTime = 0.0;
+            double dEndTime = 0.0;
+            int nSmoothingType = 1; //0=None 1=Boxcar 2=Gaussian
+            int nSmoothingValue = 7;
+            object pvarChroData = null;
+            object pvarPeakFlags = null;
+            int pnArraySize = 0;
+
+            //(int nChroType1, int nChroOperator, int nChroType2, string bstrFilter, string bstrMassRanges1, string bstrMassRanges2, double dDelay, ref double pdStartTime,
+            //ref double pdEndTime, int nSmoothingType, int nSmoothingValue, ref object pvarChroData, ref object pvarPeakFlags, ref int pnArraySize);
+            _rawConnection.GetChroData(nChroType1, nChroOperator, nChroType2, bstrFilter, bstrMassRanges1, bstrMassRanges2, dDelay, dStartTime, dEndTime, nSmoothingType, nSmoothingValue, ref pvarChroData, ref pvarPeakFlags, ref pnArraySize);
+
+            double[,] pvarArray = (double[,])pvarChroData;
+
+            return new Chromatogram(pvarArray);
+        }
+
+        public List<double> GetMSXPrecursors(int spectrumNumber)
+        {
+            string scanheader = GetScanFilter(spectrumNumber);
+
+            int msxnumber = -1;
+            _rawConnection.GetMSXMultiplexValueFromScanNum(spectrumNumber, ref msxnumber);
+
+            var matches = _msxRegex.Matches(scanheader);
+
+            return (from Match match in matches select double.Parse(match.Groups[1].Value)).ToList();
+        }
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
+        protected override int GetNumSpectra()
+        {
+            int lastspectrumNumber = -1;
+            _rawConnection.GetLastSpectrumNumber(ref lastspectrumNumber);
+            int firstspectrumNumber = -1;
+            _rawConnection.GetFirstSpectrumNumber(ref firstspectrumNumber);
+            return lastspectrumNumber - firstspectrumNumber + 1;
         }
 
         protected ThermoSpectrum GetSpectrumFromRawFile(int spectrumNumber)
@@ -184,6 +291,74 @@ namespace IO.Thermo
             }
 
             return new ThermoSpectrum(data);
+        }
+
+        protected override MsDataScan<ThermoSpectrum> GetMsDataOneBasedScanFromFile(int spectrumNumber)
+        {
+            var precursorID = GetPrecursorID(spectrumNumber);
+
+            int numberOfPackets = -1;
+            double startTime = double.NaN;
+            double lowMass = double.NaN;
+            double highMass = double.NaN;
+            double totalIonCurrent = double.NaN;
+            double basePeakMass = double.NaN;
+            double basePeakIntensity = double.NaN;
+            int numberOfChannels = -1;
+            int uniformTime = -1;
+            double frequency = double.NaN;
+            _rawConnection.GetScanHeaderInfoForScanNum(spectrumNumber, ref numberOfPackets, ref startTime, ref lowMass,
+                ref highMass, ref totalIonCurrent, ref basePeakMass, ref basePeakIntensity,
+                ref numberOfChannels, ref uniformTime, ref frequency);
+
+            MzRange ScanWindowRange = new MzRange(lowMass, highMass);
+
+            double retentionTime = 0;
+            _rawConnection.RTFromScanNum(spectrumNumber, ref retentionTime);
+            int msnOrder = 0;
+            _rawConnection.GetMSOrderForScanNum(spectrumNumber, ref msnOrder);
+
+            if (precursorID.Equals(GetSpectrumID(spectrumNumber)))
+                return new MsDataScan<ThermoSpectrum>(spectrumNumber, GetSpectrumFromRawFile(spectrumNumber), GetSpectrumID(spectrumNumber), msnOrder, GetIsCentroid(spectrumNumber), GetPolarity(spectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(spectrumNumber), GetMzAnalyzer(spectrumNumber), GetInjectionTime(spectrumNumber), totalIonCurrent);
+            else
+                return new MsDataScan<ThermoSpectrum>(spectrumNumber, GetSpectrumFromRawFile(spectrumNumber), GetSpectrumID(spectrumNumber), msnOrder, GetIsCentroid(spectrumNumber), GetPolarity(spectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(spectrumNumber), GetMzAnalyzer(spectrumNumber), GetInjectionTime(spectrumNumber), totalIonCurrent, precursorID, GetSelectedIonMZ(spectrumNumber), GetPrecusorCharge(spectrumNumber), GetSelectedIonIntensity(spectrumNumber), GetIsolationMZ(spectrumNumber), GetIsolationWidth(spectrumNumber), GetDissociationType(spectrumNumber), GetParentSpectrumNumber(spectrumNumber), GetPrecursorMonoisotopicIntensity(spectrumNumber), GetPrecursorMonoisotopicMZ(spectrumNumber));
+        }
+
+        #endregion Protected Methods
+
+        #region Private Methods
+
+        private int GetParentSpectrumNumber(int spectrumNumber)
+        {
+            return Convert.ToInt32(Regex.Match(GetPrecursorID(spectrumNumber), @"\d+$").Value);
+        }
+
+        private object GetExtraValue(int spectrumNumber, string filter)
+        {
+            object value = null;
+            _rawConnection.GetTrailerExtraValueForScanNum(spectrumNumber, filter, ref value);
+            return value;
+        }
+
+        private string GetScanFilter(int spectrumNumber)
+        {
+            string filter = null;
+            _rawConnection.GetFilterForScanNum(spectrumNumber, ref filter);
+            return filter;
+        }
+
+        private string GetSpectrumID(int spectrumNumber)
+        {
+            int pnControllerType = 0;
+            int pnControllerNumber = 0;
+            _rawConnection.GetCurrentController(ref pnControllerType, ref pnControllerNumber);
+            return "controllerType=" + pnControllerType + " controllerNumber=" + pnControllerNumber + " scan=" + spectrumNumber;
+        }
+
+        private Polarity GetPolarity(int spectrumNumber)
+        {
+            string filter = GetScanFilter(spectrumNumber);
+            return PolarityRegex.IsMatch(filter) ? Polarity.Positive : Polarity.Negative;
         }
 
         private double[,] GetUnlabeledData(int spectrumNumber, bool useCentroid)
@@ -263,32 +438,6 @@ namespace IO.Thermo
             return Convert.ToDouble(width);
         }
 
-        public double GetElapsedScanTime(int spectrumNumber)
-        {
-            object elapsedScanTime = GetExtraValue(spectrumNumber, "Elapsed Scan Time (sec):");
-            return Convert.ToDouble(elapsedScanTime);
-        }
-
-        public double GetTIC(int spectrumNumber)
-        {
-            int numberOfPackets = -1;
-            double startTime = double.NaN;
-            double lowMass = double.NaN;
-            double highMass = double.NaN;
-            double totalIonCurrent = double.NaN;
-            double basePeakMass = double.NaN;
-            double basePeakIntensity = double.NaN;
-            int numberOfChannels = -1;
-            int uniformTime = -1;
-            double frequency = double.NaN;
-            _rawConnection.GetScanHeaderInfoForScanNum(spectrumNumber, ref numberOfPackets, ref startTime, ref lowMass,
-                ref highMass,
-                ref totalIonCurrent, ref basePeakMass, ref basePeakIntensity,
-                ref numberOfChannels, ref uniformTime, ref frequency);
-
-            return totalIonCurrent;
-        }
-
         private DissociationType GetDissociationType(int spectrumNumber, int msnOrder = 2)
         {
             int type = 0;
@@ -302,72 +451,10 @@ namespace IO.Thermo
             return charge * (int)GetPolarity(spectrumNumber);
         }
 
-        public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
-        {
-            int spectrumNumber = 0;
-            _rawConnection.ScanNumFromRT(retentionTime, ref spectrumNumber);
-            return spectrumNumber;
-        }
-
         private double GetInjectionTime(int spectrumNumber)
         {
             object time = GetExtraValue(spectrumNumber, "Ion Injection Time (ms):");
             return Convert.ToDouble(time);
-        }
-
-        public string GetInstrumentName()
-        {
-            string name = null;
-            _rawConnection.GetInstName(ref name);
-            return name;
-        }
-
-        public string GetInstrumentModel()
-        {
-            string model = null;
-            _rawConnection.GetInstModel(ref model);
-            return model;
-        }
-
-        public Chromatogram GetTICChroma()
-        {
-            int nChroType1 = 1; //1=TIC 0=MassRange
-            int nChroOperator = 0;
-            int nChroType2 = 0;
-            string bstrFilter = null;
-            string bstrMassRanges1 = null;
-            string bstrMassRanges2 = null;
-            double dDelay = 0.0;
-            double dStartTime = 0.0;
-            double dEndTime = 0.0;
-            int nSmoothingType = 1; //0=None 1=Boxcar 2=Gaussian
-            int nSmoothingValue = 7;
-            object pvarChroData = null;
-            object pvarPeakFlags = null;
-            int pnArraySize = 0;
-
-            //(int nChroType1, int nChroOperator, int nChroType2, string bstrFilter, string bstrMassRanges1, string bstrMassRanges2, double dDelay, ref double pdStartTime,
-            //ref double pdEndTime, int nSmoothingType, int nSmoothingValue, ref object pvarChroData, ref object pvarPeakFlags, ref int pnArraySize);
-            _rawConnection.GetChroData(nChroType1, nChroOperator, nChroType2, bstrFilter, bstrMassRanges1, bstrMassRanges2, dDelay, dStartTime, dEndTime, nSmoothingType, nSmoothingValue, ref pvarChroData, ref pvarPeakFlags, ref pnArraySize);
-
-            double[,] pvarArray = (double[,])pvarChroData;
-
-            return new Chromatogram(pvarArray);
-        }
-
-        private readonly static Regex _msxRegex = new Regex(@"([\d.]+)@", RegexOptions.Compiled);
-        private int maxPeaksPerScan;
-
-        public List<double> GetMSXPrecursors(int spectrumNumber)
-        {
-            string scanheader = GetScanFilter(spectrumNumber);
-
-            int msxnumber = -1;
-            _rawConnection.GetMSXMultiplexValueFromScanNum(spectrumNumber, ref msxnumber);
-
-            var matches = _msxRegex.Matches(scanheader);
-
-            return (from Match match in matches select double.Parse(match.Groups[1].Value)).ToList();
         }
 
         private bool GetIsCentroid(int spectrumNumber)
@@ -398,37 +485,6 @@ namespace IO.Thermo
                 spectrumNumber--;
             }
             return spectrumNumber + 1;
-        }
-
-        protected override MsDataScan<ThermoSpectrum> GetMsDataOneBasedScanFromFile(int spectrumNumber)
-        {
-            var precursorID = GetPrecursorID(spectrumNumber);
-
-            int numberOfPackets = -1;
-            double startTime = double.NaN;
-            double lowMass = double.NaN;
-            double highMass = double.NaN;
-            double totalIonCurrent = double.NaN;
-            double basePeakMass = double.NaN;
-            double basePeakIntensity = double.NaN;
-            int numberOfChannels = -1;
-            int uniformTime = -1;
-            double frequency = double.NaN;
-            _rawConnection.GetScanHeaderInfoForScanNum(spectrumNumber, ref numberOfPackets, ref startTime, ref lowMass,
-                ref highMass, ref totalIonCurrent, ref basePeakMass, ref basePeakIntensity,
-                ref numberOfChannels, ref uniformTime, ref frequency);
-
-            MzRange ScanWindowRange = new MzRange(lowMass, highMass);
-
-            double retentionTime = 0;
-            _rawConnection.RTFromScanNum(spectrumNumber, ref retentionTime);
-            int msnOrder = 0;
-            _rawConnection.GetMSOrderForScanNum(spectrumNumber, ref msnOrder);
-
-            if (precursorID.Equals(GetSpectrumID(spectrumNumber)))
-                return new MsDataScan<ThermoSpectrum>(spectrumNumber, GetSpectrumFromRawFile(spectrumNumber), GetSpectrumID(spectrumNumber), msnOrder, GetIsCentroid(spectrumNumber), GetPolarity(spectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(spectrumNumber), GetMzAnalyzer(spectrumNumber), GetInjectionTime(spectrumNumber), totalIonCurrent);
-            else
-                return new MsDataScan<ThermoSpectrum>(spectrumNumber, GetSpectrumFromRawFile(spectrumNumber), GetSpectrumID(spectrumNumber), msnOrder, GetIsCentroid(spectrumNumber), GetPolarity(spectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(spectrumNumber), GetMzAnalyzer(spectrumNumber), GetInjectionTime(spectrumNumber), totalIonCurrent, precursorID, GetSelectedIonMZ(spectrumNumber), GetPrecusorCharge(spectrumNumber), GetSelectedIonIntensity(spectrumNumber), GetIsolationMZ(spectrumNumber), GetIsolationWidth(spectrumNumber), GetDissociationType(spectrumNumber), GetParentSpectrumNumber(spectrumNumber), GetPrecursorMonoisotopicIntensity(spectrumNumber), GetPrecursorMonoisotopicMZ(spectrumNumber));
         }
 
         private double GetPrecursorMonoisotopicIntensity(int spectrumNumber)
@@ -462,24 +518,7 @@ namespace IO.Thermo
             return mz;
         }
 
-        public bool monoisotopicPrecursorSelectionEnabled
-        {
-            get
-            {
-                int n = 0;
-                _rawConnection.GetNumInstMethods(ref n);
-                Console.WriteLine("number of instrument methods:" + n);
+        #endregion Private Methods
 
-                string s;
-                for (int i = 0; i < n; i++)
-                {
-                    s = null;
-                    _rawConnection.GetInstMethod(i, ref s);
-                    if (Regex.IsMatch(s, "Monoisotopic precursor selection enabled"))
-                        return true;
-                }
-                return false;
-            }
-        }
     }
 }
