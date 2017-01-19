@@ -6,3 +6,5 @@ install:
 script:
   - xbuild /p:Configuration=TestAndReleaseNoThermo mzLib.sln 
   - mono ./testrunner/NUnit.ConsoleRunner.*/tools/nunit3-console.exe ./Test/bin/Release/Test.dll
+notifications:
+  email: false

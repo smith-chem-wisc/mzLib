@@ -23,6 +23,54 @@ namespace Proteomics
 {
     public class Peptide : AminoAcidPolymer
     {
+
+        #region Public Constructors
+
+        public Peptide()
+        {
+        }
+
+        public Peptide(string sequence) : base(sequence)
+        {
+        }
+
+        public Peptide(AminoAcidPolymer aminoAcidPolymer)
+                            : this(aminoAcidPolymer, true)
+        {
+        }
+
+        /// <summary>
+        /// Create a new peptide based on another amino acid polymer
+        /// </summary>
+        /// <param name="aminoAcidPolymer">The other amino acid polymer to copy</param>
+        /// <param name="includeModifications">Whether to copy the modifications to the new peptide</param>
+        public Peptide(AminoAcidPolymer aminoAcidPolymer, bool includeModifications)
+            : base(aminoAcidPolymer, includeModifications)
+        {
+            Parent = aminoAcidPolymer;
+            StartResidue = 0;
+            EndResidue = Length - 1;
+        }
+
+        public Peptide(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length)
+                    : this(aminoAcidPolymer, firstResidue, length, true)
+        {
+        }
+
+        public Peptide(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length, bool includeModifications)
+                    : base(aminoAcidPolymer, firstResidue, length, includeModifications)
+        {
+            Parent = aminoAcidPolymer;
+            StartResidue = firstResidue;
+            EndResidue = firstResidue + length - 1;
+            PreviousResidue = aminoAcidPolymer.GetResidue(StartResidue - 1);
+            NextResidue = aminoAcidPolymer.GetResidue(EndResidue + 1);
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
         /// <summary>
         /// The amino acid number this peptide is located in its parent
         /// </summary>
@@ -48,46 +96,9 @@ namespace Proteomics
         /// </summary>
         public Residue NextResidue { get; set; }
 
-        public Peptide()
-        {
-        }
+        #endregion Public Properties
 
-        public Peptide(string sequence) : base(sequence)
-        {
-        }
-
-        public Peptide(AminoAcidPolymer aminoAcidPolymer)
-            : this(aminoAcidPolymer, true)
-        {
-        }
-
-        /// <summary>
-        /// Create a new peptide based on another amino acid polymer
-        /// </summary>
-        /// <param name="aminoAcidPolymer">The other amino acid polymer to copy</param>
-        /// <param name="includeModifications">Whether to copy the modifications to the new peptide</param>
-        public Peptide(AminoAcidPolymer aminoAcidPolymer, bool includeModifications)
-            : base(aminoAcidPolymer, includeModifications)
-        {
-            Parent = aminoAcidPolymer;
-            StartResidue = 0;
-            EndResidue = Length - 1;
-        }
-
-        public Peptide(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length)
-            : this(aminoAcidPolymer, firstResidue, length, true)
-        {
-        }
-
-        public Peptide(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length, bool includeModifications)
-            : base(aminoAcidPolymer, firstResidue, length, includeModifications)
-        {
-            Parent = aminoAcidPolymer;
-            StartResidue = firstResidue;
-            EndResidue = firstResidue + length - 1;
-            PreviousResidue = aminoAcidPolymer.GetResidue(StartResidue - 1);
-            NextResidue = aminoAcidPolymer.GetResidue(EndResidue + 1);
-        }
+        #region Public Methods
 
         public IEnumerable<Peptide> GenerateAllModificationCombinations()
         {
@@ -133,5 +144,8 @@ namespace Proteomics
         {
             return new Peptide(this, firstResidue, length);
         }
+
+        #endregion Public Methods
+
     }
 }

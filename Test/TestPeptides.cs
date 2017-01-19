@@ -652,7 +652,7 @@ namespace Test
         [Test]
         public void TestGetDigestionPointsWithMethionine()
         {
-            var ok = AminoAcidPolymer.GetDigestionPoints("MDERLEKDERLE", new List<TestProtease> { new TestProtease() }, 0, 0, 10000, true, false).ToList();
+            var ok = AminoAcidPolymer.GetDigestionPointsAndLengths("MDERLEKDERLE", new List<TestProtease> { new TestProtease() }, 0, 0, 10000, true, false).ToList();
             Assert.AreEqual(1, ok[0].Index); // Methionine cleaved, digestion is at 1
             Assert.AreEqual(4, ok[0].Length); // The test protease cleaves at index 4, so after L.
             Assert.AreEqual(0, ok[1].Index); // Regular digestion 1
@@ -663,7 +663,41 @@ namespace Test
             Assert.AreEqual(6, ok[3].Length); // Regular digestion 3
         }
 
+        [Test]
+        public void TestGetDigestionPointsWithMethionineAndSemiDigestion()
+        {
+            var ok = AminoAcidPolymer.GetDigestionPointsAndLengths("MDERLEK", new List<TestProtease> { new TestProtease() }, 0, 0, 10000, true, true).ToList();
+
+            IEqualityComparer<DigestionPointAndLength> jj = new OkComparer();
+            var yee = new HashSet<DigestionPointAndLength>(ok, jj);
+
+            Assert.AreEqual(1 + 3 + 1 + (8 - 1) + 1 + 1, yee.Count);
+        }
+
         #endregion Public Methods
+
+        #region Private Classes
+
+        private class OkComparer : IEqualityComparer<DigestionPointAndLength>
+        {
+
+            #region Public Methods
+
+            public bool Equals(DigestionPointAndLength x, DigestionPointAndLength y)
+            {
+                return x.Index.Equals(y.Index) && x.Length.Equals(y.Length);
+            }
+
+            public int GetHashCode(DigestionPointAndLength obj)
+            {
+                return obj.Length + obj.Index * 256;
+            }
+
+            #endregion Public Methods
+
+        }
+
+        #endregion Private Classes
 
     }
 

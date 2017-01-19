@@ -172,37 +172,37 @@ namespace Spectra
             return string.Format("{0} (Peaks {1})", Range, Count);
         }
 
-        public ISpectrum<Peak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks)
+        public ISpectrum<Peak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
             var ok = filterByNumberOfMostIntense(topNPeaks);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> newSpectrumWithRangeRemoved(double minX, double maxX)
+        public ISpectrum<Peak> NewSpectrumWithRangeRemoved(double minX, double maxX)
         {
             var ok = withRangeRemoved(minX, maxX);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> newSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
+        public ISpectrum<Peak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
             var ok = withRangesRemoved(xRanges);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> newSpectrumExtract(double minX, double maxX)
+        public ISpectrum<Peak> NewSpectrumExtract(double minX, double maxX)
         {
             var ok = extract(minX, maxX);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> newSpectrumFilterByY(double minY, double maxY)
+        public ISpectrum<Peak> NewSpectrumFilterByY(double minY, double maxY)
         {
             var ok = filterByY(minY, maxY);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> newSpectrumApplyFunctionToX(Func<double, double> convertor)
+        public ISpectrum<Peak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
         {
             var ok = applyFunctionToX(convertor);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
@@ -217,19 +217,19 @@ namespace Spectra
             return data;
         }
 
-        public ISpectrum<Peak> newSpectrumFilterByY(DoubleRange yRange)
+        public ISpectrum<Peak> NewSpectrumFilterByY(DoubleRange yRange)
         {
-            return newSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
+            return NewSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
         }
 
-        public ISpectrum<Peak> newSpectrumWithRangeRemoved(DoubleRange xRange)
+        public ISpectrum<Peak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
         {
-            return newSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
+            return NewSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
         }
 
-        public ISpectrum<Peak> newSpectrumExtract(DoubleRange xRange)
+        public ISpectrum<Peak> NewSpectrumExtract(DoubleRange xRange)
         {
-            return newSpectrumExtract(xRange.Minimum, xRange.Maximum);
+            return NewSpectrumExtract(xRange.Minimum, xRange.Maximum);
         }
 
         public TPeak GetClosestPeak(double x)
@@ -272,7 +272,7 @@ namespace Spectra
             return index - startingIndex;
         }
 
-        public void replaceXbyApplyingFunction(Func<TPeak, double> convertor)
+        public void ReplaceXbyApplyingFunction(Func<TPeak, double> convertor)
         {
             for (int i = 0; i < Count; i++)
                 xArray[i] = convertor(this[i]);

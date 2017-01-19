@@ -16,6 +16,9 @@ namespace Test
     [TestFixture]
     public sealed class TestMzML
     {
+
+        #region Public Methods
+
         [OneTimeSetUp]
         public void setup()
         {
@@ -43,20 +46,14 @@ namespace Test
             ChemicalFormulaModification carbamidomethylationOfCMod = new ChemicalFormulaModification("H3C2NO", "carbamidomethylation of C", ModificationSites.C);
             peptide.AddModification(carbamidomethylationOfCMod);
 
-            Console.WriteLine("Created modified peptide");
-
             DefaultMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
-
-            Console.WriteLine("Created ms1");
 
             DefaultMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
-            Console.WriteLine("Created ms2");
-
             MsDataScan<IMzSpectrum<MzPeak>>[] Scans = new MsDataScan<IMzSpectrum<MzPeak>>[2];
-            Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.newSpectrumApplyFunctionToX(b => b + 0.000001 * b + 0.000001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
+            Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.NewSpectrumApplyFunctionToX(b => b + 0.000001 * b + 0.000001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
 
-            Scans[1] = new MsDataScan<IMzSpectrum<MzPeak>>(2, MS2.newSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 0.141146966879759, 1134.26091302033);
+            Scans[1] = new MsDataScan<IMzSpectrum<MzPeak>>(2, MS2.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 0.141146966879759, 1134.26091302033);
 
             var myMsDataFile = new FakeMsDataFile(@"myFakeFile.mzML", Scans);
 
@@ -68,62 +65,6 @@ namespace Test
 
             Assert.AreEqual(1, okay.GetClosestOneBasedSpectrumNumber(1));
             Assert.AreEqual(2, okay.GetClosestOneBasedSpectrumNumber(2));
-        }
-
-        private DefaultMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
-        {
-            List<double> allMasses = new List<double>();
-            List<double> allIntensities = new List<double>();
-            foreach (ChemicalFormulaFragment f in fragments)
-            {
-                foreach (var p in createSpectrum(f.ThisChemicalFormula, v1, v2, 2))
-                {
-                    allMasses.Add(p.MZ);
-                    allIntensities.Add(p.Intensity);
-                }
-            }
-            var allMassesArray = allMasses.ToArray();
-            var allIntensitiessArray = allIntensities.ToArray();
-
-            Array.Sort(allMassesArray, allIntensitiessArray);
-            return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
-        }
-
-        private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
-        {
-            IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
-
-            Console.WriteLine("f=" + f.Formula);
-            Console.WriteLine("isodist.Intensities.Count=" + isodist.Intensities.Count);
-            IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
-            massSpectrum1 = massSpectrum1.newSpectrumFilterByNumberOfMostIntense(5);
-
-            var chargeToLookAt = minCharge;
-            var correctedSpectrum = massSpectrum1.newSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
-
-            List<double> allMasses = new List<double>();
-            List<double> allIntensitiess = new List<double>();
-
-            while (correctedSpectrum.FirstX > lowerBound)
-            {
-                foreach (var thisPeak in correctedSpectrum)
-                {
-                    if (thisPeak.MZ > lowerBound && thisPeak.MZ < upperBound)
-                    {
-                        allMasses.Add(thisPeak.MZ);
-                        allIntensitiess.Add(thisPeak.Intensity);
-                    }
-                }
-                chargeToLookAt += 1;
-                correctedSpectrum = massSpectrum1.newSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
-            }
-
-            var allMassesArray = allMasses.ToArray();
-            var allIntensitiessArray = allIntensitiess.ToArray();
-
-            Array.Sort(allMassesArray, allIntensitiessArray);
-
-            return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
         [Test]
@@ -185,15 +126,15 @@ namespace Test
 
             var identifications = new MzidIdentifications("myIdentifications.mzid");
 
-            Assert.AreEqual(1134.26091302033, identifications.calculatedMassToCharge(0));
-            Assert.AreEqual(3, identifications.chargeState(0));
+            Assert.AreEqual(1134.26091302033, identifications.CalculatedMassToCharge(0));
+            Assert.AreEqual(3, identifications.ChargeState(0));
             Assert.AreEqual(1, identifications.Count);
-            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.experimentalMassToCharge(0), 1e-10);
+            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0), 1e-10);
             Assert.IsFalse(identifications.isDecoy(0));
-            Assert.AreEqual("UNIMOD:4", identifications.modificationAcession(0, 0));
-            Assert.AreEqual("UNIMOD", identifications.modificationDictionary(0, 0));
-            Assert.AreEqual(17, identifications.modificationLocation(0, 0));
-            Assert.AreEqual("spectrum 2", identifications.ms2spectrumID(0));
+            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0));
+            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0));
+            Assert.AreEqual(17, identifications.ModificationLocation(0, 0));
+            Assert.AreEqual("spectrum 2", identifications.Ms2spectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
         }
@@ -257,17 +198,78 @@ namespace Test
 
             var identifications = new MzidIdentifications("myIdentifications.mzid");
 
-            Assert.AreEqual(1134.26091302033, identifications.calculatedMassToCharge(0));
-            Assert.AreEqual(3, identifications.chargeState(0));
+            Assert.AreEqual(1134.26091302033, identifications.CalculatedMassToCharge(0));
+            Assert.AreEqual(3, identifications.ChargeState(0));
             Assert.AreEqual(1, identifications.Count);
-            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.experimentalMassToCharge(0), 1e-10);
+            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0), 1e-10);
             Assert.IsFalse(identifications.isDecoy(0));
-            Assert.AreEqual("UNIMOD:4", identifications.modificationAcession(0, 0));
-            Assert.AreEqual("UNIMOD", identifications.modificationDictionary(0, 0));
-            Assert.AreEqual(17, identifications.modificationLocation(0, 0));
-            Assert.AreEqual("spectrum 2", identifications.ms2spectrumID(0));
+            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0));
+            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0));
+            Assert.AreEqual(17, identifications.ModificationLocation(0, 0));
+            Assert.AreEqual("spectrum 2", identifications.Ms2spectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
         }
+
+        #endregion Public Methods
+
+        #region Private Methods
+
+        private DefaultMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+        {
+            List<double> allMasses = new List<double>();
+            List<double> allIntensities = new List<double>();
+            foreach (ChemicalFormulaFragment f in fragments)
+            {
+                foreach (var p in createSpectrum(f.ThisChemicalFormula, v1, v2, 2))
+                {
+                    allMasses.Add(p.MZ);
+                    allIntensities.Add(p.Intensity);
+                }
+            }
+            var allMassesArray = allMasses.ToArray();
+            var allIntensitiessArray = allIntensities.ToArray();
+
+            Array.Sort(allMassesArray, allIntensitiessArray);
+            return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
+        }
+
+        private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
+        {
+            IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
+
+            IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+            massSpectrum1 = massSpectrum1.NewSpectrumFilterByNumberOfMostIntense(5);
+
+            var chargeToLookAt = minCharge;
+            var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
+
+            List<double> allMasses = new List<double>();
+            List<double> allIntensitiess = new List<double>();
+
+            while (correctedSpectrum.FirstX > lowerBound)
+            {
+                foreach (var thisPeak in correctedSpectrum)
+                {
+                    if (thisPeak.MZ > lowerBound && thisPeak.MZ < upperBound)
+                    {
+                        allMasses.Add(thisPeak.MZ);
+                        allIntensitiess.Add(thisPeak.Intensity);
+                    }
+                }
+                chargeToLookAt += 1;
+                correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
+            }
+
+            var allMassesArray = allMasses.ToArray();
+            var allIntensitiessArray = allIntensitiess.ToArray();
+
+            Array.Sort(allMassesArray, allIntensitiessArray);
+
+            return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
+        }
+
+        #endregion Private Methods
+
     }
 }

@@ -26,22 +26,22 @@ namespace Spectra
     {
         new MzRange Range { get; }
 
-        new IMzSpectrum<MzPeak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+        new IMzSpectrum<MzPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
 
-        new IMzSpectrum<MzPeak> newSpectrumExtract(DoubleRange xRange);
+        new IMzSpectrum<MzPeak> NewSpectrumExtract(DoubleRange xRange);
 
-        new IMzSpectrum<MzPeak> newSpectrumExtract(double minX, double maxX);
+        new IMzSpectrum<MzPeak> NewSpectrumExtract(double minX, double maxX);
 
-        new IMzSpectrum<MzPeak> newSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+        new IMzSpectrum<MzPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
 
-        new IMzSpectrum<MzPeak> newSpectrumWithRangeRemoved(DoubleRange xRange);
+        new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
 
-        new IMzSpectrum<MzPeak> newSpectrumWithRangeRemoved(double minX, double maxX);
+        new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(double minX, double maxX);
 
-        new IMzSpectrum<MzPeak> newSpectrumFilterByY(double minY, double maxY);
+        new IMzSpectrum<MzPeak> NewSpectrumFilterByY(double minY, double maxY);
 
-        new IMzSpectrum<MzPeak> newSpectrumFilterByY(DoubleRange yRange);
+        new IMzSpectrum<MzPeak> NewSpectrumFilterByY(DoubleRange yRange);
 
-        new IMzSpectrum<MzPeak> newSpectrumApplyFunctionToX(Func<double, double> convertor);
+        new IMzSpectrum<MzPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
     }
 }

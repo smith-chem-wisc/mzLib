@@ -4,32 +4,42 @@ namespace MassSpectrometry
 {
     public interface Identifications
     {
+
+        #region Public Properties
+
         int Count { get; }
 
-        Tolerance parentTolerance { get; }
+        Tolerance ParentTolerance { get; }
 
-        Tolerance fragmentTolerance { get; }
+        Tolerance FragmentTolerance { get; }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         bool isDecoy(int matchIndex);
 
-        bool passThreshold(int matchIndex);
+        bool PassThreshold(int matchIndex);
 
-        string ms2spectrumID(int matchIndex);
+        string Ms2spectrumID(int matchIndex);
 
-        double calculatedMassToCharge(int matchIndex);
+        double CalculatedMassToCharge(int matchIndex);
 
-        double experimentalMassToCharge(int matchIndex);
+        double ExperimentalMassToCharge(int matchIndex);
 
         string PeptideSequenceWithoutModifications(int matchIndex);
 
-        int chargeState(int matchIndex);
+        int ChargeState(int matchIndex);
 
         int NumModifications(int matchIndex);
 
-        int modificationLocation(int matchIndex, int i);
+        int ModificationLocation(int matchIndex, int i);
 
-        string modificationDictionary(int matchIndex, int i);
+        string ModificationDictionary(int matchIndex, int i);
 
-        string modificationAcession(int matchIndex, int i);
+        string ModificationAcession(int matchIndex, int i);
+
+        #endregion Public Methods
+
     }
 }

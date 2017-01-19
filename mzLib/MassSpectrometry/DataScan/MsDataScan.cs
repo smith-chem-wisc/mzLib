@@ -24,6 +24,9 @@ namespace MassSpectrometry
     public class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<MzPeak>
     {
+
+        #region Private Fields
+
         private double isolationMZ;
         private string precursorID;
         private int selectedIonGuessChargeStateGuess;
@@ -34,6 +37,45 @@ namespace MassSpectrometry
         private int oneBasedPrecursorScanNumber;
         private double selectedIonGuessMonoisotopicIntensity;
         private double selectedIonGuessMonoisotopicMZ;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
+        public MsDataScan(int OneBasedScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
+        {
+            this.OneBasedScanNumber = OneBasedScanNumber;
+            this.MassSpectrum = MassSpectrum;
+            this.Id = id;
+            this.MsnOrder = MsnOrder;
+            this.IsCentroid = isCentroid;
+            this.Polarity = Polarity;
+            this.RetentionTime = RetentionTime;
+            this.ScanWindowRange = ScanWindowRange;
+            this.ScanFilter = ScanFilter;
+            this.MzAnalyzer = MzAnalyzer;
+            this.InjectionTime = InjectionTime;
+            this.TotalIonCurrent = TotalIonCurrent;
+        }
+
+        public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
+                    : this(ScanNumber, MassSpectrum, id, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, InjectionTime, TotalIonCurrent)
+        {
+            this.isolationMZ = isolationMZ;
+            this.precursorID = precursorID;
+            this.selectedIonGuessChargeStateGuess = selectedIonGuessChargeStateGuess;
+            this.selectedIonGuessIntensity = selectedIonGuessIntensity;
+            this.selectedIonGuessMZ = selectedIonGuessMZ;
+            this.dissociationType = dissociationType;
+            this.isolationWidth = isolationWidth;
+            this.oneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
+            this.selectedIonGuessMonoisotopicIntensity = selectedIonGuessMonoisotopicIntensity;
+            this.selectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
 
         /// <summary>
         /// The mass spectrum associated with the scan
@@ -62,36 +104,9 @@ namespace MassSpectrometry
 
         public double TotalIonCurrent { get; private set; }
 
-        public MsDataScan(int OneBasedScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
-        {
-            this.OneBasedScanNumber = OneBasedScanNumber;
-            this.MassSpectrum = MassSpectrum;
-            this.Id = id;
-            this.MsnOrder = MsnOrder;
-            this.IsCentroid = isCentroid;
-            this.Polarity = Polarity;
-            this.RetentionTime = RetentionTime;
-            this.ScanWindowRange = ScanWindowRange;
-            this.ScanFilter = ScanFilter;
-            this.MzAnalyzer = MzAnalyzer;
-            this.InjectionTime = InjectionTime;
-            this.TotalIonCurrent = TotalIonCurrent;
-        }
+        #endregion Public Properties
 
-        public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
-            : this(ScanNumber, MassSpectrum, id, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, InjectionTime, TotalIonCurrent)
-        {
-            this.isolationMZ = isolationMZ;
-            this.precursorID = precursorID;
-            this.selectedIonGuessChargeStateGuess = selectedIonGuessChargeStateGuess;
-            this.selectedIonGuessIntensity = selectedIonGuessIntensity;
-            this.selectedIonGuessMZ = selectedIonGuessMZ;
-            this.dissociationType = dissociationType;
-            this.isolationWidth = isolationWidth;
-            this.oneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
-            this.selectedIonGuessMonoisotopicIntensity = selectedIonGuessMonoisotopicIntensity;
-            this.selectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
-        }
+        #region Public Methods
 
         public override string ToString()
         {
@@ -203,7 +218,7 @@ namespace MassSpectrometry
 
         public void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ)
         {
-            MassSpectrum.replaceXbyApplyingFunction(convertorForSpectrum);
+            MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
             this.selectedIonGuessMZ = selectedIonGuessMZ;
             this.selectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
         }
@@ -229,5 +244,8 @@ namespace MassSpectrometry
             SelectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
             return true;
         }
+
+        #endregion Public Methods
+
     }
 }

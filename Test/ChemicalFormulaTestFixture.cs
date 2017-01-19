@@ -27,26 +27,8 @@ namespace Test
     [TestFixture]
     public class ChemicalFormulaTestFixture
     {
-        private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
-        {
-            public PhysicalObjectWithChemicalFormula(string v)
-            {
-                ThisChemicalFormula = new ChemicalFormula(v);
-            }
 
-            public double MonoisotopicMass
-            {
-                get
-                {
-                    return ThisChemicalFormula.MonoisotopicMass;
-                }
-            }
-
-            public ChemicalFormula ThisChemicalFormula
-            {
-                get; private set;
-            }
-        }
+        #region Public Methods
 
         [Test]
         public void AddIsotopeWithExistingMassNumber()
@@ -909,7 +891,6 @@ namespace Test
         {
             ChemicalFormula formula = (new ChemicalFormula("C500O50H250N50"));
             new IsotopicDistribution(formula, 0.001, 1e-1, 1e-15);
-            Console.WriteLine("");
         }
 
         [Test]
@@ -924,16 +905,10 @@ namespace Test
         {
             ChemicalFormula formula = (new ChemicalFormula("C50O50"));
             new IsotopicDistribution(formula, 0.01, 0.1);
-            //Console.WriteLine(String.Join(", ", masses));
-            //Console.WriteLine(String.Join(", ", intensities));
 
             new IsotopicDistribution(formula, 0.01, 0.5);
-            //Console.WriteLine(String.Join(", ", masses));
-            //Console.WriteLine(String.Join(", ", intensities));
 
             new IsotopicDistribution(formula, 0.01, 0.75);
-            //Console.WriteLine(String.Join(", ", masses));
-            //Console.WriteLine(String.Join(", ", intensities));
         }
 
         [Test]
@@ -1078,5 +1053,43 @@ namespace Test
 
             Assert.AreEqual(17, d.Intensities.Count);
         }
+
+        #endregion Public Methods
+
+        #region Private Classes
+
+        private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
+        {
+
+            #region Public Constructors
+
+            public PhysicalObjectWithChemicalFormula(string v)
+            {
+                ThisChemicalFormula = new ChemicalFormula(v);
+            }
+
+            #endregion Public Constructors
+
+            #region Public Properties
+
+            public double MonoisotopicMass
+            {
+                get
+                {
+                    return ThisChemicalFormula.MonoisotopicMass;
+                }
+            }
+
+            public ChemicalFormula ThisChemicalFormula
+            {
+                get; private set;
+            }
+
+            #endregion Public Properties
+
+        }
+
+        #endregion Private Classes
+
     }
 }

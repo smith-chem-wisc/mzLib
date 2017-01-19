@@ -24,6 +24,9 @@ namespace Spectra
     public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
         where TPeak : Peak
     {
+
+        #region Public Properties
+
         double[] xArray { get; }
         double[] yArray { get; }
         double FirstX { get; }
@@ -33,11 +36,20 @@ namespace Spectra
         double SumOfAllY { get; }
         DoubleRange Range { get; }
         TPeak PeakWithHighestY { get; }
+
+        #endregion Public Properties
+
+        #region Public Indexers
+
         TPeak this[int index] { get; }
+
+        #endregion Public Indexers
+
+        #region Public Methods
 
         double[,] CopyTo2DArray();
 
-        void replaceXbyApplyingFunction(Func<TPeak, double> convertor);
+        void ReplaceXbyApplyingFunction(Func<TPeak, double> convertor);
 
         int NumPeaksWithinRange(double minX, double maxX);
 
@@ -45,22 +57,25 @@ namespace Spectra
 
         double GetClosestPeakXvalue(double x);
 
-        ISpectrum<Peak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+        ISpectrum<Peak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
 
-        ISpectrum<Peak> newSpectrumExtract(DoubleRange xRange);
+        ISpectrum<Peak> NewSpectrumExtract(DoubleRange xRange);
 
-        ISpectrum<Peak> newSpectrumExtract(double minX, double maxX);
+        ISpectrum<Peak> NewSpectrumExtract(double minX, double maxX);
 
-        ISpectrum<Peak> newSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+        ISpectrum<Peak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
 
-        ISpectrum<Peak> newSpectrumWithRangeRemoved(DoubleRange xRange);
+        ISpectrum<Peak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
 
-        ISpectrum<Peak> newSpectrumWithRangeRemoved(double minX, double maxX);
+        ISpectrum<Peak> NewSpectrumWithRangeRemoved(double minX, double maxX);
 
-        ISpectrum<Peak> newSpectrumFilterByY(double minY, double maxY);
+        ISpectrum<Peak> NewSpectrumFilterByY(double minY, double maxY);
 
-        ISpectrum<Peak> newSpectrumFilterByY(DoubleRange yRange);
+        ISpectrum<Peak> NewSpectrumFilterByY(DoubleRange yRange);
 
-        ISpectrum<Peak> newSpectrumApplyFunctionToX(Func<double, double> convertor);
+        ISpectrum<Peak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
+
+        #endregion Public Methods
+
     }
 }

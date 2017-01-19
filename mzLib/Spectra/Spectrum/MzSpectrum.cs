@@ -51,52 +51,52 @@ namespace Spectra
 
         #region implementing IMzSpectrum<TPeak>
 
-        public new IMzSpectrum<MzPeak> newSpectrumFilterByNumberOfMostIntense(int topNPeaks)
+        public new IMzSpectrum<MzPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
             var ok = filterByNumberOfMostIntense(topNPeaks);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumExtract(DoubleRange xRange)
+        public new IMzSpectrum<MzPeak> NewSpectrumExtract(DoubleRange xRange)
         {
-            return newSpectrumExtract(xRange.Minimum, xRange.Maximum);
+            return NewSpectrumExtract(xRange.Minimum, xRange.Maximum);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumExtract(double minX, double maxX)
+        public new IMzSpectrum<MzPeak> NewSpectrumExtract(double minX, double maxX)
         {
             var ok = extract(minX, maxX);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
+        public new IMzSpectrum<MzPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
             var ok = withRangesRemoved(xRanges);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumWithRangeRemoved(DoubleRange xRange)
+        public new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
         {
-            return newSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
+            return NewSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumWithRangeRemoved(double minX, double maxX)
+        public new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(double minX, double maxX)
         {
             var ok = withRangeRemoved(minX, maxX);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumFilterByY(double minY, double maxY)
+        public new IMzSpectrum<MzPeak> NewSpectrumFilterByY(double minY, double maxY)
         {
             var ok = filterByY(minY, maxY);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumFilterByY(DoubleRange yRange)
+        public new IMzSpectrum<MzPeak> NewSpectrumFilterByY(DoubleRange yRange)
         {
-            return newSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
+            return NewSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
         }
 
-        public new IMzSpectrum<MzPeak> newSpectrumApplyFunctionToX(Func<double, double> convertor)
+        public new IMzSpectrum<MzPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
         {
             var ok = applyFunctionToX(convertor);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
