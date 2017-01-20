@@ -68,7 +68,7 @@ namespace IO.Thermo
         }
 
         public ThermoSpectrum(ThermoSpectrum thermoSpectrum)
-            : this(thermoSpectrum.xArray, thermoSpectrum.yArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions)
+            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions)
         {
         }
 
@@ -108,8 +108,8 @@ namespace IO.Thermo
             {
                 if (peakList[index] == null)
                     peakList[index] = _charges == null ?
-                        new ThermoMzPeak(xArray[index], yArray[index]) :
-                new ThermoMzPeak(xArray[index], yArray[index], _charges[index], _noises[index], _resolutions[index]);
+                        new ThermoMzPeak(XArray[index], YArray[index]) :
+                new ThermoMzPeak(XArray[index], YArray[index], _charges[index], _noises[index], _resolutions[index]);
                 return peakList[index];
             }
         }
@@ -123,7 +123,7 @@ namespace IO.Thermo
             if (_noises == null)
                 return double.NaN;
             double noise = _noises[index];
-            return yArray[index] / noise;
+            return YArray[index] / noise;
         }
 
         public double[] GetNoises()
@@ -146,8 +146,8 @@ namespace IO.Thermo
             double[,] data = new double[5, Count];
             const int size = sizeof(double);
             int bytesToCopy = size * Count;
-            Buffer.BlockCopy(xArray, 0, data, 0, bytesToCopy);
-            Buffer.BlockCopy(yArray, 0, data, bytesToCopy, bytesToCopy);
+            Buffer.BlockCopy(XArray, 0, data, 0, bytesToCopy);
+            Buffer.BlockCopy(YArray, 0, data, bytesToCopy, bytesToCopy);
             Buffer.BlockCopy(_resolutions, 0, data, 2 * bytesToCopy, bytesToCopy);
             Buffer.BlockCopy(_noises, 0, data, 3 * bytesToCopy, bytesToCopy);
 
@@ -179,10 +179,10 @@ namespace IO.Thermo
             double[] resolutions = new double[count];
             int j = 0;
 
-            while (index < Count && xArray[index] <= maxMZ)
+            while (index < Count && XArray[index] <= maxMZ)
             {
-                mz[j] = xArray[index];
-                intensity[j] = yArray[index];
+                mz[j] = XArray[index];
+                intensity[j] = YArray[index];
                 if (_charges != null)
                     charges[j] = _charges[index];
                 if (_noises != null)
@@ -213,10 +213,10 @@ namespace IO.Thermo
             int j = 0;
             for (int i = 0; i < count; i++)
             {
-                double intensity = yArray[i];
+                double intensity = YArray[i];
                 if (intensity >= minIntensity && intensity < maxIntensity)
                 {
-                    mz[j] = xArray[i];
+                    mz[j] = XArray[i];
                     intensities[j] = intensity;
                     if (_resolutions != null)
                         resolutions[j] = _resolutions[i];

@@ -23,7 +23,18 @@ namespace Spectra
     /// </summary>
     public class MzPeak : Peak
     {
-        #region properties
+
+        #region Public Constructors
+
+        public MzPeak(double mz, double intensity)
+        {
+            Mz = mz;
+            Intensity = intensity;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
 
         public double Intensity
         {
@@ -37,7 +48,7 @@ namespace Spectra
             }
         }
 
-        public double MZ
+        public double Mz
         {
             get
             {
@@ -49,26 +60,21 @@ namespace Spectra
             }
         }
 
-        #endregion properties
+        #endregion Public Properties
 
-        #region constructors
-
-        public MzPeak(double mz, double intensity)
-        {
-            MZ = mz;
-            Intensity = intensity;
-        }
-
-        #endregion constructors
+        #region Public Methods
 
         public override string ToString()
         {
-            return string.Format("({0:F4},{1:G5})", MZ, Intensity);
+            return string.Format("({0:F4},{1:G5})", Mz, Intensity);
         }
 
         public void AddIntensity(double additionalIntensity)
         {
             Y += additionalIntensity;
         }
+
+        #endregion Public Methods
+
     }
 }

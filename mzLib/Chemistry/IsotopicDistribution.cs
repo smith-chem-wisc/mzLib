@@ -74,8 +74,7 @@ namespace Chemistry
         public IsotopicDistribution(ChemicalFormula formula, double fineResolution, double minProbability, double molecularWeightResolution)
         {
             ValidateFormulaForIsotopologueComputation(formula);
-            double monoisotopicMass = formula.MonoisotopicMass;
-            var a = GetNewFineAndMergeResolutions(monoisotopicMass, fineResolution);
+            var a = GetNewFineAndMergeResolutions(fineResolution);
             fineResolution = a.Item1;
             double _mergeFineResolution = a.Item2;
             List<List<Composition>> elementalComposition = new List<List<Composition>>();
@@ -151,7 +150,7 @@ namespace Chemistry
         /// <remarks>
 
         /// <returns>Tuple of fineResolution and mergeFineResolution</returns>
-        private static Tuple<double, double> GetNewFineAndMergeResolutions(double monoisotopicMass, double fineResolution)
+        private static Tuple<double, double> GetNewFineAndMergeResolutions(double fineResolution)
         {
             return new Tuple<double, double>(fineResolution / 2.0, fineResolution);
         }

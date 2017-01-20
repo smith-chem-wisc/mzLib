@@ -30,23 +30,38 @@ namespace Chemistry
     {
         // Two data stores for isotopes! An array for fast access and a list for enumeration!
 
+        #region Private Fields
+
         /// <summary>
         /// The element's isotopes stored based on their mass number
         /// </summary>
-        private Isotope[] IsotopesByMassNumber = new Isotope[Constants.MaximumMassNumberPossible + 1];
+        private readonly Isotope[] IsotopesByMassNumber = new Isotope[Constants.MaximumMassNumberPossible + 1];
 
         /// <summary>
         /// The element's isotopes stored in order they were added
         /// </summary>
-        private Isotope[] IsotopesInOrderTheyWereAdded = new Isotope[Constants.MaximumMassNumberPossible + 1];
+        private readonly Isotope[] IsotopesInOrderTheyWereAdded = new Isotope[Constants.MaximumMassNumberPossible + 1];
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         /// <summary>
-        /// Gets an isotope of this element based on its mass number
+        /// Create a new element
         /// </summary>
-        public Isotope this[int massNumber]
+        /// <param name="name">The name of the element</param>
+        /// <param name="symbol">The symbol of the element</param>
+        /// <param name="atomicNumber">The atomic number of the element</param>
+        public Element(string symbol, int atomicNumber, double averageMass)
         {
-            get { return IsotopesByMassNumber[massNumber]; }
+            AtomicSymbol = symbol;
+            AtomicNumber = atomicNumber;
+            AverageMass = averageMass;
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
 
         /// <summary>
         /// Gets all isotopes of an element
@@ -61,19 +76,6 @@ namespace Chemistry
                     else yield break;
                 }
             }
-        }
-
-        /// <summary>
-        /// Create a new element
-        /// </summary>
-        /// <param name="name">The name of the element</param>
-        /// <param name="symbol">The symbol of the element</param>
-        /// <param name="atomicNumber">The atomic number of the element</param>
-        public Element(string symbol, int atomicNumber, double averageMass)
-        {
-            AtomicSymbol = symbol;
-            AtomicNumber = atomicNumber;
-            AverageMass = averageMass;
         }
 
         /// <summary>
@@ -103,6 +105,39 @@ namespace Chemistry
             {
                 return AtomicNumber;
             }
+        }
+
+        #endregion Public Properties
+
+        #region Public Indexers
+
+        /// <summary>
+        /// Gets an isotope of this element based on its mass number
+        /// </summary>
+        public Isotope this[int massNumber]
+        {
+            get { return IsotopesByMassNumber[massNumber]; }
+        }
+
+        #endregion Public Indexers
+
+        #region Public Methods
+
+        /// <summary>
+        /// Can use an integer instead of an element anytime you like
+        /// </summary>
+        /// <param name="atomicNumber"></param>
+        public static implicit operator Element(int atomicNumber)
+        {
+            return PeriodicTable.GetElement(atomicNumber);
+        }
+
+        /// <summary>
+        /// Can use the atomic symbol instead of an element anytime you like
+        /// </summary>
+        public static implicit operator Element(string atomicSymbol)
+        {
+            return PeriodicTable.GetElement(atomicSymbol);
         }
 
         /// <summary>
@@ -135,21 +170,7 @@ namespace Chemistry
                 PrincipalIsotope = isotope;
         }
 
-        /// <summary>
-        /// Can use an integer instead of an element anytime you like
-        /// </summary>
-        /// <param name="atomicNumber"></param>
-        public static implicit operator Element(int atomicNumber)
-        {
-            return PeriodicTable.GetElement(atomicNumber);
-        }
+        #endregion Public Methods
 
-        /// <summary>
-        /// Can use the atomic symbol instead of an element anytime you like
-        /// </summary>
-        public static implicit operator Element(string atomicSymbol)
-        {
-            return PeriodicTable.GetElement(atomicSymbol);
-        }
     }
 }

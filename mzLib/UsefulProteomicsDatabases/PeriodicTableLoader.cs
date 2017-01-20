@@ -56,7 +56,7 @@ namespace UsefulProteomicsDatabases
                     double atomicMass = Convert.ToDouble(Regex.Match(line, @"[\d\.]+").Value);
 
                     line = sr.ReadLine();
-                    double abundance = -1;
+                    double abundance;
                     if (Regex.Match(line, @"[\d\.]+").Success)
                     {
                         abundance = Convert.ToDouble(Regex.Match(line, @"[\d\.]+").Value);
@@ -71,7 +71,7 @@ namespace UsefulProteomicsDatabases
                     }
 
                     line = sr.ReadLine();
-                    double averageMass = -1;
+                    double averageMass;
                     if (Regex.Match(line, @"\[").Success)
                     {
                         double averageMass1 = Convert.ToDouble(Regex.Match(line, @"(?<=\[)[\d\.]+").Value);
@@ -87,7 +87,7 @@ namespace UsefulProteomicsDatabases
                         element = new Element(atomicSymbol, atomicNumber, averageMass);
                         PeriodicTable.Add(element);
                     }
-                    
+
                     element.AddIsotope(massNumber, atomicMass, abundance);
 
                     line = sr.ReadLine();

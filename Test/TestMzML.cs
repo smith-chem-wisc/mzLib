@@ -143,11 +143,11 @@ namespace Test
             Assert.AreEqual(3, identifications.ChargeState(0));
             Assert.AreEqual(1, identifications.Count);
             Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0), 1e-10);
-            Assert.IsFalse(identifications.isDecoy(0));
+            Assert.IsFalse(identifications.IsDecoy(0));
             Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0));
             Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0));
             Assert.AreEqual(17, identifications.ModificationLocation(0, 0));
-            Assert.AreEqual("spectrum 2", identifications.Ms2spectrumID(0));
+            Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
@@ -230,11 +230,11 @@ namespace Test
             Assert.AreEqual(3, identifications.ChargeState(0));
             Assert.AreEqual(1, identifications.Count);
             Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0), 1e-10);
-            Assert.IsFalse(identifications.isDecoy(0));
+            Assert.IsFalse(identifications.IsDecoy(0));
             Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0));
             Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0));
             Assert.AreEqual(17, identifications.ModificationLocation(0, 0));
-            Assert.AreEqual("spectrum 2", identifications.Ms2spectrumID(0));
+            Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
@@ -253,7 +253,7 @@ namespace Test
             {
                 foreach (var p in createSpectrum(f.ThisChemicalFormula, v1, v2, 2))
                 {
-                    allMasses.Add(p.MZ);
+                    allMasses.Add(p.Mz);
                     allIntensities.Add(p.Intensity);
                 }
             }
@@ -281,9 +281,9 @@ namespace Test
             {
                 foreach (var thisPeak in correctedSpectrum)
                 {
-                    if (thisPeak.MZ > lowerBound && thisPeak.MZ < upperBound)
+                    if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
                     {
-                        allMasses.Add(thisPeak.MZ);
+                        allMasses.Add(thisPeak.Mz);
                         allIntensitiess.Add(thisPeak.Intensity);
                     }
                 }

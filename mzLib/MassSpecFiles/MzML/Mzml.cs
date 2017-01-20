@@ -82,7 +82,7 @@ namespace IO.MzML
         #region Public Constructors
 
         public Mzml(string filePath, int maxPeaksPerScan = int.MaxValue)
-                    : base(filePath, true, MsDataFileType.Mzml)
+                    : base(filePath, MsDataFileType.Mzml)
         {
             this.maxPeaksPerScan = maxPeaksPerScan;
         }
@@ -393,8 +393,6 @@ namespace IO.MzML
                     return MZAnalyzerType.IonTrap2D;
 
                 case "TQMS":
-                    return MZAnalyzerType.Unknown;
-
                 case "SQMS":
                     return MZAnalyzerType.Unknown;
 

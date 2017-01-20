@@ -24,6 +24,9 @@ namespace Test
     [TestFixture]
     public sealed class MassToleranceTestFixture
     {
+
+        #region Public Methods
+
         [Test]
         public void MassToleranceConstructorDaValue()
         {
@@ -150,7 +153,7 @@ namespace Test
         [Test]
         public void ToleranceWithin1()
         {
-            var tol = Tolerance.FromPPM(10);
+            var tol = Tolerance.FromPpm(10);
 
             Assert.IsTrue(tol.Within(500, 500.005));
         }
@@ -158,7 +161,7 @@ namespace Test
         [Test]
         public void ToleranceWithin2()
         {
-            var tol = Tolerance.FromPPM(10, ToleranceType.FullWidth);
+            var tol = Tolerance.FromPpm(10, ToleranceType.FullWidth);
 
             Assert.IsFalse(tol.Within(500, 500.005));
         }
@@ -187,5 +190,8 @@ namespace Test
 
             Assert.AreEqual("±1.0000 PPM", tol.ToString());
         }
+
+        #endregion Public Methods
+
     }
 }

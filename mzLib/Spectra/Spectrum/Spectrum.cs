@@ -55,15 +55,15 @@ namespace Spectra
         {
             if (shouldCopy)
             {
-                xArray = new double[x.Length];
-                yArray = new double[y.Length];
-                Array.Copy(x, xArray, x.Length);
-                Array.Copy(y, yArray, y.Length);
+                XArray = new double[x.Length];
+                YArray = new double[y.Length];
+                Array.Copy(x, XArray, x.Length);
+                Array.Copy(y, YArray, y.Length);
             }
             else
             {
-                xArray = x;
-                yArray = y;
+                XArray = x;
+                YArray = y;
             }
             peakList = new TPeak[Count];
         }
@@ -73,7 +73,7 @@ namespace Spectra
         /// </summary>
         /// <param name="spectrumToClone">The spectrum to clone</param>
         protected Spectrum(ISpectrum<Peak> spectrumToClone)
-            : this(spectrumToClone.xArray, spectrumToClone.yArray, true)
+            : this(spectrumToClone.XArray, spectrumToClone.YArray, true)
         {
         }
 
@@ -90,10 +90,10 @@ namespace Spectra
         {
             int length = xy.GetLength(1);
 
-            xArray = new double[count];
-            yArray = new double[count];
-            Buffer.BlockCopy(xy, 0, xArray, 0, sizeof(double) * count);
-            Buffer.BlockCopy(xy, sizeof(double) * length, yArray, 0, sizeof(double) * count);
+            XArray = new double[count];
+            YArray = new double[count];
+            Buffer.BlockCopy(xy, 0, XArray, 0, sizeof(double) * count);
+            Buffer.BlockCopy(xy, sizeof(double) * length, YArray, 0, sizeof(double) * count);
             peakList = new TPeak[Count];
         }
 
@@ -101,22 +101,22 @@ namespace Spectra
 
         #region Public Properties
 
-        public double FirstX { get { return xArray[0]; } }
+        public double FirstX { get { return XArray[0]; } }
 
-        public double LastX { get { return xArray[Count - 1]; } }
+        public double LastX { get { return XArray[Count - 1]; } }
 
-        public int Count { get { return xArray.Length; } }
+        public int Count { get { return XArray.Length; } }
 
-        public double[] xArray { get; private set; }
+        public double[] XArray { get; private set; }
 
-        public double[] yArray { get; private set; }
+        public double[] YArray { get; private set; }
 
         public double YofPeakWithHighestY
         {
             get
             {
                 if (double.IsNaN(yofPeakWithHighestY))
-                    yofPeakWithHighestY = yArray.Max();
+                    yofPeakWithHighestY = YArray.Max();
                 return yofPeakWithHighestY;
             }
         }
@@ -126,7 +126,7 @@ namespace Spectra
             get
             {
                 if (double.IsNaN(sumOfAllY))
-                    sumOfAllY = yArray.Sum();
+                    sumOfAllY = YArray.Sum();
                 return sumOfAllY;
             }
         }
@@ -144,7 +144,7 @@ namespace Spectra
             get
             {
                 if (peakWithHighestY == null)
-                    peakWithHighestY = this[Array.IndexOf(yArray, yArray.Max())];
+                    peakWithHighestY = this[Array.IndexOf(YArray, YArray.Max())];
                 return peakWithHighestY;
             }
         }
@@ -158,7 +158,7 @@ namespace Spectra
             get
             {
                 if (peakList[index] == null)
-                    peakList[index] = (TPeak)Activator.CreateInstance(typeof(TPeak), new object[] { xArray[index], yArray[index] });
+                    peakList[index] = (TPeak)Activator.CreateInstance(typeof(TPeak), new object[] { XArray[index], YArray[index] });
                 return peakList[index];
             }
         }
@@ -212,8 +212,8 @@ namespace Spectra
         {
             double[,] data = new double[2, Count];
             const int size = sizeof(double);
-            Buffer.BlockCopy(xArray, 0, data, 0, size * Count);
-            Buffer.BlockCopy(yArray, 0, data, size * Count, size * Count);
+            Buffer.BlockCopy(XArray, 0, data, 0, size * Count);
+            Buffer.BlockCopy(YArray, 0, data, size * Count, size * Count);
             return data;
         }
 
@@ -239,7 +239,7 @@ namespace Spectra
 
         public double GetClosestPeakXvalue(double x)
         {
-            return xArray[GetClosestPeakIndex(x)];
+            return XArray[GetClosestPeakIndex(x)];
         }
 
         public IEnumerator<TPeak> GetEnumerator()
@@ -255,7 +255,7 @@ namespace Spectra
 
         public int NumPeaksWithinRange(double minX, double maxX)
         {
-            int index = Array.BinarySearch(xArray, minX);
+            int index = Array.BinarySearch(XArray, minX);
 
             if (index < 0)
                 index = ~index;
@@ -266,7 +266,7 @@ namespace Spectra
             int startingIndex = index;
 
             // TODO: replace by binary search here as well
-            while (index < Count && xArray[index] <= maxX)
+            while (index < Count && XArray[index] <= maxX)
                 index++;
 
             return index - startingIndex;
@@ -275,7 +275,7 @@ namespace Spectra
         public void ReplaceXbyApplyingFunction(Func<TPeak, double> convertor)
         {
             for (int i = 0; i < Count; i++)
-                xArray[i] = convertor(this[i]);
+                XArray[i] = convertor(this[i]);
             ResetSpectrum();
         }
 
@@ -287,9 +287,9 @@ namespace Spectra
         {
             double[] modifiedXarray = new double[Count];
             for (int i = 0; i < Count; i++)
-                modifiedXarray[i] = convertor(xArray[i]);
-            double[] newYarray = new double[yArray.Length];
-            Array.Copy(yArray, newYarray, yArray.Length);
+                modifiedXarray[i] = convertor(XArray[i]);
+            double[] newYarray = new double[YArray.Length];
+            Array.Copy(YArray, newYarray, YArray.Length);
             return new Tuple<double[], double[]>(modifiedXarray, newYarray);
         }
 
@@ -300,11 +300,11 @@ namespace Spectra
             // Peaks to remove
             HashSet<int> indiciesToRemove = new HashSet<int>();
 
-            int index = Array.BinarySearch(xArray, minX);
+            int index = Array.BinarySearch(XArray, minX);
             if (index < 0)
                 index = ~index;
 
-            while (index < count && xArray[index] <= maxX)
+            while (index < count && XArray[index] <= maxX)
             {
                 indiciesToRemove.Add(index);
                 index++;
@@ -323,8 +323,8 @@ namespace Spectra
             {
                 if (indiciesToRemove.Contains(i))
                     continue;
-                newXarray[j] = xArray[i];
-                newYarray[j] = yArray[i];
+                newXarray[j] = XArray[i];
+                newYarray[j] = YArray[i];
                 j++;
             }
             return new Tuple<double[], double[]>(newXarray, newYarray);
@@ -343,11 +343,11 @@ namespace Spectra
                 double min = range.Minimum;
                 double max = range.Maximum;
 
-                int index = Array.BinarySearch(xArray, min);
+                int index = Array.BinarySearch(XArray, min);
                 if (index < 0)
                     index = ~index;
 
-                while (index < count && xArray[index] <= max)
+                while (index < count && XArray[index] <= max)
                 {
                     indiciesToRemove.Add(index);
                     index++;
@@ -367,8 +367,8 @@ namespace Spectra
             {
                 if (indiciesToRemove.Contains(i))
                     continue;
-                newXarray[j] = xArray[i];
-                newYarray[j] = yArray[i];
+                newXarray[j] = XArray[i];
+                newYarray[j] = YArray[i];
                 j++;
             }
 
@@ -383,10 +383,10 @@ namespace Spectra
             int j = 0;
             for (int i = 0; i < count; i++)
             {
-                double intensity = yArray[i];
+                double intensity = YArray[i];
                 if (intensity >= minY && intensity < maxY)
                 {
-                    newXarray[j] = xArray[i];
+                    newXarray[j] = XArray[i];
                     newYarray[j] = intensity;
                     j++;
                 }
@@ -412,10 +412,10 @@ namespace Spectra
             double[] newYarray = new double[count];
             int j = 0;
 
-            while (index < Count && xArray[index] <= maxX)
+            while (index < Count && XArray[index] <= maxX)
             {
-                newXarray[j] = xArray[index];
-                newYarray[j] = yArray[index];
+                newXarray[j] = XArray[index];
+                newYarray[j] = YArray[index];
                 index++;
                 j++;
             }
@@ -428,10 +428,10 @@ namespace Spectra
 
         protected Tuple<double[], double[]> FilterByNumberOfMostIntense(int topNPeaks)
         {
-            double[] newXarray = new double[xArray.Length];
-            double[] newYarray = new double[yArray.Length];
-            Array.Copy(xArray, newXarray, xArray.Length);
-            Array.Copy(yArray, newYarray, yArray.Length);
+            double[] newXarray = new double[XArray.Length];
+            double[] newYarray = new double[YArray.Length];
+            Array.Copy(XArray, newXarray, XArray.Length);
+            Array.Copy(YArray, newYarray, YArray.Length);
 
             Array.Sort(newYarray, newXarray, Comparer<double>.Create((i1, i2) => i2.CompareTo(i1)));
 
@@ -449,7 +449,7 @@ namespace Spectra
             if (Count == 0)
                 throw new IndexOutOfRangeException("No peaks in spectrum!");
 
-            int index = Array.BinarySearch(xArray, targetX);
+            int index = Array.BinarySearch(XArray, targetX);
             if (index >= 0)
                 return index;
             index = ~index;
@@ -466,8 +466,8 @@ namespace Spectra
                 return index;
             }
 
-            double p1 = xArray[indexm1];
-            double p2 = xArray[index];
+            double p1 = XArray[indexm1];
+            double p2 = XArray[index];
 
             if (targetX - p1 > p2 - targetX)
                 return index;

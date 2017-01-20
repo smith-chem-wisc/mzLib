@@ -25,11 +25,53 @@ using System.Text;
 
 namespace Proteomics
 {
-    public class ModificationCollection : ICollection<IHasMass>, IHasMass, IEquatable<ModificationCollection>, IHasChemicalFormula
+    public class ModificationCollection : ICollection<IHasMass>, IEquatable<ModificationCollection>, IHasChemicalFormula
     {
+
+        #region Private Fields
+
         private readonly List<IHasMass> _modifications;
 
+        #endregion Private Fields
+
+        #region Public Constructors
+
+        public ModificationCollection(params IHasMass[] mods)
+        {
+            _modifications = mods.ToList();
+            MonoisotopicMass = _modifications.Sum(m => m.MonoisotopicMass);
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
         public double MonoisotopicMass { get; private set; }
+
+        public int Count
+        {
+            get { return _modifications.Count; }
+        }
+
+        public bool IsReadOnly
+        {
+            get { return false; }
+        }
+
+        public ChemicalFormula ThisChemicalFormula
+        {
+            get
+            {
+                ChemicalFormula chemicalFormula = new ChemicalFormula();
+                foreach (var ok in _modifications)
+                    chemicalFormula.Add(ok as IHasChemicalFormula);
+                return chemicalFormula;
+            }
+        }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public override string ToString()
         {
@@ -44,12 +86,6 @@ namespace Proteomics
                 sb.Remove(sb.Length - 3, 3);
             }
             return sb.ToString();
-        }
-
-        public ModificationCollection(params IHasMass[] mods)
-        {
-            _modifications = mods.ToList();
-            MonoisotopicMass = _modifications.Sum(m => m.MonoisotopicMass);
         }
 
         public void Add(IHasMass item)
@@ -74,27 +110,6 @@ namespace Proteomics
             _modifications.CopyTo(array, arrayIndex);
         }
 
-        public int Count
-        {
-            get { return _modifications.Count; }
-        }
-
-        public bool IsReadOnly
-        {
-            get { return false; }
-        }
-
-        public ChemicalFormula ThisChemicalFormula
-        {
-            get
-            {
-                ChemicalFormula chemicalFormula = new ChemicalFormula();
-                foreach (var ok in _modifications)
-                    chemicalFormula.Add(ok as IHasChemicalFormula);
-                return chemicalFormula;
-            }
-        }
-
         public bool Remove(IHasMass item)
         {
             if (!_modifications.Remove(item))
@@ -117,5 +132,8 @@ namespace Proteomics
         {
             return _modifications.GetEnumerator();
         }
+
+        #endregion Public Methods
+
     }
 }
