@@ -120,6 +120,19 @@ namespace Test
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0].name = "Carbamidomethyl";
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0].cvRef = "UNIMOD";
 
+            _mzid.AnalysisProtocolCollection = new mzIdentML.Generated.AnalysisProtocolCollectionType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol = new mzIdentML.Generated.SpectrumIdentificationProtocolType[1];
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0] = new mzIdentML.Generated.SpectrumIdentificationProtocolType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance = new mzIdentML.Generated.CVParamType[1];
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0] = new mzIdentML.Generated.CVParamType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0].unitName = "dalton";
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0].value = "0.1";
+
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance = new mzIdentML.Generated.CVParamType[1];
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0] = new mzIdentML.Generated.CVParamType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0].unitName = "dalton";
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0].value = "0.01";
+
             TextWriter writer = new StreamWriter("myIdentifications.mzid");
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
@@ -137,6 +150,8 @@ namespace Test
             Assert.AreEqual("spectrum 2", identifications.Ms2spectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
+            Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
+            Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
         }
 
         [Test]
@@ -192,6 +207,19 @@ namespace Test
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0].name = "Carbamidomethyl";
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0].cvRef = "UNIMOD";
 
+            _mzid.AnalysisProtocolCollection = new mzIdentML110.Generated.AnalysisProtocolCollectionType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol = new mzIdentML110.Generated.SpectrumIdentificationProtocolType[1];
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0] = new mzIdentML110.Generated.SpectrumIdentificationProtocolType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance = new mzIdentML110.Generated.CVParamType[1];
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0] = new mzIdentML110.Generated.CVParamType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0].unitName = "dalton";
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0].value = "0.1";
+
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance = new mzIdentML110.Generated.CVParamType[1];
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0] = new mzIdentML110.Generated.CVParamType();
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0].unitName = "dalton";
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0].value = "0.01";
+
             TextWriter writer = new StreamWriter("myIdentifications.mzid");
             _indexedSerializer.Serialize(writer, _mzid);
             writer.Close();
@@ -209,6 +237,8 @@ namespace Test
             Assert.AreEqual("spectrum 2", identifications.Ms2spectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
+            Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
+            Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
         }
 
         #endregion Public Methods
