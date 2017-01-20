@@ -30,6 +30,8 @@ namespace Chemistry
     {
         // Two datastores storing same elements! Need both for efficient access by both symbol and atomic number
 
+        #region Private Fields
+
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic symbol
         /// </summary>
@@ -39,6 +41,10 @@ namespace Chemistry
         /// The internal dictionary housing elements, keyed by their unique atomic number
         /// </summary>
         private static Element[] _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
+
+        #endregion Private Fields
+
+        #region Public Methods
 
         /// <summary>
         /// Populate the periodic table by calling this method
@@ -53,6 +59,12 @@ namespace Chemistry
                 throw new ArgumentException("Element with atomic number " + element.AtomicNumber + " already added!");
             _elements.Add(element.AtomicSymbol, element);
             _elementsArray[element.AtomicNumber] = element;
+        }
+
+        public static void Clear()
+        {
+            _elements = new Dictionary<string, Element>();
+            _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
         }
 
         /// <summary>
@@ -98,5 +110,8 @@ namespace Chemistry
             }
             return new PeriodicTableValidationResult(ValidationResult.PassedAverageMassValidation, StringResources.ValidationPassed);
         }
+
+        #endregion Public Methods
+
     }
 }

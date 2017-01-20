@@ -27,8 +27,12 @@ namespace UsefulProteomicsDatabases
     /// </summary>
     public static class PeriodicTableLoader
     {
+
+        #region Public Methods
+
         public static void Load(string elementLocation)
         {
+            PeriodicTable.Clear();
             using (StreamReader sr = new StreamReader(elementLocation))
             {
                 // Read the stream to a string, and write the string to the console.
@@ -95,5 +99,8 @@ namespace UsefulProteomicsDatabases
                 } while (line.Contains("Atomic Number"));
             }
         }
+
+        #endregion Public Methods
+
     }
 }
