@@ -32,7 +32,7 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public FakeMsDataFile(string filePath, MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans) : base(filePath, true, MsDataFileType.UnKnown)
+        public FakeMsDataFile(string filePath, MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
         {
             this.FakeScans = FakeScans;
         }

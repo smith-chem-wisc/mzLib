@@ -35,20 +35,36 @@ namespace MassSpectrometry
         /// array and don't get cleared until the file is disposed or the ClearCacheScans() method is called.
         /// Of course, if you store the scans somewhere else, they will persist. The default value is True.
         /// </summary>
-        public bool CacheScans { get; private set; }
+
+        #region Internal Fields
 
         internal MsDataScan<TSpectrum>[] Scans = null;
+
+        #endregion Internal Fields
+
+        #region Private Fields
 
         private string _filePath;
 
         private string _name;
 
-        protected MsDataFile(string filePath, bool cacheScans, MsDataFileType filetype = MsDataFileType.UnKnown)
+        private bool _numSpectraSet = false;
+
+        private int _numSpectra;
+
+        #endregion Private Fields
+
+        #region Protected Constructors
+
+        protected MsDataFile(string filePath, MsDataFileType filetype = MsDataFileType.UnKnown)
         {
             FilePath = filePath;
             FileType = filetype;
-            CacheScans = cacheScans;
         }
+
+        #endregion Protected Constructors
+
+        #region Public Properties
 
         public string FilePath
         {
@@ -61,9 +77,6 @@ namespace MassSpectrometry
         }
 
         public MsDataFileType FileType { get; private set; }
-
-        private bool _numSpectraSet = false;
-        private int _numSpectra;
 
         public virtual int NumSpectra
         {
@@ -82,6 +95,10 @@ namespace MassSpectrometry
             get { return _name; }
         }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
@@ -99,8 +116,6 @@ namespace MassSpectrometry
         /// <returns></returns>
         public virtual IMsDataScan<TSpectrum> GetOneBasedScan(int oneBasedScanNumber)
         {
-            if (!CacheScans)
-                return GetMsDataOneBasedScanFromFile(oneBasedScanNumber);
             if (Scans == null)
                 Scans = new MsDataScan<TSpectrum>[NumSpectra];
             if (Scans[oneBasedScanNumber - 1] == null)
@@ -129,12 +144,8 @@ namespace MassSpectrometry
 
         public virtual void ClearCachedScans()
         {
-            if (Scans == null)
-                return;
             Array.Clear(Scans, 0, Scans.Length);
         }
-
-        protected abstract MsDataScan<TSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
 
         public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScans()
         {
@@ -172,10 +183,19 @@ namespace MassSpectrometry
             return string.Format("{0} ({1})", Name, Enum.GetName(typeof(MsDataFileType), FileType));
         }
 
-        protected abstract int GetNumSpectra();
-
         public abstract void Open();
 
         public abstract void Close();
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
+        protected abstract MsDataScan<TSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
+
+        protected abstract int GetNumSpectra();
+
+        #endregion Protected Methods
+
     }
 }

@@ -82,7 +82,7 @@ namespace IO.MzML
         #region Public Constructors
 
         public Mzml(string filePath, int maxPeaksPerScan = int.MaxValue)
-                    : base(filePath, true, MsDataFileType.Mzml)
+                    : base(filePath, MsDataFileType.Mzml)
         {
             this.maxPeaksPerScan = maxPeaksPerScan;
         }
