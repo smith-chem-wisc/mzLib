@@ -28,6 +28,9 @@ namespace Test
     [TestFixture]
     public sealed class TestModifications
     {
+
+        #region Public Methods
+
         [Test]
         public void NameAndSites()
         {
@@ -141,5 +144,17 @@ namespace Test
             ChemicalFormulaModification b = new ChemicalFormulaModification(a);
             Assert.AreEqual(a, b);
         }
+
+        [Test]
+        public void ModificationCollectionScrambledEquals()
+        {
+            ModificationCollection a = new ModificationCollection(new Modification(1, "Mod1"), new Modification(2, "Mod2"));
+            ModificationCollection b = new ModificationCollection(new Modification(1, "Mod1"), new Modification(3, "Mod3"));
+
+            Assert.IsFalse(a.Equals(b));
+        }
+
+        #endregion Public Methods
+
     }
 }
