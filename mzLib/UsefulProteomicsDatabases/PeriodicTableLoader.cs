@@ -41,7 +41,7 @@ namespace UsefulProteomicsDatabases
                     line = sr.ReadLine();
                 }
                 var prevAtomicNumber = -1;
-                Element element = null;
+                Element element = new Element("fake", prevAtomicNumber, -1);
                 do
                 {
                     int atomicNumber = Convert.ToInt32(Regex.Match(line, @"\d+").Value);
@@ -63,9 +63,9 @@ namespace UsefulProteomicsDatabases
                     }
                     else
                     {
-                        line = sr.ReadLine();
-                        line = sr.ReadLine();
-                        line = sr.ReadLine();
+                        sr.ReadLine();
+                        sr.ReadLine();
+                        sr.ReadLine();
                         line = sr.ReadLine();
                         continue;
                     }
@@ -90,8 +90,8 @@ namespace UsefulProteomicsDatabases
 
                     element.AddIsotope(massNumber, atomicMass, abundance);
 
-                    line = sr.ReadLine();
-                    line = sr.ReadLine();
+                    sr.ReadLine();
+                    sr.ReadLine();
                     line = sr.ReadLine();
                     prevAtomicNumber = atomicNumber;
                 } while (line.Contains("Atomic Number"));
