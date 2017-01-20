@@ -264,7 +264,9 @@ namespace Chemistry
                     indices = new int[means.Length - 1];
                     for (int i = 0; i < means.Length - 1; i++)
                     {
-                        indices[i] = mins[i] = Math.Max(0, means[i] - stds[i]);
+                        var max = Math.Max(0, means[i] - stds[i]);
+                        indices[i] = max;
+                        mins[i] = max;
                         maxs[i] = means[i] + stds[i];
                     }
 
