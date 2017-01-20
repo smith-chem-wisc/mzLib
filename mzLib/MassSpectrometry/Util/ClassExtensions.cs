@@ -29,9 +29,6 @@ namespace MassSpectrometry
 
             int count = data.Length;
 
-            if (points <= 0 || points > count)
-                throw new ArgumentException("Points = " + points + " out of range for BoxCarSmooth!");
-
             int newCount = count - points + 1;
 
             double[] smoothedData = new double[newCount];
