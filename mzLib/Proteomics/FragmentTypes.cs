@@ -44,6 +44,29 @@ namespace Proteomics
 
     public static class FragmentTypesExtension
     {
+
+        #region Private Fields
+
+        private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
+        {
+            {FragmentTypes.a, new ChemicalFormula("C-1H-1O-1")},
+            {FragmentTypes.adot, new ChemicalFormula("C-1O-1")},
+            {FragmentTypes.b, new ChemicalFormula("H-1")},
+            {FragmentTypes.bdot, new ChemicalFormula()},
+            {FragmentTypes.c, new ChemicalFormula("NH2")},
+            {FragmentTypes.cdot, new ChemicalFormula("NH3")},
+            {FragmentTypes.x, new ChemicalFormula("COH-1")},
+            {FragmentTypes.xdot, new ChemicalFormula("CO")},
+            {FragmentTypes.y, new ChemicalFormula("H")},
+            {FragmentTypes.ydot, new ChemicalFormula("H2")},
+            {FragmentTypes.z, new ChemicalFormula("N-1H-2")},
+            {FragmentTypes.zdot, new ChemicalFormula("N-1H-1")},
+        };
+
+        #endregion Private Fields
+
+        #region Public Methods
+
         public static IEnumerable<FragmentTypes> GetIndividualFragmentTypes(this FragmentTypes fragmentTypes)
         {
             if (fragmentTypes == FragmentTypes.None)
@@ -66,7 +89,7 @@ namespace Proteomics
             // Super handy: http://stackoverflow.com/questions/4624248/c-logical-riddle-with-bit-operations-only-one-bit-is-set
             if (fragmentType == FragmentTypes.None || (fragmentType & (fragmentType - 1)) != FragmentTypes.None)
             {
-                throw new ArgumentException("Fragment Type must be a single value to determine the terminus", "fragmentType");
+                throw new ArgumentException("Fragment Type must be a single value to determine the terminus");
             }
             return fragmentType >= FragmentTypes.x ? Terminus.C : Terminus.N;
         }
@@ -75,25 +98,12 @@ namespace Proteomics
         {
             if (fragmentType == FragmentTypes.None || (fragmentType & (fragmentType - 1)) != FragmentTypes.None)
             {
-                throw new ArgumentException("Fragment Type must be a single value to determine the ion cap", "fragmentType");
+                throw new ArgumentException("Fragment Type must be a single value to determine the ion cap");
             }
             return FragmentIonCaps[fragmentType];
         }
 
-        private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
-        {
-            {FragmentTypes.a, new ChemicalFormula("C-1H-1O-1")},
-            {FragmentTypes.adot, new ChemicalFormula("C-1O-1")},
-            {FragmentTypes.b, new ChemicalFormula("H-1")},
-            {FragmentTypes.bdot, new ChemicalFormula()},
-            {FragmentTypes.c, new ChemicalFormula("NH2")},
-            {FragmentTypes.cdot, new ChemicalFormula("NH3")},
-            {FragmentTypes.x, new ChemicalFormula("COH-1")},
-            {FragmentTypes.xdot, new ChemicalFormula("CO")},
-            {FragmentTypes.y, new ChemicalFormula("H")},
-            {FragmentTypes.ydot, new ChemicalFormula("H2")},
-            {FragmentTypes.z, new ChemicalFormula("N-1H-2")},
-            {FragmentTypes.zdot, new ChemicalFormula("N-1H-1")},
-        };
+        #endregion Public Methods
+
     }
 }

@@ -128,6 +128,24 @@ namespace Test
             Assert.Contains("ACT", ok.Select(b => b.Sequence).ToArray());
         }
 
+        [Test]
+        public void TestGetIonCapFailFail()
+        {
+            FragmentTypes f = FragmentTypes.All;
+            Assert.That(() => f.GetIonCap(), Throws.TypeOf<ArgumentException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Fragment Type must be a single value to determine the ion cap"));
+        }
+
+        [Test]
+        public void TestGetTerminusFail()
+        {
+            FragmentTypes f = FragmentTypes.a | FragmentTypes.adot;
+            Assert.That(() => f.GetTerminus(), Throws.TypeOf<ArgumentException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Fragment Type must be a single value to determine the terminus"));
+        }
+
         #endregion Public Methods
 
     }
