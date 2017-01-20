@@ -154,6 +154,8 @@ namespace Test
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMZ(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicIntensity(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicMZ(out yahh));
+            
+            thefile.Close();
         }
 
         [Test]
