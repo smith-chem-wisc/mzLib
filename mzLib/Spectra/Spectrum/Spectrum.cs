@@ -456,14 +456,9 @@ namespace Spectra
 
             int indexm1 = index - 1;
 
-            if (index >= Count)
+            if (index >= Count && indexm1 >= 0)
             {
-                // only the indexm1 peak can be closer
-
-                if (indexm1 >= 0)
-                {
-                    return indexm1;
-                }
+                return indexm1;
             }
             if (index == 0)
             {

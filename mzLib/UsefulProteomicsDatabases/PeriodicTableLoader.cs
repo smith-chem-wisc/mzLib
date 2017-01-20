@@ -57,7 +57,7 @@ namespace UsefulProteomicsDatabases
 
                     line = sr.ReadLine();
                     double abundance = -1;
-                    if (Regex.Match(line, @"[\d\.]+").Success == true)
+                    if (Regex.Match(line, @"[\d\.]+").Success)
                     {
                         abundance = Convert.ToDouble(Regex.Match(line, @"[\d\.]+").Value);
                     }
@@ -72,7 +72,7 @@ namespace UsefulProteomicsDatabases
 
                     line = sr.ReadLine();
                     double averageMass = -1;
-                    if (Regex.Match(line, @"\[").Success == true)
+                    if (Regex.Match(line, @"\[").Success)
                     {
                         double averageMass1 = Convert.ToDouble(Regex.Match(line, @"(?<=\[)[\d\.]+").Value);
                         var kkajsdf = Regex.Match(line, @"(?<=,)[\d\.]+").Value;

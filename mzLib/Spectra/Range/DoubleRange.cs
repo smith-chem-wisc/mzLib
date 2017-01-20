@@ -78,7 +78,8 @@ namespace Spectra
         {
             if (tolerance == null)
             {
-                Minimum = Maximum = mean;
+                Minimum = mean;
+                Maximum = mean;
                 return;
             }
 

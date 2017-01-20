@@ -196,11 +196,11 @@ namespace MassSpectrometry
             if (MsnOrder == 1)
                 return false;
 
-            double isolationMz;
-            TryGetIsolationMZ(out isolationMz);
-            double isolationWidth;
-            TryGetIsolationWidth(out isolationWidth);
-            IsolationRange = new MzRange(isolationMz - isolationWidth / 2, isolationMz + isolationWidth / 2);
+            double isolationMzHere;
+            TryGetIsolationMZ(out isolationMzHere);
+            double isolationWidthHere;
+            TryGetIsolationWidth(out isolationWidthHere);
+            IsolationRange = new MzRange(isolationMzHere - isolationWidthHere / 2, isolationMzHere + isolationWidthHere / 2);
 
             return true;
         }
