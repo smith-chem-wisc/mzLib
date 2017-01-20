@@ -12,7 +12,7 @@ namespace IO.MzML
 
         #region Internal Fields
 
-        internal static XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
+        internal static readonly XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
 
         #endregion Internal Fields
 
@@ -44,15 +44,8 @@ namespace IO.MzML
             _indexedmzMLConnection.mzML.softwareList.count = "1";
 
             _indexedmzMLConnection.mzML.softwareList.software = new Generated.SoftwareType[1];
-            // For a RAW file!!!
-            // ToDo: read softwareList from mzML file
-            //_indexedmzMLConnection.mzML.softwareList.software[1] = new SoftwareType();
-            //_indexedmzMLConnection.mzML.softwareList.software[1].id = "ThermoSoftware";
-            //_indexedmzMLConnection.mzML.softwareList.software[1].version = rawFile.GetSofwareVersion();
-            //_indexedmzMLConnection.mzML.softwareList.software[1].cvParam = new CVParamType[1];
-            //_indexedmzMLConnection.mzML.softwareList.software[1].cvParam[0] = new CVParamType();
-            //_indexedmzMLConnection.mzML.softwareList.software[1].cvParam[0].accession = "MS:1000693";
 
+            // TODO: add the raw file fields
             _indexedmzMLConnection.mzML.softwareList.software[0] = new Generated.SoftwareType();
             _indexedmzMLConnection.mzML.softwareList.software[0].id = "mzLib";
             _indexedmzMLConnection.mzML.softwareList.software[0].version = "1";
@@ -284,7 +277,7 @@ namespace IO.MzML
 
                 // M/Z Data
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].binary = ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.xArray);
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].binary = ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.XArray);
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].encodedLength = (4 * Math.Ceiling(((double)_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam = new Generated.CVParamType[2];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam[0] = new Generated.CVParamType();
@@ -293,13 +286,10 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam[1] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam[1].accession = "MS:1000523";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0].cvParam[1].name = "64-bit float";
-                //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[0].cvParam[0] = new CVParamType();
-                //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[0].cvParam[0].accession = "MS:1000574";
-                //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[0].cvParam[0].name = "zlib compression";
 
                 // Intensity Data
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1] = new Generated.BinaryDataArrayType();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].binary = ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.yArray);
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].binary = ConvertDoublestoBase64(myMsDataFile.GetOneBasedScan(i).MassSpectrum.YArray);
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].encodedLength = (4 * Math.Ceiling(((double)_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam = new Generated.CVParamType[2];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam[0] = new Generated.CVParamType();
@@ -308,9 +298,6 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam[1] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam[1].accession = "MS:1000523";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[1].cvParam[1].name = "64-bit float";
-                //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[1].cvParam[0] = new CVParamType();
-                //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[1].cvParam[0].accession = "MS:1000574";
-                //_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i-1].binaryDataArrayList.binaryDataArray[1].cvParam[0].name = "zlib compression";
             }
 
             Write(outputFile, _indexedmzMLConnection);

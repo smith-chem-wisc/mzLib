@@ -27,8 +27,8 @@ namespace Spectra
 
         #region Public Properties
 
-        double[] xArray { get; }
-        double[] yArray { get; }
+        double[] XArray { get; }
+        double[] YArray { get; }
         double FirstX { get; }
         double LastX { get; }
         int Count { get; }

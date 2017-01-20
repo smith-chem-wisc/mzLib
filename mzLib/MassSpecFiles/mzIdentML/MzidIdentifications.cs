@@ -25,13 +25,13 @@ using System.Xml.Serialization;
 
 namespace MzIdentML
 {
-    public class MzidIdentifications : Identifications
+    public class MzidIdentifications : IIdentifications
     {
 
         #region Private Fields
 
-        private mzIdentML.Generated.MzIdentMLType dd = null;
-        private mzIdentML110.Generated.MzIdentMLType dd110 = null;
+        private readonly mzIdentML.Generated.MzIdentMLType dd;
+        private readonly mzIdentML110.Generated.MzIdentMLType dd110;
 
         #endregion Private Fields
 
@@ -164,7 +164,7 @@ namespace MzIdentML
             }
         }
 
-        public bool isDecoy(int sirIndex)
+        public bool IsDecoy(int sirIndex)
         {
             try
             {
@@ -361,7 +361,7 @@ namespace MzIdentML
             return s;
         }
 
-        public string Ms2spectrumID(int sirIndex)
+        public string Ms2SpectrumID(int sirIndex)
         {
             string ms2id = null;
             try

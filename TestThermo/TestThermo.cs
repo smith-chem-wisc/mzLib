@@ -52,9 +52,9 @@ namespace TestThermo
             Assert.AreEqual("LCQ", a.GetInstrumentName());
             Assert.AreEqual("LCQ", a.GetInstrumentModel());
 
-            Assert.AreEqual(0, a.GetMSXPrecursors(1289).Count);
-            Assert.AreEqual(1, a.GetMSXPrecursors(1290).Count);
-            Assert.AreEqual(1194.53, a.GetMSXPrecursors(1290).First());
+            Assert.AreEqual(0, a.GetMsxPrecursors(1289).Count);
+            Assert.AreEqual(1, a.GetMsxPrecursors(1290).Count);
+            Assert.AreEqual(1194.53, a.GetMsxPrecursors(1290).First());
         }
 
         [Test]
@@ -78,12 +78,12 @@ namespace TestThermo
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
             Assert.AreEqual("(195.0874,1.0214E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
-            Assert.AreEqual(77561752, a.GetTIC(1));
+            Assert.AreEqual(77561752, a.GetTic(1));
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
             Assert.AreEqual(0.98, a.GetElapsedScanTime(100), 0.01);
 
-            var cromatogram = a.GetTICChroma();
+            var cromatogram = a.GetTicChroma();
 
             Assert.AreEqual(360, cromatogram.Count);
             Assert.AreEqual(0.01, cromatogram.FirstTime, 0.002);

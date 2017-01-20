@@ -154,7 +154,7 @@ namespace Test
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMZ(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicIntensity(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicMZ(out yahh));
-            
+
             thefile.Close();
         }
 
@@ -225,7 +225,7 @@ namespace Test
             {
                 foreach (var p in createSpectrum(f.ThisChemicalFormula, v1, v2, 2))
                 {
-                    allMasses.Add(p.MZ);
+                    allMasses.Add(p.Mz);
                     allIntensities.Add(p.Intensity);
                 }
             }
@@ -251,9 +251,9 @@ namespace Test
             {
                 foreach (var thisPeak in correctedSpectrum)
                 {
-                    if (thisPeak.MZ > lowerBound && thisPeak.MZ < upperBound)
+                    if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
                     {
-                        allMasses.Add(thisPeak.MZ);
+                        allMasses.Add(thisPeak.Mz);
                         allIntensitiess.Add(thisPeak.Intensity);
                     }
                 }

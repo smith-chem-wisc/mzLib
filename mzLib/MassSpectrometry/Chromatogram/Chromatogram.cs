@@ -25,6 +25,9 @@ namespace MassSpectrometry
 {
     public class Chromatogram : Chromatogram<ChromatographicPeak>
     {
+
+        #region Public Constructors
+
         public Chromatogram(double[] times, double[] intensities, bool shouldCopy)
             : base(times, intensities, shouldCopy)
         {
@@ -40,13 +43,17 @@ namespace MassSpectrometry
         {
         }
 
+        #endregion Public Constructors
+
+        #region Public Methods
+
         public Chromatogram CreateSmoothChromatogram(SmoothingType smoothing, int points)
         {
             switch (smoothing)
             {
                 case SmoothingType.BoxCar:
-                    double[] newTimes = xArray.BoxCarSmooth(points);
-                    double[] newIntensities = yArray.BoxCarSmooth(points);
+                    double[] newTimes = XArray.BoxCarSmooth(points);
+                    double[] newIntensities = YArray.BoxCarSmooth(points);
                     return new Chromatogram(newTimes, newIntensities, false);
 
                 default:
@@ -56,22 +63,18 @@ namespace MassSpectrometry
 
         public override ChromatographicPeak GetPeak(int index)
         {
-            return new ChromatographicPeak(xArray[index], yArray[index]);
+            return new ChromatographicPeak(XArray[index], YArray[index]);
         }
+
+        #endregion Public Methods
+
     }
 
     public abstract class Chromatogram<TPeak> : Spectrum<TPeak>
         where TPeak : Peak
     {
-        public double FirstTime
-        {
-            get { return xArray[0]; }
-        }
 
-        public double LastTime
-        {
-            get { return xArray[Count - 1]; }
-        }
+        #region Protected Constructors
 
         protected Chromatogram(double[] times, double[] intensities, bool shouldCopy = true) : base(times, intensities, shouldCopy)
         {
@@ -82,34 +85,52 @@ namespace MassSpectrometry
         }
 
         protected Chromatogram(Chromatogram<TPeak> other)
-            : this(other.xArray, other.yArray)
+            : this(other.XArray, other.YArray)
         {
         }
+
+        #endregion Protected Constructors
+
+        #region Public Properties
+
+        public double FirstTime
+        {
+            get { return XArray[0]; }
+        }
+
+        public double LastTime
+        {
+            get { return XArray[Count - 1]; }
+        }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public abstract TPeak GetPeak(int index);
 
         public double[] GetTimes()
         {
             double[] times = new double[Count];
-            Buffer.BlockCopy(xArray, 0, times, 0, sizeof(double) * Count);
+            Buffer.BlockCopy(XArray, 0, times, 0, sizeof(double) * Count);
             return times;
         }
 
         public double[] GetIntensities()
         {
             double[] intensities = new double[Count];
-            Buffer.BlockCopy(yArray, 0, intensities, 0, sizeof(double) * Count);
+            Buffer.BlockCopy(YArray, 0, intensities, 0, sizeof(double) * Count);
             return intensities;
         }
 
         public double GetTime(int index)
         {
-            return xArray[index];
+            return XArray[index];
         }
 
         public double GetIntensity(int index)
         {
-            return yArray[index];
+            return YArray[index];
         }
 
         public virtual TPeak GetApex(DoubleRange timeRange)
@@ -119,7 +140,7 @@ namespace MassSpectrometry
 
         public virtual TPeak GetApex(double mintime, double maxTime)
         {
-            int index = Array.BinarySearch(xArray, mintime);
+            int index = Array.BinarySearch(XArray, mintime);
             if (index < 0)
                 index = ~index;
 
@@ -130,9 +151,9 @@ namespace MassSpectrometry
 
             double maxvalue = -1; // double.negative infinity?
             int apexIndex = index;
-            while (index < Count && xArray[index] <= maxTime)
+            while (index < Count && XArray[index] <= maxTime)
             {
-                double intensity = yArray[index];
+                double intensity = YArray[index];
                 if (intensity > maxvalue)
                 {
                     apexIndex = index;
@@ -150,12 +171,12 @@ namespace MassSpectrometry
 
         public virtual ChromatographicElutionProfile<TPeak> GetElutionProfile(double mintime, double maxTime)
         {
-            int index = Array.BinarySearch(xArray, mintime);
+            int index = Array.BinarySearch(XArray, mintime);
             if (index < 0)
                 index = ~index;
 
             List<TPeak> peaks = new List<TPeak>();
-            while (index < Count && xArray[index] <= maxTime)
+            while (index < Count && XArray[index] <= maxTime)
             {
                 peaks.Add(GetPeak(index));
                 index++;
@@ -170,7 +191,7 @@ namespace MassSpectrometry
 
         public TPeak FindNearestApex(double rt, int skipablePts = 1)
         {
-            int index = Array.BinarySearch(xArray, rt);
+            int index = Array.BinarySearch(XArray, rt);
             if (index < 0)
                 index = ~index;
 
@@ -178,16 +199,16 @@ namespace MassSpectrometry
                 index--;
 
             int bestApex = index;
-            double apexValue = yArray[bestApex];
+            double apexValue = YArray[bestApex];
 
             int i = index - 1;
             int count = 0;
             while (i >= 0)
             {
-                if (yArray[i] > apexValue)
+                if (YArray[i] > apexValue)
                 {
                     bestApex = i;
-                    apexValue = yArray[bestApex];
+                    apexValue = YArray[bestApex];
                     count = 0;
                 }
                 else
@@ -203,10 +224,10 @@ namespace MassSpectrometry
             count = 0;
             while (i < Count)
             {
-                if (yArray[i] > apexValue)
+                if (YArray[i] > apexValue)
                 {
                     bestApex = i;
-                    apexValue = yArray[bestApex];
+                    apexValue = YArray[bestApex];
                     count = 0;
                 }
                 else
@@ -223,22 +244,22 @@ namespace MassSpectrometry
 
         public DoubleRange GetPeakWidth(double time, double fraction = 0.1, int upPts = 3, double upPrecent = 1.4, double minValue = 0)
         {
-            int index = Array.BinarySearch(xArray, time);
+            int index = Array.BinarySearch(XArray, time);
             if (index < 0)
                 index = ~index;
 
-            if (index == xArray.Length)
+            if (index == XArray.Length)
                 index--;
 
-            double maxTime = xArray[index];
+            double maxTime = XArray[index];
             double minTime = maxTime;
-            double threshold = Math.Max(yArray[index] * fraction, minValue);
+            double threshold = Math.Max(YArray[index] * fraction, minValue);
 
             int count = 0;
-            double localMin = yArray[index];
+            double localMin = YArray[index];
             for (int i = index + 1; i < Count; i++)
             {
-                double peakIntensity = yArray[i];
+                double peakIntensity = YArray[i];
 
                 if (peakIntensity > localMin * upPrecent)
                 {
@@ -249,7 +270,7 @@ namespace MassSpectrometry
                     continue;
                 }
 
-                maxTime = xArray[i];
+                maxTime = XArray[i];
 
                 if (peakIntensity < localMin)
                     localMin = peakIntensity;
@@ -260,11 +281,11 @@ namespace MassSpectrometry
                     break;
             }
 
-            localMin = yArray[index];
+            localMin = YArray[index];
             count = 0;
             for (int i = index - 1; i >= 0; i--)
             {
-                double peakIntensity = yArray[i];
+                double peakIntensity = YArray[i];
 
                 if (peakIntensity > localMin * upPrecent)
                 {
@@ -276,7 +297,7 @@ namespace MassSpectrometry
                     continue;
                 }
 
-                minTime = xArray[i];
+                minTime = XArray[i];
 
                 if (peakIntensity < localMin)
                     localMin = peakIntensity;
@@ -292,7 +313,10 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return string.Format("Count = {0:N0} TIC = {1:G4}", Count, yArray.Sum());
+            return string.Format("Count = {0:N0} TIC = {1:G4}", Count, YArray.Sum());
         }
+
+        #endregion Public Methods
+
     }
 }

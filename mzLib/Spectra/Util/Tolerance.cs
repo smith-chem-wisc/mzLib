@@ -26,6 +26,9 @@ namespace Spectra
     /// </summary>
     public class Tolerance
     {
+
+        #region Private Fields
+
         /// <summary>
         /// A regex for parsing a string representation of a tolerance
         /// <para>
@@ -33,6 +36,10 @@ namespace Spectra
         /// </para>
         /// </summary>
         private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|AbsoluteUnits)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         /// <summary>
         /// Creates a new tolerance given a unit, value, and whether the tolerance is ±
@@ -76,6 +83,10 @@ namespace Spectra
             Unit = type;
         }
 
+        #endregion Public Constructors
+
+        #region Public Properties
+
         /// <summary>
         /// The tolerance unit type
         /// </summary>
@@ -90,6 +101,32 @@ namespace Spectra
         /// Indicates if this tolerance is ± or not
         /// </summary>
         public ToleranceType ThisToleranceType { get; set; }
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public static double GetTolerance(double experimental, double theoretical, ToleranceUnit type)
+        {
+            switch (type)
+            {
+                case ToleranceUnit.PPM:
+                    return Math.Abs((experimental - theoretical) / theoretical * 1e6);
+
+                default:
+                    return Math.Abs(experimental - theoretical);
+            }
+        }
+
+        public static Tolerance FromPpm(double value, ToleranceType toleranceType = ToleranceType.PlusAndMinus)
+        {
+            return new Tolerance(ToleranceUnit.PPM, value, toleranceType);
+        }
+
+        public static Tolerance FromAbsolute(double value, ToleranceType toleranceType = ToleranceType.PlusAndMinus)
+        {
+            return new Tolerance(ToleranceUnit.Absolute, value, toleranceType);
+        }
 
         /// <summary>
         /// Gets the range of values encompassed by this tolerance
@@ -170,30 +207,7 @@ namespace Spectra
             return string.Format("{0}{1:f4} {2}", (ThisToleranceType == ToleranceType.PlusAndMinus) ? "±" : "", Value, Enum.GetName(typeof(ToleranceUnit), Unit));
         }
 
-        #region Static
+        #endregion Public Methods
 
-        public static double GetTolerance(double experimental, double theoretical, ToleranceUnit type)
-        {
-            switch (type)
-            {
-                case ToleranceUnit.PPM:
-                    return Math.Abs((experimental - theoretical) / theoretical * 1e6);
-
-                default:
-                    return Math.Abs(experimental - theoretical);
-            }
-        }
-
-        public static Tolerance FromPPM(double value, ToleranceType toleranceType = ToleranceType.PlusAndMinus)
-        {
-            return new Tolerance(ToleranceUnit.PPM, value, toleranceType);
-        }
-
-        public static Tolerance FromAbsolute(double value, ToleranceType toleranceType = ToleranceType.PlusAndMinus)
-        {
-            return new Tolerance(ToleranceUnit.Absolute, value, toleranceType);
-        }
-
-        #endregion Static
     }
 }

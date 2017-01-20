@@ -103,7 +103,7 @@ namespace IO.Thermo
 
         #region Public Properties
 
-        public bool monoisotopicPrecursorSelectionEnabled
+        public bool MonoisotopicPrecursorSelectionEnabled
         {
             get
             {
@@ -160,7 +160,7 @@ namespace IO.Thermo
             return Convert.ToDouble(elapsedScanTime);
         }
 
-        public double GetTIC(int spectrumNumber)
+        public double GetTic(int spectrumNumber)
         {
             int numberOfPackets = -1;
             double startTime = double.NaN;
@@ -201,7 +201,7 @@ namespace IO.Thermo
             return model;
         }
 
-        public Chromatogram GetTICChroma()
+        public Chromatogram GetTicChroma()
         {
             int nChroType1 = 1; //1=TIC 0=MassRange
             int nChroOperator = 0;
@@ -227,7 +227,7 @@ namespace IO.Thermo
             return new Chromatogram(pvarArray);
         }
 
-        public List<double> GetMSXPrecursors(int spectrumNumber)
+        public List<double> GetMsxPrecursors(int spectrumNumber)
         {
             string scanheader = GetScanFilter(spectrumNumber);
 
@@ -405,7 +405,7 @@ namespace IO.Thermo
                 return GetSelectedIonMZ(spectrumNumber);
             else
             {
-                return ms1Spectrum.GetClosestPeak(trailerMZ).MZ;
+                return ms1Spectrum.GetClosestPeak(trailerMZ).Mz;
             }
         }
 
@@ -507,7 +507,7 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             MzPeak peak = ms1Spectrum.GetClosestPeak(mz);
-            return peak.MZ;
+            return peak.Mz;
         }
 
         private double GetIsolationMZ(int spectrumNumber)

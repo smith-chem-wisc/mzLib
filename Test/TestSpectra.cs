@@ -83,7 +83,7 @@ namespace Test
         [Test]
         public void SpectrumGetIntensityFirst()
         {
-            double intensity = _mzSpectrumA.yArray[0];
+            double intensity = _mzSpectrumA.YArray[0];
 
             Assert.AreEqual(81007096.0, intensity);
         }
@@ -91,7 +91,7 @@ namespace Test
         [Test]
         public void SpectrumGetIntensityRandom()
         {
-            double intensity = _mzSpectrumA.yArray[6];
+            double intensity = _mzSpectrumA.YArray[6];
 
             Assert.AreEqual(44238040.0, intensity);
         }
@@ -99,7 +99,7 @@ namespace Test
         [Test]
         public void SpectrumGetMassFirst()
         {
-            double intensity = _mzSpectrumA.xArray[0];
+            double intensity = _mzSpectrumA.XArray[0];
 
             Assert.AreEqual(328.73795, intensity);
         }
@@ -107,7 +107,7 @@ namespace Test
         [Test]
         public void SpectrumGetMassRandom()
         {
-            double intensity = _mzSpectrumA.xArray[6];
+            double intensity = _mzSpectrumA.XArray[6];
 
             Assert.AreEqual(482.90393, intensity);
         }
@@ -196,8 +196,8 @@ namespace Test
         [Test]
         public void GetClosestPeak()
         {
-            Assert.AreEqual(448.23987, _mzSpectrumA.GetClosestPeak(448).MZ);
-            Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeak(447.9).MZ);
+            Assert.AreEqual(448.23987, _mzSpectrumA.GetClosestPeak(448).Mz);
+            Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeak(447.9).Mz);
         }
 
         [Test]
@@ -210,7 +210,7 @@ namespace Test
         public void CorrectOrder()
         {
             _mzSpectrumA = new DefaultMzSpectrum(new double[3] { 5, 6, 7 }, new double[3] { 1, 2, 3 }, false);
-            Assert.IsTrue(_mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[0].MZ < _mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[1].MZ);
+            Assert.IsTrue(_mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[0].Mz < _mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[1].Mz);
         }
 
         [Test]
@@ -240,15 +240,15 @@ namespace Test
             Assert.AreNotEqual(ok[0], _mzSpectrumA[0]);
             Assert.AreEqual(ok[0].Y, _mzSpectrumA[0].Y);
 
-            var ok2 = new DefaultSpectrum(_mzSpectrumA.xArray, _mzSpectrumA.yArray, true);
+            var ok2 = new DefaultSpectrum(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
 
-            ok2.xArray[0] = 0;
-            Assert.AreNotEqual(ok2.xArray[0], _mzSpectrumA.xArray[0]);
+            ok2.XArray[0] = 0;
+            Assert.AreNotEqual(ok2.XArray[0], _mzSpectrumA.XArray[0]);
 
-            var ok3 = new DefaultSpectrum(_mzSpectrumA.xArray, _mzSpectrumA.yArray, false);
+            var ok3 = new DefaultSpectrum(_mzSpectrumA.XArray, _mzSpectrumA.YArray, false);
 
-            ok3.xArray[0] = 0;
-            Assert.AreEqual(ok3.xArray[0], _mzSpectrumA.xArray[0]);
+            ok3.XArray[0] = 0;
+            Assert.AreEqual(ok3.XArray[0], _mzSpectrumA.XArray[0]);
         }
 
         [Test]

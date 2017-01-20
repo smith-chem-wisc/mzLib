@@ -393,8 +393,6 @@ namespace IO.MzML
                     return MZAnalyzerType.IonTrap2D;
 
                 case "TQMS":
-                    return MZAnalyzerType.Unknown;
-
                 case "SQMS":
                     return MZAnalyzerType.Unknown;
 

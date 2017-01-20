@@ -2,7 +2,7 @@
 
 namespace MassSpectrometry
 {
-    public interface Identifications
+    public interface IIdentifications
     {
 
         #region Public Properties
@@ -17,11 +17,11 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        bool isDecoy(int matchIndex);
+        bool IsDecoy(int matchIndex);
 
         bool PassThreshold(int matchIndex);
 
-        string Ms2spectrumID(int matchIndex);
+        string Ms2SpectrumID(int matchIndex);
 
         double CalculatedMassToCharge(int matchIndex);
 
