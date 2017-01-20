@@ -964,6 +964,9 @@ namespace Test
 
             Assert.AreEqual("Validation passed", PeriodicTable.ValidateAbundances(1e-15).Message);
             Assert.AreEqual(ValidationResult.PassedAbundanceValidation, PeriodicTable.ValidateAbundances(1e-15).ThisValidationResult);
+        
+            Assert.AreEqual(ValidationResult.FailedAbundanceValidation, PeriodicTable.ValidateAbundances(0).ThisValidationResult);
+        
         }
 
         [Test]
