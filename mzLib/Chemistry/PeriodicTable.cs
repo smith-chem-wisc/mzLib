@@ -60,12 +60,6 @@ namespace Chemistry
             }
         }
 
-        public static void Clear()
-        {
-            _elements = new Dictionary<string, Element>();
-            _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
-        }
-
         /// <summary>
         /// Fast method for getting an element by its atomic symbol
         /// </summary>
