@@ -115,7 +115,7 @@ namespace Chemistry
             foreach (var isotopeAndCount in formula.Isotopes)
                 additionalMass += isotopeAndCount.Key.AtomicMass * isotopeAndCount.Value;
 
-            for (int i = 0; i < Masses.Count(); i++)
+            for (int i = 0; i < Masses.Count; i++)
                 masses[i] += additionalMass;
         }
 
