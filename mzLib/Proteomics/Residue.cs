@@ -208,11 +208,6 @@ namespace Proteomics
             return ResiduesDictionary.TryGetValue(name, out residue);
         }
 
-        public override string ToString()
-        {
-            return string.Format(CultureInfo.InvariantCulture, "{0} {1} ({2})", Letter, Symbol, Name);
-        }
-
         #endregion Public Methods
 
     }
