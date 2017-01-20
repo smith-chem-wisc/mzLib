@@ -211,7 +211,7 @@ namespace Chemistry
             List<Polynomial> tPolynomial = new List<Polynomial>();
 
             int n = 0;
-            int k = 0;
+            int k;
 
             foreach (List<Composition> composition in elementalComposition)
                 if (composition.Count > 0)
