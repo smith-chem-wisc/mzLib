@@ -453,7 +453,6 @@ namespace IO.MzML
                     return Polarity.Positive;
                 }
             }
-            //return Polarity.Neutral;
             throw new ArgumentNullException("Could not find polarity for spectrum number " + oneBasedSpectrumNumber);
         }
 
