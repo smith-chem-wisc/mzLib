@@ -30,6 +30,8 @@ namespace Chemistry
     {
         // Two datastores storing same elements! Need both for efficient access by both symbol and atomic number
 
+        #region Private Fields
+
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic symbol
         /// </summary>
@@ -40,6 +42,10 @@ namespace Chemistry
         /// </summary>
         private static Element[] _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
 
+        #endregion Private Fields
+
+        #region Public Methods
+
         /// <summary>
         /// Populate the periodic table by calling this method
         /// </summary>
@@ -47,12 +53,17 @@ namespace Chemistry
         {
             if (element == null)
                 throw new ArgumentNullException("element", "Cannot add a null element to periodic table");
-            if (_elements.ContainsKey(element.AtomicSymbol))
-                throw new ArgumentException("Element with symbol " + element.AtomicSymbol + " already added!");
-            if (_elementsArray[element.AtomicNumber] != null)
-                throw new ArgumentException("Element with atomic number " + element.AtomicNumber + " already added!");
-            _elements.Add(element.AtomicSymbol, element);
-            _elementsArray[element.AtomicNumber] = element;
+            if (!_elements.ContainsKey(element.AtomicSymbol))
+            {
+                _elements.Add(element.AtomicSymbol, element);
+                _elementsArray[element.AtomicNumber] = element;
+            }
+        }
+
+        public static void Clear()
+        {
+            _elements = new Dictionary<string, Element>();
+            _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
         }
 
         /// <summary>
@@ -98,5 +109,8 @@ namespace Chemistry
             }
             return new PeriodicTableValidationResult(ValidationResult.PassedAverageMassValidation, StringResources.ValidationPassed);
         }
+
+        #endregion Public Methods
+
     }
 }

@@ -174,37 +174,37 @@ namespace Spectra
 
         public ISpectrum<Peak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
-            var ok = filterByNumberOfMostIntense(topNPeaks);
+            var ok = FilterByNumberOfMostIntense(topNPeaks);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public ISpectrum<Peak> NewSpectrumWithRangeRemoved(double minX, double maxX)
         {
-            var ok = withRangeRemoved(minX, maxX);
+            var ok = WithRangeRemoved(minX, maxX);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public ISpectrum<Peak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
-            var ok = withRangesRemoved(xRanges);
+            var ok = WithRangesRemoved(xRanges);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public ISpectrum<Peak> NewSpectrumExtract(double minX, double maxX)
         {
-            var ok = extract(minX, maxX);
+            var ok = Extract(minX, maxX);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public ISpectrum<Peak> NewSpectrumFilterByY(double minY, double maxY)
         {
-            var ok = filterByY(minY, maxY);
+            var ok = FilterByY(minY, maxY);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public ISpectrum<Peak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
         {
-            var ok = applyFunctionToX(convertor);
+            var ok = ApplyFunctionToX(convertor);
             return new DefaultSpectrum(ok.Item1, ok.Item2, false);
         }
 
@@ -276,14 +276,14 @@ namespace Spectra
         {
             for (int i = 0; i < Count; i++)
                 xArray[i] = convertor(this[i]);
-            resetSpectrum();
+            ResetSpectrum();
         }
 
         #endregion Public Methods
 
         #region Protected Methods
 
-        protected Tuple<double[], double[]> applyFunctionToX(Func<double, double> convertor)
+        protected Tuple<double[], double[]> ApplyFunctionToX(Func<double, double> convertor)
         {
             double[] modifiedXarray = new double[Count];
             for (int i = 0; i < Count; i++)
@@ -293,7 +293,7 @@ namespace Spectra
             return new Tuple<double[], double[]>(modifiedXarray, newYarray);
         }
 
-        protected Tuple<double[], double[]> withRangeRemoved(double minX, double maxX)
+        protected Tuple<double[], double[]> WithRangeRemoved(double minX, double maxX)
         {
             int count = Count;
 
@@ -330,7 +330,7 @@ namespace Spectra
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
 
-        protected Tuple<double[], double[]> withRangesRemoved(IEnumerable<DoubleRange> xRanges)
+        protected Tuple<double[], double[]> WithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
             int count = Count;
 
@@ -375,7 +375,7 @@ namespace Spectra
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
 
-        protected Tuple<double[], double[]> filterByY(double minY, double maxY)
+        protected Tuple<double[], double[]> FilterByY(double minY, double maxY)
         {
             int count = Count;
             double[] newXarray = new double[count];
@@ -401,7 +401,7 @@ namespace Spectra
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
 
-        protected Tuple<double[], double[]> extract(double minX, double maxX)
+        protected Tuple<double[], double[]> Extract(double minX, double maxX)
         {
             int index = GetClosestPeakIndex(minX);
             if (this[index].X < minX)
@@ -426,7 +426,7 @@ namespace Spectra
             return new Tuple<double[], double[]>(newXarray, newYarray);
         }
 
-        protected Tuple<double[], double[]> filterByNumberOfMostIntense(int topNPeaks)
+        protected Tuple<double[], double[]> FilterByNumberOfMostIntense(int topNPeaks)
         {
             double[] newXarray = new double[xArray.Length];
             double[] newYarray = new double[yArray.Length];
@@ -483,7 +483,7 @@ namespace Spectra
 
         #region Private Methods
 
-        private void resetSpectrum()
+        private void ResetSpectrum()
         {
             peakList = new TPeak[Count];
             yofPeakWithHighestY = double.NaN;

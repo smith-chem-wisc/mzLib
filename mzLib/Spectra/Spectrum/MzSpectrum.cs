@@ -24,6 +24,9 @@ namespace Spectra
     public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
         where TPeak : MzPeak
     {
+
+        #region Protected Constructors
+
         protected MzSpectrum(double[,] mzintensities) : base(mzintensities)
         {
         }
@@ -36,6 +39,10 @@ namespace Spectra
         {
         }
 
+        #endregion Protected Constructors
+
+        #region Public Properties
+
         new public MzRange Range
         {
             get
@@ -44,16 +51,18 @@ namespace Spectra
             }
         }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
         public override string ToString()
         {
             return string.Format("{0} (Peaks {1})", Range, Count);
         }
 
-        #region implementing IMzSpectrum<TPeak>
-
         public new IMzSpectrum<MzPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
-            var ok = filterByNumberOfMostIntense(topNPeaks);
+            var ok = FilterByNumberOfMostIntense(topNPeaks);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
@@ -64,13 +73,13 @@ namespace Spectra
 
         public new IMzSpectrum<MzPeak> NewSpectrumExtract(double minX, double maxX)
         {
-            var ok = extract(minX, maxX);
+            var ok = Extract(minX, maxX);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public new IMzSpectrum<MzPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
-            var ok = withRangesRemoved(xRanges);
+            var ok = WithRangesRemoved(xRanges);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
@@ -81,13 +90,13 @@ namespace Spectra
 
         public new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(double minX, double maxX)
         {
-            var ok = withRangeRemoved(minX, maxX);
+            var ok = WithRangeRemoved(minX, maxX);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
         public new IMzSpectrum<MzPeak> NewSpectrumFilterByY(double minY, double maxY)
         {
-            var ok = filterByY(minY, maxY);
+            var ok = FilterByY(minY, maxY);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
@@ -98,10 +107,11 @@ namespace Spectra
 
         public new IMzSpectrum<MzPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
         {
-            var ok = applyFunctionToX(convertor);
+            var ok = ApplyFunctionToX(convertor);
             return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
         }
 
-        #endregion implementing IMzSpectrum<TPeak>
+        #endregion Public Methods
+
     }
 }

@@ -233,16 +233,6 @@ namespace Proteomics
         /// </summary>
         public static IEnumerable<Fragment> GetSiteDeterminingFragments(AminoAcidPolymer peptideA, AminoAcidPolymer peptideB, FragmentTypes types)
         {
-            if (peptideA == null)
-            {
-                // Only b is not null, return all of its fragments
-                if (peptideB != null)
-                    return peptideB.Fragment(types);
-                throw new ArgumentNullException("Both peptides cannot be null");
-            }
-            if (peptideB == null)
-                return peptideA.Fragment(types);
-
             HashSet<Fragment> aFrags = new HashSet<Fragment>(peptideA.Fragment(types));
             aFrags.SymmetricExceptWith(peptideB.Fragment(types));
             return aFrags;
@@ -497,9 +487,6 @@ namespace Proteomics
             // Modifications count (if the mod is a IHasChemicalFormula)
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountSpecificIsotopes(isotope));
-
-            count += new ChemicalFormula("H2O").CountSpecificIsotopes(isotope);
-
             return count;
         }
 
@@ -547,9 +534,6 @@ namespace Proteomics
 
         public IEnumerable<Fragment> Fragment(FragmentTypes types, int minIndex, int maxIndex, bool calculateChemicalFormula)
         {
-            if (minIndex > maxIndex)
-                throw new ArgumentOutOfRangeException();
-
             if (minIndex < 1 || maxIndex > Length - 1)
                 throw new IndexOutOfRangeException();
 
@@ -647,14 +631,6 @@ namespace Proteomics
             return _modifications != null && _modifications.Any(m => m != null);
         }
 
-        public IHasMass[] GetModificationsCopy()
-        {
-            IHasMass[] mods = new IHasMass[Length + 2];
-            if (_modifications != null)
-                Array.Copy(_modifications, mods, _modifications.Length);
-            return mods;
-        }
-
         public ISet<T> GetUniqueModifications<T>() where T : IHasMass
         {
             HashSet<T> uniqueMods = new HashSet<T>();
@@ -680,32 +656,6 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// Counts the total number of the specified modification on this polymer
-        /// </summary>
-        /// <param name="modification">The modification to count</param>
-        /// <returns>The number of modifications</returns>
-        public int ModificationCount(IHasMass modification)
-        {
-            if (modification == null || _modifications == null)
-                return 0;
-
-            return _modifications.Count(modification.Equals);
-        }
-
-        /// <summary>
-        /// Determines if the specified modification exists in this polymer
-        /// </summary>
-        /// <param name="modification">The modification to look for</param>
-        /// <returns>True if the modification is found, false otherwise</returns>
-        public bool Contains(IHasMass modification)
-        {
-            if (modification == null || _modifications == null)
-                return false;
-
-            return _modifications.Contains(modification);
-        }
-
-        /// <summary>
         /// Get the modification at the given residue number
         /// </summary>
         /// <param name="residueNumber">The amino acid residue number</param>
@@ -713,29 +663,6 @@ namespace Proteomics
         public IHasMass GetModification(int residueNumber)
         {
             return _modifications == null ? null : _modifications[residueNumber];
-        }
-
-        public bool TryGetModification(int residueNumber, out IHasMass mod)
-        {
-            if (residueNumber > Length || residueNumber < 1 || _modifications == null)
-            {
-                mod = null;
-                return false;
-            }
-            mod = _modifications[residueNumber];
-            return mod != null;
-        }
-
-        public bool TryGetModification<T>(int residueNumber, out T mod) where T : class, IHasMass
-        {
-            IHasMass outMod;
-            if (TryGetModification(residueNumber, out outMod))
-            {
-                mod = outMod as T;
-                return mod != null;
-            }
-            mod = default(T);
-            return false;
         }
 
         /// <summary>
@@ -969,9 +896,6 @@ namespace Proteomics
         /// <param name="location">The location to set the modification at</param>
         public virtual void AddModification(IHasMass modification, int location)
         {
-            if (location > Length + 1 || location < 0)
-                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, location));
-
             IHasMass currentMod = GetModification(location);
             ReplaceMod(location, currentMod == null ? modification : new ModificationCollection(currentMod, modification));
         }
@@ -1164,9 +1088,6 @@ namespace Proteomics
 
         private void ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
         {
-            if (Equals(value, terminus))
-                return;
-
             if (terminus != null)
                 MonoisotopicMass -= terminus.MonoisotopicMass;
 

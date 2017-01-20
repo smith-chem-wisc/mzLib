@@ -27,31 +27,16 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
+
+        #region Private Fields
+
         private readonly double[] _noises;
         private readonly double[] _resolutions;
         private readonly int[] _charges;
 
-        internal ThermoSpectrum(double[,] peakData)
-            : base(peakData)
-        {
-            int arrayLength = peakData.GetLength(1);
-            int depthLength = peakData.GetLength(0);
-            if (depthLength <= 2)
-                return;
-            _noises = new double[Count];
-            _resolutions = new double[Count];
-            var charges = new double[Count];
+        #endregion Private Fields
 
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Count);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Count);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Count);
-
-            _charges = new int[Count];
-            for (int i = 0; i < Count; i++)
-            {
-                _charges[i] = (int)charges[i];
-            }
-        }
+        #region Public Constructors
 
         public ThermoSpectrum(double[] mz, double[] intensity, double[] noise, int[] charge, double[] resolutions, bool shouldCopy = true)
             : base(mz, intensity, shouldCopy)
@@ -87,6 +72,52 @@ namespace IO.Thermo
         {
         }
 
+        #endregion Public Constructors
+
+        #region Internal Constructors
+
+        internal ThermoSpectrum(double[,] peakData)
+                            : base(peakData)
+        {
+            int arrayLength = peakData.GetLength(1);
+            int depthLength = peakData.GetLength(0);
+            if (depthLength <= 2)
+                return;
+            _noises = new double[Count];
+            _resolutions = new double[Count];
+            var charges = new double[Count];
+
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Count);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Count);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Count);
+
+            _charges = new int[Count];
+            for (int i = 0; i < Count; i++)
+            {
+                _charges[i] = (int)charges[i];
+            }
+        }
+
+        #endregion Internal Constructors
+
+        #region Public Indexers
+
+        public override ThermoMzPeak this[int index]
+        {
+            get
+            {
+                if (peakList[index] == null)
+                    peakList[index] = _charges == null ?
+                        new ThermoMzPeak(xArray[index], yArray[index]) :
+                new ThermoMzPeak(xArray[index], yArray[index], _charges[index], _noises[index], _resolutions[index]);
+                return peakList[index];
+            }
+        }
+
+        #endregion Public Indexers
+
+        #region Public Methods
+
         public double GetSignalToNoise(int index)
         {
             if (_noises == null)
@@ -110,18 +141,6 @@ namespace IO.Thermo
             return _charges;
         }
 
-        public override ThermoMzPeak this[int index]
-        {
-            get
-            {
-                if (peakList[index] == null)
-                    peakList[index] = _charges == null ?
-                        new ThermoMzPeak(xArray[index], yArray[index]) :
-                new ThermoMzPeak(xArray[index], yArray[index], _charges[index], _noises[index], _resolutions[index]);
-                return peakList[index];
-            }
-        }
-
         public override double[,] CopyTo2DArray()
         {
             double[,] data = new double[5, Count];
@@ -140,7 +159,7 @@ namespace IO.Thermo
             return data;
         }
 
-        public new ThermoSpectrum newSpectrumExtract(double minMZ, double maxMZ)
+        public new ThermoSpectrum NewSpectrumExtract(double minMZ, double maxMZ)
         {
             int index = GetClosestPeakIndex(minMZ);
             if (this[index].X < minMZ)
@@ -182,7 +201,7 @@ namespace IO.Thermo
             return new ThermoSpectrum(mz, intensity, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
         }
 
-        public new ThermoSpectrum newSpectrumFilterByY(double minIntensity = 0, double maxIntensity = double.MaxValue)
+        public new ThermoSpectrum NewSpectrumFilterByY(double minIntensity = 0, double maxIntensity = double.MaxValue)
         {
             int count = Count;
             double[] mz = new double[count];
@@ -220,5 +239,8 @@ namespace IO.Thermo
 
             return new ThermoSpectrum(mz, intensities, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
         }
+
+        #endregion Public Methods
+
     }
 }

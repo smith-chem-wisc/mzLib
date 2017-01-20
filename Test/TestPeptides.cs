@@ -68,8 +68,15 @@ namespace Test
             Peptide pep = new Peptide("G");
             pep.AddModification(new Modification(1));
             Assert.AreEqual(5, pep.ElementCountWithIsotopes("H"));
+
+            pep.AddModification(new ChemicalFormulaModification("H{1}"));
+            Assert.AreEqual(5, pep.ElementCountWithIsotopes("H")); // NOTHING HAS BEEN ADDED!
+
+            pep.AddModification(new ChemicalFormulaModification("H{1}", ModificationSites.G));
+            Assert.AreEqual(6, pep.ElementCountWithIsotopes("H"));
+
             Isotope isotope = PeriodicTable.GetElement("H").PrincipalIsotope;
-            Assert.AreEqual(0, pep.SpecificIsotopeCount(isotope));
+            Assert.AreEqual(1, pep.SpecificIsotopeCount(isotope));
         }
 
         [Test]
@@ -126,6 +133,36 @@ namespace Test
             Peptide peptide = new Peptide("TTGSSSSSSSK[H2O]-[C2H3NO]");
 
             Assert.AreEqual("TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
+
+            peptide.NTerminus = new ChemicalFormulaTerminus("N");
+
+            Assert.AreEqual("TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
+
+            ChemicalFormula formulaA = new ChemicalFormula("C39H70N14O23");
+            var formulaB = peptide.GetChemicalFormula();
+            Assert.AreEqual(formulaA, formulaB);
+
+            peptide.AddModification(new ObjectWithMass100(), 0);
+
+            Assert.AreEqual("[mass: 100]-TTGSSSSSSSK[H2O]-[C2H3NO]", peptide.GetSequenceWithModifications());
+
+            Assert.AreEqual(1, peptide.AddModification(new ObjectWithMass100(), Terminus.C));
+
+            Assert.AreEqual(3, peptide.ModificationCount());
+
+            Assert.AreEqual(0, peptide.ReplaceModification(new ObjectWithMass100(), new ObjectWithMass100()));
+
+            Assert.That(() => peptide.ReplaceModification(null, new ObjectWithMass100()),
+            Throws.TypeOf<ArgumentException>()
+            .With.Property("Message")
+            .EqualTo("Cannot replace a null modification"));
+
+            peptide.SetModification(new ObjectWithMass100(), new int[] { 1, 11 });
+            Assert.AreEqual(4, peptide.ModificationCount());
+
+            Modification mod1 = new Modification(5, "mass 5 on T", ModificationSites.T);
+            peptide.SetModifications(new List<Modification> { mod1 });
+            Assert.AreEqual(5, peptide.ModificationCount());
         }
 
         [Test]
@@ -365,6 +402,9 @@ namespace Test
             Peptide pepA = new Peptide("DEREK");
             Peptide pepB = new Peptide("DEREK");
             Assert.AreEqual(pepA, pepB);
+
+            Peptide pepC = new Peptide("DEREKK");
+            Assert.AreNotEqual(pepA, pepC);
         }
 
         [Test]
@@ -381,7 +421,8 @@ namespace Test
             Peptide pepA = new Peptide("DEREK");
             Peptide pepB = new Peptide("DEREK");
             pepB.SetModification(new ChemicalFormulaModification("H2O"), 'R');
-
+            Assert.AreNotEqual(pepA, pepB);
+            pepA.SetModification(new ChemicalFormulaModification("H2O2"), 'R');
             Assert.AreNotEqual(pepA, pepB);
         }
 
@@ -444,6 +485,36 @@ namespace Test
             Peptide pepB = new Peptide(pepA, 2, 3);
             Peptide pepC = new Peptide("R[Fe]EK");
             Assert.AreEqual(pepB, pepC);
+        }
+
+        [Test]
+        public void PeptideHashing()
+        {
+            Peptide pep1 = new Peptide("DEREK");
+            Peptide pep2 = new Peptide("DEREKN");
+            Peptide pep3 = new Peptide("DEREKM");
+            Peptide pep4 = new Peptide("DEREKM");
+            HashSet<Peptide> uu = new HashSet<Peptide> { pep1, pep2, pep3, pep4 };
+            uu.Add(new Peptide("DEREKN"));
+            Assert.AreEqual(3, uu.Count);
+        }
+
+        [Test]
+        public void ClearMods()
+        {
+            Peptide pepA = new Peptide("DE[Al]R[Fe]EK");
+            pepA.ClearModifications(new ChemicalFormulaModification("Al"));
+            Assert.AreEqual("DER[Fe]EK", pepA.ToString());
+            pepA.ClearModifications(new ChemicalFormulaModification("C"));
+            Assert.AreEqual("DER[Fe]EK", pepA.ToString());
+            pepA.ClearModifications();
+            Assert.AreEqual("DEREK", pepA.ToString());
+            pepA.ClearModifications();
+            Assert.AreEqual("DEREK", pepA.ToString());
+            pepA.ClearModifications(ModificationSites.Any);
+            Assert.AreEqual("DEREK", pepA.ToString());
+            pepA.ClearModifications(Terminus.C);
+            Assert.AreEqual("DEREK", pepA.ToString());
         }
 
         [Test]
@@ -672,6 +743,18 @@ namespace Test
             var yee = new HashSet<DigestionPointAndLength>(ok, jj);
 
             Assert.AreEqual(1 + 3 + 1 + (8 - 1) + 1 + 1, yee.Count);
+        }
+
+        [Test]
+        public void BadSeqeunce()
+        {
+            Assert.That(() => new Peptide("ABC"), Throws.TypeOf<ArgumentException>()
+            .With.Property("Message")
+            .EqualTo("Amino Acid Letter B does not exist in the Amino Acid Dictionary. B is also not a valid character"));
+
+            Assert.That(() => new Peptide("A["), Throws.TypeOf<ArgumentException>()
+            .With.Property("Message")
+            .EqualTo("Couldn't find the closing ] for a modification in this sequence: A["));
         }
 
         #endregion Public Methods

@@ -28,21 +28,8 @@ namespace UsefulProteomicsDatabases
 {
     public static class Loaders
     {
-        private static bool FilesAreEqual_Hash(string first, string second)
-        {
-            using (FileStream a = File.Open(first, FileMode.Open, FileAccess.Read))
-            using (FileStream b = File.Open(second, FileMode.Open, FileAccess.Read))
-            {
-                byte[] firstHash = MD5.Create().ComputeHash(a);
-                byte[] secondHash = MD5.Create().ComputeHash(b);
-                for (int i = 0; i < firstHash.Length; i++)
-                {
-                    if (firstHash[i] != secondHash[i])
-                        return false;
-                }
-                return true;
-            }
-        }
+
+        #region Public Methods
 
         public static void UpdateUniprot(string uniprotLocation)
         {
@@ -136,15 +123,9 @@ namespace UsefulProteomicsDatabases
 
         public static void LoadElements(string elementLocation)
         {
-            try
-            {
-                if (!File.Exists(elementLocation))
-                    UpdateElements(elementLocation);
-                PeriodicTableLoader.Load(elementLocation);
-            }
-            catch (ArgumentException)
-            {
-            }
+            if (!File.Exists(elementLocation))
+                UpdateElements(elementLocation);
+            PeriodicTableLoader.Load(elementLocation);
         }
 
         public static Generated.unimod LoadUnimod(string unimodLocation)
@@ -216,6 +197,26 @@ namespace UsefulProteomicsDatabases
             return modifications;
         }
 
+        #endregion Public Methods
+
+        #region Private Methods
+
+        private static bool FilesAreEqual_Hash(string first, string second)
+        {
+            using (FileStream a = File.Open(first, FileMode.Open, FileAccess.Read))
+            using (FileStream b = File.Open(second, FileMode.Open, FileAccess.Read))
+            {
+                byte[] firstHash = MD5.Create().ComputeHash(a);
+                byte[] secondHash = MD5.Create().ComputeHash(b);
+                for (int i = 0; i < firstHash.Length; i++)
+                {
+                    if (firstHash[i] != secondHash[i])
+                        return false;
+                }
+                return true;
+            }
+        }
+
         private static void DownloadPsiMod(string psimodLocation)
         {
             using (WebClient Client = new WebClient())
@@ -239,5 +240,8 @@ namespace UsefulProteomicsDatabases
             using (WebClient Client = new WebClient())
                 Client.DownloadFile(URLs.uniprotURI, uniprotLocation + ".temp");
         }
+
+        #endregion Private Methods
+
     }
 }
