@@ -66,7 +66,7 @@ namespace UsefulProteomicsDatabases
                         sr.ReadLine();
                         sr.ReadLine();
                         sr.ReadLine();
-                        sr.ReadLine();
+                        line = sr.ReadLine();
                         continue;
                     }
 
