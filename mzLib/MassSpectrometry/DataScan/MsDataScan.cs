@@ -27,15 +27,15 @@ namespace MassSpectrometry
 
         #region Private Fields
 
-        private double isolationMZ;
-        private string precursorID;
-        private int selectedIonGuessChargeStateGuess;
-        private double selectedIonGuessIntensity;
+        private readonly double isolationMZ;
+        private readonly string precursorID;
+        private readonly int selectedIonGuessChargeStateGuess;
+        private readonly double selectedIonGuessIntensity;
         private double selectedIonGuessMZ;
-        private DissociationType dissociationType;
-        private double isolationWidth;
-        private int oneBasedPrecursorScanNumber;
-        private double selectedIonGuessMonoisotopicIntensity;
+        private readonly DissociationType dissociationType;
+        private readonly double isolationWidth;
+        private readonly int oneBasedPrecursorScanNumber;
+        private readonly double selectedIonGuessMonoisotopicIntensity;
         private double selectedIonGuessMonoisotopicMZ;
 
         #endregion Private Fields
