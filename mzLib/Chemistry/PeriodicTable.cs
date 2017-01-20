@@ -53,12 +53,11 @@ namespace Chemistry
         {
             if (element == null)
                 throw new ArgumentNullException("element", "Cannot add a null element to periodic table");
-            if (_elements.ContainsKey(element.AtomicSymbol))
-                throw new ArgumentException("Element with symbol " + element.AtomicSymbol + " already added!");
-            if (_elementsArray[element.AtomicNumber] != null)
-                throw new ArgumentException("Element with atomic number " + element.AtomicNumber + " already added!");
-            _elements.Add(element.AtomicSymbol, element);
-            _elementsArray[element.AtomicNumber] = element;
+            if (!_elements.ContainsKey(element.AtomicSymbol))
+            {
+                _elements.Add(element.AtomicSymbol, element);
+                _elementsArray[element.AtomicNumber] = element;
+            }
         }
 
         public static void Clear()

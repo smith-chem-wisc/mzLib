@@ -32,7 +32,6 @@ namespace UsefulProteomicsDatabases
 
         public static void Load(string elementLocation)
         {
-            PeriodicTable.Clear();
             using (StreamReader sr = new StreamReader(elementLocation))
             {
                 // Read the stream to a string, and write the string to the console.
