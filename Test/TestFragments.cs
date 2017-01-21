@@ -83,7 +83,7 @@ namespace Test
         {
             _mockPeptideEveryAminoAcid.AddModification(new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus));
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
-            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification>() { new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus) }));
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification> { new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus) }));
         }
 
         [Test]
@@ -96,9 +96,9 @@ namespace Test
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
             Fragment fragmentEnd = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.y, 1).Last();
 
-            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification>() { new Modification(3, "mod3", ModificationSites.A) }));
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification> { new Modification(3, "mod3", ModificationSites.A) }));
 
-            Assert.IsTrue(fragmentEnd.Modifications.SequenceEqual(new List<Modification>() { new Modification(4, "mod4", ModificationSites.Y) }));
+            Assert.IsTrue(fragmentEnd.Modifications.SequenceEqual(new List<Modification> { new Modification(4, "mod4", ModificationSites.Y) }));
         }
 
         [Test]

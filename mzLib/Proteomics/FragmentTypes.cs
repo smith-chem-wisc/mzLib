@@ -60,7 +60,7 @@ namespace Proteomics
             {FragmentTypes.y, new ChemicalFormula("H")},
             {FragmentTypes.ydot, new ChemicalFormula("H2")},
             {FragmentTypes.z, new ChemicalFormula("N-1H-2")},
-            {FragmentTypes.zdot, new ChemicalFormula("N-1H-1")},
+            {FragmentTypes.zdot, new ChemicalFormula("N-1H-1")}
         };
 
         #endregion Private Fields

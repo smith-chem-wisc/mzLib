@@ -49,9 +49,9 @@ namespace Chemistry
         /// <summary>
         /// Create a new element
         /// </summary>
-        /// <param name="name">The name of the element</param>
         /// <param name="symbol">The symbol of the element</param>
         /// <param name="atomicNumber">The atomic number of the element</param>
+        /// <param name="averageMass">The averageMass of the element</param>
         public Element(string symbol, int atomicNumber, double averageMass)
         {
             AtomicSymbol = symbol;

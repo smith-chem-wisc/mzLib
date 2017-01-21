@@ -336,11 +336,6 @@ namespace Proteomics
             return locations;
         }
 
-        public static IEnumerable<string> Digest(string sequence, IProtease protease, int maxMissedCleavages, int minLength, int maxLength, bool methionineInitiator, bool semiDigestion)
-        {
-            return Digest(sequence, new[] { protease }, maxMissedCleavages, minLength, maxLength, methionineInitiator, semiDigestion);
-        }
-
         public static IEnumerable<string> Digest(string sequence, IEnumerable<IProtease> proteases, int maxMissedCleavages, int minLength, int maxLength, bool methionineInitiator, bool semiDigestion)
         {
             return GetDigestionPointsAndLengths(sequence, proteases, maxMissedCleavages, minLength, maxLength, methionineInitiator, semiDigestion).Select(points => sequence.Substring(points.Index, points.Length));
@@ -769,8 +764,6 @@ namespace Proteomics
 
         public void SetModifications(IEnumerable<Modification> modifications)
         {
-            if (modifications == null)
-                return;
             foreach (Modification mod in modifications)
             {
                 SetModification(mod, mod.Sites);
@@ -907,9 +900,6 @@ namespace Proteomics
         /// <param name="terminus">The termini to clear the mod at</param>
         public void ClearModifications(Terminus terminus)
         {
-            if (_modifications == null)
-                return;
-
             if ((terminus & Terminus.N) == Terminus.N)
                 NTerminusModification = null;
 
@@ -923,9 +913,6 @@ namespace Proteomics
         /// <param name="sites">The sites to remove modifications from</param>
         public void ClearModifications(ModificationSites sites)
         {
-            if (_modifications == null)
-                return;
-
             if ((sites & ModificationSites.NPep) == ModificationSites.NPep || (sites & ModificationSites.NProt) == ModificationSites.NProt)
             {
                 ReplaceMod(0, null);
@@ -977,9 +964,6 @@ namespace Proteomics
         /// <param name="mod">The modification to remove from this polymer</param>
         public void ClearModifications(IHasMass mod)
         {
-            if (mod == null || _modifications == null)
-                return;
-
             for (int i = 0; i <= Length + 1; i++)
             {
                 if (!mod.Equals(_modifications[i]))

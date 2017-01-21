@@ -35,12 +35,12 @@ namespace Chemistry
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic symbol
         /// </summary>
-        private static Dictionary<string, Element> _elements = new Dictionary<string, Element>();
+        private static readonly Dictionary<string, Element> _elements = new Dictionary<string, Element>();
 
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic number
         /// </summary>
-        private static Element[] _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
+        private static readonly Element[] _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
 
         #endregion Private Fields
 
@@ -52,7 +52,7 @@ namespace Chemistry
         public static void Add(Element element)
         {
             if (element == null)
-                throw new ArgumentNullException("element", "Cannot add a null element to periodic table");
+                throw new ArgumentException("Cannot add a null element to periodic table");
             if (!_elements.ContainsKey(element.AtomicSymbol))
             {
                 _elements.Add(element.AtomicSymbol, element);

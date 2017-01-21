@@ -33,7 +33,7 @@ namespace Chemistry
         public static double ToMZ(this IHasMass objectWithMass, int charge)
         {
             if (objectWithMass == null)
-                throw new ArgumentNullException("objectWithMass", "Cannot compute an MZ value for a null object");
+                throw new ArgumentException("Cannot compute an MZ value for a null object");
             return ToMassToChargeRatio(objectWithMass.MonoisotopicMass, charge);
         }
 

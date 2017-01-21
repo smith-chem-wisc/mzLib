@@ -382,7 +382,7 @@ namespace Test
         {
             Peptide pepA = new Peptide();
 
-            Assert.AreEqual(String.Empty, pepA.BaseSequence);
+            Assert.AreEqual(string.Empty, pepA.BaseSequence);
         }
 
         [Test]

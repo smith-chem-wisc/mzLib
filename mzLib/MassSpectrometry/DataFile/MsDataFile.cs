@@ -30,15 +30,15 @@ namespace MassSpectrometry
     public abstract class MsDataFile<TSpectrum> : IMsDataFile<TSpectrum>
         where TSpectrum : IMzSpectrum<MzPeak>
     {
-        /// <summary>
-        /// Defines if MS scans should be cached for quicker retrieval. Cached scans are held in an internal
-        /// array and don't get cleared until the file is disposed or the ClearCacheScans() method is called.
-        /// Of course, if you store the scans somewhere else, they will persist. The default value is True.
-        /// </summary>
+		/// <summary>
+		/// Defines if MS scans should be cached for quicker retrieval. Cached scans are held in an internal
+		/// array and don't get cleared until the file is disposed or the ClearCacheScans() method is called.
+		/// Of course, if you store the scans somewhere else, they will persist. The default value is True.
+		/// </summary>
 
-        #region Internal Fields
+		#region Internal Fields
 
-        internal MsDataScan<TSpectrum>[] Scans = null;
+		internal MsDataScan<TSpectrum>[] Scans;
 
         #endregion Internal Fields
 
@@ -48,7 +48,7 @@ namespace MassSpectrometry
 
         private string _name;
 
-        private bool _numSpectraSet = false;
+        private bool _numSpectraSet;
 
         private int _numSpectra;
 

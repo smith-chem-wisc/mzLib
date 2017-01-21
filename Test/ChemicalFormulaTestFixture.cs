@@ -974,28 +974,28 @@ namespace Test
         {
             ChemicalFormula formulaA = new ChemicalFormula("CO");
             IHasChemicalFormula ok = null;
-            Assert.AreEqual("item", Assert.Throws<ArgumentNullException>(() => { formulaA.Add(ok); }).ParamName);
+            Assert.Throws<ArgumentException>(() => { formulaA.Add(ok); });
             ChemicalFormula ok2 = null;
-            Assert.AreEqual("formula", Assert.Throws<ArgumentNullException>(() => { formulaA.Add(ok2); }).ParamName);
-            Assert.AreEqual("other", Assert.Throws<ArgumentNullException>(() => { new ChemicalFormula(ok2); }).ParamName);
+            Assert.Throws<ArgumentException>(() => { formulaA.Add(ok2); });
+            Assert.Throws<ArgumentException>(() => { new ChemicalFormula(ok2); });
             Element ok3 = null;
-            Assert.AreEqual("element", Assert.Throws<ArgumentNullException>(() => { formulaA.AddPrincipalIsotopesOf(ok3, 0); }).ParamName);
-            Assert.AreEqual("item", Assert.Throws<ArgumentNullException>(() => { formulaA.Remove(ok); }).ParamName);
-            Assert.AreEqual("formula", Assert.Throws<ArgumentNullException>(() => { formulaA.Remove(ok2); }).ParamName);
-            Assert.AreEqual("formula", Assert.Throws<ArgumentNullException>(() => { formulaA.IsSubsetOf(ok2); }).ParamName);
-            Assert.AreEqual("formula", Assert.Throws<ArgumentNullException>(() => { formulaA.IsSupersetOf(ok2); }).ParamName);
-            Assert.AreEqual("element", Assert.Throws<ArgumentNullException>(() => { formulaA.CountWithIsotopes(ok3); }).ParamName);
-            Assert.AreEqual("element", Assert.Throws<ArgumentNullException>(() => { formulaA.CountSpecificIsotopes(ok3, 0); }).ParamName);
+            Assert.Throws<ArgumentException>(() => { formulaA.AddPrincipalIsotopesOf(ok3, 0); });
+            Assert.Throws<ArgumentException>(() => { formulaA.Remove(ok); });
+            Assert.Throws<ArgumentException>(() => { formulaA.Remove(ok2); });
+            Assert.Throws<ArgumentException>(() => { formulaA.IsSubsetOf(ok2); });
+            Assert.Throws<ArgumentException>(() => { formulaA.IsSupersetOf(ok2); });
+            Assert.Throws<ArgumentException>(() => { formulaA.CountWithIsotopes(ok3); });
+            Assert.Throws<ArgumentException>(() => { formulaA.CountSpecificIsotopes(ok3, 0); });
             Assert.IsFalse(formulaA.Equals(ok2));
             IEnumerable<IHasChemicalFormula> ok4 = null;
-            Assert.AreEqual("formulas", Assert.Throws<ArgumentNullException>(() => { ChemicalFormula.Combine(ok4); }).ParamName);
-            Assert.AreEqual("element", Assert.Throws<ArgumentNullException>(() => { PeriodicTable.Add(ok3); }).ParamName);
+            Assert.Throws<ArgumentException>(() => { ChemicalFormula.Combine(ok4); });
+            Assert.Throws<ArgumentException>(() => { PeriodicTable.Add(ok3); });
 
-            Assert.AreEqual("formula", Assert.Throws<ArgumentNullException>(() => { new IsotopicDistribution(ok2); }).ParamName);
+            Assert.Throws<ArgumentException>(() => { new IsotopicDistribution(ok2); });
 
             IHasMass ok5 = null;
 
-            Assert.AreEqual("objectWithMass", Assert.Throws<ArgumentNullException>(() => { ok5.ToMZ(0); }).ParamName);
+            Assert.Throws<ArgumentException>(() => { ok5.ToMZ(0); });
 
             new PhysicalObjectWithChemicalFormula("C");
         }
@@ -1033,7 +1033,7 @@ namespace Test
         public void TestEquality()
         {
             ChemicalFormula formulaB = new ChemicalFormula("CO");
-            Assert.IsTrue(formulaB.Equals(formulaB));
+			Assert.AreEqual(formulaB,formulaB);
         }
 
         [Test]

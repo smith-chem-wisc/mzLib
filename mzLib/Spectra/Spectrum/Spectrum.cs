@@ -39,7 +39,7 @@ namespace Spectra
 
         private double sumOfAllY = double.NaN;
 
-        private TPeak peakWithHighestY = null;
+        private TPeak peakWithHighestY;
 
         #endregion Private Fields
 
@@ -49,7 +49,7 @@ namespace Spectra
         /// Initializes a new spectrum
         /// </summary>
         /// <param name="x">The m/z's</param>
-        /// <param name="xy">The intensities</param>
+        /// <param name="y">The intensities</param>
         /// <param name="shouldCopy">Indicates whether the input arrays should be copied to new ones</param>
         protected Spectrum(double[] x, double[] y, bool shouldCopy)
         {
