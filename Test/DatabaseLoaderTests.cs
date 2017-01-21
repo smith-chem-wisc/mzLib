@@ -30,6 +30,7 @@ namespace Test
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");
             Loaders.UpdateUnimod(unimodLocation);
+            Loaders.UpdateUnimod(unimodLocation);
         }
 
         [Test]
