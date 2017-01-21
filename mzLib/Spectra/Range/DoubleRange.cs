@@ -120,11 +120,6 @@ namespace Spectra
             get { return Maximum - Minimum; }
         }
 
-        /// <summary>
-        /// Returns a string representation of this range at the given numerical format
-        /// </summary>
-        /// <param name="format">The format to display the double values</param>
-        /// <returns></returns>
         public override string ToString()
         {
             return ToString("G9");

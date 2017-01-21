@@ -45,11 +45,7 @@ namespace Test
         public void TestUpdateElements()
         {
             var elementLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.dat");
-            try
-            {
-                Loaders.LoadElements(elementLocation);
-            }
-            catch { }
+			Loaders.UpdateElements(elementLocation);
             Loaders.UpdateElements(elementLocation);
             Assert.AreEqual(ValidationResult.PassedAbundanceValidation, PeriodicTable.ValidateAbundances(1e-15).ThisValidationResult);
             Assert.AreEqual(ValidationResult.PassedAverageMassValidation, PeriodicTable.ValidateAverageMasses(1e-2).ThisValidationResult);

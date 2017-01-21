@@ -1033,7 +1033,7 @@ namespace Test
         public void TestEquality()
         {
             ChemicalFormula formulaB = new ChemicalFormula("CO");
-            Assert.IsTrue(formulaB.Equals(formulaB));
+			Assert.AreEqual(formulaB,formulaB);
         }
 
         [Test]

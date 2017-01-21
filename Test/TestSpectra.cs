@@ -209,7 +209,7 @@ namespace Test
         [Test]
         public void CorrectOrder()
         {
-            _mzSpectrumA = new DefaultMzSpectrum(new double[3] { 5, 6, 7 }, new double[3] { 1, 2, 3 }, false);
+            _mzSpectrumA = new DefaultMzSpectrum(new double[] { 5, 6, 7 }, new double[] { 1, 2, 3 }, false);
             Assert.IsTrue(_mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[0].Mz < _mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[1].Mz);
         }
 
@@ -228,7 +228,7 @@ namespace Test
         [Test]
         public void Test2D()
         {
-            double[,] array2D = new double[,] { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
+            double[,] array2D = { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
             _mzSpectrumA = new DefaultMzSpectrum(array2D);
             Assert.AreEqual("1 - 4 m/z (Peaks 4)", _mzSpectrumA.ToString());
         }

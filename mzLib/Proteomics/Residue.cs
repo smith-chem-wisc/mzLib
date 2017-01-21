@@ -63,10 +63,10 @@ namespace Proteomics
             {"Threonine",      new Residue("Threonine", 'T', "Thr","C4H7NO2",  ModificationSites.T)},
             {"Tryptophan",     new Residue("Tryptophan", 'W', "Trp","C11H10N2O",  ModificationSites.W)},
             {"Tyrosine",       new Residue("Tyrosine", 'Y', "Try","C9H9NO2",  ModificationSites.Y)},
-            {"Valine",         new Residue("Valine", 'V', "Val","C5H9NO",  ModificationSites.V)},
+            {"Valine",         new Residue("Valine", 'V', "Val","C5H9NO",  ModificationSites.V)}
         };
 
-            ResiduesByLetter = new Residue['z' + 1]
+            ResiduesByLetter = new Residue[]
         {
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,null,null,null,null,null,null,null,
@@ -101,9 +101,9 @@ namespace Proteomics
             null, // Z
             null,null,null,null,null,null,null,null,null,null,null,null,null,
             null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null,
+            null,null,null,null,null,null
         };
-            ResidueMonoisotopicMass = new double['z' + 1]
+            ResidueMonoisotopicMass = new double[]
         {
             double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
             double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
@@ -138,7 +138,7 @@ namespace Proteomics
             double.NaN, // Z
             double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
             double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
-            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,
+            double.NaN,double.NaN,double.NaN,double.NaN,double.NaN,double.NaN
         };
         }
 
