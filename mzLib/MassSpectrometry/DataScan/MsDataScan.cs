@@ -42,9 +42,9 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public MsDataScan(int OneBasedScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
+        public MsDataScan(int oneBasedScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
         {
-            this.OneBasedScanNumber = OneBasedScanNumber;
+            this.OneBasedScanNumber = oneBasedScanNumber;
             this.MassSpectrum = MassSpectrum;
             this.Id = id;
             this.MsnOrder = MsnOrder;

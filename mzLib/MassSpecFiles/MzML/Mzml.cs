@@ -133,8 +133,7 @@ namespace IO.MzML
                         double diff = Math.Abs(double.Parse(cv.value) - retentionTime);
                         if (diff > bestDiff)
                             return i;
-                        else
-                            bestDiff = diff;
+                        bestDiff = diff;
                     }
                 }
             }
@@ -150,12 +149,12 @@ namespace IO.MzML
             return Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
         }
 
-        protected override MsDataScan<DefaultMzSpectrum> GetMsDataOneBasedScanFromFile(int OneBasedSpectrumNumber)
+        protected override MsDataScan<DefaultMzSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
         {
             double[] masses = null;
             double[] intensities = null;
 
-            foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[OneBasedSpectrumNumber - 1].binaryDataArrayList.binaryDataArray)
+            foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].binaryDataArrayList.binaryDataArray)
             {
                 bool compressed = false;
                 bool mzArray = false;
@@ -163,26 +162,10 @@ namespace IO.MzML
                 bool is32bit = true;
                 foreach (Generated.CVParamType cv in binaryData.cvParam)
                 {
-                    if (cv.accession.Equals(_zlibCompression))
-                    {
-                        compressed = true;
-                    }
-                    if (cv.accession.Equals(_64bit))
-                    {
-                        is32bit = false;
-                    }
-                    if (cv.accession.Equals(_32bit))
-                    {
-                        is32bit = true;
-                    }
-                    if (cv.accession.Equals(_mzArray))
-                    {
-                        mzArray = true;
-                    }
-                    if (cv.accession.Equals(_intensityArray))
-                    {
-                        intensityArray = true;
-                    }
+                    compressed |= cv.accession.Equals(_zlibCompression);
+                    is32bit |= cv.accession.Equals(_32bit);
+                    mzArray |= cv.accession.Equals(_mzArray);
+                    intensityArray |= cv.accession.Equals(_intensityArray);
                 }
 
                 double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
@@ -199,7 +182,7 @@ namespace IO.MzML
 
             if (masses == null || intensities == null)
             {
-                throw new InvalidDataException("Unable to find spectral data for spectrum number " + OneBasedSpectrumNumber);
+                throw new InvalidDataException("Unable to find spectral data for spectrum number " + oneBasedSpectrumNumber);
             }
 
             if (masses.Length > maxPeaksPerScan)
@@ -219,10 +202,9 @@ namespace IO.MzML
 
             var ok = new DefaultMzSpectrum(masses, intensities, false);
 
-            if (GetMsnOrder(OneBasedSpectrumNumber) == 1)
-                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber));
-            else
-                return new MsDataScan<DefaultMzSpectrum>(OneBasedSpectrumNumber, ok, GetSpectrumID(OneBasedSpectrumNumber), GetMsnOrder(OneBasedSpectrumNumber), GetIsCentroid(OneBasedSpectrumNumber), GetPolarity(OneBasedSpectrumNumber), GetRetentionTime(OneBasedSpectrumNumber), GetScanWindowMzRange(OneBasedSpectrumNumber), GetOneBasedScanFilter(OneBasedSpectrumNumber), GetMzAnalyzer(OneBasedSpectrumNumber), GetInjectionTime(OneBasedSpectrumNumber), GetTotalIonCurrent(OneBasedSpectrumNumber), GetPrecursorID(OneBasedSpectrumNumber), GetPrecursorMz(OneBasedSpectrumNumber), GetPrecusorCharge(OneBasedSpectrumNumber), GetPrecursorIntensity(OneBasedSpectrumNumber), GetIsolationMz(OneBasedSpectrumNumber), GetIsolationWidth(OneBasedSpectrumNumber), GetDissociationType(OneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(OneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(OneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(OneBasedSpectrumNumber));
+            if (GetMsnOrder(oneBasedSpectrumNumber) == 1)
+                return new MsDataScan<DefaultMzSpectrum>(oneBasedSpectrumNumber, ok, GetSpectrumID(oneBasedSpectrumNumber), GetMsnOrder(oneBasedSpectrumNumber), GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), GetRetentionTime(oneBasedSpectrumNumber), GetScanWindowMzRange(oneBasedSpectrumNumber), GetOneBasedScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), GetTotalIonCurrent(oneBasedSpectrumNumber));
+            return new MsDataScan<DefaultMzSpectrum>(oneBasedSpectrumNumber, ok, GetSpectrumID(oneBasedSpectrumNumber), GetMsnOrder(oneBasedSpectrumNumber), GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), GetRetentionTime(oneBasedSpectrumNumber), GetScanWindowMzRange(oneBasedSpectrumNumber), GetOneBasedScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), GetTotalIonCurrent(oneBasedSpectrumNumber), GetPrecursorID(oneBasedSpectrumNumber), GetPrecursorMz(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetPrecursorIntensity(oneBasedSpectrumNumber), GetIsolationMz(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
         }
 
         #endregion Protected Methods

@@ -38,7 +38,7 @@ namespace IO.Thermo
 
         public override string ToString()
         {
-            return string.Format("{0} z = {1:+#;-#;?} SN = {2:F2}", base.ToString(), Charge, SignalToNoise);
+            return string.Format("{0} z = {1:+#;-#;?} SN = {2:F2}", base, Charge, SignalToNoise);
         }
 
         public ThermoMzPeak(double mz, double intensity, int charge = 0, double noise = 0.0, double resolution = 0.0)

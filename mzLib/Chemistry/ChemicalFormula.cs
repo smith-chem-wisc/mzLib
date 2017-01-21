@@ -50,7 +50,7 @@ namespace Chemistry
         /// </summary>
         private static readonly Regex ValidateFormulaRegex = new Regex("^(" + FormulaRegex + ")+$", RegexOptions.Compiled);
 
-        private string _formula = null;
+        private string _formula;
 
         #endregion Private Fields
 
@@ -72,7 +72,7 @@ namespace Chemistry
         public ChemicalFormula(ChemicalFormula other) : this()
         {
             if (other == null)
-                throw new ArgumentNullException("other", "Cannot initialize chemical formula from a null formula");
+                throw new ArgumentException("Cannot initialize chemical formula from a null formula");
             Isotopes = new Dictionary<Isotope, int>(other.Isotopes);
             Elements = new Dictionary<Element, int>(other.Elements);
         }
@@ -212,7 +212,7 @@ namespace Chemistry
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)
         {
             if (formulas == null)
-                throw new ArgumentNullException("formulas", "Cannot combine a null collection of formulas");
+                throw new ArgumentException("Cannot combine a null collection of formulas");
             ChemicalFormula returnFormula = new ChemicalFormula();
             foreach (IHasChemicalFormula iformula in formulas)
                 returnFormula.Add(iformula);
@@ -231,7 +231,7 @@ namespace Chemistry
         /// Replacement happens on a 1 to 1 basis, i.e., if you remove 5 you will add 5
         /// </summary>
         /// <param name="isotopeToRemove">The isotope to remove</param>
-        /// <param name="isotopToAdd">The isotope to add</param>
+        /// <param name="isotopeToAdd">The isotope to add</param>
         public void Replace(Isotope isotopeToRemove, Isotope isotopeToAdd)
         {
             int numberRemoved = Remove(isotopeToRemove);
@@ -245,7 +245,7 @@ namespace Chemistry
         public void Add(IHasChemicalFormula item)
         {
             if (item == null)
-                throw new ArgumentNullException("item", "Cannot add null item to formula");
+                throw new ArgumentException("Cannot add null item to formula");
             Add(item.ThisChemicalFormula);
         }
 
@@ -256,7 +256,7 @@ namespace Chemistry
         public void Add(ChemicalFormula formula)
         {
             if (formula == null)
-                throw new ArgumentNullException("formula", "Cannot add null formula to formula");
+                throw new ArgumentException("Cannot add null formula to formula");
             foreach (var e in formula.Elements)
             {
                 Add(e.Key, e.Value);
@@ -271,12 +271,12 @@ namespace Chemistry
         /// Add the principal isotope of the element to this chemical formula
         /// given its chemical symbol
         /// </summary>
-        /// <param name="symbol">The chemical symbol of the element to add</param>
+        /// <param name="element">The chemical element to add</param>
         /// <param name="count">The number of the element to add</param>
         public void AddPrincipalIsotopesOf(Element element, int count)
         {
             if (element == null)
-                throw new ArgumentNullException("element", "Cannot add null element to formula");
+                throw new ArgumentException("Cannot add null element to formula");
             Isotope isotope = element.PrincipalIsotope;
             Add(isotope, count);
         }
@@ -323,7 +323,7 @@ namespace Chemistry
         public void Remove(IHasChemicalFormula item)
         {
             if (item == null)
-                throw new ArgumentNullException("item", "Cannot remove null item from formula");
+                throw new ArgumentException("Cannot remove null item from formula");
             Remove(item.ThisChemicalFormula);
         }
 
@@ -334,7 +334,7 @@ namespace Chemistry
         public void Remove(ChemicalFormula formula)
         {
             if (formula == null)
-                throw new ArgumentNullException("formula", "Cannot remove null formula from formula");
+                throw new ArgumentException("Cannot remove null formula from formula");
             foreach (var e in formula.Elements)
                 Remove(e.Key, e.Value);
             foreach (var i in formula.Isotopes)
@@ -344,7 +344,7 @@ namespace Chemistry
         /// <summary>
         /// Remove the provided number of elements (not isotopes!) from formula
         /// </summary>
-        /// <param name="symbol">The symbol of the chemical element to remove</param>
+        /// <param name="element">The chemical element to remove</param>
         /// <param name="count">The number of elements to remove</param>
         public void Remove(Element element, int count)
         {
@@ -411,7 +411,7 @@ namespace Chemistry
         public bool IsSubsetOf(ChemicalFormula formula)
         {
             if (formula == null)
-                throw new ArgumentNullException("formula", "Cannot check if is subset of null formula");
+                throw new ArgumentException("Cannot check if is subset of null formula");
             return formula.IsSupersetOf(this);
         }
 
@@ -425,7 +425,7 @@ namespace Chemistry
         public bool IsSupersetOf(ChemicalFormula formula)
         {
             if (formula == null)
-                throw new ArgumentNullException("formula", "Cannot check if is superset of null formula");
+                throw new ArgumentException("Cannot check if is superset of null formula");
             foreach (var aa in formula.Elements)
                 if (!Elements.ContainsKey(aa.Key) || aa.Value > Elements[aa.Key])
                     return false;
@@ -470,7 +470,7 @@ namespace Chemistry
         public int CountWithIsotopes(Element element)
         {
             if (element == null)
-                throw new ArgumentNullException("element", "Cannot count null elements in formula");
+                throw new ArgumentException("Cannot count null elements in formula");
             var isotopeCount = element.Isotopes.Sum(isotope => CountSpecificIsotopes(isotope));
             int ElementCount;
             return isotopeCount + (Elements.TryGetValue(element, out ElementCount) ? ElementCount : 0);
@@ -479,7 +479,7 @@ namespace Chemistry
         public int CountSpecificIsotopes(Element element, int massNumber)
         {
             if (element == null)
-                throw new ArgumentNullException("element", "Cannot count null elements in formula");
+                throw new ArgumentException("Cannot count null elements in formula");
             Isotope isotope = element[massNumber];
             return CountSpecificIsotopes(isotope);
         }

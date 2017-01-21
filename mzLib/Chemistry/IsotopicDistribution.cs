@@ -140,15 +140,13 @@ namespace Chemistry
         private static ChemicalFormula ValidateFormulaForIsotopologueComputation(ChemicalFormula formula)
         {
             if (formula == null)
-                throw new ArgumentNullException("formula", "Cannot compute isotopic distribution for a null formula");
+                throw new ArgumentException("Cannot compute isotopic distribution for a null formula");
             return formula;
         }
 
         /// <summary>
         /// Calculates the fineResolution and mergeFineResolution parameters
         /// </summary>
-        /// <remarks>
-
         /// <returns>Tuple of fineResolution and mergeFineResolution</returns>
         private static Tuple<double, double> GetNewFineAndMergeResolutions(double fineResolution)
         {

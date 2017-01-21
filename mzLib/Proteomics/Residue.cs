@@ -18,7 +18,6 @@
 
 using Chemistry;
 using System.Collections.Generic;
-using System.Globalization;
 
 namespace Proteomics
 {
