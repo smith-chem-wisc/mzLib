@@ -69,8 +69,6 @@ namespace Proteomics
 
         public static IEnumerable<FragmentTypes> GetIndividualFragmentTypes(this FragmentTypes fragmentTypes)
         {
-            if (fragmentTypes == FragmentTypes.None)
-                yield break;
             foreach (FragmentTypes site in Enum.GetValues(typeof(FragmentTypes)))
             {
                 if (site == FragmentTypes.None || site == FragmentTypes.All || site == FragmentTypes.Internal)
