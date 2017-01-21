@@ -39,13 +39,6 @@ namespace Test
             // Finds the APEX! Not nearest peak!
             Assert.AreEqual(6, d.FindNearestApex(5.9).Intensity);
             Assert.AreEqual(10, d.FindNearestApex(6.1).Intensity);
-            // Finds the width of a large peak! Includes the zeros!
-            Assert.AreEqual(1, d.GetPeakWidth(1).Minimum, 1e-9);
-            Assert.AreEqual(2, d.GetPeakWidth(3).Minimum, 1e-9);
-            Assert.AreEqual(6, d.GetPeakWidth(9).Minimum, 1e-9);
-            Assert.AreEqual(2, d.GetPeakWidth(1).Maximum, 1e-9);
-            Assert.AreEqual(6, d.GetPeakWidth(3).Maximum, 1e-9);
-            Assert.AreEqual(9, d.GetPeakWidth(9).Maximum, 1e-9);
 
             var elutionProfile = d.GetElutionProfile(new DoubleRange(3, 7));
 
