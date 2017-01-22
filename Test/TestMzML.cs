@@ -59,6 +59,12 @@ namespace Test
 
 			var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.XArray[0];
 
+
+			double width;
+			Assert.IsFalse(myMsDataFile.GetOneBasedScan(1).TryGetIsolationWidth(out width));
+			Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetIsolationWidth(out width));
+			Assert.AreEqual(1, width);
+
             MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(myMsDataFile, Path.Combine(Path.GetDirectoryName(myMsDataFile.FilePath), Path.GetFileNameWithoutExtension(myMsDataFile.FilePath)) + ".mzML");
 
             Mzml okay = new Mzml(@"myFakeFile.mzML");
@@ -70,8 +76,12 @@ namespace Test
 
 
 			var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.XArray[0];
-
 			Assert.AreEqual(oldFirstValue, newFirstValue, 1e-9);
+
+
+			Assert.IsFalse(okay.GetOneBasedScan(1).TryGetIsolationWidth(out width));
+			Assert.IsTrue(okay.GetOneBasedScan(2).TryGetIsolationWidth(out width));
+			Assert.AreEqual(1, width);
         }
 
         [Test]
