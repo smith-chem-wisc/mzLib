@@ -163,6 +163,7 @@ namespace IO.MzML
                 foreach (Generated.CVParamType cv in binaryData.cvParam)
                 {
                     compressed |= cv.accession.Equals(_zlibCompression);
+					is32bit &= !cv.accession.Equals(_64bit);
                     is32bit |= cv.accession.Equals(_32bit);
                     mzArray |= cv.accession.Equals(_mzArray);
                     intensityArray |= cv.accession.Equals(_intensityArray);
