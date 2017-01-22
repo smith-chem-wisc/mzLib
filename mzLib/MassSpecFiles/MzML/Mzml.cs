@@ -345,7 +345,7 @@ namespace IO.MzML
             {
                 throw new ArgumentNullException("Could not determine isolation width for " + oneBasedSpectrumNumber);
             }
-            return high - low;
+            return high + low;
         }
 
         private string GetOneBasedScanFilter(int oneBasedSpectrumNumber)
