@@ -689,6 +689,7 @@ namespace Test
 
             Peptide peptide = new Peptide("III-[C2H3NO]");
             Assert.AreEqual("LLL-[C2H3NO]", peptide.GetSequenceWithModifications(true));
+
         }
 
         [Test]
@@ -704,6 +705,12 @@ namespace Test
             a.AddModification(new Modification(1), ModificationSites.TerminusC);
             Assert.AreEqual(2, a.ModificationCount());
             a.Fragment(FragmentTypes.y);
+
+
+			Peptide peptide = new Peptide("[C2H3NO]-LLL-[C2H3NO]");
+			ModificationSites ff = ModificationSites.NPep | ModificationSites.PepC;
+			peptide.ClearModifications(ff);
+			Assert.AreEqual("LLL",peptide.GetSequenceWithModifications());
         }
 
         [Test]
