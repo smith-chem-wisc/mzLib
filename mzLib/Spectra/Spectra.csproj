@@ -61,7 +61,6 @@
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
     <Compile Include="Util\Tolerance.cs" />
-    <Compile Include="Util\ToleranceType.cs" />
     <Compile Include="Util\ToleranceUnit.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
