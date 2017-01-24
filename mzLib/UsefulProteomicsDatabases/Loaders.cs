@@ -220,25 +220,25 @@ namespace UsefulProteomicsDatabases
         private static void DownloadPsiMod(string psimodLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(URLs.psimodURI, psimodLocation + ".temp");
+                Client.DownloadFile(@"http://psidev.cvs.sourceforge.net/viewvc/psidev/psi/mod/data/PSI-MOD.obo.xml", psimodLocation + ".temp");
         }
 
         private static void DownloadUnimod(string unimodLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(URLs.unimodURI, unimodLocation + ".temp");
+                Client.DownloadFile(@"http://www.unimod.org/xml/unimod_tables.xml", unimodLocation + ".temp");
         }
 
         private static void DownloadElements(string elementLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(URLs.elementURI, elementLocation + ".temp");
+                Client.DownloadFile(@"http://www.physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&amp;all=all&amp;ascii=ascii2&amp;isotype=some", elementLocation + ".temp");
         }
 
         private static void DownloadUniprot(string uniprotLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(URLs.uniprotURI, uniprotLocation + ".temp");
+                Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
 
         #endregion Private Methods
