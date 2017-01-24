@@ -11,15 +11,34 @@ namespace IO.MzML
     public static class MzmlMethods
     {
 
-	private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = new Dictionary<DissociationType, string>{
+		private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = new Dictionary<DissociationType, string>{
 			{DissociationType.HCD, "MS:1000422"},
 			{DissociationType.CID, "MS:1000133"},
 			{DissociationType.Unknown, "MS:1000044"}};
 		
-	private static readonly Dictionary<DissociationType, string> DissociationTypeNames = new Dictionary<DissociationType, string>{
+		private static readonly Dictionary<DissociationType, string> DissociationTypeNames = new Dictionary<DissociationType, string>{
 			{DissociationType.HCD, "beam-type collision-induced dissociation"},
 			{DissociationType.CID, "collision-induced dissociation"},
 			{DissociationType.Unknown, "dissociation method"}};
+
+
+		private static readonly Dictionary<bool, string> CentroidAccessions = new Dictionary<bool, string>{
+			{true, "MS:1000127"},
+			{false, "MS:1000128"}};
+
+		private static readonly Dictionary<bool, string> CentroidNames = new Dictionary<bool, string>{
+			{true, "centroid spectrum"},
+			{false, "profile spectrum"}};
+
+
+		private static readonly Dictionary<Polarity, string> PolarityAccessions = new Dictionary<Polarity, string>{
+			{Polarity.Negative, "MS:1000129"},
+			{Polarity.Positive, "MS:1000130"}};
+
+		private static readonly Dictionary<Polarity, string> PolarityNames = new Dictionary<Polarity, string>{
+			{Polarity.Negative, "negative scan"},
+			{Polarity.Positive, "positive scan"}};
+
 
         #region Internal Fields
 
@@ -182,29 +201,12 @@ namespace IO.MzML
 
 
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2] = new Generated.CVParamType();
-                if (myMsDataFile.GetOneBasedScan(i).IsCentroid)
-                {
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].name = "centroid spectrum";
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].accession = "MS:1000127";
-                }
-                else
-                {
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].name = "profile spectrum";
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].accession = "MS:1000128";
-                }
+				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].name = CentroidNames[myMsDataFile.GetOneBasedScan(i).IsCentroid];
+				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].accession = CentroidAccessions[myMsDataFile.GetOneBasedScan(i).IsCentroid];
 
-                // Polarity
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3] = new Generated.CVParamType();
-                if (myMsDataFile.GetOneBasedScan(i).Polarity == Polarity.Negative)
-                {
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].name = "negative scan";
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].accession = "MS:1000129";
-                }
-                else if (myMsDataFile.GetOneBasedScan(i).Polarity == Polarity.Positive)
-                {
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].name = "positive scan";
-                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].accession = "MS:1000130";
-                }
+				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].name = PolarityNames[myMsDataFile.GetOneBasedScan(i).Polarity];
+				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].accession = PolarityAccessions[myMsDataFile.GetOneBasedScan(i).Polarity];
+
 
                 // Spectrum title
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4] = new Generated.CVParamType();
