@@ -4,11 +4,22 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Xml.Serialization;
+using System.Collections.Generic;
 
 namespace IO.MzML
 {
     public static class MzmlMethods
     {
+
+	private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = new Dictionary<DissociationType, string>{
+			{DissociationType.HCD, "MS:1000422"},
+			{DissociationType.CID, "MS:1000133"},
+			{DissociationType.Unknown, "MS:1000044"}};
+		
+	private static readonly Dictionary<DissociationType, string> DissociationTypeNames = new Dictionary<DissociationType, string>{
+			{DissociationType.HCD, "beam-type collision-induced dissociation"},
+			{DissociationType.CID, "collision-induced dissociation"},
+			{DissociationType.Unknown, "dissociation method"}};
 
         #region Internal Fields
 
@@ -158,32 +169,18 @@ namespace IO.MzML
 
                     DissociationType dissociationType;
                     myMsDataFile.GetOneBasedScan(i).TryGetDissociationType(out dissociationType);
-                    switch (dissociationType)
-                    {
-                        case DissociationType.HCD:
-                            _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = "MS:1000422";
-                            _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = "beam-type collision-induced dissociation";
-                            break;
 
-                        case DissociationType.CID:
-                            _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = "MS:1000133";
-                            _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = "collision-induced dissociation";
-                            break;
+					_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = DissociationTypeAccessions[dissociationType];
+					_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = DissociationTypeNames[dissociationType];
 
-                        case DissociationType.Unknown:
-                            _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = "MS:1000044";
-                            _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = "dissociation method";
-                            break;
-                    }
                 }
 
-                // OPTIONAL, but need for CSMSL reader. ms level
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[1] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[1].name = "ms level";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[1].accession = "MS:1000511";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[1].value = myMsDataFile.GetOneBasedScan(i).MsnOrder.ToString(CultureInfo.InvariantCulture);
 
-                // Centroid?
+
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2] = new Generated.CVParamType();
                 if (myMsDataFile.GetOneBasedScan(i).IsCentroid)
                 {
