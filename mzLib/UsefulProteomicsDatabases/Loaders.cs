@@ -100,7 +100,7 @@ namespace UsefulProteomicsDatabases
         }
 
         public static void UpdateElements(string elementLocation)
-        {
+		{
             DownloadElements(elementLocation);
             if (!File.Exists(elementLocation))
             {
@@ -232,7 +232,7 @@ namespace UsefulProteomicsDatabases
         private static void DownloadElements(string elementLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(@"http://www.physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&amp;all=all&amp;ascii=ascii2&amp;isotype=some", elementLocation + ".temp");
+                Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
         }
 
         private static void DownloadUniprot(string uniprotLocation)
