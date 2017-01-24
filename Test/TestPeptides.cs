@@ -63,6 +63,12 @@ namespace Test
         }
 
         [Test]
+		public void AApolymerNullEquals()
+		{
+			Peptide pep = new Peptide("G");
+			Assert.IsFalse(pep.Equals(null));
+		}
+        [Test]
         public void PeptideCountElements()
         {
             Peptide pep = new Peptide("G");
