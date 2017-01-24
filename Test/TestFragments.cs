@@ -21,6 +21,7 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Chemistry;
 
 namespace Test
 {
@@ -129,6 +130,30 @@ namespace Test
         }
 
         [Test]
+		public void TestFormulaTerminusMods()
+		{
+			var pep1 = new Peptide("ACDEFG");
+			pep1.AddModification(new ChemicalFormulaModification("H", ModificationSites.NTerminus));
+
+			Assert.IsTrue(pep1.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
+
+
+			var pep2 = new Peptide("ACDEFG");
+			pep2.AddModification(new Modification(2, "haha", ModificationSites.NTerminus));
+			Assert.IsFalse(pep2.Fragment(FragmentTypes.b, true).First()is IHasChemicalFormula);
+
+
+			var pep3 = new Peptide("ACDEFG");
+			pep3.AddModification(new Modification(3, "haha", ModificationSites.D));
+
+			var list = pep3.Fragment(FragmentTypes.b, true).ToList();
+
+			Assert.IsTrue(list[0]is IHasChemicalFormula);
+			Assert.IsFalse(list[2]is IHasChemicalFormula);
+		}
+
+
+		[Test]
         public void TestGetIonCapFailFail()
         {
             FragmentTypes f = FragmentTypes.All;
