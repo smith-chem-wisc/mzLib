@@ -204,6 +204,7 @@ namespace IO.MzML
 				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].name = CentroidNames[myMsDataFile.GetOneBasedScan(i).IsCentroid];
 				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].accession = CentroidAccessions[myMsDataFile.GetOneBasedScan(i).IsCentroid];
 
+				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3] = new Generated.CVParamType();
 				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].name = PolarityNames[myMsDataFile.GetOneBasedScan(i).Polarity];
 				_indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].accession = PolarityAccessions[myMsDataFile.GetOneBasedScan(i).Polarity];
 

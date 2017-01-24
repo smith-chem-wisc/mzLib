@@ -1022,9 +1022,6 @@ namespace Proteomics
 
         public override bool Equals(object obj)
         {
-            if (obj == null)
-                return false;
-
             AminoAcidPolymer aap = obj as AminoAcidPolymer;
             return aap != null && Equals(aap);
         }

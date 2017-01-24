@@ -152,6 +152,19 @@ namespace Test
 			Assert.IsFalse(list[2]is IHasChemicalFormula);
 		}
 
+        [Test]
+		public void CleavageIndicesTest()
+		{
+			IEnumerable<IProtease> proteases = new List<TestProtease> { new TestProtease() };
+			var ok1 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, true).ToList();
+			var ok2 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, false).ToList();
+			var ok3 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, true).ToList();
+			var ok4 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, false).ToList();
+			Assert.AreEqual(3, ok1.Count());
+			Assert.AreEqual(2, ok2.Count());
+			Assert.AreEqual(4, ok3.Count());
+			Assert.AreEqual(2, ok4.Count());
+		}
 
 		[Test]
         public void TestGetIonCapFailFail()
