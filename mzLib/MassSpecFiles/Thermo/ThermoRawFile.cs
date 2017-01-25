@@ -46,10 +46,16 @@ namespace IO.Thermo
 
         #region Public Constructors
 
-        public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
+        public ThermoRawFile(string filePath, int maxPeaksPerScan)
+			: base(filePath, MsDataFileType.ThermoRawFile)
+		{
+			this.maxPeaksPerScan = maxPeaksPerScan;
+		}
+
+        public ThermoRawFile(string filePath)
             : base(filePath, MsDataFileType.ThermoRawFile)
         {
-            this.maxPeaksPerScan = maxPeaksPerScan;
+            this.maxPeaksPerScan = int.MaxValue;
         }
 
         #endregion Public Constructors
