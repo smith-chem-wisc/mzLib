@@ -70,16 +70,16 @@ namespace MzIdentML
                 try
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
-                    if (hm[0].unitName.Equals("dalton"))
-                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
-                    return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+					return hm[0].unitName.Equals("dalton") ?
+						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)):
+						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
-                    if (hm[0].unitName.Equals("dalton"))
-                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
-                    return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+					return hm[0].unitName.Equals("dalton") ?
+						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
             }
         }
@@ -91,16 +91,16 @@ namespace MzIdentML
                 try
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
-                    if (hm[0].unitName.Equals("dalton"))
-                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
-                    return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+					return hm[0].unitName.Equals("dalton") ?
+						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
-                    if (hm[0].unitName.Equals("dalton"))
-                        return new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value));
-                    return new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+					return hm[0].unitName.Equals("dalton") ?
+						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
             }
         }
