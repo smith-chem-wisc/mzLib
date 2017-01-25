@@ -307,7 +307,7 @@ namespace Test
 
             Assert.AreEqual(15, ok2.NewSpectrumWithRangeRemoved(0, 1).Count);
 
-            Assert.AreEqual(2, ok2.NewSpectrumWithRangesRemoved(new List<DoubleRange>() { new DoubleRange(329, 400), new DoubleRange(400, 723) }).Count);
+            Assert.AreEqual(2, ok2.NewSpectrumWithRangesRemoved(new List<DoubleRange>{ new DoubleRange(329, 400), new DoubleRange(400, 723) }).Count);
         }
 
         [Test]

@@ -985,8 +985,6 @@ namespace Test
             IHasMass ok5 = null;
 
             Assert.Throws<ArgumentException>(() => { ok5.ToMZ(0); });
-
-            new PhysicalObjectWithChemicalFormula("C");
         }
 
         [Test]

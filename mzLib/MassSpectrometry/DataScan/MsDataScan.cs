@@ -42,20 +42,20 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public MsDataScan(int oneBasedScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange ScanWindowRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent)
+        public MsDataScan(int oneBasedScanNumber, TSpectrum massSpectrum, string id, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double injectionTime, double totalIonCurrent)
         {
-            this.OneBasedScanNumber = oneBasedScanNumber;
-            this.MassSpectrum = MassSpectrum;
-            this.Id = id;
-            this.MsnOrder = MsnOrder;
-            this.IsCentroid = isCentroid;
-            this.Polarity = Polarity;
-            this.RetentionTime = RetentionTime;
-            this.ScanWindowRange = ScanWindowRange;
-            this.ScanFilter = ScanFilter;
-            this.MzAnalyzer = MzAnalyzer;
-            this.InjectionTime = InjectionTime;
-            this.TotalIonCurrent = TotalIonCurrent;
+            OneBasedScanNumber = oneBasedScanNumber;
+            MassSpectrum = massSpectrum;
+            Id = id;
+            MsnOrder = msnOrder;
+            IsCentroid = isCentroid;
+            Polarity = polarity;
+            RetentionTime = retentionTime;
+            ScanWindowRange = scanWindowRange;
+            ScanFilter = scanFilter;
+            MzAnalyzer = mzAnalyzer;
+			InjectionTime = injectionTime;
+            TotalIonCurrent = totalIonCurrent;
         }
 
         public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)

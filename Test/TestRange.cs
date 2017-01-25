@@ -188,12 +188,6 @@ namespace Test
         }
 
         [Test]
-        public void RangeMinBiggerThanMax()
-        {
-            Assert.Throws<ArgumentException>(() => { new DoubleRange(10, 5); });
-        }
-
-        [Test]
         public void MassRangeFromDAWidth()
         {
             var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
