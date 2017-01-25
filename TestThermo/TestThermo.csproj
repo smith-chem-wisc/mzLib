@@ -53,6 +53,9 @@
     <None Include="Shew_246a_LCQa_15Oct04_Andro_0904-2_4-20.RAW">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="small.RAW">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\mzLib\MassSpecFiles\Thermo\Thermo.csproj">

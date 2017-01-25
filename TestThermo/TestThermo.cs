@@ -122,7 +122,21 @@ namespace TestThermo
 
         }
 
-        #endregion Public Methods
+        [Test]
+		public void LoadThermoTest3()
+		{
+			ThermoRawFile a = new ThermoRawFile(@"small.RAW");
+			a.Open();
 
-    }
+			Assert.AreEqual(0, a.Where(eb => eb.MsnOrder > 1).Count());
+
+			Assert.AreEqual(0, a.Where(eb => eb.MsnOrder == 1).Count());
+
+			a.Close();
+
+		}
+
+		#endregion Public Methods
+
+	}
 }
