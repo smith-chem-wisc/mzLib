@@ -201,7 +201,7 @@ namespace IO.Thermo
             return new ThermoSpectrum(mz, intensity, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
         }
 
-        public new ThermoSpectrum NewSpectrumFilterByY(double minIntensity = 0, double maxIntensity = double.MaxValue)
+        public new ThermoSpectrum NewSpectrumFilterByY(double minIntensity, double maxIntensity)
         {
             int count = Count;
             double[] mz = new double[count];
