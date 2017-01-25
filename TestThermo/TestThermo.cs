@@ -116,11 +116,29 @@ namespace TestThermo
             Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
 
 
+			Assert.AreEqual(0, b.Where(eb=>eb.MsnOrder>1).Count());
+
 			Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
 
         }
 
-        #endregion Public Methods
+        [Test]
+		public void LoadThermoTest3()
+		{
+			ThermoRawFile a = new ThermoRawFile(@"small.RAW");
+			a.Open();
 
-    }
+			Assert.IsTrue(a.Where(eb => eb.MsnOrder > 1).Count()>0);
+
+			Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count()> 0);
+
+			Assert.IsFalse(a.MonoisotopicPrecursorSelectionEnabled);
+
+			a.Close();
+
+		}
+
+		#endregion Public Methods
+
+	}
 }

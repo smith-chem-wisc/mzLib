@@ -46,10 +46,16 @@ namespace IO.Thermo
 
         #region Public Constructors
 
-        public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
+        public ThermoRawFile(string filePath, int maxPeaksPerScan)
+			: base(filePath, MsDataFileType.ThermoRawFile)
+		{
+			this.maxPeaksPerScan = maxPeaksPerScan;
+		}
+
+        public ThermoRawFile(string filePath)
             : base(filePath, MsDataFileType.ThermoRawFile)
         {
-            this.maxPeaksPerScan = maxPeaksPerScan;
+            this.maxPeaksPerScan = int.MaxValue;
         }
 
         #endregion Public Constructors
@@ -398,9 +404,9 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            if (double.IsNaN(trailerMZ))
-                return GetSelectedIonMZ(spectrumNumber);
-            return ms1Spectrum.GetClosestPeak(trailerMZ).Mz;
+            return double.IsNaN(trailerMZ) ? 
+                GetSelectedIonMZ(spectrumNumber):
+                ms1Spectrum.GetClosestPeak(trailerMZ).Mz;
         }
 
         private double GetPrecursorMonoisotopicMZfromTrailierExtra(int scanNumber)
@@ -416,9 +422,9 @@ namespace IO.Thermo
                 if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
                 {
                     double monoisotopic_mz = double.Parse(values[i], CultureInfo.InvariantCulture);
-                    if (monoisotopic_mz > 0.0)
-                        return monoisotopic_mz;
-                    return double.NaN;
+                    return monoisotopic_mz > 0.0?
+                          monoisotopic_mz:
+                          double.NaN;
                 }
             }
             return double.NaN;
@@ -484,9 +490,9 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            if (double.IsNaN(trailerMZ))
-                return GetSelectedIonIntensity(spectrumNumber);
-            return ms1Spectrum.GetClosestPeak(trailerMZ).Intensity;
+            return double.IsNaN(trailerMZ)?
+                  GetSelectedIonIntensity(spectrumNumber):
+                  ms1Spectrum.GetClosestPeak(trailerMZ).Intensity;
         }
 
         private double GetSelectedIonMZ(int spectrumNumber)
