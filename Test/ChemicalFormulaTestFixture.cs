@@ -845,15 +845,15 @@ namespace Test
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
-            var a = new IsotopicDistribution(formulaA);
+            var a = IsotopicDistribution.GetDistribution(formulaA);
 
-            Assert.True(formulaA.MonoisotopicMass.MassEquals(a.Masses[a.Intensities.IndexOf(a.Intensities.Max())]));
+			Assert.True(formulaA.MonoisotopicMass.MassEquals(a.masses[Array.IndexOf(a.intensities,a.intensities.Max())]));
         }
 
         [Test]
         public void TestIsotopicDistribution2()
         {
-            new IsotopicDistribution("AlO{16}");
+            IsotopicDistribution.GetDistribution("AlO{16}");
         }
 
         [Test]
@@ -862,45 +862,45 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
 
             // Distinguish between O and C isotope masses
-            var a = new IsotopicDistribution(formulaA, 0.0001);
-            Assert.AreEqual(6, a.Masses.Count());
+            var a = IsotopicDistribution.GetDistribution(formulaA, 0.0001);
+            Assert.AreEqual(6, a.masses.Length);
 
             // Do not distinguish between O and C isotope masses
-            new IsotopicDistribution(formulaA, 0.001);
+            IsotopicDistribution.GetDistribution(formulaA, 0.001);
 
             // Do not distinguish between O and C isotope masses
-            var b = new IsotopicDistribution(formulaA);
-            Assert.AreEqual(4, b.Masses.Count());
+            var b = IsotopicDistribution.GetDistribution(formulaA);
+			Assert.AreEqual(4, b.masses.Length);
 
-            new IsotopicDistribution(formulaA, 0.1);
+            IsotopicDistribution.GetDistribution(formulaA, 0.1);
 
             PhysicalObjectWithChemicalFormula formulaB = new PhysicalObjectWithChemicalFormula("CO");
-            new IsotopicDistribution(formulaB.ThisChemicalFormula, 1);
+            IsotopicDistribution.GetDistribution(formulaB.ThisChemicalFormula, 1);
         }
 
         [Test]
         public void CatchIsotopicDistributionStuff()
         {
             ChemicalFormula formula = (ChemicalFormula.ParseFormula("C500O50H250N50"));
-            new IsotopicDistribution(formula, 0.001, 1e-1, 1e-15);
+            IsotopicDistribution.GetDistribution(formula, 0.001, 1e-1, 1e-15);
         }
 
         [Test]
         public void catchProbStuff()
         {
             ChemicalFormula formula = (ChemicalFormula.ParseFormula("C50O50"));
-            new IsotopicDistribution(formula, 0.001, 1e-50, 1e-15);
+            IsotopicDistribution.GetDistribution(formula, 0.001, 1e-50, 1e-15);
         }
 
         [Test]
         public void i0j1()
         {
             ChemicalFormula formula = (ChemicalFormula.ParseFormula("C50O50"));
-            new IsotopicDistribution(formula, 0.01, 0.1);
+            IsotopicDistribution.GetDistribution(formula, 0.01, 0.1);
 
-            new IsotopicDistribution(formula, 0.01, 0.5);
+            IsotopicDistribution.GetDistribution(formula, 0.01, 0.5);
 
-            new IsotopicDistribution(formula, 0.01, 0.75);
+            IsotopicDistribution.GetDistribution(formula, 0.01, 0.75);
         }
 
         [Test]
@@ -909,9 +909,9 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
 
             // Only the principal isotopes have joint probability of 0.5! So one result when calcuating isotopic distribution
-            var a = new IsotopicDistribution(formulaA, 0.0001, 0.5);
-            Assert.AreEqual(1, a.Masses.Count());
-            Assert.IsTrue((PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass).MassEquals(a.Masses[0]));
+            var a = IsotopicDistribution.GetDistribution(formulaA, 0.0001, 0.5);
+			Assert.AreEqual(1, a.masses.Length);
+			Assert.IsTrue((PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass).MassEquals(a.masses[0]));
         }
 
         [Test]
@@ -1037,13 +1037,13 @@ namespace Test
         {
             ChemicalFormula formula = ChemicalFormula.ParseFormula("C5H8NO");
 
-            IsotopicDistribution d = new IsotopicDistribution(formula, Math.Pow(2, -14));
+            IsotopicDistribution d = IsotopicDistribution.GetDistribution(formula, Math.Pow(2, -14));
 
-            Assert.AreEqual(324, d.Intensities.Count);
+			Assert.AreEqual(324, d.intensities.Length);
 
-            d = new IsotopicDistribution(formula, Math.Pow(2, -1));
+            d = IsotopicDistribution.GetDistribution(formula, Math.Pow(2, -1));
 
-            Assert.AreEqual(17, d.Intensities.Count);
+            Assert.AreEqual(17, d.intensities.Length);
         }
 
         #endregion Public Methods

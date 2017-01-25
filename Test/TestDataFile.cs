@@ -238,8 +238,8 @@ namespace Test
 
         private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-            IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1, 0.001);
-            DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+			IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
+			DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.masses, isodist.intensities, false);
 
             var chargeToLookAt = minCharge;
             var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));

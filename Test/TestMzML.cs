@@ -283,9 +283,9 @@ namespace Test
 
         private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-            IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
+			IsotopicDistribution isodist =  IsotopicDistribution.GetDistribution(f, 0.1);
 
-            IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+			IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.masses, isodist.intensities, false);
             massSpectrum1 = massSpectrum1.NewSpectrumFilterByNumberOfMostIntense(5);
 
             var chargeToLookAt = minCharge;
