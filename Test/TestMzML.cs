@@ -107,6 +107,7 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = new mzIdentML.Generated.PeptideEvidenceRefType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML.Generated.PeptideEvidenceRefType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref = "PE_1";
+			_mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].passThreshold = true;
 
             _mzid.DataCollection.Inputs = new mzIdentML.Generated.InputsType();
             _mzid.DataCollection.Inputs.SpectraData = new mzIdentML.Generated.SpectraDataType[1];
@@ -168,6 +169,7 @@ namespace Test
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
+			Assert.AreEqual(true, identifications.PassThreshold(0));
         }
 
         [Test]
@@ -255,6 +257,7 @@ namespace Test
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
+			Assert.AreEqual(false, identifications.PassThreshold(0));
         }
 
         #endregion Public Methods
