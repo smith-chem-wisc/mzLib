@@ -85,7 +85,7 @@ namespace MassSpectrometry
         }
 
         protected Chromatogram(Chromatogram<TPeak> other)
-            : this(other.XArray, other.YArray)
+            : this(other.XArray, other.YArray, true)
         {
         }
 
