@@ -76,7 +76,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected Chromatogram(double[] times, double[] intensities, bool shouldCopy = true) : base(times, intensities, shouldCopy)
+        protected Chromatogram(double[] times, double[] intensities, bool shouldCopy) : base(times, intensities, shouldCopy)
         {
         }
 
@@ -85,7 +85,7 @@ namespace MassSpectrometry
         }
 
         protected Chromatogram(Chromatogram<TPeak> other)
-            : this(other.XArray, other.YArray)
+            : this(other.XArray, other.YArray, true)
         {
         }
 

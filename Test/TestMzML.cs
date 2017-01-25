@@ -8,8 +8,8 @@ using Spectra;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Xml.Serialization;
+using System.Linq;
 
 namespace Test
 {
@@ -35,9 +35,32 @@ namespace Test
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
+			Console.WriteLine(string.Join(",", a.Select(b => b.MassSpectrum.XArray.Length)));
 
             a.Close();
         }
+
+
+        [Test]
+		public void LoadMzmlAnotherTest()
+		{
+			Mzml a = new Mzml(@"small.pwiz.1.1.mzML");
+			a.Open();
+			Assert.AreEqual(true, a.IsIndexedMzML);
+
+			Assert.AreEqual(19914, a.First().MassSpectrum.XArray.Length);
+
+			a.Close();
+
+			a = new Mzml(@"small.pwiz.1.1.mzML",400);
+			a.Open();
+			Assert.AreEqual(true, a.IsIndexedMzML);
+
+			Assert.AreEqual(400, a.First().MassSpectrum.XArray.Length);
+
+			a.Close();
+		}
+
 
         [Test]
         public void WriteMzmlTest()
@@ -108,6 +131,7 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = new mzIdentML.Generated.PeptideEvidenceRefType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML.Generated.PeptideEvidenceRefType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref = "PE_1";
+			_mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].passThreshold = true;
 
             _mzid.DataCollection.Inputs = new mzIdentML.Generated.InputsType();
             _mzid.DataCollection.Inputs.SpectraData = new mzIdentML.Generated.SpectraDataType[1];
@@ -169,6 +193,7 @@ namespace Test
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
+			Assert.AreEqual(true, identifications.PassThreshold(0));
         }
 
         [Test]
@@ -256,6 +281,7 @@ namespace Test
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
+			Assert.AreEqual(false, identifications.PassThreshold(0));
         }
 
         #endregion Public Methods
@@ -283,9 +309,9 @@ namespace Test
 
         private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-            IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1);
+			IsotopicDistribution isodist =  IsotopicDistribution.GetDistribution(f, 0.1);
 
-            IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+			IMzSpectrum<MzPeak> massSpectrum1 = new DefaultMzSpectrum(isodist.masses, isodist.intensities, false);
             massSpectrum1 = massSpectrum1.NewSpectrumFilterByNumberOfMostIntense(5);
 
             var chargeToLookAt = minCharge;

@@ -18,8 +18,6 @@
 
 using NUnit.Framework;
 using Spectra;
-using System;
-
 namespace Test
 {
     [TestFixture]
@@ -185,12 +183,6 @@ namespace Test
             var range2 = new DoubleRange(3, 10);
 
             Assert.AreNotSame(range1, range2);
-        }
-
-        [Test]
-        public void RangeMinBiggerThanMax()
-        {
-            Assert.Throws<ArgumentException>(() => { new DoubleRange(10, 5); });
         }
 
         [Test]

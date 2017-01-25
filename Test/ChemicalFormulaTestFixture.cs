@@ -43,8 +43,8 @@ namespace Test
         [Test]
         public void AddElementToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3N2O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3N2O");
 
             Element n = PeriodicTable.GetElement(7);
 
@@ -63,9 +63,9 @@ namespace Test
         [Test]
         public void AddFormulaToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("H2O");
-            ChemicalFormula formulaC = new ChemicalFormula("C2H5NO2");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H2O");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("C2H5NO2");
 
             formulaA.Add(formulaB);
 
@@ -75,10 +75,10 @@ namespace Test
         [Test]
         public void AddFormulaToItself()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C4H6N2O2");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C4H6N2O2");
 
-            formulaA.Add(new ChemicalFormula(formulaA));
+			formulaA.Add(new ChemicalFormula(formulaA));
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -86,9 +86,9 @@ namespace Test
         [Test]
         public void AddIChemicalFormulaToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             IHasChemicalFormula formulaB = new PhysicalObjectWithChemicalFormula("H2O");
-            ChemicalFormula formulaC = new ChemicalFormula("C2H5NO2");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("C2H5NO2");
 
             formulaA.Add(formulaB);
 
@@ -98,8 +98,8 @@ namespace Test
         [Test]
         public void AddIsotopeToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3H{1}NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3H{1}NO");
 
             Isotope h1 = PeriodicTable.GetElement("H")[1];
 
@@ -114,8 +114,8 @@ namespace Test
         [Test]
         public void AddLargeElementToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NOFe");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NOFe");
 
             Element fe = PeriodicTable.GetElement("Fe");
 
@@ -127,9 +127,9 @@ namespace Test
         [Test]
         public void AddNegativeFormulaToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C-1H-2");
-            ChemicalFormula formulaC = new ChemicalFormula("CHNO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C-1H-2");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("CHNO");
 
             formulaA.Add(formulaB);
 
@@ -139,8 +139,8 @@ namespace Test
         [Test]
         public void AddNegativeIsotopeToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2HH{1}2NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2HNO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2HH{1}2NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2HNO");
 
             Isotope h1 = PeriodicTable.GetElement("H")[1];
 
@@ -152,8 +152,8 @@ namespace Test
         [Test]
         public void AddELementByAtomicNumber()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H2NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2HNO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H2NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2HNO");
 
             formulaB.Add(1, 1);
 
@@ -163,7 +163,7 @@ namespace Test
         [Test]
         public void AddNonExistentSymbolToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.Throws<KeyNotFoundException>(() => { formulaA.AddPrincipalIsotopesOf("Faa", 1); });
         }
@@ -171,14 +171,14 @@ namespace Test
         [Test]
         public void InexistingElement()
         {
-            Assert.Throws<KeyNotFoundException>(() => { new ChemicalFormula("Q"); });
+            Assert.Throws<KeyNotFoundException>(() => { ChemicalFormula.ParseFormula("Q"); });
         }
 
         [Test]
         public void AddZeroElementToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Element n = PeriodicTable.GetElement("N");
 
@@ -190,8 +190,8 @@ namespace Test
         [Test]
         public void AddZeroIsotopeToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Isotope h1 = PeriodicTable.GetElement("H")[1];
 
@@ -203,8 +203,8 @@ namespace Test
         [Test]
         public void AddZeroSymbolToFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             formulaA.AddPrincipalIsotopesOf("H", 0);
 
@@ -214,29 +214,13 @@ namespace Test
         [Test]
         public void ClearFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             formulaA.Clear();
-            Assert.AreEqual(formulaA, new ChemicalFormula());
+			Assert.AreEqual(formulaA, new ChemicalFormula());
         }
 
         [Test]
         public void ConstructorBlankStringEqualsEmptyFormula()
-        {
-            ChemicalFormula formulaA = new ChemicalFormula("");
-
-            Assert.AreEqual(formulaA, new ChemicalFormula());
-        }
-
-        [Test]
-        public void ConstructorEmptyStringEqualsEmptyFormula()
-        {
-            ChemicalFormula formulaA = new ChemicalFormula(string.Empty);
-
-            Assert.AreEqual(formulaA, new ChemicalFormula());
-        }
-
-        [Test]
-        public void ConstructorDefaultEqualsEmptyFormula()
         {
             ChemicalFormula formulaA = new ChemicalFormula();
 
@@ -244,9 +228,17 @@ namespace Test
         }
 
         [Test]
+        public void ConstructorDefaultEqualsEmptyFormula()
+        {
+			ChemicalFormula formulaA = new ChemicalFormula();
+
+            Assert.AreEqual(formulaA, new ChemicalFormula());
+        }
+
+        [Test]
         public void CopyConstructorValueEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = new ChemicalFormula(formulaA);
 
             Assert.AreEqual(formulaA, formulaB);
@@ -255,7 +247,7 @@ namespace Test
         [Test]
         public void CopyConstructorReferenceInequality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = new ChemicalFormula(formulaA);
 
             Assert.AreNotSame(formulaA, formulaB);
@@ -300,8 +292,8 @@ namespace Test
         [Test]
         public void FormulaValueInequality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("NC1OH3");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("NC1OH3");
 
             Assert.AreNotEqual(formulaA, formulaB);
         }
@@ -309,8 +301,8 @@ namespace Test
         [Test]
         public void FormulaValueInequalityHeavyIsotope()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("CC{13}H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CC{13}H3NO");
 
             Assert.AreNotEqual(formulaA, formulaB);
         }
@@ -318,7 +310,7 @@ namespace Test
         [Test]
         public void FormulaValueEqualityItself()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaA);
         }
@@ -326,8 +318,8 @@ namespace Test
         [Test]
         public void FormulaValueEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("NC2OH3");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("NC2OH3");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -335,23 +327,23 @@ namespace Test
         [Test]
         public void FormulaEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             Assert.AreEqual(formulaA, formulaA);
         }
 
         [Test]
         public void FormulaAlmostEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C{12}2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C{12}2H3NO");
             Assert.AreNotEqual(formulaA, formulaB);
         }
 
         [Test]
         public void HashCodeEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("H3C2NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H3C2NO");
 
             Assert.AreEqual(formulaA.GetHashCode(), formulaB.GetHashCode());
         }
@@ -359,22 +351,22 @@ namespace Test
         [Test]
         public void HashCodeImmutableEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             Assert.AreEqual(formulaA.GetHashCode(), formulaA.GetHashCode());
         }
 
         [Test]
         public void HashCodeCheck()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("Al");
-            ChemicalFormula formulaB = new ChemicalFormula("Al{27}");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("Al");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("Al{27}");
             Assert.AreNotEqual(formulaA.GetHashCode(), formulaB.GetHashCode());
         }
 
         [Test]
         public void HillNotation()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("H3NC2O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H3NC2O");
 
             Assert.AreEqual("C2H3NO", formulaA.Formula);
         }
@@ -382,7 +374,7 @@ namespace Test
         [Test]
         public void HillNotationNoCarbon()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("BrH");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("BrH");
 
             Assert.AreEqual("HBr", formulaA.Formula);
         }
@@ -390,7 +382,7 @@ namespace Test
         [Test]
         public void HillNotationNoCarbonNoHydrogen()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("Ca5O14Br6");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("Ca5O14Br6");
 
             Assert.AreEqual("Br6Ca5O14", formulaA.Formula);
         }
@@ -398,7 +390,7 @@ namespace Test
         [Test]
         public void HillNotationNoHydrogen()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("NC2O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("NC2O");
 
             Assert.AreEqual("C2NO", formulaA.Formula);
         }
@@ -406,7 +398,7 @@ namespace Test
         [Test]
         public void HillNotationWithHeavyIsotope()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("H3NC2C{13}2O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H3NC2C{13}2O");
 
             Assert.AreEqual("C2C{13}2H3NO", formulaA.Formula);
         }
@@ -414,7 +406,7 @@ namespace Test
         [Test]
         public void HillNotationWithNegativeCount()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("H3NC-2O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H3NC-2O");
 
             Assert.AreEqual("C-2H3NO", formulaA.Formula);
         }
@@ -422,7 +414,7 @@ namespace Test
         [Test]
         public void HillNotationWithHeavyIsotopeNegativeCount()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("H3NC2C{13}-2O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H3NC2C{13}-2O");
 
             Assert.AreEqual("C2C{13}-2H3NO", formulaA.Formula);
         }
@@ -430,7 +422,7 @@ namespace Test
         [Test]
         public void ImplicitConstructor()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = "C2H3NO";
 
             Assert.AreEqual(formulaA, formulaB);
@@ -439,7 +431,7 @@ namespace Test
         [Test]
         public void BadFormula()
         {
-            Assert.Throws<FormatException>(() => { new ChemicalFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
+            Assert.Throws<FormatException>(() => { ChemicalFormula.ParseFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
         }
 
         [Test]
@@ -457,7 +449,7 @@ namespace Test
         [Test]
         public void NumberOfAtoms()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(7, formulaA.AtomCount);
         }
@@ -471,7 +463,7 @@ namespace Test
         [Test]
         public void NumberOfAtomsOfNegativeFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C-2H-3N-1O-1");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C-2H-3N-1O-1");
 
             Assert.AreEqual(-7, formulaA.AtomCount);
         }
@@ -479,8 +471,8 @@ namespace Test
         [Test]
         public void ParsingFormulaNoNumbers()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CCHHHNO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CCHHHNO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -488,8 +480,8 @@ namespace Test
         [Test]
         public void ParsingFormulaWithInternalSpaces()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2 H3 N O");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2 H3 N O");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -497,8 +489,8 @@ namespace Test
         [Test]
         public void ParsingFormulaWithSpacesAtEnd()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO  ");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO  ");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -506,8 +498,8 @@ namespace Test
         [Test]
         public void ParsingFormulaWithSpacesAtBeginning()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("    C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("    C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -515,8 +507,8 @@ namespace Test
         [Test]
         public void ParsingFormulaWithSpaces()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("  C2 H3 N O  ");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("  C2 H3 N O  ");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -524,8 +516,8 @@ namespace Test
         [Test]
         public void ParsingFormulaNoNumbersRandomOrder()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("OCHHCHN");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("OCHHCHN");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -533,22 +525,22 @@ namespace Test
         [Test]
         public void EqualsFalse()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("OCHHCHN");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("OCHHCHN");
             Assert.IsFalse(formulaA.Equals("C"));
         }
 
         [Test]
         public void Equals()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("OCHHCHN");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("OCHHCHN");
             Assert.AreEqual(formulaA, formulaA);
         }
 
         [Test]
         public void ParsingFormulaRepeatedElements()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CH3NOC");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CH3NOC");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -556,8 +548,8 @@ namespace Test
         [Test]
         public void IsSuperSetOf()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CH3NO{17}C");
-            ChemicalFormula formulaB = new ChemicalFormula("CHNO{16}");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CH3NO{17}C");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CHNO{16}");
 
             Assert.IsFalse(formulaA.IsSupersetOf(formulaB));
         }
@@ -565,8 +557,8 @@ namespace Test
         [Test]
         public void ParsingFormulaRepeatedElementsCancelEachOther()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NOC-2");
-            ChemicalFormula formulaB = new ChemicalFormula("H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NOC-2");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H3NO");
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -574,8 +566,8 @@ namespace Test
         [Test]
         public void RemoveElementCompletelyFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2NO");
 
             formulaA.RemoveIsotopesOf(PeriodicTable.GetElement("H"));
 
@@ -585,8 +577,8 @@ namespace Test
         [Test]
         public void RemoveElementCompletelyFromFromulaBySymbol()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2NO");
 
             formulaA.RemoveIsotopesOf("H");
 
@@ -596,8 +588,8 @@ namespace Test
         [Test]
         public void RemoveElementCompletelyFromFromulaWithHeavyIsotope()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2C{13}H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2C{13}H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H3NO");
 
             formulaA.RemoveIsotopesOf("C");
 
@@ -608,8 +600,8 @@ namespace Test
         [Test]
         public void RemoveEmptyFormulaFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             formulaA.Remove(new ChemicalFormula());
 
@@ -619,9 +611,9 @@ namespace Test
         [Test]
         public void RemoveFormulaFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H5NOO{16}");
-            ChemicalFormula formulaB = new ChemicalFormula("H2O{16}");
-            ChemicalFormula formulaC = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H5NOO{16}");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H2O{16}");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("C2H3NO");
 
             formulaA.Remove(formulaB);
 
@@ -631,7 +623,7 @@ namespace Test
         [Test]
         public void ContainsSpecificIsotope()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H5NOO{16}");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H5NOO{16}");
 
             Assert.IsTrue(formulaA.ContainsSpecificIsotope(PeriodicTable.GetElement("O")[16]));
         }
@@ -639,7 +631,7 @@ namespace Test
         [Test]
         public void ContainsIsotopesOf()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("O{16}");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("O{16}");
             Assert.IsTrue(formulaA.ContainsIsotopesOf("O"));
             Assert.IsTrue(formulaA.ContainsSpecificIsotope("O", 16));
             Assert.AreEqual(1, formulaA.CountSpecificIsotopes("O", 16));
@@ -648,15 +640,15 @@ namespace Test
         [Test]
         public void HydrogenCarbonRatio()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C8H4");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C8H4");
             Assert.AreEqual(0.5, formulaA.HydrogenCarbonRatio);
         }
 
         [Test]
         public void RemoveIsotopeCompletelyFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2NO");
 
             formulaA.RemoveIsotopesOf(PeriodicTable.GetElement("H"));
 
@@ -666,8 +658,8 @@ namespace Test
         [Test]
         public void RemoveElementFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2HNO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2HNO");
 
             formulaA.Remove(PeriodicTable.GetElement("H"), 2);
 
@@ -677,8 +669,8 @@ namespace Test
         [Test]
         public void RemoveIsotopeFromFromulaEquality()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3O");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3O");
 
             formulaA.Remove("N", 1);
 
@@ -688,8 +680,8 @@ namespace Test
         [Test]
         public void RemoveNegativeElementFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H5NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H5NO");
 
             formulaA.Remove(PeriodicTable.GetElement("H"), -2);
 
@@ -699,9 +691,9 @@ namespace Test
         [Test]
         public void RemoveNonExistantIsotopeFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H5NO2");
-            ChemicalFormula formulaB = new ChemicalFormula("Fe");
-            ChemicalFormula formulaC = new ChemicalFormula("C2H5Fe-1NO2");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H5NO2");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("Fe");
+            ChemicalFormula formulaC = ChemicalFormula.ParseFormula("C2H5Fe-1NO2");
 
             formulaA.Remove(formulaB);
 
@@ -711,8 +703,8 @@ namespace Test
         [Test]
         public void RemoveZeroIsotopeFromFromula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
 
             formulaA.Remove(PeriodicTable.GetElement("H")[1], 0);
 
@@ -722,7 +714,7 @@ namespace Test
         [Test]
         public void TotalProtons()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C{13}2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{13}2H3NO");
 
             Assert.AreEqual(30, formulaA.ProtonCount);
         }
@@ -730,7 +722,7 @@ namespace Test
         [Test]
         public void TotalProtons2()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C{12}2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}2H3NO");
 
             Assert.AreEqual(30, formulaA.ProtonCount);
         }
@@ -738,7 +730,7 @@ namespace Test
         [Test]
         public void AverageMass()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C");
 
             Assert.AreEqual(PeriodicTable.GetElement("C").AverageMass, formulaA.AverageMass);
         }
@@ -746,7 +738,7 @@ namespace Test
         [Test]
         public void UniqueElements()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(4, formulaA.NumberOfUniqueElementsByAtomicNumber);
         }
@@ -760,7 +752,7 @@ namespace Test
         [Test]
         public void UniqueElementsWithHeavyIsotope()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CC{13}H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CC{13}H3NO");
 
             Assert.AreEqual(4, formulaA.NumberOfUniqueElementsByAtomicNumber);
         }
@@ -768,7 +760,7 @@ namespace Test
         [Test]
         public void UniqueIsotopes()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.AreEqual(0, formulaA.NumberOfUniqueIsotopes);
         }
@@ -782,7 +774,7 @@ namespace Test
         [Test]
         public void UniqueIsotopesWithHeavyIsotope()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CC{13}H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CC{13}H3NO");
 
             Assert.AreEqual(1, formulaA.NumberOfUniqueIsotopes);
         }
@@ -790,7 +782,7 @@ namespace Test
         [Test]
         public void ContainsIsotopesOfYe()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CC{13}H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CC{13}H3NO");
 
             Assert.IsTrue(formulaA.ContainsIsotopesOf(PeriodicTable.GetElement("C")));
         }
@@ -798,7 +790,7 @@ namespace Test
         [Test]
         public void TestReplaceIsotopes()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CC{13}2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CC{13}2H3NO");
 
             formulaA.Replace(PeriodicTable.GetElement("C")[13], PeriodicTable.GetElement("C")[12]);
             Assert.AreEqual("CC{12}2H3NO", formulaA.Formula);
@@ -807,8 +799,8 @@ namespace Test
         [Test]
         public void ChemicalForulaIsSubSet()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C3H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
 
             Assert.IsTrue(formulaA.IsSubsetOf(formulaB));
         }
@@ -816,8 +808,8 @@ namespace Test
         [Test]
         public void ChemicalForulaIsNotSubSet()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C3H2NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H2NO");
 
             Assert.IsFalse(formulaA.IsSubsetOf(formulaB));
         }
@@ -825,8 +817,8 @@ namespace Test
         [Test]
         public void ChemicalForulaIsSuperSet()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
-            ChemicalFormula formulaB = new ChemicalFormula("C3H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
 
             Assert.IsTrue(formulaB.IsSupersetOf(formulaA));
         }
@@ -834,8 +826,8 @@ namespace Test
         [Test]
         public void ChemicalForulaIsNotSuperSet()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO2");
-            ChemicalFormula formulaB = new ChemicalFormula("C3H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO2");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
 
             Assert.IsFalse(formulaB.IsSupersetOf(formulaA));
         }
@@ -844,102 +836,102 @@ namespace Test
         public void ChemicalForulaMyTest()
         {
             ChemicalFormula formula = new ChemicalFormula();
-            formula.Add(new ChemicalFormula("C3H5NO"));
+            formula.Add(ChemicalFormula.ParseFormula("C3H5NO"));
             Assert.AreEqual(PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass * 3 + PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 5 + PeriodicTable.GetElement("N").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass, formula.MonoisotopicMass);
         }
 
         [Test]
         public void TestIsotopicDistribution()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C2H3NO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
-            var a = new IsotopicDistribution(formulaA);
+            var a = IsotopicDistribution.GetDistribution(formulaA);
 
-            Assert.True(formulaA.MonoisotopicMass.MassEquals(a.Masses[a.Intensities.IndexOf(a.Intensities.Max())]));
+			Assert.True(formulaA.MonoisotopicMass.MassEquals(a.masses[Array.IndexOf(a.intensities,a.intensities.Max())]));
         }
 
         [Test]
         public void TestIsotopicDistribution2()
         {
-            new IsotopicDistribution("AlO{16}");
+            IsotopicDistribution.GetDistribution("AlO{16}");
         }
 
         [Test]
         public void TestIsotopicDistribution3()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
 
             // Distinguish between O and C isotope masses
-            var a = new IsotopicDistribution(formulaA, 0.0001);
-            Assert.AreEqual(6, a.Masses.Count());
+            var a = IsotopicDistribution.GetDistribution(formulaA, 0.0001);
+            Assert.AreEqual(6, a.masses.Length);
 
             // Do not distinguish between O and C isotope masses
-            new IsotopicDistribution(formulaA, 0.001);
+            IsotopicDistribution.GetDistribution(formulaA, 0.001);
 
             // Do not distinguish between O and C isotope masses
-            var b = new IsotopicDistribution(formulaA);
-            Assert.AreEqual(4, b.Masses.Count());
+            var b = IsotopicDistribution.GetDistribution(formulaA);
+			Assert.AreEqual(4, b.masses.Length);
 
-            new IsotopicDistribution(formulaA, 0.1);
+            IsotopicDistribution.GetDistribution(formulaA, 0.1);
 
             PhysicalObjectWithChemicalFormula formulaB = new PhysicalObjectWithChemicalFormula("CO");
-            new IsotopicDistribution(formulaB.ThisChemicalFormula, 1);
+            IsotopicDistribution.GetDistribution(formulaB.ThisChemicalFormula, 1);
         }
 
         [Test]
         public void CatchIsotopicDistributionStuff()
         {
-            ChemicalFormula formula = (new ChemicalFormula("C500O50H250N50"));
-            new IsotopicDistribution(formula, 0.001, 1e-1, 1e-15);
+            ChemicalFormula formula = (ChemicalFormula.ParseFormula("C500O50H250N50"));
+            IsotopicDistribution.GetDistribution(formula, 0.001, 1e-1, 1e-15);
         }
 
         [Test]
         public void catchProbStuff()
         {
-            ChemicalFormula formula = (new ChemicalFormula("C50O50"));
-            new IsotopicDistribution(formula, 0.001, 1e-50, 1e-15);
+            ChemicalFormula formula = (ChemicalFormula.ParseFormula("C50O50"));
+            IsotopicDistribution.GetDistribution(formula, 0.001, 1e-50, 1e-15);
         }
 
         [Test]
         public void i0j1()
         {
-            ChemicalFormula formula = (new ChemicalFormula("C50O50"));
-            new IsotopicDistribution(formula, 0.01, 0.1);
+            ChemicalFormula formula = (ChemicalFormula.ParseFormula("C50O50"));
+            IsotopicDistribution.GetDistribution(formula, 0.01, 0.1);
 
-            new IsotopicDistribution(formula, 0.01, 0.5);
+            IsotopicDistribution.GetDistribution(formula, 0.01, 0.5);
 
-            new IsotopicDistribution(formula, 0.01, 0.75);
+            IsotopicDistribution.GetDistribution(formula, 0.01, 0.75);
         }
 
         [Test]
         public void ThresholdProbability()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
 
             // Only the principal isotopes have joint probability of 0.5! So one result when calcuating isotopic distribution
-            var a = new IsotopicDistribution(formulaA, 0.0001, 0.5);
-            Assert.AreEqual(1, a.Masses.Count());
-            Assert.IsTrue((PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass).MassEquals(a.Masses[0]));
+            var a = IsotopicDistribution.GetDistribution(formulaA, 0.0001, 0.5);
+			Assert.AreEqual(1, a.masses.Length);
+			Assert.IsTrue((PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass).MassEquals(a.masses[0]));
         }
 
         [Test]
         public void TestAnotherFormula()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("H{1}CC{13}2H3NO{16}");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("H{1}CC{13}2H3NO{16}");
             Assert.AreEqual("CC{13}2H3H{1}NO{16}", formulaA.Formula);
         }
 
         [Test]
         public void NeutronCount()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("C{12}O{16}");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}O{16}");
             Assert.AreEqual(14, formulaA.NeutronCount());
         }
 
         [Test]
         public void NeutronCountFail()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
             Assert.Throws<NotSupportedException>(() => { formulaA.NeutronCount(); }, "Cannot know for sure what the number of neutrons is!");
         }
 
@@ -972,12 +964,11 @@ namespace Test
         [Test]
         public void TestNullArguments()
         {
-            ChemicalFormula formulaA = new ChemicalFormula("CO");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
             IHasChemicalFormula ok = null;
             Assert.Throws<ArgumentException>(() => { formulaA.Add(ok); });
             ChemicalFormula ok2 = null;
             Assert.Throws<ArgumentException>(() => { formulaA.Add(ok2); });
-            Assert.Throws<ArgumentException>(() => { new ChemicalFormula(ok2); });
             Element ok3 = null;
             Assert.Throws<ArgumentException>(() => { formulaA.AddPrincipalIsotopesOf(ok3, 0); });
             Assert.Throws<ArgumentException>(() => { formulaA.Remove(ok); });
@@ -991,20 +982,16 @@ namespace Test
             Assert.Throws<ArgumentException>(() => { ChemicalFormula.Combine(ok4); });
             Assert.Throws<ArgumentException>(() => { PeriodicTable.Add(ok3); });
 
-            Assert.Throws<ArgumentException>(() => { new IsotopicDistribution(ok2); });
-
             IHasMass ok5 = null;
 
             Assert.Throws<ArgumentException>(() => { ok5.ToMZ(0); });
-
-            new PhysicalObjectWithChemicalFormula("C");
         }
 
         [Test]
         public void TestAddChemicalFormula()
         {
-            ChemicalFormula formulaB = new ChemicalFormula("C");
-            ChemicalFormula formulaA = new ChemicalFormula("C{12}");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{12}");
             formulaB.Add(formulaA);
             Assert.AreEqual("CC{12}", formulaB.Formula);
         }
@@ -1012,8 +999,8 @@ namespace Test
         [Test]
         public void NotEqual()
         {
-            ChemicalFormula formulaB = new ChemicalFormula("COHSN");
-            ChemicalFormula formulaA = new ChemicalFormula("NSHOC");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("COHSN");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("NSHOC");
             Assert.AreEqual(formulaA, formulaB);
             Assert.IsTrue(formulaA.MonoisotopicMass.MassEquals(formulaB.MonoisotopicMass));
             Assert.IsFalse(formulaA.MonoisotopicMass.MassEquals(formulaB.MonoisotopicMass, 0));
@@ -1022,7 +1009,7 @@ namespace Test
         [Test]
         public void TestRemoveObjectFromChemicalFormula()
         {
-            ChemicalFormula formulaB = new ChemicalFormula("CO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CO");
             var ok = new PhysicalObjectWithChemicalFormula("C");
             formulaB.Remove(ok);
 
@@ -1032,7 +1019,7 @@ namespace Test
         [Test]
         public void TestEquality()
         {
-            ChemicalFormula formulaB = new ChemicalFormula("CO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CO");
 			Assert.AreEqual(formulaB,formulaB);
         }
 
@@ -1040,21 +1027,21 @@ namespace Test
         public void TestToChemicalFormula()
         {
             ChemicalFormula formulaB = ChemicalFormula.ToChemicalFormula("CO");
-            Assert.AreEqual(new ChemicalFormula("CO"), formulaB);
+            Assert.AreEqual(ChemicalFormula.ParseFormula("CO"), formulaB);
         }
 
         [Test]
         public void IsoTest()
         {
-            ChemicalFormula formula = new ChemicalFormula("C5H8NO");
+            ChemicalFormula formula = ChemicalFormula.ParseFormula("C5H8NO");
 
-            IsotopicDistribution d = new IsotopicDistribution(formula, Math.Pow(2, -14));
+            IsotopicDistribution d = IsotopicDistribution.GetDistribution(formula, Math.Pow(2, -14));
 
-            Assert.AreEqual(324, d.Intensities.Count);
+			Assert.AreEqual(324, d.intensities.Length);
 
-            d = new IsotopicDistribution(formula, Math.Pow(2, -1));
+            d = IsotopicDistribution.GetDistribution(formula, Math.Pow(2, -1));
 
-            Assert.AreEqual(17, d.Intensities.Count);
+            Assert.AreEqual(17, d.intensities.Length);
         }
 
         #endregion Public Methods
@@ -1068,7 +1055,7 @@ namespace Test
 
             public PhysicalObjectWithChemicalFormula(string v)
             {
-                ThisChemicalFormula = new ChemicalFormula(v);
+                ThisChemicalFormula = ChemicalFormula.ParseFormula(v);
             }
 
             #endregion Public Constructors

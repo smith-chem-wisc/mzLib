@@ -58,7 +58,6 @@ namespace Spectra
         /// <param name="unit">The units for this tolerance</param>
         /// <param name="experimental">The experimental value</param>
         /// <param name="theoretical">The theoretical value</param>
-        /// <param name="type">Whether the tolerance is full or half width</param>
         public Tolerance(ToleranceUnit unit, double experimental, double theoretical)
             : this(unit, GetTolerance(experimental, theoretical, unit))
         {
