@@ -59,21 +59,20 @@ namespace Chemistry
 
         #region Public Constructors
 
-        public IsotopicDistribution(ChemicalFormula formula) : this(ValidateFormulaForIsotopologueComputation(formula), defaultFineResolution, defaultMinProbability, defaultMolecularWeightResolution)
+        public IsotopicDistribution(ChemicalFormula formula) : this(formula, defaultFineResolution, defaultMinProbability, defaultMolecularWeightResolution)
         {
         }
 
-        public IsotopicDistribution(ChemicalFormula formula, double fineResolution) : this(ValidateFormulaForIsotopologueComputation(formula), fineResolution, defaultMinProbability, defaultMolecularWeightResolution)
+        public IsotopicDistribution(ChemicalFormula formula, double fineResolution) : this(formula, fineResolution, defaultMinProbability, defaultMolecularWeightResolution)
         {
         }
 
-        public IsotopicDistribution(ChemicalFormula formula, double fineResolution, double minProbability) : this(ValidateFormulaForIsotopologueComputation(formula), fineResolution, minProbability, defaultMolecularWeightResolution)
+        public IsotopicDistribution(ChemicalFormula formula, double fineResolution, double minProbability) : this(formula, fineResolution, minProbability, defaultMolecularWeightResolution)
         {
         }
 
         public IsotopicDistribution(ChemicalFormula formula, double fineResolution, double minProbability, double molecularWeightResolution)
         {
-            ValidateFormulaForIsotopologueComputation(formula);
             var a = GetNewFineAndMergeResolutions(fineResolution);
             fineResolution = a.Item1;
             double _mergeFineResolution = a.Item2;
@@ -136,13 +135,6 @@ namespace Chemistry
         #endregion Public Properties
 
         #region Private Methods
-
-        private static ChemicalFormula ValidateFormulaForIsotopologueComputation(ChemicalFormula formula)
-        {
-            if (formula == null)
-                throw new ArgumentException("Cannot compute isotopic distribution for a null formula");
-            return formula;
-        }
 
         /// <summary>
         /// Calculates the fineResolution and mergeFineResolution parameters

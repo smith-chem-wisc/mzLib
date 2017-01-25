@@ -183,7 +183,7 @@ namespace Chemistry
         /// </summary>
         public static ChemicalFormula ToChemicalFormula(string sequence)
         {
-            return ChemicalFormula.ParseFormula(sequence);
+            return ParseFormula(sequence);
         }
 
         /// <summary>
@@ -191,7 +191,7 @@ namespace Chemistry
         /// </summary>
         public static implicit operator ChemicalFormula(string sequence)
         {
-            return ChemicalFormula.ParseFormula(sequence);
+            return ParseFormula(sequence);
         }
 
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)

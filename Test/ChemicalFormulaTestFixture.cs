@@ -228,14 +228,6 @@ namespace Test
         }
 
         [Test]
-        public void ConstructorEmptyStringEqualsEmptyFormula()
-        {
-            ChemicalFormula formulaA = ChemicalFormula.ParseFormula(string.Empty);
-
-            Assert.AreEqual(formulaA, new ChemicalFormula());
-        }
-
-        [Test]
         public void ConstructorDefaultEqualsEmptyFormula()
         {
 			ChemicalFormula formulaA = new ChemicalFormula();
@@ -977,7 +969,6 @@ namespace Test
             Assert.Throws<ArgumentException>(() => { formulaA.Add(ok); });
             ChemicalFormula ok2 = null;
             Assert.Throws<ArgumentException>(() => { formulaA.Add(ok2); });
-            Assert.Throws<ArgumentException>(() => { new ChemicalFormula(ok2); });
             Element ok3 = null;
             Assert.Throws<ArgumentException>(() => { formulaA.AddPrincipalIsotopesOf(ok3, 0); });
             Assert.Throws<ArgumentException>(() => { formulaA.Remove(ok); });
@@ -990,8 +981,6 @@ namespace Test
             IEnumerable<IHasChemicalFormula> ok4 = null;
             Assert.Throws<ArgumentException>(() => { ChemicalFormula.Combine(ok4); });
             Assert.Throws<ArgumentException>(() => { PeriodicTable.Add(ok3); });
-
-            Assert.Throws<ArgumentException>(() => { new IsotopicDistribution(ok2); });
 
             IHasMass ok5 = null;
 
