@@ -35,8 +35,6 @@ namespace IO.MzML
 		private const string _zlibCompression = "MS:1000574";
 		private const string _64bit = "MS:1000523";
 		private const string _32bit = "MS:1000521";
-		private const string _negativePolarity = "MS:1000129";
-		private const string _positivePolarity = "MS:1000130";
 		private const string _filterString = "MS:1000512";
 		private const string _centroidSpectrum = "MS:1000127";
 		private const string _profileSpectrum = "MS:1000128";
@@ -59,8 +57,13 @@ namespace IO.MzML
 		private Generated.indexedmzML _indexedmzMLConnection;
 		private Generated.mzMLType _mzMLConnection;
 
+		private static readonly Dictionary<string, Polarity> polarityDictionary = new Dictionary<string, Polarity>
+				{
+					{"MS:1000129",Polarity.Negative},
+					{"MS:1000130",Polarity.Positive}
+				};
 
-		private readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
+		private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
 			{
 				{ "ITMS", MZAnalyzerType.IonTrap2D},
 				{ "TQMS", MZAnalyzerType.Unknown},
@@ -77,7 +80,7 @@ namespace IO.MzML
 				{ "MS:1000080",MZAnalyzerType.Sector}
 			};
 
-		private readonly Dictionary<string, DissociationType> dissociationDictionary = new Dictionary<string, DissociationType>
+		private static readonly Dictionary<string, DissociationType> dissociationDictionary = new Dictionary<string, DissociationType>
 				{
 					{ "MS:1000133",DissociationType.CID},
 					{ "MS:1001880",DissociationType.ISCID},
@@ -337,10 +340,6 @@ namespace IO.MzML
 					high = double.Parse(cv.value);
 				}
 			}
-			if (double.IsNaN(low) || double.IsNaN(high))
-			{
-				throw new ArgumentNullException("Could not determine isolation width for " + oneBasedSpectrumNumber);
-			}
 			return high + low;
 		}
 
@@ -377,14 +376,9 @@ namespace IO.MzML
 		{
 			foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
 			{
-				if (cv.accession.Equals(_negativePolarity))
-				{
-					return Polarity.Negative;
-				}
-				if (cv.accession.Equals(_positivePolarity))
-				{
-					return Polarity.Positive;
-				}
+				Polarity valuee;
+				if (polarityDictionary.TryGetValue(cv.accession, out valuee))
+					return valuee;
 			}
 			throw new ArgumentNullException("Could not find polarity for spectrum number " + oneBasedSpectrumNumber);
 		}
