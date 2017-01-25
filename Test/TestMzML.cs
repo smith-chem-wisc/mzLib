@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
+using System.Linq;
 
 namespace Test
 {
@@ -34,9 +35,32 @@ namespace Test
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
+			Console.WriteLine(string.Join(",", a.Select(b => b.MassSpectrum.XArray.Length)));
 
             a.Close();
         }
+
+
+        [Test]
+		public void LoadMzmlAnotherTest()
+		{
+			Mzml a = new Mzml(@"small.pwiz.1.1.mzML");
+			a.Open();
+			Assert.AreEqual(true, a.IsIndexedMzML);
+
+			Assert.AreEqual(19914, a.First().MassSpectrum.XArray.Length);
+
+			a.Close();
+
+			a = new Mzml(@"small.pwiz.1.1.mzML",400);
+			a.Open();
+			Assert.AreEqual(true, a.IsIndexedMzML);
+
+			Assert.AreEqual(400, a.First().MassSpectrum.XArray.Length);
+
+			a.Close();
+		}
+
 
         [Test]
         public void WriteMzmlTest()

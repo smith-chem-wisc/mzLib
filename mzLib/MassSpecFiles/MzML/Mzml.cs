@@ -288,11 +288,10 @@ namespace IO.MzML
             throw new ArgumentNullException("Could not find MSn level for spectrum number " + oneBasedspectrumNumber);
         }
 
-        // ZERO MEANS UNKNOWN CHARGE STATE, NOT ACTUALLY ZERO!!!
-        private int GetPrecusorCharge(int oneBasedSpectrumNumber)
+        private int? GetPrecusorCharge(int oneBasedSpectrumNumber)
         {
-            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList == null)
-                throw new ArgumentNullException("Could not find precursor charge for spectrum number " + oneBasedSpectrumNumber);
+			if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList == null)
+				return null;
 
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam)
             {
@@ -301,7 +300,7 @@ namespace IO.MzML
                     return short.Parse(cv.value);
                 }
             }
-            throw new ArgumentNullException("Could not find precursor charge for spectrum number " + oneBasedSpectrumNumber);
+            return null;
         }
 
         private MzRange GetScanWindowMzRange(int oneBasedSpectrumNumber)
@@ -352,6 +351,8 @@ namespace IO.MzML
 
         private string GetOneBasedScanFilter(int oneBasedSpectrumNumber)
         {
+			if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam == null)
+				return null;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam)
             {
                 if (cv.accession.Equals(_filterString))
@@ -465,6 +466,8 @@ namespace IO.MzML
 
         private double GetInjectionTime(int oneBasedSpectrumNumber)
         {
+			if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam == null)
+				return double.NaN;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam)
             {
                 if (cv.accession.Equals(_ionInjectionTime))
@@ -473,7 +476,7 @@ namespace IO.MzML
                 }
             }
             // HACK
-            return -1;
+			return double.NaN;
         }
 
         private bool GetIsCentroid(int spectrumNumber)
@@ -582,7 +585,7 @@ namespace IO.MzML
                     return double.Parse(cv.value);
                 }
             }
-            throw new ArgumentNullException("Could not determine total ion current " + spectrumNumber + 1);
+			return double.NaN;
         }
 
         private int GetOneBasedPrecursorScanNumber(int v)
