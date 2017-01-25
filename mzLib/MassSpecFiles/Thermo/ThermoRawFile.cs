@@ -443,10 +443,10 @@ namespace IO.Thermo
             return (DissociationType)type;
         }
 
-        private int GetPrecusorCharge(int spectrumNumber)
+        private int? GetPrecusorCharge(int spectrumNumber)
         {
             short charge = Convert.ToInt16(GetExtraValue(spectrumNumber, "Charge State:"));
-            return charge * (int)GetPolarity(spectrumNumber);
+			return charge == 0 ? (int?)null: charge * (int)GetPolarity(spectrumNumber);
         }
 
         private double GetInjectionTime(int spectrumNumber)

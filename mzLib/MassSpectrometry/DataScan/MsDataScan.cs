@@ -128,7 +128,7 @@ namespace MassSpectrometry
         {
             if (MsnOrder == 1)
             {
-                SelectedIonGuessChargeStateGuess = 0;
+                SelectedIonGuessChargeStateGuess = null;
                 return false;
             }
             SelectedIonGuessChargeStateGuess = selectedIonGuessChargeStateGuess;
