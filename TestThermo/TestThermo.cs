@@ -128,9 +128,9 @@ namespace TestThermo
 			ThermoRawFile a = new ThermoRawFile(@"small.RAW");
 			a.Open();
 
-			Assert.AreEqual(0, a.Where(eb => eb.MsnOrder > 1).Count());
+			Assert.IsTrue(a.Where(eb => eb.MsnOrder > 1).Count()>0);
 
-			Assert.AreEqual(0, a.Where(eb => eb.MsnOrder == 1).Count());
+			Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count()> 0);
 
 			a.Close();
 
