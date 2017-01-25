@@ -132,6 +132,8 @@ namespace TestThermo
 
 			Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count()> 0);
 
+			Assert.IsFalse(a.MonoisotopicPrecursorSelectionEnabled);
+
 			a.Close();
 
 		}
