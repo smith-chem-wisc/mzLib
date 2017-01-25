@@ -76,7 +76,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected Chromatogram(double[] times, double[] intensities, bool shouldCopy = true) : base(times, intensities, shouldCopy)
+        protected Chromatogram(double[] times, double[] intensities) : base(times, intensities, true)
         {
         }
 

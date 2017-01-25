@@ -37,19 +37,15 @@ namespace IO.MzML
         private const string _HCD = "MS:1000422";
         private const string _ETD = "MS:1000598";
         private const string _MPD = "MS:1000435";
-        private const string _ECD = "MS:1000250";
         private const string _PQD = "MS:1000599";
         private const string _DefaultDissociation = "MS:1000044";
         private const string _quadrupole = "MS:1000081";
         private const string _linearIonTrap = "MS:1000291";
-        private const string _IonTrap2DAxialEject = "MS:1000078";
-        private const string _IonTrap2DRadialEject = "MS:1000083";
         private const string _IonTrap3D = "MS:1000082";
         private const string _orbitrap = "MS:1000484";
         private const string _TOF = "MS:1000084";
         private const string _FTICR = "MS:1000079";
         private const string _magneticSector = "MS:1000080";
-        private const string _nozlibCompress = "MS:1000576";
         private const string _zlibCompression = "MS:1000574";
         private const string _64bit = "MS:1000523";
         private const string _32bit = "MS:1000521";
@@ -81,11 +77,17 @@ namespace IO.MzML
 
         #region Public Constructors
 
-        public Mzml(string filePath, int maxPeaksPerScan = int.MaxValue)
+        public Mzml(string filePath)
                     : base(filePath, MsDataFileType.Mzml)
         {
-            this.maxPeaksPerScan = maxPeaksPerScan;
+			this.maxPeaksPerScan = int.MaxValue;
         }
+
+		public Mzml(string filePath, int maxPeaksPerScan)
+					: base(filePath, MsDataFileType.Mzml)
+		{
+			this.maxPeaksPerScan = maxPeaksPerScan;
+		}
 
         #endregion Public Constructors
 

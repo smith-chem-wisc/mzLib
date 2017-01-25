@@ -18,8 +18,6 @@
 
 using NUnit.Framework;
 using Spectra;
-using System;
-
 namespace Test
 {
     [TestFixture]

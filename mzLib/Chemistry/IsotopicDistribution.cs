@@ -409,7 +409,6 @@ namespace Chemistry
 
         #region Private Structs
 
-        // TODO: Benchmark class vs struct here...
         private struct Polynomial
         {
 

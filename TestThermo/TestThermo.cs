@@ -56,7 +56,7 @@ namespace TestThermo
             Assert.AreEqual(1, a.GetMsxPrecursors(1290).Count);
             Assert.AreEqual(1194.53, a.GetMsxPrecursors(1290).First());
 
-			Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
+			Assert.AreEqual(false, a.MonoisotopicPrecursorSelectionEnabled);
         }
 
         [Test]
