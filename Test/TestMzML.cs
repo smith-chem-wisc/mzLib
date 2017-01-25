@@ -36,6 +36,12 @@ namespace Test
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
 			Assert.AreEqual(15, ya.XArray.Length);
+			var ya2 = a.GetOneBasedScan(2).MassSpectrum;
+			Assert.AreEqual(10, ya2.XArray.Length);
+			var ya3 = a.GetOneBasedScan(3).MassSpectrum;
+			Assert.AreEqual(0, ya3.XArray.Length);
+			var ya4 = a.GetOneBasedScan(4).MassSpectrum;
+			Assert.AreEqual(15, ya4.XArray.Length);
 
             a.Close();
         }
@@ -57,6 +63,10 @@ namespace Test
 			Assert.AreEqual(true, a.IsIndexedMzML);
 
 			Assert.AreEqual(400, a.First().MassSpectrum.XArray.Length);
+
+			double width;
+			a.GetOneBasedScan(6).TryGetIsolationWidth(out width);
+			Assert.AreEqual(1, width);
 
 			a.Close();
 		}
