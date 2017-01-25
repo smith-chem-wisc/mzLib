@@ -32,13 +32,6 @@ namespace IO.MzML
 
 		#region Private Fields
 
-		private const string _CID = "MS:1000133";
-		private const string _ISCID = "MS:1001880";
-		private const string _HCD = "MS:1000422";
-		private const string _ETD = "MS:1000598";
-		private const string _MPD = "MS:1000435";
-		private const string _PQD = "MS:1000599";
-		private const string _DefaultDissociation = "MS:1000044";
 		private const string _zlibCompression = "MS:1000574";
 		private const string _64bit = "MS:1000523";
 		private const string _32bit = "MS:1000521";
@@ -84,6 +77,16 @@ namespace IO.MzML
 				{ "MS:1000080",MZAnalyzerType.Sector}
 			};
 
+		private readonly Dictionary<string, DissociationType> dissociationDictionary = new Dictionary<string, DissociationType>
+				{
+					{ "MS:1000133",DissociationType.CID},
+					{ "MS:1001880",DissociationType.ISCID},
+					{ "MS:1000422",DissociationType.HCD},
+					{ "MS:1000598",DissociationType.ETD},
+					{ "MS:1000435",DissociationType.MPD},
+					{ "MS:1000599",DissociationType.PQD},
+					{ "MS:1000044",DissociationType.Unknown}
+				};
 
 		#endregion Private Fields
 
@@ -261,29 +264,9 @@ namespace IO.MzML
 		{
 			foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
 			{
-				switch (cv.accession)
-				{
-					case _CID:
-						return DissociationType.CID;
-
-					case _ISCID:
-						return DissociationType.ISCID;
-
-					case _HCD:
-						return DissociationType.HCD;
-
-					case _ETD:
-						return DissociationType.ETD;
-
-					case _MPD:
-						return DissociationType.MPD;
-
-					case _PQD:
-						return DissociationType.PQD;
-
-					case _DefaultDissociation:
-						return DissociationType.Unknown;
-				}
+				DissociationType valuee;
+				if (dissociationDictionary.TryGetValue(cv.accession, out valuee))
+					return valuee;
 			}
 			throw new ArgumentNullException("Could not find dissociation type for spectrum number " + oneBasedSpectrumNumber);
 		}
