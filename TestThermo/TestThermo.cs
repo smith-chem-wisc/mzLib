@@ -55,6 +55,8 @@ namespace TestThermo
             Assert.AreEqual(0, a.GetMsxPrecursors(1289).Count);
             Assert.AreEqual(1, a.GetMsxPrecursors(1290).Count);
             Assert.AreEqual(1194.53, a.GetMsxPrecursors(1290).First());
+
+			Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
         }
 
         [Test]
@@ -112,6 +114,10 @@ namespace TestThermo
             b.Open();
 
             Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
+
+
+			Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
+
         }
 
         #endregion Public Methods
