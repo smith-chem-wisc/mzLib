@@ -35,7 +35,7 @@ namespace Test
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
-			Console.WriteLine(string.Join(",", a.Select(b => b.MassSpectrum.XArray.Length)));
+			Assert.AreEqual(15, ya.XArray.Length);
 
             a.Close();
         }
