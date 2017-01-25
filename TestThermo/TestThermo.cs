@@ -61,7 +61,7 @@ namespace TestThermo
         public void ThermoLoadError()
         {
             ThermoRawFile a = new ThermoRawFile(@"aaa.RAW");
-            Assert.Throws<IOException>(() => { a.Open(); });
+            Assert.Throws<IOException>(() =>  a.Open());
         }
 
         [Test]

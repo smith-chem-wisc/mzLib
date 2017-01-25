@@ -52,45 +52,30 @@ namespace Chemistry
 
         private string _formula;
 
-        #endregion Private Fields
+		#endregion Private Fields
 
-        #region Public Constructors
+		#region Public Constructors
 
-        /// <summary>
-        /// Create an chemical formula from the given string representation
-        /// </summary>
-        /// <param name="chemicalFormula">The string representation of the chemical formula</param>
-        public ChemicalFormula(string chemicalFormula) : this()
-        {
-            ParseFormulaAndAddElements(chemicalFormula);
-        }
-
-        /// <summary>
-        /// Create a copy of a chemical formula from another chemical formula
-        /// </summary>
-        /// <param name="other">The chemical formula to copy</param>
-        public ChemicalFormula(ChemicalFormula other) : this()
-        {
-            if (other == null)
-                throw new ArgumentException("Cannot initialize chemical formula from a null formula");
-            Isotopes = new Dictionary<Isotope, int>(other.Isotopes);
-            Elements = new Dictionary<Element, int>(other.Elements);
-        }
-
-        public ChemicalFormula()
+		public ChemicalFormula()
         {
             Isotopes = new Dictionary<Isotope, int>();
             Elements = new Dictionary<Element, int>();
         }
 
-        #endregion Public Constructors
+		public ChemicalFormula(ChemicalFormula capFormula)
+		{
+			Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
+			Elements = new Dictionary<Element, int>(capFormula.Elements);
+		}
 
-        #region Public Properties
+		#endregion Public Constructors
 
-        /// <summary>
-        /// Gets the average mass of this chemical formula
-        /// </summary>
-        public double AverageMass
+		#region Public Properties
+
+		/// <summary>
+		/// Gets the average mass of this chemical formula
+		/// </summary>
+		public double AverageMass
         {
             get
             {
@@ -198,7 +183,7 @@ namespace Chemistry
         /// </summary>
         public static ChemicalFormula ToChemicalFormula(string sequence)
         {
-            return new ChemicalFormula(sequence);
+            return ChemicalFormula.ParseFormula(sequence);
         }
 
         /// <summary>
@@ -206,7 +191,7 @@ namespace Chemistry
         /// </summary>
         public static implicit operator ChemicalFormula(string sequence)
         {
-            return new ChemicalFormula(sequence);
+            return ChemicalFormula.ParseFormula(sequence);
         }
 
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)
@@ -509,13 +494,13 @@ namespace Chemistry
         /// to this chemical formula
         /// </summary>
         /// <param name="formula">the Chemical Formula to parse</param>
-        private void ParseFormulaAndAddElements(string formula)
+		public static ChemicalFormula ParseFormula(string formula)
         {
-            if (string.IsNullOrEmpty(formula))
-                return;
+			ChemicalFormula f = new ChemicalFormula();
 
             if (!ValidateFormulaRegex.IsMatch(formula))
                 throw new FormatException("Input string for chemical formula was in an incorrect format");
+
 
             foreach (Match match in FormulaRegex.Matches(formula))
             {
@@ -534,14 +519,15 @@ namespace Chemistry
                 if (match.Groups[2].Success) // Group 2 (optional): Isotope Mass Number
                 {
                     // Adding isotope!
-                    Add(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
+                    f.Add(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
                 }
                 else
                 {
                     // Adding element!
-                    Add(element, numofelem * sign);
+                    f.Add(element, numofelem * sign);
                 }
             }
+			return f;
         }
 
         /// <summary>

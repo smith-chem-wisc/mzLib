@@ -49,18 +49,18 @@ namespace Proteomics
 
         private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
         {
-            {FragmentTypes.a, new ChemicalFormula("C-1H-1O-1")},
-            {FragmentTypes.adot, new ChemicalFormula("C-1O-1")},
-            {FragmentTypes.b, new ChemicalFormula("H-1")},
-            {FragmentTypes.bdot, new ChemicalFormula()},
-            {FragmentTypes.c, new ChemicalFormula("NH2")},
-            {FragmentTypes.cdot, new ChemicalFormula("NH3")},
-            {FragmentTypes.x, new ChemicalFormula("COH-1")},
-            {FragmentTypes.xdot, new ChemicalFormula("CO")},
-            {FragmentTypes.y, new ChemicalFormula("H")},
-            {FragmentTypes.ydot, new ChemicalFormula("H2")},
-            {FragmentTypes.z, new ChemicalFormula("N-1H-2")},
-            {FragmentTypes.zdot, new ChemicalFormula("N-1H-1")}
+            {FragmentTypes.a, ChemicalFormula.ParseFormula("C-1H-1O-1")},
+            {FragmentTypes.adot, ChemicalFormula.ParseFormula("C-1O-1")},
+            {FragmentTypes.b, ChemicalFormula.ParseFormula("H-1")},
+			{FragmentTypes.bdot, new ChemicalFormula()},
+            {FragmentTypes.c, ChemicalFormula.ParseFormula("NH2")},
+            {FragmentTypes.cdot, ChemicalFormula.ParseFormula("NH3")},
+            {FragmentTypes.x, ChemicalFormula.ParseFormula("COH-1")},
+            {FragmentTypes.xdot, ChemicalFormula.ParseFormula("CO")},
+            {FragmentTypes.y, ChemicalFormula.ParseFormula("H")},
+            {FragmentTypes.ydot, ChemicalFormula.ParseFormula("H2")},
+            {FragmentTypes.z, ChemicalFormula.ParseFormula("N-1H-2")},
+            {FragmentTypes.zdot, ChemicalFormula.ParseFormula("N-1H-1")}
         };
 
         #endregion Private Fields
