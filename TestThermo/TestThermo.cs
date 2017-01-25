@@ -116,6 +116,8 @@ namespace TestThermo
             Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
 
 
+			Assert.AreEqual(0, b.Where(eb=>eb.MsnOrder>1).Count());
+
 			Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
 
         }
