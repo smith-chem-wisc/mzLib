@@ -38,7 +38,7 @@ namespace IO.Thermo
 
         #region Public Constructors
 
-        public ThermoSpectrum(double[] mz, double[] intensity, double[] noise, int[] charge, double[] resolutions, bool shouldCopy = true)
+        public ThermoSpectrum(double[] mz, double[] intensity, double[] noise, int[] charge, double[] resolutions, bool shouldCopy)
             : base(mz, intensity, shouldCopy)
         {
             if (!shouldCopy)
@@ -68,7 +68,7 @@ namespace IO.Thermo
         }
 
         public ThermoSpectrum(ThermoSpectrum thermoSpectrum)
-            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions)
+            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions, true)
         {
         }
 
