@@ -50,7 +50,7 @@ namespace Proteomics
         }
 
         public ChemicalFormulaModification(ChemicalFormulaModification other)
-            : this(new ChemicalFormula(other.ThisChemicalFormula), other.Name, other.Sites)
+			: this(ChemicalFormula.ParseFormula(other.ThisChemicalFormula.Formula), other.Name, other.Sites)
         {
         }
     }

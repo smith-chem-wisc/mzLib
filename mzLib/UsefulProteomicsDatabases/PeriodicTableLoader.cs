@@ -34,7 +34,6 @@ namespace UsefulProteomicsDatabases
         {
             using (StreamReader sr = new StreamReader(elementLocation))
             {
-                // Read the stream to a string, and write the string to the console.
                 string line = sr.ReadLine();
                 while (!line.Contains("Atomic Number"))
                 {

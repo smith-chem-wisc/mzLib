@@ -48,7 +48,7 @@ namespace MassSpectrometry
 
         bool TryGetPrecursorID(out string PrecursorID);
 
-        bool TryGetSelectedIonGuessChargeStateGuess(out int SelectedIonGuessChargeStateGuess);
+        bool TryGetSelectedIonGuessChargeStateGuess(out int? SelectedIonGuessChargeStateGuess);
 
         bool TryGetSelectedIonGuessMonoisotopicIntensity(out double SelectedIonGuessMonoisotopicIntensity);
 

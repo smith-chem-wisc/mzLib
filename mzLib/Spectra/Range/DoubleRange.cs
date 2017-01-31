@@ -29,8 +29,6 @@ namespace Spectra
         /// <param name="maximum">The maximum value of the range</param>
         public DoubleRange(double minimum, double maximum)
         {
-            if (maximum.CompareTo(minimum) < 0)
-                throw new ArgumentException(minimum + " > " + maximum + ", unable to create negative ranges.");
             Minimum = minimum;
             Maximum = maximum;
         }
@@ -85,8 +83,7 @@ namespace Spectra
 
             double value = Math.Abs(tolerance.Value);
 
-            if (tolerance.ThisToleranceType == ToleranceType.PlusAndMinus)
-                value *= 2;
+            value *= 2;
 
             switch (tolerance.Unit)
             {

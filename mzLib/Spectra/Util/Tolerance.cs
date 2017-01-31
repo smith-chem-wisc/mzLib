@@ -46,12 +46,10 @@ namespace Spectra
         /// </summary>
         /// <param name="unit">The units for this tolerance</param>
         /// <param name="value">The numerical value of the tolerance</param>
-        /// <param name="type">Whether the tolerance is full or half width</param>
-        public Tolerance(ToleranceUnit unit, double value, ToleranceType type = ToleranceType.PlusAndMinus)
+        public Tolerance(ToleranceUnit unit, double value)
         {
             Unit = unit;
             Value = Math.Abs(value);
-            ThisToleranceType = type;
         }
 
         /// <summary>
@@ -60,9 +58,8 @@ namespace Spectra
         /// <param name="unit">The units for this tolerance</param>
         /// <param name="experimental">The experimental value</param>
         /// <param name="theoretical">The theoretical value</param>
-        /// <param name="type">Whether the tolerance is full or half width</param>
-        public Tolerance(ToleranceUnit unit, double experimental, double theoretical, ToleranceType type = ToleranceType.PlusAndMinus)
-            : this(unit, GetTolerance(experimental, theoretical, unit), type)
+        public Tolerance(ToleranceUnit unit, double experimental, double theoretical)
+            : this(unit, GetTolerance(experimental, theoretical, unit))
         {
         }
 
@@ -76,7 +73,6 @@ namespace Spectra
         public Tolerance(string s)
         {
             Match m = StringRegex.Match(s);
-            ThisToleranceType = m.Groups[1].Success ? ToleranceType.PlusAndMinus : ToleranceType.FullWidth;
             Value = Math.Abs(double.Parse(m.Groups[2].Value));
             ToleranceUnit type;
             Enum.TryParse(m.Groups[3].Value, true, out type);
@@ -97,11 +93,6 @@ namespace Spectra
         /// </summary>
         public double Value { get; set; }
 
-        /// <summary>
-        /// Indicates if this tolerance is ± or not
-        /// </summary>
-        public ToleranceType ThisToleranceType { get; set; }
-
         #endregion Public Properties
 
         #region Public Methods
@@ -118,14 +109,14 @@ namespace Spectra
             }
         }
 
-        public static Tolerance FromPpm(double value, ToleranceType toleranceType = ToleranceType.PlusAndMinus)
+        public static Tolerance FromPpm(double value)
         {
-            return new Tolerance(ToleranceUnit.PPM, value, toleranceType);
+            return new Tolerance(ToleranceUnit.PPM, value);
         }
 
-        public static Tolerance FromAbsolute(double value, ToleranceType toleranceType = ToleranceType.PlusAndMinus)
+        public static Tolerance FromAbsolute(double value)
         {
-            return new Tolerance(ToleranceUnit.Absolute, value, toleranceType);
+            return new Tolerance(ToleranceUnit.Absolute, value);
         }
 
         /// <summary>
@@ -135,7 +126,7 @@ namespace Spectra
         /// <returns></returns>
         public DoubleRange GetRange(double mean)
         {
-            double value = Value * ((ThisToleranceType == ToleranceType.PlusAndMinus) ? 2 : 1);
+            double value = Value * 2;
 
             double tol;
             switch (Unit)
@@ -158,7 +149,7 @@ namespace Spectra
         /// <returns></returns>
         public double GetMinimumValue(double mean)
         {
-            double value = Value * ((ThisToleranceType == ToleranceType.PlusAndMinus) ? 2 : 1);
+            double value = Value;
 
             switch (Unit)
             {
@@ -166,7 +157,7 @@ namespace Spectra
                     return mean * (1 - (value / 2e6));
 
                 default:
-                    return mean - value / 2.0;
+					return mean - value;
             }
         }
 
@@ -177,7 +168,7 @@ namespace Spectra
         /// <returns></returns>
         public double GetMaximumValue(double mean)
         {
-            double value = Value * ((ThisToleranceType == ToleranceType.PlusAndMinus) ? 2 : 1);
+            double value = Value;
 
             switch (Unit)
             {
@@ -185,7 +176,7 @@ namespace Spectra
                     return mean * (1 + (value / 2e6));
 
                 default:
-                    return mean + value / 2.0;
+                    return mean + value ;
             }
         }
 
@@ -198,13 +189,12 @@ namespace Spectra
         public bool Within(double experimental, double theoretical)
         {
             double tolerance = Math.Abs(GetTolerance(experimental, theoretical, Unit));
-            double value = (ThisToleranceType == ToleranceType.PlusAndMinus) ? Value : Value / 2;
-            return tolerance <= value;
+            return tolerance <= Value;
         }
 
         public override string ToString()
         {
-            return string.Format("{0}{1:f4} {2}", (ThisToleranceType == ToleranceType.PlusAndMinus) ? "±" : "", Value, Enum.GetName(typeof(ToleranceUnit), Unit));
+            return string.Format("{0}{1:f4} {2}", "±", Value, Enum.GetName(typeof(ToleranceUnit), Unit));
         }
 
         #endregion Public Methods

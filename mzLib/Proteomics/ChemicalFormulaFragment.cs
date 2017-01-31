@@ -27,7 +27,7 @@ namespace Proteomics
         public ChemicalFormulaFragment(FragmentTypes type, int number, ChemicalFormula formula, AminoAcidPolymer parent)
             : base(type, number, formula.MonoisotopicMass, parent)
         {
-            ThisChemicalFormula = new ChemicalFormula(formula);
+            ThisChemicalFormula = ChemicalFormula.ParseFormula(formula.Formula);
         }
     }
 }

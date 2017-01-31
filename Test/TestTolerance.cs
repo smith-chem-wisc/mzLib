@@ -79,46 +79,6 @@ namespace Test
         }
 
         [Test]
-        public void MassToleranceImplicitPlusMinus()
-        {
-            var tol = new Tolerance("+-10 ppm");
-
-            Assert.AreEqual(tol.ThisToleranceType, ToleranceType.PlusAndMinus);
-        }
-
-        [Test]
-        public void MassToleranceImplicitPlusMinus2()
-        {
-            var tol = new Tolerance("-+10 ppm");
-
-            Assert.AreEqual(tol.ThisToleranceType, ToleranceType.PlusAndMinus);
-        }
-
-        [Test]
-        public void MassToleranceImplicitPlusMinus3()
-        {
-            var tol = new Tolerance("±10 ppm"); // alt-code 241
-
-            Assert.AreEqual(tol.ThisToleranceType, ToleranceType.PlusAndMinus);
-        }
-
-        [Test]
-        public void MassToleranceImplicitPlusMinus4()
-        {
-            var tol = new Tolerance("± 10 ppm"); // alt-code 241
-
-            Assert.AreEqual(tol.ThisToleranceType, ToleranceType.PlusAndMinus);
-        }
-
-        [Test]
-        public void MassToleranceImplicitPlusMinus5()
-        {
-            var tol = new Tolerance("10 ppm");
-
-            Assert.AreEqual(tol.ThisToleranceType, ToleranceType.FullWidth);
-        }
-
-        [Test]
         public void GetToleranceDaPositive()
         {
             double value = Tolerance.GetTolerance(10, 5, ToleranceUnit.Absolute);
@@ -156,14 +116,6 @@ namespace Test
             var tol = Tolerance.FromPpm(10);
 
             Assert.IsTrue(tol.Within(500, 500.005));
-        }
-
-        [Test]
-        public void ToleranceWithin2()
-        {
-            var tol = Tolerance.FromPpm(10, ToleranceType.FullWidth);
-
-            Assert.IsFalse(tol.Within(500, 500.005));
         }
 
         [Test]

@@ -57,17 +57,6 @@
     </Compile>
     <Compile Include="PsiModLoader.cs" />
     <Compile Include="UnimodLoader.cs" />
-    <Compile Include="URLs.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>URLs.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="URLs.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <LastGenOutput>URLs.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">

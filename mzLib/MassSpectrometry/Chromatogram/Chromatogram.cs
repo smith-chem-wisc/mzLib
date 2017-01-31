@@ -76,7 +76,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected Chromatogram(double[] times, double[] intensities, bool shouldCopy = true) : base(times, intensities, shouldCopy)
+        protected Chromatogram(double[] times, double[] intensities, bool shouldCopy) : base(times, intensities, shouldCopy)
         {
         }
 
@@ -85,7 +85,7 @@ namespace MassSpectrometry
         }
 
         protected Chromatogram(Chromatogram<TPeak> other)
-            : this(other.XArray, other.YArray)
+            : this(other.XArray, other.YArray, true)
         {
         }
 
@@ -189,7 +189,7 @@ namespace MassSpectrometry
             return PeakWithHighestY;
         }
 
-        public TPeak FindNearestApex(double rt, int skipablePts = 1)
+		public TPeak FindNearestApex(double rt, int skipablePts)
         {
             int index = Array.BinarySearch(XArray, rt);
             if (index < 0)

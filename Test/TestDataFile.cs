@@ -24,7 +24,6 @@ using Spectra;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Test
 {
@@ -149,7 +148,8 @@ namespace Test
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetIsolationWidth(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetPrecursorID(out s));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetPrecursorOneBasedScanNumber(out ja));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessChargeStateGuess(out ja));
+			int? hehe;
+            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessChargeStateGuess(out hehe));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessIntensity(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMZ(out yahh));
             Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicIntensity(out yahh));
@@ -179,8 +179,9 @@ namespace Test
             Assert.AreEqual("spectrum 1", s);
             Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetPrecursorOneBasedScanNumber(out ja));
             Assert.AreEqual(1, ja);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessChargeStateGuess(out ja));
-            Assert.AreEqual(3, ja);
+			int? fjdkf;
+            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessChargeStateGuess(out fjdkf));
+			Assert.AreEqual(3, fjdkf.Value);
             Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessIntensity(out yahh));
             Assert.AreEqual(.3872, yahh);
             Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMZ(out yahh));
@@ -238,8 +239,8 @@ namespace Test
 
         private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-            IsotopicDistribution isodist = new IsotopicDistribution(f, 0.1, 0.001);
-            DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+			IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
+			DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.masses, isodist.intensities, false);
 
             var chargeToLookAt = minCharge;
             var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));

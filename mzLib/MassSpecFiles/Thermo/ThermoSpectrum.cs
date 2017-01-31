@@ -38,7 +38,7 @@ namespace IO.Thermo
 
         #region Public Constructors
 
-        public ThermoSpectrum(double[] mz, double[] intensity, double[] noise, int[] charge, double[] resolutions, bool shouldCopy = true)
+        public ThermoSpectrum(double[] mz, double[] intensity, double[] noise, int[] charge, double[] resolutions, bool shouldCopy)
             : base(mz, intensity, shouldCopy)
         {
             if (!shouldCopy)
@@ -68,7 +68,7 @@ namespace IO.Thermo
         }
 
         public ThermoSpectrum(ThermoSpectrum thermoSpectrum)
-            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions)
+            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions, true)
         {
         }
 
@@ -201,7 +201,7 @@ namespace IO.Thermo
             return new ThermoSpectrum(mz, intensity, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
         }
 
-        public new ThermoSpectrum NewSpectrumFilterByY(double minIntensity = 0, double maxIntensity = double.MaxValue)
+        public new ThermoSpectrum NewSpectrumFilterByY(double minIntensity, double maxIntensity)
         {
             int count = Count;
             double[] mz = new double[count];

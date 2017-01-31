@@ -41,7 +41,11 @@ namespace IO.Thermo
             return string.Format("{0} z = {1:+#;-#;?} SN = {2:F2}", base.ToString(), Charge, SignalToNoise);
         }
 
-        public ThermoMzPeak(double mz, double intensity, int charge = 0, double noise = 0.0, double resolution = 0.0)
+        public ThermoMzPeak(double mz, double intensity)
+			: base(mz, intensity)
+		{
+		}
+        public ThermoMzPeak(double mz, double intensity, int charge, double noise , double resolution)
             : base(mz, intensity)
         {
             Charge = charge;

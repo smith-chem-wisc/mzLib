@@ -86,11 +86,6 @@ namespace Proteomics
 
         protected AminoAcidPolymer(AminoAcidPolymer aminoAcidPolymer, int firstResidue, int length, bool includeModifications)
         {
-            if (firstResidue < 0 || firstResidue > aminoAcidPolymer.Length)
-                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "The first residue index is outside the valid range [{0}-{1}]", 0, aminoAcidPolymer.Length));
-            if (length + firstResidue > aminoAcidPolymer.Length)
-                throw new ArgumentOutOfRangeException("length", "The length + firstResidue value is too large");
-
             Length = length;
             residues = new Residue[length];
 
@@ -471,7 +466,7 @@ namespace Proteomics
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountWithIsotopes(element));
 
-            count += new ChemicalFormula("H2O").CountWithIsotopes(element);
+            count += ChemicalFormula.ParseFormula("H2O").CountWithIsotopes(element);
             return count;
         }
 
@@ -539,7 +534,7 @@ namespace Proteomics
                 bool isCTerminal = type.GetTerminus() == Terminus.C;
 
                 double monoMass = capFormula.MonoisotopicMass;
-                ChemicalFormula formula = new ChemicalFormula(capFormula);
+				ChemicalFormula formula = new ChemicalFormula(capFormula);
 
                 IHasChemicalFormula terminus = isCTerminal ? CTerminus : NTerminus;
                 monoMass += terminus.MonoisotopicMass;
@@ -799,10 +794,6 @@ namespace Proteomics
             if (oldMod == null)
                 throw new ArgumentException("Cannot replace a null modification");
 
-            // No need to replace identical mods
-            if (oldMod.Equals(newMod))
-                return 0;
-
             int count = 0;
             for (int i = 0; i < Length + 2; i++)
             {
@@ -1026,9 +1017,6 @@ namespace Proteomics
 
         public override bool Equals(object obj)
         {
-            if (obj == null)
-                return false;
-
             AminoAcidPolymer aap = obj as AminoAcidPolymer;
             return aap != null && Equals(aap);
         }

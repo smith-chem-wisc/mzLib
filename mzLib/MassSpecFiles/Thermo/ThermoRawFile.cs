@@ -46,10 +46,16 @@ namespace IO.Thermo
 
         #region Public Constructors
 
-        public ThermoRawFile(string filePath, int maxPeaksPerScan = int.MaxValue)
+        public ThermoRawFile(string filePath, int maxPeaksPerScan)
+			: base(filePath, MsDataFileType.ThermoRawFile)
+		{
+			this.maxPeaksPerScan = maxPeaksPerScan;
+		}
+
+        public ThermoRawFile(string filePath)
             : base(filePath, MsDataFileType.ThermoRawFile)
         {
-            this.maxPeaksPerScan = maxPeaksPerScan;
+            this.maxPeaksPerScan = int.MaxValue;
         }
 
         #endregion Public Constructors
@@ -317,8 +323,7 @@ namespace IO.Thermo
 
             if (precursorID.Equals(GetSpectrumID(oneBasedSpectrumNumber)))
                 return new MsDataScan<ThermoSpectrum>(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent);
-            else
-                return new MsDataScan<ThermoSpectrum>(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent, precursorID, GetSelectedIonMZ(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetSelectedIonIntensity(oneBasedSpectrumNumber), GetIsolationMZ(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetParentSpectrumNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
+            return new MsDataScan<ThermoSpectrum>(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent, precursorID, GetSelectedIonMZ(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetSelectedIonIntensity(oneBasedSpectrumNumber), GetIsolationMZ(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetParentSpectrumNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
         }
 
         #endregion Protected Methods
@@ -399,12 +404,9 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            if (double.IsNaN(trailerMZ))
-                return GetSelectedIonMZ(spectrumNumber);
-            else
-            {
-                return ms1Spectrum.GetClosestPeak(trailerMZ).Mz;
-            }
+            return double.IsNaN(trailerMZ) ? 
+                GetSelectedIonMZ(spectrumNumber):
+                ms1Spectrum.GetClosestPeak(trailerMZ).Mz;
         }
 
         private double GetPrecursorMonoisotopicMZfromTrailierExtra(int scanNumber)
@@ -420,10 +422,9 @@ namespace IO.Thermo
                 if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
                 {
                     double monoisotopic_mz = double.Parse(values[i], CultureInfo.InvariantCulture);
-                    if (monoisotopic_mz > 0.0)
-                        return monoisotopic_mz;
-                    else
-                        return double.NaN;
+                    return monoisotopic_mz > 0.0?
+                          monoisotopic_mz:
+                          double.NaN;
                 }
             }
             return double.NaN;
@@ -442,10 +443,10 @@ namespace IO.Thermo
             return (DissociationType)type;
         }
 
-        private int GetPrecusorCharge(int spectrumNumber)
+        private int? GetPrecusorCharge(int spectrumNumber)
         {
             short charge = Convert.ToInt16(GetExtraValue(spectrumNumber, "Charge State:"));
-            return charge * (int)GetPolarity(spectrumNumber);
+			return charge == 0 ? (int?)null: charge * (int)GetPolarity(spectrumNumber);
         }
 
         private double GetInjectionTime(int spectrumNumber)
@@ -489,12 +490,9 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            if (double.IsNaN(trailerMZ))
-                return GetSelectedIonIntensity(spectrumNumber);
-            else
-            {
-                return ms1Spectrum.GetClosestPeak(trailerMZ).Intensity;
-            }
+            return double.IsNaN(trailerMZ)?
+                  GetSelectedIonIntensity(spectrumNumber):
+                  ms1Spectrum.GetClosestPeak(trailerMZ).Intensity;
         }
 
         private double GetSelectedIonMZ(int spectrumNumber)
