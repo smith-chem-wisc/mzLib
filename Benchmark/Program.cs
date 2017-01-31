@@ -84,7 +84,7 @@ namespace Benchmark
             stopWatch.Restart();
             for (int i = 0; i < numRepetitions; i++)
             {
-                b += new IsotopicDistribution(a).Intensities.First();
+                b += IsotopicDistribution.GetDistribution(a).intensities.First();
             }
             stopWatch.Stop();
             file.WriteLine("Time for generating isotopic distributions: " + stopWatch.Elapsed + " a = " + a);

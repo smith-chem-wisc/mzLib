@@ -39,7 +39,7 @@ namespace TestThermo
             var peak = spectrum.PeakWithHighestY;
             Assert.AreEqual(75501, peak.Intensity);
 
-			Assert.AreEqual(1, spectrum.NewSpectrumFilterByY(7.5e4, double.MaxValue).Count);
+            Assert.AreEqual(1, spectrum.NewSpectrumFilterByY(7.5e4, double.MaxValue).Count);
             Assert.AreEqual(2, spectrum.NewSpectrumExtract(new DoubleRange(923, 928)).Count);
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
@@ -56,14 +56,14 @@ namespace TestThermo
             Assert.AreEqual(1, a.GetMsxPrecursors(1290).Count);
             Assert.AreEqual(1194.53, a.GetMsxPrecursors(1290).First());
 
-			Assert.AreEqual(false, a.MonoisotopicPrecursorSelectionEnabled);
+            Assert.AreEqual(false, a.MonoisotopicPrecursorSelectionEnabled);
         }
 
         [Test]
         public void ThermoLoadError()
         {
             ThermoRawFile a = new ThermoRawFile(@"aaa.RAW");
-            Assert.Throws<IOException>(() =>  a.Open());
+            Assert.Throws<IOException>(() => a.Open());
         }
 
         [Test]
@@ -76,7 +76,7 @@ namespace TestThermo
             Assert.AreEqual(2401.57, ok[0], 0.01);
             ThermoSpectrum ok2 = a.GetOneBasedScan(1).MassSpectrum.NewSpectrumExtract(0, 500);
             Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumExtract(0, 500).LastX);
-			Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumFilterByY(5e6, double.MaxValue).Count);
+            Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumFilterByY(5e6, double.MaxValue).Count);
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
             Assert.AreEqual("(195.0874,1.0214E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
@@ -115,30 +115,27 @@ namespace TestThermo
 
             Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
 
+            Assert.AreEqual(0, b.Where(eb => eb.MsnOrder > 1).Count());
 
-			Assert.AreEqual(0, b.Where(eb=>eb.MsnOrder>1).Count());
-
-			Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
-
+            Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
         }
 
         [Test]
-		public void LoadThermoTest3()
-		{
-			ThermoRawFile a = new ThermoRawFile(@"small.RAW");
-			a.Open();
+        public void LoadThermoTest3()
+        {
+            ThermoRawFile a = new ThermoRawFile(@"small.RAW");
+            a.Open();
 
-			Assert.IsTrue(a.Where(eb => eb.MsnOrder > 1).Count()>0);
+            Assert.IsTrue(a.Where(eb => eb.MsnOrder > 1).Count() > 0);
 
-			Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count()> 0);
+            Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count() > 0);
 
-			Assert.IsFalse(a.MonoisotopicPrecursorSelectionEnabled);
+            Assert.IsFalse(a.MonoisotopicPrecursorSelectionEnabled);
 
-			a.Close();
+            a.Close();
+        }
 
-		}
+        #endregion Public Methods
 
-		#endregion Public Methods
-
-	}
+    }
 }

@@ -95,7 +95,6 @@ namespace Proteomics
 
         public bool Equals(Modification other)
         {
-            // TODO: Is this enough? Does it guarantee equality?
             if (ReferenceEquals(this, other))
                 return true;
 

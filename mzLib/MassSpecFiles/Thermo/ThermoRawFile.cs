@@ -47,10 +47,10 @@ namespace IO.Thermo
         #region Public Constructors
 
         public ThermoRawFile(string filePath, int maxPeaksPerScan)
-			: base(filePath, MsDataFileType.ThermoRawFile)
-		{
-			this.maxPeaksPerScan = maxPeaksPerScan;
-		}
+            : base(filePath, MsDataFileType.ThermoRawFile)
+        {
+            this.maxPeaksPerScan = maxPeaksPerScan;
+        }
 
         public ThermoRawFile(string filePath)
             : base(filePath, MsDataFileType.ThermoRawFile)
@@ -263,7 +263,7 @@ namespace IO.Thermo
             {
                 data = GetLabeledData(spectrumNumber);
             }
-            catch (ArgumentNullException)
+            catch (ArgumentException)
             {
                 data = GetUnlabeledData(spectrumNumber, true);
             }
@@ -380,7 +380,7 @@ namespace IO.Thermo
             _rawConnection.GetLabelData(ref labels, ref flags, ref spectrumNumber);
             double[,] data = labels as double[,];
             if (data == null || data.Length == 0)
-                throw new ArgumentNullException("For spectrum number " + spectrumNumber + " the data is null!");
+                throw new ArgumentException("For spectrum number " + spectrumNumber + " the data is null!");
             return data;
         }
 
@@ -404,8 +404,8 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            return double.IsNaN(trailerMZ) ? 
-                GetSelectedIonMZ(spectrumNumber):
+            return double.IsNaN(trailerMZ) ?
+                GetSelectedIonMZ(spectrumNumber) :
                 ms1Spectrum.GetClosestPeak(trailerMZ).Mz;
         }
 
@@ -422,8 +422,8 @@ namespace IO.Thermo
                 if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
                 {
                     double monoisotopic_mz = double.Parse(values[i], CultureInfo.InvariantCulture);
-                    return monoisotopic_mz > 0.0?
-                          monoisotopic_mz:
+                    return monoisotopic_mz > 0.0 ?
+                          monoisotopic_mz :
                           double.NaN;
                 }
             }
@@ -446,7 +446,7 @@ namespace IO.Thermo
         private int? GetPrecusorCharge(int spectrumNumber)
         {
             short charge = Convert.ToInt16(GetExtraValue(spectrumNumber, "Charge State:"));
-			return charge == 0 ? (int?)null: charge * (int)GetPolarity(spectrumNumber);
+            return charge == 0 ? (int?)null : charge * (int)GetPolarity(spectrumNumber);
         }
 
         private double GetInjectionTime(int spectrumNumber)
@@ -474,15 +474,31 @@ namespace IO.Thermo
             return GetOneBasedScan(GetPrecursor(scanNumber)).MassSpectrum.GetClosestPeak(mz).Intensity;
         }
 
-        private int GetPrecursor(int spectrumNumber)
+        private int GetPrecursor(int scanNumber)
         {
-            int ms_order = -1;
-            while (spectrumNumber >= 1 && ms_order != 1)
+            string[] labels;
+            string[] values;
+            int array_size = -1;
+
+            int oneBasedPrecursorNumber = scanNumber;
+            while (oneBasedPrecursorNumber > 0)
             {
-                _rawConnection.GetMSOrderForScanNum(spectrumNumber, ref ms_order);
-                spectrumNumber--;
+                object labels_obj = null;
+                object values_obj = null;
+                _rawConnection.GetTrailerExtraForScanNum(oneBasedPrecursorNumber, ref labels_obj, ref values_obj, ref array_size);
+                labels = (string[])labels_obj;
+                values = (string[])values_obj;
+                for (int i = labels.GetLowerBound(0); i <= labels.GetUpperBound(0); i++)
+                {
+                    if (labels[i].StartsWith("Scan Event", StringComparison.Ordinal))
+                    {
+                        if (int.Parse(values[i], CultureInfo.InvariantCulture) <= 1)
+                            return oneBasedPrecursorNumber;
+                    }
+                }
+                oneBasedPrecursorNumber--;
             }
-            return spectrumNumber + 1;
+            throw new ArgumentException("Could not find precursor for scan number " + scanNumber);
         }
 
         private double GetPrecursorMonoisotopicIntensity(int spectrumNumber)
@@ -490,8 +506,8 @@ namespace IO.Thermo
             int parentScanNumber = GetParentSpectrumNumber(spectrumNumber);
             var ms1Spectrum = GetOneBasedScan(parentScanNumber).MassSpectrum;
             double trailerMZ = GetPrecursorMonoisotopicMZfromTrailierExtra(spectrumNumber);
-            return double.IsNaN(trailerMZ)?
-                  GetSelectedIonIntensity(spectrumNumber):
+            return double.IsNaN(trailerMZ) ?
+                  GetSelectedIonIntensity(spectrumNumber) :
                   ms1Spectrum.GetClosestPeak(trailerMZ).Intensity;
         }
 
