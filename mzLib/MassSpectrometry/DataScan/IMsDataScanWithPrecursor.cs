@@ -21,33 +21,27 @@ using System;
 
 namespace MassSpectrometry
 {
-    public interface IMsDataScan<out TSpectrum, out TPeak>
+    public interface IMsDataScanWithPrecursor<out TSpectrum, out TPeak> : IMsDataScan<TSpectrum, TPeak>
         where TPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TPeak>
     {
 
         #region Public Properties
 
-        TSpectrum MassSpectrum { get; }
-        int OneBasedScanNumber { get; }
-        int MsnOrder { get; }
-        double RetentionTime { get; }
-        MzRange ScanWindowRange { get; }
-        string ScanFilter { get; }
-        string Id { get; }
-        bool IsCentroid { get; }
-        double InjectionTime { get; }
-        double TotalIonCurrent { get; }
-        Polarity Polarity { get; }
-        MZAnalyzerType MzAnalyzer { get; }
+        int OneBasedPrecursorScanNumber { get; }
+        string PrecursorID { get; }
+        int? SelectedIonGuessChargeStateGuess { get; }
+        double SelectedIonGuessMonoisotopicIntensity { get; }
+        double SelectedIonGuessMonoisotopicMZ { get; }
+        double SelectedIonGuessIntensity { get; }
+        double SelectedIonGuessMZ { get; }
+        DissociationType DissociationType { get; }
+        double IsolationWidth { get; }
+        double IsolationMz { get; }
+        MzRange IsolationRange { get; }
 
         #endregion Public Properties
 
-        #region Public Methods
-
-        void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
-
-        #endregion Public Methods
-
+        void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
     }
 }

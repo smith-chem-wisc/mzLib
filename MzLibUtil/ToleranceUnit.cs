@@ -1,7 +1,7 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
-// This file (MzRange.cs) is part of MassSpectrometry.
+// This file (ToleranceUnit.cs) is part of MassSpectrometry.
 //
 // MassSpectrometry is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
@@ -16,18 +16,21 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-namespace Spectra
+namespace MzLibUtil
 {
-    public class MzRange : DoubleRange
+    /// <summary>
+    /// The units of tolerance
+    /// </summary>
+    public enum ToleranceUnit
     {
-        public MzRange(double minMZ, double maxMZ)
-            : base(minMZ, maxMZ)
-        {
-        }
+        /// <summary>
+        /// Parts per million
+        /// </summary>
+        PPM,
 
-        public override string ToString(string format)
-        {
-            return string.Format("{0} - {1} m/z", Minimum.ToString(format), Maximum.ToString(format));
-        }
+        /// <summary>
+        /// Absolute units
+        /// </summary>
+        Absolute
     }
 }

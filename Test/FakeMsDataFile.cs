@@ -15,26 +15,22 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using IO.MzML;
+using MassSpectrometry;
 using Spectra;
 using System;
 using System.Linq;
 
-namespace MassSpectrometry
+namespace Test
 {
-    public class FakeMsDataFile : MsDataFile<IMzSpectrum<MzPeak>>
+    public class FakeMsDataFile : MsDataFile<MzmlMzSpectrum, MzmlPeak>
     {
-
-        #region Private Fields
-
-        private readonly MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans;
-
-        #endregion Private Fields
 
         #region Public Constructors
 
-        public FakeMsDataFile(string filePath, MsDataScan<IMzSpectrum<MzPeak>>[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
+        public FakeMsDataFile(string filePath, MsDataScan<MzmlMzSpectrum, MzmlPeak>[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
         {
-            this.FakeScans = FakeScans;
+            this.Scans = FakeScans;
         }
 
         #endregion Public Constructors
@@ -63,12 +59,12 @@ namespace MassSpectrometry
 
         protected override int GetNumSpectra()
         {
-            return FakeScans.Count();
+            return Scans.Count();
         }
 
-        protected override MsDataScan<IMzSpectrum<MzPeak>> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
+        protected override IMsDataScan<MzmlMzSpectrum, MzmlPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
         {
-            return FakeScans[oneBasedSpectrumNumber - 1];
+            return Scans[oneBasedSpectrumNumber - 1];
         }
 
         #endregion Protected Methods

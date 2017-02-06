@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
+using IO.MzML;
+using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Spectra;
 using System;
@@ -31,7 +34,7 @@ namespace Test
 
         #region Private Fields
 
-        private DefaultMzSpectrum _mzSpectrumA;
+        private MzmlMzSpectrum _mzSpectrumA;
 
         #endregion Private Fields
 
@@ -43,7 +46,7 @@ namespace Test
             double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
-            _mzSpectrumA = new DefaultMzSpectrum(mz, intensities, false);
+            _mzSpectrumA = new MzmlMzSpectrum(mz, intensities, false);
         }
 
         [Test]
@@ -168,8 +171,8 @@ namespace Test
         [Test]
         public void SpectrumSelect()
         {
-            MzSpectrum<MzPeak> v2 = _mzSpectrumA;
-            ISpectrum<Peak> v3 = v2;
+            MzSpectrum<MzmlPeak> v2 = _mzSpectrumA;
+            ISpectrum<IPeak> v3 = v2;
 
             v3.Take(4);
 
@@ -209,7 +212,7 @@ namespace Test
         [Test]
         public void CorrectOrder()
         {
-            _mzSpectrumA = new DefaultMzSpectrum(new double[] { 5, 6, 7 }, new double[] { 1, 2, 3 }, false);
+            _mzSpectrumA = new MzmlMzSpectrum(new double[] { 5, 6, 7 }, new double[] { 1, 2, 3 }, false);
             Assert.IsTrue(_mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[0].Mz < _mzSpectrumA.NewSpectrumFilterByNumberOfMostIntense(2)[1].Mz);
         }
 
@@ -224,46 +227,11 @@ namespace Test
             Assert.AreEqual(10, _mzSpectrumA.NewSpectrumWithRangeRemoved(new DoubleRange(400, 500)).Count);
             Assert.AreEqual(10, _mzSpectrumA.NewSpectrumWithRangeRemoved(400, 500).Count);
         }
-
-        [Test]
-        public void Test2D()
-        {
-            double[,] array2D = { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
-            _mzSpectrumA = new DefaultMzSpectrum(array2D);
-            Assert.AreEqual("1 - 4 m/z (Peaks 4)", _mzSpectrumA.ToString());
-        }
-
-        [Test]
-        public void TestClone()
-        {
-            var ok = new DefaultSpectrum(_mzSpectrumA);
-            Assert.AreNotEqual(ok[0], _mzSpectrumA[0]);
-            Assert.AreEqual(ok[0].Y, _mzSpectrumA[0].Y);
-
-            var ok2 = new DefaultSpectrum(_mzSpectrumA.XArray, _mzSpectrumA.YArray, true);
-
-            ok2.XArray[0] = 0;
-            Assert.AreNotEqual(ok2.XArray[0], _mzSpectrumA.XArray[0]);
-
-            var ok3 = new DefaultSpectrum(_mzSpectrumA.XArray, _mzSpectrumA.YArray, false);
-
-            ok3.XArray[0] = 0;
-            Assert.AreEqual(ok3.XArray[0], _mzSpectrumA.XArray[0]);
-        }
-
         [Test]
         public void TestFunctionToX()
         {
             var ok = _mzSpectrumA.NewSpectrumApplyFunctionToX(b => -1);
             Assert.AreEqual(-1, ok[0].X);
-        }
-
-        [Test]
-        public void Test2dArray()
-        {
-            var ok = _mzSpectrumA.CopyTo2DArray();
-            var ok2 = new DefaultMzSpectrum(ok);
-            Assert.AreEqual(ok2[0].X, _mzSpectrumA[0].X);
         }
 
         [Test]
@@ -277,7 +245,7 @@ namespace Test
         {
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447.73849));
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447));
-            Assert.Throws<IndexOutOfRangeException>(() => { new DefaultMzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1); }, "No peaks in spectrum!");
+            Assert.Throws<IndexOutOfRangeException>(() => { new MzmlMzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1); }, "No peaks in spectrum!");
         }
 
         [Test]
@@ -286,51 +254,29 @@ namespace Test
             //double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             //double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
-            IMzSpectrum<MzPeak> ok = _mzSpectrumA;
-            IMzSpectrum<MzPeak> ok2 = new DefaultMzSpectrum(ok);
+            IMzSpectrum<MzmlPeak> ok = _mzSpectrumA;
 
-            Assert.Greater(100, ok2.NewSpectrumApplyFunctionToX(b => b / 10).LastX);
+            Assert.Greater(100, ok.NewSpectrumApplyFunctionToX(b => b / 10).LastX);
 
-            Assert.AreEqual(1, ok2.NewSpectrumExtract(new DoubleRange(723, 1000)).Count);
+            Assert.AreEqual(1, ok.NewSpectrumExtract(new DoubleRange(723, 1000)).Count);
 
-            Assert.AreEqual(15, ok2.NewSpectrumExtract(double.MinValue, double.MaxValue).Count);
+            Assert.AreEqual(15, ok.NewSpectrumExtract(double.MinValue, double.MaxValue).Count);
 
-            Assert.AreEqual(0, ok2.NewSpectrumFilterByNumberOfMostIntense(0).Count);
-            Assert.AreEqual(5, ok2.NewSpectrumFilterByNumberOfMostIntense(5).Count);
-            Assert.AreEqual(15, ok2.NewSpectrumFilterByNumberOfMostIntense(15).Count);
+            Assert.AreEqual(0, ok.NewSpectrumFilterByNumberOfMostIntense(0).Count);
+            Assert.AreEqual(5, ok.NewSpectrumFilterByNumberOfMostIntense(5).Count);
+            Assert.AreEqual(15, ok.NewSpectrumFilterByNumberOfMostIntense(15).Count);
 
-            Assert.AreEqual(15, ok2.NewSpectrumFilterByY(new DoubleRange(double.MinValue, double.MaxValue)).Count);
+            Assert.AreEqual(15, ok.NewSpectrumFilterByY(new DoubleRange(double.MinValue, double.MaxValue)).Count);
 
-            Assert.AreEqual(1, ok2.NewSpectrumFilterByY(39291695, 39291697).Count);
+            Assert.AreEqual(1, ok.NewSpectrumFilterByY(39291695, 39291697).Count);
 
-            Assert.AreEqual(2, ok2.NewSpectrumWithRangeRemoved(new DoubleRange(329, 723)).Count);
+            Assert.AreEqual(2, ok.NewSpectrumWithRangeRemoved(new DoubleRange(329, 723)).Count);
 
-            Assert.AreEqual(15, ok2.NewSpectrumWithRangeRemoved(0, 1).Count);
+            Assert.AreEqual(15, ok.NewSpectrumWithRangeRemoved(0, 1).Count);
 
-            Assert.AreEqual(2, ok2.NewSpectrumWithRangesRemoved(new List<DoubleRange>{ new DoubleRange(329, 400), new DoubleRange(400, 723) }).Count);
+            Assert.AreEqual(2, ok.NewSpectrumWithRangesRemoved(new List<DoubleRange> { new DoubleRange(329, 400), new DoubleRange(400, 723) }).Count);
         }
-
-        [Test]
-        public void TestDefaultSpectrum()
-        {
-            double[,] mzIntensities = new double[2, 3];
-            mzIntensities[0, 0] = 1;
-            mzIntensities[1, 0] = 2;
-            mzIntensities[0, 1] = 3;
-            mzIntensities[1, 1] = 4;
-            mzIntensities[0, 2] = 5;
-            mzIntensities[1, 2] = 6;
-
-            DefaultMzSpectrum ok = new DefaultMzSpectrum(mzIntensities);
-
-            Assert.AreEqual(6, ok.YofPeakWithHighestY);
-
-            DefaultSpectrum ok2 = new DefaultSpectrum(mzIntensities);
-
-            Assert.AreEqual(12, ok2.SumOfAllY);
-            Assert.AreEqual(1, ok2.Range.Minimum);
-            Assert.AreEqual(5, ok2.Range.Maximum);
-        }
+        
 
         [Test]
         public void TestNumPeaksWithinRange()
@@ -338,7 +284,7 @@ namespace Test
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
             double[] yArray = { 1, 2, 1, 5, 1, 2, 1 };
 
-            var thisSpectrum = new DefaultSpectrum(xArray, yArray, false);
+            var thisSpectrum = new MzmlMzSpectrum(xArray, yArray, false);
 
             Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(double.MinValue, double.MaxValue));
 
@@ -364,7 +310,7 @@ namespace Test
 
             Assert.AreEqual(0, thisSpectrum.NumPeaksWithinRange(-2, -1));
 
-            Assert.AreEqual("[1 - 7] (Peaks 7)", thisSpectrum.ToString());
+            Assert.AreEqual("[1 - 7] m/z (Peaks 7)", thisSpectrum.ToString());
 
             Assert.AreEqual(7, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(7).Count);
             Assert.AreEqual(1, thisSpectrum.NewSpectrumFilterByNumberOfMostIntense(1).Count);

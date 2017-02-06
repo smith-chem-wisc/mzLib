@@ -18,7 +18,7 @@
 
 using System;
 
-namespace Spectra
+namespace MzLibUtil
 {
     public class DoubleRange
     {

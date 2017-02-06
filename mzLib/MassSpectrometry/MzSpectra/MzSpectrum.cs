@@ -16,13 +16,15 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
+using Spectra;
 using System;
 using System.Collections.Generic;
 
-namespace Spectra
+namespace MassSpectrometry
 {
     public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
-        where TPeak : MzPeak
+        where TPeak : IMzPeak
     {
 
         #region Protected Constructors
@@ -31,12 +33,26 @@ namespace Spectra
         {
         }
 
-        protected MzSpectrum(ISpectrum<Peak> mZSpectrum) : base(mZSpectrum)
+        protected MzSpectrum(ISpectrum<IMzPeak> mZSpectrum) : base(mZSpectrum)
         {
         }
 
         protected MzSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
         {
+        }
+
+        public void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor)
+        {
+            for (int i = 0; i < Count; i++)
+                XArray[i] = convertor(this[i]);
+            ResetSpectrum();
+        }
+        private void ResetSpectrum()
+        {
+            peakList = new TPeak[Count];
+            yofPeakWithHighestY = double.NaN;
+            sumOfAllY = double.NaN;
+            peakWithHighestY = default(TPeak);
         }
 
         #endregion Protected Constructors
@@ -60,55 +76,57 @@ namespace Spectra
             return string.Format("{0} (Peaks {1})", Range, Count);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
+        public new IMzSpectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
             var ok = FilterByNumberOfMostIntense(topNPeaks);
-            return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
+            return GetMzSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumExtract(DoubleRange xRange)
+        public new IMzSpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange)
         {
             return NewSpectrumExtract(xRange.Minimum, xRange.Maximum);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumExtract(double minX, double maxX)
+        public new IMzSpectrum<TPeak> NewSpectrumExtract(double minX, double maxX)
         {
             var ok = Extract(minX, maxX);
-            return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
+            return GetMzSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
+        public new IMzSpectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
             var ok = WithRangesRemoved(xRanges);
-            return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
+            return GetMzSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
+        public new IMzSpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
         {
             return NewSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(double minX, double maxX)
+        public new IMzSpectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX)
         {
             var ok = WithRangeRemoved(minX, maxX);
-            return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
+            return GetMzSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumFilterByY(double minY, double maxY)
+        public new IMzSpectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY)
         {
             var ok = FilterByY(minY, maxY);
-            return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
+            return GetMzSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumFilterByY(DoubleRange yRange)
+        public abstract MzSpectrum<TPeak> GetMzSpectrumFromTwoArrays(double[] item1, double[] item2, bool v);
+
+        public new IMzSpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange)
         {
             return NewSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
         }
 
-        public new IMzSpectrum<MzPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
+        public new IMzSpectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
         {
             var ok = ApplyFunctionToX(convertor);
-            return new DefaultMzSpectrum(ok.Item1, ok.Item2, false);
+            return GetMzSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
         #endregion Public Methods

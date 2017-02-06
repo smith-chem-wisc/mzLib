@@ -49,13 +49,17 @@
     <Compile Include="Chromatogram\Chromatogram.cs" />
     <Compile Include="Chromatogram\ChromatographicElutionProfile.cs" />
     <Compile Include="Chromatogram\ChromatographicPeak.cs" />
-    <Compile Include="DataFile\FakeMsDataFile.cs" />
-    <Compile Include="Identifications.cs" />
-    <Compile Include="Util\ClassExtensions.cs" />
+    <Compile Include="DataScan\IMsDataScanWithPrecursor.cs" />
+    <Compile Include="DataScan\MsDataScanWithPrecursor.cs" />
+    <Compile Include="IIdentifications.cs" />
+    <Compile Include="MzSpectra\IMzPeak.cs" />
+    <Compile Include="MzSpectra\IMzSpectrum.cs" />
+    <Compile Include="MzSpectra\MzPeak.cs" />
+    <Compile Include="MzSpectra\MzSpectrum.cs" />
     <Compile Include="Enums\DissociationType.cs" />
-    <Compile Include="DataFile\IMsDataFile.cs" />
+    <Compile Include="ICollectionOfSpectra.cs" />
     <Compile Include="DataScan\IMsDataScan.cs" />
-    <Compile Include="DataFile\MsDataFile.cs" />
+    <Compile Include="MsDataFile.cs" />
     <Compile Include="Enums\MsDataFileType.cs" />
     <Compile Include="DataScan\MsDataScan.cs" />
     <Compile Include="Enums\MzAnalyzerType.cs" />
@@ -66,6 +70,10 @@
     <Compile Include="Enums\SmoothingType.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
       <Name>Spectra</Name>

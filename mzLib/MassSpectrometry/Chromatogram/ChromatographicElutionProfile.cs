@@ -16,13 +16,14 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using Spectra;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class ChromatographicElutionProfile<T> where T : Peak
+    public class ChromatographicElutionProfile<T> where T : IPeak
     {
         public T StartPeak
         {

@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -388,7 +389,7 @@ namespace Proteomics
             IHasMass mod;
 
             // Handle N-Terminus Modification
-            if ((mod = _modifications[0]) != null && mod.MonoisotopicMass > 0 && !mod.MonoisotopicMass.MassEquals(0))
+            if ((mod = _modifications[0]) != null && mod.MonoisotopicMass > 0 )
             {
                 modSeqSb.Append('[');
                 modSeqSb.Append(mod);
@@ -404,7 +405,7 @@ namespace Proteomics
                     modSeqSb.Append(residues[i].Letter);
 
                 // Handle Amino Acid Modification (1-based)
-                if ((mod = _modifications[i + 1]) != null && mod.MonoisotopicMass > 0 && !mod.MonoisotopicMass.MassEquals(0))
+                if ((mod = _modifications[i + 1]) != null && mod.MonoisotopicMass > 0 )
                 {
                     modSeqSb.Append('[');
                     modSeqSb.Append(mod);
@@ -413,7 +414,7 @@ namespace Proteomics
             }
 
             // Handle C-Terminus Modification
-            if ((mod = _modifications[Length + 1]) != null && mod.MonoisotopicMass > 0 && !mod.MonoisotopicMass.MassEquals(0))
+            if ((mod = _modifications[Length + 1]) != null && mod.MonoisotopicMass > 0)
             {
                 modSeqSb.Append("-[");
                 modSeqSb.Append(mod);

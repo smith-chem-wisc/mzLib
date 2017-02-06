@@ -1,6 +1,7 @@
-﻿// Copyright 2016 Stefan Solntsev
+﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Modified work Copyright 2016 Stefan Solntsev
 //
-// This file (DefaultSpectrum.cs) is part of MassSpectrometry.
+// This file (IMsDataFile.cs) is part of MassSpectrometry.
 //
 // MassSpectrometry is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
@@ -15,21 +16,17 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-namespace Spectra
+using Spectra;
+using System.Collections.Generic;
+
+namespace MassSpectrometry
 {
-    public class DefaultSpectrum : Spectrum<DefaultPeak>
+    public interface ICollectionOfMsScans<out TSpectrum, out TMzPeak> : IEnumerable<IMsDataScan<TSpectrum, TMzPeak>>
+        where TMzPeak : IMzPeak
+        where TSpectrum : IMzSpectrum<TMzPeak>
     {
-        public DefaultSpectrum(ISpectrum<Peak> spectrum) : base(spectrum)
-        {
-        }
-
-        public DefaultSpectrum(double[] x, double[] y, bool shouldCopy) : base(x, y, shouldCopy)
-        {
-        }
-
-        public DefaultSpectrum(double[,] xy)
-            : base(xy)
-        {
-        }
+        IMsDataScan<TSpectrum, TMzPeak> GetOneBasedScan(int oneBasedScanNumber);
+        string Name { get; }
+        int NumSpectra { get; }
     }
 }

@@ -16,36 +16,21 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Spectra;
+using MzLibUtil;
 using System;
 
 namespace MassSpectrometry
 {
-    public class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
-        where TSpectrum : IMzSpectrum<MzPeak>
+    public abstract class MsDataScan<TSpectrum, TPeak> : IMsDataScan<TSpectrum, TPeak>
+        where TPeak : IMzPeak
+        where TSpectrum : IMzSpectrum<TPeak>
     {
 
-        #region Private Fields
+        #region Protected Constructors
 
-        private readonly double isolationMZ;
-        private readonly string precursorID;
-        private readonly int? selectedIonGuessChargeStateGuess;
-        private readonly double selectedIonGuessIntensity;
-        private double selectedIonGuessMZ;
-        private readonly DissociationType dissociationType;
-        private readonly double isolationWidth;
-        private readonly int oneBasedPrecursorScanNumber;
-        private readonly double selectedIonGuessMonoisotopicIntensity;
-        private double selectedIonGuessMonoisotopicMZ;
-
-        #endregion Private Fields
-
-        #region Public Constructors
-
-        public MsDataScan(int oneBasedScanNumber, TSpectrum massSpectrum, string id, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double injectionTime, double totalIonCurrent)
+        protected MsDataScan(int oneBasedScanNumber, string id, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double injectionTime, double totalIonCurrent)
         {
             OneBasedScanNumber = oneBasedScanNumber;
-            MassSpectrum = massSpectrum;
             Id = id;
             MsnOrder = msnOrder;
             IsCentroid = isCentroid;
@@ -54,33 +39,18 @@ namespace MassSpectrometry
             ScanWindowRange = scanWindowRange;
             ScanFilter = scanFilter;
             MzAnalyzer = mzAnalyzer;
-			InjectionTime = injectionTime;
+            InjectionTime = injectionTime;
             TotalIonCurrent = totalIonCurrent;
         }
 
-        public MsDataScan(int ScanNumber, TSpectrum MassSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
-                    : this(ScanNumber, MassSpectrum, id, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, InjectionTime, TotalIonCurrent)
-        {
-            this.isolationMZ = isolationMZ;
-            this.precursorID = precursorID;
-            this.selectedIonGuessChargeStateGuess = selectedIonGuessChargeStateGuess;
-            this.selectedIonGuessIntensity = selectedIonGuessIntensity;
-            this.selectedIonGuessMZ = selectedIonGuessMZ;
-            this.dissociationType = dissociationType;
-            this.isolationWidth = isolationWidth;
-            this.oneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
-            this.selectedIonGuessMonoisotopicIntensity = selectedIonGuessMonoisotopicIntensity;
-            this.selectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
-        }
-
-        #endregion Public Constructors
+        #endregion Protected Constructors
 
         #region Public Properties
 
         /// <summary>
         /// The mass spectrum associated with the scan
         /// </summary>
-        public TSpectrum MassSpectrum { get; private set; }
+        public TSpectrum MassSpectrum { get; protected set; }
 
         public int OneBasedScanNumber { get; private set; }
 
@@ -113,136 +83,9 @@ namespace MassSpectrometry
             return string.Format("Scan #{0}", OneBasedScanNumber);
         }
 
-        public bool TryGetPrecursorID(out string PrecursorID)
-        {
-            if (MsnOrder == 1)
-            {
-                PrecursorID = null;
-                return false;
-            }
-            PrecursorID = precursorID;
-            return true;
-        }
-
-        public bool TryGetSelectedIonGuessChargeStateGuess(out int? SelectedIonGuessChargeStateGuess)
-        {
-            if (MsnOrder == 1)
-            {
-                SelectedIonGuessChargeStateGuess = null;
-                return false;
-            }
-            SelectedIonGuessChargeStateGuess = selectedIonGuessChargeStateGuess;
-            return true;
-        }
-
-        public bool TryGetSelectedIonGuessIntensity(out double SelectedIonGuessIntensity)
-        {
-            if (MsnOrder == 1)
-            {
-                SelectedIonGuessIntensity = double.NaN;
-                return false;
-            }
-            SelectedIonGuessIntensity = selectedIonGuessIntensity;
-            return true;
-        }
-
-        public bool TryGetSelectedIonGuessMZ(out double SelectedIonGuessMZ)
-        {
-            if (MsnOrder == 1)
-            {
-                SelectedIonGuessMZ = double.NaN;
-                return false;
-            }
-            SelectedIonGuessMZ = selectedIonGuessMZ;
-            return true;
-        }
-
-        public bool TryGetDissociationType(out DissociationType DissociationType)
-        {
-            if (MsnOrder == 1)
-            {
-                DissociationType = DissociationType.Unknown;
-                return false;
-            }
-            DissociationType = dissociationType;
-            return true;
-        }
-
-        public bool TryGetIsolationWidth(out double IsolationWidth)
-        {
-            if (MsnOrder == 1)
-            {
-                IsolationWidth = double.NaN;
-                return false;
-            }
-            IsolationWidth = isolationWidth;
-            return true;
-        }
-
-        public bool TryGetIsolationMZ(out double IsolationMZ)
-        {
-            if (MsnOrder == 1)
-            {
-                IsolationMZ = double.NaN;
-                return false;
-            }
-            IsolationMZ = isolationMZ;
-            return true;
-        }
-
-        public bool TryGetIsolationRange(out MzRange IsolationRange)
-        {
-            IsolationRange = null;
-            if (MsnOrder == 1)
-                return false;
-
-            double isolationMzHere;
-            TryGetIsolationMZ(out isolationMzHere);
-            double isolationWidthHere;
-            TryGetIsolationWidth(out isolationWidthHere);
-            IsolationRange = new MzRange(isolationMzHere - isolationWidthHere / 2, isolationMzHere + isolationWidthHere / 2);
-
-            return true;
-        }
-
-        public bool TryGetPrecursorOneBasedScanNumber(out int OneBasedPrecursorScanNumber)
-        {
-            if (MsnOrder == 1)
-            {
-                OneBasedPrecursorScanNumber = 0;
-                return false;
-            }
-            OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
-            return true;
-        }
-
-        public void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ)
+        public void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
-            this.selectedIonGuessMZ = selectedIonGuessMZ;
-            this.selectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
-        }
-
-        public bool TryGetSelectedIonGuessMonoisotopicIntensity(out double SelectedIonGuessMonoisotopicIntensity)
-        {
-            if (MsnOrder == 1)
-            {
-                SelectedIonGuessMonoisotopicIntensity = -1;
-                return false;
-            }
-            SelectedIonGuessMonoisotopicIntensity = selectedIonGuessMonoisotopicIntensity;
-            return true;
-        }
-
-        public bool TryGetSelectedIonGuessMonoisotopicMZ(out double SelectedIonGuessMonoisotopicMZ)
-        {
-            if (MsnOrder == 1)
-            {
-                SelectedIonGuessMonoisotopicMZ = -1;
-                return false;
-            }
-            SelectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
-            return true;
         }
 
         #endregion Public Methods

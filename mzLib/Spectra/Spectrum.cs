@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -24,7 +25,7 @@ using System.Linq;
 namespace Spectra
 {
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
-        where TPeak : Peak
+        where TPeak : IPeak
     {
 
         #region Protected Fields
@@ -35,11 +36,11 @@ namespace Spectra
 
         #region Private Fields
 
-        private double yofPeakWithHighestY = double.NaN;
+        protected double yofPeakWithHighestY = double.NaN;
 
-        private double sumOfAllY = double.NaN;
+        protected double sumOfAllY = double.NaN;
 
-        private TPeak peakWithHighestY;
+        protected TPeak peakWithHighestY;
 
         #endregion Private Fields
 
@@ -72,7 +73,7 @@ namespace Spectra
         /// Initializes a new spectrum from another spectrum
         /// </summary>
         /// <param name="spectrumToClone">The spectrum to clone</param>
-        protected Spectrum(ISpectrum<Peak> spectrumToClone)
+        protected Spectrum(ISpectrum<IPeak> spectrumToClone)
             : this(spectrumToClone.XArray, spectrumToClone.YArray, true)
         {
         }
@@ -172,40 +173,42 @@ namespace Spectra
             return string.Format("{0} (Peaks {1})", Range, Count);
         }
 
-        public ISpectrum<Peak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
+        public Spectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
             var ok = FilterByNumberOfMostIntense(topNPeaks);
-            return new DefaultSpectrum(ok.Item1, ok.Item2, false);
+            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> NewSpectrumWithRangeRemoved(double minX, double maxX)
+        public abstract Spectrum<TPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v);
+
+        public Spectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX)
         {
             var ok = WithRangeRemoved(minX, maxX);
-            return new DefaultSpectrum(ok.Item1, ok.Item2, false);
+            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
+        public Spectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
         {
             var ok = WithRangesRemoved(xRanges);
-            return new DefaultSpectrum(ok.Item1, ok.Item2, false);
+            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> NewSpectrumExtract(double minX, double maxX)
+        public Spectrum<TPeak> NewSpectrumExtract(double minX, double maxX)
         {
             var ok = Extract(minX, maxX);
-            return new DefaultSpectrum(ok.Item1, ok.Item2, false);
+            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> NewSpectrumFilterByY(double minY, double maxY)
+        public Spectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY)
         {
             var ok = FilterByY(minY, maxY);
-            return new DefaultSpectrum(ok.Item1, ok.Item2, false);
+            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
-        public ISpectrum<Peak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
+        public Spectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
         {
             var ok = ApplyFunctionToX(convertor);
-            return new DefaultSpectrum(ok.Item1, ok.Item2, false);
+            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
         }
 
         public virtual double[,] CopyTo2DArray()
@@ -217,17 +220,17 @@ namespace Spectra
             return data;
         }
 
-        public ISpectrum<Peak> NewSpectrumFilterByY(DoubleRange yRange)
+        public ISpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange)
         {
             return NewSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
         }
 
-        public ISpectrum<Peak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
+        public ISpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
         {
             return NewSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
         }
 
-        public ISpectrum<Peak> NewSpectrumExtract(DoubleRange xRange)
+        public ISpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange)
         {
             return NewSpectrumExtract(xRange.Minimum, xRange.Maximum);
         }
@@ -270,13 +273,6 @@ namespace Spectra
                 index++;
 
             return index - startingIndex;
-        }
-
-        public void ReplaceXbyApplyingFunction(Func<TPeak, double> convertor)
-        {
-            for (int i = 0; i < Count; i++)
-                XArray[i] = convertor(this[i]);
-            ResetSpectrum();
         }
 
         #endregion Public Methods
@@ -478,12 +474,34 @@ namespace Spectra
 
         #region Private Methods
 
-        private void ResetSpectrum()
+        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
         {
-            peakList = new TPeak[Count];
-            yofPeakWithHighestY = double.NaN;
-            sumOfAllY = double.NaN;
-            peakWithHighestY = null;
+            throw new NotImplementedException();
+        }
+
+        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumExtract(double minX, double maxX)
+        {
+            throw new NotImplementedException();
+        }
+
+        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
+        {
+            throw new NotImplementedException();
+        }
+
+        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumWithRangeRemoved(double minX, double maxX)
+        {
+            throw new NotImplementedException();
+        }
+
+        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumFilterByY(double minY, double maxY)
+        {
+            throw new NotImplementedException();
+        }
+
+        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumApplyFunctionToX(Func<double, double> convertor)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion Private Methods

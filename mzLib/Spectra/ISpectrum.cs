@@ -16,13 +16,14 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 
 namespace Spectra
 {
     public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
-        where TPeak : Peak
+        where TPeak : IPeak
     {
 
         #region Public Properties
@@ -49,31 +50,29 @@ namespace Spectra
 
         double[,] CopyTo2DArray();
 
-        void ReplaceXbyApplyingFunction(Func<TPeak, double> convertor);
-
         int NumPeaksWithinRange(double minX, double maxX);
 
         TPeak GetClosestPeak(double x);
 
         double GetClosestPeakXvalue(double x);
 
-        ISpectrum<Peak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+        ISpectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
 
-        ISpectrum<Peak> NewSpectrumExtract(DoubleRange xRange);
+        ISpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange);
 
-        ISpectrum<Peak> NewSpectrumExtract(double minX, double maxX);
+        ISpectrum<TPeak> NewSpectrumExtract(double minX, double maxX);
 
-        ISpectrum<Peak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+        ISpectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
 
-        ISpectrum<Peak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
+        ISpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
 
-        ISpectrum<Peak> NewSpectrumWithRangeRemoved(double minX, double maxX);
+        ISpectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX);
 
-        ISpectrum<Peak> NewSpectrumFilterByY(double minY, double maxY);
+        ISpectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY);
 
-        ISpectrum<Peak> NewSpectrumFilterByY(DoubleRange yRange);
+        ISpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange);
 
-        ISpectrum<Peak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
+        ISpectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
 
         #endregion Public Methods
 

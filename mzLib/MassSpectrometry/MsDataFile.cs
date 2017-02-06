@@ -25,20 +25,21 @@ using System.IO;
 namespace MassSpectrometry
 {
     /// <summary>
-    /// A data file for storing data collected from a Mass Spectrometer
+    /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile<TSpectrum> : IMsDataFile<TSpectrum>
-        where TSpectrum : IMzSpectrum<MzPeak>
+    public abstract class MsDataFile<TSpectrum, TMzPeak> : ICollectionOfMsScans<TSpectrum, TMzPeak>
+        where TMzPeak : IMzPeak
+        where TSpectrum : IMzSpectrum<TMzPeak>
     {
-		/// <summary>
-		/// Defines if MS scans should be cached for quicker retrieval. Cached scans are held in an internal
-		/// array and don't get cleared until the file is disposed or the ClearCacheScans() method is called.
-		/// Of course, if you store the scans somewhere else, they will persist. The default value is True.
-		/// </summary>
+        /// <summary>
+        /// Defines if MS scans should be cached for quicker retrieval. Cached scans are held in an internal
+        /// array and don't get cleared until the file is disposed or the ClearCacheScans() method is called.
+        /// Of course, if you store the scans somewhere else, they will persist. The default value is True.
+        /// </summary>
 
-		#region Internal Fields
+        #region Internal Fields
 
-		internal MsDataScan<TSpectrum>[] Scans;
+        public IMsDataScan<TSpectrum, TMzPeak>[] Scans;
 
         #endregion Internal Fields
 
@@ -48,15 +49,13 @@ namespace MassSpectrometry
 
         private string _name;
 
-        private bool _numSpectraSet;
-
-        private int _numSpectra;
+        private int? _numSpectra;
 
         #endregion Private Fields
 
         #region Protected Constructors
 
-        protected MsDataFile(string filePath, MsDataFileType filetype = MsDataFileType.UnKnown)
+        public MsDataFile(string filePath, MsDataFileType filetype = MsDataFileType.UnKnown)
         {
             FilePath = filePath;
             FileType = filetype;
@@ -82,11 +81,9 @@ namespace MassSpectrometry
         {
             get
             {
-                if (_numSpectraSet)
-                    return _numSpectra;
-                _numSpectraSet = true;
-                _numSpectra = GetNumSpectra();
-                return _numSpectra;
+                if (!_numSpectra.HasValue)
+                    _numSpectra = GetNumSpectra();
+                return _numSpectra.Value;
             }
         }
 
@@ -99,25 +96,15 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
-        public IEnumerator<IMsDataScan<TSpectrum>> GetEnumerator()
-        {
-            return GetMsScans().GetEnumerator();
-        }
-
         /// <summary>
         /// Get the MS Scan at the specific spectrum number.
         /// </summary>
         /// <param name="oneBasedScanNumber">The spectrum number to get the MS Scan at</param>
         /// <returns></returns>
-        public virtual IMsDataScan<TSpectrum> GetOneBasedScan(int oneBasedScanNumber)
+        public virtual IMsDataScan<TSpectrum, TMzPeak> GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans == null)
-                Scans = new MsDataScan<TSpectrum>[NumSpectra];
+                Scans = new IMsDataScan<TSpectrum, TMzPeak>[NumSpectra];
             if (Scans[oneBasedScanNumber - 1] == null)
             {
                 Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromFile(oneBasedScanNumber);
@@ -130,7 +117,7 @@ namespace MassSpectrometry
         {
             if (Scans == null)
             {
-                Scans = new MsDataScan<TSpectrum>[NumSpectra];
+                Scans = new IMsDataScan<TSpectrum, TMzPeak>[NumSpectra];
             }
 
             for (int scanNumber = 1; scanNumber <= NumSpectra; scanNumber++)
@@ -147,12 +134,12 @@ namespace MassSpectrometry
             Array.Clear(Scans, 0, Scans.Length);
         }
 
-        public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScans()
+        public virtual IEnumerable<IMsDataScan<TSpectrum, TMzPeak>> GetMsScans()
         {
             return GetMsScansInIndexRange(1, NumSpectra);
         }
 
-        public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
+        public virtual IEnumerable<IMsDataScan<TSpectrum, TMzPeak>> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
             for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
             {
@@ -160,12 +147,12 @@ namespace MassSpectrometry
             }
         }
 
-        public virtual IEnumerable<IMsDataScan<TSpectrum>> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public virtual IEnumerable<IMsDataScan<TSpectrum, TMzPeak>> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
-                IMsDataScan<TSpectrum> scan = GetOneBasedScan(oneBasedSpectrumNumber);
+                IMsDataScan<TSpectrum, TMzPeak> scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
                 oneBasedSpectrumNumber++;
                 if (rt < firstRT)
@@ -182,18 +169,31 @@ namespace MassSpectrometry
         {
             return string.Format("{0} ({1})", Name, Enum.GetName(typeof(MsDataFileType), FileType));
         }
-
         public abstract void Open();
-
         public abstract void Close();
 
         #endregion Public Methods
 
         #region Protected Methods
 
-        protected abstract MsDataScan<TSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
-
+        protected abstract IMsDataScan<TSpectrum, TMzPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
         protected abstract int GetNumSpectra();
+
+        IMsDataScan<TSpectrum, TMzPeak> ICollectionOfMsScans<TSpectrum, TMzPeak>.GetOneBasedScan(int oneBasedScanNumber)
+        {
+            return GetOneBasedScan(oneBasedScanNumber);
+        }
+
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetMsScans().GetEnumerator();
+        }
+
+        IEnumerator<IMsDataScan<TSpectrum, TMzPeak>> IEnumerable<IMsDataScan<TSpectrum, TMzPeak>>.GetEnumerator()
+        {
+            return GetMsScans().GetEnumerator();
+        }
 
         #endregion Protected Methods
 

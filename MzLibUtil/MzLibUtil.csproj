@@ -4,14 +4,13 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{4AB6BA94-B70C-4570-9EA6-165746D5B8E8}</ProjectGuid>
+    <ProjectGuid>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Proteomics</RootNamespace>
-    <AssemblyName>Proteomics</AssemblyName>
+    <RootNamespace>MzLibUtil</RootNamespace>
+    <AssemblyName>MzLibUtil</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,8 +21,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,13 +30,10 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -48,35 +42,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Residue.cs" />
-    <Compile Include="AminoAcidPolymer.cs" />
-    <Compile Include="ChemicalFormulaFragment.cs" />
-    <Compile Include="ChemicalFormulaModification.cs" />
-    <Compile Include="ChemicalFormulaTerminus.cs" />
-    <Compile Include="DigestionPoint.cs" />
-    <Compile Include="Fragment.cs" />
-    <Compile Include="FragmentTypes.cs" />
-    <Compile Include="Util\AminoAcidPolymerExtensions.cs" />
-    <Compile Include="Interfaces\IProtease.cs" />
-    <Compile Include="ModificationWithMultiplePossibilities.cs" />
-    <Compile Include="Modification.cs" />
-    <Compile Include="ModificationCollection.cs" />
-    <Compile Include="ModificationSites.cs" />
-    <Compile Include="Peptide.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs">
-      <SonarQubeExclude>true</SonarQubeExclude>
-    </Compile>
-    <Compile Include="Terminus.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{b208ff5f-5a33-490d-9ddb-7c76f5600fc4}</Project>
-      <Name>MzLibUtil</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
-      <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
-      <Name>Chemistry</Name>
-    </ProjectReference>
+    <Compile Include="ClassExtensions.cs" />
+    <Compile Include="DoubleRange.cs" />
+    <Compile Include="MzRange.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Tolerance.cs" />
+    <Compile Include="ToleranceUnit.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

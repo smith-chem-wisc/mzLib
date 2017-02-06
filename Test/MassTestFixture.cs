@@ -54,7 +54,7 @@ namespace Test
         public void MassToMzToMass()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = a.ToMZ(2).ToMass(2);
+            double mz = a.ToMz(2).ToMass(2);
             Assert.AreEqual(1000, mz);
         }
 
@@ -62,7 +62,7 @@ namespace Test
         public void MassToMzPositiveCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = a.ToMZ(2);
+            double mz = a.ToMz(2);
             Assert.AreEqual(501.00727646687898, mz);
         }
 
@@ -70,17 +70,10 @@ namespace Test
         public void MassToMzNegativeCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = a.ToMZ(-2);
+            double mz = a.ToMz(-2);
             Assert.AreEqual(498.99272353312102, mz);
         }
-
-        [Test]
-        public void MassToMzZeroCharge()
-        {
-            ObjectWithMass1000 a = new ObjectWithMass1000();
-            var ex = Assert.Throws<DivideByZeroException>(() => a.ToMZ(0));
-            Assert.That(ex.Message, Is.EqualTo("Charge cannot be zero"));
-        }
+        
 
         [Test]
         public void MzToMassPostitiveCharge()
@@ -94,14 +87,6 @@ namespace Test
         {
             double a = 524.3;
             Assert.AreEqual(1050.614552933758, a.ToMass(-2));
-        }
-
-        [Test]
-        public void MzTomassZeroCharge()
-        {
-            double a = 524.3;
-            var ex = Assert.Throws<DivideByZeroException>(() => a.ToMass(0));
-            Assert.That(ex.Message, Is.EqualTo("Charge cannot be zero"));
         }
     }
 }

@@ -16,32 +16,36 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
+using Spectra;
 using System;
 using System.Collections.Generic;
 
-namespace Spectra
+namespace MassSpectrometry
 {
     public interface IMzSpectrum<out TPeak> : ISpectrum<TPeak>
-        where TPeak : MzPeak
+        where TPeak : IMzPeak
     {
         new MzRange Range { get; }
 
-        new IMzSpectrum<MzPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+        new IMzSpectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
 
-        new IMzSpectrum<MzPeak> NewSpectrumExtract(DoubleRange xRange);
+        new IMzSpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange);
 
-        new IMzSpectrum<MzPeak> NewSpectrumExtract(double minX, double maxX);
+        new IMzSpectrum<TPeak> NewSpectrumExtract(double minX, double maxX);
 
-        new IMzSpectrum<MzPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+        new IMzSpectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
 
-        new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
+        new IMzSpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
 
-        new IMzSpectrum<MzPeak> NewSpectrumWithRangeRemoved(double minX, double maxX);
+        new IMzSpectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX);
 
-        new IMzSpectrum<MzPeak> NewSpectrumFilterByY(double minY, double maxY);
+        new IMzSpectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY);
 
-        new IMzSpectrum<MzPeak> NewSpectrumFilterByY(DoubleRange yRange);
+        new IMzSpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange);
 
-        new IMzSpectrum<MzPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
+        new IMzSpectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
+
+        void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor);
     }
 }

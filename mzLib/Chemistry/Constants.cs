@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (Constants.cs) is part of Chemistry Library.
 //
@@ -27,11 +27,18 @@ namespace Chemistry
     /// </summary>
     public static class Constants
     {
+
+        #region Public Fields
+
         /// <summary>
         /// The mass of the subatomic particle with a single elementary charge in atomic
         /// units (u)
         /// </summary>
         public const double ProtonMass = 1.007276466879;
+
+        #endregion Public Fields
+
+        #region Internal Fields
 
         /// <summary>
         /// The largest number of elements to consider
@@ -46,5 +53,8 @@ namespace Chemistry
         internal const int CarbonAtomicNumber = 6;
 
         internal const int HydrogenAtomicNumber = 1;
+
+        #endregion Internal Fields
+
     }
 }

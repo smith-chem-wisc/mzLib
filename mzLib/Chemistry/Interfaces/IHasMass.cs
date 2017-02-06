@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (IHasMass.cs) is part of Chemistry Library.
 //
@@ -23,9 +23,15 @@ namespace Chemistry
     /// </summary>
     public interface IHasMass
     {
+
+        #region Public Properties
+
         /// <summary>
         /// The monoisotopic mass of this object
         /// </summary>
         double MonoisotopicMass { get; }
+
+        #endregion Public Properties
+
     }
 }

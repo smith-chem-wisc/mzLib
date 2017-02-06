@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using Spectra;
 using System;
 using System.Collections.Generic;
@@ -66,12 +67,17 @@ namespace MassSpectrometry
             return new ChromatographicPeak(XArray[index], YArray[index]);
         }
 
+        public override Spectrum<ChromatographicPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion Public Methods
 
     }
 
     public abstract class Chromatogram<TPeak> : Spectrum<TPeak>
-        where TPeak : Peak
+        where TPeak : IPeak
     {
 
         #region Protected Constructors

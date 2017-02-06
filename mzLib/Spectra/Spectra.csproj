@@ -46,22 +46,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Peak\DefaultPeak.cs" />
-    <Compile Include="Peak\Peak.cs" />
-    <Compile Include="Spectrum\DefaultMzSpectrum.cs" />
-    <Compile Include="Spectrum\DefaultSpectrum.cs" />
-    <Compile Include="Spectrum\Spectrum.cs" />
-    <Compile Include="Spectrum\IMzSpectrum.cs" />
-    <Compile Include="Spectrum\ISpectrum.cs" />
-    <Compile Include="Range\DoubleRange.cs" />
-    <Compile Include="Peak\MzPeak.cs" />
-    <Compile Include="Range\MzRange.cs" />
-    <Compile Include="Spectrum\MzSpectrum.cs" />
+    <Compile Include="IPeak.cs" />
+    <Compile Include="Peak.cs" />
+    <Compile Include="Spectrum.cs" />
+    <Compile Include="ISpectrum.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
-    <Compile Include="Util\Tolerance.cs" />
-    <Compile Include="Util\ToleranceUnit.cs" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

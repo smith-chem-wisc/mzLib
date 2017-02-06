@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (IsotopicDistribution.cs) is part of Chemistry Library.
 //
@@ -48,35 +48,45 @@ namespace Chemistry
         private const double defaultFineResolution = 0.01;
         private const double defaultMinProbability = 1e-200;
         private const double defaultMolecularWeightResolution = 1e-12;
-
         private static readonly double[] factorLnArray = new double[50003];
         private static int _factorLnTop = 1;
-        public readonly double[] masses;
-		public readonly double[] intensities;
+        private readonly double[] masses;
+        private readonly double[] intensities;
 
-		public IsotopicDistribution(int count)
-		{
-			masses = new double[count];
-			intensities = new double[count];
-		}
+        #endregion Private Fields
 
-		#endregion Private Fields
+        #region Private Constructors
 
-		#region Public Constructors
-
-		public static IsotopicDistribution GetDistribution(ChemicalFormula formula)
+        private IsotopicDistribution(int count)
         {
-			return GetDistribution(formula, defaultFineResolution, defaultMinProbability, defaultMolecularWeightResolution);
+            masses = new double[count];
+            intensities = new double[count];
+        }
+
+        #endregion Private Constructors
+
+        #region Public Properties
+
+        public IEnumerable<double> Masses { get { return masses; } }
+        public IEnumerable<double> Intensities { get { return intensities; } }
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public static IsotopicDistribution GetDistribution(ChemicalFormula formula)
+        {
+            return GetDistribution(formula, defaultFineResolution, defaultMinProbability, defaultMolecularWeightResolution);
         }
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula, double fineResolution)
         {
-			return GetDistribution(formula, fineResolution, defaultMinProbability, defaultMolecularWeightResolution);
+            return GetDistribution(formula, fineResolution, defaultMinProbability, defaultMolecularWeightResolution);
         }
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula, double fineResolution, double minProbability)
         {
-			return GetDistribution(formula, fineResolution, minProbability, defaultMolecularWeightResolution);
+            return GetDistribution(formula, fineResolution, minProbability, defaultMolecularWeightResolution);
         }
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula, double fineResolution, double minProbability, double molecularWeightResolution)
@@ -116,19 +126,19 @@ namespace Chemistry
                     composition.Power = Math.Floor(composition.MolecularWeight / molecularWeightResolution + 0.5);
                 }
             }
-			IsotopicDistribution dist = CalculateFineGrain(elementalComposition, molecularWeightResolution, _mergeFineResolution, fineResolution, minProbability);
+            IsotopicDistribution dist = CalculateFineGrain(elementalComposition, molecularWeightResolution, _mergeFineResolution, fineResolution, minProbability);
 
             double additionalMass = 0;
             foreach (var isotopeAndCount in formula.Isotopes)
                 additionalMass += isotopeAndCount.Key.AtomicMass * isotopeAndCount.Value;
 
-			for (int i = 0; i < dist.masses.Length; i++)
+            for (int i = 0; i < dist.masses.Length; i++)
                 dist.masses[i] += additionalMass;
 
-			return dist;
+            return dist;
         }
 
-        #endregion Public Constructors
+        #endregion Public Methods
 
         #region Private Methods
 
@@ -382,27 +392,27 @@ namespace Chemistry
             return factorLnArray[n];
         }
 
-		private static IsotopicDistribution CalculateFineGrain(List<List<Composition>> elementalComposition, double _mwResolution, double _mergeFineResolution, double _fineResolution, double _fineMinProb)
+        private static IsotopicDistribution CalculateFineGrain(List<List<Composition>> elementalComposition, double _mwResolution, double _mergeFineResolution, double _fineResolution, double _fineMinProb)
         {
             List<Polynomial> fPolynomial = MultiplyFinePolynomial(elementalComposition, _fineResolution, _mwResolution, _fineMinProb);
             fPolynomial = MergeFinePolynomial(fPolynomial, _mwResolution, _mergeFineResolution);
 
             // Convert polynomial to spectrum
             int count = fPolynomial.Count;
-			IsotopicDistribution dist = new IsotopicDistribution(count); 
+            IsotopicDistribution dist = new IsotopicDistribution(count);
             double totalProbability = 0;
             double basePeak = 0;
             int i = 0;
-			foreach (Polynomial polynomial in fPolynomial)
-			{
-				totalProbability += polynomial.Probablity;
-				if (polynomial.Probablity > basePeak)
-					basePeak = polynomial.Probablity;
-				dist.masses[i] = polynomial.Power * _mwResolution;
-				dist.intensities[i] = polynomial.Probablity;
-				i++;
-			}
-			return dist;
+            foreach (Polynomial polynomial in fPolynomial)
+            {
+                totalProbability += polynomial.Probablity;
+                if (polynomial.Probablity > basePeak)
+                    basePeak = polynomial.Probablity;
+                dist.masses[i] = polynomial.Power * _mwResolution;
+                dist.intensities[i] = polynomial.Probablity;
+                i++;
+            }
+            return dist;
         }
 
         #endregion Private Methods
@@ -440,7 +450,7 @@ namespace Chemistry
 
         }
 
-		#endregion Private Classes
+        #endregion Private Classes
 
-	}
+    }
 }

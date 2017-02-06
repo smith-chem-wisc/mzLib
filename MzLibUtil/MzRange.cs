@@ -1,7 +1,7 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work Copyright 2016 Stefan Solntsev
+// Modified work copyright 2016 Stefan Solntsev
 //
-// This file (IMsDataFile.cs) is part of MassSpectrometry.
+// This file (MzRange.cs) is part of MassSpectrometry.
 //
 // MassSpectrometry is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
@@ -16,24 +16,18 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Spectra;
-using System.Collections.Generic;
-
-namespace MassSpectrometry
+namespace MzLibUtil
 {
-    public interface IMsDataFile<out TSpectrum> : IEnumerable<IMsDataScan<TSpectrum>>
-        where TSpectrum : IMzSpectrum<MzPeak>
+    public class MzRange : DoubleRange
     {
-        IMsDataScan<TSpectrum> GetOneBasedScan(int oneBasedScanNumber);
+        public MzRange(double minMZ, double maxMZ)
+            : base(minMZ, maxMZ)
+        {
+        }
 
-        string Name { get; }
-        int NumSpectra { get; }
-        string FilePath { get; }
-
-        void Open();
-
-        void LoadAllScansInMemory();
-
-        void Close();
+        public override string ToString(string format)
+        {
+            return string.Format("[{0} - {1}] m/z", Minimum.ToString(format), Maximum.ToString(format));
+        }
     }
 }

@@ -1,4 +1,6 @@
 ﻿using IO.Thermo;
+using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Spectra;
 using System;
@@ -45,9 +47,8 @@ namespace TestThermo
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 
             Assert.AreEqual("1.3", a.GetSofwareVersion());
-            double ya;
-            a.GetOneBasedScan(948).TryGetSelectedIonGuessIntensity(out ya);
-            Assert.AreEqual(4125760, ya);
+            var ms2scan = a.GetOneBasedScan(948) as IMsDataScanWithPrecursor<ThermoSpectrum, ThermoMzPeak>;
+            Assert.AreEqual(4125760, ms2scan.SelectedIonGuessIntensity);
 
             Assert.AreEqual("LCQ", a.GetInstrumentName());
             Assert.AreEqual("LCQ", a.GetInstrumentModel());
@@ -79,7 +80,7 @@ namespace TestThermo
             Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumFilterByY(5e6, double.MaxValue).Count);
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
-            Assert.AreEqual("(195.0874,1.0214E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
+            Assert.AreEqual("(195.0874,1.021401E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
             Assert.AreEqual(77561752, a.GetTic(1));
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
