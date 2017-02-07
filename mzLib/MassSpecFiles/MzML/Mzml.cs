@@ -19,6 +19,7 @@
 using Ionic.Zlib;
 using MassSpectrometry;
 using MathNet.Numerics.Statistics;
+using MzLibUtil;
 using Spectra;
 using System;
 using System.Collections.Generic;
@@ -27,7 +28,7 @@ using System.Text.RegularExpressions;
 
 namespace IO.MzML
 {
-	public class Mzml : MsDataFile<DefaultMzSpectrum>
+	public class Mzml : MsDataFile<MzmlMzSpectrum, MzmlPeak>
 	{
 
 		#region Private Fields
@@ -169,7 +170,7 @@ namespace IO.MzML
 			return Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
 		}
 
-		protected override MsDataScan<DefaultMzSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
+		protected override IMsDataScan<MzmlMzSpectrum, MzmlPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
 		{
 			double[] masses = null;
 			double[] intensities = null;
@@ -221,11 +222,11 @@ namespace IO.MzML
 				intensities = newIntensities.ToArray();
 			}
 
-			var ok = new DefaultMzSpectrum(masses, intensities, false);
+			var ok = new MzmlMzSpectrum(masses, intensities, false);
 
 			if (GetMsnOrder(oneBasedSpectrumNumber) == 1)
-				return new MsDataScan<DefaultMzSpectrum>(oneBasedSpectrumNumber, ok, GetSpectrumID(oneBasedSpectrumNumber), GetMsnOrder(oneBasedSpectrumNumber), GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), GetRetentionTime(oneBasedSpectrumNumber), GetScanWindowMzRange(oneBasedSpectrumNumber), GetOneBasedScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), GetTotalIonCurrent(oneBasedSpectrumNumber));
-			return new MsDataScan<DefaultMzSpectrum>(oneBasedSpectrumNumber, ok, GetSpectrumID(oneBasedSpectrumNumber), GetMsnOrder(oneBasedSpectrumNumber), GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), GetRetentionTime(oneBasedSpectrumNumber), GetScanWindowMzRange(oneBasedSpectrumNumber), GetOneBasedScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), GetTotalIonCurrent(oneBasedSpectrumNumber), GetPrecursorID(oneBasedSpectrumNumber), GetPrecursorMz(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetPrecursorIntensity(oneBasedSpectrumNumber), GetIsolationMz(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
+				return new MzmlScan(oneBasedSpectrumNumber, ok, GetSpectrumID(oneBasedSpectrumNumber), GetMsnOrder(oneBasedSpectrumNumber), GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), GetRetentionTime(oneBasedSpectrumNumber), GetScanWindowMzRange(oneBasedSpectrumNumber), GetOneBasedScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), GetTotalIonCurrent(oneBasedSpectrumNumber));
+			return new MzmlScanWithPrecursor(oneBasedSpectrumNumber, ok, GetSpectrumID(oneBasedSpectrumNumber), GetMsnOrder(oneBasedSpectrumNumber), GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), GetRetentionTime(oneBasedSpectrumNumber), GetScanWindowMzRange(oneBasedSpectrumNumber), GetOneBasedScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), GetTotalIonCurrent(oneBasedSpectrumNumber), GetPrecursorID(oneBasedSpectrumNumber), GetPrecursorMz(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetPrecursorIntensity(oneBasedSpectrumNumber), GetIsolationMz(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetOneBasedPrecursorScanNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
 		}
 
 		#endregion Protected Methods

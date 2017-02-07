@@ -35,8 +35,8 @@ namespace Test
         public void NameAndSites()
         {
             // Empty modification, has no name and by default has Sites = ModificationSites.Any
-            Modification a = new Modification();
-            Modification b = new Modification(a);
+            OldSchoolModification a = new OldSchoolModification();
+            OldSchoolModification b = new OldSchoolModification(a);
             Assert.AreEqual(" (Any)", b.NameAndSites);
         }
 
@@ -44,10 +44,10 @@ namespace Test
         public void ModificationEquality()
         {
             // Empty modification, has no name and by default has Sites = ModificationSites.Any
-            Modification a = new Modification();
-            Modification b = new Modification();
-            Modification c = new Modification(0, "c");
-            Modification d = new Modification(0, "", ModificationSites.E);
+            OldSchoolModification a = new OldSchoolModification();
+            OldSchoolModification b = new OldSchoolModification();
+            OldSchoolModification c = new OldSchoolModification(0, "c");
+            OldSchoolModification d = new OldSchoolModification(0, "", ModificationSites.E);
             Assert.IsTrue(a.Equals(b));
             Assert.IsFalse(a.Equals(c));
             Assert.IsFalse(a.Equals(d));
@@ -78,7 +78,7 @@ namespace Test
         [Test]
         public void ModificationCollectionTest()
         {
-            ModificationCollection a = new ModificationCollection(new Modification(1, "Mod1"), new Modification(2, "Mod2"));
+            ModificationCollection a = new ModificationCollection(new OldSchoolModification(1, "Mod1"), new OldSchoolModification(2, "Mod2"));
 
             double lala = 0;
             IEnumerable aasdf = a;
@@ -87,15 +87,15 @@ namespace Test
             Assert.AreEqual(3, lala);
 
             Assert.AreEqual("Mod1 | Mod2", a.ToString());
-            a.Add(new Modification(3, "Mod3"));
+            a.Add(new OldSchoolModification(3, "Mod3"));
             Assert.AreEqual("Mod1 | Mod2 | Mod3", a.ToString());
-            Assert.IsTrue(a.Contains(new Modification(2, "Mod2")));
+            Assert.IsTrue(a.Contains(new OldSchoolModification(2, "Mod2")));
             IHasMass[] myArray = new IHasMass[4];
             a.CopyTo(myArray, 1);
             Assert.AreEqual(3, myArray.Sum(b => b == null ? 0 : 1));
             Assert.AreEqual(3, a.Count());
             Assert.IsFalse(a.IsReadOnly);
-            a.Remove(new Modification(2, "Mod2"));
+            a.Remove(new OldSchoolModification(2, "Mod2"));
             Assert.AreEqual("Mod1 | Mod3", a.ToString());
             double ok = 0;
             foreach (var b in a)
@@ -108,24 +108,24 @@ namespace Test
         [Test]
         public void ModificationCollectionTest2()
         {
-            ModificationCollection a = new ModificationCollection(new Modification(1, "Mod1"), new Modification(2, "Mod2"));
-            Assert.IsFalse(a.Remove(new Modification(3, "Mod3")));
+            ModificationCollection a = new ModificationCollection(new OldSchoolModification(1, "Mod1"), new OldSchoolModification(2, "Mod2"));
+            Assert.IsFalse(a.Remove(new OldSchoolModification(3, "Mod3")));
         }
 
         [Test]
         public void ModificationWithMultiplePossibilitiesTest()
         {
             var m = new ModificationWithMultiplePossibilitiesCollection("My Iso Mod", ModificationSites.E);
-            m.AddModification(new Modification(1, "My Mod1a", ModificationSites.E));
-            m.AddModification(new Modification(2, "My Mod2b", ModificationSites.E));
+            m.AddModification(new OldSchoolModification(1, "My Mod1a", ModificationSites.E));
+            m.AddModification(new OldSchoolModification(2, "My Mod2b", ModificationSites.E));
             Assert.AreEqual(2, m.Count);
             Assert.AreEqual("My Mod2b", m[1].Name);
-            Assert.Throws<ArgumentException>(() => { m.AddModification(new Modification(1, "gg", ModificationSites.R)); }, "Unable to add a modification with sites other than ModificationSites.E");
-            Assert.IsTrue(m.Contains(new Modification(2, "My Mod2b", ModificationSites.E)));
+            Assert.Throws<ArgumentException>(() => { m.AddModification(new OldSchoolModification(1, "gg", ModificationSites.R)); }, "Unable to add a modification with sites other than ModificationSites.E");
+            Assert.IsTrue(m.Contains(new OldSchoolModification(2, "My Mod2b", ModificationSites.E)));
             double kk = 0;
             IEnumerable a = m;
             foreach (var b in a)
-                kk += (b as Modification).MonoisotopicMass;
+                kk += (b as OldSchoolModification).MonoisotopicMass;
             Assert.AreEqual(3, kk);
         }
 
@@ -140,16 +140,16 @@ namespace Test
         [Test]
         public void ChemicalFormulaModificaiton()
         {
-            ChemicalFormulaModification a = new ChemicalFormulaModification("OH");
-            ChemicalFormulaModification b = new ChemicalFormulaModification(a);
+            OldSchoolChemicalFormulaModification a = new OldSchoolChemicalFormulaModification("OH");
+            OldSchoolChemicalFormulaModification b = new OldSchoolChemicalFormulaModification(a);
             Assert.AreEqual(a, b);
         }
 
         [Test]
         public void ModificationCollectionScrambledEquals()
         {
-            ModificationCollection a = new ModificationCollection(new Modification(1, "Mod1"), new Modification(2, "Mod2"));
-            ModificationCollection b = new ModificationCollection(new Modification(1, "Mod1"), new Modification(3, "Mod3"));
+            ModificationCollection a = new ModificationCollection(new OldSchoolModification(1, "Mod1"), new OldSchoolModification(2, "Mod2"));
+            ModificationCollection b = new ModificationCollection(new OldSchoolModification(1, "Mod1"), new OldSchoolModification(3, "Mod3"));
 
             Assert.IsFalse(a.Equals(b));
         }

@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
+using MassSpectrometry;
 using Spectra;
 using System;
 
@@ -238,6 +239,16 @@ namespace IO.Thermo
             }
 
             return new ThermoSpectrum(mz, intensities, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
+        }
+
+        public override MzSpectrum<ThermoMzPeak> GetMzSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
+        {
+            return new ThermoSpectrum(item1, item2,null,null,null, v);
+        }
+
+        public override Spectrum<ThermoMzPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
+        {
+            return new ThermoSpectrum(item1, item2, null, null, null, v);
         }
 
         #endregion Public Methods

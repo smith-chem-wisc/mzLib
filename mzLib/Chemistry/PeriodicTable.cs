@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (PeriodicTable.cs) is part of Chemistry Library.
 //
@@ -18,7 +18,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 
 namespace Chemistry
@@ -79,29 +78,29 @@ namespace Chemistry
         /// <summary>
         /// Validates the abundances in the periodic table
         /// </summary>
-        public static PeriodicTableValidationResult ValidateAbundances(double epsilon)
+        public static bool ValidateAbundances(double epsilon)
         {
             foreach (var e in _elements)
             {
                 double totalAbundance = e.Value.Isotopes.Select(b => b.RelativeAbundance).Sum();
                 if (Math.Abs(totalAbundance - 1) > epsilon)
-                    return new PeriodicTableValidationResult(ValidationResult.FailedAbundanceValidation, string.Format(CultureInfo.InvariantCulture, StringResources.AbundancesNotValidated, e.Value, totalAbundance));
+                    return false;
             }
-            return new PeriodicTableValidationResult(ValidationResult.PassedAbundanceValidation, StringResources.ValidationPassed);
+            return true;
         }
 
         /// <summary>
         /// Validates the average masses in the periodic table
         /// </summary>
-        public static PeriodicTableValidationResult ValidateAverageMasses(double epsilon)
+        public static bool ValidateAverageMasses(double epsilon)
         {
             foreach (var e in _elements)
             {
                 double averageMass = e.Value.Isotopes.Select(b => b.RelativeAbundance * b.AtomicMass).Sum();
                 if (Math.Abs(averageMass - e.Value.AverageMass) / e.Value.AverageMass > epsilon)
-                    return new PeriodicTableValidationResult(ValidationResult.FailedAverageMassValidation, string.Format(CultureInfo.InvariantCulture, StringResources.MassesNotValidated, e.Value, averageMass, e.Value.AverageMass));
+                    return false;
             }
-            return new PeriodicTableValidationResult(ValidationResult.PassedAverageMassValidation, StringResources.ValidationPassed);
+            return true;
         }
 
         #endregion Public Methods

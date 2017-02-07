@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
+using IO.MzML;
 using NUnit.Framework;
 using Spectra;
 
@@ -27,7 +28,7 @@ namespace Test
         [Test]
         public void PeakStuff()
         {
-            MzPeak ok = new MzPeak(1, 1);
+            MzmlPeak ok = new MzmlPeak(1, 1);
             ok.AddIntensity(1);
             Assert.AreEqual(2, ok.Intensity);
             Assert.AreEqual("(1.0000,2)", "" + ok);

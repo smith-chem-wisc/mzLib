@@ -82,24 +82,24 @@ namespace Test
         [Test]
         public void FragmentNTermModTest()
         {
-            _mockPeptideEveryAminoAcid.AddModification(new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolChemicalFormulaModification("O", "lala", ModificationSites.NTerminus));
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
-            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification> { new ChemicalFormulaModification("O", "lala", ModificationSites.NTerminus) }));
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolChemicalFormulaModification("O", "lala", ModificationSites.NTerminus) }));
         }
 
         [Test]
         public void FragmentModifications()
         {
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(1, "mod1", ModificationSites.C));
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(2, "mod2", ModificationSites.D));
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(3, "mod3", ModificationSites.A));
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(4, "mod4", ModificationSites.Y));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(1, "mod1", ModificationSites.C));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(2, "mod2", ModificationSites.D));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(3, "mod3", ModificationSites.A));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(4, "mod4", ModificationSites.Y));
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
             Fragment fragmentEnd = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.y, 1).Last();
 
-            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification> { new Modification(3, "mod3", ModificationSites.A) }));
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolModification(3, "mod3", ModificationSites.A) }));
 
-            Assert.IsTrue(fragmentEnd.Modifications.SequenceEqual(new List<Modification> { new Modification(4, "mod4", ModificationSites.Y) }));
+            Assert.IsTrue(fragmentEnd.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolModification(4, "mod4", ModificationSites.Y) }));
         }
 
         [Test]
@@ -133,18 +133,18 @@ namespace Test
 		public void TestFormulaTerminusMods()
 		{
 			var pep1 = new Peptide("ACDEFG");
-			pep1.AddModification(new ChemicalFormulaModification("H", ModificationSites.NTerminus));
+			pep1.AddModification(new OldSchoolChemicalFormulaModification("H", ModificationSites.NTerminus));
 
 			Assert.IsTrue(pep1.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
 
 
 			var pep2 = new Peptide("ACDEFG");
-			pep2.AddModification(new Modification(2, "haha", ModificationSites.NTerminus));
+			pep2.AddModification(new OldSchoolModification(2, "haha", ModificationSites.NTerminus));
 			Assert.IsFalse(pep2.Fragment(FragmentTypes.b, true).First()is IHasChemicalFormula);
 
 
 			var pep3 = new Peptide("ACDEFG");
-			pep3.AddModification(new Modification(3, "haha", ModificationSites.D));
+			pep3.AddModification(new OldSchoolModification(3, "haha", ModificationSites.D));
 
 			var list = pep3.Fragment(FragmentTypes.b, true).ToList();
 

@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (Isotope.cs) is part of Chemistry Library.
 //
@@ -26,6 +26,9 @@ namespace Chemistry
     /// </summary>
     public sealed class Isotope
     {
+
+        #region Internal Constructors
+
         /// <summary>
         /// Create a new isotope
         /// </summary>
@@ -40,6 +43,10 @@ namespace Chemistry
             AtomicMass = atomicMass;
             RelativeAbundance = abundance;
         }
+
+        #endregion Internal Constructors
+
+        #region Public Properties
 
         /// <summary>
         /// The atomic number of the isotope's parent element (also the number of protons)
@@ -85,6 +92,10 @@ namespace Chemistry
         /// </summary>
         public double RelativeAbundance { get; private set; }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
         /// <summary>
         /// Returns a textual representation of this isotope in the following format: H{1} He{4} O{16}
         /// </summary>
@@ -93,5 +104,8 @@ namespace Chemistry
         {
             return string.Format(CultureInfo.InvariantCulture, "{0}{{{1}}}", Element.AtomicSymbol, MassNumber);
         }
+
+        #endregion Public Methods
+
     }
 }

@@ -72,6 +72,8 @@
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
+    <Compile Include="ThermoScanWithPrecursor.cs" />
+    <Compile Include="ThermoScan.cs" />
     <Compile Include="ThermoSpectrum.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -87,6 +89,10 @@
     </COMReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
@@ -94,6 +100,10 @@
     <ProjectReference Include="..\..\Spectra\Spectra.csproj">
       <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
       <Name>Spectra</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MzML\MzML.csproj">
+      <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
+      <Name>MzML</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

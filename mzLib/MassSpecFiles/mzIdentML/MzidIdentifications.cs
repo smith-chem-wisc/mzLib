@@ -16,6 +16,7 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
+using MzLibUtil;
 using Spectra;
 using System;
 using System.IO;

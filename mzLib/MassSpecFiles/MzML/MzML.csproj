@@ -91,6 +91,10 @@
   <ItemGroup>
     <Compile Include="Mzml.cs" />
     <Compile Include="MzmlMethods.cs" />
+    <Compile Include="MzmlScanWithPrecursor.cs" />
+    <Compile Include="MzmlScan.cs" />
+    <Compile Include="MzmlSpectrum.cs" />
+    <Compile Include="MzmlPeak.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
@@ -100,6 +104,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>

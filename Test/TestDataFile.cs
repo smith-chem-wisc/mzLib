@@ -17,13 +17,16 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using IO.MzML;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Spectra;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Test
 {
@@ -33,7 +36,7 @@ namespace Test
 
         #region Private Fields
 
-        private DefaultMzSpectrum _mzSpectrumA;
+        private MzmlMzSpectrum _mzSpectrumA;
 
         private FakeMsDataFile myMsDataFile;
 
@@ -51,17 +54,17 @@ namespace Test
             double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
-            _mzSpectrumA = new DefaultMzSpectrum(mz, intensities, false);
+            _mzSpectrumA = new MzmlMzSpectrum(mz, intensities, false);
 
             var peptide = new Peptide("KQEEQMETEQQNKDEGK");
 
-            DefaultMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
-            DefaultMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
+            MzmlMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
+            MzmlMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
-            MsDataScan<IMzSpectrum<MzPeak>>[] Scans = new MsDataScan<IMzSpectrum<MzPeak>>[2];
-            Scans[0] = new MsDataScan<IMzSpectrum<MzPeak>>(1, MS1.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
+            MsDataScan<MzmlMzSpectrum, MzmlPeak>[] Scans = new MsDataScan<MzmlMzSpectrum, MzmlPeak>[2];
+            Scans[0] = new MzmlScan(1, MS1.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
 
-            Scans[1] = new MsDataScan<IMzSpectrum<MzPeak>>(2, MS2.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00002), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 0.32374, 693.6550);
+            Scans[1] = new MzmlScanWithPrecursor(2, MS2.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00002), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 0.32374, 693.6550);
 
             myMsDataFile = new FakeMsDataFile("myFakeFile", Scans);
 
@@ -91,16 +94,17 @@ namespace Test
         [Test]
         public void DataFileTest()
         {
-            MsDataScan<IMzSpectrum<MzPeak>> theSpectrum = new MsDataScan<IMzSpectrum<MzPeak>>(1, _mzSpectrumA, "first spectrum", 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, 1, _mzSpectrumA.SumOfAllY);
+            MzmlScan theSpectrum = new MzmlScan(1, _mzSpectrumA, "first spectrum", 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, 1, _mzSpectrumA.SumOfAllY);
 
-            MsDataScan<IMzSpectrum<MzPeak>>[] theList = new MsDataScan<IMzSpectrum<MzPeak>>[1];
+            MzmlScan[] theList = new MzmlScan[1];
 
             theList[0] = theSpectrum;
 
             FakeMsDataFile thefile = new FakeMsDataFile("Somepath", theList);
 
-            Assert.AreEqual(15, thefile.GetOneBasedScan(1).MassSpectrum.Count);
-            Assert.AreEqual(15, thefile.GetOneBasedScan(1).MassSpectrum.Count);
+            var theOneBasedScan = thefile.GetOneBasedScan(1);
+            Assert.AreEqual(15, theOneBasedScan.MassSpectrum.Count);
+            Assert.AreEqual(15, theOneBasedScan.MassSpectrum.Count);
 
             Assert.AreEqual(1, thefile.NumSpectra);
             Assert.AreEqual(1, thefile.NumSpectra);
@@ -113,7 +117,7 @@ namespace Test
                 Assert.AreEqual(1000, ok.ScanWindowRange.Maximum, 1e-9);
             }
 
-            IMsDataFile<IMzSpectrum<MzPeak>> okyee = thefile;
+            FakeMsDataFile okyee = thefile;
 
             Assert.AreEqual("Somepath (UnKnown)", okyee.ToString());
 
@@ -137,79 +141,40 @@ namespace Test
 
             Assert.AreEqual(0, ok3);
 
-            MzRange yah;
-            DissociationType d;
-            double yahh;
-            string s;
-            int ja;
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetIsolationRange(out yah));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetDissociationType(out d));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetIsolationMZ(out yahh));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetIsolationWidth(out yahh));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetPrecursorID(out s));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetPrecursorOneBasedScanNumber(out ja));
-			int? hehe;
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessChargeStateGuess(out hehe));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessIntensity(out yahh));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMZ(out yahh));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicIntensity(out yahh));
-            Assert.IsFalse(thefile.GetOneBasedScan(1).TryGetSelectedIonGuessMonoisotopicMZ(out yahh));
-
             thefile.Close();
         }
 
         [Test]
         public void TestAMoreRealFile()
         {
-            MzRange yah;
-            DissociationType d;
-            double yahh;
-            string s;
-            int ja;
 
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetIsolationRange(out yah));
-            Assert.AreEqual(1, yah.Width);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetDissociationType(out d));
-            Assert.AreEqual(DissociationType.Unknown, d);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetIsolationMZ(out yahh));
-            Assert.AreEqual(693.99, yahh);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetIsolationWidth(out yahh));
-            Assert.AreEqual(1, yahh);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetPrecursorID(out s));
-            Assert.AreEqual("spectrum 1", s);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetPrecursorOneBasedScanNumber(out ja));
-            Assert.AreEqual(1, ja);
-			int? fjdkf;
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessChargeStateGuess(out fjdkf));
-			Assert.AreEqual(3, fjdkf.Value);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessIntensity(out yahh));
-            Assert.AreEqual(.3872, yahh);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMZ(out yahh));
-            Assert.AreEqual(693.9892, yahh);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMonoisotopicIntensity(out yahh));
-            Assert.AreEqual(0.32374, yahh);
-            Assert.IsTrue(myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMonoisotopicMZ(out yahh));
-            Assert.AreEqual(693.6550, yahh);
+            var theScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>, IMzPeak>;
+            Assert.AreEqual(1, theScan.IsolationRange.Width);
+            Assert.AreEqual(DissociationType.Unknown, theScan.DissociationType);
+            Assert.AreEqual(693.99, theScan.IsolationMz);
+            Assert.AreEqual(1, theScan.IsolationWidth);
+            Assert.AreEqual("spectrum 1", theScan.PrecursorID);
+            Assert.AreEqual(1, theScan.OneBasedPrecursorScanNumber);
+            Assert.AreEqual(3, theScan.SelectedIonGuessChargeStateGuess.Value);
+            Assert.AreEqual(.3872, theScan.SelectedIonGuessIntensity);
+            Assert.AreEqual(693.9892, theScan.SelectedIonGuessMZ);
+            Assert.AreEqual(0.32374, theScan.SelectedIonGuessMonoisotopicIntensity);
+            Assert.AreEqual(693.6550, theScan.SelectedIonGuessMonoisotopicMZ);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
-            double hehehe1;
-            myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMZ(out hehehe1);
-            Assert.AreNotEqual(0, hehehe1);
 
-            myMsDataFile.GetOneBasedScan(2).TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, 0, 0);
+            theScan.TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, 0, 0);
 
             Assert.AreEqual("Scan #2", myMsDataFile.GetOneBasedScan(2).ToString());
 
             Assert.AreEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
             Assert.AreEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
-            double hehehe;
-            myMsDataFile.GetOneBasedScan(2).TryGetSelectedIonGuessMZ(out hehehe);
-            Assert.AreEqual(0, hehehe);
+            Assert.AreEqual(0, theScan.SelectedIonGuessMZ);
 
             IEnumerable a = myMsDataFile;
             foreach (var b in a)
-                Assert.IsFalse((b as IMsDataScan<IMzSpectrum<MzPeak>>).IsCentroid);
+                Assert.IsFalse((b as IMsDataScan<IMzSpectrum<IMzPeak>, IMzPeak>).IsCentroid);
             foreach (var b in myMsDataFile)
                 Assert.AreEqual(Polarity.Positive, b.Polarity);
         }
@@ -218,7 +183,7 @@ namespace Test
 
         #region Private Methods
 
-        private DefaultMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+        private MzmlMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
             List<double> allIntensities = new List<double>();
@@ -234,16 +199,16 @@ namespace Test
             var allIntensitiessArray = allIntensities.ToArray();
 
             Array.Sort(allMassesArray, allIntensitiessArray);
-            return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
+            return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
-        private DefaultMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
+        private MzmlMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
-			IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
-			DefaultMzSpectrum massSpectrum1 = new DefaultMzSpectrum(isodist.masses, isodist.intensities, false);
+            IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
+            MzmlMzSpectrum massSpectrum1 = new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
 
             var chargeToLookAt = minCharge;
-            var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
+            var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
 
             List<double> allMasses = new List<double>();
             List<double> allIntensitiess = new List<double>();
@@ -259,7 +224,7 @@ namespace Test
                     }
                 }
                 chargeToLookAt += 1;
-                correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMassToChargeRatio(chargeToLookAt));
+                correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
             }
 
             var allMassesArray = allMasses.ToArray();
@@ -267,7 +232,7 @@ namespace Test
 
             Array.Sort(allMassesArray, allIntensitiessArray);
 
-            return new DefaultMzSpectrum(allMassesArray, allIntensitiessArray, false);
+            return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
         #endregion Private Methods

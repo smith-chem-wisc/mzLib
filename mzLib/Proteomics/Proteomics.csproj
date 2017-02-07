@@ -48,19 +48,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Modification.cs" />
+    <Compile Include="ModificationWithMass.cs" />
+    <Compile Include="ModificationWithMassAndCf.cs" />
     <Compile Include="Residue.cs" />
     <Compile Include="AminoAcidPolymer.cs" />
     <Compile Include="ChemicalFormulaFragment.cs" />
     <Compile Include="ChemicalFormulaModification.cs" />
     <Compile Include="ChemicalFormulaTerminus.cs" />
     <Compile Include="DigestionPoint.cs" />
-    <Compile Include="Util\ClassExtensions.cs" />
     <Compile Include="Fragment.cs" />
     <Compile Include="FragmentTypes.cs" />
     <Compile Include="Util\AminoAcidPolymerExtensions.cs" />
     <Compile Include="Interfaces\IProtease.cs" />
     <Compile Include="ModificationWithMultiplePossibilities.cs" />
-    <Compile Include="Modification.cs" />
+    <Compile Include="OldSchoolModification.cs" />
     <Compile Include="ModificationCollection.cs" />
     <Compile Include="ModificationSites.cs" />
     <Compile Include="Peptide.cs" />
@@ -70,6 +72,10 @@
     <Compile Include="Terminus.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{b208ff5f-5a33-490d-9ddb-7c76f5600fc4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>

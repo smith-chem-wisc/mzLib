@@ -58,6 +58,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\mzLib\MassSpecFiles\Thermo\Thermo.csproj">
       <Project>{24DC85FF-E97B-4140-9614-77DD8FDDD32F}</Project>
       <Name>Thermo</Name>

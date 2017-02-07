@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (ChemicalFormula.cs) is part of Chemistry Library.
 //
@@ -26,7 +26,8 @@ using System.Text.RegularExpressions;
 namespace Chemistry
 {
     /// <summary>
-    /// A chemical formula class. This does NOT correspond to a physical object. A physical object can have a chemical formula
+    /// A chemical formula class. This does NOT correspond to a physical object. A physical object can have a chemical formula.
+    /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
     public sealed class ChemicalFormula : IEquatable<ChemicalFormula>
     {
@@ -50,32 +51,32 @@ namespace Chemistry
         /// </summary>
         private static readonly Regex ValidateFormulaRegex = new Regex("^(" + FormulaRegex + ")+$", RegexOptions.Compiled);
 
-        private string _formula;
+        private string formulaString;
 
-		#endregion Private Fields
+        #endregion Private Fields
 
-		#region Public Constructors
+        #region Public Constructors
 
-		public ChemicalFormula()
+        public ChemicalFormula()
         {
             Isotopes = new Dictionary<Isotope, int>();
             Elements = new Dictionary<Element, int>();
         }
 
-		public ChemicalFormula(ChemicalFormula capFormula)
-		{
-			Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
-			Elements = new Dictionary<Element, int>(capFormula.Elements);
-		}
+        public ChemicalFormula(ChemicalFormula capFormula)
+        {
+            Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
+            Elements = new Dictionary<Element, int>(capFormula.Elements);
+        }
 
-		#endregion Public Constructors
+        #endregion Public Constructors
 
-		#region Public Properties
+        #region Public Properties
 
-		/// <summary>
-		/// Gets the average mass of this chemical formula
-		/// </summary>
-		public double AverageMass
+        /// <summary>
+        /// Gets the average mass of this chemical formula
+        /// </summary>
+        public double AverageMass
         {
             get
             {
@@ -139,9 +140,9 @@ namespace Chemistry
         {
             get
             {
-                if (_formula == null)
-                    _formula = GetHillNotation();
-                return _formula;
+                if (formulaString == null)
+                    formulaString = GetHillNotation();
+                return formulaString;
             }
         }
 
@@ -204,6 +205,46 @@ namespace Chemistry
             return returnFormula;
         }
 
+        /// <summary>
+        /// Parses a string representation of chemical formula and adds the elements
+        /// to this chemical formula
+        /// </summary>
+        /// <param name="formula">the Chemical Formula to parse</param>
+        public static ChemicalFormula ParseFormula(string formula)
+        {
+            ChemicalFormula f = new ChemicalFormula();
+
+            if (!ValidateFormulaRegex.IsMatch(formula))
+                throw new FormatException("Input string for chemical formula was in an incorrect format");
+
+            foreach (Match match in FormulaRegex.Matches(formula))
+            {
+                string chemsym = match.Groups[1].Value; // Group 1: Chemical Symbol
+
+                Element element = PeriodicTable.GetElement(chemsym);
+
+                int sign = match.Groups[3].Success ? // Group 3 (optional): Negative Sign
+                    -1 :
+                    1;
+
+                int numofelem = match.Groups[4].Success ? // Group 4 (optional): Number of Elements
+                    int.Parse(match.Groups[4].Value, CultureInfo.InvariantCulture) :
+                    1;
+
+                if (match.Groups[2].Success) // Group 2 (optional): Isotope Mass Number
+                {
+                    // Adding isotope!
+                    f.Add(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
+                }
+                else
+                {
+                    // Adding element!
+                    f.Add(element, numofelem * sign);
+                }
+            }
+            return f;
+        }
+
         public int NeutronCount()
         {
             if (Elements.Count > 0)
@@ -229,9 +270,17 @@ namespace Chemistry
         /// <param name="item">The object that contains a chemical formula</param>
         public void Add(IHasChemicalFormula item)
         {
-            if (item == null)
-                throw new ArgumentException("Cannot add null item to formula");
             Add(item.ThisChemicalFormula);
+        }
+
+        public void Multiply(int multiplier)
+        {
+            List<Element> keys = new List<Element>(Elements.Keys);
+            foreach (var key in keys)
+                Elements[key] *= multiplier;
+            List<Isotope> keysIsotope = new List<Isotope>(Isotopes.Keys);
+            foreach (var key in keysIsotope)
+                Isotopes[key] *= multiplier;
         }
 
         /// <summary>
@@ -240,8 +289,6 @@ namespace Chemistry
         /// <param name="formula">The chemical formula to add to this</param>
         public void Add(ChemicalFormula formula)
         {
-            if (formula == null)
-                throw new ArgumentException("Cannot add null formula to formula");
             foreach (var e in formula.Elements)
             {
                 Add(e.Key, e.Value);
@@ -260,8 +307,6 @@ namespace Chemistry
         /// <param name="count">The number of the element to add</param>
         public void AddPrincipalIsotopesOf(Element element, int count)
         {
-            if (element == null)
-                throw new ArgumentException("Cannot add null element to formula");
             Isotope isotope = element.PrincipalIsotope;
             Add(isotope, count);
         }
@@ -278,7 +323,7 @@ namespace Chemistry
                 if (Elements[element] == 0)
                     Elements.Remove(element);
             }
-            _formula = null;
+            formulaString = null;
         }
 
         /// <summary>
@@ -298,7 +343,7 @@ namespace Chemistry
                 if (Isotopes[isotope] == 0)
                     Isotopes.Remove(isotope);
             }
-            _formula = null;
+            formulaString = null;
         }
 
         /// <summary>
@@ -307,8 +352,6 @@ namespace Chemistry
         /// <param name="item">The object that contains a chemical formula</param>
         public void Remove(IHasChemicalFormula item)
         {
-            if (item == null)
-                throw new ArgumentException("Cannot remove null item from formula");
             Remove(item.ThisChemicalFormula);
         }
 
@@ -318,8 +361,6 @@ namespace Chemistry
         /// <param name="formula">The chemical formula to remove</param>
         public void Remove(ChemicalFormula formula)
         {
-            if (formula == null)
-                throw new ArgumentException("Cannot remove null formula from formula");
             foreach (var e in formula.Elements)
                 Remove(e.Key, e.Value);
             foreach (var i in formula.Isotopes)
@@ -380,7 +421,7 @@ namespace Chemistry
         {
             Isotopes = new Dictionary<Isotope, int>();
             Elements = new Dictionary<Element, int>();
-            _formula = null;
+            formulaString = null;
         }
 
         /// <summary>
@@ -395,8 +436,6 @@ namespace Chemistry
 
         public bool IsSubsetOf(ChemicalFormula formula)
         {
-            if (formula == null)
-                throw new ArgumentException("Cannot check if is subset of null formula");
             return formula.IsSupersetOf(this);
         }
 
@@ -409,8 +448,6 @@ namespace Chemistry
         /// <returns></returns>
         public bool IsSupersetOf(ChemicalFormula formula)
         {
-            if (formula == null)
-                throw new ArgumentException("Cannot check if is superset of null formula");
             foreach (var aa in formula.Elements)
                 if (!Elements.ContainsKey(aa.Key) || aa.Value > Elements[aa.Key])
                     return false;
@@ -454,8 +491,6 @@ namespace Chemistry
         /// <returns>The total number of all the element isotopes in this chemical formula</returns>
         public int CountWithIsotopes(Element element)
         {
-            if (element == null)
-                throw new ArgumentException("Cannot count null elements in formula");
             var isotopeCount = element.Isotopes.Sum(isotope => CountSpecificIsotopes(isotope));
             int ElementCount;
             return isotopeCount + (Elements.TryGetValue(element, out ElementCount) ? ElementCount : 0);
@@ -463,8 +498,6 @@ namespace Chemistry
 
         public int CountSpecificIsotopes(Element element, int massNumber)
         {
-            if (element == null)
-                throw new ArgumentException("Cannot count null elements in formula");
             Isotope isotope = element[massNumber];
             return CountSpecificIsotopes(isotope);
         }
@@ -478,9 +511,9 @@ namespace Chemistry
         {
             if (other == null) return false;
             if (ReferenceEquals(this, other)) return true;
-            if (!MonoisotopicMass.MassEquals(other.MonoisotopicMass))
+            if (Math.Abs(MonoisotopicMass - other.MonoisotopicMass) > 1e-9)
                 return false;
-            if (!AverageMass.MassEquals(other.AverageMass))
+            if (Math.Abs(AverageMass - other.AverageMass) > 1e-9)
                 return false;
             return true;
         }
@@ -488,47 +521,6 @@ namespace Chemistry
         #endregion Public Methods
 
         #region Private Methods
-
-        /// <summary>
-        /// Parses a string representation of chemical formula and adds the elements
-        /// to this chemical formula
-        /// </summary>
-        /// <param name="formula">the Chemical Formula to parse</param>
-		public static ChemicalFormula ParseFormula(string formula)
-        {
-			ChemicalFormula f = new ChemicalFormula();
-
-            if (!ValidateFormulaRegex.IsMatch(formula))
-                throw new FormatException("Input string for chemical formula was in an incorrect format");
-
-
-            foreach (Match match in FormulaRegex.Matches(formula))
-            {
-                string chemsym = match.Groups[1].Value; // Group 1: Chemical Symbol
-
-                Element element = PeriodicTable.GetElement(chemsym);
-
-                int sign = match.Groups[3].Success ? // Group 3 (optional): Negative Sign
-                    -1 :
-                    1;
-
-                int numofelem = match.Groups[4].Success ? // Group 4 (optional): Number of Elements
-                    int.Parse(match.Groups[4].Value, CultureInfo.InvariantCulture) :
-                    1;
-
-                if (match.Groups[2].Success) // Group 2 (optional): Isotope Mass Number
-                {
-                    // Adding isotope!
-                    f.Add(element[int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture)], sign * numofelem);
-                }
-                else
-                {
-                    // Adding element!
-                    f.Add(element, numofelem * sign);
-                }
-            }
-			return f;
-        }
 
         /// <summary>
         /// Produces the Hill Notation of the chemical formula

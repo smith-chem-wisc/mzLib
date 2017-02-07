@@ -128,13 +128,11 @@ namespace UsefulProteomicsDatabases
             PeriodicTableLoader.Load(elementLocation);
         }
 
-        public static Generated.unimod LoadUnimod(string unimodLocation)
+        public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
         {
-            var unimodSerializer = new XmlSerializer(typeof(Generated.unimod));
-
             if (!File.Exists(unimodLocation))
                 UpdateUnimod(unimodLocation);
-            return unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open)) as Generated.unimod;
+            return UnimodLoader.ReadMods(unimodLocation);
         }
 
         public static Generated.obo LoadPsiMod(string psimodLocation)
@@ -145,56 +143,11 @@ namespace UsefulProteomicsDatabases
                 UpdatePsiMod(psimodLocation);
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open)) as Generated.obo;
         }
-
-        public static Dictionary<int, ChemicalFormulaModification> LoadUniprot(string uniprotLocation)
+        public static IEnumerable<Modification> LoadUniprot(string uniprotLocation)
         {
             if (!File.Exists(uniprotLocation))
                 UpdateUniprot(uniprotLocation);
-            Dictionary<int, ChemicalFormulaModification> modifications = new Dictionary<int, ChemicalFormulaModification>();
-            var PSI_MOD_ACCESSION_NUMBER_REGEX = new Regex(@"(.+); (\d+)\.");
-            using (StreamReader uniprot_mods = new StreamReader(uniprotLocation))
-            {
-                string feature_type = null;
-                int psimod_accession_number = 0;
-                string chemicalFormulaLine = null;
-                string name = null;
-                while (uniprot_mods.Peek() != -1)
-                {
-                    string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
-                    {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "FT":
-                                feature_type = line.Substring(5);
-                                break;
-
-                            case "CF":
-                                chemicalFormulaLine = line.Substring(5);
-                                break;
-
-                            case "ID":
-                                name = line.Substring(5);
-                                break;
-
-                            case "DR":
-                                if (line.Contains("PSI-MOD"))
-                                    psimod_accession_number = int.Parse(PSI_MOD_ACCESSION_NUMBER_REGEX.Match(line.Substring(5)).Groups[2].Value);
-                                break;
-
-                            case "//":
-                                // Only mod_res, not intrachain.
-                                if (feature_type == "MOD_RES" && !string.IsNullOrEmpty(chemicalFormulaLine) && !modifications.ContainsKey(psimod_accession_number))
-                                    modifications.Add(psimod_accession_number, new ChemicalFormulaModification(chemicalFormulaLine, name));
-                                feature_type = null;
-                                chemicalFormulaLine = null;
-                                name = null;
-                                break;
-                        }
-                    }
-                }
-            }
-            return modifications;
+            return PtmListLoader.ReadMods(uniprotLocation);
         }
 
         #endregion Public Methods
@@ -226,7 +179,7 @@ namespace UsefulProteomicsDatabases
         private static void DownloadUnimod(string unimodLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(@"http://www.unimod.org/xml/unimod_tables.xml", unimodLocation + ".temp");
+                Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
         }
 
         private static void DownloadElements(string elementLocation)

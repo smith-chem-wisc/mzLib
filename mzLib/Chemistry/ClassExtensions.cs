@@ -1,5 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
-// Modified work copyright 2016 Stefan Solntsev
+// Modified work copyright 2016, 2017 Stefan Solntsev
 //
 // This file (MassExtensions.cs) is part of Chemistry Library.
 //
@@ -22,28 +22,31 @@ namespace Chemistry
 {
     public static class ClassExtensions
     {
+
+        #region Private Fields
+
         /// <summary>
         /// The mass difference tolerance for having identical masses
         /// </summary>
         private const double MassEqualityEpsilon = 1e-10;
 
+        #endregion Private Fields
+
+        #region Public Methods
+
         /// <summary>
         /// Calculates m/z value for a given mass assuming charge comes from losing or gaining protons
         /// </summary>
-        public static double ToMZ(this IHasMass objectWithMass, int charge)
+        public static double ToMz(this IHasMass objectWithMass, int charge)
         {
-            if (objectWithMass == null)
-                throw new ArgumentException("Cannot compute an MZ value for a null object");
-            return ToMassToChargeRatio(objectWithMass.MonoisotopicMass, charge);
+            return ToMz(objectWithMass.MonoisotopicMass, charge);
         }
 
         /// <summary>
         /// Calculates m/z value for a given mass assuming charge comes from losing or gaining protons
         /// </summary>
-        public static double ToMassToChargeRatio(this double mass, int charge)
+        public static double ToMz(this double mass, int charge)
         {
-            if (charge == 0)
-                throw new DivideByZeroException("Charge cannot be zero");
             return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.ProtonMass;
         }
 
@@ -52,25 +55,10 @@ namespace Chemistry
         /// </summary>
         public static double ToMass(this double massToChargeRatio, int charge)
         {
-            if (charge == 0)
-                throw new DivideByZeroException("Charge cannot be zero");
             return Math.Abs(charge) * massToChargeRatio - charge * Constants.ProtonMass;
         }
 
-        /// <summary>
-        /// Approximate equality check, error due to rounding
-        /// </summary>
-        public static bool MassEquals(this double mass1, double mass2, double epsilon)
-        {
-            return Math.Abs(mass1 - mass2) < epsilon;
-        }
+        #endregion Public Methods
 
-        /// <summary>
-        /// Approximate equality check, error due to rounding
-        /// </summary>
-        public static bool MassEquals(this double mass1, double mass2)
-        {
-            return Math.Abs(mass1 - mass2) < MassEqualityEpsilon;
-        }
     }
 }

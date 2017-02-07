@@ -16,13 +16,14 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Spectra;
+using MzLibUtil;
 using System;
 
 namespace MassSpectrometry
 {
-    public interface IMsDataScan<out TSpectrum>
-        where TSpectrum : IMzSpectrum<MzPeak>
+    public interface IMsDataScan<out TSpectrum, out TPeak>
+        where TPeak : IMzPeak
+        where TSpectrum : IMzSpectrum<TPeak>
     {
 
         #region Public Properties
@@ -44,29 +45,7 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        bool TryGetPrecursorOneBasedScanNumber(out int precursorOneBasedScanNumber);
-
-        bool TryGetPrecursorID(out string PrecursorID);
-
-        bool TryGetSelectedIonGuessChargeStateGuess(out int? SelectedIonGuessChargeStateGuess);
-
-        bool TryGetSelectedIonGuessMonoisotopicIntensity(out double SelectedIonGuessMonoisotopicIntensity);
-
-        bool TryGetSelectedIonGuessMonoisotopicMZ(out double SelectedIonGuessMonoisotopicMZ);
-
-        bool TryGetSelectedIonGuessIntensity(out double SelectedIonGuessIntensity);
-
-        bool TryGetSelectedIonGuessMZ(out double SelectedIonGuessMZ);
-
-        bool TryGetDissociationType(out DissociationType DissociationType);
-
-        bool TryGetIsolationWidth(out double IsolationWidth);
-
-        bool TryGetIsolationMZ(out double IsolationMZ);
-
-        bool TryGetIsolationRange(out MzRange IsolationRange);
-
-        void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<MzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
+        void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
 
         #endregion Public Methods
 

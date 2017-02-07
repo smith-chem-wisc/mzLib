@@ -19,6 +19,7 @@
 using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using MSFileReaderLib;
+using MzLibUtil;
 using Spectra;
 using System;
 using System.Collections.Generic;
@@ -29,7 +30,7 @@ using System.Text.RegularExpressions;
 
 namespace IO.Thermo
 {
-    public class ThermoRawFile : MsDataFile<ThermoSpectrum>
+    public class ThermoRawFile : MsDataFile<ThermoSpectrum, ThermoMzPeak>
     {
 
         #region Private Fields
@@ -296,7 +297,7 @@ namespace IO.Thermo
             return new ThermoSpectrum(data);
         }
 
-        protected override MsDataScan<ThermoSpectrum> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
+        protected override IMsDataScan<ThermoSpectrum, ThermoMzPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
         {
             var precursorID = GetPrecursorID(oneBasedSpectrumNumber);
 
@@ -322,8 +323,8 @@ namespace IO.Thermo
             _rawConnection.GetMSOrderForScanNum(oneBasedSpectrumNumber, ref msnOrder);
 
             if (precursorID.Equals(GetSpectrumID(oneBasedSpectrumNumber)))
-                return new MsDataScan<ThermoSpectrum>(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent);
-            return new MsDataScan<ThermoSpectrum>(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent, precursorID, GetSelectedIonMZ(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetSelectedIonIntensity(oneBasedSpectrumNumber), GetIsolationMZ(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetParentSpectrumNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
+                return new ThermoScan(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent);
+            return new ThermoScanWithPrecursor(oneBasedSpectrumNumber, GetSpectrumFromRawFile(oneBasedSpectrumNumber), GetSpectrumID(oneBasedSpectrumNumber), msnOrder, GetIsCentroid(oneBasedSpectrumNumber), GetPolarity(oneBasedSpectrumNumber), retentionTime, ScanWindowRange, GetScanFilter(oneBasedSpectrumNumber), GetMzAnalyzer(oneBasedSpectrumNumber), GetInjectionTime(oneBasedSpectrumNumber), totalIonCurrent, precursorID, GetSelectedIonMZ(oneBasedSpectrumNumber), GetPrecusorCharge(oneBasedSpectrumNumber), GetSelectedIonIntensity(oneBasedSpectrumNumber), GetIsolationMZ(oneBasedSpectrumNumber), GetIsolationWidth(oneBasedSpectrumNumber), GetDissociationType(oneBasedSpectrumNumber), GetParentSpectrumNumber(oneBasedSpectrumNumber), GetPrecursorMonoisotopicIntensity(oneBasedSpectrumNumber), GetPrecursorMonoisotopicMZ(oneBasedSpectrumNumber));
         }
 
         #endregion Protected Methods

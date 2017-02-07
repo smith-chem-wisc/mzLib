@@ -92,7 +92,7 @@ namespace Proteomics
 
         public bool Equals(Fragment other)
         {
-            return FragmentType.Equals(other.FragmentType) && Number.Equals(other.Number) && MonoisotopicMass.MassEquals(other.MonoisotopicMass);
+            return FragmentType.Equals(other.FragmentType) && Number.Equals(other.Number) && Math.Abs(MonoisotopicMass - other.MonoisotopicMass) < 1e-9;
         }
     }
 }

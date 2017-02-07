@@ -78,7 +78,7 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C4H6N2O2");
 
-			formulaA.Add(new ChemicalFormula(formulaA));
+            formulaA.Add(new ChemicalFormula(formulaA));
 
             Assert.AreEqual(formulaA, formulaB);
         }
@@ -216,7 +216,7 @@ namespace Test
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             formulaA.Clear();
-			Assert.AreEqual(formulaA, new ChemicalFormula());
+            Assert.AreEqual(formulaA, new ChemicalFormula());
         }
 
         [Test]
@@ -230,7 +230,7 @@ namespace Test
         [Test]
         public void ConstructorDefaultEqualsEmptyFormula()
         {
-			ChemicalFormula formulaA = new ChemicalFormula();
+            ChemicalFormula formulaA = new ChemicalFormula();
 
             Assert.AreEqual(formulaA, new ChemicalFormula());
         }
@@ -847,7 +847,7 @@ namespace Test
 
             var a = IsotopicDistribution.GetDistribution(formulaA);
 
-			Assert.True(formulaA.MonoisotopicMass.MassEquals(a.masses[Array.IndexOf(a.intensities,a.intensities.Max())]));
+            Assert.True(Math.Abs(formulaA.MonoisotopicMass - a.Masses.ToArray()[Array.IndexOf(a.Intensities.ToArray(), a.Intensities.Max())]) < 1e-9);
         }
 
         [Test]
@@ -863,14 +863,14 @@ namespace Test
 
             // Distinguish between O and C isotope masses
             var a = IsotopicDistribution.GetDistribution(formulaA, 0.0001);
-            Assert.AreEqual(6, a.masses.Length);
+            Assert.AreEqual(6, a.Masses.Count());
 
             // Do not distinguish between O and C isotope masses
             IsotopicDistribution.GetDistribution(formulaA, 0.001);
 
             // Do not distinguish between O and C isotope masses
             var b = IsotopicDistribution.GetDistribution(formulaA);
-			Assert.AreEqual(4, b.masses.Length);
+            Assert.AreEqual(4, b.Masses.Count());
 
             IsotopicDistribution.GetDistribution(formulaA, 0.1);
 
@@ -910,8 +910,8 @@ namespace Test
 
             // Only the principal isotopes have joint probability of 0.5! So one result when calcuating isotopic distribution
             var a = IsotopicDistribution.GetDistribution(formulaA, 0.0001, 0.5);
-			Assert.AreEqual(1, a.masses.Length);
-			Assert.IsTrue((PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass).MassEquals(a.masses[0]));
+            Assert.AreEqual(1, a.Masses.Count());
+            Assert.IsTrue(Math.Abs((PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass - a.Masses.First())) < 1e-9);
         }
 
         [Test]
@@ -949,42 +949,11 @@ namespace Test
         [Test]
         public void ValidatePeriodicTable()
         {
-            Assert.AreEqual("Validation passed", PeriodicTable.ValidateAverageMasses(1e-2).Message);
-            Assert.AreEqual(ValidationResult.PassedAverageMassValidation, PeriodicTable.ValidateAverageMasses(1e-2).ThisValidationResult);
-            Assert.AreEqual("Average mass of Li is 6.94003660291572 instead of 6.9675", PeriodicTable.ValidateAverageMasses(1e-3).Message);
-            Assert.AreEqual(ValidationResult.FailedAverageMassValidation, PeriodicTable.ValidateAverageMasses(1e-3).ThisValidationResult);
+            Assert.IsTrue(PeriodicTable.ValidateAverageMasses(1e-2));
+            Assert.IsFalse(PeriodicTable.ValidateAverageMasses(1e-3));
+            Assert.IsTrue(PeriodicTable.ValidateAbundances(1e-15));
+            Assert.IsFalse(PeriodicTable.ValidateAbundances(0));
 
-            Assert.AreEqual("Validation passed", PeriodicTable.ValidateAbundances(1e-15).Message);
-            Assert.AreEqual(ValidationResult.PassedAbundanceValidation, PeriodicTable.ValidateAbundances(1e-15).ThisValidationResult);
-        
-            Assert.AreEqual(ValidationResult.FailedAbundanceValidation, PeriodicTable.ValidateAbundances(0).ThisValidationResult);
-        
-        }
-
-        [Test]
-        public void TestNullArguments()
-        {
-            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
-            IHasChemicalFormula ok = null;
-            Assert.Throws<ArgumentException>(() => { formulaA.Add(ok); });
-            ChemicalFormula ok2 = null;
-            Assert.Throws<ArgumentException>(() => { formulaA.Add(ok2); });
-            Element ok3 = null;
-            Assert.Throws<ArgumentException>(() => { formulaA.AddPrincipalIsotopesOf(ok3, 0); });
-            Assert.Throws<ArgumentException>(() => { formulaA.Remove(ok); });
-            Assert.Throws<ArgumentException>(() => { formulaA.Remove(ok2); });
-            Assert.Throws<ArgumentException>(() => { formulaA.IsSubsetOf(ok2); });
-            Assert.Throws<ArgumentException>(() => { formulaA.IsSupersetOf(ok2); });
-            Assert.Throws<ArgumentException>(() => { formulaA.CountWithIsotopes(ok3); });
-            Assert.Throws<ArgumentException>(() => { formulaA.CountSpecificIsotopes(ok3, 0); });
-            Assert.IsFalse(formulaA.Equals(ok2));
-            IEnumerable<IHasChemicalFormula> ok4 = null;
-            Assert.Throws<ArgumentException>(() => { ChemicalFormula.Combine(ok4); });
-            Assert.Throws<ArgumentException>(() => { PeriodicTable.Add(ok3); });
-
-            IHasMass ok5 = null;
-
-            Assert.Throws<ArgumentException>(() => { ok5.ToMZ(0); });
         }
 
         [Test]
@@ -999,11 +968,10 @@ namespace Test
         [Test]
         public void NotEqual()
         {
-            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("COHSN");
-            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("NSHOC");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C15O15H15S15N15");
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("N15S15H15O15C15");
             Assert.AreEqual(formulaA, formulaB);
-            Assert.IsTrue(formulaA.MonoisotopicMass.MassEquals(formulaB.MonoisotopicMass));
-            Assert.IsFalse(formulaA.MonoisotopicMass.MassEquals(formulaB.MonoisotopicMass, 0));
+            Assert.IsTrue(Math.Abs(formulaA.MonoisotopicMass - formulaB.MonoisotopicMass) < 1e-9);
         }
 
         [Test]
@@ -1020,7 +988,7 @@ namespace Test
         public void TestEquality()
         {
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CO");
-			Assert.AreEqual(formulaB,formulaB);
+            Assert.AreEqual(formulaB, formulaB);
         }
 
         [Test]
@@ -1037,11 +1005,11 @@ namespace Test
 
             IsotopicDistribution d = IsotopicDistribution.GetDistribution(formula, Math.Pow(2, -14));
 
-			Assert.AreEqual(324, d.intensities.Length);
+            Assert.AreEqual(324, d.Intensities.Count());
 
             d = IsotopicDistribution.GetDistribution(formula, Math.Pow(2, -1));
 
-            Assert.AreEqual(17, d.intensities.Length);
+            Assert.AreEqual(17, d.Intensities.Count());
         }
 
         #endregion Public Methods
