@@ -7,12 +7,12 @@ using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
-    internal static class ProteinDbLoader
+    public static class ProteinDbLoader
     {
 
         #region Public Methods
 
-        public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, IEnumerable<Modification>> allModifications, bool IsContaminant)
+        public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, HashSet<Modification>> allModifications, bool IsContaminant)
         {
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {

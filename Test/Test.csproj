@@ -79,6 +79,7 @@
     <Compile Include="TestFragments.cs" />
     <Compile Include="TestModifications.cs" />
     <Compile Include="TestPeptides.cs" />
+    <Compile Include="TestProteinReader.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestSpectra.cs" />
     <Compile Include="TestTolerance.cs" />
@@ -121,6 +122,9 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="fasta.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
     <None Include="tiny.pwiz.1.1.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -128,6 +132,11 @@
     <None Include="small.pwiz.1.1.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="xml.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
