@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
-using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System.Collections.Generic;
@@ -46,7 +45,13 @@ namespace Test
                 }
             };
 
-            ProteinDbLoader.LoadProteinDb(@"xml.xml", true, mods, false).ToList();
+            var ok = ProteinDbLoader.LoadProteinDb(@"xml.xml", true, mods, false).ToList();
+
+            Assert.AreEqual('M', ok[0][0]);
+            Assert.AreEqual('M', ok[1][0]);
+
+            Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
+            Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
         }
 
         [Test]
