@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using Proteomics;
-using UsefulProteomicsDatabases.Generated;
 using System;
+using System.Text;
 
-namespace UsefulProteomicsDatabases
+namespace Proteomics
 {
     public class ModificationWithMass : Modification
     {
@@ -22,12 +22,23 @@ namespace UsefulProteomicsDatabases
             this.diagnosticIons = diagnosticIons;
         }
 
-        public ModificationWithMass(string id, Tuple<string,string> ac, string tg, position_t pos, double mm, double neutralLoss)
+        public ModificationWithMass(string id, Tuple<string, string> ac, string tg, ModificationSites pos, double mm, double neutralLoss)
             : base(id, ac, tg, pos)
         {
             this.neutralLoss = neutralLoss;
             this.monoisotopicMass = mm;
             massesObserved = new HashSet<double> { mm };
+        }
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(base.ToString());
+            sb.AppendLine("NL   " + neutralLoss);
+            sb.AppendLine("MO   " + string.Join(" or ", massesObserved));
+            if (diagnosticIons != null)
+                sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons));
+            sb.Append("MM   " + monoisotopicMass);
+            return sb.ToString();
         }
     }
 }

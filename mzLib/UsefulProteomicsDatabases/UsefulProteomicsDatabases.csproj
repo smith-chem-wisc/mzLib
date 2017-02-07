@@ -54,9 +54,6 @@
   <ItemGroup>
     <Compile Include="Generated\unimod_2.cs" />
     <Compile Include="Loaders.cs" />
-    <Compile Include="Modification.cs" />
-    <Compile Include="ModificationWithMass.cs" />
-    <Compile Include="ModificationWithMassAndCf.cs" />
     <Compile Include="PeriodicTableLoader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>

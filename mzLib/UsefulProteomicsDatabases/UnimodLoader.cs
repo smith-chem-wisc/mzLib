@@ -1,8 +1,10 @@
 ﻿using Chemistry;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
+using UsefulProteomicsDatabases.Generated;
 
 namespace UsefulProteomicsDatabases
 {
@@ -15,6 +17,15 @@ namespace UsefulProteomicsDatabases
             {"18O", "O{18}" },
             {"15N", "N{15}" }
         };
+
+        private static readonly Dictionary<position_t, ModificationSites> positionDict = new Dictionary<position_t, ModificationSites>
+            {
+            {position_t.AnyCterm, ModificationSites.PepC },
+            {position_t.ProteinCterm, ModificationSites.ProtC },
+            {position_t.Anywhere, ModificationSites.Any },
+            {position_t.AnyNterm, ModificationSites.NPep },
+            {position_t.ProteinNterm, ModificationSites.NProt }
+            };
 
         internal static IEnumerable<Modification> ReadMods(string unimodLocation)
         {
@@ -47,10 +58,10 @@ namespace UsefulProteomicsDatabases
                     var tg = nice.site;
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, pos, cf, mm, 0);
+                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, 0);
                     else
                         foreach (var nl in nice.NeutralLoss)
-                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, pos, cf, mm, nl.mono_mass);
+                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, nl.mono_mass);
 
                 }
             }

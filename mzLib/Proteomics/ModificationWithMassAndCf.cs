@@ -1,16 +1,16 @@
 ﻿using System.Collections.Generic;
 using Chemistry;
 using Proteomics;
-using UsefulProteomicsDatabases.Generated;
 using System;
+using System.Text;
 
-namespace UsefulProteomicsDatabases
+namespace Proteomics
 {
     public class ModificationWithMassAndCf : ModificationWithMass
     {
         public readonly ChemicalFormula chemicalFormula;
 
-        public ModificationWithMassAndCf(string id, Tuple<string, string> ac, string tg, position_t pos, ChemicalFormula cf, double mm, double nl)
+        public ModificationWithMassAndCf(string id, Tuple<string, string> ac, string tg, ModificationSites pos, ChemicalFormula cf, double mm, double nl)
              : base(id, ac, tg, pos, mm, nl)
         {
             this.chemicalFormula = cf;
@@ -20,6 +20,14 @@ namespace UsefulProteomicsDatabases
             : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR, neutralLoss, massesObserved, diagnosticIons)
         {
             this.chemicalFormula = uniprotCF;
+        }
+
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(base.ToString());
+            sb.Append("CF   " + chemicalFormula.Formula);
+            return sb.ToString();
         }
     }
 }
