@@ -67,6 +67,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IThermoScan.cs" />
     <Compile Include="ThermoMzPeak.cs" />
     <Compile Include="ThermoRawFile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">

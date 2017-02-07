@@ -21,11 +21,12 @@ using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
-    public interface ICollectionOfMsScans<out TSpectrum, out TMzPeak> : IEnumerable<IMsDataScan<TSpectrum, TMzPeak>>
+    public interface ICollectionOfMsScans<out TScan, out TSpectrum, out TMzPeak> : IEnumerable<TScan>
         where TMzPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TMzPeak>
+        where TScan: IMsDataScan<TSpectrum, TMzPeak>
     {
-        IMsDataScan<TSpectrum, TMzPeak> GetOneBasedScan(int oneBasedScanNumber);
+        TScan GetOneBasedScan(int oneBasedScanNumber);
         string Name { get; }
         int NumSpectra { get; }
     }

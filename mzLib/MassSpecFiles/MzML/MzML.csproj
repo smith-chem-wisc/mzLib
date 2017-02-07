@@ -89,6 +89,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IMzmlScan.cs" />
     <Compile Include="Mzml.cs" />
     <Compile Include="MzmlMethods.cs" />
     <Compile Include="MzmlScanWithPrecursor.cs" />

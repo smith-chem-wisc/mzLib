@@ -28,7 +28,7 @@ using System.Text.RegularExpressions;
 
 namespace IO.MzML
 {
-	public class Mzml : MsDataFile<MzmlMzSpectrum, MzmlPeak>
+	public class Mzml : MsDataFile<IMzmlScan, MzmlMzSpectrum, MzmlPeak>
 	{
 
 		#region Private Fields
@@ -170,7 +170,7 @@ namespace IO.MzML
 			return Convert.ToInt32(_mzMLConnection.run.spectrumList.count);
 		}
 
-		protected override IMsDataScan<MzmlMzSpectrum, MzmlPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
+		protected override IMzmlScan GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
 		{
 			double[] masses = null;
 			double[] intensities = null;

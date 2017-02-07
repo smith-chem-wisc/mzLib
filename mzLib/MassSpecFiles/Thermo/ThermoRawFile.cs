@@ -30,7 +30,7 @@ using System.Text.RegularExpressions;
 
 namespace IO.Thermo
 {
-    public class ThermoRawFile : MsDataFile<ThermoSpectrum, ThermoMzPeak>
+    public class ThermoRawFile : MsDataFile<IThermoScan, ThermoSpectrum, ThermoMzPeak>
     {
 
         #region Private Fields
@@ -297,7 +297,7 @@ namespace IO.Thermo
             return new ThermoSpectrum(data);
         }
 
-        protected override IMsDataScan<ThermoSpectrum, ThermoMzPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
+        protected override IThermoScan GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
         {
             var precursorID = GetPrecursorID(oneBasedSpectrumNumber);
 

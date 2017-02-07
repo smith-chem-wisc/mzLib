@@ -23,12 +23,12 @@ using System.Linq;
 
 namespace Test
 {
-    public class FakeMsDataFile : MsDataFile<MzmlMzSpectrum, MzmlPeak>
+    public class FakeMsDataFile : MsDataFile<IMzmlScan, MzmlMzSpectrum, MzmlPeak>
     {
 
         #region Public Constructors
 
-        public FakeMsDataFile(string filePath, MsDataScan<MzmlMzSpectrum, MzmlPeak>[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
+        public FakeMsDataFile(string filePath, IMzmlScan[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
         {
             this.Scans = FakeScans;
         }
@@ -62,7 +62,7 @@ namespace Test
             return Scans.Count();
         }
 
-        protected override IMsDataScan<MzmlMzSpectrum, MzmlPeak> GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
+        protected override IMzmlScan GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
         {
             return Scans[oneBasedSpectrumNumber - 1];
         }

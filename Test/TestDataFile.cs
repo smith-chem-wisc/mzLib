@@ -61,7 +61,7 @@ namespace Test
             MzmlMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
             MzmlMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
-            MsDataScan<MzmlMzSpectrum, MzmlPeak>[] Scans = new MsDataScan<MzmlMzSpectrum, MzmlPeak>[2];
+            IMzmlScan[] Scans = new IMzmlScan[2];
             Scans[0] = new MzmlScan(1, MS1, "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
 
             Scans[1] = new MzmlScanWithPrecursor(2, MS2, "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 0.32374, 693.6550);

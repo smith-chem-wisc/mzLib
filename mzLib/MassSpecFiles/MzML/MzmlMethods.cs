@@ -49,7 +49,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(ICollectionOfMsScans<IMzSpectrum<IMzPeak>, IMzPeak> myMsDataFile, string outputFile)
+        public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(ICollectionOfMsScans<IMsDataScan<IMzSpectrum<IMzPeak>, IMzPeak>, IMzSpectrum<IMzPeak>, IMzPeak> myMsDataFile, string outputFile)
         {
             Generated.indexedmzML _indexedmzMLConnection = new Generated.indexedmzML();
             _indexedmzMLConnection.mzML = new Generated.mzMLType();

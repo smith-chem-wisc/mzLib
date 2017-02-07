@@ -3,7 +3,7 @@ using MzLibUtil;
 
 namespace IO.Thermo
 {
-    public class ThermoScan : MsDataScan<ThermoSpectrum, ThermoMzPeak>
+    public class ThermoScan : MsDataScan<ThermoSpectrum, ThermoMzPeak>, IThermoScan
     {
 
         public ThermoScan(int oneBasedScanNumber, ThermoSpectrum massSpectrum, string id, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double injectionTime, double totalIonCurrent)
