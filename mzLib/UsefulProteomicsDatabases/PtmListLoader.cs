@@ -13,7 +13,6 @@ namespace UsefulProteomicsDatabases
     static class PtmListLoader
     {
         private static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
-        //private static readonly Dictionary<string, ModificationSites> aminoAcidCodes;
         static PtmListLoader()
         {
             modificationTypeCodes = new Dictionary<string, ModificationSites>();
@@ -23,32 +22,7 @@ namespace UsefulProteomicsDatabases
             modificationTypeCodes.Add("Peptide C-terminal.", ModificationSites.PepC);
             modificationTypeCodes.Add("Anywhere.", ModificationSites.Any);
             modificationTypeCodes.Add("Protein core.", ModificationSites.Any);
-
-            //aminoAcidCodes = new Dictionary<string, ModificationSites>();
-            //aminoAcidCodes.Add("Alanine", ModificationSites.A);
-            //aminoAcidCodes.Add("Arginine", ModificationSites.R);
-            //aminoAcidCodes.Add("Asparagine", ModificationSites.N);
-            //aminoAcidCodes.Add("Aspartate", ModificationSites.D);
-            //aminoAcidCodes.Add("Aspartic Acid", ModificationSites.D);
-            //aminoAcidCodes.Add("Cysteine", ModificationSites.C);
-            //aminoAcidCodes.Add("Glutamate", ModificationSites.E);
-            //aminoAcidCodes.Add("Glutamic Acid", ModificationSites.E);
-            //aminoAcidCodes.Add("Glutamine", ModificationSites.Q);
-            //aminoAcidCodes.Add("Glycine", ModificationSites.G);
-            //aminoAcidCodes.Add("Histidine", ModificationSites.H);
-            //aminoAcidCodes.Add("Isoleucine", ModificationSites.I);
-            //aminoAcidCodes.Add("Leucine", ModificationSites.L);
-            //aminoAcidCodes.Add("Lysine", ModificationSites.K);
-            //aminoAcidCodes.Add("Methionine", ModificationSites.M);
-            //aminoAcidCodes.Add("Phenylalanine", ModificationSites.F);
-            //aminoAcidCodes.Add("Proline", ModificationSites.P);
-            //aminoAcidCodes.Add("Serine", ModificationSites.S);
-            //aminoAcidCodes.Add("Threonine", ModificationSites.T);
-            //aminoAcidCodes.Add("Tryptophan", ModificationSites.W);
-            //aminoAcidCodes.Add("Tyrosine", ModificationSites.Y);
-            //aminoAcidCodes.Add("Valine", ModificationSites.V);
-            //aminoAcidCodes.Add("Any", ModificationSites.Any);
-            //aminoAcidCodes.Add("Undefined", ModificationSites.None);
+            
         }
         public static IEnumerable<Modification> ReadMods(string uniprotLocation)
         {

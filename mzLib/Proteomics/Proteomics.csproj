@@ -51,6 +51,7 @@
     <Compile Include="Modification.cs" />
     <Compile Include="ModificationWithMass.cs" />
     <Compile Include="ModificationWithMassAndCf.cs" />
+    <Compile Include="Protein.cs" />
     <Compile Include="Residue.cs" />
     <Compile Include="AminoAcidPolymer.cs" />
     <Compile Include="ChemicalFormulaFragment.cs" />
