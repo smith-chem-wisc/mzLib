@@ -16,30 +16,31 @@ namespace UsefulProteomicsDatabases
         {
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
-                Stream uniprotXmlFileStream = stream;
-                if (proteinDbLocation.EndsWith(".gz"))
-                    uniprotXmlFileStream = new GZipStream(stream, CompressionMode.Decompress);
-
-                string[] nodes = new string[6];
-
                 string accession = null;
                 string name = null;
                 string full_name = null;
-                string sequence = null;
-                string feature_type = null;
-                string feature_description = null;
-                int oneBasedfeature_position = -1;
-                int oneBasedbeginPosition = -1;
-                int oneBasedendPosition = -1;
-                var oneBasedBeginPositions = new List<int>();
-                var oneBasedEndPositions = new List<int>();
-                var peptideTypes = new List<string>();
-                var oneBasedModifications = new Dictionary<int, HashSet<Modification>>();
                 int offset = 0;
+                string sequence = null;
 
                 // xml db
                 if (!proteinDbLocation.EndsWith(".fasta"))
                 {
+                    Stream uniprotXmlFileStream = stream;
+                    if (proteinDbLocation.EndsWith(".gz"))
+                        uniprotXmlFileStream = new GZipStream(stream, CompressionMode.Decompress);
+
+                    string[] nodes = new string[6];
+
+                    string feature_type = null;
+                    string feature_description = null;
+                    int oneBasedfeature_position = -1;
+                    int oneBasedbeginPosition = -1;
+                    int oneBasedendPosition = -1;
+                    var oneBasedBeginPositions = new List<int>();
+                    var oneBasedEndPositions = new List<int>();
+                    var peptideTypes = new List<string>();
+                    var oneBasedModifications = new Dictionary<int, HashSet<Modification>>();
+
                     using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
                     {
                         while (xml.Read())
@@ -254,7 +255,7 @@ namespace UsefulProteomicsDatabases
                         {
                             if (accession != null && sequence != null)
                             {
-                                var protein = new Protein(sequence, accession, null, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, false, IsContaminant);
+                                var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant);
                                 yield return protein;
 
                                 if (onTheFlyDecoys)
@@ -270,16 +271,7 @@ namespace UsefulProteomicsDatabases
                                         Array.Reverse(sequence_array);
                                     }
                                     var reversed_sequence = new string(sequence_array);
-                                    int[] decoybeginPositions = new int[oneBasedBeginPositions.Count];
-                                    int[] decoyendPositions = new int[oneBasedEndPositions.Count];
-                                    string[] decoyBigPeptideTypes = new string[oneBasedEndPositions.Count];
-                                    for (int i = 0; i < decoybeginPositions.Length; i++)
-                                    {
-                                        decoybeginPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedEndPositions[i] + 1;
-                                        decoyendPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedBeginPositions[i] + 1;
-                                        decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
-                                    }
-                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, null, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, offset, true, IsContaminant);
+                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, null, null, null, null, name, full_name, offset, true, IsContaminant);
                                     yield return decoy_protein;
                                     offset += protein.Length;
                                 }
