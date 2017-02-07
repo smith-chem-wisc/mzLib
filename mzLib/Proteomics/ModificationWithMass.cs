@@ -35,8 +35,7 @@ namespace Proteomics
             sb.AppendLine(base.ToString());
             sb.AppendLine("NL   " + neutralLoss);
             sb.AppendLine("MO   " + string.Join(" or ", massesObserved));
-            if (diagnosticIons != null)
-                sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons));
+            sb.AppendLine("DI   " + diagnosticIons != null ? string.Join(" or ", diagnosticIons) : "");
             sb.Append("MM   " + monoisotopicMass);
             return sb.ToString();
         }

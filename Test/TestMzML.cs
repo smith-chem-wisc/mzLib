@@ -53,6 +53,7 @@ namespace Test
         {
             Mzml a = new Mzml(@"small.pwiz.1.1.mzML");
             a.Open();
+            a.LoadAllScansInMemory();
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             Assert.AreEqual(19914, a.First().MassSpectrum.Size);
