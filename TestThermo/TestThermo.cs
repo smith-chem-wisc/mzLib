@@ -135,6 +135,21 @@ namespace TestThermo
             a.Close();
         }
 
+        [Test]
+        public void ThermoSpectrumTest()
+        {
+            double[] resolutions = new double[] { 1 };
+            int[] charge = new int[] { 1 };
+            double[] mz = new double[] { 1 };
+            double[] intensity = new double[] { 1 };
+            double[] noise = new double[] { 1 };
+            ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
+            ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
+            s1.ReplaceXbyApplyingFunction((a) => 0);
+            Assert.AreEqual(0, s2.First().Mz);
+        }
+
+
         #endregion Public Methods
 
     }
