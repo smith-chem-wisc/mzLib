@@ -1,17 +1,25 @@
 ﻿using System.Collections.Generic;
 using Chemistry;
 using Proteomics;
+using UsefulProteomicsDatabases.Generated;
+using System;
 
 namespace UsefulProteomicsDatabases
 {
     internal class ModificationWithMassAndCf : ModificationWithMass
     {
-        private ChemicalFormula uniprotCF;
+        private readonly ChemicalFormula chemicalFormula;
 
-        public ModificationWithMassAndCf(string uniprotID, string uniprotAC, ModificationSites uniprotTG, ModificationSites uniprotPP, ChemicalFormula uniprotCF, double? uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, IEnumerable<double> massesOnFragments, IEnumerable<double> massesObserved, IEnumerable<string> motifs)
-            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR, massesOnFragments, massesObserved, motifs)
+        public ModificationWithMassAndCf(string id, Tuple<string, string> ac, string tg, position_t pos, ChemicalFormula cf, double mm, double nl)
+             : base(id, ac, tg, pos, mm, nl)
         {
-            this.uniprotCF = uniprotCF;
+            this.chemicalFormula = cf;
+        }
+
+        public ModificationWithMassAndCf(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, ChemicalFormula uniprotCF, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons)
+            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR, neutralLoss, massesObserved, diagnosticIons)
+        {
+            this.chemicalFormula = uniprotCF;
         }
     }
 }

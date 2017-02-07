@@ -52,6 +52,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Generated\unimod_2.cs" />
     <Compile Include="Loaders.cs" />
     <Compile Include="Modification.cs" />
     <Compile Include="ModificationWithMass.cs" />
@@ -60,9 +61,9 @@
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
-    <Compile Include="Generated\PsiModLoader.cs" />
-    <Compile Include="Generated\UnimodLoader.cs" />
+    <Compile Include="Generated\PsiModGenerated.cs" />
     <Compile Include="PtmListLoader.cs" />
+    <Compile Include="UnimodLoader.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">

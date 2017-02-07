@@ -13,42 +13,42 @@ namespace UsefulProteomicsDatabases
     static class PtmListLoader
     {
         private static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
-        private static readonly Dictionary<string, ModificationSites> aminoAcidCodes;
+        //private static readonly Dictionary<string, ModificationSites> aminoAcidCodes;
         static PtmListLoader()
         {
             modificationTypeCodes = new Dictionary<string, ModificationSites>();
-            modificationTypeCodes.Add("N-terminal.", ModificationSites.NProt);
+            modificationTypeCodes.Add("N-terminal.", ModificationSites.NProt); // Implies protein only, not peptide
             modificationTypeCodes.Add("C-terminal.", ModificationSites.ProtC);
             modificationTypeCodes.Add("Peptide N-terminal.", ModificationSites.NPep);
             modificationTypeCodes.Add("Peptide C-terminal.", ModificationSites.PepC);
             modificationTypeCodes.Add("Anywhere.", ModificationSites.Any);
             modificationTypeCodes.Add("Protein core.", ModificationSites.Any);
 
-            aminoAcidCodes = new Dictionary<string, ModificationSites>();
-            aminoAcidCodes.Add("Alanine", ModificationSites.A);
-            aminoAcidCodes.Add("Arginine", ModificationSites.R);
-            aminoAcidCodes.Add("Asparagine", ModificationSites.N);
-            aminoAcidCodes.Add("Aspartate", ModificationSites.D);
-            aminoAcidCodes.Add("Aspartic Acid", ModificationSites.D);
-            aminoAcidCodes.Add("Cysteine", ModificationSites.C);
-            aminoAcidCodes.Add("Glutamate", ModificationSites.E);
-            aminoAcidCodes.Add("Glutamic Acid", ModificationSites.E);
-            aminoAcidCodes.Add("Glutamine", ModificationSites.Q);
-            aminoAcidCodes.Add("Glycine", ModificationSites.G);
-            aminoAcidCodes.Add("Histidine", ModificationSites.H);
-            aminoAcidCodes.Add("Isoleucine", ModificationSites.I);
-            aminoAcidCodes.Add("Leucine", ModificationSites.L);
-            aminoAcidCodes.Add("Lysine", ModificationSites.K);
-            aminoAcidCodes.Add("Methionine", ModificationSites.M);
-            aminoAcidCodes.Add("Phenylalanine", ModificationSites.F);
-            aminoAcidCodes.Add("Proline", ModificationSites.P);
-            aminoAcidCodes.Add("Serine", ModificationSites.S);
-            aminoAcidCodes.Add("Threonine", ModificationSites.T);
-            aminoAcidCodes.Add("Tryptophan", ModificationSites.W);
-            aminoAcidCodes.Add("Tyrosine", ModificationSites.Y);
-            aminoAcidCodes.Add("Valine", ModificationSites.V);
-            aminoAcidCodes.Add("Any", ModificationSites.Any);
-            aminoAcidCodes.Add("Undefined", ModificationSites.None);
+            //aminoAcidCodes = new Dictionary<string, ModificationSites>();
+            //aminoAcidCodes.Add("Alanine", ModificationSites.A);
+            //aminoAcidCodes.Add("Arginine", ModificationSites.R);
+            //aminoAcidCodes.Add("Asparagine", ModificationSites.N);
+            //aminoAcidCodes.Add("Aspartate", ModificationSites.D);
+            //aminoAcidCodes.Add("Aspartic Acid", ModificationSites.D);
+            //aminoAcidCodes.Add("Cysteine", ModificationSites.C);
+            //aminoAcidCodes.Add("Glutamate", ModificationSites.E);
+            //aminoAcidCodes.Add("Glutamic Acid", ModificationSites.E);
+            //aminoAcidCodes.Add("Glutamine", ModificationSites.Q);
+            //aminoAcidCodes.Add("Glycine", ModificationSites.G);
+            //aminoAcidCodes.Add("Histidine", ModificationSites.H);
+            //aminoAcidCodes.Add("Isoleucine", ModificationSites.I);
+            //aminoAcidCodes.Add("Leucine", ModificationSites.L);
+            //aminoAcidCodes.Add("Lysine", ModificationSites.K);
+            //aminoAcidCodes.Add("Methionine", ModificationSites.M);
+            //aminoAcidCodes.Add("Phenylalanine", ModificationSites.F);
+            //aminoAcidCodes.Add("Proline", ModificationSites.P);
+            //aminoAcidCodes.Add("Serine", ModificationSites.S);
+            //aminoAcidCodes.Add("Threonine", ModificationSites.T);
+            //aminoAcidCodes.Add("Tryptophan", ModificationSites.W);
+            //aminoAcidCodes.Add("Tyrosine", ModificationSites.Y);
+            //aminoAcidCodes.Add("Valine", ModificationSites.V);
+            //aminoAcidCodes.Add("Any", ModificationSites.Any);
+            //aminoAcidCodes.Add("Undefined", ModificationSites.None);
         }
         public static IEnumerable<Modification> ReadMods(string uniprotLocation)
         {
@@ -56,18 +56,18 @@ namespace UsefulProteomicsDatabases
             {
                 // UniProt fields
                 string uniprotID = null;
-                string uniprotAC = null;
+                Tuple<string, string> uniprotAC = null;
                 string uniprotFT = null;
-                var uniprotTG = ModificationSites.None;
+                IEnumerable<string> uniprotTG = null;
                 var uniprotPP = ModificationSites.None;
                 ChemicalFormula uniprotCF = null;
                 double? uniprotMM = null;
                 var uniprotDR = new Dictionary<string, HashSet<string>>();
 
                 // Custom fields
-                IEnumerable<double> massesOnFragments = null;
+                IEnumerable<double> neutralLosses = null;
                 IEnumerable<double> massesObserved = null;
-                IEnumerable<string> motifs = null;
+                IEnumerable<double> diagnosticIons = null;
 
                 while (uniprot_mods.Peek() != -1)
                 {
@@ -81,17 +81,17 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "AC":
-                                uniprotAC = line.Substring(5);
+                                uniprotAC = new Tuple<string, string>("uniprot", line.Substring(5));
                                 break;
 
                             case "FT": // MOD_RES CROSSLINK LIPID
                                 uniprotFT = line.Substring(5);
                                 break;
 
-                            case "TG": // Which amino acid(s) is the modification on
+                            case "TG": // Which amino acid(s) or motifs is the modification on
                                 try
                                 {
-                                    uniprotTG = line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None).Select(b => aminoAcidCodes[b]).Aggregate((a, b) => a | b);
+                                    uniprotTG = new HashSet<string>(line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
                                 }
                                 catch (KeyNotFoundException) { }
                                 break;
@@ -125,65 +125,71 @@ namespace UsefulProteomicsDatabases
 
                             // NOW CUSTOM FIELDS:
 
-                            case "FM": // What masses are attached to fragments. If field doesn't exist, single equal to MM
-                                massesOnFragments = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
+                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
+                                neutralLosses = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
                                 break;
 
                             case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
                                 massesObserved = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
                                 break;
 
-                            // Motif example: Nxs. 
-                            // Must conform to one of the motifs
-                            // If field doesn't exist, default value is a single "X"
-                            case "MO":
-                                motifs = new HashSet<string>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None));
+                            case "DI": // Masses of diagnostic ions
+                                diagnosticIons = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
                                 break;
 
 
                             case "//":
                                 // Only mod_res, not intrachain.
-                                if ((uniprotFT == null || uniprotFT.Equals("MOD_RES")) && !(uniprotPP == ModificationSites.None) && !(uniprotTG == ModificationSites.None) && !(uniprotID == null))
+                                if ((uniprotFT == null || !uniprotFT.Equals("CROSSLINK")) && !(uniprotPP == ModificationSites.None) && !(uniprotTG == null) && !(uniprotID == null))
                                 {
-                                    // Add the modification!
-                                    if (!uniprotMM.HasValue)
+                                    foreach (var singleTarget in uniprotTG)
                                     {
-                                        // Return modification
-                                        yield return new Modification(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR,
-                                            motifs == null ? new HashSet<string> { "X" } : motifs);
+                                        // Add the modification!
+                                        if (!uniprotMM.HasValue)
+                                        {
+                                            // Return modification
+                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR);
+                                        }
+                                        else
+                                        {
+                                            if (neutralLosses == null)
+                                                neutralLosses = new HashSet<double> { 0 };
+                                            foreach (var neutralLoss in neutralLosses)
+                                            {
+                                                if (uniprotCF == null)
+                                                {
+                                                    // Return modification with mass
+                                                    yield return new ModificationWithMass(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotMM.Value, uniprotDR,
+                                                        neutralLoss,
+                                                        massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
+                                                        diagnosticIons);
+                                                }
+                                                else
+                                                {
+                                                    // Return modification with complete information!
+                                                    yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotCF, uniprotMM.Value, uniprotDR,
+                                                        neutralLoss,
+                                                        massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
+                                                        diagnosticIons);
+                                                }
+                                            }
+                                        }
                                     }
-                                    else if (uniprotCF == null)
-                                    {
-                                        // Return modification with mass
-                                        yield return new ModificationWithMass(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR,
-                                            massesOnFragments == null ? new HashSet<double> { uniprotMM.Value } : massesOnFragments,
-                                            massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                            motifs == null ? new HashSet<string> { "X" } : motifs);
-                                    }
-                                    else
-                                    {
-                                        // Return modification with complete information!
-                                        yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotCF, uniprotMM, uniprotDR,
-                                            massesOnFragments == null ? new HashSet<double> { uniprotMM.Value } : massesOnFragments,
-                                            massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                            motifs == null ? new HashSet<string> { "X" } : motifs);
-                                    }
-
                                 }
 
                                 uniprotID = null;
                                 uniprotAC = null;
                                 uniprotFT = null;
-                                uniprotTG = ModificationSites.None;
+                                uniprotTG = null;
                                 uniprotPP = ModificationSites.None;
                                 uniprotCF = null;
                                 uniprotMM = null;
                                 uniprotDR = new Dictionary<string, HashSet<string>>();
 
                                 // Custom fields
-                                massesOnFragments = null;
+                                neutralLosses = null;
                                 massesObserved = null;
-                                motifs = null;
+                                diagnosticIons = null;
 
                                 break;
                         }

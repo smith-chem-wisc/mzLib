@@ -273,6 +273,16 @@ namespace Chemistry
             Add(item.ThisChemicalFormula);
         }
 
+        public void Multiply(int multiplier)
+        {
+            List<Element> keys = new List<Element>(Elements.Keys);
+            foreach (var key in keys)
+                Elements[key] *= multiplier;
+            List<Isotope> keysIsotope = new List<Isotope>(Isotopes.Keys);
+            foreach (var key in keysIsotope)
+                Isotopes[key] *= multiplier;
+        }
+
         /// <summary>
         /// Add a chemical formula to this chemical formula.
         /// </summary>

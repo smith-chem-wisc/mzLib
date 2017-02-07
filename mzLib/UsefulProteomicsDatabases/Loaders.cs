@@ -128,13 +128,11 @@ namespace UsefulProteomicsDatabases
             PeriodicTableLoader.Load(elementLocation);
         }
 
-        public static Generated.unimod LoadUnimod(string unimodLocation)
+        public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
         {
-            var unimodSerializer = new XmlSerializer(typeof(Generated.unimod));
-
             if (!File.Exists(unimodLocation))
                 UpdateUnimod(unimodLocation);
-            return unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open)) as Generated.unimod;
+            return UnimodLoader.ReadMods(unimodLocation);
         }
 
         public static Generated.obo LoadPsiMod(string psimodLocation)
@@ -181,7 +179,7 @@ namespace UsefulProteomicsDatabases
         private static void DownloadUnimod(string unimodLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(@"http://www.unimod.org/xml/unimod_tables.xml", unimodLocation + ".temp");
+                Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
         }
 
         private static void DownloadElements(string elementLocation)
