@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
 using System.Collections;
@@ -24,34 +25,28 @@ using System.Linq;
 
 namespace Spectra
 {
+    /// <summary>
+    /// Spectrum that is defined by its arrays
+    /// </summary>
+    /// <typeparam name="TPeak"></typeparam>
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
 
-        #region Protected Fields
-
-        protected TPeak[] peakList;
-
-        #endregion Protected Fields
-
         #region Private Fields
 
-        protected double yofPeakWithHighestY = double.NaN;
+        protected readonly double[] XArray;
+        protected readonly double[] YArray;
 
-        protected double sumOfAllY = double.NaN;
-
+        private double? yofPeakWithHighestY;
+        private double? sumOfAllY;
+        protected TPeak[] peakList;
         protected TPeak peakWithHighestY;
 
         #endregion Private Fields
 
         #region Protected Constructors
 
-        /// <summary>
-        /// Initializes a new spectrum
-        /// </summary>
-        /// <param name="x">The m/z's</param>
-        /// <param name="y">The intensities</param>
-        /// <param name="shouldCopy">Indicates whether the input arrays should be copied to new ones</param>
         protected Spectrum(double[] x, double[] y, bool shouldCopy)
         {
             if (shouldCopy)
@@ -66,36 +61,19 @@ namespace Spectra
                 XArray = x;
                 YArray = y;
             }
-            peakList = new TPeak[Count];
+            peakList = new TPeak[Size];
         }
 
-        /// <summary>
-        /// Initializes a new spectrum from another spectrum
-        /// </summary>
-        /// <param name="spectrumToClone">The spectrum to clone</param>
-        protected Spectrum(ISpectrum<IPeak> spectrumToClone)
-            : this(spectrumToClone.XArray, spectrumToClone.YArray, true)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new spectrum
-        /// </summary>
-        /// <param name="xy"></param>
         protected Spectrum(double[,] xy)
-            : this(xy, xy.GetLength(1))
         {
-        }
-
-        protected Spectrum(double[,] xy, int count)
-        {
+            var count = xy.GetLength(1);
             int length = xy.GetLength(1);
 
             XArray = new double[count];
             YArray = new double[count];
             Buffer.BlockCopy(xy, 0, XArray, 0, sizeof(double) * count);
             Buffer.BlockCopy(xy, sizeof(double) * length, YArray, 0, sizeof(double) * count);
-            peakList = new TPeak[Count];
+            peakList = new TPeak[Size];
         }
 
         #endregion Protected Constructors
@@ -104,21 +82,17 @@ namespace Spectra
 
         public double FirstX { get { return XArray[0]; } }
 
-        public double LastX { get { return XArray[Count - 1]; } }
+        public double LastX { get { return XArray[Size - 1]; } }
 
-        public int Count { get { return XArray.Length; } }
-
-        public double[] XArray { get; private set; }
-
-        public double[] YArray { get; private set; }
+        public int Size { get { return XArray.Length; } }
 
         public double YofPeakWithHighestY
         {
             get
             {
-                if (double.IsNaN(yofPeakWithHighestY))
+                if (!yofPeakWithHighestY.HasValue)
                     yofPeakWithHighestY = YArray.Max();
-                return yofPeakWithHighestY;
+                return yofPeakWithHighestY.Value;
             }
         }
 
@@ -126,9 +100,9 @@ namespace Spectra
         {
             get
             {
-                if (double.IsNaN(sumOfAllY))
+                if (!sumOfAllY.HasValue)
                     sumOfAllY = YArray.Sum();
-                return sumOfAllY;
+                return sumOfAllY.Value;
             }
         }
 
@@ -144,7 +118,7 @@ namespace Spectra
         {
             get
             {
-                if (peakWithHighestY == null)
+                if (EqualityComparer<TPeak>.Default.Equals(peakWithHighestY, default(TPeak)))
                     peakWithHighestY = this[Array.IndexOf(YArray, YArray.Max())];
                 return peakWithHighestY;
             }
@@ -159,7 +133,7 @@ namespace Spectra
             get
             {
                 if (peakList[index] == null)
-                    peakList[index] = (TPeak)Activator.CreateInstance(typeof(TPeak), new object[] { XArray[index], YArray[index] });
+                    peakList[index] = GeneratePeak(index);
                 return peakList[index];
             }
         }
@@ -170,69 +144,16 @@ namespace Spectra
 
         public override string ToString()
         {
-            return string.Format("{0} (Peaks {1})", Range, Count);
-        }
-
-        public Spectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
-        {
-            var ok = FilterByNumberOfMostIntense(topNPeaks);
-            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
-        }
-
-        public abstract Spectrum<TPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v);
-
-        public Spectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX)
-        {
-            var ok = WithRangeRemoved(minX, maxX);
-            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
-        }
-
-        public Spectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
-        {
-            var ok = WithRangesRemoved(xRanges);
-            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
-        }
-
-        public Spectrum<TPeak> NewSpectrumExtract(double minX, double maxX)
-        {
-            var ok = Extract(minX, maxX);
-            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
-        }
-
-        public Spectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY)
-        {
-            var ok = FilterByY(minY, maxY);
-            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
-        }
-
-        public Spectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor)
-        {
-            var ok = ApplyFunctionToX(convertor);
-            return CreateSpectrumFromTwoArrays(ok.Item1, ok.Item2, false);
+            return string.Format("{0} (Peaks {1})", Range, Size);
         }
 
         public virtual double[,] CopyTo2DArray()
         {
-            double[,] data = new double[2, Count];
+            double[,] data = new double[2, Size];
             const int size = sizeof(double);
-            Buffer.BlockCopy(XArray, 0, data, 0, size * Count);
-            Buffer.BlockCopy(YArray, 0, data, size * Count, size * Count);
+            Buffer.BlockCopy(XArray, 0, data, 0, size * Size);
+            Buffer.BlockCopy(YArray, 0, data, size * Size, size * Size);
             return data;
-        }
-
-        public ISpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange)
-        {
-            return NewSpectrumFilterByY(yRange.Minimum, yRange.Maximum);
-        }
-
-        public ISpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange)
-        {
-            return NewSpectrumWithRangeRemoved(xRange.Minimum, xRange.Maximum);
-        }
-
-        public ISpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange)
-        {
-            return NewSpectrumExtract(xRange.Minimum, xRange.Maximum);
         }
 
         public TPeak GetClosestPeak(double x)
@@ -247,7 +168,7 @@ namespace Spectra
 
         public IEnumerator<TPeak> GetEnumerator()
         {
-            for (int i = 0; i < Count; i++)
+            for (int i = 0; i < Size; i++)
                 yield return this[i];
         }
 
@@ -258,250 +179,84 @@ namespace Spectra
 
         public int NumPeaksWithinRange(double minX, double maxX)
         {
-            int index = Array.BinarySearch(XArray, minX);
-
-            if (index < 0)
-                index = ~index;
-
-            if (index >= Count)
+            int startingIndex = Array.BinarySearch(XArray, minX);
+            if (startingIndex < 0)
+                startingIndex = ~startingIndex;
+            if (startingIndex >= Size)
+                return 0;
+            int endIndex = Array.BinarySearch(XArray, maxX);
+            if (endIndex < 0)
+                endIndex = ~endIndex;
+            if (endIndex == 0)
                 return 0;
 
-            int startingIndex = index;
+            return endIndex - startingIndex;
+        }
 
-            // TODO: replace by binary search here as well
-            while (index < Count && XArray[index] <= maxX)
-                index++;
+        public IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks)
+        {
+            double cutoffYvalue = YArray.Quantile(1.0 - (double)topNPeaks / Size);
 
-            return index - startingIndex;
+            for (int i = 0; i < Size; i++)
+                if (YArray[i] >= cutoffYvalue)
+                    yield return this[i];
+        }
+
+        public IEnumerable<TPeak> Extract(DoubleRange xRange)
+        {
+            return Extract(xRange.Minimum, xRange.Maximum);
+        }
+
+        public IEnumerable<TPeak> Extract(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+                ind = ~ind;
+            while (this[ind].X <= maxX && ind < Size)
+            {
+                yield return this[ind];
+                ind++;
+            }
+        }
+
+        public IEnumerable<TPeak> FilterByY(double minY, double maxY)
+        {
+            for (int i = 0; i < Size; i++)
+                if (YArray[i] >= minY && YArray[i] <= maxY)
+                    yield return this[i];
+        }
+
+        public IEnumerable<TPeak> FilterByY(DoubleRange yRange)
+        {
+            return FilterByY(yRange.Minimum, yRange.Maximum);
         }
 
         #endregion Public Methods
 
         #region Protected Methods
 
-        protected Tuple<double[], double[]> ApplyFunctionToX(Func<double, double> convertor)
-        {
-            double[] modifiedXarray = new double[Count];
-            for (int i = 0; i < Count; i++)
-                modifiedXarray[i] = convertor(XArray[i]);
-            double[] newYarray = new double[YArray.Length];
-            Array.Copy(YArray, newYarray, YArray.Length);
-            return new Tuple<double[], double[]>(modifiedXarray, newYarray);
-        }
+        protected abstract TPeak GeneratePeak(int index);
 
-        protected Tuple<double[], double[]> WithRangeRemoved(double minX, double maxX)
-        {
-            int count = Count;
-
-            // Peaks to remove
-            HashSet<int> indiciesToRemove = new HashSet<int>();
-
-            int index = Array.BinarySearch(XArray, minX);
-            if (index < 0)
-                index = ~index;
-
-            while (index < count && XArray[index] <= maxX)
-            {
-                indiciesToRemove.Add(index);
-                index++;
-            }
-
-            // The size of the cleaned spectrum
-            int cleanCount = count - indiciesToRemove.Count;
-
-            // Create the storage for the cleaned spectrum
-            double[] newXarray = new double[cleanCount];
-            double[] newYarray = new double[cleanCount];
-
-            // Transfer peaks from the old spectrum to the new one
-            int j = 0;
-            for (int i = 0; i < count; i++)
-            {
-                if (indiciesToRemove.Contains(i))
-                    continue;
-                newXarray[j] = XArray[i];
-                newYarray[j] = YArray[i];
-                j++;
-            }
-            return new Tuple<double[], double[]>(newXarray, newYarray);
-        }
-
-        protected Tuple<double[], double[]> WithRangesRemoved(IEnumerable<DoubleRange> xRanges)
-        {
-            int count = Count;
-
-            // Peaks to remove
-            HashSet<int> indiciesToRemove = new HashSet<int>();
-
-            // Loop over each range to remove
-            foreach (DoubleRange range in xRanges)
-            {
-                double min = range.Minimum;
-                double max = range.Maximum;
-
-                int index = Array.BinarySearch(XArray, min);
-                if (index < 0)
-                    index = ~index;
-
-                while (index < count && XArray[index] <= max)
-                {
-                    indiciesToRemove.Add(index);
-                    index++;
-                }
-            }
-
-            // The size of the cleaned spectrum
-            int cleanCount = count - indiciesToRemove.Count;
-
-            // Create the storage for the cleaned spectrum
-            double[] newXarray = new double[cleanCount];
-            double[] newYarray = new double[cleanCount];
-
-            // Transfer peaks from the old spectrum to the new one
-            int j = 0;
-            for (int i = 0; i < count; i++)
-            {
-                if (indiciesToRemove.Contains(i))
-                    continue;
-                newXarray[j] = XArray[i];
-                newYarray[j] = YArray[i];
-                j++;
-            }
-
-            return new Tuple<double[], double[]>(newXarray, newYarray);
-        }
-
-        protected Tuple<double[], double[]> FilterByY(double minY, double maxY)
-        {
-            int count = Count;
-            double[] newXarray = new double[count];
-            double[] newYarray = new double[count];
-            int j = 0;
-            for (int i = 0; i < count; i++)
-            {
-                double intensity = YArray[i];
-                if (intensity >= minY && intensity < maxY)
-                {
-                    newXarray[j] = XArray[i];
-                    newYarray[j] = intensity;
-                    j++;
-                }
-            }
-
-            if (j != count)
-            {
-                Array.Resize(ref newXarray, j);
-                Array.Resize(ref newYarray, j);
-            }
-
-            return new Tuple<double[], double[]>(newXarray, newYarray);
-        }
-
-        protected Tuple<double[], double[]> Extract(double minX, double maxX)
-        {
-            int index = GetClosestPeakIndex(minX);
-            if (this[index].X < minX)
-                index++;
-
-            int count = Count;
-            double[] newXarray = new double[count];
-            double[] newYarray = new double[count];
-            int j = 0;
-
-            while (index < Count && XArray[index] <= maxX)
-            {
-                newXarray[j] = XArray[index];
-                newYarray[j] = YArray[index];
-                index++;
-                j++;
-            }
-
-            Array.Resize(ref newXarray, j);
-            Array.Resize(ref newYarray, j);
-
-            return new Tuple<double[], double[]>(newXarray, newYarray);
-        }
-
-        protected Tuple<double[], double[]> FilterByNumberOfMostIntense(int topNPeaks)
-        {
-            double[] newXarray = new double[XArray.Length];
-            double[] newYarray = new double[YArray.Length];
-            Array.Copy(XArray, newXarray, XArray.Length);
-            Array.Copy(YArray, newYarray, YArray.Length);
-
-            Array.Sort(newYarray, newXarray, Comparer<double>.Create((i1, i2) => i2.CompareTo(i1)));
-
-            double[] newXarray2 = new double[topNPeaks];
-            double[] newYarray2 = new double[topNPeaks];
-            Array.Copy(newXarray, newXarray2, topNPeaks);
-            Array.Copy(newYarray, newYarray2, topNPeaks);
-
-            Array.Sort(newXarray2, newYarray2);
-            return new Tuple<double[], double[]>(newXarray2, newYarray2);
-        }
-
-        protected int GetClosestPeakIndex(double targetX)
-        {
-            if (Count == 0)
-                throw new IndexOutOfRangeException("No peaks in spectrum!");
-
-            int index = Array.BinarySearch(XArray, targetX);
-            if (index >= 0)
-                return index;
-            index = ~index;
-
-            int indexm1 = index - 1;
-
-            if (index >= Count && indexm1 >= 0)
-            {
-                return indexm1;
-            }
-            if (index == 0)
-            {
-                // only the index can be closer
-                return index;
-            }
-
-            double p1 = XArray[indexm1];
-            double p2 = XArray[index];
-
-            if (targetX - p1 > p2 - targetX)
-                return index;
-            return indexm1;
-        }
 
         #endregion Protected Methods
 
         #region Private Methods
 
-        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumFilterByNumberOfMostIntense(int topNPeaks)
+        private int GetClosestPeakIndex(double targetX)
         {
-            throw new NotImplementedException();
-        }
+            int index = Array.BinarySearch(XArray, targetX);
+            if (index >= 0)
+                return index;
+            index = ~index;
 
-        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumExtract(double minX, double maxX)
-        {
-            throw new NotImplementedException();
-        }
+            if (index >= Size)
+                return index - 1;
+            if (index == 0)
+                return index;
 
-        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges)
-        {
-            throw new NotImplementedException();
-        }
-
-        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumWithRangeRemoved(double minX, double maxX)
-        {
-            throw new NotImplementedException();
-        }
-
-        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumFilterByY(double minY, double maxY)
-        {
-            throw new NotImplementedException();
-        }
-
-        ISpectrum<TPeak> ISpectrum<TPeak>.NewSpectrumApplyFunctionToX(Func<double, double> convertor)
-        {
-            throw new NotImplementedException();
+            if (targetX - XArray[index - 1] > XArray[index] - targetX)
+                return index;
+            return index - 1;
         }
 
         #endregion Private Methods

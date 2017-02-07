@@ -28,24 +28,8 @@ namespace MassSpectrometry
     {
         new MzRange Range { get; }
 
-        new IMzSpectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
-
-        new IMzSpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange);
-
-        new IMzSpectrum<TPeak> NewSpectrumExtract(double minX, double maxX);
-
-        new IMzSpectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
-
-        new IMzSpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
-
-        new IMzSpectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX);
-
-        new IMzSpectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY);
-
-        new IMzSpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange);
-
-        new IMzSpectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
-
         void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor);
+        byte[] Get64BitXarray();
+        byte[] Get64BitYarray();
     }
 }

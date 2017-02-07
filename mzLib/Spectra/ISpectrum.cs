@@ -22,17 +22,19 @@ using System.Collections.Generic;
 
 namespace Spectra
 {
+    /// <summary>
+    /// Spectrum that has at least an X array and a Y array
+    /// </summary>
+    /// <typeparam name="TPeak"></typeparam>
     public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
         where TPeak : IPeak
     {
 
         #region Public Properties
-
-        double[] XArray { get; }
-        double[] YArray { get; }
+        
         double FirstX { get; }
         double LastX { get; }
-        int Count { get; }
+        int Size { get; }
         double YofPeakWithHighestY { get; }
         double SumOfAllY { get; }
         DoubleRange Range { get; }
@@ -56,23 +58,15 @@ namespace Spectra
 
         double GetClosestPeakXvalue(double x);
 
-        ISpectrum<TPeak> NewSpectrumFilterByNumberOfMostIntense(int topNPeaks);
+        IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks);
 
-        ISpectrum<TPeak> NewSpectrumExtract(DoubleRange xRange);
+        IEnumerable<TPeak> Extract(DoubleRange xRange);
 
-        ISpectrum<TPeak> NewSpectrumExtract(double minX, double maxX);
+        IEnumerable<TPeak> Extract(double minX, double maxX);
 
-        ISpectrum<TPeak> NewSpectrumWithRangesRemoved(IEnumerable<DoubleRange> xRanges);
+        IEnumerable<TPeak> FilterByY(double minY, double maxY);
 
-        ISpectrum<TPeak> NewSpectrumWithRangeRemoved(DoubleRange xRange);
-
-        ISpectrum<TPeak> NewSpectrumWithRangeRemoved(double minX, double maxX);
-
-        ISpectrum<TPeak> NewSpectrumFilterByY(double minY, double maxY);
-
-        ISpectrum<TPeak> NewSpectrumFilterByY(DoubleRange yRange);
-
-        ISpectrum<TPeak> NewSpectrumApplyFunctionToX(Func<double, double> convertor);
+        IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
         #endregion Public Methods
 

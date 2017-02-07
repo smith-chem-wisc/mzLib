@@ -28,10 +28,6 @@ namespace MassSpectrometry
             {
                 return Y;
             }
-            private set
-            {
-                Y = value;
-            }
         }
 
         public double Time
@@ -40,16 +36,10 @@ namespace MassSpectrometry
             {
                 return X;
             }
-            private set
-            {
-                X = value;
-            }
         }
 
-        public ChromatographicPeak(double time, double intensity)
+        public ChromatographicPeak(double time, double intensity) : base(time, intensity)
         {
-            Time = time;
-            Intensity = intensity;
         }
 
         public override string ToString()

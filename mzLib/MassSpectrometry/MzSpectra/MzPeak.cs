@@ -10,9 +10,8 @@ namespace MassSpectrometry
     public abstract class MzPeak : Peak, IMzPeak
     {
         public MzPeak(double mz, double intensity)
+            :base(mz, intensity)
         {
-            Mz = mz;
-            Intensity = intensity;
         }
 
         public double Intensity
@@ -21,10 +20,6 @@ namespace MassSpectrometry
             {
                 return Y;
             }
-            private set
-            {
-                Y = value;
-            }
         }
 
         public double Mz
@@ -32,10 +27,6 @@ namespace MassSpectrometry
             get
             {
                 return X;
-            }
-            private set
-            {
-                X = value;
             }
         }
 

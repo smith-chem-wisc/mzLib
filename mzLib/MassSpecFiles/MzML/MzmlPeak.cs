@@ -48,11 +48,6 @@ namespace IO.MzML
             return string.Format("({0:F4},{1:G5})", Mz, Intensity);
         }
 
-        public void AddIntensity(double additionalIntensity)
-        {
-            Y += additionalIntensity;
-        }
-
         #endregion Public Methods
 
     }

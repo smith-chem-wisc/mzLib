@@ -16,33 +16,29 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using System;
 using MassSpectrometry;
-using Spectra;
 
 namespace IO.MzML
 {
     public class MzmlMzSpectrum : MzSpectrum<MzmlPeak>
     {
+
+        #region Public Constructors
+
         public MzmlMzSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
         {
         }
 
-        public override Spectrum<MzmlPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
+        #endregion Public Constructors
+
+        #region Protected Methods
+
+        protected override MzmlPeak GeneratePeak(int index)
         {
-            return GetMzSpectrumFromTwoArrays(item1, item2, v);
+            return new MzmlPeak(XArray[index], YArray[index]);
         }
 
-        public override MzSpectrum<MzmlPeak> GetMzSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
-        {
-            return new MzmlMzSpectrum(item1, item2, v);
-        }
+        #endregion Protected Methods
 
-
-        public new MzmlMzSpectrum NewSpectrumApplyFunctionToX(Func<double, double> convertor)
-        {
-            var ok = ApplyFunctionToX(convertor);
-            return new MzmlMzSpectrum(ok.Item1, ok.Item2, false);
-        }
     }
 }

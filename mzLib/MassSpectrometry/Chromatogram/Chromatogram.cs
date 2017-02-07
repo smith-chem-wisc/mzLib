@@ -62,15 +62,11 @@ namespace MassSpectrometry
             }
         }
 
-        public override ChromatographicPeak GetPeak(int index)
+        protected override ChromatographicPeak GeneratePeak(int index)
         {
             return new ChromatographicPeak(XArray[index], YArray[index]);
         }
 
-        public override Spectrum<ChromatographicPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
-        {
-            throw new NotImplementedException();
-        }
 
         #endregion Public Methods
 
@@ -106,26 +102,24 @@ namespace MassSpectrometry
 
         public double LastTime
         {
-            get { return XArray[Count - 1]; }
+            get { return XArray[Size - 1]; }
         }
 
         #endregion Public Properties
 
         #region Public Methods
-
-        public abstract TPeak GetPeak(int index);
-
+        
         public double[] GetTimes()
         {
-            double[] times = new double[Count];
-            Buffer.BlockCopy(XArray, 0, times, 0, sizeof(double) * Count);
+            double[] times = new double[Size];
+            Buffer.BlockCopy(XArray, 0, times, 0, sizeof(double) * Size);
             return times;
         }
 
         public double[] GetIntensities()
         {
-            double[] intensities = new double[Count];
-            Buffer.BlockCopy(YArray, 0, intensities, 0, sizeof(double) * Count);
+            double[] intensities = new double[Size];
+            Buffer.BlockCopy(YArray, 0, intensities, 0, sizeof(double) * Size);
             return intensities;
         }
 
@@ -150,14 +144,14 @@ namespace MassSpectrometry
             if (index < 0)
                 index = ~index;
 
-            if (index >= Count)
+            if (index >= Size)
             {
-                return GetPeak(Count - 1);
+                return this[Size - 1];
             }
 
             double maxvalue = -1; // double.negative infinity?
             int apexIndex = index;
-            while (index < Count && XArray[index] <= maxTime)
+            while (index < Size && XArray[index] <= maxTime)
             {
                 double intensity = YArray[index];
                 if (intensity > maxvalue)
@@ -167,7 +161,7 @@ namespace MassSpectrometry
                 }
                 index++;
             }
-            return GetPeak(apexIndex);
+            return this[apexIndex];
         }
 
         public virtual ChromatographicElutionProfile<TPeak> GetElutionProfile(DoubleRange timeRange)
@@ -182,9 +176,9 @@ namespace MassSpectrometry
                 index = ~index;
 
             List<TPeak> peaks = new List<TPeak>();
-            while (index < Count && XArray[index] <= maxTime)
+            while (index < Size && XArray[index] <= maxTime)
             {
-                peaks.Add(GetPeak(index));
+                peaks.Add(this[index]);
                 index++;
             }
             return new ChromatographicElutionProfile<TPeak>(peaks);
@@ -195,13 +189,13 @@ namespace MassSpectrometry
             return PeakWithHighestY;
         }
 
-		public TPeak FindNearestApex(double rt, int skipablePts)
+        public TPeak FindNearestApex(double rt, int skipablePts)
         {
             int index = Array.BinarySearch(XArray, rt);
             if (index < 0)
                 index = ~index;
 
-            if (index >= Count)
+            if (index >= Size)
                 index--;
 
             int bestApex = index;
@@ -228,7 +222,7 @@ namespace MassSpectrometry
 
             i = index + 1;
             count = 0;
-            while (i < Count)
+            while (i < Size)
             {
                 if (YArray[i] > apexValue)
                 {
@@ -245,12 +239,12 @@ namespace MassSpectrometry
                 i++;
             }
 
-            return GetPeak(bestApex);
+            return this[bestApex];
         }
 
         public override string ToString()
         {
-            return string.Format("Count = {0:N0} TIC = {1:G4}", Count, YArray.Sum());
+            return string.Format("Count = {0:N0} TIC = {1:G4}", Size, YArray.Sum());
         }
 
         #endregion Public Methods

@@ -78,7 +78,6 @@
     <Compile Include="TestDataFile.cs" />
     <Compile Include="TestFragments.cs" />
     <Compile Include="TestModifications.cs" />
-    <Compile Include="TestPeak.cs" />
     <Compile Include="TestPeptides.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestSpectra.cs" />

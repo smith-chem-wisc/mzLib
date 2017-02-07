@@ -36,13 +36,13 @@ namespace Test
             Assert.AreEqual(true, a.IsIndexedMzML);
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
-            Assert.AreEqual(15, ya.XArray.Length);
+            Assert.AreEqual(15, ya.Size);
             var ya2 = a.GetOneBasedScan(2).MassSpectrum;
-            Assert.AreEqual(10, ya2.XArray.Length);
+            Assert.AreEqual(10, ya2.Size);
             var ya3 = a.GetOneBasedScan(3).MassSpectrum;
-            Assert.AreEqual(0, ya3.XArray.Length);
+            Assert.AreEqual(0, ya3.Size);
             var ya4 = a.GetOneBasedScan(4).MassSpectrum;
-            Assert.AreEqual(15, ya4.XArray.Length);
+            Assert.AreEqual(15, ya4.Size);
 
             a.Close();
         }
@@ -55,7 +55,7 @@ namespace Test
             a.Open();
             Assert.AreEqual(true, a.IsIndexedMzML);
 
-            Assert.AreEqual(19914, a.First().MassSpectrum.XArray.Length);
+            Assert.AreEqual(19914, a.First().MassSpectrum.Size);
 
             a.Close();
 
@@ -63,8 +63,8 @@ namespace Test
             a.Open();
             Assert.AreEqual(true, a.IsIndexedMzML);
 
-            Assert.AreEqual(400, a.First().MassSpectrum.XArray.Length);
-            
+            Assert.AreEqual(400, a.First().MassSpectrum.Size);
+
             var cool = a.GetOneBasedScan(6) as MzmlScanWithPrecursor;
 
             Assert.AreEqual(1, cool.IsolationWidth);
@@ -85,14 +85,14 @@ namespace Test
             MzmlMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             MsDataScan<MzmlMzSpectrum, MzmlPeak>[] Scans = new MsDataScan<MzmlMzSpectrum, MzmlPeak>[2];
-            Scans[0] = new MzmlScan(1, MS1.NewSpectrumApplyFunctionToX(b => b + 0.000001 * b + 0.000001), "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
+            Scans[0] = new MzmlScan(1, MS1, "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
 
-            Scans[1] = new MzmlScanWithPrecursor(2, MS2.NewSpectrumApplyFunctionToX(b => b + 0.00001 * b + 0.00001), "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 0.141146966879759, 1134.26091302033);
+            Scans[1] = new MzmlScanWithPrecursor(2, MS2, "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 0.141146966879759, 1134.26091302033);
 
             var myMsDataFile = new FakeMsDataFile(@"myFakeFile.mzML", Scans);
 
-            var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.XArray[0];
-            
+            var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.FirstX;
+
             var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum, MzmlPeak>;
             Assert.AreEqual(1, secondScan.IsolationWidth);
 
@@ -106,11 +106,11 @@ namespace Test
             Assert.AreEqual(2, okay.GetClosestOneBasedSpectrumNumber(2));
 
 
-            var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.XArray[0];
+            var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.FirstX;
             Assert.AreEqual(oldFirstValue, newFirstValue, 1e-9);
 
             var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum, MzmlPeak>;
-            
+
             Assert.AreEqual(1, secondScan2.IsolationWidth);
         }
 
@@ -318,35 +318,36 @@ namespace Test
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1);
 
-            IMzSpectrum<MzmlPeak> massSpectrum1 = new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
-            massSpectrum1 = massSpectrum1.NewSpectrumFilterByNumberOfMostIntense(5);
+            return new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+            //massSpectrum1 = massSpectrum1.FilterByNumberOfMostIntense(5);
 
-            var chargeToLookAt = minCharge;
-            var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
 
-            List<double> allMasses = new List<double>();
-            List<double> allIntensitiess = new List<double>();
+            //var chargeToLookAt = minCharge;
+            //var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
 
-            while (correctedSpectrum.FirstX > lowerBound)
-            {
-                foreach (var thisPeak in correctedSpectrum)
-                {
-                    if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
-                    {
-                        allMasses.Add(thisPeak.Mz);
-                        allIntensitiess.Add(thisPeak.Intensity);
-                    }
-                }
-                chargeToLookAt += 1;
-                correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
-            }
+            //List<double> allMasses = new List<double>();
+            //List<double> allIntensitiess = new List<double>();
 
-            var allMassesArray = allMasses.ToArray();
-            var allIntensitiessArray = allIntensitiess.ToArray();
+            //while (correctedSpectrum.FirstX > lowerBound)
+            //{
+            //    foreach (var thisPeak in correctedSpectrum)
+            //    {
+            //        if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
+            //        {
+            //            allMasses.Add(thisPeak.Mz);
+            //            allIntensitiess.Add(thisPeak.Intensity);
+            //        }
+            //    }
+            //    chargeToLookAt += 1;
+            //    correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
+            //}
 
-            Array.Sort(allMassesArray, allIntensitiessArray);
+            //var allMassesArray = allMasses.ToArray();
+            //var allIntensitiessArray = allIntensitiess.ToArray();
 
-            return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
+            //Array.Sort(allMassesArray, allIntensitiessArray);
+
+            //return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
         #endregion Private Methods

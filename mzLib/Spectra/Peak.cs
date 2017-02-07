@@ -8,7 +8,12 @@ namespace Spectra
 {
     public abstract class Peak : IPeak
     {
-        public double X { get; protected set; }
-        public double Y { get; protected set; }
+        public double X { get; private set; }
+        public double Y { get; private set; }
+        public Peak(double x, double y)
+        {
+            X = x;
+            Y = y;
+        }
     }
 }
