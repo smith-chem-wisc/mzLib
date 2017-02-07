@@ -5,12 +5,12 @@ using System;
 
 namespace UsefulProteomicsDatabases
 {
-    internal class ModificationWithMass : Modification
+    public class ModificationWithMass : Modification
     {
         private readonly double neutralLoss;
-        private readonly IEnumerable<double> massesObserved;
-        private readonly double monoisotopicMass;
-        private readonly IEnumerable<double> diagnosticIons;
+        public readonly IEnumerable<double> massesObserved;
+        public readonly double monoisotopicMass;
+        public readonly IEnumerable<double> diagnosticIons;
 
 
         public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons)

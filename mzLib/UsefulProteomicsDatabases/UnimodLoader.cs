@@ -34,18 +34,9 @@ namespace UsefulProteomicsDatabases
                     }
                     catch
                     {
-                        string val;
-                        if (DictOfElements.TryGetValue(el.symbol, out val))
-                        {
-                            var tempCF = ChemicalFormula.ParseFormula(val);
-                            tempCF.Multiply(int.Parse(el.number));
-                            cf.Add(tempCF);
-                        }
-                        else
-                        {
-                            cf = null;
-                            break;
-                        }
+                        var tempCF = ChemicalFormula.ParseFormula(DictOfElements[el.symbol]);
+                        tempCF.Multiply(int.Parse(el.number));
+                        cf.Add(tempCF);
                     }
                 }
 

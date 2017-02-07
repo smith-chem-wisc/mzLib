@@ -8,11 +8,11 @@ namespace UsefulProteomicsDatabases
     public class Modification
     {
 
-        private readonly Tuple<string, string> ac;
-        private readonly Dictionary<string, HashSet<string>> linksToOtherDbs;
-        private readonly string id;
-        private readonly ModificationSites position;
-        private readonly string site;
+        public readonly Tuple<string, string> ac;
+        public readonly Dictionary<string, HashSet<string>> linksToOtherDbs;
+        public readonly string id;
+        public readonly ModificationSites position;
+        public readonly string site;
 
         private static readonly Dictionary<position_t, ModificationSites> positionDict = new Dictionary<position_t, ModificationSites>
             {

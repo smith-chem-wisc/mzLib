@@ -6,9 +6,9 @@ using System;
 
 namespace UsefulProteomicsDatabases
 {
-    internal class ModificationWithMassAndCf : ModificationWithMass
+    public class ModificationWithMassAndCf : ModificationWithMass
     {
-        private readonly ChemicalFormula chemicalFormula;
+        public readonly ChemicalFormula chemicalFormula;
 
         public ModificationWithMassAndCf(string id, Tuple<string, string> ac, string tg, position_t pos, ChemicalFormula cf, double mm, double nl)
              : base(id, ac, tg, pos, mm, nl)
