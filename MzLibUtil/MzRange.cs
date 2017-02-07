@@ -20,14 +20,22 @@ namespace MzLibUtil
 {
     public class MzRange : DoubleRange
     {
+        #region Public Constructors
+
         public MzRange(double minMZ, double maxMZ)
             : base(minMZ, maxMZ)
         {
         }
 
+        #endregion Public Constructors
+
+        #region Public Methods
+
         public override string ToString(string format)
         {
             return string.Format("[{0} - {1}] m/z", Minimum.ToString(format), Maximum.ToString(format));
         }
+
+        #endregion Public Methods
     }
 }

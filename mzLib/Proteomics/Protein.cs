@@ -4,7 +4,6 @@ namespace Proteomics
 {
     public class Protein
     {
-
         #region Private Fields
 
         private string fullDescription;
@@ -80,6 +79,5 @@ namespace Proteomics
         }
 
         #endregion Public Indexers
-
     }
 }

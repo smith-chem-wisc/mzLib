@@ -26,7 +26,6 @@ namespace MzLibUtil
     /// </summary>
     public class Tolerance
     {
-
         #region Private Fields
 
         /// <summary>
@@ -157,7 +156,7 @@ namespace MzLibUtil
                     return mean * (1 - (value / 2e6));
 
                 default:
-					return mean - value;
+                    return mean - value;
             }
         }
 
@@ -176,7 +175,7 @@ namespace MzLibUtil
                     return mean * (1 + (value / 2e6));
 
                 default:
-                    return mean + value ;
+                    return mean + value;
             }
         }
 
@@ -198,6 +197,5 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
-
     }
 }

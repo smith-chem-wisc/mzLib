@@ -31,7 +31,6 @@ namespace Test
     [TestFixture]
     public sealed class SpectrumTestFixture
     {
-
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -207,13 +206,13 @@ namespace Test
             _mzSpectrumA = new MzmlMzSpectrum(new double[] { 5, 6, 7 }, new double[] { 1, 2, 3 }, false);
             Assert.IsTrue(_mzSpectrumA.FilterByNumberOfMostIntense(2).First().Mz < _mzSpectrumA.FilterByNumberOfMostIntense(2).ToList()[1].Mz);
         }
+
         [Test]
         public void TestFunctionToX()
         {
             _mzSpectrumA.ReplaceXbyApplyingFunction(b => -1);
             Assert.AreEqual(-1, _mzSpectrumA[0].X);
         }
-        
 
         [Test]
         public void TestGetClosestPeakXValue()
@@ -251,7 +250,6 @@ namespace Test
 
         //    Assert.AreEqual(2, ok.WithRangesRemoved(new List<DoubleRange> { new DoubleRange(329, 400), new DoubleRange(400, 723) }).Size);
         //}
-        
 
         [Test]
         public void TestNumPeaksWithinRange()
@@ -332,6 +330,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

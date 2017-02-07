@@ -26,7 +26,6 @@ namespace Chemistry
     /// </summary>
     public sealed class Isotope
     {
-
         #region Internal Constructors
 
         /// <summary>
@@ -106,6 +105,5 @@ namespace Chemistry
         }
 
         #endregion Public Methods
-
     }
 }

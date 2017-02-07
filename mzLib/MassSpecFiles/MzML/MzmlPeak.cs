@@ -25,7 +25,6 @@ namespace IO.MzML
     /// </summary>
     public class MzmlPeak : MzPeak
     {
-
         #region Public Constructors
 
         public MzmlPeak(double mz, double intensity) : base(mz, intensity)
@@ -33,6 +32,5 @@ namespace IO.MzML
         }
 
         #endregion Public Constructors
-
     }
 }

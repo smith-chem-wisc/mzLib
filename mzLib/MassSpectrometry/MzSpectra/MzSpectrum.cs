@@ -26,7 +26,6 @@ namespace MassSpectrometry
     public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
         where TPeak : IMzPeak
     {
-
         #region Protected Constructors
 
         protected MzSpectrum(double[,] mzintensities) : base(mzintensities)
@@ -49,6 +48,9 @@ namespace MassSpectrometry
             }
         }
 
+        #endregion Public Properties
+
+        #region Public Methods
 
         public byte[] Get64BitYarray()
         {
@@ -80,10 +82,6 @@ namespace MassSpectrometry
             return bytes;
         }
 
-        #endregion Public Properties
-
-        #region Public Methods
-
         public void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor)
         {
             for (int i = 0; i < Size; i++)
@@ -98,6 +96,5 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
-
     }
 }

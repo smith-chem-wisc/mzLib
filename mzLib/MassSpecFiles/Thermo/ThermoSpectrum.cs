@@ -17,7 +17,6 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
-using Spectra;
 using System;
 
 namespace IO.Thermo
@@ -28,7 +27,6 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
-
         #region Private Fields
 
         private readonly double[] _noises;
@@ -160,6 +158,10 @@ namespace IO.Thermo
             return data;
         }
 
+        #endregion Public Methods
+
+        #region Protected Methods
+
         protected override ThermoMzPeak GeneratePeak(int index)
         {
             return peakList[index] = _charges == null ?
@@ -167,8 +169,6 @@ namespace IO.Thermo
                 new ThermoMzPeak(XArray[index], YArray[index], _charges[index], _noises[index], _resolutions[index]);
         }
 
-
-        #endregion Public Methods
-
+        #endregion Protected Methods
     }
 }

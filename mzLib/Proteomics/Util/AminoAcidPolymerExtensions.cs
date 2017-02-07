@@ -24,6 +24,8 @@ namespace Proteomics
 {
     public static class AminoAcidPolymerExtensions
     {
+        #region Public Methods
+
         public static double GetSequenceCoverageFraction(this AminoAcidPolymer baseSequence, IEnumerable<AminoAcidPolymer> sequences)
         {
             return GetSequenceCoverageFraction(baseSequence, sequences, true);
@@ -70,5 +72,7 @@ namespace Proteomics
             }
             return bits;
         }
+
+        #endregion Public Methods
     }
 }

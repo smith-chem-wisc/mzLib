@@ -22,7 +22,6 @@ namespace Chemistry
 {
     public static class ClassExtensions
     {
-
         #region Private Fields
 
         /// <summary>
@@ -59,6 +58,5 @@ namespace Chemistry
         }
 
         #endregion Public Methods
-
     }
 }

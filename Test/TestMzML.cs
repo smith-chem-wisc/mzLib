@@ -2,22 +2,20 @@
 using IO.MzML;
 using MassSpectrometry;
 using MzIdentML;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
-using Spectra;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Xml.Serialization;
 using System.Linq;
-using MzLibUtil;
+using System.Xml.Serialization;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestMzML
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -47,7 +45,6 @@ namespace Test
             a.Close();
         }
 
-
         [Test]
         public void LoadMzmlAnotherTest()
         {
@@ -72,7 +69,6 @@ namespace Test
 
             a.Close();
         }
-
 
         [Test]
         public void WriteMzmlTest()
@@ -105,7 +101,6 @@ namespace Test
 
             Assert.AreEqual(1, okay.GetClosestOneBasedSpectrumNumber(1));
             Assert.AreEqual(2, okay.GetClosestOneBasedSpectrumNumber(2));
-
 
             var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.FirstX;
             Assert.AreEqual(oldFirstValue, newFirstValue, 1e-9);
@@ -325,7 +320,6 @@ namespace Test
             return new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
             //massSpectrum1 = massSpectrum1.FilterByNumberOfMostIntense(5);
 
-
             //var chargeToLookAt = minCharge;
             //var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
 
@@ -355,6 +349,5 @@ namespace Test
         }
 
         #endregion Private Methods
-
     }
 }

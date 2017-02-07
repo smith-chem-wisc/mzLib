@@ -32,16 +32,20 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
-
-        #region Private Fields
+        #region Protected Fields
 
         protected readonly double[] XArray;
         protected readonly double[] YArray;
 
-        private double? yofPeakWithHighestY;
-        private double? sumOfAllY;
         protected TPeak[] peakList;
         protected TPeak peakWithHighestY;
+
+        #endregion Protected Fields
+
+        #region Private Fields
+
+        private double? yofPeakWithHighestY;
+        private double? sumOfAllY;
 
         #endregion Private Fields
 
@@ -237,7 +241,6 @@ namespace Spectra
 
         protected abstract TPeak GeneratePeak(int index);
 
-
         #endregion Protected Methods
 
         #region Private Methods
@@ -260,6 +263,5 @@ namespace Spectra
         }
 
         #endregion Private Methods
-
     }
 }

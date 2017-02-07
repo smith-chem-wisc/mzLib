@@ -17,7 +17,6 @@
 
 using Chemistry;
 using NUnit.Framework;
-using System;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
@@ -27,6 +26,8 @@ namespace Test
     [TestFixture]
     public class DatabaseLoaderTests
     {
+        #region Public Methods
+
         [Test]
         public void TestUpdateUnimod()
         {
@@ -100,5 +101,7 @@ namespace Test
             foreach (var nice in uniprotPtms)
                 nice.ToString();
         }
+
+        #endregion Public Methods
     }
 }

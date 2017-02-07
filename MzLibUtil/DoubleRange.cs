@@ -22,6 +22,8 @@ namespace MzLibUtil
 {
     public class DoubleRange
     {
+        #region Public Constructors
+
         /// <summary>
         /// Creates a range from the minimum to maximum values
         /// </summary>
@@ -44,16 +46,6 @@ namespace MzLibUtil
         }
 
         /// <summary>
-        /// The maximum value of the range
-        /// </summary>
-        public double Maximum { get; protected set; }
-
-        /// <summary>
-        /// The minimum value of the range
-        /// </summary>
-        public double Minimum { get; protected set; }
-
-        /// <summary>
         /// Creates a range around some mean value with a specified tolerance.
         /// <para>
         /// i.e. 10 ppm at 500 would give you 499.9975 - 500.0025
@@ -72,32 +64,19 @@ namespace MzLibUtil
             SetTolerance(mean, tolerance);
         }
 
-        internal void SetTolerance(double mean, Tolerance tolerance)
-        {
-            if (tolerance == null)
-            {
-                Minimum = mean;
-                Maximum = mean;
-                return;
-            }
+        #endregion Public Constructors
 
-            double value = Math.Abs(tolerance.Value);
+        #region Public Properties
 
-            value *= 2;
+        /// <summary>
+        /// The maximum value of the range
+        /// </summary>
+        public double Maximum { get; protected set; }
 
-            switch (tolerance.Unit)
-            {
-                default:
-                    Minimum = mean - value / 2.0;
-                    Maximum = mean + value / 2.0;
-                    break;
-
-                case ToleranceUnit.PPM:
-                    Minimum = mean - mean * value / 2e6;
-                    Maximum = mean + mean * value / 2e6;
-                    break;
-            }
-        }
+        /// <summary>
+        /// The minimum value of the range
+        /// </summary>
+        public double Minimum { get; protected set; }
 
         /// <summary>
         /// The mean value of this range:
@@ -116,6 +95,10 @@ namespace MzLibUtil
         {
             get { return Maximum - Minimum; }
         }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public override string ToString()
         {
@@ -175,5 +158,38 @@ namespace MzLibUtil
         {
             return CompareTo(item).Equals(0);
         }
+
+        #endregion Public Methods
+
+        #region Internal Methods
+
+        internal void SetTolerance(double mean, Tolerance tolerance)
+        {
+            if (tolerance == null)
+            {
+                Minimum = mean;
+                Maximum = mean;
+                return;
+            }
+
+            double value = Math.Abs(tolerance.Value);
+
+            value *= 2;
+
+            switch (tolerance.Unit)
+            {
+                default:
+                    Minimum = mean - value / 2.0;
+                    Maximum = mean + value / 2.0;
+                    break;
+
+                case ToleranceUnit.PPM:
+                    Minimum = mean - mean * value / 2e6;
+                    Maximum = mean + mean * value / 2e6;
+                    break;
+            }
+        }
+
+        #endregion Internal Methods
     }
 }

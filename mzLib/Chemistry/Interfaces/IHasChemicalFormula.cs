@@ -23,7 +23,6 @@ namespace Chemistry
     /// </summary>
     public interface IHasChemicalFormula : IHasMass
     {
-
         #region Public Properties
 
         /// <summary>
@@ -32,6 +31,5 @@ namespace Chemistry
         ChemicalFormula ThisChemicalFormula { get; }
 
         #endregion Public Properties
-
     }
 }

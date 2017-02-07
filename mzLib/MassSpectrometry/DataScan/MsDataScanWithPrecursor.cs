@@ -25,7 +25,6 @@ namespace MassSpectrometry
         where TPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TPeak>
     {
-
         #region Protected Constructors
 
         protected MsDataScanWithPrecursor(int ScanNumber, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
@@ -58,10 +57,6 @@ namespace MassSpectrometry
         public double SelectedIonGuessMonoisotopicIntensity { get; private set; }
         public double SelectedIonGuessMonoisotopicMZ { get; private set; }
 
-        #endregion Public Properties
-
-        #region Public Methods
-        
         public MzRange IsolationRange
         {
             get
@@ -69,6 +64,10 @@ namespace MassSpectrometry
                 return new MzRange(IsolationMz - IsolationWidth / 2, IsolationMz + IsolationWidth / 2);
             }
         }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ)
         {
@@ -78,6 +77,5 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
-
     }
 }

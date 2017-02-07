@@ -26,7 +26,6 @@ namespace MassSpectrometry
 {
     public class Chromatogram : Chromatogram<ChromatographicPeak>
     {
-
         #region Public Constructors
 
         public Chromatogram(double[] times, double[] intensities, bool shouldCopy)
@@ -62,20 +61,21 @@ namespace MassSpectrometry
             }
         }
 
+        #endregion Public Methods
+
+        #region Protected Methods
+
         protected override ChromatographicPeak GeneratePeak(int index)
         {
             return new ChromatographicPeak(XArray[index], YArray[index]);
         }
 
-
-        #endregion Public Methods
-
+        #endregion Protected Methods
     }
 
     public abstract class Chromatogram<TPeak> : Spectrum<TPeak>
         where TPeak : IPeak
     {
-
         #region Protected Constructors
 
         protected Chromatogram(double[] times, double[] intensities, bool shouldCopy) : base(times, intensities, shouldCopy)
@@ -108,7 +108,7 @@ namespace MassSpectrometry
         #endregion Public Properties
 
         #region Public Methods
-        
+
         public double[] GetTimes()
         {
             double[] times = new double[Size];
@@ -248,6 +248,5 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
-
     }
 }

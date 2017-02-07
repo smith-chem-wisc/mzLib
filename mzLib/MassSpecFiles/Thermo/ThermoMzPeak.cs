@@ -17,12 +17,30 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
-using Spectra;
 
 namespace IO.Thermo
 {
     public class ThermoMzPeak : MzPeak
     {
+        #region Public Constructors
+
+        public ThermoMzPeak(double mz, double intensity)
+            : base(mz, intensity)
+        {
+        }
+
+        public ThermoMzPeak(double mz, double intensity, int charge, double noise, double resolution)
+            : base(mz, intensity)
+        {
+            Charge = charge;
+            Noise = noise;
+            Resolution = resolution;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
         public int Charge { get; private set; }
 
         public double Noise { get; private set; }
@@ -37,21 +55,15 @@ namespace IO.Thermo
             }
         }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
         public override string ToString()
         {
             return string.Format("{0} z = {1:+#;-#;?} SN = {2:F2}", base.ToString(), Charge, SignalToNoise);
         }
 
-        public ThermoMzPeak(double mz, double intensity)
-			: base(mz, intensity)
-		{
-		}
-        public ThermoMzPeak(double mz, double intensity, int charge, double noise , double resolution)
-            : base(mz, intensity)
-        {
-            Charge = charge;
-            Noise = noise;
-            Resolution = resolution;
-        }
+        #endregion Public Methods
     }
 }

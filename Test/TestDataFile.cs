@@ -22,7 +22,6 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
-using Spectra;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -33,7 +32,6 @@ namespace Test
     [TestFixture]
     public sealed class TestDataFile
     {
-
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -150,7 +148,6 @@ namespace Test
         [Test]
         public void TestAMoreRealFile()
         {
-
             var theScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>, IMzPeak>;
             Assert.AreEqual(1, theScan.IsolationRange.Width);
             Assert.AreEqual(DissociationType.Unknown, theScan.DissociationType);
@@ -240,6 +237,5 @@ namespace Test
         }
 
         #endregion Private Methods
-
     }
 }

@@ -2,7 +2,6 @@
 {
     public class DigestionPointAndLength
     {
-
         #region Public Constructors
 
         public DigestionPointAndLength(int index, int length)
@@ -19,6 +18,5 @@
         public int Length { get; private set; }
 
         #endregion Public Properties
-
     }
 }

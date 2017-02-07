@@ -27,7 +27,6 @@ namespace Test
     [TestFixture]
     public class ChemicalFormulaTestFixture
     {
-
         #region Public Methods
 
         [Test]
@@ -52,6 +51,7 @@ namespace Test
 
             Assert.AreEqual(formulaA, formulaB);
         }
+
         [Test]
         public void Multiply()
         {
@@ -964,7 +964,6 @@ namespace Test
             Assert.IsFalse(PeriodicTable.ValidateAverageMasses(1e-3));
             Assert.IsTrue(PeriodicTable.ValidateAbundances(1e-15));
             Assert.IsFalse(PeriodicTable.ValidateAbundances(0));
-
         }
 
         [Test]
@@ -1029,7 +1028,6 @@ namespace Test
 
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
-
             #region Public Constructors
 
             public PhysicalObjectWithChemicalFormula(string v)
@@ -1055,10 +1053,8 @@ namespace Test
             }
 
             #endregion Public Properties
-
         }
 
         #endregion Private Classes
-
     }
 }

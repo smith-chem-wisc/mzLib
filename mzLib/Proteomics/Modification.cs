@@ -1,11 +1,12 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace Proteomics
 {
     public class Modification
     {
+        #region Public Fields
 
         public readonly Tuple<string, string> ac;
         public readonly Dictionary<string, HashSet<string>> linksToOtherDbs;
@@ -13,6 +14,9 @@ namespace Proteomics
         public readonly ModificationSites position;
         public readonly string site;
 
+        #endregion Public Fields
+
+        #region Public Constructors
 
         public Modification(string id, Tuple<string, string> unimodAC, string tg, ModificationSites pos)
         {
@@ -30,6 +34,11 @@ namespace Proteomics
             this.position = uniprotPP;
             this.linksToOtherDbs = uniprotDR;
         }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
@@ -43,5 +52,7 @@ namespace Proteomics
             sb.Append("TG   " + site);
             return sb.ToString();
         }
+
+        #endregion Public Methods
     }
 }

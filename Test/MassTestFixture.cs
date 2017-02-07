@@ -17,39 +17,14 @@
 
 using Chemistry;
 using NUnit.Framework;
-using System;
 
 namespace Test
 {
-    internal class ObjectWithMass1000 : IHasMass
-    {
-        public double MonoisotopicMass
-        {
-            get
-            {
-                return 1000;
-            }
-        }
-    }
-
-    internal class ObjectWithMass100 : IHasMass
-    {
-        public double MonoisotopicMass
-        {
-            get
-            {
-                return 100;
-            }
-        }
-        public override string ToString()
-        {
-            return "mass: 100";
-        }
-    }
-
     [TestFixture]
     public class MassTestFixture
     {
+        #region Public Methods
+
         [Test]
         public void MassToMzToMass()
         {
@@ -73,7 +48,6 @@ namespace Test
             double mz = a.ToMz(-2);
             Assert.AreEqual(498.99272353312102, mz);
         }
-        
 
         [Test]
         public void MzToMassPostitiveCharge()
@@ -88,5 +62,46 @@ namespace Test
             double a = 524.3;
             Assert.AreEqual(1050.614552933758, a.ToMass(-2));
         }
+
+        #endregion Public Methods
+    }
+
+    internal class ObjectWithMass1000 : IHasMass
+    {
+        #region Public Properties
+
+        public double MonoisotopicMass
+        {
+            get
+            {
+                return 1000;
+            }
+        }
+
+        #endregion Public Properties
+    }
+
+    internal class ObjectWithMass100 : IHasMass
+    {
+        #region Public Properties
+
+        public double MonoisotopicMass
+        {
+            get
+            {
+                return 100;
+            }
+        }
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public override string ToString()
+        {
+            return "mass: 100";
+        }
+
+        #endregion Public Methods
     }
 }

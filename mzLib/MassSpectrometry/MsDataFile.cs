@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Spectra;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -38,11 +37,11 @@ namespace MassSpectrometry
         /// Of course, if you store the scans somewhere else, they will persist. The default value is True.
         /// </summary>
 
-        #region Internal Fields
+        #region Public Fields
 
         public TScan[] Scans;
 
-        #endregion Internal Fields
+        #endregion Public Fields
 
         #region Private Fields
 
@@ -54,7 +53,7 @@ namespace MassSpectrometry
 
         #endregion Private Fields
 
-        #region Protected Constructors
+        #region Public Constructors
 
         public MsDataFile(string filePath, MsDataFileType filetype = MsDataFileType.UnKnown)
         {
@@ -62,7 +61,7 @@ namespace MassSpectrometry
             FileType = filetype;
         }
 
-        #endregion Protected Constructors
+        #endregion Public Constructors
 
         #region Public Properties
 
@@ -170,21 +169,15 @@ namespace MassSpectrometry
         {
             return string.Format("{0} ({1})", Name, Enum.GetName(typeof(MsDataFileType), FileType));
         }
+
         public abstract void Open();
+
         public abstract void Close();
-
-        #endregion Public Methods
-
-        #region Protected Methods
-
-        protected abstract TScan GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
-        protected abstract int GetNumSpectra();
 
         TScan ICollectionOfMsScans<TScan, TSpectrum, TMzPeak>.GetOneBasedScan(int oneBasedScanNumber)
         {
             return GetOneBasedScan(oneBasedScanNumber);
         }
-
 
         IEnumerator IEnumerable.GetEnumerator()
         {
@@ -196,7 +189,14 @@ namespace MassSpectrometry
             return GetMsScans().GetEnumerator();
         }
 
-        #endregion Protected Methods
+        #endregion Public Methods
 
+        #region Protected Methods
+
+        protected abstract TScan GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber);
+
+        protected abstract int GetNumSpectra();
+
+        #endregion Protected Methods
     }
 }

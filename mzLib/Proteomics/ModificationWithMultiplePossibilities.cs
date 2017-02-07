@@ -24,23 +24,41 @@ namespace Proteomics
 {
     public class ModificationWithMultiplePossibilitiesCollection : OldSchoolModification, IEnumerable<OldSchoolModification>
     {
+        #region Private Fields
+
         private readonly SortedList<double, OldSchoolModification> _modifications;
 
-        public OldSchoolModification this[int index]
-        {
-            get { return _modifications.Values[index]; }
-        }
+        #endregion Private Fields
 
-        public int Count
-        {
-            get { return _modifications.Count; }
-        }
+        #region Public Constructors
 
         public ModificationWithMultiplePossibilitiesCollection(string name, ModificationSites sites)
             : base(0, name, sites)
         {
             _modifications = new SortedList<double, OldSchoolModification>();
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public int Count
+        {
+            get { return _modifications.Count; }
+        }
+
+        #endregion Public Properties
+
+        #region Public Indexers
+
+        public OldSchoolModification this[int index]
+        {
+            get { return _modifications.Values[index]; }
+        }
+
+        #endregion Public Indexers
+
+        #region Public Methods
 
         public void AddModification(OldSchoolModification modification)
         {
@@ -64,5 +82,7 @@ namespace Proteomics
         {
             return _modifications.Values.GetEnumerator();
         }
+
+        #endregion Public Methods
     }
 }

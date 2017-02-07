@@ -21,10 +21,16 @@ namespace Proteomics
 {
     public class ChemicalFormulaTerminus : IHasChemicalFormula
     {
+        #region Public Constructors
+
         public ChemicalFormulaTerminus(ChemicalFormula chemicalFormula)
         {
             ThisChemicalFormula = chemicalFormula;
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
 
         public double MonoisotopicMass
         {
@@ -38,5 +44,7 @@ namespace Proteomics
         {
             get; private set;
         }
+
+        #endregion Public Properties
     }
 }

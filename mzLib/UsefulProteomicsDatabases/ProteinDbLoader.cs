@@ -9,7 +9,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
-
         #region Public Methods
 
         public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, HashSet<Modification>> allModifications, bool IsContaminant)
@@ -289,6 +288,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
-
     }
 }

@@ -17,7 +17,6 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MzLibUtil;
-using System;
 using System.Collections.Generic;
 
 namespace Spectra
@@ -29,9 +28,8 @@ namespace Spectra
     public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
         where TPeak : IPeak
     {
-
         #region Public Properties
-        
+
         double FirstX { get; }
         double LastX { get; }
         int Size { get; }
@@ -69,6 +67,5 @@ namespace Spectra
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
         #endregion Public Methods
-
     }
 }

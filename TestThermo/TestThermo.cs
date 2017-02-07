@@ -2,7 +2,6 @@
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
 using System;
 using System.IO;
 using System.Linq;
@@ -12,7 +11,6 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -145,12 +143,10 @@ namespace TestThermo
             double[] noise = new double[] { 1 };
             ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
-            s1.ReplaceXbyApplyingFunction((a) => 0);
-            Assert.AreEqual(0, s2.First().Mz);
+            s1.ReplaceXbyApplyingFunction((a) => 4);
+            Assert.AreEqual(4, s2.First().Mz);
         }
 
-
         #endregion Public Methods
-
     }
 }

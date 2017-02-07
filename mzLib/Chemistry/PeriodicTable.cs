@@ -102,6 +102,5 @@ namespace Chemistry
         }
 
         #endregion Public Methods
-
     }
 }

@@ -32,7 +32,6 @@ namespace Proteomics
     /// </summary>
     public abstract class AminoAcidPolymer : IEquatable<AminoAcidPolymer>, IHasMass
     {
-
         #region Private Fields
 
         /// <summary>
@@ -389,7 +388,7 @@ namespace Proteomics
             IHasMass mod;
 
             // Handle N-Terminus Modification
-            if ((mod = _modifications[0]) != null && mod.MonoisotopicMass > 0 )
+            if ((mod = _modifications[0]) != null && mod.MonoisotopicMass > 0)
             {
                 modSeqSb.Append('[');
                 modSeqSb.Append(mod);
@@ -405,7 +404,7 @@ namespace Proteomics
                     modSeqSb.Append(residues[i].Letter);
 
                 // Handle Amino Acid Modification (1-based)
-                if ((mod = _modifications[i + 1]) != null && mod.MonoisotopicMass > 0 )
+                if ((mod = _modifications[i + 1]) != null && mod.MonoisotopicMass > 0)
                 {
                     modSeqSb.Append('[');
                     modSeqSb.Append(mod);
@@ -535,7 +534,7 @@ namespace Proteomics
                 bool isCTerminal = type.GetTerminus() == Terminus.C;
 
                 double monoMass = capFormula.MonoisotopicMass;
-				ChemicalFormula formula = new ChemicalFormula(capFormula);
+                ChemicalFormula formula = new ChemicalFormula(capFormula);
 
                 IHasChemicalFormula terminus = isCTerminal ? CTerminus : NTerminus;
                 monoMass += terminus.MonoisotopicMass;
@@ -1206,7 +1205,6 @@ namespace Proteomics
 
         private class ModWithOnlyMass : IHasMass
         {
-
             #region Private Fields
 
             private readonly double mass;
@@ -1242,10 +1240,8 @@ namespace Proteomics
             }
 
             #endregion Public Methods
-
         }
 
         #endregion Private Classes
-
     }
 }

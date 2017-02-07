@@ -23,7 +23,6 @@ namespace Proteomics
 {
     public class Residue : IHasChemicalFormula
     {
-
         #region Public Fields
 
         public static readonly double[] ResidueMonoisotopicMass;
@@ -208,6 +207,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

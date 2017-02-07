@@ -19,17 +19,26 @@
 using MzLibUtil;
 using Spectra;
 using System;
-using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
     public interface IMzSpectrum<out TPeak> : ISpectrum<TPeak>
         where TPeak : IMzPeak
     {
+        #region Public Properties
+
         new MzRange Range { get; }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
         void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor);
+
         byte[] Get64BitXarray();
+
         byte[] Get64BitYarray();
+
+        #endregion Public Methods
     }
 }

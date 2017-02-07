@@ -22,7 +22,6 @@ namespace IO.MzML
 {
     public class MzmlMzSpectrum : MzSpectrum<MzmlPeak>
     {
-
         #region Public Constructors
 
         public MzmlMzSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
@@ -39,6 +38,5 @@ namespace IO.MzML
         }
 
         #endregion Protected Methods
-
     }
 }

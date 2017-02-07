@@ -17,7 +17,6 @@
 
 using IO.MzML;
 using MassSpectrometry;
-using Spectra;
 using System;
 using System.Linq;
 
@@ -25,7 +24,6 @@ namespace Test
 {
     public class FakeMsDataFile : MsDataFile<IMzmlScan, MzmlMzSpectrum, MzmlPeak>
     {
-
         #region Public Constructors
 
         public FakeMsDataFile(string filePath, IMzmlScan[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
@@ -68,6 +66,5 @@ namespace Test
         }
 
         #endregion Protected Methods
-
     }
 }
