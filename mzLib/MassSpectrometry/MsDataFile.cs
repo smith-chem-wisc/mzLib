@@ -148,12 +148,12 @@ namespace MassSpectrometry
             }
         }
 
-        public virtual IEnumerable<IMsDataScan<TSpectrum, TMzPeak>> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public virtual IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
-                IMsDataScan<TSpectrum, TMzPeak> scan = GetOneBasedScan(oneBasedSpectrumNumber);
+                TScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
                 oneBasedSpectrumNumber++;
                 if (rt < firstRT)
