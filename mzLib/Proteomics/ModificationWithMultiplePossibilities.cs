@@ -22,11 +22,11 @@ using System.Collections.Generic;
 
 namespace Proteomics
 {
-    public class ModificationWithMultiplePossibilitiesCollection : Modification, IEnumerable<Modification>
+    public class ModificationWithMultiplePossibilitiesCollection : OldSchoolModification, IEnumerable<OldSchoolModification>
     {
-        private readonly SortedList<double, Modification> _modifications;
+        private readonly SortedList<double, OldSchoolModification> _modifications;
 
-        public Modification this[int index]
+        public OldSchoolModification this[int index]
         {
             get { return _modifications.Values[index]; }
         }
@@ -39,10 +39,10 @@ namespace Proteomics
         public ModificationWithMultiplePossibilitiesCollection(string name, ModificationSites sites)
             : base(0, name, sites)
         {
-            _modifications = new SortedList<double, Modification>();
+            _modifications = new SortedList<double, OldSchoolModification>();
         }
 
-        public void AddModification(Modification modification)
+        public void AddModification(OldSchoolModification modification)
         {
             if (!Sites.ContainsSites(modification.Sites))
                 throw new ArgumentException("Unable to add a modification with sites other than " + Sites);
@@ -50,12 +50,12 @@ namespace Proteomics
             _modifications.Add(modification.MonoisotopicMass, modification);
         }
 
-        public bool Contains(Modification modification)
+        public bool Contains(OldSchoolModification modification)
         {
             return _modifications.ContainsValue(modification);
         }
 
-        public IEnumerator<Modification> GetEnumerator()
+        public IEnumerator<OldSchoolModification> GetEnumerator()
         {
             return _modifications.Values.GetEnumerator();
         }

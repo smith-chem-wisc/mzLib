@@ -115,7 +115,7 @@ namespace Proteomics
             ModificationWithMultiplePossibilitiesCollection isotopologue = isotopologues[0];
 
             // Loop over each modification in the isotopologue
-            foreach (Modification mod in isotopologue)
+            foreach (OldSchoolModification mod in isotopologue)
             {
                 // Create a clone of the peptide, cloning modifications as well.
                 Peptide peptide = new Peptide(this);

@@ -20,36 +20,36 @@ using Chemistry;
 
 namespace Proteomics
 {
-    public class ChemicalFormulaModification : Modification, IHasChemicalFormula
+    public class OldSchoolChemicalFormulaModification : OldSchoolModification, IHasChemicalFormula
     {
         /// <summary>
         /// The Chemical Formula of this modifications
         /// </summary>
         public ChemicalFormula ThisChemicalFormula { get; private set; }
 
-        public ChemicalFormulaModification(ChemicalFormula chemicalFormula)
+        public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula)
             : this(chemicalFormula, ModificationSites.Any)
         {
         }
 
-        public ChemicalFormulaModification(ChemicalFormula chemicalFormula, ModificationSites sites)
+        public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula, ModificationSites sites)
             : this(chemicalFormula, "", sites)
         {
             Name = ThisChemicalFormula.Formula;
         }
 
-        public ChemicalFormulaModification(ChemicalFormula chemicalFormula, string name)
+        public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula, string name)
             : this(chemicalFormula, name, ModificationSites.Any)
         {
         }
 
-        public ChemicalFormulaModification(ChemicalFormula chemicalFormula, string name, ModificationSites sites)
+        public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula, string name, ModificationSites sites)
             : base(chemicalFormula.MonoisotopicMass, name, sites)
         {
             ThisChemicalFormula = chemicalFormula;
         }
 
-        public ChemicalFormulaModification(ChemicalFormulaModification other)
+        public OldSchoolChemicalFormulaModification(OldSchoolChemicalFormulaModification other)
 			: this(ChemicalFormula.ParseFormula(other.ThisChemicalFormula.Formula), other.Name, other.Sites)
         {
         }

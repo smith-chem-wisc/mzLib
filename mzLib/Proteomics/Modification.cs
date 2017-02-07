@@ -25,8 +25,42 @@ namespace Proteomics
     /// <summary>
     /// Represents a modification with a mass and name and default amino acid sites of modification
     /// </summary>
-    public class Modification : IHasMass, IEquatable<Modification>
+    public class OldSchoolModification : IHasMass, IEquatable<OldSchoolModification>
     {
+
+        #region Public Constructors
+
+        public OldSchoolModification(OldSchoolModification modification)
+                    : this(modification.MonoisotopicMass, modification.Name, modification.Sites)
+        {
+        }
+
+        public OldSchoolModification()
+                    : this(0.0, "", ModificationSites.Any)
+        {
+        }
+
+        public OldSchoolModification(double monoMass)
+                    : this(monoMass, "", ModificationSites.Any)
+        {
+        }
+
+        public OldSchoolModification(double monoMass, string name)
+                    : this(monoMass, name, ModificationSites.Any)
+        {
+        }
+
+        public OldSchoolModification(double monoMass, string name, ModificationSites sites)
+        {
+            MonoisotopicMass = monoMass;
+            Name = name;
+            Sites = sites;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
         /// <summary>
         /// The name of the modification
         /// </summary>
@@ -50,32 +84,9 @@ namespace Proteomics
             get { return string.Format(CultureInfo.InvariantCulture, "{0} ({1})", Name, Sites); }
         }
 
-        public Modification(Modification modification)
-            : this(modification.MonoisotopicMass, modification.Name, modification.Sites)
-        {
-        }
+        #endregion Public Properties
 
-        public Modification()
-            : this(0.0, "", ModificationSites.Any)
-        {
-        }
-
-        public Modification(double monoMass)
-            : this(monoMass, "", ModificationSites.Any)
-        {
-        }
-
-        public Modification(double monoMass, string name)
-            : this(monoMass, name, ModificationSites.Any)
-        {
-        }
-
-        public Modification(double monoMass, string name, ModificationSites sites)
-        {
-            MonoisotopicMass = monoMass;
-            Name = name;
-            Sites = sites;
-        }
+        #region Public Methods
 
         public override string ToString()
         {
@@ -89,11 +100,11 @@ namespace Proteomics
 
         public override bool Equals(object obj)
         {
-            Modification modObj = obj as Modification;
+            OldSchoolModification modObj = obj as OldSchoolModification;
             return modObj != null && Equals(modObj);
         }
 
-        public bool Equals(Modification other)
+        public bool Equals(OldSchoolModification other)
         {
             if (ReferenceEquals(this, other))
                 return true;
@@ -109,5 +120,8 @@ namespace Proteomics
 
             return true;
         }
+
+        #endregion Public Methods
+
     }
 }

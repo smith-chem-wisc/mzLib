@@ -758,15 +758,15 @@ namespace Proteomics
             ReplaceMod(residueNumber, modification);
         }
 
-        public void SetModifications(IEnumerable<Modification> modifications)
+        public void SetModifications(IEnumerable<OldSchoolModification> modifications)
         {
-            foreach (Modification mod in modifications)
+            foreach (OldSchoolModification mod in modifications)
             {
                 SetModification(mod, mod.Sites);
             }
         }
 
-        public void SetModification(Modification mod)
+        public void SetModification(OldSchoolModification mod)
         {
             SetModification(mod, mod.Sites);
         }
@@ -834,7 +834,7 @@ namespace Proteomics
             return count;
         }
 
-        public virtual int AddModification(Modification modification)
+        public virtual int AddModification(OldSchoolModification modification)
         {
             return AddModification(modification, modification.Sites);
         }
@@ -1127,7 +1127,7 @@ namespace Proteomics
                         double mass;
                         try
                         {
-                            modification = new ChemicalFormulaModification(modString);
+                            modification = new OldSchoolChemicalFormulaModification(modString);
                         }
                         catch (FormatException)
                         {
