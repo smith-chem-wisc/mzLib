@@ -45,7 +45,7 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
+        void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
 
         #endregion Public Methods
 

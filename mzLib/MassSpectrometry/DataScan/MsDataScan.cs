@@ -83,7 +83,7 @@ namespace MassSpectrometry
             return string.Format("Scan #{0}", OneBasedScanNumber);
         }
 
-        public void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
+        public void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
         }

@@ -113,6 +113,9 @@ namespace Test
             var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum, MzmlPeak>;
 
             Assert.AreEqual(1, secondScan2.IsolationWidth);
+
+            secondScan2.TransformByApplyingFunctionToSpectra((a) => 44);
+            Assert.AreEqual(44, secondScan2.MassSpectrum.LastX);
         }
 
         [Test]
