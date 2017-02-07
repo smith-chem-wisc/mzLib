@@ -46,13 +46,13 @@ namespace Test
                 }
             };
 
-            var ok = ProteinDbLoader.LoadProteinDb(@"xml.xml", true, mods, false).ToList();
+            ProteinDbLoader.LoadProteinDb(@"xml.xml", true, mods, false).ToList();
         }
 
         [Test]
         public void FastaTest()
         {
-            var ok = ProteinDbLoader.LoadProteinDb(@"fasta.fasta", true, null, false).ToList();
+            ProteinDbLoader.LoadProteinDb(@"fasta.fasta", true, null, false).ToList();
         }
 
         #endregion Public Methods
