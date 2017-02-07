@@ -103,6 +103,9 @@ namespace Test
             FakeMsDataFile thefile = new FakeMsDataFile("Somepath", theList);
 
             var theOneBasedScan = thefile.GetOneBasedScan(1);
+
+            Assert.AreEqual("Scan #1", theOneBasedScan.ToString());
+
             Assert.AreEqual(15, theOneBasedScan.MassSpectrum.Size);
             Assert.AreEqual(15, theOneBasedScan.MassSpectrum.Size);
 

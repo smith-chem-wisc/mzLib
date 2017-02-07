@@ -61,12 +61,7 @@ namespace MassSpectrometry
         #endregion Public Properties
 
         #region Public Methods
-
-        public override string ToString()
-        {
-            return string.Format("Scan #{0}", OneBasedScanNumber);
-        }
-
+        
         public MzRange IsolationRange
         {
             get
