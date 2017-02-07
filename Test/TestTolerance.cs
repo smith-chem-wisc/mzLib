@@ -18,14 +18,12 @@
 
 using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
 
 namespace Test
 {
     [TestFixture]
     public sealed class MassToleranceTestFixture
     {
-
         #region Public Methods
 
         [Test]
@@ -145,6 +143,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

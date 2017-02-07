@@ -1,14 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Spectra
+﻿namespace Spectra
 {
     public abstract class Peak : IPeak
     {
-        public double X { get; protected set; }
-        public double Y { get; protected set; }
+        #region Public Constructors
+
+        public Peak(double x, double y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public double X { get; private set; }
+        public double Y { get; private set; }
+
+        #endregion Public Properties
     }
 }

@@ -197,8 +197,6 @@ namespace Chemistry
 
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)
         {
-            if (formulas == null)
-                throw new ArgumentException("Cannot combine a null collection of formulas");
             ChemicalFormula returnFormula = new ChemicalFormula();
             foreach (IHasChemicalFormula iformula in formulas)
                 returnFormula.Add(iformula);
@@ -564,6 +562,5 @@ namespace Chemistry
         }
 
         #endregion Private Methods
-
     }
 }

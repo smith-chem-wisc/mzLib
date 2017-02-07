@@ -24,7 +24,6 @@ namespace Test
     [TestFixture]
     public class ElementsAndIsotopesTest
     {
-
         #region Public Methods
 
         [Test]
@@ -47,6 +46,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

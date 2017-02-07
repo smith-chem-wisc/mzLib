@@ -16,9 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using System;
 using MassSpectrometry;
-using Spectra;
 
 namespace IO.MzML
 {
@@ -27,33 +25,12 @@ namespace IO.MzML
     /// </summary>
     public class MzmlPeak : MzPeak
     {
-
         #region Public Constructors
 
-        public MzmlPeak(double mz, double intensity):base(mz, intensity)
+        public MzmlPeak(double mz, double intensity) : base(mz, intensity)
         {
         }
 
         #endregion Public Constructors
-
-        #region Public Properties
-
-
-        #endregion Public Properties
-
-        #region Public Methods
-
-        public override string ToString()
-        {
-            return string.Format("({0:F4},{1:G5})", Mz, Intensity);
-        }
-
-        public void AddIntensity(double additionalIntensity)
-        {
-            Y += additionalIntensity;
-        }
-
-        #endregion Public Methods
-
     }
 }

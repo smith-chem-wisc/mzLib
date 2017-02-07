@@ -27,7 +27,6 @@ namespace Proteomics
     /// </summary>
     public class OldSchoolModification : IHasMass, IEquatable<OldSchoolModification>
     {
-
         #region Public Constructors
 
         public OldSchoolModification(OldSchoolModification modification)
@@ -122,6 +121,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

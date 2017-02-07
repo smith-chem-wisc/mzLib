@@ -1,17 +1,26 @@
-﻿using System.Collections.Generic;
-using Proteomics;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace Proteomics
 {
     public class ModificationWithMass : Modification
     {
-        private readonly double neutralLoss;
+        #region Public Fields
+
         public readonly IEnumerable<double> massesObserved;
         public readonly double monoisotopicMass;
         public readonly IEnumerable<double> diagnosticIons;
 
+        #endregion Public Fields
+
+        #region Private Fields
+
+        private readonly double neutralLoss;
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons)
             : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR)
@@ -29,16 +38,22 @@ namespace Proteomics
             this.monoisotopicMass = mm;
             massesObserved = new HashSet<double> { mm };
         }
+
+        #endregion Public Constructors
+
+        #region Public Methods
+
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
             sb.AppendLine("NL   " + neutralLoss);
             sb.AppendLine("MO   " + string.Join(" or ", massesObserved));
-            if (diagnosticIons != null)
-                sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons));
+            sb.AppendLine("DI   " + (diagnosticIons != null ? string.Join(" or ", diagnosticIons) : ""));
             sb.Append("MM   " + monoisotopicMass);
             return sb.ToString();
         }
+
+        #endregion Public Methods
     }
 }

@@ -21,14 +21,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
 namespace UsefulProteomicsDatabases
 {
     public static class Loaders
     {
-
         #region Public Methods
 
         public static void UpdateUniprot(string uniprotLocation)
@@ -100,7 +98,7 @@ namespace UsefulProteomicsDatabases
         }
 
         public static void UpdateElements(string elementLocation)
-		{
+        {
             DownloadElements(elementLocation);
             if (!File.Exists(elementLocation))
             {
@@ -143,6 +141,7 @@ namespace UsefulProteomicsDatabases
                 UpdatePsiMod(psimodLocation);
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open)) as Generated.obo;
         }
+
         public static IEnumerable<Modification> LoadUniprot(string uniprotLocation)
         {
             if (!File.Exists(uniprotLocation))
@@ -195,6 +194,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }

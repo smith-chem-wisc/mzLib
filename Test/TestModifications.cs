@@ -28,7 +28,6 @@ namespace Test
     [TestFixture]
     public sealed class TestModifications
     {
-
         #region Public Methods
 
         [Test]
@@ -155,6 +154,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

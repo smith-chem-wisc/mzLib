@@ -28,7 +28,6 @@ namespace Test
     [TestFixture]
     public sealed class TestPeptides
     {
-
         #region Private Fields
 
         private Peptide _mockPeptideEveryAminoAcid;
@@ -63,11 +62,12 @@ namespace Test
         }
 
         [Test]
-		public void AApolymerNullEquals()
-		{
-			Peptide pep = new Peptide("G");
-			Assert.IsFalse(pep.Equals(null));
-		}
+        public void AApolymerNullEquals()
+        {
+            Peptide pep = new Peptide("G");
+            Assert.IsFalse(pep.Equals(null));
+        }
+
         [Test]
         public void PeptideCountElements()
         {
@@ -688,7 +688,6 @@ namespace Test
 
             Peptide peptide = new Peptide("III-[C2H3NO]");
             Assert.AreEqual("LLL-[C2H3NO]", peptide.GetSequenceWithModifications(true));
-
         }
 
         [Test]
@@ -705,11 +704,10 @@ namespace Test
             Assert.AreEqual(2, a.ModificationCount());
             a.Fragment(FragmentTypes.y);
 
-
-			Peptide peptide = new Peptide("[C2H3NO]-LLL-[C2H3NO]");
-			ModificationSites ff = ModificationSites.NPep | ModificationSites.PepC;
-			peptide.ClearModifications(ff);
-			Assert.AreEqual("LLL",peptide.GetSequenceWithModifications());
+            Peptide peptide = new Peptide("[C2H3NO]-LLL-[C2H3NO]");
+            ModificationSites ff = ModificationSites.NPep | ModificationSites.PepC;
+            peptide.ClearModifications(ff);
+            Assert.AreEqual("LLL", peptide.GetSequenceWithModifications());
         }
 
         [Test]
@@ -769,7 +767,6 @@ namespace Test
 
         private class OkComparer : IEqualityComparer<DigestionPointAndLength>
         {
-
             #region Public Methods
 
             public bool Equals(DigestionPointAndLength x, DigestionPointAndLength y)
@@ -783,16 +780,13 @@ namespace Test
             }
 
             #endregion Public Methods
-
         }
 
         #endregion Private Classes
-
     }
 
     internal class TestProtease : IProtease
     {
-
         #region Public Methods
 
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)
@@ -817,6 +811,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

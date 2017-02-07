@@ -50,8 +50,6 @@ namespace Chemistry
         /// </summary>
         public static void Add(Element element)
         {
-            if (element == null)
-                throw new ArgumentException("Cannot add a null element to periodic table");
             if (!_elements.ContainsKey(element.AtomicSymbol))
             {
                 _elements.Add(element.AtomicSymbol, element);
@@ -104,6 +102,5 @@ namespace Chemistry
         }
 
         #endregion Public Methods
-
     }
 }

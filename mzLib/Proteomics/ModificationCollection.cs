@@ -28,7 +28,6 @@ namespace Proteomics
 {
     public class ModificationCollection : ICollection<IHasMass>, IEquatable<ModificationCollection>, IHasChemicalFormula
     {
-
         #region Private Fields
 
         private readonly List<IHasMass> _modifications;
@@ -135,6 +134,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

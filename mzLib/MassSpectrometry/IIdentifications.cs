@@ -1,11 +1,9 @@
 ﻿using MzLibUtil;
-using Spectra;
 
 namespace MassSpectrometry
 {
     public interface IIdentifications
     {
-
         #region Public Properties
 
         int Count { get; }
@@ -41,6 +39,5 @@ namespace MassSpectrometry
         string ModificationAcession(int matchIndex, int i);
 
         #endregion Public Methods
-
     }
 }

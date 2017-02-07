@@ -17,7 +17,6 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
-using Spectra;
 using System;
 
 namespace IO.Thermo
@@ -28,7 +27,6 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
-
         #region Private Fields
 
         private readonly double[] _noises;
@@ -84,16 +82,16 @@ namespace IO.Thermo
             int depthLength = peakData.GetLength(0);
             if (depthLength <= 2)
                 return;
-            _noises = new double[Count];
-            _resolutions = new double[Count];
-            var charges = new double[Count];
+            _noises = new double[Size];
+            _resolutions = new double[Size];
+            var charges = new double[Size];
 
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Count);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Count);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Count);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Size);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Size);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Size);
 
-            _charges = new int[Count];
-            for (int i = 0; i < Count; i++)
+            _charges = new int[Size];
+            for (int i = 0; i < Size; i++)
             {
                 _charges[i] = (int)charges[i];
             }
@@ -144,114 +142,33 @@ namespace IO.Thermo
 
         public override double[,] CopyTo2DArray()
         {
-            double[,] data = new double[5, Count];
+            double[,] data = new double[5, Size];
             const int size = sizeof(double);
-            int bytesToCopy = size * Count;
+            int bytesToCopy = size * Size;
             Buffer.BlockCopy(XArray, 0, data, 0, bytesToCopy);
             Buffer.BlockCopy(YArray, 0, data, bytesToCopy, bytesToCopy);
             Buffer.BlockCopy(_resolutions, 0, data, 2 * bytesToCopy, bytesToCopy);
             Buffer.BlockCopy(_noises, 0, data, 3 * bytesToCopy, bytesToCopy);
 
-            double[] charges = new double[Count];
-            for (int i = 0; i < Count; i++)
+            double[] charges = new double[Size];
+            for (int i = 0; i < Size; i++)
                 charges[i] = _charges[i];
 
             Buffer.BlockCopy(charges, 0, data, 4 * bytesToCopy, bytesToCopy);
             return data;
         }
 
-        public new ThermoSpectrum NewSpectrumExtract(double minMZ, double maxMZ)
-        {
-            int index = GetClosestPeakIndex(minMZ);
-            if (this[index].X < minMZ)
-                index++;
-            int index2 = GetClosestPeakIndex(maxMZ);
-            if (this[index2].X > maxMZ)
-                index2--;
-
-            int count = 1 + index2 - index;
-            if (count <= 0)
-                return new ThermoSpectrum(new double[5, 0]);
-
-            double[] mz = new double[count];
-            double[] intensity = new double[count];
-            int[] charges = new int[count];
-            double[] noises = new double[count];
-            double[] resolutions = new double[count];
-            int j = 0;
-
-            while (index < Count && XArray[index] <= maxMZ)
-            {
-                mz[j] = XArray[index];
-                intensity[j] = YArray[index];
-                if (_charges != null)
-                    charges[j] = _charges[index];
-                if (_noises != null)
-                    noises[j] = _noises[index];
-                if (_resolutions != null)
-                    resolutions[j] = _resolutions[index];
-                index++;
-                j++;
-            }
-
-            Array.Resize(ref mz, j);
-            Array.Resize(ref intensity, j);
-            Array.Resize(ref charges, j);
-            Array.Resize(ref noises, j);
-            Array.Resize(ref resolutions, j);
-            return new ThermoSpectrum(mz, intensity, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
-        }
-
-        public new ThermoSpectrum NewSpectrumFilterByY(double minIntensity, double maxIntensity)
-        {
-            int count = Count;
-            double[] mz = new double[count];
-            double[] intensities = new double[count];
-            double[] resolutions = new double[count];
-            double[] noises = new double[count];
-            int[] charges = new int[count];
-
-            int j = 0;
-            for (int i = 0; i < count; i++)
-            {
-                double intensity = YArray[i];
-                if (intensity >= minIntensity && intensity < maxIntensity)
-                {
-                    mz[j] = XArray[i];
-                    intensities[j] = intensity;
-                    if (_resolutions != null)
-                        resolutions[j] = _resolutions[i];
-                    if (_charges != null)
-                        charges[j] = _charges[i];
-                    if (_noises != null)
-                        noises[j] = _noises[i];
-                    j++;
-                }
-            }
-
-            if (j != count)
-            {
-                Array.Resize(ref mz, j);
-                Array.Resize(ref intensities, j);
-                Array.Resize(ref resolutions, j);
-                Array.Resize(ref noises, j);
-                Array.Resize(ref charges, j);
-            }
-
-            return new ThermoSpectrum(mz, intensities, _noises == null ? null : noises, _charges == null ? null : charges, _resolutions == null ? null : resolutions, false);
-        }
-
-        public override MzSpectrum<ThermoMzPeak> GetMzSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
-        {
-            return new ThermoSpectrum(item1, item2,null,null,null, v);
-        }
-
-        public override Spectrum<ThermoMzPeak> CreateSpectrumFromTwoArrays(double[] item1, double[] item2, bool v)
-        {
-            return new ThermoSpectrum(item1, item2, null, null, null, v);
-        }
-
         #endregion Public Methods
 
+        #region Protected Methods
+
+        protected override ThermoMzPeak GeneratePeak(int index)
+        {
+            return peakList[index] = _charges == null ?
+                new ThermoMzPeak(XArray[index], YArray[index]) :
+                new ThermoMzPeak(XArray[index], YArray[index], _charges[index], _noises[index], _resolutions[index]);
+        }
+
+        #endregion Protected Methods
     }
 }

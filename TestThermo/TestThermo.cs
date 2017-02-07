@@ -2,7 +2,6 @@
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
 using System;
 using System.IO;
 using System.Linq;
@@ -12,7 +11,6 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -41,8 +39,8 @@ namespace TestThermo
             var peak = spectrum.PeakWithHighestY;
             Assert.AreEqual(75501, peak.Intensity);
 
-            Assert.AreEqual(1, spectrum.NewSpectrumFilterByY(7.5e4, double.MaxValue).Count);
-            Assert.AreEqual(2, spectrum.NewSpectrumExtract(new DoubleRange(923, 928)).Count);
+            Assert.AreEqual(1, spectrum.FilterByY(7.5e4, double.MaxValue).Count());
+            Assert.AreEqual(2, spectrum.Extract(new DoubleRange(923, 928)).Count());
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 
@@ -75,9 +73,8 @@ namespace TestThermo
             Assert.AreEqual(360, a.NumSpectra);
             var ok = a.GetOneBasedScan(1).MassSpectrum.GetNoises();
             Assert.AreEqual(2401.57, ok[0], 0.01);
-            ThermoSpectrum ok2 = a.GetOneBasedScan(1).MassSpectrum.NewSpectrumExtract(0, 500);
-            Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumExtract(0, 500).LastX);
-            Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.NewSpectrumFilterByY(5e6, double.MaxValue).Count);
+            Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.Extract(0, 500).Last().X);
+            Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.FilterByY(5e6, double.MaxValue).Count());
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
             Assert.AreEqual("(195.0874,1.021401E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
@@ -88,7 +85,7 @@ namespace TestThermo
 
             var cromatogram = a.GetTicChroma();
 
-            Assert.AreEqual(360, cromatogram.Count);
+            Assert.AreEqual(360, cromatogram.Size);
             Assert.AreEqual(0.01, cromatogram.FirstTime, 0.002);
             Assert.AreEqual(2.788433333, cromatogram.PeakWithHighestY.Time, 0.0001);
             Assert.AreEqual(2.788433333, cromatogram.GetApex(0, 5).Time, 0.0001);
@@ -99,22 +96,22 @@ namespace TestThermo
             Assert.AreEqual(1, newSpectrum.GetCharges()[1]);
             Assert.AreEqual(102604, newSpectrum.GetResolutions()[1]);
 
-            Assert.AreEqual(181, newSpectrum.NewSpectrumExtract(500, 1000).Count);
+            //Assert.AreEqual(181, newSpectrum.NewSpectrumExtract(500, 1000).Size);
 
-            Assert.AreEqual(0, newSpectrum.NewSpectrumExtract(-3, -2).Count);
+            //Assert.AreEqual(0, newSpectrum.NewSpectrumExtract(-3, -2).Size);
 
-            var hm = newSpectrum.NewSpectrumExtract(501, 502);
+            //var hm = newSpectrum.NewSpectrumExtract(501, 502);
 
-            Assert.AreEqual(0, hm.Count);
+            //Assert.AreEqual(0, hm.Size);
 
-            Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Count);
+            Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
             a.Close();
 
             var b = new ThermoRawFile(@"05-13-16_cali_MS_60K-res_MS.raw", 400);
             b.Open();
 
-            Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Count);
+            Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Size);
 
             Assert.AreEqual(0, b.Where(eb => eb.MsnOrder > 1).Count());
 
@@ -136,7 +133,20 @@ namespace TestThermo
             a.Close();
         }
 
-        #endregion Public Methods
+        [Test]
+        public void ThermoSpectrumTest()
+        {
+            double[] resolutions = new double[] { 1 };
+            int[] charge = new int[] { 1 };
+            double[] mz = new double[] { 1 };
+            double[] intensity = new double[] { 1 };
+            double[] noise = new double[] { 1 };
+            ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
+            ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
+            s1.ReplaceXbyApplyingFunction((a) => 4);
+            Assert.AreEqual(4, s2.First().Mz);
+        }
 
+        #endregion Public Methods
     }
 }

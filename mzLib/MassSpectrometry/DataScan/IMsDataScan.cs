@@ -25,7 +25,6 @@ namespace MassSpectrometry
         where TPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TPeak>
     {
-
         #region Public Properties
 
         TSpectrum MassSpectrum { get; }
@@ -45,9 +44,8 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
+        void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
 
         #endregion Public Methods
-
     }
 }

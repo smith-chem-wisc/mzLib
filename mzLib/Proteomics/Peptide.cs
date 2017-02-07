@@ -23,7 +23,6 @@ namespace Proteomics
 {
     public class Peptide : AminoAcidPolymer
     {
-
         #region Public Constructors
 
         public Peptide()
@@ -146,6 +145,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

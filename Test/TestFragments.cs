@@ -16,19 +16,18 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using NUnit.Framework;
 using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Chemistry;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestFragments
     {
-
         #region Private Fields
 
         private Peptide _mockPeptideEveryAminoAcid;
@@ -130,43 +129,41 @@ namespace Test
         }
 
         [Test]
-		public void TestFormulaTerminusMods()
-		{
-			var pep1 = new Peptide("ACDEFG");
-			pep1.AddModification(new OldSchoolChemicalFormulaModification("H", ModificationSites.NTerminus));
+        public void TestFormulaTerminusMods()
+        {
+            var pep1 = new Peptide("ACDEFG");
+            pep1.AddModification(new OldSchoolChemicalFormulaModification("H", ModificationSites.NTerminus));
 
-			Assert.IsTrue(pep1.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
+            Assert.IsTrue(pep1.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
 
+            var pep2 = new Peptide("ACDEFG");
+            pep2.AddModification(new OldSchoolModification(2, "haha", ModificationSites.NTerminus));
+            Assert.IsFalse(pep2.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
 
-			var pep2 = new Peptide("ACDEFG");
-			pep2.AddModification(new OldSchoolModification(2, "haha", ModificationSites.NTerminus));
-			Assert.IsFalse(pep2.Fragment(FragmentTypes.b, true).First()is IHasChemicalFormula);
+            var pep3 = new Peptide("ACDEFG");
+            pep3.AddModification(new OldSchoolModification(3, "haha", ModificationSites.D));
 
+            var list = pep3.Fragment(FragmentTypes.b, true).ToList();
 
-			var pep3 = new Peptide("ACDEFG");
-			pep3.AddModification(new OldSchoolModification(3, "haha", ModificationSites.D));
-
-			var list = pep3.Fragment(FragmentTypes.b, true).ToList();
-
-			Assert.IsTrue(list[0]is IHasChemicalFormula);
-			Assert.IsFalse(list[2]is IHasChemicalFormula);
-		}
+            Assert.IsTrue(list[0] is IHasChemicalFormula);
+            Assert.IsFalse(list[2] is IHasChemicalFormula);
+        }
 
         [Test]
-		public void CleavageIndicesTest()
-		{
-			IEnumerable<IProtease> proteases = new List<TestProtease> { new TestProtease() };
-			var ok1 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, true).ToList();
-			var ok2 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, false).ToList();
-			var ok3 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, true).ToList();
-			var ok4 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, false).ToList();
-			Assert.AreEqual(3, ok1.Count());
-			Assert.AreEqual(2, ok2.Count());
-			Assert.AreEqual(4, ok3.Count());
-			Assert.AreEqual(2, ok4.Count());
-		}
+        public void CleavageIndicesTest()
+        {
+            IEnumerable<IProtease> proteases = new List<TestProtease> { new TestProtease() };
+            var ok1 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, true).ToList();
+            var ok2 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, false).ToList();
+            var ok3 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, true).ToList();
+            var ok4 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, false).ToList();
+            Assert.AreEqual(3, ok1.Count());
+            Assert.AreEqual(2, ok2.Count());
+            Assert.AreEqual(4, ok3.Count());
+            Assert.AreEqual(2, ok4.Count());
+        }
 
-		[Test]
+        [Test]
         public void TestGetIonCapFailFail()
         {
             FragmentTypes f = FragmentTypes.All;
@@ -185,6 +182,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

@@ -42,7 +42,6 @@ namespace Chemistry
     /// </remarks>
     public class IsotopicDistribution
     {
-
         #region Private Fields
 
         private const double defaultFineResolution = 0.01;
@@ -421,14 +420,12 @@ namespace Chemistry
 
         private struct Polynomial
         {
-
             #region Public Fields
 
             public double Power;
             public double Probablity;
 
             #endregion Public Fields
-
         }
 
         #endregion Private Structs
@@ -437,7 +434,6 @@ namespace Chemistry
 
         private class Composition
         {
-
             #region Public Fields
 
             public double Power;
@@ -447,10 +443,8 @@ namespace Chemistry
             public int Atoms;
 
             #endregion Public Fields
-
         }
 
         #endregion Private Classes
-
     }
 }

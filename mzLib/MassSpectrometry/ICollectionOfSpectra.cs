@@ -16,17 +16,27 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Spectra;
 using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
-    public interface ICollectionOfMsScans<out TSpectrum, out TMzPeak> : IEnumerable<IMsDataScan<TSpectrum, TMzPeak>>
+    public interface ICollectionOfMsScans<out TScan, out TSpectrum, out TMzPeak> : IEnumerable<TScan>
         where TMzPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TMzPeak>
+        where TScan : IMsDataScan<TSpectrum, TMzPeak>
     {
-        IMsDataScan<TSpectrum, TMzPeak> GetOneBasedScan(int oneBasedScanNumber);
+        #region Public Properties
+
         string Name { get; }
+
         int NumSpectra { get; }
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        TScan GetOneBasedScan(int oneBasedScanNumber);
+
+        #endregion Public Methods
     }
 }

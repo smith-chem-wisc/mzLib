@@ -25,7 +25,6 @@ namespace MassSpectrometry
         where TPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TPeak>
     {
-
         #region Protected Constructors
 
         protected MsDataScan(int oneBasedScanNumber, string id, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double injectionTime, double totalIonCurrent)
@@ -83,12 +82,11 @@ namespace MassSpectrometry
             return string.Format("Scan #{0}", OneBasedScanNumber);
         }
 
-        public void TranformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
+        public void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
         }
 
         #endregion Public Methods
-
     }
 }

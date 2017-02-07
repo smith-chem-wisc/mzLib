@@ -18,12 +18,14 @@
 
 using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
+
 namespace Test
 {
     [TestFixture]
     public sealed class RangeTest
     {
+        #region Public Methods
+
         [Test]
         public void RangeSubRange()
         {
@@ -287,6 +289,8 @@ namespace Test
             Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
             Assert.AreEqual("[999999 - 1000001]", range1.ToString());
         }
+
+        #endregion Public Methods
 
         //[Test]
         //public void TestHashSet()

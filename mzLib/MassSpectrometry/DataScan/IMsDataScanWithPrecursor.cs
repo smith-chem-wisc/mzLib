@@ -25,7 +25,6 @@ namespace MassSpectrometry
         where TPeak : IMzPeak
         where TSpectrum : IMzSpectrum<TPeak>
     {
-
         #region Public Properties
 
         int OneBasedPrecursorScanNumber { get; }
@@ -42,6 +41,10 @@ namespace MassSpectrometry
 
         #endregion Public Properties
 
+        #region Public Methods
+
         void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
+
+        #endregion Public Methods
     }
 }

@@ -24,7 +24,6 @@ namespace Test
     [TestFixture]
     public sealed class TestAminoAcids
     {
-
         #region Public Methods
 
         [Test]
@@ -66,6 +65,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

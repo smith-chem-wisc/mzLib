@@ -10,6 +10,8 @@ namespace UsefulProteomicsDatabases
 {
     internal class UnimodLoader
     {
+        #region Private Fields
+
         private static readonly Dictionary<string, string> DictOfElements = new Dictionary<string, string>
         {
             {"2H", "H{2}" },
@@ -26,6 +28,10 @@ namespace UsefulProteomicsDatabases
             {position_t.AnyNterm, ModificationSites.NPep },
             {position_t.ProteinNterm, ModificationSites.NProt }
             };
+
+        #endregion Private Fields
+
+        #region Internal Methods
 
         internal static IEnumerable<Modification> ReadMods(string unimodLocation)
         {
@@ -62,9 +68,10 @@ namespace UsefulProteomicsDatabases
                     else
                         foreach (var nl in nice.NeutralLoss)
                             yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, nl.mono_mass);
-
                 }
             }
         }
+
+        #endregion Internal Methods
     }
 }

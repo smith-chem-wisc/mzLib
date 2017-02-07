@@ -8,7 +8,6 @@ namespace Benchmark
 {
     internal class Program
     {
-
         #region Private Methods
 
         private static void BenchmarkFormula(StreamWriter file)
@@ -270,6 +269,5 @@ namespace Benchmark
         }
 
         #endregion Private Methods
-
     }
 }

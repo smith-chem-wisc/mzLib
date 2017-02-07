@@ -58,6 +58,8 @@ namespace Proteomics
 
     public static class ModificationSiteExtensions
     {
+        #region Public Methods
+
         public static IEnumerable<ModificationSites> EnumerateActiveSites(this ModificationSites sites)
         {
             foreach (ModificationSites site in Enum.GetValues(typeof(ModificationSites)))
@@ -84,5 +86,7 @@ namespace Proteomics
 
             return (~sites & otherSites) == ModificationSites.None;
         }
+
+        #endregion Public Methods
     }
 }

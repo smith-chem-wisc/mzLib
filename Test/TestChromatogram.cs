@@ -19,7 +19,6 @@
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
 using System.Linq;
 
 namespace Test
@@ -27,6 +26,8 @@ namespace Test
     [TestFixture]
     public sealed class ChromatogramTestFixture
     {
+        #region Public Methods
+
         [Test]
         public void ChromatogramTest()
         {
@@ -37,8 +38,8 @@ namespace Test
 
             Chromatogram d = new Chromatogram(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new double[] { 10, 0, 2, 6, 2, 0, 1, 10, 1 }, false);
             // Finds the APEX! Not nearest peak!
-            Assert.AreEqual(6, d.FindNearestApex(5.9,1).Intensity);
-            Assert.AreEqual(10, d.FindNearestApex(6.1,1).Intensity);
+            Assert.AreEqual(6, d.FindNearestApex(5.9, 1).Intensity);
+            Assert.AreEqual(10, d.FindNearestApex(6.1, 1).Intensity);
 
             var elutionProfile = d.GetElutionProfile(new DoubleRange(3, 7));
 
@@ -85,9 +86,11 @@ namespace Test
 
             Assert.AreEqual(6, a.CreateSmoothChromatogram(SmoothingType.None, -10).GetApex(1.5, 2.5).Intensity);
 
-            Assert.AreEqual(8, a.FindNearestApex(10,1).Y);
-            
+            Assert.AreEqual(8, a.FindNearestApex(10, 1).Y);
+
             Assert.AreEqual(4, a.GetApex(5, 6).X);
         }
+
+        #endregion Public Methods
     }
 }

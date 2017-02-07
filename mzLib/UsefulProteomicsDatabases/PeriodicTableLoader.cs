@@ -27,7 +27,6 @@ namespace UsefulProteomicsDatabases
     /// </summary>
     public static class PeriodicTableLoader
     {
-
         #region Public Methods
 
         public static void Load(string elementLocation)
@@ -98,6 +97,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
-
     }
 }

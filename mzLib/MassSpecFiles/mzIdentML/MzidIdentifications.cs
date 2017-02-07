@@ -17,7 +17,6 @@
 
 using MassSpectrometry;
 using MzLibUtil;
-using Spectra;
 using System;
 using System.IO;
 using System.Linq;
@@ -28,7 +27,6 @@ namespace MzIdentML
 {
     public class MzidIdentifications : IIdentifications
     {
-
         #region Private Fields
 
         private readonly mzIdentML.Generated.MzIdentMLType dd;
@@ -71,16 +69,16 @@ namespace MzIdentML
                 try
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
-					return hm[0].unitName.Equals("dalton") ?
-						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)):
-						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                    return hm[0].unitName.Equals("dalton") ?
+                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
-					return hm[0].unitName.Equals("dalton") ?
-						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                    return hm[0].unitName.Equals("dalton") ?
+                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
             }
         }
@@ -92,16 +90,16 @@ namespace MzIdentML
                 try
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
-					return hm[0].unitName.Equals("dalton") ?
-						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                    return hm[0].unitName.Equals("dalton") ?
+                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
-					return hm[0].unitName.Equals("dalton") ?
-						   new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-						   new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                    return hm[0].unitName.Equals("dalton") ?
+                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
+                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
                 }
             }
         }
@@ -398,6 +396,5 @@ namespace MzIdentML
         }
 
         #endregion Private Methods
-
     }
 }

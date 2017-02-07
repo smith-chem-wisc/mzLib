@@ -22,15 +22,21 @@ namespace MassSpectrometry
 {
     public sealed class ChromatographicPeak : Peak
     {
+        #region Public Constructors
+
+        public ChromatographicPeak(double time, double intensity) : base(time, intensity)
+        {
+        }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
         public double Intensity
         {
             get
             {
                 return Y;
-            }
-            private set
-            {
-                Y = value;
             }
         }
 
@@ -40,21 +46,17 @@ namespace MassSpectrometry
             {
                 return X;
             }
-            private set
-            {
-                X = value;
-            }
         }
 
-        public ChromatographicPeak(double time, double intensity)
-        {
-            Time = time;
-            Intensity = intensity;
-        }
+        #endregion Public Properties
+
+        #region Public Methods
 
         public override string ToString()
         {
             return string.Format("({0:G4}, {1:G4})", Time, Intensity);
         }
+
+        #endregion Public Methods
     }
 }
