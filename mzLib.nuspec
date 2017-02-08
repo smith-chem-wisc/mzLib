@@ -15,7 +15,7 @@
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
       <dependency id="Zlib.Portable" version="1.11.0"/>
-      <dependency id="MathNet.Numerics" version="3.13.0"/>
+      <dependency id="MathNet.Numerics" version="3.17.0"/>
     </dependencies>
   </metadata>
   <files>
@@ -27,5 +27,6 @@
     <file src="mzLib\Proteomics\bin\Release\Proteomics.dll" target="lib" /> 
     <file src="mzLib\Spectra\bin\Release\Spectra.dll" target="lib" /> 
     <file src="mzLib\UsefulProteomicsDatabases\bin\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
+    <file src="MzLibUtil\bin\Release\MzLibUtil.dll" target="lib" /> 
   </files>
 </package>
