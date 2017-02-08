@@ -6,19 +6,15 @@ namespace Proteomics
 {
     public class ModificationWithMass : Modification
     {
+
         #region Public Fields
 
         public readonly IEnumerable<double> massesObserved;
         public readonly double monoisotopicMass;
         public readonly IEnumerable<double> diagnosticIons;
+        public readonly double neutralLoss;
 
         #endregion Public Fields
-
-        #region Private Fields
-
-        private readonly double neutralLoss;
-
-        #endregion Private Fields
 
         #region Public Constructors
 
@@ -55,5 +51,6 @@ namespace Proteomics
         }
 
         #endregion Public Methods
+
     }
 }
