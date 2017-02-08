@@ -27,6 +27,7 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
+
         #region Private Fields
 
         private readonly double[] _noises;
@@ -99,22 +100,6 @@ namespace IO.Thermo
 
         #endregion Internal Constructors
 
-        #region Public Indexers
-
-        public override ThermoMzPeak this[int index]
-        {
-            get
-            {
-                if (peakList[index] == null)
-                    peakList[index] = _charges == null ?
-                        new ThermoMzPeak(XArray[index], YArray[index]) :
-                new ThermoMzPeak(XArray[index], YArray[index], _charges[index], _noises[index], _resolutions[index]);
-                return peakList[index];
-            }
-        }
-
-        #endregion Public Indexers
-
         #region Public Methods
 
         public double GetSignalToNoise(int index)
@@ -170,5 +155,6 @@ namespace IO.Thermo
         }
 
         #endregion Protected Methods
+
     }
 }
