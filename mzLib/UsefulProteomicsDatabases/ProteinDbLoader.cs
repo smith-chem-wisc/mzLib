@@ -3,12 +3,14 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
+
         #region Public Methods
 
         public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, HashSet<BaseModification>> allKnownModifications, bool IsContaminant)
@@ -19,7 +21,6 @@ namespace UsefulProteomicsDatabases
                 string name = null;
                 string full_name = null;
                 int offset = 0;
-                string sequence = null;
 
                 // xml db
                 if (!proteinDbLocation.EndsWith(".fasta"))
@@ -30,6 +31,7 @@ namespace UsefulProteomicsDatabases
 
                     string[] nodes = new string[6];
 
+                    string sequence = null;
                     string feature_type = null;
                     string feature_description = null;
                     int oneBasedfeature_position = -1;
@@ -219,6 +221,7 @@ namespace UsefulProteomicsDatabases
                 {
                     StreamReader fasta = new StreamReader(stream);
 
+                    StringBuilder sb = null;
                     while (true)
                     {
                         string line = fasta.ReadLine();
@@ -242,17 +245,18 @@ namespace UsefulProteomicsDatabases
                             }
 
                             // new protein
-                            sequence = "";
+                            sb = new StringBuilder();
                         }
                         else
                         {
-                            sequence += line.Trim();
+                            sb.Append(line.Trim());
                         }
 
                         if (fasta.Peek() == '>' || fasta.Peek() == -1)
                         {
-                            if (accession != null && sequence != null)
+                            if (accession != null && sb != null)
                             {
+                                var sequence = sb.ToString();
                                 var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant);
                                 yield return protein;
 
@@ -287,5 +291,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
+
     }
 }
