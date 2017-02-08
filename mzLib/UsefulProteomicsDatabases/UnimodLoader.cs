@@ -8,8 +8,9 @@ using UsefulProteomicsDatabases.Generated;
 
 namespace UsefulProteomicsDatabases
 {
-    internal class UnimodLoader
+    internal static class UnimodLoader
     {
+
         #region Private Fields
 
         private static readonly Dictionary<string, string> DictOfElements = new Dictionary<string, string>
@@ -73,5 +74,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Internal Methods
+
     }
 }

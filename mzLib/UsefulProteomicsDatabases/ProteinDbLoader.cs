@@ -235,7 +235,7 @@ namespace UsefulProteomicsDatabases
                             // new protein
                             sb = new StringBuilder();
                         }
-                        else
+                        else if (sb != null)
                         {
                             sb.Append(line.Trim());
                         }
