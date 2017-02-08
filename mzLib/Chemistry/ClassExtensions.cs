@@ -22,14 +22,6 @@ namespace Chemistry
 {
     public static class ClassExtensions
     {
-        #region Private Fields
-
-        /// <summary>
-        /// The mass difference tolerance for having identical masses
-        /// </summary>
-        private const double MassEqualityEpsilon = 1e-10;
-
-        #endregion Private Fields
 
         #region Public Methods
 
@@ -58,5 +50,6 @@ namespace Chemistry
         }
 
         #endregion Public Methods
+
     }
 }
