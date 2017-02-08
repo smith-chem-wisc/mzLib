@@ -15,14 +15,14 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMassAndCf(string id, Tuple<string, string> ac, string tg, ModificationSites pos, ChemicalFormula cf, double mm, double nl)
-             : base(id, ac, tg, pos, mm, nl)
+        public ModificationWithMassAndCf(string id, Tuple<string, string> ac, string tg, ModificationSites pos, ChemicalFormula cf, double mm, double nl, string database)
+             : base(id, ac, tg, pos, mm, nl, database)
         {
             this.chemicalFormula = cf;
         }
 
-        public ModificationWithMassAndCf(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, ChemicalFormula uniprotCF, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons)
-            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR, neutralLoss, massesObserved, diagnosticIons)
+        public ModificationWithMassAndCf(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, ChemicalFormula uniprotCF, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
+            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR, neutralLoss, massesObserved, diagnosticIons, database)
         {
             this.chemicalFormula = uniprotCF;
         }

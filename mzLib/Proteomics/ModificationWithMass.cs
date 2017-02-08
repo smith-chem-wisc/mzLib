@@ -22,8 +22,8 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons)
-            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR)
+        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
+            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR, database)
         {
             this.monoisotopicMass = uniprotMM;
             this.neutralLoss = neutralLoss;
@@ -31,8 +31,8 @@ namespace Proteomics
             this.diagnosticIons = diagnosticIons;
         }
 
-        public ModificationWithMass(string id, Tuple<string, string> ac, string tg, ModificationSites pos, double mm, double neutralLoss)
-            : base(id, ac, tg, pos)
+        public ModificationWithMass(string id, Tuple<string, string> ac, string tg, ModificationSites pos, double mm, double neutralLoss, string database)
+            : base(id, ac, tg, pos, null, database)
         {
             this.neutralLoss = neutralLoss;
             this.monoisotopicMass = mm;

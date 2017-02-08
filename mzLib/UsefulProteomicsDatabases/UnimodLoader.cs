@@ -64,10 +64,10 @@ namespace UsefulProteomicsDatabases
                     var tg = nice.site;
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, 0);
+                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, 0, Path.GetFileNameWithoutExtension(unimodLocation));
                     else
                         foreach (var nl in nice.NeutralLoss)
-                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, nl.mono_mass);
+                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, nl.mono_mass, Path.GetFileNameWithoutExtension(unimodLocation));
                 }
             }
         }

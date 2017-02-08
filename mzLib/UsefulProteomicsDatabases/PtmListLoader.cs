@@ -123,7 +123,7 @@ namespace UsefulProteomicsDatabases
                                         if (!uniprotMM.HasValue)
                                         {
                                             // Return modification
-                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR);
+                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR, Path.GetFileNameWithoutExtension(uniprotLocation));
                                         }
                                         else
                                         {
@@ -137,7 +137,8 @@ namespace UsefulProteomicsDatabases
                                                     yield return new ModificationWithMass(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotMM.Value, uniprotDR,
                                                         neutralLoss,
                                                         massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                        diagnosticIons);
+                                                        diagnosticIons,
+                                                        Path.GetFileNameWithoutExtension(uniprotLocation));
                                                 }
                                                 else
                                                 {
@@ -145,7 +146,8 @@ namespace UsefulProteomicsDatabases
                                                     yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotCF, uniprotMM.Value, uniprotDR,
                                                         neutralLoss,
                                                         massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                        diagnosticIons);
+                                                        diagnosticIons,
+                                                        Path.GetFileNameWithoutExtension(uniprotLocation));
                                                 }
                                             }
                                         }
