@@ -28,6 +28,7 @@ namespace Test
     [TestFixture]
     public sealed class TestFragments
     {
+
         #region Private Fields
 
         private Peptide _mockPeptideEveryAminoAcid;
@@ -40,12 +41,6 @@ namespace Test
         public void SetUp()
         {
             _mockPeptideEveryAminoAcid = new Peptide("ACDEFGHIKLMNPQRSTVWY");
-        }
-
-        [Test]
-        public void FragmentNumberToLow()
-        {
-            Assert.Throws<IndexOutOfRangeException>(() => _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 0).ToList());
         }
 
         [Test]
@@ -182,5 +177,6 @@ namespace Test
         }
 
         #endregion Public Methods
+
     }
 }

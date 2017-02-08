@@ -32,12 +32,12 @@ namespace Test
         [Test]
         public void XmlTest()
         {
-            HashSet<Modification> nice = new HashSet<Modification>
+            HashSet<BaseModification> nice = new HashSet<BaseModification>
             {
-                new Modification("fayk",null, null,ModificationSites.A)
+                new Modification("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            IDictionary<string, HashSet<Modification>> mods = new Dictionary<string, HashSet<Modification>>
+            IDictionary<string, HashSet<BaseModification>> mods = new Dictionary<string, HashSet<BaseModification>>
             {
                 {
                     "N6-acetyllysine",nice

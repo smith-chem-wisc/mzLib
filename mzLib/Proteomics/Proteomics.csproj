@@ -48,6 +48,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BaseModification.cs" />
     <Compile Include="Modification.cs" />
     <Compile Include="ModificationWithMass.cs" />
     <Compile Include="ModificationWithMassAndCf.cs" />

@@ -32,6 +32,7 @@ namespace Proteomics
     /// </summary>
     public abstract class AminoAcidPolymer : IEquatable<AminoAcidPolymer>, IHasMass
     {
+
         #region Private Fields
 
         /// <summary>
@@ -524,9 +525,6 @@ namespace Proteomics
 
         public IEnumerable<Fragment> Fragment(FragmentTypes types, int minIndex, int maxIndex, bool calculateChemicalFormula)
         {
-            if (minIndex < 1 || maxIndex > Length - 1)
-                throw new IndexOutOfRangeException();
-
             foreach (FragmentTypes type in types.GetIndividualFragmentTypes())
             {
                 bool isChemicalFormula = calculateChemicalFormula;
@@ -1205,6 +1203,7 @@ namespace Proteomics
 
         private class ModWithOnlyMass : IHasMass
         {
+
             #region Private Fields
 
             private readonly double mass;
@@ -1240,8 +1239,10 @@ namespace Proteomics
             }
 
             #endregion Public Methods
+
         }
 
         #endregion Private Classes
+
     }
 }

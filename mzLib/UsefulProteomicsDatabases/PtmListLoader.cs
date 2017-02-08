@@ -9,6 +9,7 @@ namespace UsefulProteomicsDatabases
 {
     internal static class PtmListLoader
     {
+
         #region Private Fields
 
         private static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
@@ -75,11 +76,7 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "PP": // Terminus localization
-                                try
-                                {
-                                    uniprotPP = modificationTypeCodes[line.Substring(5)];
-                                }
-                                catch (KeyNotFoundException) { }
+                                modificationTypeCodes.TryGetValue(line.Substring(5), out uniprotPP);
                                 break;
 
                             case "CF": // Correction formula
@@ -115,7 +112,7 @@ namespace UsefulProteomicsDatabases
 
                             case "//":
                                 // Only mod_res, not intrachain.
-                                if ((uniprotFT == null || !uniprotFT.Equals("CROSSLINK")) && !(uniprotPP == ModificationSites.None) && !(uniprotTG == null) && !(uniprotID == null))
+                                if ((uniprotFT == null || !uniprotFT.Equals("CROSSLINK")) && uniprotPP != ModificationSites.None && uniprotTG != null && uniprotID != null)
                                 {
                                     foreach (var singleTarget in uniprotTG)
                                     {
@@ -123,7 +120,7 @@ namespace UsefulProteomicsDatabases
                                         if (!uniprotMM.HasValue)
                                         {
                                             // Return modification
-                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR);
+                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR, Path.GetFileNameWithoutExtension(uniprotLocation));
                                         }
                                         else
                                         {
@@ -137,7 +134,8 @@ namespace UsefulProteomicsDatabases
                                                     yield return new ModificationWithMass(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotMM.Value, uniprotDR,
                                                         neutralLoss,
                                                         massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                        diagnosticIons);
+                                                        diagnosticIons,
+                                                        Path.GetFileNameWithoutExtension(uniprotLocation));
                                                 }
                                                 else
                                                 {
@@ -145,7 +143,8 @@ namespace UsefulProteomicsDatabases
                                                     yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotCF, uniprotMM.Value, uniprotDR,
                                                         neutralLoss,
                                                         massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                        diagnosticIons);
+                                                        diagnosticIons,
+                                                        Path.GetFileNameWithoutExtension(uniprotLocation));
                                                 }
                                             }
                                         }
@@ -174,5 +173,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
+
     }
 }
