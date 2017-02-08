@@ -33,13 +33,6 @@ namespace Spectra
         where TPeak : IPeak
     {
 
-        #region Public Fields
-
-        public readonly double[] XArray;
-        public readonly double[] YArray;
-
-        #endregion Public Fields
-
         #region Protected Fields
 
         protected TPeak[] peakList;
@@ -89,6 +82,8 @@ namespace Spectra
 
         #region Public Properties
 
+        public double[] XArray { get; private set; }
+        public double[] YArray { get; private set; }
         public double FirstX { get { return XArray[0]; } }
 
         public double LastX { get { return XArray[Size - 1]; } }

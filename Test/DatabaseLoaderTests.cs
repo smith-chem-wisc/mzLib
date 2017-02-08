@@ -17,6 +17,7 @@
 
 using Chemistry;
 using NUnit.Framework;
+using System;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
@@ -100,6 +101,12 @@ namespace Test
 
             foreach (var nice in uniprotPtms)
                 nice.ToString();
+        }
+        [Test]
+        public void SampleModFileLoading()
+        {
+            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt")).ToList();
+            Console.WriteLine(sampleModList.First().ToString());
         }
 
         #endregion Public Methods

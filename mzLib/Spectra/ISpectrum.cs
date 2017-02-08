@@ -28,7 +28,11 @@ namespace Spectra
     public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
         where TPeak : IPeak
     {
+
         #region Public Properties
+
+        double[] XArray { get; }
+        double[] YArray { get; }
 
         double FirstX { get; }
         double LastX { get; }
@@ -67,5 +71,6 @@ namespace Spectra
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
         #endregion Public Methods
+
     }
 }
