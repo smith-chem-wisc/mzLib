@@ -18,8 +18,8 @@
 
 using MassSpectrometry;
 using MathNet.Numerics.Statistics;
-using MzLibUtil;
 using MSFileReaderLib;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -31,6 +31,7 @@ namespace IO.Thermo
 {
     public class ThermoRawFile : MsDataFile<IThermoScan, ThermoSpectrum, ThermoMzPeak>
     {
+
         #region Private Fields
 
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
@@ -489,11 +490,8 @@ namespace IO.Thermo
                 values = (string[])values_obj;
                 for (int i = labels.GetLowerBound(0); i <= labels.GetUpperBound(0); i++)
                 {
-                    if (labels[i].StartsWith("Scan Event", StringComparison.Ordinal))
-                    {
-                        if (int.Parse(values[i], CultureInfo.InvariantCulture) <= 1)
-                            return oneBasedPrecursorNumber;
-                    }
+                    if (labels[i].StartsWith("Scan Event", StringComparison.Ordinal) && int.Parse(values[i], CultureInfo.InvariantCulture) <= 1)
+                        return oneBasedPrecursorNumber;
                 }
                 oneBasedPrecursorNumber--;
             }
@@ -529,5 +527,6 @@ namespace IO.Thermo
         }
 
         #endregion Private Methods
+
     }
 }

@@ -83,23 +83,11 @@ namespace UsefulProteomicsDatabases
                                             break;
 
                                         case "begin":
-                                            try
-                                            {
-                                                oneBasedbeginPosition = int.Parse(xml.GetAttribute("position"));
-                                            }
-                                            catch (ArgumentNullException)
-                                            {
-                                            }
+                                            int.TryParse(xml.GetAttribute("position"), out oneBasedbeginPosition);
                                             break;
 
                                         case "end":
-                                            try
-                                            {
-                                                oneBasedendPosition = int.Parse(xml.GetAttribute("position"));
-                                            }
-                                            catch (ArgumentNullException)
-                                            {
-                                            }
+                                            int.TryParse(xml.GetAttribute("position"), out oneBasedendPosition);
                                             break;
 
                                         case "sequence":
@@ -252,31 +240,28 @@ namespace UsefulProteomicsDatabases
                             sb.Append(line.Trim());
                         }
 
-                        if (fasta.Peek() == '>' || fasta.Peek() == -1)
+                        if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                         {
-                            if (accession != null && sb != null)
-                            {
-                                var sequence = sb.ToString();
-                                var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant);
-                                yield return protein;
+                            var sequence = sb.ToString();
+                            var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant);
+                            yield return protein;
 
-                                if (onTheFlyDecoys)
+                            if (onTheFlyDecoys)
+                            {
+                                char[] sequence_array = sequence.ToCharArray();
+                                if (sequence.StartsWith("M", StringComparison.InvariantCulture))
                                 {
-                                    char[] sequence_array = sequence.ToCharArray();
-                                    if (sequence.StartsWith("M", StringComparison.InvariantCulture))
-                                    {
-                                        // Do not include the initiator methionine in reversal!!!
-                                        Array.Reverse(sequence_array, 1, sequence.Length - 1);
-                                    }
-                                    else
-                                    {
-                                        Array.Reverse(sequence_array);
-                                    }
-                                    var reversed_sequence = new string(sequence_array);
-                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, null, null, null, null, name, full_name, offset, true, IsContaminant);
-                                    yield return decoy_protein;
-                                    offset += protein.Length;
+                                    // Do not include the initiator methionine in reversal!!!
+                                    Array.Reverse(sequence_array, 1, sequence.Length - 1);
                                 }
+                                else
+                                {
+                                    Array.Reverse(sequence_array);
+                                }
+                                var reversed_sequence = new string(sequence_array);
+                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, null, null, null, null, name, full_name, offset, true, IsContaminant);
+                                yield return decoy_protein;
+                                offset += protein.Length;
                             }
                         }
 
