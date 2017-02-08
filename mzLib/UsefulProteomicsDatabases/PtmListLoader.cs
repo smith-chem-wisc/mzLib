@@ -7,7 +7,7 @@ using System.Linq;
 
 namespace UsefulProteomicsDatabases
 {
-    internal static class PtmListLoader
+    public static class PtmListLoader
     {
 
         #region Private Fields

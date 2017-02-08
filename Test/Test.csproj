@@ -134,6 +134,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <None Include="sampleModFile.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <Content Include="xml.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
