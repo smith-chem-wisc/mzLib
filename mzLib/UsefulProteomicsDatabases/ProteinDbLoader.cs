@@ -39,7 +39,6 @@ namespace UsefulProteomicsDatabases
                     var oneBasedEndPositions = new List<int>();
                     var peptideTypes = new List<string>();
                     var oneBasedModifications = new Dictionary<int, HashSet<BaseModification>>();
-                    string db = null;
 
                     using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
                     {
@@ -104,10 +103,6 @@ namespace UsefulProteomicsDatabases
                                         case "sequence":
                                             sequence = xml.ReadElementString().Replace("\n", null);
                                             break;
-
-                                        case "db":
-                                            db = xml.ReadElementString();
-                                            break;
                                     }
                                     break;
 
@@ -134,10 +129,9 @@ namespace UsefulProteomicsDatabases
                                                 oneBasedBeginPositions.Add(oneBasedbeginPosition);
                                                 oneBasedEndPositions.Add(oneBasedendPosition);
                                                 peptideTypes.Add(feature_type);
+                                                oneBasedbeginPosition = -1;
+                                                oneBasedendPosition = -1;
                                             }
-                                            oneBasedbeginPosition = -1;
-                                            oneBasedendPosition = -1;
-                                            db = null;
 
                                             break;
 
