@@ -209,7 +209,7 @@ namespace UsefulProteomicsDatabases
                 {
                     StreamReader fasta = new StreamReader(stream);
 
-                    StringBuilder sb = null;
+                    StringBuilder sb = new StringBuilder();
                     while (true)
                     {
                         string line = fasta.ReadLine();
