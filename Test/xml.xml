@@ -3220,6 +3220,12 @@
 <end position="103" />
 </location>
 </feature>
+<feature type="chain" description="Processed cysteine-rich motor neuron 1 protein" id="PRO_0000296243">
+<location>
+<begin status="unknown"/>
+<end position="10"/>
+</location>
+</feature>
 <feature type="DNA-binding region">
 <location>
 <begin position="17" />
