@@ -35,14 +35,15 @@ namespace MassSpectrometry
         /// Of course, if you store the scans somewhere else, they will persist. The default value is True.
         /// </summary>
 
-        #region Public Fields
+        #region Protected Fields
 
-        public TScan[] Scans;
+        protected TScan[] Scans;
 
-        #endregion Public Fields
+        #endregion Protected Fields
 
         #region Private Fields
 
+        private readonly MsDataFileType fileType;
         private string _filePath;
 
         private string _name;
@@ -53,10 +54,10 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public MsDataFile(string filePath, MsDataFileType filetype = MsDataFileType.UnKnown)
+        public MsDataFile(string filePath, MsDataFileType fileType = MsDataFileType.UnKnown)
         {
             FilePath = filePath;
-            FileType = filetype;
+            this.fileType = fileType;
         }
 
         #endregion Public Constructors
@@ -72,8 +73,6 @@ namespace MassSpectrometry
                 _name = Path.GetFileNameWithoutExtension(value);
             }
         }
-
-        public MsDataFileType FileType { get; private set; }
 
         public virtual int NumSpectra
         {
@@ -132,11 +131,6 @@ namespace MassSpectrometry
             Array.Clear(Scans, 0, Scans.Length);
         }
 
-        public virtual IEnumerable<TScan> GetMsScans()
-        {
-            return GetMsScansInIndexRange(1, NumSpectra);
-        }
-
         public virtual IEnumerable<TScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
             for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
@@ -165,7 +159,7 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return string.Format("{0} ({1})", Name, Enum.GetName(typeof(MsDataFileType), FileType));
+            return string.Format("{0} ({1})", Name, Enum.GetName(typeof(MsDataFileType), fileType));
         }
 
         public abstract void Open();
@@ -179,12 +173,12 @@ namespace MassSpectrometry
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return GetMsScans().GetEnumerator();
+            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
         public IEnumerator<TScan> GetEnumerator()
         {
-            return GetMsScans().GetEnumerator();
+            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
         #endregion Public Methods
@@ -196,5 +190,6 @@ namespace MassSpectrometry
         protected abstract int GetNumSpectra();
 
         #endregion Protected Methods
+
     }
 }

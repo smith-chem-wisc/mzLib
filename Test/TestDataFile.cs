@@ -32,6 +32,7 @@ namespace Test
     [TestFixture]
     public sealed class TestDataFile
     {
+
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -112,7 +113,7 @@ namespace Test
 
             Assert.IsTrue(thefile.GetOneBasedScan(1).IsCentroid);
 
-            foreach (var ok in thefile.GetMsScans())
+            foreach (var ok in thefile)
             {
                 Assert.AreEqual(300, ok.ScanWindowRange.Minimum, 1e-9);
                 Assert.AreEqual(1000, ok.ScanWindowRange.Maximum, 1e-9);
@@ -237,5 +238,6 @@ namespace Test
         }
 
         #endregion Private Methods
+
     }
 }

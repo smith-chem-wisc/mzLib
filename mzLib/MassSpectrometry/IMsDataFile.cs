@@ -23,18 +23,30 @@ namespace MassSpectrometry
     public interface IMsDataFile<out TScan> : IEnumerable<TScan>
         where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
     {
+
         #region Public Properties
+
         string Name { get; }
+        string FilePath { get; }
         int NumSpectra { get; }
 
         #endregion Public Properties
 
         #region Public Methods
+
         TScan GetOneBasedScan(int oneBasedScanNumber);
 
+        IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT);
+
+        int GetClosestOneBasedSpectrumNumber(double retentionTime);
+
+        void LoadAllScansInMemory();
+
         void Close();
+
         void Open();
 
         #endregion Public Methods
+
     }
 }
