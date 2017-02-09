@@ -4,6 +4,7 @@ namespace Proteomics
 {
     public class Protein
     {
+
         #region Private Fields
 
         private string fullDescription;
@@ -12,7 +13,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, Dictionary<int, HashSet<BaseModification>> oneBasedModifications, int[] oneBasedBeginPositions, int[] oneBasedEndPositions, string[] bigPeptideTypes, string name, string full_name, int offset, bool isDecoy, bool isContaminant)
+        public Protein(string sequence, string accession, Dictionary<int, HashSet<BaseModification>> oneBasedModifications, int?[] oneBasedBeginPositions, int?[] oneBasedEndPositions, string[] bigPeptideTypes, string name, string full_name, int offset, bool isDecoy, bool isContaminant)
         {
             BaseSequence = sequence;
             Accession = accession;
@@ -31,8 +32,8 @@ namespace Proteomics
 
         #region Public Properties
 
-        public int[] OneBasedBeginPositions { get; private set; }
-        public int[] OneBasedEndPositions { get; private set; }
+        public int?[] OneBasedBeginPositions { get; private set; }
+        public int?[] OneBasedEndPositions { get; private set; }
         public string[] BigPeptideTypes { get; private set; }
         public Dictionary<int, HashSet<BaseModification>> OneBasedPossibleLocalizedModifications { get; private set; }
         public string Accession { get; private set; }
@@ -79,5 +80,6 @@ namespace Proteomics
         }
 
         #endregion Public Indexers
+
     }
 }

@@ -35,10 +35,10 @@ namespace UsefulProteomicsDatabases
                     string feature_type = null;
                     string feature_description = null;
                     int oneBasedfeature_position = -1;
-                    int oneBasedbeginPosition = -1;
-                    int oneBasedendPosition = -1;
-                    var oneBasedBeginPositions = new List<int>();
-                    var oneBasedEndPositions = new List<int>();
+                    int? oneBasedbeginPosition = null;
+                    int? oneBasedendPosition = null;
+                    var oneBasedBeginPositions = new List<int?>();
+                    var oneBasedEndPositions = new List<int?>();
                     var peptideTypes = new List<string>();
                     var oneBasedModifications = new Dictionary<int, HashSet<BaseModification>>();
 
@@ -50,6 +50,7 @@ namespace UsefulProteomicsDatabases
                             {
                                 case XmlNodeType.Element:
                                     nodes[xml.Depth] = xml.Name;
+                                    int outValue;
                                     switch (xml.Name)
                                     {
                                         case "accession":
@@ -83,11 +84,11 @@ namespace UsefulProteomicsDatabases
                                             break;
 
                                         case "begin":
-                                            int.TryParse(xml.GetAttribute("position"), out oneBasedbeginPosition);
+                                            oneBasedbeginPosition = int.TryParse(xml.GetAttribute("position"), out outValue) ? (int?)outValue : null;
                                             break;
 
                                         case "end":
-                                            int.TryParse(xml.GetAttribute("position"), out oneBasedendPosition);
+                                            oneBasedendPosition = int.TryParse(xml.GetAttribute("position"), out outValue) ? (int?)outValue : null;
                                             break;
 
                                         case "sequence":
@@ -114,7 +115,7 @@ namespace UsefulProteomicsDatabases
                                                     allKnownModifications.Add(feature_description, new HashSet<BaseModification> { new BaseModification(feature_description) });
                                                 residue_modifications.UnionWith(allKnownModifications[feature_description]);
                                             }
-                                            else if ((feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain") && oneBasedbeginPosition >= 0 && oneBasedendPosition >= 0)
+                                            else if ((feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain" || feature_type = "signal peptide") && oneBasedbeginPosition >= 0 && oneBasedendPosition >= 0)
                                             {
                                                 oneBasedBeginPositions.Add(oneBasedbeginPosition);
                                                 oneBasedEndPositions.Add(oneBasedendPosition);
@@ -170,8 +171,8 @@ namespace UsefulProteomicsDatabases
                                                         }
                                                     }
                                                     var reversed_sequence = new string(sequence_array);
-                                                    int[] decoybeginPositions = new int[oneBasedBeginPositions.Count];
-                                                    int[] decoyendPositions = new int[oneBasedEndPositions.Count];
+                                                    int?[] decoybeginPositions = new int?[oneBasedBeginPositions.Count];
+                                                    int?[] decoyendPositions = new int?[oneBasedEndPositions.Count];
                                                     string[] decoyBigPeptideTypes = new string[oneBasedEndPositions.Count];
                                                     for (int i = 0; i < decoybeginPositions.Length; i++)
                                                     {
@@ -192,9 +193,8 @@ namespace UsefulProteomicsDatabases
                                             feature_description = null;
                                             oneBasedfeature_position = -1;
                                             oneBasedModifications = new Dictionary<int, HashSet<BaseModification>>();
-
-                                            oneBasedBeginPositions = new List<int>();
-                                            oneBasedEndPositions = new List<int>();
+                                            oneBasedBeginPositions = new List<int?>();
+                                            oneBasedEndPositions = new List<int?>();
                                             peptideTypes = new List<string>();
                                             break;
                                     }
