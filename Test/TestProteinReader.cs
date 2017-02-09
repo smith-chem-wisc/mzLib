@@ -19,6 +19,7 @@
 using NUnit.Framework;
 using Proteomics;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
 
@@ -27,6 +28,7 @@ namespace Test
     [TestFixture]
     public sealed class TestProteinReader
     {
+
         #region Public Methods
 
         [Test]
@@ -44,7 +46,7 @@ namespace Test
                 }
             };
 
-            var ok = ProteinDbLoader.LoadProteinDb(@"xml.xml", true, mods, false).ToList();
+            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, mods, false).ToList();
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -56,9 +58,10 @@ namespace Test
         [Test]
         public void FastaTest()
         {
-            ProteinDbLoader.LoadProteinDb(@"fasta.fasta", true, null, false).ToList();
+            ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, null, false).ToList();
         }
 
         #endregion Public Methods
+
     }
 }
