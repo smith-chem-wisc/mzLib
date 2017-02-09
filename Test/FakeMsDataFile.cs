@@ -22,7 +22,7 @@ using System.Linq;
 
 namespace Test
 {
-    public class FakeMsDataFile : MsDataFile<IMzmlScan, MzmlMzSpectrum, MzmlPeak>
+    public class FakeMsDataFile : MsDataFile<IMzmlScan>
     {
         #region Public Constructors
 

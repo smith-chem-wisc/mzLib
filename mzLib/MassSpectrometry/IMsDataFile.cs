@@ -20,15 +20,14 @@ using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
-    public interface ICollectionOfMsScans<out TScan, out TSpectrum, out TMzPeak> : IEnumerable<TScan>
-        where TMzPeak : IMzPeak
-        where TSpectrum : IMzSpectrum<TMzPeak>
-        where TScan : IMsDataScan<TSpectrum, TMzPeak>
+    public interface IMsDataFile<out TScan> : IEnumerable<TScan>
+        where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
     {
+
         #region Public Properties
 
         string Name { get; }
-
+        string FilePath { get; }
         int NumSpectra { get; }
 
         #endregion Public Properties
@@ -37,6 +36,17 @@ namespace MassSpectrometry
 
         TScan GetOneBasedScan(int oneBasedScanNumber);
 
+        IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT);
+
+        int GetClosestOneBasedSpectrumNumber(double retentionTime);
+
+        void LoadAllScansInMemory();
+
+        void Close();
+
+        void Open();
+
         #endregion Public Methods
+
     }
 }

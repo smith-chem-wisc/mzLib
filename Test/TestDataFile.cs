@@ -32,6 +32,7 @@ namespace Test
     [TestFixture]
     public sealed class TestDataFile
     {
+
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -112,7 +113,7 @@ namespace Test
 
             Assert.IsTrue(thefile.GetOneBasedScan(1).IsCentroid);
 
-            foreach (var ok in thefile.GetMsScans())
+            foreach (var ok in thefile)
             {
                 Assert.AreEqual(300, ok.ScanWindowRange.Minimum, 1e-9);
                 Assert.AreEqual(1000, ok.ScanWindowRange.Maximum, 1e-9);
@@ -148,7 +149,7 @@ namespace Test
         [Test]
         public void TestAMoreRealFile()
         {
-            var theScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>, IMzPeak>;
+            var theScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
             Assert.AreEqual(1, theScan.IsolationRange.Width);
             Assert.AreEqual(DissociationType.Unknown, theScan.DissociationType);
             Assert.AreEqual(693.99, theScan.IsolationMz);
@@ -174,7 +175,7 @@ namespace Test
 
             IEnumerable a = myMsDataFile;
             foreach (var b in a)
-                Assert.IsFalse((b as IMsDataScan<IMzSpectrum<IMzPeak>, IMzPeak>).IsCentroid);
+                Assert.IsFalse((b as IMsDataScan<IMzSpectrum<IMzPeak>>).IsCentroid);
             foreach (var b in myMsDataFile)
                 Assert.AreEqual(Polarity.Positive, b.Polarity);
         }
@@ -237,5 +238,6 @@ namespace Test
         }
 
         #endregion Private Methods
+
     }
 }

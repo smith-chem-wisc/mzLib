@@ -3,7 +3,7 @@ using MzLibUtil;
 
 namespace IO.MzML
 {
-    public class MzmlScan : MsDataScan<MzmlMzSpectrum, MzmlPeak>, IMzmlScan
+    public class MzmlScan : MsDataScan<MzmlMzSpectrum>, IMzmlScan
     {
         #region Public Constructors
 

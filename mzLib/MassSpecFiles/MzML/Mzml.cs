@@ -27,8 +27,9 @@ using System.Text.RegularExpressions;
 
 namespace IO.MzML
 {
-    public class Mzml : MsDataFile<IMzmlScan, MzmlMzSpectrum, MzmlPeak>
+    public class Mzml : MsDataFile<IMzmlScan>
     {
+
         #region Private Fields
 
         private const string _zlibCompression = "MS:1000574";
@@ -541,5 +542,6 @@ namespace IO.MzML
         }
 
         #endregion Private Methods
+
     }
 }

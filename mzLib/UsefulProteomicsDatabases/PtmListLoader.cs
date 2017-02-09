@@ -10,39 +10,18 @@ namespace UsefulProteomicsDatabases
     public static class PtmListLoader
     {
 
-        #region Private Fields
-
-        private static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
-
-        #endregion Private Fields
-
-        #region Public Constructors
-
-        static PtmListLoader()
-        {
-            modificationTypeCodes = new Dictionary<string, ModificationSites>();
-            modificationTypeCodes.Add("N-terminal.", ModificationSites.NProt); // Implies protein only, not peptide
-            modificationTypeCodes.Add("C-terminal.", ModificationSites.ProtC);
-            modificationTypeCodes.Add("Peptide N-terminal.", ModificationSites.NPep);
-            modificationTypeCodes.Add("Peptide C-terminal.", ModificationSites.PepC);
-            modificationTypeCodes.Add("Anywhere.", ModificationSites.Any);
-            modificationTypeCodes.Add("Protein core.", ModificationSites.Any);
-        }
-
-        #endregion Public Constructors
-
         #region Public Methods
 
-        public static IEnumerable<Modification> ReadMods(string uniprotLocation)
+        public static IEnumerable<Modification> ReadMods(string ptmListLocation)
         {
-            using (StreamReader uniprot_mods = new StreamReader(uniprotLocation))
+            using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
                 // UniProt fields
                 string uniprotID = null;
                 Tuple<string, string> uniprotAC = null;
                 string uniprotFT = null;
                 IEnumerable<string> uniprotTG = null;
-                var uniprotPP = ModificationSites.None;
+                string uniprotPP = null;
                 ChemicalFormula uniprotCF = null;
                 double? uniprotMM = null;
                 var uniprotDR = new Dictionary<string, HashSet<string>>();
@@ -67,7 +46,7 @@ namespace UsefulProteomicsDatabases
                                 uniprotAC = new Tuple<string, string>("uniprot", line.Substring(5));
                                 break;
 
-                            case "FT": // MOD_RES CROSSLINK LIPID
+                            case "FT": // MOD_RES CROSSLNK LIPID
                                 uniprotFT = line.Substring(5);
                                 break;
 
@@ -76,7 +55,7 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "PP": // Terminus localization
-                                modificationTypeCodes.TryGetValue(line.Substring(5), out uniprotPP);
+                                uniprotPP = line.Substring(5);
                                 break;
 
                             case "CF": // Correction formula
@@ -107,12 +86,16 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "DI": // Masses of diagnostic ions
-                                diagnosticIons = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
+                                var nice = line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None);
+                                if (!string.IsNullOrEmpty(nice[0]))
+                                    diagnosticIons = new HashSet<double>(nice.Select(b => double.Parse(b)));
+                                else
+                                    diagnosticIons = null;
                                 break;
 
                             case "//":
                                 // Only mod_res, not intrachain.
-                                if ((uniprotFT == null || !uniprotFT.Equals("CROSSLINK")) && uniprotPP != ModificationSites.None && uniprotTG != null && uniprotID != null)
+                                if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
                                 {
                                     foreach (var singleTarget in uniprotTG)
                                     {
@@ -120,7 +103,7 @@ namespace UsefulProteomicsDatabases
                                         if (!uniprotMM.HasValue)
                                         {
                                             // Return modification
-                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR, Path.GetFileNameWithoutExtension(uniprotLocation));
+                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR, Path.GetFileNameWithoutExtension(ptmListLocation));
                                         }
                                         else
                                         {
@@ -135,7 +118,7 @@ namespace UsefulProteomicsDatabases
                                                         neutralLoss,
                                                         massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
                                                         diagnosticIons,
-                                                        Path.GetFileNameWithoutExtension(uniprotLocation));
+                                                        Path.GetFileNameWithoutExtension(ptmListLocation));
                                                 }
                                                 else
                                                 {
@@ -144,7 +127,7 @@ namespace UsefulProteomicsDatabases
                                                         neutralLoss,
                                                         massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
                                                         diagnosticIons,
-                                                        Path.GetFileNameWithoutExtension(uniprotLocation));
+                                                        Path.GetFileNameWithoutExtension(ptmListLocation));
                                                 }
                                             }
                                         }
@@ -155,7 +138,7 @@ namespace UsefulProteomicsDatabases
                                 uniprotAC = null;
                                 uniprotFT = null;
                                 uniprotTG = null;
-                                uniprotPP = ModificationSites.None;
+                                uniprotPP = null;
                                 uniprotCF = null;
                                 uniprotMM = null;
                                 uniprotDR = new Dictionary<string, HashSet<string>>();

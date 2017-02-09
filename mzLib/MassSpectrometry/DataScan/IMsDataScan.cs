@@ -21,9 +21,8 @@ using System;
 
 namespace MassSpectrometry
 {
-    public interface IMsDataScan<out TSpectrum, out TPeak>
-        where TPeak : IMzPeak
-        where TSpectrum : IMzSpectrum<TPeak>
+    public interface IMsDataScan<out TSpectrum>
+        where TSpectrum : IMzSpectrum<IMzPeak>
     {
         #region Public Properties
 

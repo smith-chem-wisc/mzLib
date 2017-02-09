@@ -3,7 +3,7 @@ using MzLibUtil;
 
 namespace IO.Thermo
 {
-    public class ThermoScan : MsDataScan<ThermoSpectrum, ThermoMzPeak>, IThermoScan
+    public class ThermoScan : MsDataScan<ThermoSpectrum>, IThermoScan
     {
         #region Public Constructors
 
