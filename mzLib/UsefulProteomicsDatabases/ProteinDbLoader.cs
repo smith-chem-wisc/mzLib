@@ -120,8 +120,8 @@ namespace UsefulProteomicsDatabases
                                                 oneBasedBeginPositions.Add(oneBasedbeginPosition);
                                                 oneBasedEndPositions.Add(oneBasedendPosition);
                                                 peptideTypes.Add(feature_type);
-                                                oneBasedbeginPosition = -1;
-                                                oneBasedendPosition = -1;
+                                                oneBasedbeginPosition = null;
+                                                oneBasedendPosition = null;
                                             }
 
                                             break;
