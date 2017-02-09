@@ -115,7 +115,7 @@ namespace UsefulProteomicsDatabases
                                                     allKnownModifications.Add(feature_description, new HashSet<BaseModification> { new BaseModification(feature_description) });
                                                 residue_modifications.UnionWith(allKnownModifications[feature_description]);
                                             }
-                                            else if ((feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain" || feature_type = "signal peptide") && oneBasedbeginPosition >= 0 && oneBasedendPosition >= 0)
+                                            else if ((feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain" || feature_type = "signal peptide"))
                                             {
                                                 oneBasedBeginPositions.Add(oneBasedbeginPosition);
                                                 oneBasedEndPositions.Add(oneBasedendPosition);
