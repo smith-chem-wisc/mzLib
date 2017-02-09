@@ -2,7 +2,7 @@
 
 namespace IO.MzML
 {
-    public interface IMzmlScan : IMsDataScan<MzmlMzSpectrum, MzmlPeak>
+    public interface IMzmlScan : IMsDataScan<MzmlMzSpectrum>
     {
     }
 }

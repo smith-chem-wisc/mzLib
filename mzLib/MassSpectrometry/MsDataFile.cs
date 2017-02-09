@@ -26,10 +26,8 @@ namespace MassSpectrometry
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile<TScan, TSpectrum, TMzPeak> : ICollectionOfMsScans<TScan, TSpectrum, TMzPeak>
-        where TMzPeak : IMzPeak
-        where TSpectrum : IMzSpectrum<TMzPeak>
-        where TScan : IMsDataScan<TSpectrum, TMzPeak>
+    public abstract class MsDataFile<TScan> : IMsDataFile<TScan>
+        where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
     {
         /// <summary>
         /// Defines if MS scans should be cached for quicker retrieval. Cached scans are held in an internal
@@ -174,10 +172,10 @@ namespace MassSpectrometry
 
         public abstract void Close();
 
-        TScan ICollectionOfMsScans<TScan, TSpectrum, TMzPeak>.GetOneBasedScan(int oneBasedScanNumber)
-        {
-            return GetOneBasedScan(oneBasedScanNumber);
-        }
+        //TScan IMsDataFile<TScan, TSpectrum, TMzPeak>.GetOneBasedScan(int oneBasedScanNumber)
+        //{
+        //    return GetOneBasedScan(oneBasedScanNumber);
+        //}
 
         IEnumerator IEnumerable.GetEnumerator()
         {

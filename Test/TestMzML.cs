@@ -42,7 +42,9 @@ namespace Test
             var ya4 = a.GetOneBasedScan(4).MassSpectrum;
             Assert.AreEqual(15, ya4.Size);
 
-            a.Close();
+            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> ok = a;
+
+            ok.Close();
         }
 
         [Test]
@@ -90,7 +92,7 @@ namespace Test
 
             var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.FirstX;
 
-            var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum, MzmlPeak>;
+            var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
             Assert.AreEqual(1, secondScan.IsolationWidth);
 
             MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(myMsDataFile, Path.Combine(Path.GetDirectoryName(myMsDataFile.FilePath), Path.GetFileNameWithoutExtension(myMsDataFile.FilePath)) + ".mzML");
@@ -105,7 +107,7 @@ namespace Test
             var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.FirstX;
             Assert.AreEqual(oldFirstValue, newFirstValue, 1e-9);
 
-            var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum, MzmlPeak>;
+            var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
             Assert.AreEqual(1, secondScan2.IsolationWidth);
 

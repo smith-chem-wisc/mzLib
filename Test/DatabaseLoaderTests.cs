@@ -91,16 +91,26 @@ namespace Test
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
 
-            foreach (var nice in unimodMods)
-            {
-                nice.ToString();
-            }
             Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
 
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
 
-            foreach (var nice in uniprotPtms)
-                nice.ToString();
+
+            using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
+            {
+                foreach (var nice in uniprotPtms)
+                {
+                    w.WriteLine(nice.ToString());
+                    w.WriteLine("//");
+                }
+                foreach (var nice in unimodMods)
+                {
+                    w.WriteLine(nice.ToString());
+                    w.WriteLine("//");
+                }
+            }
+            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
+            Console.WriteLine(sampleModList.First().ToString());
         }
         [Test]
         public void SampleModFileLoading()

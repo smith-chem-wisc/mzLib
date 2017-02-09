@@ -29,7 +29,7 @@ using System.Text.RegularExpressions;
 
 namespace IO.Thermo
 {
-    public class ThermoRawFile : MsDataFile<IThermoScan, ThermoSpectrum, ThermoMzPeak>
+    public class ThermoRawFile : MsDataFile<IThermoScan>
     {
 
         #region Private Fields

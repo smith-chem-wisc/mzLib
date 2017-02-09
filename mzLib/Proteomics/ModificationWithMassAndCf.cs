@@ -7,6 +7,7 @@ namespace Proteomics
 {
     public class ModificationWithMassAndCf : ModificationWithMass
     {
+
         #region Public Fields
 
         public readonly ChemicalFormula chemicalFormula;
@@ -21,7 +22,7 @@ namespace Proteomics
             this.chemicalFormula = cf;
         }
 
-        public ModificationWithMassAndCf(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, ModificationSites uniprotPP, ChemicalFormula uniprotCF, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
+        public ModificationWithMassAndCf(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, string uniprotPP, ChemicalFormula uniprotCF, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
             : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotMM, uniprotDR, neutralLoss, massesObserved, diagnosticIons, database)
         {
             this.chemicalFormula = uniprotCF;
@@ -40,5 +41,6 @@ namespace Proteomics
         }
 
         #endregion Public Methods
+
     }
 }

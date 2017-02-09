@@ -48,7 +48,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(ICollectionOfMsScans<IMsDataScan<IMzSpectrum<IMzPeak>, IMzPeak>, IMzSpectrum<IMzPeak>, IMzPeak> myMsDataFile, string outputFile)
+        public static void CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile, string outputFile)
         {
             Generated.indexedmzML _indexedmzMLConnection = new Generated.indexedmzML();
             _indexedmzMLConnection.mzML = new Generated.mzMLType();
@@ -127,9 +127,9 @@ namespace IO.MzML
                 {
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[0].accession = "MS:1000579";
                 }
-                else if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>, IMzPeak>)
+                else if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>)
                 {
-                    var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>, IMzPeak>;
+                    var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
                     _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[0].accession = "MS:1000580";
 
                     // So needs a precursor!

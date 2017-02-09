@@ -45,7 +45,7 @@ namespace TestThermo
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 
             Assert.AreEqual("1.3", a.GetSofwareVersion());
-            var ms2scan = a.GetOneBasedScan(948) as IMsDataScanWithPrecursor<ThermoSpectrum, ThermoMzPeak>;
+            var ms2scan = a.GetOneBasedScan(948) as IMsDataScanWithPrecursor<ThermoSpectrum>;
             Assert.AreEqual(4125760, ms2scan.SelectedIonGuessIntensity);
 
             Assert.AreEqual("LCQ", a.GetInstrumentName());
@@ -116,6 +116,10 @@ namespace TestThermo
             Assert.AreEqual(0, b.Where(eb => eb.MsnOrder > 1).Count());
 
             Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
+
+            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> uu = b;
+
+            b.Close();
         }
 
         [Test]

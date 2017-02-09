@@ -63,6 +63,8 @@ namespace UsefulProteomicsDatabases
                 foreach (var nice in cool.specificity)
                 {
                     var tg = nice.site;
+                    if (tg.Length > 1)
+                        tg = "X";
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
                         yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, 0, Path.GetFileNameWithoutExtension(unimodLocation));

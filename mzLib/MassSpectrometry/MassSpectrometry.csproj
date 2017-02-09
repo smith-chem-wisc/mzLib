@@ -57,7 +57,7 @@
     <Compile Include="MzSpectra\MzPeak.cs" />
     <Compile Include="MzSpectra\MzSpectrum.cs" />
     <Compile Include="Enums\DissociationType.cs" />
-    <Compile Include="ICollectionOfSpectra.cs" />
+    <Compile Include="IMsDataFile.cs" />
     <Compile Include="DataScan\IMsDataScan.cs" />
     <Compile Include="MsDataFile.cs" />
     <Compile Include="Enums\MsDataFileType.cs" />

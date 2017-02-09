@@ -21,9 +21,8 @@ using System;
 
 namespace MassSpectrometry
 {
-    public abstract class MsDataScanWithPrecursor<TSpectrum, TPeak> : MsDataScan<TSpectrum, TPeak>, IMsDataScanWithPrecursor<TSpectrum, TPeak>
-        where TPeak : IMzPeak
-        where TSpectrum : IMzSpectrum<TPeak>
+    public abstract class MsDataScanWithPrecursor<TSpectrum> : MsDataScan<TSpectrum>, IMsDataScanWithPrecursor<TSpectrum>
+        where TSpectrum : IMzSpectrum<IMzPeak>
     {
         #region Protected Constructors
 
