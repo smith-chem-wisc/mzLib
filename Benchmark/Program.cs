@@ -18,7 +18,7 @@ namespace Benchmark
 
             Stopwatch stopWatch = new Stopwatch();
 
-            var a = new ChemicalFormula("H1H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
+            var a =  ChemicalFormula.ParseFormula("H1H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
             stopWatch.Restart();
             for (int i = 0; i < numRepetitions; i++)
             {
@@ -41,7 +41,7 @@ namespace Benchmark
             stopWatch.Restart();
             for (int i = 0; i < numRepetitions; i++)
             {
-                var a = new ChemicalFormula("H" + i + "H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
+                var a = ChemicalFormula.ParseFormula("H" + i + "H{1}10 H{2}10 O20 O{16}20 O{17}20 O{18}20 C{12}100 C100 C{13}100 S{32}200 S200 S{33}200 S{34}200 S{36}200");
                 var b = a.Formula + i;
             }
             stopWatch.Stop();
@@ -78,7 +78,7 @@ namespace Benchmark
 
             Stopwatch stopWatch = new Stopwatch();
 
-            var a = new ChemicalFormula("H100C100N100O100S100");
+            var a = ChemicalFormula.ParseFormula("H100C100N100O100S100");
             double b = 0;
             stopWatch.Restart();
             for (int i = 0; i < numRepetitions; i++)

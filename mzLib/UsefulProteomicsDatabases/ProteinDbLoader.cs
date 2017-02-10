@@ -13,7 +13,7 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, HashSet<BaseModification>> allKnownModifications, bool IsContaminant)
+        public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, IList<Modification>> allKnownModifications, bool IsContaminant)
         {
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
@@ -40,7 +40,7 @@ namespace UsefulProteomicsDatabases
                     var oneBasedBeginPositions = new List<int?>();
                     var oneBasedEndPositions = new List<int?>();
                     var peptideTypes = new List<string>();
-                    var oneBasedModifications = new Dictionary<int, HashSet<BaseModification>>();
+                    var oneBasedModifications = new Dictionary<int, List<Modification>>();
 
                     using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
                     {
@@ -103,17 +103,17 @@ namespace UsefulProteomicsDatabases
                                         case "feature":
                                             if (feature_type == "modified residue")
                                             {
+                                                List<Modification> residue_modifications;
                                                 // Create new entry for this residue, if needed
-                                                HashSet<BaseModification> residue_modifications;
                                                 if (!oneBasedModifications.TryGetValue(oneBasedfeature_position, out residue_modifications))
                                                 {
-                                                    residue_modifications = new HashSet<BaseModification>();
+                                                    residue_modifications = new List<Modification>();
                                                     oneBasedModifications.Add(oneBasedfeature_position, residue_modifications);
                                                 }
                                                 // Known modification
                                                 if (!allKnownModifications.ContainsKey(feature_description))
-                                                    allKnownModifications.Add(feature_description, new HashSet<BaseModification> { new BaseModification(feature_description) });
-                                                residue_modifications.UnionWith(allKnownModifications[feature_description]);
+                                                    allKnownModifications.Add(feature_description, new List<Modification> { new Modification(feature_description) });
+                                                residue_modifications.AddRange(allKnownModifications[feature_description]);
                                             }
                                             else if (feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain" || feature_type == "signal peptide")
                                             {
@@ -137,15 +137,15 @@ namespace UsefulProteomicsDatabases
                                                 if (onTheFlyDecoys)
                                                 {
                                                     char[] sequence_array = sequence.ToCharArray();
-                                                    Dictionary<int, HashSet<BaseModification>> decoy_modifications = null;
+                                                    Dictionary<int, List<Modification>> decoy_modifications = null;
                                                     if (sequence.StartsWith("M", StringComparison.InvariantCulture))
                                                     {
                                                         // Do not include the initiator methionine in reversal!!!
                                                         Array.Reverse(sequence_array, 1, sequence.Length - 1);
                                                         if (oneBasedModifications != null)
                                                         {
-                                                            decoy_modifications = new Dictionary<int, HashSet<BaseModification>>(oneBasedModifications.Count);
-                                                            foreach (KeyValuePair<int, HashSet<BaseModification>> kvp in oneBasedModifications)
+                                                            decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
+                                                            foreach (var kvp in oneBasedModifications)
                                                             {
                                                                 if (kvp.Key == 1)
                                                                 {
@@ -163,8 +163,8 @@ namespace UsefulProteomicsDatabases
                                                         Array.Reverse(sequence_array);
                                                         if (oneBasedModifications != null)
                                                         {
-                                                            decoy_modifications = new Dictionary<int, HashSet<BaseModification>>(oneBasedModifications.Count);
-                                                            foreach (KeyValuePair<int, HashSet<BaseModification>> kvp in oneBasedModifications)
+                                                            decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
+                                                            foreach (var kvp in oneBasedModifications)
                                                             {
                                                                 decoy_modifications.Add(sequence.Length - kvp.Key + 1, kvp.Value);
                                                             }
@@ -192,7 +192,7 @@ namespace UsefulProteomicsDatabases
                                             feature_type = null;
                                             feature_description = null;
                                             oneBasedfeature_position = -1;
-                                            oneBasedModifications = new Dictionary<int, HashSet<BaseModification>>();
+                                            oneBasedModifications = new Dictionary<int, List<Modification>>();
                                             oneBasedBeginPositions = new List<int?>();
                                             oneBasedEndPositions = new List<int?>();
                                             peptideTypes = new List<string>();

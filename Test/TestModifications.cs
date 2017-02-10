@@ -139,7 +139,7 @@ namespace Test
         [Test]
         public void ChemicalFormulaModificaiton()
         {
-            OldSchoolChemicalFormulaModification a = new OldSchoolChemicalFormulaModification("OH");
+            OldSchoolChemicalFormulaModification a = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("OH"));
             OldSchoolChemicalFormulaModification b = new OldSchoolChemicalFormulaModification(a);
             Assert.AreEqual(a, b);
         }

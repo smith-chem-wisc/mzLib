@@ -61,12 +61,12 @@ namespace Proteomics
         #region Protected Constructors
 
         protected AminoAcidPolymer()
-            : this(string.Empty, new ChemicalFormulaTerminus("H"), new ChemicalFormulaTerminus("OH"))
+            : this(string.Empty, new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("H")), new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("OH")))
         {
         }
 
         protected AminoAcidPolymer(string sequence)
-            : this(sequence, new ChemicalFormulaTerminus("H"), new ChemicalFormulaTerminus("OH"))
+            : this(sequence, new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("H")), new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("OH")))
         {
         }
 
@@ -93,8 +93,8 @@ namespace Proteomics
             bool isNterm = firstResidue == 0;
             bool isCterm = length + firstResidue == aminoAcidPolymer.Length;
 
-            _nTerminus = isNterm ? aminoAcidPolymer.NTerminus : new ChemicalFormulaTerminus("H");
-            _cTerminus = isCterm ? aminoAcidPolymer.CTerminus : new ChemicalFormulaTerminus("OH");
+            _nTerminus = isNterm ? aminoAcidPolymer.NTerminus : new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("H"));
+            _cTerminus = isCterm ? aminoAcidPolymer.CTerminus : new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("OH"));
 
             double monoMass = _nTerminus.MonoisotopicMass + _cTerminus.MonoisotopicMass;
 
@@ -1124,7 +1124,7 @@ namespace Proteomics
                         double mass;
                         try
                         {
-                            modification = new OldSchoolChemicalFormulaModification(modString);
+                            modification = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula(modString));
                         }
                         catch (FormatException)
                         {

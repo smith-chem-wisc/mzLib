@@ -76,7 +76,7 @@ namespace Test
         public void WriteMzmlTest()
         {
             var peptide = new Peptide("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR");
-            OldSchoolChemicalFormulaModification carbamidomethylationOfCMod = new OldSchoolChemicalFormulaModification("H3C2NO", "carbamidomethylation of C", ModificationSites.C);
+            OldSchoolChemicalFormulaModification carbamidomethylationOfCMod = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("H3C2NO"), "carbamidomethylation of C", ModificationSites.C);
             peptide.AddModification(carbamidomethylationOfCMod);
 
             MzmlMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);

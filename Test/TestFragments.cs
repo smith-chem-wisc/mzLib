@@ -76,9 +76,9 @@ namespace Test
         [Test]
         public void FragmentNTermModTest()
         {
-            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolChemicalFormulaModification("O", "lala", ModificationSites.NTerminus));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("O"), "lala", ModificationSites.NTerminus));
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
-            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolChemicalFormulaModification("O", "lala", ModificationSites.NTerminus) }));
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("O"), "lala", ModificationSites.NTerminus) }));
         }
 
         [Test]
@@ -127,7 +127,7 @@ namespace Test
         public void TestFormulaTerminusMods()
         {
             var pep1 = new Peptide("ACDEFG");
-            pep1.AddModification(new OldSchoolChemicalFormulaModification("H", ModificationSites.NTerminus));
+            pep1.AddModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("H"), ModificationSites.NTerminus));
 
             Assert.IsTrue(pep1.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
 

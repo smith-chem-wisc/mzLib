@@ -48,8 +48,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BaseModification.cs" />
     <Compile Include="Modification.cs" />
+    <Compile Include="ModificationWithLocation.cs" />
+    <Compile Include="ModificationMotif.cs" />
     <Compile Include="ModificationWithMass.cs" />
     <Compile Include="ModificationWithMassAndCf.cs" />
     <Compile Include="Protein.cs" />
