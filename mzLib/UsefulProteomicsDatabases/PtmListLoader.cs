@@ -10,9 +10,37 @@ namespace UsefulProteomicsDatabases
     public static class PtmListLoader
     {
 
+        private static readonly Dictionary<string, char> aminoAcidCodes;
+        static PtmListLoader()
+        {
+            aminoAcidCodes = new Dictionary<string, char>();
+            aminoAcidCodes.Add("Alanine", 'A');
+            aminoAcidCodes.Add("Arginine", 'R');
+            aminoAcidCodes.Add("Asparagine", 'N');
+            aminoAcidCodes.Add("Aspartate", 'D');
+            aminoAcidCodes.Add("Aspartic Acid", 'D');
+            aminoAcidCodes.Add("Cysteine", 'C');
+            aminoAcidCodes.Add("Glutamate", 'E');
+            aminoAcidCodes.Add("Glutamic Acid", 'E');
+            aminoAcidCodes.Add("Glutamine", 'Q');
+            aminoAcidCodes.Add("Glycine", 'G');
+            aminoAcidCodes.Add("Histidine", 'H');
+            aminoAcidCodes.Add("Isoleucine", 'I');
+            aminoAcidCodes.Add("Leucine", 'L');
+            aminoAcidCodes.Add("Lysine", 'K');
+            aminoAcidCodes.Add("Methionine", 'M');
+            aminoAcidCodes.Add("Phenylalanine", 'F');
+            aminoAcidCodes.Add("Proline", 'P');
+            aminoAcidCodes.Add("Serine", 'S');
+            aminoAcidCodes.Add("Threonine", 'T');
+            aminoAcidCodes.Add("Tryptophan", 'W');
+            aminoAcidCodes.Add("Tyrosine", 'Y');
+            aminoAcidCodes.Add("Valine", 'V');
+        }
+
         #region Public Methods
 
-        public static IEnumerable<Modification> ReadMods(string ptmListLocation)
+        public static IEnumerable<ModificationWithLocation> ReadMods(string ptmListLocation)
         {
             using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
@@ -24,7 +52,7 @@ namespace UsefulProteomicsDatabases
                 string uniprotPP = null;
                 ChemicalFormula uniprotCF = null;
                 double? uniprotMM = null;
-                var uniprotDR = new Dictionary<string, HashSet<string>>();
+                var uniprotDR = new Dictionary<string, IList<string>>();
 
                 // Custom fields
                 IEnumerable<double> neutralLosses = null;
@@ -51,7 +79,7 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "TG": // Which amino acid(s) or motifs is the modification on
-                                uniprotTG = new HashSet<string>(line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
+                                uniprotTG = new List<string>(line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
                                 break;
 
                             case "PP": // Terminus localization
@@ -59,7 +87,7 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "CF": // Correction formula
-                                uniprotCF = new ChemicalFormula(line.Substring(5).Replace(" ", string.Empty));
+                                uniprotCF = ChemicalFormula.ParseFormula(line.Substring(5).Replace(" ", string.Empty));
                                 break;
 
                             case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
@@ -68,11 +96,11 @@ namespace UsefulProteomicsDatabases
 
                             case "DR": // External database links!
                                 var splitString = line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
-                                HashSet<string> val;
+                                IList<string> val;
                                 if (uniprotDR.TryGetValue(splitString[0], out val))
                                     val.Add(splitString[1]);
                                 else
-                                    uniprotDR.Add(splitString[0], new HashSet<string> { splitString[1] });
+                                    uniprotDR.Add(splitString[0], new List<string> { splitString[1] });
                                 break;
 
                             // NOW CUSTOM FIELDS:
@@ -97,41 +125,59 @@ namespace UsefulProteomicsDatabases
                                 // Only mod_res, not intrachain.
                                 if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
                                 {
-                                    foreach (var singleTarget in uniprotTG)
+                                    ModificationSites modSites;
+                                    if (ModificationWithLocation.modificationTypeCodes.TryGetValue(uniprotPP, out modSites))
                                     {
-                                        // Add the modification!
-                                        if (!uniprotMM.HasValue)
+                                        foreach (var singleTarget in uniprotTG)
                                         {
-                                            // Return modification
-                                            yield return new Modification(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotDR, Path.GetFileNameWithoutExtension(ptmListLocation));
-                                        }
-                                        else
-                                        {
-                                            if (neutralLosses == null)
-                                                neutralLosses = new HashSet<double> { 0 };
-                                            foreach (var neutralLoss in neutralLosses)
+                                            string theMotif;
+                                            char possibleMotifChar;
+                                            if (aminoAcidCodes.TryGetValue(singleTarget, out possibleMotifChar))
+                                                theMotif = possibleMotifChar.ToString();
+                                            else
+                                                theMotif = singleTarget;
+                                            ModificationMotif motif;
+                                            if (ModificationMotif.TryGetMotif(theMotif, out motif))
                                             {
-                                                if (uniprotCF == null)
+                                                // Add the modification!
+                                                if (!uniprotMM.HasValue)
                                                 {
-                                                    // Return modification with mass
-                                                    yield return new ModificationWithMass(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotMM.Value, uniprotDR,
-                                                        neutralLoss,
-                                                        massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                        diagnosticIons,
-                                                        Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                    // Return modification
+                                                    yield return new ModificationWithLocation(uniprotID, uniprotAC, motif, modSites, uniprotDR, Path.GetFileNameWithoutExtension(ptmListLocation));
                                                 }
                                                 else
                                                 {
-                                                    // Return modification with complete information!
-                                                    yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, singleTarget, uniprotPP, uniprotCF, uniprotMM.Value, uniprotDR,
-                                                        neutralLoss,
-                                                        massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                        diagnosticIons,
-                                                        Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                    if (neutralLosses == null)
+                                                        neutralLosses = new HashSet<double> { 0 };
+                                                    foreach (var neutralLoss in neutralLosses)
+                                                    {
+                                                        if (uniprotCF == null)
+                                                        {
+                                                            // Return modification with mass
+                                                            yield return new ModificationWithMass(uniprotID, uniprotAC, motif, modSites, uniprotMM.Value, uniprotDR,
+                                                                neutralLoss,
+                                                                massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
+                                                                diagnosticIons,
+                                                                Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                        }
+                                                        else
+                                                        {
+                                                            // Return modification with complete information!
+                                                            yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, motif, modSites, uniprotCF, uniprotMM.Value, uniprotDR,
+                                                                neutralLoss,
+                                                                massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
+                                                                diagnosticIons,
+                                                                Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                        }
+                                                    }
                                                 }
                                             }
+                                            else
+                                                throw new PtmListLoaderException("Could not get motif from " + singleTarget);
                                         }
                                     }
+                                    else
+                                        throw new PtmListLoaderException("Could not get modification site from " + uniprotPP);
                                 }
 
                                 uniprotID = null;
@@ -141,7 +187,7 @@ namespace UsefulProteomicsDatabases
                                 uniprotPP = null;
                                 uniprotCF = null;
                                 uniprotMM = null;
-                                uniprotDR = new Dictionary<string, HashSet<string>>();
+                                uniprotDR = new Dictionary<string, IList<string>>();
 
                                 // Custom fields
                                 neutralLosses = null;

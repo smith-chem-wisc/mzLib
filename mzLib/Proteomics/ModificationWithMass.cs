@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Proteomics
 {
-    public class ModificationWithMass : Modification
+    public class ModificationWithMass : ModificationWithLocation
     {
 
         #region Public Fields
@@ -18,21 +18,13 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, string uniprotTG, string uniprotPP, double uniprotMM, Dictionary<string, HashSet<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
+        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, ModificationMotif uniprotTG, ModificationSites uniprotPP, double uniprotMM, IDictionary<string, IList<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
             : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR, database)
         {
             this.monoisotopicMass = uniprotMM;
             this.neutralLoss = neutralLoss;
             this.massesObserved = massesObserved;
             this.diagnosticIons = diagnosticIons;
-        }
-
-        public ModificationWithMass(string id, Tuple<string, string> ac, string tg, ModificationSites pos, double mm, double neutralLoss, string database)
-            : base(id, ac, tg, pos, null, database)
-        {
-            this.neutralLoss = neutralLoss;
-            this.monoisotopicMass = mm;
-            massesObserved = new HashSet<double> { mm };
         }
 
         #endregion Public Constructors

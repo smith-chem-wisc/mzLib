@@ -41,28 +41,28 @@ namespace Proteomics
         static Residue()
         {
             ResiduesDictionary = new Dictionary<string, Residue>
-        {
-            {"Alanine",        new Residue("Alanine",       'A', "Ala","C3H5NO",   ModificationSites.A)},
-            {"Arginine",       new Residue("Arginine",      'R', "Arg","C6H12N4O", ModificationSites.R)},
-            {"Asparagine",     new Residue("Asparagine",    'N', "Asn","C4H6N2O2", ModificationSites.N)},
-            {"Aspartic Acid",  new Residue("Aspartic Acid", 'D', "Asp","C4H5NO3",  ModificationSites.D)},
-            {"Cysteine",       new Residue("Cysteine",      'C', "Cys","C3H5NOS",  ModificationSites.C)},
-            {"Glutamic Acid",  new Residue("Glutamic Acid", 'E', "Glu","C5H7NO3",  ModificationSites.E)},
-            {"Glutamine",      new Residue("Glutamine", 'Q', "Gln","C5H8N2O2",  ModificationSites.Q)},
-            {"Glycine",        new Residue("Glycine", 'G', "Gly","C2H3NO",  ModificationSites.G)},
-            {"Histidine",      new Residue("Histidine", 'H', "His","C6H7N3O",  ModificationSites.H)},
-            {"Isoleucine",     new Residue("Isoleucine", 'I', "Ile","C6H11NO",  ModificationSites.I)},
-            {"Leucine",        new Residue("Leucine", 'L', "Leu","C6H11NO",  ModificationSites.L)},
-            {"Lysine",         new Residue("Lysine", 'K', "Lys","C6H12N2O",  ModificationSites.K)},
-            {"Methionine",     new Residue("Methionine", 'M', "Met","C5H9NOS",  ModificationSites.M)},
-            {"Phenylalanine",  new Residue("Phenylalanine", 'F', "Phe","C9H9NO",  ModificationSites.F)},
-            {"Proline",        new Residue("Proline", 'P', "Pro","C5H7NO",  ModificationSites.P)},
-            {"Selenocysteine", new Residue("Selenocysteine", 'U', "Sec","C3H5NOSe",  ModificationSites.U)},
-            {"Serine",         new Residue("Serine", 'S', "Ser","C3H5NO2",  ModificationSites.S)},
-            {"Threonine",      new Residue("Threonine", 'T', "Thr","C4H7NO2",  ModificationSites.T)},
-            {"Tryptophan",     new Residue("Tryptophan", 'W', "Trp","C11H10N2O",  ModificationSites.W)},
-            {"Tyrosine",       new Residue("Tyrosine", 'Y', "Try","C9H9NO2",  ModificationSites.Y)},
-            {"Valine",         new Residue("Valine", 'V', "Val","C5H9NO",  ModificationSites.V)}
+            { 
+            {"Alanine",        new Residue("Alanine",       'A', "Ala",ChemicalFormula.ParseFormula("C3H5NO"),   ModificationSites.A)},
+            {"Arginine",       new Residue("Arginine",      'R', "Arg",ChemicalFormula.ParseFormula("C6H12N4O"), ModificationSites.R)},
+            {"Asparagine",     new Residue("Asparagine",    'N', "Asn",ChemicalFormula.ParseFormula("C4H6N2O2"), ModificationSites.N)},
+            {"Aspartic Acid",  new Residue("Aspartic Acid", 'D', "Asp",ChemicalFormula.ParseFormula("C4H5NO3"),  ModificationSites.D)},
+            {"Cysteine",       new Residue("Cysteine",      'C', "Cys",ChemicalFormula.ParseFormula("C3H5NOS"),  ModificationSites.C)},
+            {"Glutamic Acid",  new Residue("Glutamic Acid", 'E', "Glu",ChemicalFormula.ParseFormula("C5H7NO3"),  ModificationSites.E)},
+            {"Glutamine",      new Residue("Glutamine", 'Q', "Gln",ChemicalFormula.ParseFormula("C5H8N2O2"),  ModificationSites.Q)},
+            {"Glycine",        new Residue("Glycine", 'G', "Gly",ChemicalFormula.ParseFormula("C2H3NO"),  ModificationSites.G)},
+            {"Histidine",      new Residue("Histidine", 'H', "His",ChemicalFormula.ParseFormula("C6H7N3O"),  ModificationSites.H)},
+            {"Isoleucine",     new Residue("Isoleucine", 'I', "Ile",ChemicalFormula.ParseFormula("C6H11NO"),  ModificationSites.I)},
+            {"Leucine",        new Residue("Leucine", 'L', "Leu",ChemicalFormula.ParseFormula("C6H11NO"),  ModificationSites.L)},
+            {"Lysine",         new Residue("Lysine", 'K', "Lys",ChemicalFormula.ParseFormula("C6H12N2O"),  ModificationSites.K)},
+            {"Methionine",     new Residue("Methionine", 'M', "Met",ChemicalFormula.ParseFormula("C5H9NOS"),  ModificationSites.M)},
+            {"Phenylalanine",  new Residue("Phenylalanine", 'F', "Phe",ChemicalFormula.ParseFormula("C9H9NO"),  ModificationSites.F)},
+            {"Proline",        new Residue("Proline", 'P', "Pro",ChemicalFormula.ParseFormula("C5H7NO"),  ModificationSites.P)},
+            {"Selenocysteine", new Residue("Selenocysteine", 'U', "Sec",ChemicalFormula.ParseFormula("C3H5NOSe"),  ModificationSites.U)},
+            {"Serine",         new Residue("Serine", 'S', "Ser",ChemicalFormula.ParseFormula("C3H5NO2"),  ModificationSites.S)},
+            {"Threonine",      new Residue("Threonine", 'T', "Thr",ChemicalFormula.ParseFormula("C4H7NO2"),  ModificationSites.T)},
+            {"Tryptophan",     new Residue("Tryptophan", 'W', "Trp",ChemicalFormula.ParseFormula("C11H10N2O"),  ModificationSites.W)},
+            {"Tyrosine",       new Residue("Tyrosine", 'Y', "Try",ChemicalFormula.ParseFormula("C9H9NO2"),  ModificationSites.Y)},
+            {"Valine",         new Residue("Valine", 'V', "Val",ChemicalFormula.ParseFormula("C5H9NO"),  ModificationSites.V)}
         };
 
             ResiduesByLetter = new Residue[]

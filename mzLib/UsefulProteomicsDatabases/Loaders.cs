@@ -126,7 +126,7 @@ namespace UsefulProteomicsDatabases
             PeriodicTableLoader.Load(elementLocation);
         }
 
-        public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
+        public static IEnumerable<ModificationWithLocation> LoadUnimod(string unimodLocation)
         {
             if (!File.Exists(unimodLocation))
                 UpdateUnimod(unimodLocation);
@@ -142,7 +142,7 @@ namespace UsefulProteomicsDatabases
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open)) as Generated.obo;
         }
 
-        public static IEnumerable<Modification> LoadUniprot(string uniprotLocation)
+        public static IEnumerable<ModificationWithLocation> LoadUniprot(string uniprotLocation)
         {
             if (!File.Exists(uniprotLocation))
                 UpdateUniprot(uniprotLocation);

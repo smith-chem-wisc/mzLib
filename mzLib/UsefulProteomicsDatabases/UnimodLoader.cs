@@ -34,7 +34,7 @@ namespace UsefulProteomicsDatabases
 
         #region Internal Methods
 
-        internal static IEnumerable<Modification> ReadMods(string unimodLocation)
+        internal static IEnumerable<ModificationWithLocation> ReadMods(string unimodLocation)
         {
             var unimodSerializer = new XmlSerializer(typeof(Generated.unimod_t));
             var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open)) as Generated.unimod_t;
@@ -65,12 +65,14 @@ namespace UsefulProteomicsDatabases
                     var tg = nice.site;
                     if (tg.Length > 1)
                         tg = "X";
+                    ModificationMotif motif = null;
+                    ModificationMotif.TryGetMotif(tg, out motif);
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, 0, Path.GetFileNameWithoutExtension(unimodLocation));
+                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, 0, new List<double> { mm }, null, Path.GetFileNameWithoutExtension(unimodLocation));
                     else
                         foreach (var nl in nice.NeutralLoss)
-                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), tg, positionDict[pos], cf, mm, nl.mono_mass, Path.GetFileNameWithoutExtension(unimodLocation));
+                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nl.mono_mass, new List<double> { mm }, null, Path.GetFileNameWithoutExtension(unimodLocation));
                 }
             }
         }

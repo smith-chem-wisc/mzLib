@@ -118,6 +118,30 @@ namespace Test
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
         }
+        [Test]
+        public void SampleModFileLoadingFail1()
+        {
+            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail1.txt")).ToList(),
+                                            Throws.TypeOf<PtmListLoaderException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Could not get motif from NxS"));
+        }
+        [Test]
+        public void SampleModFileLoadingFail2()
+        {
+            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail2.txt")).ToList(),
+                                            Throws.TypeOf<PtmListLoaderException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Could not get modification site from Anyplace."));
+        }
+        [Test]
+        public void SampleModFileLoadingFail3()
+        {
+            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail3.txt")).ToList(),
+                                            Throws.TypeOf<FormatException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Input string for chemical formula was in an incorrect format"));
+        }
 
         #endregion Public Methods
     }

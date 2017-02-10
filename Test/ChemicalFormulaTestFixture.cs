@@ -431,15 +431,6 @@ namespace Test
         }
 
         [Test]
-        public void ImplicitConstructor()
-        {
-            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
-            ChemicalFormula formulaB = "C2H3NO";
-
-            Assert.AreEqual(formulaA, formulaB);
-        }
-
-        [Test]
         public void BadFormula()
         {
             Assert.Throws<FormatException>(() => { ChemicalFormula.ParseFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
@@ -864,7 +855,7 @@ namespace Test
         [Test]
         public void TestIsotopicDistribution2()
         {
-            IsotopicDistribution.GetDistribution("AlO{16}");
+            IsotopicDistribution.GetDistribution(ChemicalFormula.ParseFormula("AlO{16}"));
         }
 
         [Test]
@@ -1004,7 +995,7 @@ namespace Test
         [Test]
         public void TestToChemicalFormula()
         {
-            ChemicalFormula formulaB = ChemicalFormula.ToChemicalFormula("CO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CO");
             Assert.AreEqual(ChemicalFormula.ParseFormula("CO"), formulaB);
         }
 

@@ -34,12 +34,12 @@ namespace Test
         [Test]
         public void XmlTest()
         {
-            HashSet<BaseModification> nice = new HashSet<BaseModification>
+            var nice = new List<Modification>
             {
-                new Modification("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            IDictionary<string, HashSet<BaseModification>> mods = new Dictionary<string, HashSet<BaseModification>>
+            var mods = new Dictionary<string, IList<Modification>>
             {
                 {
                     "N6-acetyllysine",nice
