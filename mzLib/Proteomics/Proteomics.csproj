@@ -64,7 +64,7 @@
     <Compile Include="FragmentTypes.cs" />
     <Compile Include="Util\AminoAcidPolymerExtensions.cs" />
     <Compile Include="Interfaces\IProtease.cs" />
-    <Compile Include="ModificationWithMultiplePossibilities.cs" />
+    <Compile Include="OldSchoolModificationWithMultiplePossibilities.cs" />
     <Compile Include="OldSchoolModification.cs" />
     <Compile Include="ModificationCollection.cs" />
     <Compile Include="ModificationSites.cs" />

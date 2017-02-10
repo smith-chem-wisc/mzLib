@@ -10,6 +10,7 @@ namespace Proteomics
 
         #region Public Fields
 
+        public static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
         public readonly Tuple<string, string> accession;
         public readonly IDictionary<string, IList<string>> linksToOtherDbs;
         public readonly ModificationSites position;
@@ -17,12 +18,6 @@ namespace Proteomics
         public readonly string database;
 
         #endregion Public Fields
-
-        #region Private Fields
-
-        public static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
-
-        #endregion Private Fields
 
         #region Public Constructors
 
