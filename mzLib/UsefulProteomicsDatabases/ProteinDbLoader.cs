@@ -13,8 +13,10 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static IEnumerable<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, IList<Modification>> allKnownModifications, bool IsContaminant)
+        public static List<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, IList<Modification>> allKnownModifications, bool IsContaminant, out Dictionary<string, Modification> unknownModifications)
         {
+            List<Protein> result = new List<Protein>();
+            unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
                 string accession = null;
@@ -103,6 +105,7 @@ namespace UsefulProteomicsDatabases
                                         case "feature":
                                             if (feature_type == "modified residue")
                                             {
+                                                feature_description = feature_description.Split(';')[0];
                                                 List<Modification> residue_modifications;
                                                 // Create new entry for this residue, if needed
                                                 if (!oneBasedModifications.TryGetValue(oneBasedfeature_position, out residue_modifications))
@@ -110,10 +113,22 @@ namespace UsefulProteomicsDatabases
                                                     residue_modifications = new List<Modification>();
                                                     oneBasedModifications.Add(oneBasedfeature_position, residue_modifications);
                                                 }
-                                                // Known modification
-                                                if (!allKnownModifications.ContainsKey(feature_description))
-                                                    allKnownModifications.Add(feature_description, new List<Modification> { new Modification(feature_description) });
-                                                residue_modifications.AddRange(allKnownModifications[feature_description]);
+                                                if (allKnownModifications.ContainsKey(feature_description))
+                                                {
+                                                    // Known
+                                                    residue_modifications.AddRange(allKnownModifications[feature_description]);
+                                                }
+                                                else if (unknownModifications.ContainsKey(feature_description))
+                                                {
+                                                    // Not known but seen
+                                                    residue_modifications.Add(unknownModifications[feature_description]);
+                                                }
+                                                else
+                                                {
+                                                    // Not known and not seen
+                                                    unknownModifications[feature_description] = new Modification(feature_description);
+                                                    residue_modifications.Add(unknownModifications[feature_description]);
+                                                }
                                             }
                                             else if (feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain" || feature_type == "signal peptide")
                                             {
@@ -131,7 +146,7 @@ namespace UsefulProteomicsDatabases
                                             {
                                                 var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, false, IsContaminant);
 
-                                                yield return protein;
+                                                result.Add(protein);
 
                                                 offset += protein.Length;
                                                 if (onTheFlyDecoys)
@@ -181,7 +196,8 @@ namespace UsefulProteomicsDatabases
                                                         decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
                                                     }
                                                     var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, offset, true, IsContaminant);
-                                                    yield return decoy_protein;
+
+                                                    result.Add(decoy_protein);
                                                     offset += protein.Length;
                                                 }
                                             }
@@ -244,7 +260,8 @@ namespace UsefulProteomicsDatabases
                         {
                             var sequence = sb.ToString();
                             var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant);
-                            yield return protein;
+
+                            result.Add(protein);
 
                             if (onTheFlyDecoys)
                             {
@@ -260,7 +277,8 @@ namespace UsefulProteomicsDatabases
                                 }
                                 var reversed_sequence = new string(sequence_array);
                                 var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, null, null, null, null, name, full_name, offset, true, IsContaminant);
-                                yield return decoy_protein;
+
+                                result.Add(decoy_protein);
                                 offset += protein.Length;
                             }
                         }
@@ -273,6 +291,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
+            return result;
         }
 
         #endregion Public Methods
