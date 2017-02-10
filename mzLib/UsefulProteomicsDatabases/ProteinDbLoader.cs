@@ -245,7 +245,7 @@ namespace UsefulProteomicsDatabases
                             {
                                 // can't read protein description
                                 full_name = line.Substring(1);
-                                accession = "";
+                                accession = line.Substring(1);
                             }
 
                             // new protein
