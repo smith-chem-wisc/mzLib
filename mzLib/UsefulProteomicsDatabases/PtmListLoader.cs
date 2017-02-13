@@ -134,7 +134,7 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "//":
-                                // Only mod_res, not intrachain.
+                                // Not CROSSLNK, LIPID and MOD_RES is fine. 
                                 if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
                                 {
                                     ModificationSites modSites;
