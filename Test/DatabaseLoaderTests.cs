@@ -27,6 +27,7 @@ namespace Test
     [TestFixture]
     public class DatabaseLoaderTests
     {
+
         #region Public Methods
 
         [Test]
@@ -95,7 +96,6 @@ namespace Test
 
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
 
-
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
                 foreach (var nice in uniprotPtms)
@@ -112,12 +112,14 @@ namespace Test
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
         }
+
         [Test]
         public void SampleModFileLoading()
         {
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
         }
+
         [Test]
         public void SampleModFileLoadingFail1()
         {
@@ -126,6 +128,7 @@ namespace Test
                                             .With.Property("Message")
                                             .EqualTo("Could not get motif from NxS"));
         }
+
         [Test]
         public void SampleModFileLoadingFail2()
         {
@@ -134,15 +137,26 @@ namespace Test
                                             .With.Property("Message")
                                             .EqualTo("Could not get modification site from Anyplace."));
         }
+
         [Test]
         public void SampleModFileLoadingFail3()
         {
             Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail3.txt")).ToList(),
                                             Throws.TypeOf<FormatException>()
                                             .With.Property("Message")
-                                            .EqualTo("Input string for chemical formula was in an incorrect format"));
+                                            .EqualTo("Input string for chemical formula was in an incorrect format: $%#$%"));
+        }
+
+        [Test]
+        public void SampleModFileLoadingFail4()
+        {
+            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "m.txt")).ToList(),
+                                            Throws.TypeOf<PtmListLoaderException>()
+                                            .With.Property("Message")
+                                            .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
         }
 
         #endregion Public Methods
+
     }
 }

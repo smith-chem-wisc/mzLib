@@ -10,7 +10,14 @@ namespace UsefulProteomicsDatabases
     public static class PtmListLoader
     {
 
+        #region Private Fields
+
         private static readonly Dictionary<string, char> aminoAcidCodes;
+
+        #endregion Private Fields
+
+        #region Public Constructors
+
         static PtmListLoader()
         {
             aminoAcidCodes = new Dictionary<string, char>();
@@ -37,6 +44,8 @@ namespace UsefulProteomicsDatabases
             aminoAcidCodes.Add("Tyrosine", 'Y');
             aminoAcidCodes.Add("Valine", 'V');
         }
+
+        #endregion Public Constructors
 
         #region Public Methods
 
@@ -91,7 +100,10 @@ namespace UsefulProteomicsDatabases
                                 break;
 
                             case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                                uniprotMM = double.Parse(line.Substring(5));
+                                double thisMM;
+                                if (!double.TryParse(line.Substring(5), out thisMM))
+                                    throw new PtmListLoaderException(line.Substring(5) + " is not a valid monoisotopic mass");
+                                uniprotMM = thisMM;
                                 break;
 
                             case "DR": // External database links!

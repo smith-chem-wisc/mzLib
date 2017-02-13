@@ -146,6 +146,9 @@
     <None Include="sampleModFileFail3.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Content Include="m.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="xml.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

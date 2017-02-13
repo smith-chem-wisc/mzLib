@@ -260,6 +260,7 @@ namespace UsefulProteomicsDatabases
                         {
                             var sequence = sb.ToString();
                             var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant);
+                            offset += protein.Length;
 
                             result.Add(protein);
 
