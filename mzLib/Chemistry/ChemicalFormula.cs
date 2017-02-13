@@ -197,7 +197,7 @@ namespace Chemistry
             ChemicalFormula f = new ChemicalFormula();
 
             if (!ValidateFormulaRegex.IsMatch(formula))
-                throw new FormatException("Input string for chemical formula was in an incorrect format");
+                throw new FormatException("Input string for chemical formula was in an incorrect format: " + formula);
 
             foreach (Match match in FormulaRegex.Matches(formula))
             {
@@ -546,5 +546,6 @@ namespace Chemistry
         }
 
         #endregion Private Methods
+
     }
 }
