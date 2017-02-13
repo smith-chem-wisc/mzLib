@@ -1,4 +1,4 @@
-#mzLib
+# mzLib
 
 A library for mass spectrometry projects.
 
@@ -11,9 +11,30 @@ A library for mass spectrometry projects.
 
 Releases are here: https://www.nuget.org/packages/mzLib/
 
-## Usage
+# Usage
 
-To be written...
+## Loading Databases From Online Sources
+```
+Loaders.LoadElements("elements.dat"); // void, loads elements into static PeriodicTable class 
+IEnumerable<ModificationWithLocation> unimodMods = Loaders.LoadUnimod("unimod.dat");
+IEnumerable<ModificationWithLocation> uniprotMods = Loaders.LoadUniprot("uniprot.dat");
+```
 
-## License
+## Reading Protein Database Files
+To read .fasta, .xml, or .xml.gz files, use 
+```
+var ok = ProteinDbLoader.LoadProteinDb("proteins.xml", generateDecoys, allKnownModifications, IsContaminant, out unknownModifications);
+```
+The parameters are:
+* ```bool generateDecoys``` True if wish to generate decoy proteins.
+* ```IDictionary<string, IList<Modification>> allKnownModifications``` Dictionary of modifications with keys that correspond to modifications in the xml file.
+* ```bool IsContaminant``` True if it is a contaminant database
+* ```out Dictionary<string, Modification> unknownModifications``` An auxiliary output of modifications that were in the xml file but are not known. 
+
+## Reading Modification Files
+To load modifications from ptmlist formatted files, use
+```
+var ptms = PtmListLoader.ReadMods("ptms.txt")
+```
+# License
 Code heavily borrowed from https://github.com/dbaileychess/CSMSL and distrubuted under the appropriate license, LGPL.
