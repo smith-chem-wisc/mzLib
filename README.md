@@ -41,7 +41,8 @@ The parameters are:
 * ```bool generateDecoys``` True if wish to generate decoy proteins.
 * ```IDictionary<string, IList<Modification>> allKnownModifications``` Dictionary of modifications with keys that correspond to modifications in the xml file.
 * ```bool IsContaminant``` True if it is a contaminant database
-* ```out Dictionary<string, Modification> unknownModifications``` An auxiliary output of modifications that were in the xml file but are not known. 
+* ```out Dictionary<string, Modification> unknownModifications``` An auxiliary output of modifications that were in the xml file but are not known.
+
 ## Reading Modification Files
 To load modifications from ptmlist formatted files, use
 ```
