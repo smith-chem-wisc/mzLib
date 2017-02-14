@@ -21,7 +21,7 @@ Mzml mzmlFile = new Mzml(@"spectra.mzML");
 mzmlFile.Open();
 mzmlFile.Close();
 ```
-Both filetypes implement the same interface that has almost all of the necessary functionality to interact with spectra files:
+Both filetypes implement the same interface that has all of the necessary functionality to interact with spectra files:
 ```
 IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> thermoFile = new ThermoRawFile(@"spectra.RAW");
 IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> mzmlFile = new Mzml(@"spectra.mzML");
