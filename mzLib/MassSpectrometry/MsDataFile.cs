@@ -166,11 +166,6 @@ namespace MassSpectrometry
 
         public abstract void Close();
 
-        //TScan IMsDataFile<TScan, TSpectrum, TMzPeak>.GetOneBasedScan(int oneBasedScanNumber)
-        //{
-        //    return GetOneBasedScan(oneBasedScanNumber);
-        //}
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
