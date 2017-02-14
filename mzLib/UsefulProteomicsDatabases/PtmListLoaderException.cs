@@ -1,25 +1,18 @@
 ﻿using System;
-using System.Runtime.Serialization;
 
 namespace UsefulProteomicsDatabases
 {
     [Serializable]
     public class PtmListLoaderException : Exception
     {
-        public PtmListLoaderException()
-        {
-        }
+
+        #region Public Constructors
 
         public PtmListLoaderException(string message) : base(message)
         {
         }
 
-        public PtmListLoaderException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
+        #endregion Public Constructors
 
-        protected PtmListLoaderException(SerializationInfo info, StreamingContext context) : base(info, context)
-        {
-        }
     }
 }
