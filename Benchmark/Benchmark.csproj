@@ -99,6 +99,10 @@
       <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
       <Name>MzML</Name>
     </ProjectReference>
+    <ProjectReference Include="..\mzLib\MassSpecFiles\Thermo\Thermo.csproj">
+      <Project>{24DC85FF-E97B-4140-9614-77DD8FDDD32F}</Project>
+      <Name>Thermo</Name>
+    </ProjectReference>
     <ProjectReference Include="..\mzLib\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}</Project>
       <Name>MassSpectrometry</Name>
