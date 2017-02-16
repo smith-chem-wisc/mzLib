@@ -65,7 +65,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FakeMsDataFile.cs" />
-    <Compile Include="ExceptionTests.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseLoaderTests.cs" />
     <Compile Include="ElementsAndIsotopesTests.cs" />

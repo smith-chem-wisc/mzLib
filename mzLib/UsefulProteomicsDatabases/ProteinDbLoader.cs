@@ -30,6 +30,7 @@ namespace UsefulProteomicsDatabases
                 var oneBasedEndPositions = new List<int?>();
                 var peptideTypes = new List<string>();
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
+                List<GoTerm> goTerms = new List<GoTerm>();
 
                 // xml db
                 if (!proteinDbLocation.EndsWith(".fasta"))
@@ -49,7 +50,6 @@ namespace UsefulProteomicsDatabases
                     int oneBasedfeature_position = -1;
                     int? oneBasedbeginPosition = null;
                     int? oneBasedendPosition = null;
-                    List<GoTerm> goTerms = new List<GoTerm>();
 
                     using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
                     {
@@ -306,7 +306,7 @@ namespace UsefulProteomicsDatabases
                         if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                         {
                             var sequence = sb.ToString();
-                            var protein = new Protein(sequence, accession, null, null, null, null, name, full_name, offset, false, IsContaminant, null);
+                            var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, false, IsContaminant, goTerms);
                             offset += protein.Length;
 
                             result.Add(protein);
@@ -317,7 +317,7 @@ namespace UsefulProteomicsDatabases
                                 int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                                 Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                                 var reversed_sequence = new string(sequence_array);
-                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, null, null, null, null, name, full_name, offset, true, IsContaminant, null);
+                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, true, IsContaminant, goTerms);
 
                                 result.Add(decoy_protein);
                                 offset += protein.Length;

@@ -130,12 +130,12 @@ namespace Benchmark
 
             Stopwatch stopWatch = new Stopwatch();
 
-            List<ModificationWithMass> localizeableModifications = PtmListLoader.ReadModsWithMass("C:\\Users\\antho\\Documents\\GitHub\\proteoform-suite\\Examples\\ptmlist.txt").ToList();
+            List<ModificationWithMass> localizeableModifications = PtmListLoader.ReadModsWithMass(@"..\..\..\Test\ptmlist.txt").ToList();
             Dictionary<string, Modification> um;
             IDictionary<string, IList<Modification>> ya = PtmListLoader.GetModDict(localizeableModifications);
 
             stopWatch.Restart();
-            var a = ProteinDbLoader.LoadProteinDb("D:\\human_uniprot-proteome%3AUP000005640.xml.gz", true, ya, false, out um);
+            var a = ProteinDbLoader.LoadProteinDb(@"..\..\..\Test\yeast_160126.xml.gz", true, ya, false, out um);
             stopWatch.Stop();
 
             file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
