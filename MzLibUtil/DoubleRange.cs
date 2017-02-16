@@ -22,6 +22,7 @@ namespace MzLibUtil
 {
     public class DoubleRange
     {
+
         #region Public Constructors
 
         /// <summary>
@@ -107,7 +108,7 @@ namespace MzLibUtil
 
         public virtual string ToString(string format)
         {
-            return string.Format("[{0} - {1}]", Minimum.ToString(format), Maximum.ToString(format));
+            return string.Format("[{0} to {1}]", Minimum.ToString(format), Maximum.ToString(format));
         }
 
         public int CompareTo(double item)
@@ -191,5 +192,6 @@ namespace MzLibUtil
         }
 
         #endregion Internal Methods
+
     }
 }

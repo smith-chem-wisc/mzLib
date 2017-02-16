@@ -31,6 +31,7 @@ namespace Test
     [TestFixture]
     public sealed class SpectrumTestFixture
     {
+
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -283,7 +284,7 @@ namespace Test
 
             Assert.AreEqual(0, thisSpectrum.NumPeaksWithinRange(-2, -1));
 
-            Assert.AreEqual("[1 - 7] m/z (Peaks 7)", thisSpectrum.ToString());
+            Assert.AreEqual("[1 to 7] m/z (Peaks 7)", thisSpectrum.ToString());
 
             //Assert.AreEqual(7, thisSpectrum.FilterByNumberOfMostIntense(7).Size);
             //Assert.AreEqual(1, thisSpectrum.FilterByNumberOfMostIntense(1).Size);
@@ -330,5 +331,6 @@ namespace Test
         }
 
         #endregion Public Methods
+
     }
 }
