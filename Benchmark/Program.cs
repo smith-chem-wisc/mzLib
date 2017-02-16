@@ -130,11 +130,11 @@ namespace Benchmark
 
             Stopwatch stopWatch = new Stopwatch();
 
-            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"..\..\..\Test\ptmlist.txt").ToList();
+            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"..\..\..\Benchmark\ptmlist.txt").ToList();
             Dictionary<string, Modification> um;
 
             stopWatch.Restart();
-            var a = ProteinDbLoader.LoadProteinDb(@"..\..\..\Test\yeast_160126.xml.gz", true, ya, false, out um);
+            var a = ProteinDbLoader.LoadProteinDb(@"..\..\..\Benchmark\yeast_160126.xml.gz", true, ya, false, out um);
             stopWatch.Stop();
 
             file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
