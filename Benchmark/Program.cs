@@ -3,6 +3,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using UsefulProteomicsDatabases;
+using Proteomics;
+using System.Collections.Generic;
 
 namespace Benchmark
 {
@@ -121,6 +124,24 @@ namespace Benchmark
             file.WriteLine("Benchmark BenchmarkTimeGettingElementFromPeriodicTable finished");
         }
 
+        private static void BenchmarkDatabase(StreamWriter file)
+        {
+            file.WriteLine("Starting benchmark BenchmarkDatabase");
+
+            Stopwatch stopWatch = new Stopwatch();
+
+            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"ptmlist.txt").ToList();
+            Dictionary<string, Modification> um;
+
+            stopWatch.Restart();
+            var a = ProteinDbLoader.LoadProteinDb(@"yeast_160126.xml.gz", true, ya, false, out um);
+            stopWatch.Stop();
+
+            file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
+
+            file.WriteLine("Benchmark BenchmarkDatabase finished");
+        }
+
         private static void Main(string[] args)
         {
             string gitStatus = string.Empty;
@@ -198,6 +219,9 @@ namespace Benchmark
                 BenchmarkGettingIsotopes(file);
                 file.WriteLine("");
                 BenchmarkIsotopicDistribution(file);
+                Loaders.LoadElements(@"elements.tmp");
+                file.WriteLine("");
+                BenchmarkDatabase(file);
             }
         }
 

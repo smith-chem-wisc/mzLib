@@ -62,6 +62,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="elements.tmp">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="yeast_160126.xml.gz">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5.1">
@@ -107,13 +113,26 @@
       <Project>{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}</Project>
       <Name>MassSpectrometry</Name>
     </ProjectReference>
+    <ProjectReference Include="..\mzLib\Proteomics\Proteomics.csproj">
+      <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
+      <Name>Proteomics</Name>
+    </ProjectReference>
     <ProjectReference Include="..\mzLib\Spectra\Spectra.csproj">
       <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
       <Name>Spectra</Name>
     </ProjectReference>
+    <ProjectReference Include="..\mzLib\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
+      <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
+      <Name>UsefulProteomicsDatabases</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="ptmlist.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

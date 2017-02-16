@@ -109,6 +109,7 @@ namespace Test
                     w.WriteLine("//");
                 }
             }
+
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
         }
