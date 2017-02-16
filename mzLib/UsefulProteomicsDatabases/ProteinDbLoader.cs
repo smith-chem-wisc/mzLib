@@ -45,6 +45,7 @@ namespace UsefulProteomicsDatabases
                     string feature_type = null;
                     string feature_description = null;
                     string dbReference_type = null;
+                    string dbReference_id = null;
                     string property_type = null;
                     string property_value = null;
                     int oneBasedfeature_position = -1;
@@ -90,11 +91,33 @@ namespace UsefulProteomicsDatabases
 
                                         case "dbReference":
                                             dbReference_type = xml.GetAttribute("type");
+                                            dbReference_id = xml.GetAttribute("id");
                                             break;
 
                                         case "property":
                                             property_type = xml.GetAttribute("type");
                                             property_value = xml.GetAttribute("value");
+                                            if (dbReference_type == "GO" && property_type == "term")
+                                            {
+                                                GoTerm go = new GoTerm();
+                                                go.id = dbReference_id.Split(':')[1].ToString();
+                                                switch (property_value.Split(':')[0].ToString())
+                                                {
+                                                    case "C":
+                                                        go.aspect = Aspect.cellularComponent;
+                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        break;
+                                                    case "F":
+                                                        go.aspect = Aspect.molecularFunction;
+                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        break;
+                                                    case "P":
+                                                        go.aspect = Aspect.biologicalProcess;
+                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        break;
+                                                }
+                                                goTerms.Add(go);
+                                            }
                                             break;
 
                                         case "position":
@@ -157,31 +180,9 @@ namespace UsefulProteomicsDatabases
 
                                             break;
 
-                                        case "property":
-                                            if (dbReference_type == "GO" && property_type == "term")
-                                            {
-                                                GoTerm go = new GoTerm();
-                                                switch (property_value.Split(':')[0].ToString())
-                                                {
-                                                    case "C":
-                                                        go.aspect = Aspect.cellularComponent;
-                                                        go.description = property_value.Split(':')[1].ToString();
-                                                        break;
-                                                    case "F":
-                                                        go.aspect = Aspect.molecularFunction;
-                                                        go.description = property_value.Split(':')[1].ToString();
-                                                        break;
-                                                    case "P":
-                                                        go.aspect = Aspect.biologicalProcess;
-                                                        go.description = property_value.Split(':')[1].ToString();
-                                                        break;
-                                                }
-                                                goTerms.Add(go);
-                                            }
-                                            break;
-
                                         case "dbReference":
                                             dbReference_type = null;
+                                            dbReference_id = null;
                                             break;
 
                                         case "entry":
@@ -251,6 +252,7 @@ namespace UsefulProteomicsDatabases
                                             feature_type = null;
                                             feature_description = null;
                                             dbReference_type = null;
+                                            dbReference_id = null;
                                             property_type = null;
                                             property_value = null;
                                             oneBasedfeature_position = -1;

@@ -215,7 +215,7 @@ namespace UsefulProteomicsDatabases
 
         public static IEnumerable<ModificationWithMass> ReadModsWithMass(string ptmListLocation)
         {
-            return ReadMods(ptmListLocation).Where(b => b is ModificationWithMass).Select(b => b as ModificationWithMass);
+            return ReadMods(ptmListLocation).OfType<ModificationWithMass>();
         }
 
         public static IDictionary<string, IList<Modification>> GetModDict(List<ModificationWithMass> localizeableModifications)

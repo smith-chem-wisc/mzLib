@@ -53,6 +53,82 @@ namespace Test
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
+            Assert.AreEqual("0070062", ok[0].GoTerms[0].id);
+            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].description);
+            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].aspect);
+        }
+
+        [Test]
+        public void XmlGzTest()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+            };
+
+            var mods = new Dictionary<string, IList<Modification>>
+            {
+                {
+                    "N6-acetyllysine",nice
+                }
+            };
+
+            Dictionary<string, Modification> un;
+            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, mods, false, out un);
+
+            Assert.AreEqual('M', ok[0][0]);
+            Assert.AreEqual('M', ok[1][0]);
+
+            Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
+            Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
+            Assert.AreEqual("0070062", ok[0].GoTerms[0].id);
+            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].description);
+            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].aspect);
+        }
+
+        [Test]
+        public void XmlFunkySequenceTest()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+            };
+
+            var mods = new Dictionary<string, IList<Modification>>
+            {
+                {
+                    "N6-acetyllysine",nice
+                }
+            };
+
+            Dictionary<string, Modification> un;
+            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, mods, false, out un);
+
+            Assert.AreEqual('S', ok[0][0]);
+            Assert.AreEqual('G', ok[1][0]);
+        }
+
+        [Test]
+        public void XmlModifiedStartTest()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+            };
+
+            var mods = new Dictionary<string, IList<Modification>>
+            {
+                {
+                    "Phosphoserine",nice
+                }
+            };
+
+            Dictionary<string, Modification> un;
+            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, mods, false, out un);
+
+            Assert.AreEqual('M', ok[0][0]);
+            Assert.AreEqual('M', ok[1][0]);
+            Assert.AreEqual(1, ok[1].OneBasedPossibleLocalizedModifications[1].Count);
         }
 
         [Test]
@@ -60,6 +136,13 @@ namespace Test
         {
             Dictionary<string, Modification> un;
             ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, null, false, out un);
+        }
+
+        [Test]
+        public void bad_fasta_header_test()
+        {
+            Dictionary<string, Modification> un;
+            ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, null, false, out un);
         }
 
         #endregion Public Methods

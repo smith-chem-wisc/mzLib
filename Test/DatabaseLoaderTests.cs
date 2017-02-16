@@ -20,7 +20,9 @@ using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
+using System.Collections.Generic;
 using UsefulProteomicsDatabases;
+using Proteomics;
 
 namespace Test
 {
@@ -109,8 +111,22 @@ namespace Test
                     w.WriteLine("//");
                 }
             }
+
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
+        }
+
+        [Test]
+        public void TestPtmsWithMassAndGetDictionary()
+        {
+            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
+            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
+            var modWithMassList = PtmListLoader.ReadModsWithMass(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
+            var dict = PtmListLoader.GetModDict(modWithMassList);
+            Assert.AreEqual(uniprotPtms.Count, sampleModList.Count);
+            Assert.IsTrue(modWithMassList.Count <= sampleModList.Count);
+            Assert.AreEqual(new HashSet<string>(modWithMassList.Select(m => m.id)).Count, dict.Keys.Count);
         }
 
         [Test]
