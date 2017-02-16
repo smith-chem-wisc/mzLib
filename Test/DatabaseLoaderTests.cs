@@ -20,9 +20,7 @@ using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
 using UsefulProteomicsDatabases;
-using Proteomics;
 
 namespace Test
 {
