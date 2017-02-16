@@ -130,9 +130,8 @@ namespace Benchmark
 
             Stopwatch stopWatch = new Stopwatch();
 
-            List<ModificationWithMass> localizeableModifications = PtmListLoader.ReadModsWithMass(@"..\..\..\Test\ptmlist.txt").ToList();
+            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"..\..\..\Test\ptmlist.txt").ToList();
             Dictionary<string, Modification> um;
-            IDictionary<string, IList<Modification>> ya = PtmListLoader.GetModDict(localizeableModifications);
 
             stopWatch.Restart();
             var a = ProteinDbLoader.LoadProteinDb(@"..\..\..\Test\yeast_160126.xml.gz", true, ya, false, out um);

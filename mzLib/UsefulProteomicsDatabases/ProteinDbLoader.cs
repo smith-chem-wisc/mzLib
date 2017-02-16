@@ -15,8 +15,19 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static List<Protein> LoadProteinDb(string proteinDbLocation, bool onTheFlyDecoys, IDictionary<string, IList<Modification>> allKnownModifications, bool IsContaminant, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinDb<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, out Dictionary<string, Modification> unknownModifications)
+            where T: Modification
         {
+            var mod_dict = new Dictionary<string, IList<Modification>>();
+            foreach (var nice in allKnownModifications)
+            {
+                IList<Modification> val;
+                if (mod_dict.TryGetValue(nice.id, out val))
+                    val.Add(nice);
+                else
+                    mod_dict.Add(nice.id, new List<Modification> { nice });
+            }
+
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
@@ -151,10 +162,10 @@ namespace UsefulProteomicsDatabases
                                                     residue_modifications = new List<Modification>();
                                                     oneBasedModifications.Add(oneBasedfeature_position, residue_modifications);
                                                 }
-                                                if (allKnownModifications.ContainsKey(feature_description))
+                                                if (mod_dict.ContainsKey(feature_description))
                                                 {
                                                     // Known
-                                                    residue_modifications.AddRange(allKnownModifications[feature_description]);
+                                                    residue_modifications.AddRange(mod_dict[feature_description]);
                                                 }
                                                 else if (unknownModifications.ContainsKey(feature_description))
                                                 {

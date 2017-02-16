@@ -117,19 +117,6 @@ namespace Test
         }
 
         [Test]
-        public void TestPtmsWithMassAndGetDictionary()
-        {
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
-            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
-            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
-            var modWithMassList = PtmListLoader.ReadModsWithMass(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
-            var dict = PtmListLoader.GetModDict(modWithMassList);
-            Assert.AreEqual(uniprotPtms.Count, sampleModList.Count);
-            Assert.IsTrue(modWithMassList.Count <= sampleModList.Count);
-            Assert.AreEqual(new HashSet<string>(modWithMassList.Select(m => m.id)).Count, dict.Keys.Count);
-        }
-
-        [Test]
         public void SampleModFileLoading()
         {
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt")).ToList();

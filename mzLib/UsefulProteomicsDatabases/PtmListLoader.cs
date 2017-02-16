@@ -213,25 +213,6 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        public static IEnumerable<ModificationWithMass> ReadModsWithMass(string ptmListLocation)
-        {
-            return ReadMods(ptmListLocation).OfType<ModificationWithMass>();
-        }
-
-        public static IDictionary<string, IList<Modification>> GetModDict(List<ModificationWithMass> localizeableModifications)
-        {
-            var dict = new Dictionary<string, IList<Modification>>();
-            foreach (var nice in localizeableModifications)
-            {
-                IList<Modification> val;
-                if (dict.TryGetValue(nice.id, out val))
-                    val.Add(nice);
-                else
-                    dict.Add(nice.id, new List<Modification> { nice });
-            }
-            return dict;
-        }
-
         #endregion Public Methods
 
     }
