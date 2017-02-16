@@ -24,7 +24,6 @@ namespace UsefulProteomicsDatabases
                 string accession = null;
                 string name = null;
                 string full_name = null;
-                int offset = 0;
 
                 var oneBasedBeginPositions = new List<int?>();
                 var oneBasedEndPositions = new List<int?>();
@@ -188,11 +187,10 @@ namespace UsefulProteomicsDatabases
                                         case "entry":
                                             if (accession != null && sequence != null)
                                             {
-                                                var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, false, IsContaminant, goTerms);
+                                                var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, goTerms);
 
                                                 result.Add(protein);
 
-                                                offset += protein.Length;
                                                 if (onTheFlyDecoys)
                                                 {
                                                     char[] sequence_array = sequence.ToCharArray();
@@ -239,10 +237,9 @@ namespace UsefulProteomicsDatabases
                                                         decoyendPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedBeginPositions[i] + 1;
                                                         decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
                                                     }
-                                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, offset, true, IsContaminant, null);
+                                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null);
 
                                                     result.Add(decoy_protein);
-                                                    offset += protein.Length;
                                                 }
                                             }
                                             accession = null;
@@ -308,8 +305,7 @@ namespace UsefulProteomicsDatabases
                         if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                         {
                             var sequence = sb.ToString();
-                            var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, false, IsContaminant, goTerms);
-                            offset += protein.Length;
+                            var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, goTerms);
 
                             result.Add(protein);
 
@@ -319,10 +315,9 @@ namespace UsefulProteomicsDatabases
                                 int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                                 Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                                 var reversed_sequence = new string(sequence_array);
-                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, offset, true, IsContaminant, goTerms);
+                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, true, IsContaminant, goTerms);
 
                                 result.Add(decoy_protein);
-                                offset += protein.Length;
                             }
                         }
 

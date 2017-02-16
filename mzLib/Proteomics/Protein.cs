@@ -7,7 +7,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositions, int?[] oneBasedEndPositions, string[] bigPeptideTypes, string name, string full_name, int offset, bool isDecoy, bool isContaminant, List<GoTerm> goTerms)
+        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositions, int?[] oneBasedEndPositions, string[] bigPeptideTypes, string name, string full_name, bool isDecoy, bool isContaminant, List<GoTerm> goTerms)
         {
             BaseSequence = sequence;
             Accession = accession;
@@ -17,7 +17,6 @@ namespace Proteomics
             BigPeptideTypes = bigPeptideTypes;
             Name = name;
             FullName = full_name;
-            Offset = offset; //If you concatenate all the sequences, this is where the current one starts
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
             GoTerms = goTerms;
@@ -56,7 +55,6 @@ namespace Proteomics
 
         public string FullName { get; private set; }
 
-        public int Offset { get; private set; }
         public bool IsContaminant { get; set; }
 
         #endregion Public Properties
