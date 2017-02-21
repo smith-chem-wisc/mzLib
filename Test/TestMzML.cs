@@ -42,6 +42,8 @@ namespace Test
             Assert.AreEqual(15, ya4.Size);
 
             IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> ok = a;
+
+            Assert.AreEqual(1, ok.GetClosestOneBasedSpectrumNumber(5));
         }
 
         [Test]
