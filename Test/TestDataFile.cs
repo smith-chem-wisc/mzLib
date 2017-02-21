@@ -115,10 +115,6 @@ namespace Test
                 Assert.AreEqual(1000, ok.ScanWindowRange.Maximum, 1e-9);
             }
 
-            FakeMsDataFile okyee = thefile;
-
-            //Assert.AreEqual("Somepath (UnKnown)", okyee.ToString());
-
             int ok1 = 0;
             foreach (var i in thefile.GetMsScansInTimeRange(0, 2))
                 ok1 += 1;
