@@ -103,6 +103,18 @@ namespace MassSpectrometry
             SelectedIonGuessMZ = thePeak.Mz;
         }
 
+        public void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
+        {
+            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonGuessMZ.Value);
+            SelectedIonGuessIntensity = thePeak.Intensity;
+        }
+
+        public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
+        {
+            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonGuessMonoisotopicMZ.Value);
+            SelectedIonGuessMonoisotopicIntensity = thePeak.Intensity;
+        }
+
         public void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded)
         {
             if (!SelectedIonGuessChargeStateGuess.HasValue)
