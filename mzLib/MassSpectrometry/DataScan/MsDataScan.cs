@@ -24,12 +24,12 @@ namespace MassSpectrometry
     public abstract class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
+
         #region Protected Constructors
 
-        protected MsDataScan(int oneBasedScanNumber, string id, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double injectionTime, double totalIonCurrent)
+        protected MsDataScan(int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent)
         {
             OneBasedScanNumber = oneBasedScanNumber;
-            Id = id;
             MsnOrder = msnOrder;
             IsCentroid = isCentroid;
             Polarity = polarity;
@@ -37,7 +37,6 @@ namespace MassSpectrometry
             ScanWindowRange = scanWindowRange;
             ScanFilter = scanFilter;
             MzAnalyzer = mzAnalyzer;
-            InjectionTime = injectionTime;
             TotalIonCurrent = totalIonCurrent;
         }
 
@@ -66,10 +65,6 @@ namespace MassSpectrometry
 
         public bool IsCentroid { get; private set; }
 
-        public string Id { get; private set; }
-
-        public double InjectionTime { get; private set; }
-
         public double TotalIonCurrent { get; private set; }
 
         #endregion Public Properties
@@ -87,5 +82,6 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
+
     }
 }

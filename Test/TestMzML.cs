@@ -16,6 +16,7 @@ namespace Test
     [TestFixture]
     public sealed class TestMzML
     {
+
         #region Public Methods
 
         [OneTimeSetUp]
@@ -29,9 +30,7 @@ namespace Test
         [Test]
         public void LoadMzmlTest()
         {
-            Mzml a = new Mzml(@"tiny.pwiz.1.1.mzML");
-            a.Open();
-            Assert.AreEqual(true, a.IsIndexedMzML);
+            Mzml a = Mzml.LoadAllStaticData(@"tiny.pwiz.1.1.mzML");
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
             Assert.AreEqual(15, ya.Size);
@@ -43,33 +42,25 @@ namespace Test
             Assert.AreEqual(15, ya4.Size);
 
             IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> ok = a;
-
-            ok.Close();
         }
 
         [Test]
         public void LoadMzmlAnotherTest()
         {
-            Mzml a = new Mzml(@"small.pwiz.1.1.mzML");
-            a.Open();
-            a.LoadAllScansInMemory();
-            Assert.AreEqual(true, a.IsIndexedMzML);
+            Mzml a = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML");
 
             Assert.AreEqual(19914, a.First().MassSpectrum.Size);
 
-            a.Close();
+            //a = new Mzml(@"small.pwiz.1.1.mzML", 400);
+            //a.Open();
 
-            a = new Mzml(@"small.pwiz.1.1.mzML", 400);
-            a.Open();
-            Assert.AreEqual(true, a.IsIndexedMzML);
+            //Assert.AreEqual(400, a.First().MassSpectrum.Size);
 
-            Assert.AreEqual(400, a.First().MassSpectrum.Size);
+            //var cool = a.GetOneBasedScan(6) as MzmlScanWithPrecursor;
 
-            var cool = a.GetOneBasedScan(6) as MzmlScanWithPrecursor;
+            //Assert.AreEqual(1, cool.IsolationWidth);
 
-            Assert.AreEqual(1, cool.IsolationWidth);
-
-            a.Close();
+            //a.Close();
         }
 
         [Test]
@@ -84,21 +75,20 @@ namespace Test
             MzmlMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             IMzmlScan[] Scans = new IMzmlScan[2];
-            Scans[0] = new MzmlScan(1, MS1, "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
+            Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "FTMS first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY);
 
-            Scans[1] = new MzmlScanWithPrecursor(2, MS2, "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 0.141146966879759, 1134.26091302033);
+            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "FTMS second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 1134.26091302033);
 
-            var myMsDataFile = new FakeMsDataFile(@"myFakeFile.mzML", Scans);
+            var myMsDataFile = new FakeMsDataFile(Scans);
 
             var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.FirstX;
 
             var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
             Assert.AreEqual(1, secondScan.IsolationWidth);
 
-            MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(myMsDataFile, Path.Combine(Path.GetDirectoryName(myMsDataFile.FilePath), Path.GetFileNameWithoutExtension(myMsDataFile.FilePath)) + ".mzML");
+            MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(myMsDataFile, "argh.mzML");
 
-            Mzml okay = new Mzml(@"myFakeFile.mzML");
-            okay.Open();
+            Mzml okay = Mzml.LoadAllStaticData(@"argh.mzML");
             okay.GetOneBasedScan(2);
 
             Assert.AreEqual(1, okay.GetClosestOneBasedSpectrumNumber(1));
@@ -351,5 +341,6 @@ namespace Test
         }
 
         #endregion Private Methods
+
     }
 }

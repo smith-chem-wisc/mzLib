@@ -61,15 +61,11 @@ namespace Test
             MzmlMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             IMzmlScan[] Scans = new IMzmlScan[2];
-            Scans[0] = new MzmlScan(1, MS1, "spectrum 1", 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, 1, MS1.SumOfAllY);
+            Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY);
 
-            Scans[1] = new MzmlScanWithPrecursor(2, MS2, "spectrum 2", 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, 1, MS2.SumOfAllY, "spectrum 1", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 0.32374, 693.6550);
+            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550);
 
-            myMsDataFile = new FakeMsDataFile("myFakeFile", Scans);
-
-            myMsDataFile.LoadAllScansInMemory();
-
-            myMsDataFile.Open();
+            myMsDataFile = new FakeMsDataFile(Scans);
         }
 
         [Test]
@@ -93,13 +89,13 @@ namespace Test
         [Test]
         public void DataFileTest()
         {
-            MzmlScan theSpectrum = new MzmlScan(1, _mzSpectrumA, "first spectrum", 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, 1, _mzSpectrumA.SumOfAllY);
+            MzmlScan theSpectrum = new MzmlScan(1, _mzSpectrumA, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY);
 
             MzmlScan[] theList = new MzmlScan[1];
 
             theList[0] = theSpectrum;
 
-            FakeMsDataFile thefile = new FakeMsDataFile("Somepath", theList);
+            FakeMsDataFile thefile = new FakeMsDataFile(theList);
 
             var theOneBasedScan = thefile.GetOneBasedScan(1);
 
@@ -121,9 +117,7 @@ namespace Test
 
             FakeMsDataFile okyee = thefile;
 
-            Assert.AreEqual("Somepath (UnKnown)", okyee.ToString());
-
-            Assert.AreEqual("Somepath", okyee.FilePath);
+            //Assert.AreEqual("Somepath (UnKnown)", okyee.ToString());
 
             int ok1 = 0;
             foreach (var i in thefile.GetMsScansInTimeRange(0, 2))
@@ -142,8 +136,6 @@ namespace Test
                 ok3 += 1;
 
             Assert.AreEqual(0, ok3);
-
-            thefile.Close();
         }
 
         [Test]
@@ -154,13 +146,20 @@ namespace Test
             Assert.AreEqual(DissociationType.Unknown, theScan.DissociationType);
             Assert.AreEqual(693.99, theScan.IsolationMz);
             Assert.AreEqual(1, theScan.IsolationWidth);
-            Assert.AreEqual("spectrum 1", theScan.PrecursorID);
             Assert.AreEqual(1, theScan.OneBasedPrecursorScanNumber);
             Assert.AreEqual(3, theScan.SelectedIonGuessChargeStateGuess.Value);
-            Assert.AreEqual(.3872, theScan.SelectedIonGuessIntensity);
-            Assert.AreEqual(693.9892, theScan.SelectedIonGuessMZ);
-            Assert.AreEqual(0.32374, theScan.SelectedIonGuessMonoisotopicIntensity);
-            Assert.AreEqual(693.6550, theScan.SelectedIonGuessMonoisotopicMZ);
+            //Assert.IsNull(theScan.SelectedIonGuessIntensity);
+            var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber);
+            theScan.RecomputeSelectedPeak(precursorScan.MassSpectrum);
+            Assert.AreEqual(.32872, theScan.SelectedIonGuessIntensity, 0.01);
+            Assert.AreEqual(693.9892, theScan.SelectedIonGuessMZ, 0.01);
+
+            Assert.IsNull(theScan.SelectedIonGuessMonoisotopicIntensity);
+
+            theScan.RecomputeMonoisotopicPeak(precursorScan.MassSpectrum, 0.01, 0.01);
+
+            Assert.AreEqual(0.32374, theScan.SelectedIonGuessMonoisotopicIntensity, 0.001);
+            Assert.AreEqual(693.64802, theScan.SelectedIonGuessMonoisotopicMZ, 0.001);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
@@ -206,35 +205,34 @@ namespace Test
         private MzmlMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
-            MzmlMzSpectrum massSpectrum1 = new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+            MzmlMzSpectrum notActuallyMzS = new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
 
-            return massSpectrum1;
-            //var chargeToLookAt = minCharge;
-            //var correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
+            notActuallyMzS.ReplaceXbyApplyingFunction(b => b.X.ToMz(1));
 
-            //List<double> allMasses = new List<double>();
-            //List<double> allIntensitiess = new List<double>();
+            List<double> allMasses = new List<double>();
+            List<double> allIntensitiess = new List<double>();
 
-            //while (correctedSpectrum.FirstX > lowerBound)
-            //{
-            //    foreach (var thisPeak in correctedSpectrum)
-            //    {
-            //        if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
-            //        {
-            //            allMasses.Add(thisPeak.Mz);
-            //            allIntensitiess.Add(thisPeak.Intensity);
-            //        }
-            //    }
-            //    chargeToLookAt += 1;
-            //    correctedSpectrum = massSpectrum1.NewSpectrumApplyFunctionToX(s => s.ToMz(chargeToLookAt));
-            //}
+            while (notActuallyMzS.FirstX > lowerBound)
+            {
+                foreach (var thisPeak in notActuallyMzS)
+                {
+                    if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
+                    {
+                        allMasses.Add(thisPeak.Mz);
+                        allIntensitiess.Add(thisPeak.Intensity);
+                    }
+                }
+                minCharge += 1;
+                notActuallyMzS = new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+                notActuallyMzS.ReplaceXbyApplyingFunction(s => s.X.ToMz(minCharge));
+            }
 
-            //var allMassesArray = allMasses.ToArray();
-            //var allIntensitiessArray = allIntensitiess.ToArray();
+            var allMassesArray = allMasses.ToArray();
+            var allIntensitiessArray = allIntensitiess.ToArray();
 
-            //Array.Sort(allMassesArray, allIntensitiessArray);
+            Array.Sort(allMassesArray, allIntensitiessArray);
 
-            //return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
+            return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
         #endregion Private Methods

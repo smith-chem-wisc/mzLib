@@ -1,11 +1,11 @@
 ﻿using Chemistry;
+using Proteomics;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using UsefulProteomicsDatabases;
-using Proteomics;
-using System.Collections.Generic;
 
 namespace Benchmark
 {

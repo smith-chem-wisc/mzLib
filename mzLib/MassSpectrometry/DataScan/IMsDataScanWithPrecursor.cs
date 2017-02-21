@@ -18,23 +18,24 @@
 
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
     public interface IMsDataScanWithPrecursor<out TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
+
         #region Public Properties
 
         int OneBasedPrecursorScanNumber { get; }
-        string PrecursorID { get; }
         int? SelectedIonGuessChargeStateGuess { get; }
-        double SelectedIonGuessMonoisotopicIntensity { get; }
-        double SelectedIonGuessMonoisotopicMZ { get; }
-        double SelectedIonGuessIntensity { get; }
-        double SelectedIonGuessMZ { get; }
+        double? SelectedIonGuessMonoisotopicIntensity { get; }
+        double? SelectedIonGuessMonoisotopicMZ { get; }
+        double? SelectedIonGuessIntensity { get; }
+        double? SelectedIonGuessMZ { get; }
         DissociationType DissociationType { get; }
-        double IsolationWidth { get; }
+        double? IsolationWidth { get; }
         double IsolationMz { get; }
         MzRange IsolationRange { get; }
 
@@ -42,8 +43,16 @@ namespace MassSpectrometry
 
         #region Public Methods
 
+        void RecomputeChargeState<T>(List<T> mzValuesInPrecursorScanCloseToIsolated, double tolHere, int maxCharge)
+            where T : IMzPeak;
+
+        void RecomputeSelectedPeak(IMzSpectrum<IMzPeak> precursorSpectrum);
+
+        void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded);
+
         void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
 
         #endregion Public Methods
+
     }
 }

@@ -22,11 +22,12 @@ using System.Linq;
 
 namespace Test
 {
-    public class FakeMsDataFile : MsDataFile<IMzmlScan>
+    public class FakeMsDataFile : MsDataFile<IMzmlScan>, IMsStaticDataFile<IMzmlScan>
     {
+
         #region Public Constructors
 
-        public FakeMsDataFile(string filePath, IMzmlScan[] FakeScans) : base(filePath, MsDataFileType.UnKnown)
+        public FakeMsDataFile(IMzmlScan[] FakeScans) : base(FakeScans)
         {
             this.Scans = FakeScans;
         }
@@ -43,28 +44,12 @@ namespace Test
             return ok + 1;
         }
 
-        public override void Open()
+        public override IMzmlScan GetOneBasedScan(int scanNumber)
         {
-        }
-
-        public override void Close()
-        {
+            return Scans[scanNumber - 1];
         }
 
         #endregion Public Methods
 
-        #region Protected Methods
-
-        protected override int GetNumSpectra()
-        {
-            return Scans.Count();
-        }
-
-        protected override IMzmlScan GetMsDataOneBasedScanFromFile(int oneBasedSpectrumNumber)
-        {
-            return Scans[oneBasedSpectrumNumber - 1];
-        }
-
-        #endregion Protected Methods
     }
 }

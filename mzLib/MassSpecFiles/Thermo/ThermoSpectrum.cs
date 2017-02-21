@@ -31,7 +31,9 @@ namespace IO.Thermo
         #region Private Fields
 
         private readonly double[] _noises;
+
         private readonly double[] _resolutions;
+
         private readonly int[] _charges;
 
         #endregion Private Fields
@@ -87,9 +89,9 @@ namespace IO.Thermo
             _resolutions = new double[Size];
             var charges = new double[Size];
 
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Size);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Size);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)ThermoRawFile.RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Size);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Size);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Size);
+            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Size);
 
             _charges = new int[Size];
             for (int i = 0; i < Size; i++)
@@ -99,6 +101,20 @@ namespace IO.Thermo
         }
 
         #endregion Internal Constructors
+
+        #region Private Enums
+
+        private enum RawLabelDataColumn
+        {
+            MZ = 0,
+            Intensity = 1,
+            Resolution = 2,
+            NoiseBaseline = 3,
+            NoiseLevel = 4,
+            Charge = 5
+        }
+
+        #endregion Private Enums
 
         #region Public Methods
 

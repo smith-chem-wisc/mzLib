@@ -3,7 +3,6 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
-using System.IO;
 using System.Linq;
 
 namespace TestThermo
@@ -11,6 +10,7 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
+
         #region Public Methods
 
         [OneTimeSetUp]
@@ -22,16 +22,13 @@ namespace TestThermo
         [Test]
         public void LoadThermoTest()
         {
-            ThermoRawFile a = new ThermoRawFile(@"Shew_246a_LCQa_15Oct04_Andro_0904-2_4-20.RAW");
-            a.Open();
-            a.Open();
+            ThermoDynamicData a = ThermoDynamicData.InitiateDynamicConnection(@"Shew_246a_LCQa_15Oct04_Andro_0904-2_4-20.RAW");
             Assert.AreEqual(3316, a.NumSpectra);
             Assert.AreEqual(3316, a.NumSpectra);
 
             var scan = a.GetOneBasedScan(53);
             Assert.AreEqual(1.2623333333333333, scan.RetentionTime);
             Assert.AreEqual(1, scan.MsnOrder);
-            Assert.AreEqual("controllerType=0 controllerNumber=1 scan=53", scan.Id);
             Assert.AreEqual("+ c ESI Full ms [400.00-2000.00]", scan.ScanFilter);
 
             var spectrum = a.GetOneBasedScan(53).MassSpectrum;
@@ -44,32 +41,32 @@ namespace TestThermo
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 
-            Assert.AreEqual("1.3", a.GetSofwareVersion());
+            Assert.AreEqual("1.3", a.thermoGlobalParams.pbstrInstSoftwareVersion);
             var ms2scan = a.GetOneBasedScan(948) as IMsDataScanWithPrecursor<ThermoSpectrum>;
+            Assert.IsNull(ms2scan.SelectedIonGuessChargeStateGuess);
+            var precursorScan = a.GetOneBasedScan(ms2scan.OneBasedPrecursorScanNumber);
+            ms2scan.RecomputeChargeState(precursorScan.MassSpectrum.Extract(ms2scan.IsolationMz - 2.1, ms2scan.IsolationMz + 2.1).ToList(), 0.1, 4);
+            Assert.AreEqual(1, ms2scan.SelectedIonGuessChargeStateGuess);
+            Assert.IsNull(ms2scan.SelectedIonGuessIntensity);
+            ms2scan.RecomputeSelectedPeak(precursorScan.MassSpectrum);
             Assert.AreEqual(4125760, ms2scan.SelectedIonGuessIntensity);
 
-            Assert.AreEqual("LCQ", a.GetInstrumentName());
-            Assert.AreEqual("LCQ", a.GetInstrumentModel());
+            Assert.AreEqual("LCQ", a.thermoGlobalParams.pbstrInstName);
+            Assert.AreEqual("LCQ", a.thermoGlobalParams.pbstrInstModel);
 
-            Assert.AreEqual(0, a.GetMsxPrecursors(1289).Count);
-            Assert.AreEqual(1, a.GetMsxPrecursors(1290).Count);
-            Assert.AreEqual(1194.53, a.GetMsxPrecursors(1290).First());
-
-            Assert.AreEqual(false, a.MonoisotopicPrecursorSelectionEnabled);
+            Assert.AreEqual(false, a.thermoGlobalParams.MonoisotopicselectionEnabled);
         }
 
         [Test]
         public void ThermoLoadError()
         {
-            ThermoRawFile a = new ThermoRawFile(@"aaa.RAW");
-            Assert.Throws<IOException>(() => a.Open());
+            Assert.Throws<ThermoReadException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
         }
 
         [Test]
         public void LoadThermoTest2()
         {
-            ThermoRawFile a = new ThermoRawFile(@"05-13-16_cali_MS_60K-res_MS.raw");
-            a.Open();
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
             Assert.AreEqual(360, a.NumSpectra);
             var ok = a.GetOneBasedScan(1).MassSpectrum.GetNoises();
             Assert.AreEqual(2401.57, ok[0], 0.01);
@@ -78,17 +75,17 @@ namespace TestThermo
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
             Assert.AreEqual("(195.0874,1.021401E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
-            Assert.AreEqual(77561752, a.GetTic(1));
+            Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
-            Assert.AreEqual(0.98, a.GetElapsedScanTime(100), 0.01);
+            //Assert.AreEqual(0.98, a.GetElapsedScanTime(100), 0.01);
 
-            var cromatogram = a.GetTicChroma();
+            //var cromatogram = a.GetTicChroma();
 
-            Assert.AreEqual(360, cromatogram.Size);
-            Assert.AreEqual(0.01, cromatogram.FirstTime, 0.002);
-            Assert.AreEqual(2.788433333, cromatogram.PeakWithHighestY.Time, 0.0001);
-            Assert.AreEqual(2.788433333, cromatogram.GetApex(0, 5).Time, 0.0001);
+            //Assert.AreEqual(360, cromatogram.Size);
+            //Assert.AreEqual(0.01, cromatogram.FirstTime, 0.002);
+            //Assert.AreEqual(2.788433333, cromatogram.PeakWithHighestY.Time, 0.0001);
+            //Assert.AreEqual(2.788433333, cromatogram.GetApex(0, 5).Time, 0.0001);
 
             var newSpectrum = new ThermoSpectrum(a.GetOneBasedScan(51).MassSpectrum);
             Assert.AreEqual(22246 / 5574.8, newSpectrum.GetSignalToNoise(1), 0.01);
@@ -106,35 +103,27 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            a.Close();
+            //var b = new ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", 400);
 
-            var b = new ThermoRawFile(@"05-13-16_cali_MS_60K-res_MS.raw", 400);
-            b.Open();
+            //Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Size);
 
-            Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Size);
+            //Assert.AreEqual(0, b.Where(eb => eb.MsnOrder > 1).Count());
 
-            Assert.AreEqual(0, b.Where(eb => eb.MsnOrder > 1).Count());
+            //Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
 
-            Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
-
-            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> uu = b;
-
-            b.Close();
+            //IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> uu = b;
         }
 
         [Test]
         public void LoadThermoTest3()
         {
-            ThermoRawFile a = new ThermoRawFile(@"small.RAW");
-            a.Open();
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
             Assert.IsTrue(a.Where(eb => eb.MsnOrder > 1).Count() > 0);
 
             Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count() > 0);
 
-            Assert.IsFalse(a.MonoisotopicPrecursorSelectionEnabled);
-
-            a.Close();
+            Assert.IsFalse(a.thermoGlobalParams.MonoisotopicselectionEnabled);
         }
 
         [Test]
@@ -152,5 +141,6 @@ namespace TestThermo
         }
 
         #endregion Public Methods
+
     }
 }
