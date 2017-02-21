@@ -44,6 +44,10 @@ namespace MassSpectrometry
 
         void RecomputeChargeState(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, int maxCharge);
 
+        void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
+
+        void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
+
         void RecomputeSelectedPeak(IMzSpectrum<IMzPeak> precursorSpectrum);
 
         void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded);

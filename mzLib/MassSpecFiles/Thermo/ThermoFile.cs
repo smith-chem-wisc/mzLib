@@ -214,9 +214,10 @@ namespace IO.Thermo
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
 
                 double pdMass = 0;
-                theConnection.GetPrecursorMassForScanNum(nScanNumber, pnMSOrder, ref pdMass);
+                theConnection.GetPrecursorMassForScanNum(nScanNumber, pnMSOrder, ref pdMass); // Precursor MZ
 
                 int pnChargeState = 0;
+                // Possibly Monoisotopic MZ!!!
                 double pdHeaderMass = 0;
                 double pdFoundMass = 0;
                 int pnMasterScan = 0;
@@ -235,13 +236,12 @@ namespace IO.Thermo
                     pbstrFilter,
                     mzAnalyzerType,
                     pdTIC,
-                    pdFoundMass == 0 ? (double?)null : pdFoundMass,
-                    pnChargeState == 0 ? chargeState : pnChargeState,
                     pdMass,
+                    pnChargeState == 0 ? chargeState : pnChargeState,
                     ms2isolationWidth,
                     (DissociationType)pnActivationType,
                     pnMasterScan,
-                    precursorMonoisotopicMZfromTrailierExtra,
+                    precursorMonoisotopicMZfromTrailierExtra == null ? (pdFoundMass == 0 ? (double?)null : pdFoundMass) : precursorMonoisotopicMZfromTrailierExtra,
                     injectionTime);
             }
             else

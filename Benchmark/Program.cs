@@ -1,6 +1,6 @@
 ﻿using Chemistry;
-using IO.MzML;
 using IO.Thermo;
+using MassSpectrometry;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -156,6 +156,71 @@ namespace Benchmark
             //{
             //    Console.WriteLine(nice.GetOneBasedScan(1000).RetentionTime);
             //}
+
+            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw"))
+            //{
+            //    var ok = nice.GetOneBasedScan(24676);
+            //    var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+            //    hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
+            //}
+
+            using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw"))
+            {
+                var ok = nice.GetOneBasedScan(16069);
+                var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+
+                var prevSpectrum = nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum;
+
+
+
+                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+                    + hm.SelectedIonGuessMZ + Environment.NewLine
+                    + hm.SelectedIonGuessIntensity + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+
+                hm.RecomputeChargeState(prevSpectrum, 0.01, 4);
+
+                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+                    + hm.SelectedIonGuessMZ + Environment.NewLine
+                    + hm.SelectedIonGuessIntensity + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+
+                hm.ComputeSelectedPeakIntensity(prevSpectrum);
+
+                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+                    + hm.SelectedIonGuessMZ + Environment.NewLine
+                    + hm.SelectedIonGuessIntensity + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+
+                hm.ComputeMonoisotopicPeakIntensity(prevSpectrum);
+
+                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+                    + hm.SelectedIonGuessMZ + Environment.NewLine
+                    + hm.SelectedIonGuessIntensity + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+
+                hm.RecomputeSelectedPeak(prevSpectrum);
+
+                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+                    + hm.SelectedIonGuessMZ + Environment.NewLine
+                    + hm.SelectedIonGuessIntensity + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+
+                hm.RecomputeMonoisotopicPeak(prevSpectrum, 0.01, 0.3);
+
+                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+                    + hm.SelectedIonGuessMZ + Environment.NewLine
+                    + hm.SelectedIonGuessIntensity + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+
+                hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
+            }
 
             string gitStatus = string.Empty;
             Stream stream = null;
