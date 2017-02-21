@@ -315,7 +315,9 @@ namespace IO.MzML
             // Maybe in the beginning of the file, there is a single analyzer?
             // Gets the first analyzer used.
 
-            return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
+            if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration != null)
+                return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
+            return MZAnalyzerType.Unknown;
         }
 
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
