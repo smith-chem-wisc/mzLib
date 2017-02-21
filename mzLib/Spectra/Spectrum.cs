@@ -146,11 +146,6 @@ namespace Spectra
 
         #region Public Methods
 
-        public override string ToString()
-        {
-            return string.Format("{0} (Peaks {1})", Range, Size);
-        }
-
         public virtual double[,] CopyTo2DArray()
         {
             double[,] data = new double[2, Size];

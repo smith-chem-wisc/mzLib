@@ -1,11 +1,13 @@
 ﻿using Chemistry;
+using IO.MzML;
+using IO.Thermo;
+using Proteomics;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using UsefulProteomicsDatabases;
-using Proteomics;
-using System.Collections.Generic;
 
 namespace Benchmark
 {
@@ -144,6 +146,8 @@ namespace Benchmark
 
         private static void Main(string[] args)
         {
+            //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
+            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
             string gitStatus = string.Empty;
             Stream stream = null;
             try

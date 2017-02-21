@@ -32,9 +32,7 @@ namespace MassSpectrometry
         double RetentionTime { get; }
         MzRange ScanWindowRange { get; }
         string ScanFilter { get; }
-        string Id { get; }
         bool IsCentroid { get; }
-        double InjectionTime { get; }
         double TotalIonCurrent { get; }
         Polarity Polarity { get; }
         MZAnalyzerType MzAnalyzer { get; }

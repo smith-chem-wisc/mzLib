@@ -5,14 +5,16 @@ namespace IO.Thermo
 {
     public class ThermoScanWithPrecursor : MsDataScanWithPrecursor<ThermoSpectrum>, IThermoScan
     {
+
         #region Public Constructors
 
-        public ThermoScanWithPrecursor(int ScanNumber, ThermoSpectrum massSpectrum, string id, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double InjectionTime, double TotalIonCurrent, string precursorID, double selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double selectedIonGuessIntensity, double isolationMZ, double isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double selectedIonGuessMonoisotopicIntensity, double selectedIonGuessMonoisotopicMZ)
-            : base(ScanNumber, id, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, InjectionTime, TotalIonCurrent, precursorID, selectedIonGuessMZ, selectedIonGuessChargeStateGuess, selectedIonGuessIntensity, isolationMZ, isolationWidth, dissociationType, oneBasedPrecursorScanNumber, selectedIonGuessMonoisotopicIntensity, selectedIonGuessMonoisotopicMZ)
+        public ThermoScanWithPrecursor(int ScanNumber, ThermoSpectrum massSpectrum, int MsnOrder, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double? selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonGuessMonoisotopicMZ)
+            : base(ScanNumber, MsnOrder, true, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, selectedIonGuessMZ, selectedIonGuessChargeStateGuess, null, isolationMZ, isolationWidth, dissociationType, oneBasedPrecursorScanNumber, selectedIonGuessMonoisotopicMZ)
         {
             this.MassSpectrum = massSpectrum;
         }
 
         #endregion Public Constructors
+
     }
 }

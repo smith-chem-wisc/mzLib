@@ -20,6 +20,7 @@ namespace MzLibUtil
 {
     public class MzRange : DoubleRange
     {
+
         #region Public Constructors
 
         public MzRange(double minMZ, double maxMZ)
@@ -33,9 +34,10 @@ namespace MzLibUtil
 
         public override string ToString(string format)
         {
-            return string.Format("[{0} - {1}] m/z", Minimum.ToString(format), Maximum.ToString(format));
+            return string.Format("[{0} to {1}] m/z", Minimum.ToString(format), Maximum.ToString(format));
         }
 
         #endregion Public Methods
+
     }
 }

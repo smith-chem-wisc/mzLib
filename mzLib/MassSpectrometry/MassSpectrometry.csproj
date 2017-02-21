@@ -52,6 +52,9 @@
     <Compile Include="DataScan\IMsDataScanWithPrecursor.cs" />
     <Compile Include="DataScan\MsDataScanWithPrecursor.cs" />
     <Compile Include="IIdentifications.cs" />
+    <Compile Include="IMsDynamicDataFile.cs" />
+    <Compile Include="IMsStaticDataFile.cs" />
+    <Compile Include="MsDataFile.cs" />
     <Compile Include="MzSpectra\IMzPeak.cs" />
     <Compile Include="MzSpectra\IMzSpectrum.cs" />
     <Compile Include="MzSpectra\MzPeak.cs" />
@@ -59,8 +62,6 @@
     <Compile Include="Enums\DissociationType.cs" />
     <Compile Include="IMsDataFile.cs" />
     <Compile Include="DataScan\IMsDataScan.cs" />
-    <Compile Include="MsDataFile.cs" />
-    <Compile Include="Enums\MsDataFileType.cs" />
     <Compile Include="DataScan\MsDataScan.cs" />
     <Compile Include="Enums\MzAnalyzerType.cs" />
     <Compile Include="Enums\Polarity.cs" />

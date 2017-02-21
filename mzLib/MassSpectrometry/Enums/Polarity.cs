@@ -31,7 +31,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Neutral charge
         /// </summary>
-        Neutral = 0,
+        Unknown = 0,
 
         /// <summary>
         /// Positive charge

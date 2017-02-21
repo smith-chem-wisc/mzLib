@@ -24,6 +24,7 @@ namespace Test
     [TestFixture]
     public sealed class RangeTest
     {
+
         #region Public Methods
 
         [Test]
@@ -287,19 +288,9 @@ namespace Test
 
             Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
             Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
-            Assert.AreEqual("[999999 - 1000001]", range1.ToString());
+            Assert.AreEqual("[999999 to 1000001]", range1.ToString());
         }
 
         #endregion Public Methods
-
-        //[Test]
-        //public void TestHashSet()
-        //{
-        //    HashSet<DoubleRange> ok = new HashSet<DoubleRange>();
-        //    ok.Add(new DoubleRange(1, 2));
-        //    ok.Add(new DoubleRange(2, 3));
-        //    ok.Add(new DoubleRange(1, 2));
-        //    Assert.AreEqual(2, ok.Count);
-        //}
     }
 }

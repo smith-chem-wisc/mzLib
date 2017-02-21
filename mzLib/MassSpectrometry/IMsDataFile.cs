@@ -26,8 +26,6 @@ namespace MassSpectrometry
 
         #region Public Properties
 
-        string Name { get; }
-        string FilePath { get; }
         int NumSpectra { get; }
 
         #endregion Public Properties
@@ -39,12 +37,6 @@ namespace MassSpectrometry
         IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT);
 
         int GetClosestOneBasedSpectrumNumber(double retentionTime);
-
-        void LoadAllScansInMemory();
-
-        void Close();
-
-        void Open();
 
         #endregion Public Methods
 
