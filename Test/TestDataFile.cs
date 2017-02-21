@@ -158,6 +158,9 @@ namespace Test
             Assert.AreEqual(693.64802, theScan.SelectedIonGuessMonoisotopicMZ, 0.001);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
+
+            Assert.AreEqual(myMsDataFile.GetOneBasedScan(2).MassSpectrum.CopyTo2DArray()[0, 0], myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
+
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
 
             theScan.TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, 0, 0);
