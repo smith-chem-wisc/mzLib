@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using IO.MzML;
 using IO.Thermo;
 using Proteomics;
 using System;
@@ -146,6 +147,7 @@ namespace Benchmark
 
         private static void Main(string[] args)
         {
+            //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
 
