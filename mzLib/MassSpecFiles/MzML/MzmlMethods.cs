@@ -210,10 +210,14 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].name = CentroidNames[myMsDataFile.GetOneBasedScan(i).IsCentroid];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[2].accession = CentroidAccessions[myMsDataFile.GetOneBasedScan(i).IsCentroid];
 
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3] = new Generated.CVParamType();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].name = PolarityNames[myMsDataFile.GetOneBasedScan(i).Polarity];
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].accession = PolarityAccessions[myMsDataFile.GetOneBasedScan(i).Polarity];
-
+                string polarityName;
+                string polarityAccession;
+                if (PolarityNames.TryGetValue(myMsDataFile.GetOneBasedScan(i).Polarity, out polarityName) && PolarityAccessions.TryGetValue(myMsDataFile.GetOneBasedScan(i).Polarity, out polarityAccession))
+                {
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3] = new Generated.CVParamType();
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].name = polarityName;
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[3].accession = polarityAccession;
+                }
                 // Spectrum title
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].cvParam[4].name = "spectrum title";
@@ -246,7 +250,7 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.count = "1";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan = new Generated.ScanType[1];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType();
-                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam = new Generated.CVParamType[2];
+                _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam = new Generated.CVParamType[3];
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[0] = new Generated.CVParamType();
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[0].name = "scan start time";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[0].accession = "MS:1000016";
@@ -258,7 +262,13 @@ namespace IO.MzML
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[1].name = "filter string";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[1].accession = "MS:1000512";
                 _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[1].value = myMsDataFile.GetOneBasedScan(i).ScanFilter;
-
+                if (myMsDataFile.GetOneBasedScan(i).InjectionTime.HasValue)
+                {
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[2] = new Generated.CVParamType();
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[2].name = "ion injection time";
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[2].accession = "MS:1000927";
+                    _indexedmzMLConnection.mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[2].value = myMsDataFile.GetOneBasedScan(i).InjectionTime.Value.ToString(CultureInfo.InvariantCulture);
+                }
                 if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>)
                 {
                     var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;

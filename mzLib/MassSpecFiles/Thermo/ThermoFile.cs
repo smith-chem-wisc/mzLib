@@ -114,6 +114,7 @@ namespace IO.Thermo
             double? ms2isolationWidth = null;
             double? precursorMonoisotopicMZfromTrailierExtra = null;
             int? chargeState = null;
+            double? injectionTime = null;
 
             object pvarValues = null;
             object pvarLables = null;
@@ -141,6 +142,12 @@ namespace IO.Thermo
                     chargeState = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("Ion Injection Time (ms)", StringComparison.Ordinal))
+                {
+                    injectionTime = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                        (double?)null :
+                        double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
             }
 
@@ -234,7 +241,8 @@ namespace IO.Thermo
                     ms2isolationWidth,
                     (DissociationType)pnActivationType,
                     pnMasterScan,
-                    precursorMonoisotopicMZfromTrailierExtra);
+                    precursorMonoisotopicMZfromTrailierExtra,
+                    injectionTime);
             }
             else
             {
@@ -246,7 +254,8 @@ namespace IO.Thermo
                     new MzRange(pdLowMass, pdHighMass),
                     pbstrFilter,
                     mzAnalyzerType,
-                    pdTIC);
+                    pdTIC,
+                    injectionTime);
             }
         }
 
