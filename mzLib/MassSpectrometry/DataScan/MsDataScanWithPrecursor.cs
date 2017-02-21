@@ -90,7 +90,7 @@ namespace MassSpectrometry
             for (int i = 0; i < peaksCloseToIsolated.Count; i++)
                 for (int j = i + 1; j < peaksCloseToIsolated.Count; j++)
                     for (int charge = 1; charge <= maxCharge; charge++)
-                        for (int isotope = 0; isotope < maxCharge; isotope++)
+                        for (int isotope = 0; isotope < mms.Length; isotope++)
                             if (Math.Abs(peaksCloseToIsolated[j].X - peaksCloseToIsolated[i].X - mms[isotope] / charge) < tolHere)
                                 chargeCount[charge - 1]++;
             SelectedIonGuessChargeStateGuess = Array.IndexOf(chargeCount, chargeCount.Max()) + 1;
