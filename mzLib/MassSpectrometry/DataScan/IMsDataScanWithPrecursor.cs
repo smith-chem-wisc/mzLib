@@ -18,7 +18,6 @@
 
 using MzLibUtil;
 using System;
-using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
@@ -43,14 +42,13 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void RecomputeChargeState<T>(List<T> mzValuesInPrecursorScanCloseToIsolated, double tolHere, int maxCharge)
-            where T : IMzPeak;
+        void RecomputeChargeState(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, int maxCharge);
 
         void RecomputeSelectedPeak(IMzSpectrum<IMzPeak> precursorSpectrum);
 
         void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded);
 
-        void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double newPrecursorMZ, double selectedIonGuessMonoisotopicMZ);
+        void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ);
 
         #endregion Public Methods
 

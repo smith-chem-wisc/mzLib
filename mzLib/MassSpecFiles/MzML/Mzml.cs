@@ -20,9 +20,11 @@ using Ionic.Zlib;
 using MassSpectrometry;
 using MzLibUtil;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace IO.MzML
 {
@@ -104,11 +106,15 @@ namespace IO.MzML
             Generated.mzMLType _mzMLConnection;
             Generated.indexedmzML _indexedmzMLConnection;
             using (Stream stream = new FileStream(filePath, FileMode.Open))
-            {
                 _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
-            }
             _mzMLConnection = _indexedmzMLConnection.mzML;
-            IMzmlScan[] scans = GetAllMzmlScans(_mzMLConnection);
+            var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
+            IMzmlScan[] scans = new IMzmlScan[numSpecta];
+            Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
+            {
+                for (int i = fff.Item1; i < fff.Item2; i++)
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1);
+            });
             return new Mzml(scans);
         }
 
@@ -121,16 +127,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan[] GetAllMzmlScans(Generated.mzMLType _mzMLConnection)
-        {
-            var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
-            IMzmlScan[] scans = new IMzmlScan[numSpecta];
-            for (int i = 0; i < numSpecta; i++)
-                scans[i] = GetMsDataOneBasedScanFromFile(_mzMLConnection, i + 1);
-            return scans;
-        }
-
-        private static IMzmlScan GetMsDataOneBasedScanFromFile(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
             double[] masses = null;
             double[] intensities = null;

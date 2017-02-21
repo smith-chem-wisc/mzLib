@@ -1,7 +1,7 @@
 ﻿using Chemistry;
-using IO.MzML;
 using IO.Thermo;
 using Proteomics;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -148,6 +148,13 @@ namespace Benchmark
         {
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
+
+            //Mzml.LoadAllStaticData(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.mzML");
+            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
+            //{
+            //    Console.WriteLine(nice.GetOneBasedScan(1000).RetentionTime);
+            //}
+
             string gitStatus = string.Empty;
             Stream stream = null;
             try
