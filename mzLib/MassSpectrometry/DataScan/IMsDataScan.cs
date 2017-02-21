@@ -24,6 +24,7 @@ namespace MassSpectrometry
     public interface IMsDataScan<out TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
+
         #region Public Properties
 
         TSpectrum MassSpectrum { get; }
@@ -36,6 +37,7 @@ namespace MassSpectrometry
         double TotalIonCurrent { get; }
         Polarity Polarity { get; }
         MZAnalyzerType MzAnalyzer { get; }
+        double? InjectionTime { get; }
 
         #endregion Public Properties
 
@@ -44,5 +46,6 @@ namespace MassSpectrometry
         void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
 
         #endregion Public Methods
+
     }
 }

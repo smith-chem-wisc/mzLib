@@ -177,6 +177,7 @@ namespace IO.MzML
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
+            double? injectionTime = null;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam != null)
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam)
                 {
@@ -189,6 +190,10 @@ namespace IO.MzML
                     if (cv.accession.Equals(_filterString))
                     {
                         scanFilter = cv.value;
+                    }
+                    if (cv.accession.Equals(_ionInjectionTime))
+                    {
+                        injectionTime = double.Parse(cv.value);
                     }
                 }
 
@@ -206,7 +211,7 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic);
+                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic, injectionTime);
             }
 
             double? selectedIonMz = null;
@@ -272,7 +277,8 @@ namespace IO.MzML
                 lowIsolation + highIsolation,
                 dissociationType,
                 GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber),
-                monoisotopicMz);
+                monoisotopicMz,
+                injectionTime);
         }
 
         /// <summary>

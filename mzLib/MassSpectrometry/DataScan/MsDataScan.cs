@@ -27,7 +27,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected MsDataScan(int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent)
+        protected MsDataScan(int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -38,6 +38,7 @@ namespace MassSpectrometry
             ScanFilter = scanFilter;
             MzAnalyzer = mzAnalyzer;
             TotalIonCurrent = totalIonCurrent;
+            InjectionTime = injectionTime;
         }
 
         #endregion Protected Constructors
@@ -66,6 +67,8 @@ namespace MassSpectrometry
         public bool IsCentroid { get; private set; }
 
         public double TotalIonCurrent { get; private set; }
+
+        public double? InjectionTime { get; private set; }
 
         #endregion Public Properties
 
