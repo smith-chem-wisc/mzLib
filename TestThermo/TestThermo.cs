@@ -45,7 +45,7 @@ namespace TestThermo
             var ms2scan = a.GetOneBasedScan(948) as IMsDataScanWithPrecursor<ThermoSpectrum>;
             Assert.IsNull(ms2scan.SelectedIonGuessChargeStateGuess);
             var precursorScan = a.GetOneBasedScan(ms2scan.OneBasedPrecursorScanNumber);
-            ms2scan.RecomputeChargeState(precursorScan.MassSpectrum.Extract(ms2scan.IsolationMz - 2.1, ms2scan.IsolationMz + 2.1).ToList(), 0.1, 4);
+            ms2scan.RecomputeChargeState(precursorScan.MassSpectrum, 0.1, 4);
             Assert.AreEqual(1, ms2scan.SelectedIonGuessChargeStateGuess);
             Assert.IsNull(ms2scan.SelectedIonGuessIntensity);
             ms2scan.RecomputeSelectedPeak(precursorScan.MassSpectrum);

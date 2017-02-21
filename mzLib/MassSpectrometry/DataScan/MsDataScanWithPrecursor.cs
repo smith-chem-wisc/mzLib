@@ -18,7 +18,6 @@
 
 using MzLibUtil;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace MassSpectrometry
@@ -84,23 +83,16 @@ namespace MassSpectrometry
             this.SelectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
         }
 
-        public void RecomputeChargeState<T>(List<T> mzValuesCloseToIsolated, double tolHere, int maxCharge) where T : IMzPeak
+        public void RecomputeChargeState(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, int maxCharge)
         {
+            var peaksCloseToIsolated = precursorSpectrum.Extract(IsolationMz - 2.1, IsolationMz + 2.1).ToList();
             int[] chargeCount = new int[maxCharge]; // charges 1,2,3,4
-            for (int i = 0; i < mzValuesCloseToIsolated.Count; i++)
-                for (int j = i + 1; j < mzValuesCloseToIsolated.Count; j++)
-                {
-                    for (int charge = 1; charge <= 4; charge++)
-                    {
-                        for (int isotope = 0; isotope < 4; isotope++)
-                        {
-                            if (Math.Abs(mzValuesCloseToIsolated[j].X - mzValuesCloseToIsolated[i].X - mms[isotope] / charge) < tolHere)
-                            {
+            for (int i = 0; i < peaksCloseToIsolated.Count; i++)
+                for (int j = i + 1; j < peaksCloseToIsolated.Count; j++)
+                    for (int charge = 1; charge <= maxCharge; charge++)
+                        for (int isotope = 0; isotope < maxCharge; isotope++)
+                            if (Math.Abs(peaksCloseToIsolated[j].X - peaksCloseToIsolated[i].X - mms[isotope] / charge) < tolHere)
                                 chargeCount[charge - 1]++;
-                            }
-                        }
-                    }
-                }
             SelectedIonGuessChargeStateGuess = Array.IndexOf(chargeCount, chargeCount.Max()) + 1;
         }
 
