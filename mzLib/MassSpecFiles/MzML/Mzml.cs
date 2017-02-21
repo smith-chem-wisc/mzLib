@@ -158,11 +158,6 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if (masses == null || intensities == null)
-            {
-                throw new InvalidDataException("Unable to find spectral data for spectrum number " + oneBasedSpectrumNumber);
-            }
-
             var ok = new MzmlMzSpectrum(masses, intensities, false);
 
             int? msOrder = null;
@@ -324,20 +319,6 @@ namespace IO.MzML
             // Gets the first analyzer used.
 
             return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
-        }
-
-        private static double GetRetentionTime(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
-        {
-            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam == null)
-            {
-                return double.NaN;
-            }
-            double rt = -1;
-
-            if (rt >= 0)
-                return rt;
-
-            throw new ArgumentNullException("Could not determine retention time for " + oneBasedSpectrumNumber);
         }
 
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
