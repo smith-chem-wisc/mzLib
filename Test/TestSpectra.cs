@@ -314,6 +314,8 @@ namespace Test
 
             //Assert.AreEqual(2, thisSpectrum.ApplyFunctionToX(b => b * 2).FirstX);
 
+            Assert.AreEqual(1, thisSpectrum.GetClosestPeak(-100).X);
+
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(6.6).X);
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(7).X);

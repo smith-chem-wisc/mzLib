@@ -112,6 +112,12 @@ namespace TestThermo
             //Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
 
             //IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> uu = b;
+
+            using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
+            {
+                Assert.AreEqual(136, dynamicThermo.GetClosestOneBasedSpectrumNumber(1.89));
+                dynamicThermo.ClearCachedScans();
+            }
         }
 
         [Test]
