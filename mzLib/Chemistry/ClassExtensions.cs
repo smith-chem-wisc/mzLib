@@ -38,7 +38,7 @@ namespace Chemistry
         /// </summary>
         public static double ToMz(this double mass, int charge)
         {
-            return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.ProtonMass;
+            return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.protonMass;
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace Chemistry
         /// </summary>
         public static double ToMass(this double massToChargeRatio, int charge)
         {
-            return Math.Abs(charge) * massToChargeRatio - charge * Constants.ProtonMass;
+            return Math.Abs(charge) * massToChargeRatio - charge * Constants.protonMass;
         }
 
         #endregion Public Methods
