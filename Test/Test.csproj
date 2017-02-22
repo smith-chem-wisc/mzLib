@@ -140,6 +140,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="xml2.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="sampleModFile.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
