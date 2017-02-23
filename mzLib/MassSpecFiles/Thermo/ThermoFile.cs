@@ -216,15 +216,7 @@ namespace IO.Thermo
                 double pdMass = 0;
                 theConnection.GetPrecursorMassForScanNum(nScanNumber, pnMSOrder, ref pdMass); // Precursor MZ
 
-                int pnChargeState = 0;
-                // Possibly Monoisotopic MZ!!!
-                double pdHeaderMass = 0;
-                double pdFoundMass = 0;
-                int pnMasterScan = 0;
-                theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
-
-                if (pnMasterScan == 0)
-                    pnMasterScan = GetLastScanEventThatIs1(theConnection, nScanNumber);
+                var precursorNumber = GetLastScanEventThatIs1(theConnection, nScanNumber);
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
@@ -237,11 +229,11 @@ namespace IO.Thermo
                     mzAnalyzerType,
                     pdTIC,
                     pdMass,
-                    pnChargeState == 0 ? chargeState : pnChargeState,
+                    chargeState,
                     ms2isolationWidth,
                     (DissociationType)pnActivationType,
-                    pnMasterScan,
-                    precursorMonoisotopicMZfromTrailierExtra == null ? (pdFoundMass == 0 ? (double?)null : pdFoundMass) : precursorMonoisotopicMZfromTrailierExtra,
+                    precursorNumber,
+                    precursorMonoisotopicMZfromTrailierExtra,
                     injectionTime);
             }
             else
