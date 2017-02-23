@@ -211,7 +211,7 @@ namespace Spectra
             int ind = Array.BinarySearch(XArray, minX);
             if (ind < 0)
                 ind = ~ind;
-            while (this[ind].X <= maxX && ind < Size)
+            while (ind < Size && this[ind].X <= maxX)
             {
                 yield return this[ind];
                 ind++;

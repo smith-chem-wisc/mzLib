@@ -164,9 +164,9 @@ namespace Benchmark
             //    hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
             //}
 
-            using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw"))
+            using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
             {
-                var ok = nice.GetOneBasedScan(16069);
+                var ok = nice.GetOneBasedScan(71291);
                 var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
 
                 var prevSpectrum = nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum;
