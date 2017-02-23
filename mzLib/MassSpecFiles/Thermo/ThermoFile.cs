@@ -216,7 +216,7 @@ namespace IO.Thermo
                 double pdMass = 0;
                 theConnection.GetPrecursorMassForScanNum(nScanNumber, pnMSOrder, ref pdMass); // Precursor MZ
 
-                var precursorNumber = GetLastScanEventThatIs1(theConnection, nScanNumber);
+                var precursorNumber = GetPrecursorScanNumber(theConnection, nScanNumber);
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
@@ -255,7 +255,7 @@ namespace IO.Thermo
 
         #region Private Methods
 
-        private static int GetLastScanEventThatIs1(IXRawfile5 _rawConnection, int scanNumber)
+        private static int GetPrecursorScanNumber(IXRawfile5 _rawConnection, int scanNumber)
         {
             int oneBasedPrecursorNumber = scanNumber;
             while (oneBasedPrecursorNumber > 0)
@@ -267,10 +267,14 @@ namespace IO.Thermo
                     couldBePrecursor[oneBasedPrecursorNumber - 1] = pvarValue.ToString().Equals("1");
                 }
                 if (couldBePrecursor[oneBasedPrecursorNumber - 1] == true)
+                {
+                    if (oneBasedPrecursorNumber == scanNumber)
+                        throw new ArgumentException("Could not find precursor for scan number " + scanNumber + " since Scan Event is 1");
                     return oneBasedPrecursorNumber;
+                }
                 oneBasedPrecursorNumber--;
             }
-            throw new ArgumentException("Could not find precursor for scan number " + scanNumber);
+            throw new ArgumentException("Could not find precursor for scan number " + scanNumber + " Since there were no scans with Scan Event 1");
         }
 
         #endregion Private Methods
