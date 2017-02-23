@@ -18,6 +18,7 @@
 
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
@@ -27,7 +28,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected MsDataScan(int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime)
+        protected MsDataScan(int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -39,6 +40,7 @@ namespace MassSpectrometry
             MzAnalyzer = mzAnalyzer;
             TotalIonCurrent = totalIonCurrent;
             InjectionTime = injectionTime;
+            NoiseData = noiseData;
         }
 
         #endregion Protected Constructors
@@ -69,6 +71,7 @@ namespace MassSpectrometry
         public double TotalIonCurrent { get; private set; }
 
         public double? InjectionTime { get; private set; }
+        public double[,] NoiseData { get; private set; }
 
         #endregion Public Properties
 
@@ -84,7 +87,44 @@ namespace MassSpectrometry
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
         }
 
+        public byte[] Get64BitNoiseDataMass()
+        {
+            return MzSpectrum<IMzPeak>.Get64Bitarray(GetNoiseDataMass(NoiseData));
+        }
+
+        public byte[] Get64BitNoiseDataNoise()
+        {
+            return MzSpectrum<IMzPeak>.Get64Bitarray(GetNoiseDataNoise(NoiseData));
+        }
+
+        public byte[] Get64BitNoiseDataBaseline()
+        {
+            return MzSpectrum<IMzPeak>.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
+        }
+
         #endregion Public Methods
+
+        #region Private Methods
+
+        private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)
+        {
+            for (int i = 0; i < noiseData.Length / 3; i++)
+                yield return noiseData[0, i];
+        }
+
+        private IEnumerable<double> GetNoiseDataNoise(double[,] noiseData)
+        {
+            for (int i = 0; i < noiseData.Length / 3; i++)
+                yield return noiseData[1, i];
+        }
+
+        private IEnumerable<double> GetNoiseDataBaseline(double[,] noiseData)
+        {
+            for (int i = 0; i < noiseData.Length / 3; i++)
+                yield return noiseData[2, i];
+        }
+
+        #endregion Private Methods
 
     }
 }

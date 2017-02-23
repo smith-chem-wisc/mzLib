@@ -163,6 +163,10 @@ namespace IO.Thermo
             int pnMassAnalyzerType = 0;
             theConnection.GetMassAnalyzerTypeForScanNum(nScanNumber, ref pnMassAnalyzerType);
 
+            object pvarNoisePacket = null;
+            theConnection.GetNoiseData(ref pvarNoisePacket, nScanNumber);
+            double[,] noiseData = pvarNoisePacket as double[,];
+
             double[,] data;
             try
             {
@@ -234,7 +238,8 @@ namespace IO.Thermo
                     (DissociationType)pnActivationType,
                     precursorNumber,
                     precursorMonoisotopicMZfromTrailierExtra,
-                    injectionTime);
+                    injectionTime,
+                    noiseData);
             }
             else
             {
@@ -247,7 +252,8 @@ namespace IO.Thermo
                     pbstrFilter,
                     mzAnalyzerType,
                     pdTIC,
-                    injectionTime);
+                    injectionTime,
+                    noiseData);
             }
         }
 
