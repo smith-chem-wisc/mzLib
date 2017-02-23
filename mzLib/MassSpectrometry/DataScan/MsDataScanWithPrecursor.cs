@@ -107,12 +107,14 @@ namespace MassSpectrometry
         {
             var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonGuessMZ.Value);
             SelectedIonGuessIntensity = thePeak.Intensity;
+            SelectedIonGuessMZ = thePeak.Mz;
         }
 
         public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
             var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonGuessMonoisotopicMZ.Value);
             SelectedIonGuessMonoisotopicIntensity = thePeak.Intensity;
+            SelectedIonGuessMonoisotopicMZ = thePeak.Mz;
         }
 
         public void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded)
