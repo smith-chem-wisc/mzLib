@@ -182,10 +182,10 @@ namespace UsefulProteomicsDatabases
                                                 oneBasedBeginPositions.Add(oneBasedbeginPosition);
                                                 oneBasedEndPositions.Add(oneBasedendPosition);
                                                 peptideTypes.Add(feature_type);
-                                                oneBasedbeginPosition = null;
-                                                oneBasedendPosition = null;
                                             }
-
+                                            oneBasedbeginPosition = null;
+                                            oneBasedendPosition = null;
+                                            oneBasedfeature_position = -1;
                                             break;
 
                                         case "dbReference":
@@ -195,7 +195,7 @@ namespace UsefulProteomicsDatabases
 
                                         case "entry":
                                             if (accession != null && sequence != null)
-                                            {
+                                            {                                                 
                                                 var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, goTerms);
 
                                                 result.Add(protein);
