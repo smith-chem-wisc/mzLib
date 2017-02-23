@@ -11,6 +11,18 @@ namespace Proteomics
         public string id { get; set; }
         public string description { get; set; }
         public Aspect aspect { get; set; }
+
+        public GoTerm()
+        {
+
+        }
+
+        public GoTerm(string _id, string _description, Aspect _aspect)
+        {
+            this.id = _id;
+            this.description = _description;
+            this.aspect = _aspect;
+        }
     }
 
     public enum Aspect
