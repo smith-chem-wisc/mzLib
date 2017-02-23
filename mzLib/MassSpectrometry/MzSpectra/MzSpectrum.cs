@@ -19,6 +19,7 @@
 using MzLibUtil;
 using Spectra;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace MassSpectrometry
@@ -26,6 +27,7 @@ namespace MassSpectrometry
     public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
         where TPeak : IMzPeak
     {
+
         #region Protected Constructors
 
         protected MzSpectrum(double[,] mzintensities) : base(mzintensities)
@@ -52,34 +54,26 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public byte[] Get64BitYarray()
+        public static byte[] Get64Bitarray(IEnumerable<double> yArray)
         {
             var mem = new MemoryStream();
-            for (int i = 0; i < YArray.Length; i++)
+            foreach (var okk in yArray)
             {
-                byte[] ok = BitConverter.GetBytes(YArray[i]);
+                byte[] ok = BitConverter.GetBytes(okk);
                 mem.Write(ok, 0, ok.Length);
             }
             mem.Position = 0;
+            return mem.ToArray();
+        }
 
-            byte[] bytes = mem.ToArray();
-
-            return bytes;
+        public byte[] Get64BitYarray()
+        {
+            return Get64Bitarray(YArray);
         }
 
         public byte[] Get64BitXarray()
         {
-            var mem = new MemoryStream();
-            for (int i = 0; i < XArray.Length; i++)
-            {
-                byte[] ok = BitConverter.GetBytes(XArray[i]);
-                mem.Write(ok, 0, ok.Length);
-            }
-            mem.Position = 0;
-
-            byte[] bytes = mem.ToArray();
-
-            return bytes;
+            return Get64Bitarray(XArray);
         }
 
         public void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor)
@@ -96,5 +90,6 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
+
     }
 }

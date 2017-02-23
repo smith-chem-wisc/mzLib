@@ -38,12 +38,19 @@ namespace MassSpectrometry
         Polarity Polarity { get; }
         MZAnalyzerType MzAnalyzer { get; }
         double? InjectionTime { get; }
+        double[,] NoiseData { get; }
 
         #endregion Public Properties
 
         #region Public Methods
 
         void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
+
+        byte[] Get64BitNoiseDataMass();
+
+        byte[] Get64BitNoiseDataNoise();
+
+        byte[] Get64BitNoiseDataBaseline();
 
         #endregion Public Methods
 

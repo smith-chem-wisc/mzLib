@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using IO.MzML;
 using IO.Thermo;
 using MassSpectrometry;
 using Proteomics;
@@ -149,7 +150,9 @@ namespace Benchmark
         {
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
-            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
+            var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
+
+            MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(okff, "adsfjk.mzML");
 
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.mzML");
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
@@ -170,8 +173,6 @@ namespace Benchmark
                 var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
 
                 var prevSpectrum = nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum;
-
-
 
                 Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
                     + hm.SelectedIonGuessMZ + Environment.NewLine
