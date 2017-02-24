@@ -81,7 +81,10 @@ namespace MassSpectrometry
                 TScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
                 if (rt < firstRT)
+                {
+                    oneBasedSpectrumNumber++;
                     continue;
+                }
                 if (rt > lastRT)
                     yield break;
                 yield return scan;
