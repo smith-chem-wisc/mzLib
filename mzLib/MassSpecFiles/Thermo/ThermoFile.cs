@@ -10,11 +10,15 @@ namespace IO.Thermo
     public abstract class ThermoFile : MsDataFile<IThermoScan>
     {
 
+        #region Protected Fields
+
+        protected static bool?[] couldBePrecursor;
+
+        #endregion Protected Fields
+
         #region Private Fields
 
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
-
-        private static bool?[] couldBePrecursor;
 
         #endregion Private Fields
 

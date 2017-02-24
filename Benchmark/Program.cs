@@ -1,9 +1,5 @@
 ﻿using Chemistry;
-using IO.MzML;
-using IO.Thermo;
-using MassSpectrometry;
 using Proteomics;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -149,10 +145,13 @@ namespace Benchmark
         private static void Main(string[] args)
         {
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
+            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac15.raw");
+            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac16.raw");
+            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
-            var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
-
-            MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(okff, "adsfjk.mzML");
+            //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
+            //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\golden.raw");
+            //MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(okff, @"C:\Users\stepa\Data\adsfjk.mzML");
 
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.mzML");
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
@@ -167,61 +166,61 @@ namespace Benchmark
             //    hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
             //}
 
-            using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
-            {
-                var ok = nice.GetOneBasedScan(71291);
-                var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
+            //{
+            //    var ok = nice.GetOneBasedScan(71291);
+            //    var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
 
-                var prevSpectrum = nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum;
+            //    var prevSpectrum = nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum;
 
-                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
-                    + hm.SelectedIonGuessMZ + Environment.NewLine
-                    + hm.SelectedIonGuessIntensity + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+            //    Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+            //        + hm.SelectedIonGuessMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessIntensity + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
 
-                hm.RecomputeChargeState(prevSpectrum, 0.01, 4);
+            //    hm.RecomputeChargeState(prevSpectrum, 0.01, 4);
 
-                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
-                    + hm.SelectedIonGuessMZ + Environment.NewLine
-                    + hm.SelectedIonGuessIntensity + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+            //    Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+            //        + hm.SelectedIonGuessMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessIntensity + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
 
-                hm.ComputeSelectedPeakIntensity(prevSpectrum);
+            //    hm.ComputeSelectedPeakIntensity(prevSpectrum);
 
-                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
-                    + hm.SelectedIonGuessMZ + Environment.NewLine
-                    + hm.SelectedIonGuessIntensity + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+            //    Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+            //        + hm.SelectedIonGuessMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessIntensity + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
 
-                hm.ComputeMonoisotopicPeakIntensity(prevSpectrum);
+            //    hm.ComputeMonoisotopicPeakIntensity(prevSpectrum);
 
-                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
-                    + hm.SelectedIonGuessMZ + Environment.NewLine
-                    + hm.SelectedIonGuessIntensity + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+            //    Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+            //        + hm.SelectedIonGuessMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessIntensity + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
 
-                hm.RecomputeSelectedPeak(prevSpectrum);
+            //    hm.RecomputeSelectedPeak(prevSpectrum);
 
-                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
-                    + hm.SelectedIonGuessMZ + Environment.NewLine
-                    + hm.SelectedIonGuessIntensity + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+            //    Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+            //        + hm.SelectedIonGuessMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessIntensity + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
 
-                hm.RecomputeMonoisotopicPeak(prevSpectrum, 0.01, 0.3);
+            //    hm.RecomputeMonoisotopicPeak(prevSpectrum, 0.01, 0.3);
 
-                Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
-                    + hm.SelectedIonGuessMZ + Environment.NewLine
-                    + hm.SelectedIonGuessIntensity + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
-                    + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
+            //    Console.WriteLine(hm.SelectedIonGuessChargeStateGuess + Environment.NewLine
+            //        + hm.SelectedIonGuessMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessIntensity + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicMZ + Environment.NewLine
+            //        + hm.SelectedIonGuessMonoisotopicIntensity + Environment.NewLine);
 
-                hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
-            }
+            //    hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
+            //}
 
             string gitStatus = string.Empty;
             Stream stream = null;

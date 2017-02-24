@@ -36,6 +36,7 @@ namespace IO.Thermo
 
         public static ThermoStaticData LoadAllStaticData(string filePath)
         {
+            couldBePrecursor = null;
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();
             theConnection.Open(filePath);
             int pbSMData = 0;
