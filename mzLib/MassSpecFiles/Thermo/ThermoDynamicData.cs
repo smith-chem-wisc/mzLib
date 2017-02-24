@@ -26,6 +26,7 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string fileName)
         {
+            couldBePrecursor = null;
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(fileName);
             _rawConnection.SetCurrentController(0, 1);
