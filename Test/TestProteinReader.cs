@@ -65,6 +65,9 @@ namespace Test
 
             Assert.True(ok.All(p => p.OneBasedBeginPositions.All(begin => begin == null || begin > 0 && begin <= p.Length)));
             Assert.True(ok.All(p => p.OneBasedEndPositions.All(end => end == null || end > 0 && end <= p.Length)));
+            Assert.False(ok.All(p => p.BaseSequence.Contains(" ")));
+            Assert.False(ok.All(p => p.BaseSequence.Contains("\t")));
+            Assert.False(ok.All(p => p.BaseSequence.Contains("\n")));
         }
 
         [Test]
