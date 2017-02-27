@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Xml;
+using System.Text.RegularExpressions;
 
 namespace UsefulProteomicsDatabases
 {
@@ -38,6 +39,7 @@ namespace UsefulProteomicsDatabases
                 var oneBasedEndPositions = new List<int?>();
                 var peptideTypes = new List<string>();
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
+                Regex substituteWhitespace = new Regex(@"\s+");
 
                 // xml db
                 if (!proteinDbLocation.EndsWith(".fasta"))
@@ -141,7 +143,7 @@ namespace UsefulProteomicsDatabases
                                             break;
 
                                         case "sequence":
-                                            sequence = xml.ReadElementString().Replace("\n", null);
+                                            sequence = substituteWhitespace.Replace(xml.ReadElementString(), "");
                                             break;
                                     }
                                     break;
@@ -313,7 +315,7 @@ namespace UsefulProteomicsDatabases
 
                         if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                         {
-                            var sequence = sb.ToString();
+                            var sequence = substituteWhitespace.Replace(sb.ToString(), "");
                             var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, new List<GoTerm>());
 
                             result.Add(protein);
