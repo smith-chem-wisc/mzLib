@@ -14,6 +14,7 @@ namespace IO.MzML
         #region Internal Fields
 
         internal static readonly XmlSerializer _indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
+        internal static readonly XmlSerializer _mzmlSerializer = new XmlSerializer(typeof(Generated.mzMLType));
 
         #endregion Internal Fields
 
