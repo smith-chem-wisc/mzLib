@@ -21,6 +21,7 @@ using Proteomics;
 using System.Collections.Generic;
 using System.IO;
 using UsefulProteomicsDatabases;
+using System.Linq;
 
 namespace Test
 {
@@ -49,6 +50,24 @@ namespace Test
             Assert.AreEqual("0070062", ok[0].GoTerms[0].id);
             Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].description);
             Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].aspect);
+        }
+
+        [Test]
+        public void XmlTest_2entry()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+            };
+
+            Dictionary<string, Modification> un;
+            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, out un);
+
+            Assert.True(ok.All(p => p.OneBasedBeginPositions.All(begin => begin == null || begin > 0 && begin <= p.Length)));
+            Assert.True(ok.All(p => p.OneBasedEndPositions.All(end => end == null || end > 0 && end <= p.Length)));
+            Assert.False(ok.All(p => p.BaseSequence.Contains(" ")));
+            Assert.False(ok.All(p => p.BaseSequence.Contains("\t")));
+            Assert.False(ok.All(p => p.BaseSequence.Contains("\n")));
         }
 
         [Test]
