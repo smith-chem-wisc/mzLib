@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using IO.MzML;
 using IO.Thermo;
 using Proteomics;
 using System.Collections.Generic;
@@ -146,17 +147,17 @@ namespace Benchmark
         private static void Main(string[] args)
         {
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
-            var oddk = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac1.raw");
+            //var oddk = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac1.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac15.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac16.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
 
-            var hheh = oddk.GetMsScansInTimeRange(47.2469, 47.25693).ToList();
+            //var hheh = oddk.GetMsScansInTimeRange(47.2469, 47.25693).ToList();
 
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
             //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
-            //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\golden.raw");
-            //MzmlMethods.CreateAndWriteMyIndexedMZmlwithCalibratedSpectra(okff, @"C:\Users\stepa\Data\adsfjk.mzML");
+            //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\ForRyan\golden.raw");
+            //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(okff, @"C:\Users\stepa\Data\ForRyan\adsfjk.mzML");
 
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.mzML");
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))

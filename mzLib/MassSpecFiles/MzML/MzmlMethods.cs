@@ -52,7 +52,7 @@ namespace IO.MzML
         public static void CreateAndWriteMyMzmlWithCalibratedSpectra(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile, string outputFile)
         {
             var mzML = new Generated.mzMLType();
-            //mzML.version = "1";
+            mzML.version = "1";
 
             mzML.cvList = new Generated.CVListType();
             mzML.cvList.count = "1";
@@ -111,7 +111,7 @@ namespace IO.MzML
 
             // Loop over all spectra
             for (int i = 1; i <= myMsDataFile.NumSpectra; i++)
-            {
+                {
                 mzML.run.spectrumList.spectrum[i - 1] = new Generated.SpectrumType();
 
                 mzML.run.spectrumList.spectrum[i - 1].defaultArrayLength = myMsDataFile.GetOneBasedScan(i).MassSpectrum.Size;
