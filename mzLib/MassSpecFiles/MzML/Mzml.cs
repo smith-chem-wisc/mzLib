@@ -104,10 +104,21 @@ namespace IO.MzML
         public static Mzml LoadAllStaticData(string filePath)
         {
             Generated.mzMLType _mzMLConnection;
-            Generated.indexedmzML _indexedmzMLConnection;
-            using (Stream stream = new FileStream(filePath, FileMode.Open))
-                _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
-            _mzMLConnection = _indexedmzMLConnection.mzML;
+
+            try
+            {
+                using (FileStream fs = new FileStream(filePath, FileMode.Open))
+                {
+                    var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
+                    _mzMLConnection = _indexedmzMLConnection.mzML;
+                }
+            }
+            catch
+            {
+                using (FileStream fs = new FileStream(filePath, FileMode.Open))
+                    _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
+            }
+
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             IMzmlScan[] scans = new IMzmlScan[numSpecta];
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
