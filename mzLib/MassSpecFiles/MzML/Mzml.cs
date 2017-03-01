@@ -105,16 +105,19 @@ namespace IO.MzML
         {
             Generated.mzMLType _mzMLConnection;
 
-            using (Stream stream = new FileStream(filePath, FileMode.Open))
-                try
+            try
+            {
+                using (FileStream fs = new FileStream(filePath, FileMode.Open))
                 {
-                    var _indexedmzMLConnection = MzmlMethods._indexedSerializer.Deserialize(stream) as Generated.indexedmzML;
+                    var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
                     _mzMLConnection = _indexedmzMLConnection.mzML;
                 }
-                catch
-                {
-                    _mzMLConnection = MzmlMethods._mzmlSerializer.Deserialize(stream) as Generated.mzMLType;
-                }
+            }
+            catch
+            {
+                using (FileStream fs = new FileStream(filePath, FileMode.Open))
+                    _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
+            }
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             IMzmlScan[] scans = new IMzmlScan[numSpecta];
