@@ -1,4 +1,5 @@
-﻿using IO.Thermo;
+﻿using IO.MzML;
+using IO.Thermo;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -78,40 +79,15 @@ namespace TestThermo
             Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
-            //Assert.AreEqual(0.98, a.GetElapsedScanTime(100), 0.01);
-
-            //var cromatogram = a.GetTicChroma();
-
-            //Assert.AreEqual(360, cromatogram.Size);
-            //Assert.AreEqual(0.01, cromatogram.FirstTime, 0.002);
-            //Assert.AreEqual(2.788433333, cromatogram.PeakWithHighestY.Time, 0.0001);
-            //Assert.AreEqual(2.788433333, cromatogram.GetApex(0, 5).Time, 0.0001);
-
             var newSpectrum = new ThermoSpectrum(a.GetOneBasedScan(51).MassSpectrum);
             Assert.AreEqual(22246 / 5574.8, newSpectrum.GetSignalToNoise(1), 0.01);
 
             Assert.AreEqual(1, newSpectrum.GetCharges()[1]);
             Assert.AreEqual(102604, newSpectrum.GetResolutions()[1]);
 
-            //Assert.AreEqual(181, newSpectrum.NewSpectrumExtract(500, 1000).Size);
-
-            //Assert.AreEqual(0, newSpectrum.NewSpectrumExtract(-3, -2).Size);
-
-            //var hm = newSpectrum.NewSpectrumExtract(501, 502);
-
-            //Assert.AreEqual(0, hm.Size);
-
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            //var b = new ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", 400);
-
-            //Assert.AreEqual(400, b.GetOneBasedScan(1).MassSpectrum.Size);
-
-            //Assert.AreEqual(0, b.Where(eb => eb.MsnOrder > 1).Count());
-
-            //Assert.AreEqual(false, b.MonoisotopicPrecursorSelectionEnabled);
-
-            //IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> uu = b;
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML");
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
             {
