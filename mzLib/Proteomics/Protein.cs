@@ -21,10 +21,15 @@ namespace Proteomics
         : this(sequence, accession, name, full_name, isDecoy, isContaminant)
         {
             var proteolysisProducts = new List<ProteolysisProduct>();
-            for (int i = 0; i < oneBasedProteolysisProductsTypes.Length; i++)
-                proteolysisProducts.Add(new ProteolysisProduct(oneBasedBeginPositionsForProteolysisProducts[i],
-                                                               oneBasedEndPositionsForProteolysisProducts[i],
-                                                               oneBasedProteolysisProductsTypes[i]));
+            if (oneBasedProteolysisProductsTypes != null
+                && oneBasedEndPositionsForProteolysisProducts != null
+                && oneBasedEndPositionsForProteolysisProducts != null
+                && oneBasedProteolysisProductsTypes.Length == oneBasedBeginPositionsForProteolysisProducts.Length
+                && oneBasedProteolysisProductsTypes.Length == oneBasedEndPositionsForProteolysisProducts.Length)
+                for (int i = 0; i < oneBasedProteolysisProductsTypes.Length; i++)
+                    proteolysisProducts.Add(new ProteolysisProduct(oneBasedBeginPositionsForProteolysisProducts[i],
+                                                                   oneBasedEndPositionsForProteolysisProducts[i],
+                                                                   oneBasedProteolysisProductsTypes[i]));
             ProteolysisProducts = proteolysisProducts;
             GoTerms = goTerms;
             OneBasedPossibleLocalizedModifications = oneBasedModifications;
