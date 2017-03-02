@@ -47,9 +47,9 @@ namespace Test
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("0070062", ok[0].GoTerms[0].Id);
-            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].Description);
-            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].Aspect);
+            Assert.AreEqual("0070062", ok[0].GoTerms.First().Id);
+            Assert.AreEqual("extracellular exosome", ok[0].GoTerms.First().Description);
+            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms.First().Aspect);
         }
 
         [Test]
@@ -63,8 +63,12 @@ namespace Test
             Dictionary<string, Modification> un;
             var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, out un);
 
-            Assert.True(ok.All(p => p.OneBasedBeginPositions.All(begin => begin == null || begin > 0 && begin <= p.Length)));
-            Assert.True(ok.All(p => p.OneBasedEndPositions.All(end => end == null || end > 0 && end <= p.Length)));
+            Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
+
+            Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedEndPosition == null || d.OneBasedEndPosition > p.Length)));
+
+            //Assert.True(ok.All(p => p.OneBasedBeginPositions.All(begin => begin == null || begin > 0 && begin <= p.Length)));
+            //Assert.True(ok.All(p => p.OneBasedEndPositions.All(end => end == null || end > 0 && end <= p.Length)));
             Assert.False(ok.All(p => p.BaseSequence.Contains(" ")));
             Assert.False(ok.All(p => p.BaseSequence.Contains("\t")));
             Assert.False(ok.All(p => p.BaseSequence.Contains("\n")));
@@ -86,9 +90,9 @@ namespace Test
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("0070062", ok[0].GoTerms[0].Id);
-            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].Description);
-            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].Aspect);
+            Assert.AreEqual("0070062", ok[0].GoTerms.First().Id);
+            Assert.AreEqual("extracellular exosome", ok[0].GoTerms.First().Description);
+            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms.First().Aspect);
         }
 
         [Test]
