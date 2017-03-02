@@ -7,33 +7,44 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositions, int?[] oneBasedEndPositions, string[] bigPeptideTypes, string name, string full_name, bool isDecoy, bool isContaminant, List<GoTerm> goTerms)
+        public Protein(string sequence, string accession, string name, string full_name, bool isDecoy, bool isContaminant)
         {
             BaseSequence = sequence;
             Accession = accession;
-            OneBasedPossibleLocalizedModifications = oneBasedModifications;
-            OneBasedBeginPositions = oneBasedBeginPositions;
-            OneBasedEndPositions = oneBasedEndPositions;
-            BigPeptideTypes = bigPeptideTypes;
             Name = name;
             FullName = full_name;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
+        }
+
+        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, List<GoTerm> goTerms)
+        : this(sequence, accession, name, full_name, isDecoy, isContaminant)
+        {
+            var proteolysisProducts = new List<ProteolysisProduct>();
+            if (oneBasedProteolysisProductsTypes != null
+                && oneBasedEndPositionsForProteolysisProducts != null
+                && oneBasedEndPositionsForProteolysisProducts != null
+                && oneBasedProteolysisProductsTypes.Length == oneBasedBeginPositionsForProteolysisProducts.Length
+                && oneBasedProteolysisProductsTypes.Length == oneBasedEndPositionsForProteolysisProducts.Length)
+                for (int i = 0; i < oneBasedProteolysisProductsTypes.Length; i++)
+                    proteolysisProducts.Add(new ProteolysisProduct(oneBasedBeginPositionsForProteolysisProducts[i],
+                                                                   oneBasedEndPositionsForProteolysisProducts[i],
+                                                                   oneBasedProteolysisProductsTypes[i]));
+            ProteolysisProducts = proteolysisProducts;
             GoTerms = goTerms;
+            OneBasedPossibleLocalizedModifications = oneBasedModifications;
         }
 
         #endregion Public Constructors
 
         #region Public Properties
 
-        public int?[] OneBasedBeginPositions { get; private set; }
-        public int?[] OneBasedEndPositions { get; private set; }
-        public string[] BigPeptideTypes { get; private set; }
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
         public string Accession { get; private set; }
         public string BaseSequence { get; private set; }
         public bool IsDecoy { get; private set; }
-        public List<GoTerm> GoTerms { get; private set; }
+        public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; private set; }
+        public IEnumerable<GoTerm> GoTerms { get; private set; }
 
         public int Length
         {

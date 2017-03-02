@@ -4,8 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Xml;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
@@ -15,7 +15,7 @@ namespace UsefulProteomicsDatabases
         #region Public Methods
 
         public static List<Protein> LoadProteinDb<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, out Dictionary<string, Modification> unknownModifications)
-            where T: Modification
+            where T : Modification
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
             foreach (var nice in allKnownModifications)
@@ -35,15 +35,16 @@ namespace UsefulProteomicsDatabases
                 string name = null;
                 string full_name = null;
 
-                var oneBasedBeginPositions = new List<int?>();
-                var oneBasedEndPositions = new List<int?>();
-                var peptideTypes = new List<string>();
-                var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 Regex substituteWhitespace = new Regex(@"\s+");
 
                 // xml db
                 if (!proteinDbLocation.EndsWith(".fasta"))
                 {
+                    var oneBasedBeginPositions = new List<int?>();
+                    var oneBasedEndPositions = new List<int?>();
+                    var peptideTypes = new List<string>();
+                    var oneBasedModifications = new Dictionary<int, List<Modification>>();
+
                     Stream uniprotXmlFileStream = stream;
                     if (proteinDbLocation.EndsWith(".gz"))
                         uniprotXmlFileStream = new GZipStream(stream, CompressionMode.Decompress);
@@ -109,24 +110,26 @@ namespace UsefulProteomicsDatabases
                                             property_value = xml.GetAttribute("value");
                                             if (dbReference_type == "GO" && property_type == "term")
                                             {
-                                                GoTerm go = new GoTerm();
-                                                go.id = dbReference_id.Split(':')[1].ToString();
                                                 switch (property_value.Split(':')[0].ToString())
                                                 {
                                                     case "C":
-                                                        go.aspect = Aspect.cellularComponent;
-                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        goTerms.Add(new GoTerm(dbReference_id.Split(':')[1].ToString(),
+                                                                               property_value.Split(':')[1].ToString(),
+                                                                               Aspect.cellularComponent));
                                                         break;
+
                                                     case "F":
-                                                        go.aspect = Aspect.molecularFunction;
-                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        goTerms.Add(new GoTerm(dbReference_id.Split(':')[1].ToString(),
+                                                                               property_value.Split(':')[1].ToString(),
+                                                                               Aspect.molecularFunction));
                                                         break;
+
                                                     case "P":
-                                                        go.aspect = Aspect.biologicalProcess;
-                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        goTerms.Add(new GoTerm(dbReference_id.Split(':')[1].ToString(),
+                                                                               property_value.Split(':')[1].ToString(),
+                                                                               Aspect.biologicalProcess));
                                                         break;
                                                 }
-                                                goTerms.Add(go);
                                             }
                                             break;
 
@@ -197,7 +200,7 @@ namespace UsefulProteomicsDatabases
 
                                         case "entry":
                                             if (accession != null && sequence != null)
-                                            {                                                 
+                                            {
                                                 var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, goTerms);
 
                                                 result.Add(protein);
@@ -210,32 +213,26 @@ namespace UsefulProteomicsDatabases
                                                     {
                                                         // Do not include the initiator methionine in reversal!!!
                                                         Array.Reverse(sequence_array, 1, sequence.Length - 1);
-                                                        if (oneBasedModifications != null)
+                                                        decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
+                                                        foreach (var kvp in oneBasedModifications)
                                                         {
-                                                            decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
-                                                            foreach (var kvp in oneBasedModifications)
+                                                            if (kvp.Key == 1)
                                                             {
-                                                                if (kvp.Key == 1)
-                                                                {
-                                                                    decoy_modifications.Add(1, kvp.Value);
-                                                                }
-                                                                else if (kvp.Key > 1)
-                                                                {
-                                                                    decoy_modifications.Add(sequence.Length - kvp.Key + 2, kvp.Value);
-                                                                }
+                                                                decoy_modifications.Add(1, kvp.Value);
+                                                            }
+                                                            else if (kvp.Key > 1)
+                                                            {
+                                                                decoy_modifications.Add(sequence.Length - kvp.Key + 2, kvp.Value);
                                                             }
                                                         }
                                                     }
                                                     else
                                                     {
                                                         Array.Reverse(sequence_array);
-                                                        if (oneBasedModifications != null)
+                                                        decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
+                                                        foreach (var kvp in oneBasedModifications)
                                                         {
-                                                            decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
-                                                            foreach (var kvp in oneBasedModifications)
-                                                            {
-                                                                decoy_modifications.Add(sequence.Length - kvp.Key + 1, kvp.Value);
-                                                            }
+                                                            decoy_modifications.Add(sequence.Length - kvp.Key + 1, kvp.Value);
                                                         }
                                                     }
                                                     var reversed_sequence = new string(sequence_array);
@@ -316,7 +313,7 @@ namespace UsefulProteomicsDatabases
                         if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                         {
                             var sequence = substituteWhitespace.Replace(sb.ToString(), "");
-                            var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, new List<GoTerm>());
+                            var protein = new Protein(sequence, accession, name, full_name, false, IsContaminant);
 
                             result.Add(protein);
 
@@ -326,7 +323,7 @@ namespace UsefulProteomicsDatabases
                                 int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                                 Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                                 var reversed_sequence = new string(sequence_array);
-                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, true, IsContaminant, null);
+                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, name, full_name, true, IsContaminant);
 
                                 result.Add(decoy_protein);
                             }
@@ -344,5 +341,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
+
     }
 }
