@@ -4,8 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Xml;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
@@ -15,7 +15,7 @@ namespace UsefulProteomicsDatabases
         #region Public Methods
 
         public static List<Protein> LoadProteinDb<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, out Dictionary<string, Modification> unknownModifications)
-            where T: Modification
+            where T : Modification
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
             foreach (var nice in allKnownModifications)
@@ -109,24 +109,26 @@ namespace UsefulProteomicsDatabases
                                             property_value = xml.GetAttribute("value");
                                             if (dbReference_type == "GO" && property_type == "term")
                                             {
-                                                GoTerm go = new GoTerm();
-                                                go.id = dbReference_id.Split(':')[1].ToString();
                                                 switch (property_value.Split(':')[0].ToString())
                                                 {
                                                     case "C":
-                                                        go.aspect = Aspect.cellularComponent;
-                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        goTerms.Add(new GoTerm(dbReference_id.Split(':')[1].ToString(),
+                                                                               property_value.Split(':')[1].ToString(),
+                                                                               Aspect.cellularComponent));
                                                         break;
+
                                                     case "F":
-                                                        go.aspect = Aspect.molecularFunction;
-                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        goTerms.Add(new GoTerm(dbReference_id.Split(':')[1].ToString(),
+                                                                               property_value.Split(':')[1].ToString(),
+                                                                               Aspect.molecularFunction));
                                                         break;
+
                                                     case "P":
-                                                        go.aspect = Aspect.biologicalProcess;
-                                                        go.description = property_value.Split(':')[1].ToString();
+                                                        goTerms.Add(new GoTerm(dbReference_id.Split(':')[1].ToString(),
+                                                                               property_value.Split(':')[1].ToString(),
+                                                                               Aspect.biologicalProcess));
                                                         break;
                                                 }
-                                                goTerms.Add(go);
                                             }
                                             break;
 
@@ -197,7 +199,7 @@ namespace UsefulProteomicsDatabases
 
                                         case "entry":
                                             if (accession != null && sequence != null)
-                                            {                                                 
+                                            {
                                                 var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, goTerms);
 
                                                 result.Add(protein);
@@ -344,5 +346,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
+
     }
 }

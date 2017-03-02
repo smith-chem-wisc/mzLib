@@ -20,8 +20,8 @@ using NUnit.Framework;
 using Proteomics;
 using System.Collections.Generic;
 using System.IO;
-using UsefulProteomicsDatabases;
 using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -47,9 +47,9 @@ namespace Test
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("0070062", ok[0].GoTerms[0].id);
-            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].description);
-            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].aspect);
+            Assert.AreEqual("0070062", ok[0].GoTerms[0].Id);
+            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].Description);
+            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].Aspect);
         }
 
         [Test]
@@ -86,9 +86,9 @@ namespace Test
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("0070062", ok[0].GoTerms[0].id);
-            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].description);
-            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].aspect);
+            Assert.AreEqual("0070062", ok[0].GoTerms[0].Id);
+            Assert.AreEqual("extracellular exosome", ok[0].GoTerms[0].Description);
+            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms[0].Aspect);
         }
 
         [Test]
