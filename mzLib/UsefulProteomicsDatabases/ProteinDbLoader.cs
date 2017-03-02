@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using System.Linq;
 
 namespace UsefulProteomicsDatabases
 {
@@ -288,12 +289,20 @@ namespace UsefulProteomicsDatabases
                         {
                             // fasta protein only has accession, fullname, sequence (no mods)
                             string[] delimiters = { ">", "|", " OS=" };
+                            string[] delimiters_ensembl = { ">", " ", "\t" };
                             string[] output = line.Split(delimiters, StringSplitOptions.None);
+                            string[] output_ensembl = line.Split(delimiters_ensembl, StringSplitOptions.None);
                             if (output.Length > 4)
                             {
                                 accession = output[2];
                                 name = accession;
                                 full_name = output[3];
+                            }
+                            else if (output_ensembl.Length > 2)
+                            {
+                                accession = output_ensembl[1];
+                                name = accession;
+                                full_name = String.Join(" ", Enumerable.Range(2, output_ensembl.Length - 2).Select(i => output_ensembl[i]));
                             }
                             else
                             {

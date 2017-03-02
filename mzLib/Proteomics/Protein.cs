@@ -15,9 +15,12 @@ namespace Proteomics
             FullName = full_name;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
+            ProteolysisProducts = new List<ProteolysisProduct>();
+            OneBasedPossibleLocalizedModifications = new Dictionary<int, List<Modification>>();
+            GoTerms = new List<GoTerm>();
         }
 
-        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, List<GoTerm> goTerms)
+        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<GoTerm> goTerms)
         : this(sequence, accession, name, full_name, isDecoy, isContaminant)
         {
             var proteolysisProducts = new List<ProteolysisProduct>();

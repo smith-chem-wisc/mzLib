@@ -64,6 +64,7 @@
     </Compile>
     <Compile Include="Generated\PsiModGenerated.cs" />
     <Compile Include="ProteinDbLoader.cs" />
+    <Compile Include="ProteinDbWriter.cs" />
     <Compile Include="PtmListLoader.cs" />
     <Compile Include="PtmListLoaderException.cs" />
     <Compile Include="UnimodLoader.cs" />

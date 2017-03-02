@@ -50,6 +50,7 @@ namespace Test
             Assert.AreEqual("0070062", ok[0].GoTerms.First().Id);
             Assert.AreEqual("extracellular exosome", ok[0].GoTerms.First().Description);
             Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms.First().Aspect);
+            Assert.AreEqual(30, ok[0].GoTerms.Count());
         }
 
         [Test]
@@ -70,6 +71,12 @@ namespace Test
             Assert.False(ok.All(p => p.BaseSequence.Contains(" ")));
             Assert.False(ok.All(p => p.BaseSequence.Contains("\t")));
             Assert.False(ok.All(p => p.BaseSequence.Contains("\n")));
+
+            //GoTerm checks
+            List<Protein> targets = ok.Where(p => p.GoTerms != null).ToList();
+            Assert.AreEqual(2, targets.Count);
+            Assert.AreEqual(9, targets[0].GoTerms.Count());
+            Assert.AreEqual(8, targets[1].GoTerms.Count());
         }
 
         [Test]
@@ -91,6 +98,7 @@ namespace Test
             Assert.AreEqual("0070062", ok[0].GoTerms.First().Id);
             Assert.AreEqual("extracellular exosome", ok[0].GoTerms.First().Description);
             Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms.First().Aspect);
+            Assert.AreEqual(30, ok[0].GoTerms.Count());
         }
 
         [Test]

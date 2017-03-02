@@ -80,6 +80,7 @@
     <Compile Include="TestModifications.cs" />
     <Compile Include="TestPeptides.cs" />
     <Compile Include="TestProteinReader.cs" />
+    <Compile Include="TestProteomicsReadWrite.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestSpectra.cs" />
     <Compile Include="TestTolerance.cs" />
@@ -129,6 +130,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="test_ensembl.pep.all.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="tiny.pwiz.1.1.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
