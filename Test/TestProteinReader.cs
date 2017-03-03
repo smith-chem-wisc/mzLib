@@ -21,6 +21,7 @@ using Proteomics;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
 namespace Test
@@ -40,17 +41,17 @@ namespace Test
             };
 
             Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, out un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("0070062", ok[0].GoTerms.First().Id);
-            Assert.AreEqual("extracellular exosome", ok[0].GoTerms.First().Description);
-            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms.First().Aspect);
-            Assert.AreEqual(30, ok[0].GoTerms.Count());
+            Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First().Id);
+            Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First().Properties.First().Item1);
+            Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual(23, ok[0].DatabaseReferences.Count());
         }
 
         [Test]
@@ -62,7 +63,7 @@ namespace Test
             };
 
             Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, new List<string> { "EnsemblFungi" }, out un);
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
 
@@ -73,10 +74,10 @@ namespace Test
             Assert.False(ok.All(p => p.BaseSequence.Contains("\n")));
 
             //GoTerm checks
-            List<Protein> targets = ok.Where(p => p.GoTerms != null).ToList();
+            List<Protein> targets = ok.Where(p => !p.IsDecoy).ToList();
             Assert.AreEqual(2, targets.Count);
-            Assert.AreEqual(9, targets[0].GoTerms.Count());
-            Assert.AreEqual(8, targets[1].GoTerms.Count());
+            Assert.AreEqual(1, targets[0].DatabaseReferences.Count());
+            Assert.AreEqual(1, targets[1].DatabaseReferences.Count());
         }
 
         [Test]
@@ -88,17 +89,17 @@ namespace Test
             };
 
             Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, new List<string> { "Ensembl" }, out un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("0070062", ok[0].GoTerms.First().Id);
-            Assert.AreEqual("extracellular exosome", ok[0].GoTerms.First().Description);
-            Assert.AreEqual(Aspect.cellularComponent, ok[0].GoTerms.First().Aspect);
-            Assert.AreEqual(30, ok[0].GoTerms.Count());
+            Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First().Id);
+            Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First().Properties.First().Item1);
+            Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual(23, ok[0].DatabaseReferences.Count());
         }
 
         [Test]
@@ -110,7 +111,7 @@ namespace Test
             };
 
             Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, out un);
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -125,7 +126,7 @@ namespace Test
             };
 
             Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, out un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -135,15 +136,13 @@ namespace Test
         [Test]
         public void FastaTest()
         {
-            Dictionary<string, Modification> un;
-            ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, new List<Modification>(), false, out un);
+            ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression);
         }
 
         [Test]
-        public void bad_fasta_header_test()
+        public void load_fasta_handle_tooHigh_indices()
         {
-            Dictionary<string, Modification> un;
-            ProteinDbLoader.LoadProteinDb(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, new List<Modification>(), false, out un);
+            ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression);
         }
 
         #endregion Public Methods

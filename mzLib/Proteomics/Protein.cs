@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System;
 
 namespace Proteomics
 {
@@ -7,7 +8,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, string name, string full_name, bool isDecoy, bool isContaminant)
+        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<DatabaseReference> databaseReferences)
         {
             BaseSequence = sequence;
             Accession = accession;
@@ -15,14 +16,6 @@ namespace Proteomics
             FullName = full_name;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
-            ProteolysisProducts = new List<ProteolysisProduct>();
-            OneBasedPossibleLocalizedModifications = new Dictionary<int, List<Modification>>();
-            GoTerms = new List<GoTerm>();
-        }
-
-        public Protein(string sequence, string accession, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<GoTerm> goTerms)
-        : this(sequence, accession, name, full_name, isDecoy, isContaminant)
-        {
             var proteolysisProducts = new List<ProteolysisProduct>();
             if (oneBasedProteolysisProductsTypes != null
                 && oneBasedEndPositionsForProteolysisProducts != null
@@ -34,8 +27,8 @@ namespace Proteomics
                                                                    oneBasedEndPositionsForProteolysisProducts[i],
                                                                    oneBasedProteolysisProductsTypes[i]));
             ProteolysisProducts = proteolysisProducts;
-            GoTerms = goTerms;
             OneBasedPossibleLocalizedModifications = oneBasedModifications;
+            DatabaseReferences = databaseReferences;
         }
 
         #endregion Public Constructors
@@ -47,7 +40,7 @@ namespace Proteomics
         public string BaseSequence { get; private set; }
         public bool IsDecoy { get; private set; }
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; private set; }
-        public IEnumerable<GoTerm> GoTerms { get; private set; }
+        public IEnumerable<DatabaseReference> DatabaseReferences { get; private set; }
 
         public int Length
         {

@@ -24,7 +24,7 @@ namespace UsefulProteomicsDatabases
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
-                writer.WriteStartElement("uniprot");
+                writer.WriteStartElement("mzLib");
 
                 foreach (Protein protein in proteinList)
                 {
@@ -44,20 +44,18 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement();
                     writer.WriteEndElement();
 
-                    foreach (var goTerm in protein.GoTerms)
+                    foreach (var dbRef in protein.DatabaseReferences)
                     {
-                        string aspect_string;
-                        if (goTerm.Aspect == Aspect.biologicalProcess) aspect_string = "P:";
-                        else if (goTerm.Aspect == Aspect.molecularFunction) aspect_string = "F:";
-                        else if (goTerm.Aspect == Aspect.cellularComponent) aspect_string = "B:";
-                        else continue;
                         writer.WriteStartElement("dbReference");
-                        writer.WriteAttributeString("type", "GO");
-                        writer.WriteAttributeString("id", "GO:" + goTerm.Id);
-                        writer.WriteStartElement("property");
-                        writer.WriteAttributeString("type", "term");
-                        writer.WriteAttributeString("value", aspect_string + goTerm.Description);
-                        writer.WriteEndElement();
+                        writer.WriteAttributeString("type", dbRef.Type);
+                        writer.WriteAttributeString("id", dbRef.Id);
+                        foreach (Tuple<string, string> property in dbRef.Properties)
+                        {
+                            writer.WriteStartElement("property");
+                            writer.WriteAttributeString("type", property.Item1);
+                            writer.WriteAttributeString("value", property.Item2);
+                            writer.WriteEndElement();
+                        }
                         writer.WriteEndElement();
                     }
                     foreach (var proteolysisProduct in protein.ProteolysisProducts)
@@ -116,15 +114,15 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName)
+        public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
             using (StreamWriter writer = new StreamWriter(outputFileName))
             {
                 foreach(Protein protein in proteinList)
                 {
-                    string header = protein.FullName.Contains("|") ?
-                        protein.Accession + "|" + protein.FullName :
-                        protein.Accession + " " + protein.FullName;
+                    string header = protein.FullName != protein.Accession ?
+                        protein.Accession + delimeter + protein.FullName :
+                        header = protein.Accession; // we read in full name and accession to be the same string if the format isn't recognized
                     writer.WriteLine(">" + header);
                     writer.WriteLine(protein.BaseSequence);
                 }

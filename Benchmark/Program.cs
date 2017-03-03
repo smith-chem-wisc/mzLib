@@ -136,7 +136,7 @@ namespace Benchmark
             Dictionary<string, Modification> um;
 
             stopWatch.Restart();
-            var a = ProteinDbLoader.LoadProteinDb(@"yeast_160126.xml.gz", true, ya, false, out um);
+            var a = ProteinDbLoader.LoadProteinXML(@"yeast_160126.xml.gz", true, ya, false, new List<string> { "Ensembl"}, out um);
             stopWatch.Stop();
 
             file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
