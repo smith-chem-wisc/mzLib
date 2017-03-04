@@ -43,9 +43,9 @@ namespace UsefulProteomicsDatabases
                 var peptideTypes = new List<string>();
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
 
-                Stream uniprotXmlFileStream = stream;
-                if (proteinDbLocation.EndsWith(".gz"))
-                    uniprotXmlFileStream = new GZipStream(stream, CompressionMode.Decompress);
+                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
+                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
+                    stream;
 
                 string[] nodes = new string[6];
 
@@ -278,19 +278,18 @@ namespace UsefulProteomicsDatabases
             int?[] oneBasedBeginPositions = null;
             int?[] oneBasedEndPositions = null;
             string[] productTypes = null;
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>();
             Dictionary<int, List<Modification>> oneBasedModifications = new Dictionary<int, List<Modification>>();
             List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
             List<Protein> result = new List<Protein>();
 
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
-                Stream fastaFileStream = stream;
-                if (proteinDbLocation.EndsWith(".gz"))
-                    fastaFileStream = new GZipStream(stream, CompressionMode.Decompress);
+                Stream fastaFileStream = proteinDbLocation.EndsWith(".gz") ?
+                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
+                    stream;
 
                 StringBuilder sb = null;
-                StreamReader fasta = new StreamReader(stream);
+                StreamReader fasta = new StreamReader(fastaFileStream);
 
                 while (true)
                 {
@@ -299,7 +298,7 @@ namespace UsefulProteomicsDatabases
                     if (line.StartsWith(">"))
                     {
                         accession = accession_expression.Match(line).Value;
-                        if (accession == null) accession = line.Substring(1);
+                        if (accession == null || accession == "") accession = line.Substring(1);
                         full_name = full_name_expression.Match(line).Value;
                         name = name_expression.Match(line).Value;
                         sb = new StringBuilder();
@@ -322,7 +321,7 @@ namespace UsefulProteomicsDatabases
                             int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                             Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                             var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
                             result.Add(decoy_protein);
                         }
                     }
