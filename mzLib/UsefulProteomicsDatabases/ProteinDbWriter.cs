@@ -24,7 +24,7 @@ namespace UsefulProteomicsDatabases
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
-                writer.WriteStartElement("mzLib");
+                writer.WriteStartElement("mzLibProteinDb");
 
                 foreach (Protein protein in proteinList)
                 {
