@@ -30,6 +30,7 @@ namespace UsefulProteomicsDatabases
                     Mods.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
                     .SelectMany(kv => kv.Value.Select(v => v.Item2))
                     .Concat(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))));
+
                 foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
                 {
                     writer.WriteStartElement("modification");
