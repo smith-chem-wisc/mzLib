@@ -132,7 +132,7 @@ namespace Benchmark
 
             Stopwatch stopWatch = new Stopwatch();
 
-            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"ptmlist.txt").ToList();
+            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"ptmlist.txt", null).ToList();
             Dictionary<string, Modification> um;
 
             stopWatch.Restart();

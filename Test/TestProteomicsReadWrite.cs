@@ -121,7 +121,7 @@ namespace Test
 
             ModificationMotif motif;
             ModificationMotif.TryGetMotif("K", out motif);
-            ModificationWithMass m = new ModificationWithMass("mod", new Tuple<string, string>("", ""), motif, ModificationSites.K, 1, new Dictionary<string, IList<string>>(), -1, new List<double>(), new List<double>(), "");
+            ModificationWithMass m = new ModificationWithMass("mod", new Tuple<string, string>("", ""), motif, ModificationSites.Any, 1, new Dictionary<string, IList<string>>(), -1, new List<double>(), new List<double>(), "");
 
             Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> new_mods = new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>
             {

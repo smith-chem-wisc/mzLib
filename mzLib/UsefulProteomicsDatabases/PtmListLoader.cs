@@ -49,9 +49,17 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static IEnumerable<ModificationWithLocation> ReadMods(string ptmListLocation)
+        /// <summary>
+        /// Reads a list of modifications. If the a list of modifications is stored in a file "ptmListLocation," they will be read from that file. If a string representation (length > 0) of a PTM list is provided in storedModifications, the modifications will be read from that string. 
+        /// </summary>
+        /// <param name="ptmListLocation"></param>
+        /// <param name="storedModifications"></param>
+        /// <returns></returns>
+        public static IEnumerable<ModificationWithLocation> ReadMods(string ptmListLocation, string storedModifications)
         {
-            using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
+            using (TextReader uniprot_mods = storedModifications != null && storedModifications.Length > 0 ? 
+                (TextReader)(new StringReader(storedModifications)) : 
+                new StreamReader(ptmListLocation))
             {
                 // UniProt fields
                 string uniprotID = null;

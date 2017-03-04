@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Proteomics
 {
@@ -30,6 +31,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

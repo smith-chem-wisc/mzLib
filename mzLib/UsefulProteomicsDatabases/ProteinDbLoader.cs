@@ -18,18 +18,12 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> dbRefTypesToKeep, out Dictionary<string, Modification> unknownModifications)
             where T : Modification
         {
-            var mod_dict = new Dictionary<string, IList<Modification>>();
-            foreach (var nice in allKnownModifications)
-            {
-                IList<Modification> val;
-                if (mod_dict.TryGetValue(nice.id, out val))
-                    val.Add(nice);
-                else
-                    mod_dict.Add(nice.id, new List<Modification> { nice });
-            }
+            var mod_dict = get_modification_dict(allKnownModifications);
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
+            StringBuilder storedKnownModificationsBuilder = new StringBuilder();
+            List<Modification> storedKnownModifications = new List<Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
                 string accession = null;
@@ -37,6 +31,8 @@ namespace UsefulProteomicsDatabases
                 string full_name = null;
 
                 Regex substituteWhitespace = new Regex(@"\s+");
+                Regex startingWhitespace = new Regex(@"/^\s+/gm"); // @"/^\s*(?= )/gm" gives starting whitespace, minus one space
+                Regex splitLine = new Regex(@"/\s+/g");
 
                 var oneBasedBeginPositions = new List<int?>();
                 var oneBasedEndPositions = new List<int?>();
@@ -74,6 +70,18 @@ namespace UsefulProteomicsDatabases
                                 int outValue;
                                 switch (xml.Name)
                                 {
+                                    case "modification":
+                                        string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
+                                        storedKnownModificationsBuilder.AppendLine(modification);
+                                        break;
+                                    case "entry":
+                                        if (storedKnownModificationsBuilder.Length > 0)
+                                        {
+                                            List<ModificationWithLocation> mods = PtmListLoader.ReadMods(proteinDbLocation, storedKnownModificationsBuilder.ToString()).ToList();
+                                            mod_dict = get_modification_dict(mods);
+                                            storedKnownModificationsBuilder.Clear();
+                                        }
+                                        break;
                                     case "accession":
                                         if (accession == null)
                                         {
@@ -357,5 +365,23 @@ namespace UsefulProteomicsDatabases
 
         #endregion Public Methods
 
+        #region Private Methods
+
+        private static Dictionary<string, IList<Modification>> get_modification_dict(IEnumerable<Modification> mods)
+        {
+            var mod_dict = new Dictionary<string, IList<Modification>>();
+            if (mods == null) return mod_dict;
+            foreach (var nice in mods)
+            {
+                IList<Modification> val;
+                if (mod_dict.TryGetValue(nice.id, out val))
+                    val.Add(nice);
+                else
+                    mod_dict.Add(nice.id, new List<Modification> { nice });
+            }
+            return mod_dict;
+        }
+
+        #endregion Private Methods
     }
 }
