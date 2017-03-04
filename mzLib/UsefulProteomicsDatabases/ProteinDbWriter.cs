@@ -5,7 +5,6 @@ using System.IO;
 using System.Xml;
 using System.Linq;
 using System.Globalization;
-using System.Reflection;
 
 namespace UsefulProteomicsDatabases
 {

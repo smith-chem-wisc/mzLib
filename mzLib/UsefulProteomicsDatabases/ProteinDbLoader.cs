@@ -23,7 +23,6 @@ namespace UsefulProteomicsDatabases
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
             StringBuilder storedKnownModificationsBuilder = new StringBuilder();
-            List<Modification> storedKnownModifications = new List<Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
                 string accession = null;
@@ -31,9 +30,8 @@ namespace UsefulProteomicsDatabases
                 string full_name = null;
 
                 Regex substituteWhitespace = new Regex(@"\s+");
-                Regex startingWhitespace = new Regex(@"/^\s+/gm"); // @"/^\s*(?= )/gm" gives starting whitespace, minus one space
-                Regex splitLine = new Regex(@"/\s+/g");
-
+                Regex startingWhitespace = new Regex(@"/^\s+/gm"); 
+                
                 var oneBasedBeginPositions = new List<int?>();
                 var oneBasedEndPositions = new List<int?>();
                 var peptideTypes = new List<string>();
