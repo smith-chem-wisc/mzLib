@@ -44,6 +44,16 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement();
                     writer.WriteEndElement();
 
+                    writer.WriteStartElement("gene");
+                    foreach (var gene_name in protein.GeneNames)
+                    {
+                        writer.WriteStartElement("name");
+                        writer.WriteAttributeString("type", gene_name.Item1);
+                        writer.WriteString(gene_name.Item2);
+                        writer.WriteEndElement();
+                    }
+                    writer.WriteEndElement();
+
                     foreach (var dbRef in protein.DatabaseReferences)
                     {
                         writer.WriteStartElement("dbReference");

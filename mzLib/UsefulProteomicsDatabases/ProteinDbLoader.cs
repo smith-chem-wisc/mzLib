@@ -59,6 +59,8 @@ namespace UsefulProteomicsDatabases
                 int oneBasedfeature_position = -1;
                 int? oneBasedbeginPosition = null;
                 int? oneBasedendPosition = null;
+                List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
+                bool reading_gene = false;
                 List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
 
                 using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
@@ -84,6 +86,11 @@ namespace UsefulProteomicsDatabases
                                         {
                                             name = xml.ReadElementString();
                                         }
+                                        if (reading_gene) gene_names.Add(new Tuple<string, string>(xml.GetAttribute("type"), xml.ReadElementString()));
+                                        break;
+
+                                    case "gene":
+                                        reading_gene = true;
                                         break;
 
                                     case "fullName":
@@ -181,10 +188,14 @@ namespace UsefulProteomicsDatabases
                                         dbReference_id = null;
                                         break;
 
+                                    case "gene":
+                                        reading_gene = false;
+                                        break;
+
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            var protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences);
+                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences);
 
                                             result.Add(protein);
 
@@ -228,7 +239,7 @@ namespace UsefulProteomicsDatabases
                                                     decoyendPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedBeginPositions[i] + 1;
                                                     decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
                                                 }
-                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null);
+                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null);
 
                                                 result.Add(decoy_protein);
                                             }
@@ -249,6 +260,8 @@ namespace UsefulProteomicsDatabases
                                         oneBasedEndPositions = new List<int?>();
                                         peptideTypes = new List<string>();
                                         databaseReferences = new List<DatabaseReference>();
+                                        gene_names = new List<Tuple<string, string>>();
+                                        reading_gene = false;
                                         break;
                                 }
                                 break;
@@ -263,15 +276,20 @@ namespace UsefulProteomicsDatabases
 
         public static Regex uniprot_fullName_expression = new Regex(@"([a-zA-Z0-9_ ]+)(OS=)\w");
 
+        public static Regex uniprot_gene_expression = new Regex(@"(?<=GN=)[A-Z0-9]+");
+
         public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_]+)\w");
 
         public static Regex ensembl_fullName_expression = new Regex(@"(pep:.*)");
 
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression)
+        public static Regex ensembl_gene_expression = new Regex(@"(?<=gene:)[A-Z0-9]+");
+
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
             string accession = null;
             string name = null;
             string full_name = null;
+            List<Tuple<string, string>> gene_name = new List<Tuple<string, string>>();
 
             Regex substituteWhitespace = new Regex(@"\s+");
 
@@ -298,9 +316,10 @@ namespace UsefulProteomicsDatabases
                     if (line.StartsWith(">"))
                     {
                         accession = accession_expression.Match(line).Value;
-                        if (accession == null || accession == "") accession = line.Substring(1);
+                        if (accession == null || accession == "") accession = line.Substring(1).TrimEnd();
                         full_name = full_name_expression.Match(line).Value;
                         name = name_expression.Match(line).Value;
+                        gene_name.Add(new Tuple<string, string>("primary", gene_expression.Match(line).Value));
                         sb = new StringBuilder();
                     }
 
@@ -312,7 +331,7 @@ namespace UsefulProteomicsDatabases
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                     {
                         string sequence = substituteWhitespace.Replace(sb.ToString(), "");
-                        Protein protein = new Protein(sequence, accession, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences);
+                        Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences);
                         result.Add(protein);
 
                         if (onTheFlyDecoys)
@@ -321,7 +340,7 @@ namespace UsefulProteomicsDatabases
                             int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                             Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                             var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
                             result.Add(decoy_protein);
                         }
                     }
