@@ -90,7 +90,6 @@ namespace UsefulProteomicsDatabases
                                         break;
 
                                     case "gene":
-                                        gene_names.Clear();
                                         reading_gene = true;
                                         break;
 
@@ -261,6 +260,8 @@ namespace UsefulProteomicsDatabases
                                         oneBasedEndPositions = new List<int?>();
                                         peptideTypes = new List<string>();
                                         databaseReferences = new List<DatabaseReference>();
+                                        gene_names = new List<Tuple<string, string>>();
+                                        reading_gene = false;
                                         break;
                                 }
                                 break;
@@ -315,10 +316,10 @@ namespace UsefulProteomicsDatabases
                     if (line.StartsWith(">"))
                     {
                         accession = accession_expression.Match(line).Value;
-                        if (accession == null || accession == "") accession = line.Substring(1);
+                        if (accession == null || accession == "") accession = line.Substring(1).TrimEnd();
                         full_name = full_name_expression.Match(line).Value;
                         name = name_expression.Match(line).Value;
-                        gene_name .Add(new Tuple<string, string>("primary", gene_expression.Match(line).Value));
+                        gene_name.Add(new Tuple<string, string>("primary", gene_expression.Match(line).Value));
                         sb = new StringBuilder();
                     }
 

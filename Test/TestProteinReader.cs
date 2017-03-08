@@ -51,6 +51,9 @@ namespace Test
             Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First().Id);
             Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First().Properties.First().Item1);
             Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual(42, ok[0].GeneNames.Count());
+            Assert.AreEqual(14, ok[0].GeneNames.Where(t => t.Item1 == "primary").Count());
+            Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
             Assert.AreEqual(23, ok[0].DatabaseReferences.Count());
         }
 
@@ -99,6 +102,9 @@ namespace Test
             Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First().Id);
             Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First().Properties.First().Item1);
             Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual(42, ok[0].GeneNames.Count());
+            Assert.AreEqual(14, ok[0].GeneNames.Where(t => t.Item1 == "primary").Count());
+            Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
             Assert.AreEqual(23, ok[0].DatabaseReferences.Count());
         }
 
