@@ -165,7 +165,7 @@ namespace Test
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
             var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "z.txt"), null).ToList();
             Assert.AreEqual(1, sampleModList.OfType<ModificationWithMass>().Count());
-            Protein protein = new Protein("MCSSSSSSSSSS", "accession", new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, null, null, "name", "full_name", false, false, new List<DatabaseReference>() );
+            Protein protein = new Protein("MCSSSSSSSSSS", "accession", new List<Tuple<string,string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, null, null, "name", "full_name", false, false, new List<DatabaseReference>() );
             Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>(), new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"));
             Dictionary<string, Modification> um;

@@ -72,6 +72,7 @@ namespace UsefulProteomicsDatabases
                                         string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
                                         storedKnownModificationsBuilder.AppendLine(modification);
                                         break;
+
                                     case "entry":
                                         if (storedKnownModificationsBuilder.Length > 0)
                                         {
