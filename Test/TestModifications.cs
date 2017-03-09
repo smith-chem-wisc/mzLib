@@ -159,7 +159,7 @@ namespace Test
         {
             Modification m1 = new Modification("23");
             Modification m2 = new Modification("23");
-            HashSet<Modification> mods = new HashSet<Modification>( new Modification[] { m1, m2 }, new ModificationComparer());
+            HashSet<Modification> mods = new HashSet<Modification>( new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
 
@@ -168,7 +168,7 @@ namespace Test
         {
             Modification m1 = new Modification(null);
             Modification m2 = new Modification(null);
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 }, new ModificationComparer());
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
 
@@ -181,8 +181,8 @@ namespace Test
             ModificationWithLocation m2 = new ModificationWithLocation(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new Dictionary<string, IList<string>>(), "modificationType");
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
             m2.linksToOtherDbs.Add("key", new List<string> { "value" });
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 }, new ModificationComparer());
-            Assert.True(new ModificationComparer().Equals(m1, m2));
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.True(m1.Equals(m2));
             Assert.AreEqual(1, mods.Count);
         }
 
@@ -195,9 +195,9 @@ namespace Test
             ModificationWithMass m2 = new ModificationWithMass(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
             m2.linksToOtherDbs.Add("key", new List<string> { "value" });
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 }, new ModificationComparer());
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
-            Assert.True(new ModificationComparer().Equals(m1, m2));
+            Assert.True(m1.Equals(m2));
         }
 
         [Test]
@@ -209,9 +209,9 @@ namespace Test
             ModificationWithMassAndCf m2 = new ModificationWithMassAndCf(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
             m2.linksToOtherDbs.Add("key", new List<string> { "value" });
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 }, new ModificationComparer());
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
-            Assert.True(new ModificationComparer().Equals(m1, m2));
+            Assert.True(m1.Equals(m2));
         }
 
         #endregion Public Methods

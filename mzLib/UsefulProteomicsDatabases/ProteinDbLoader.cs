@@ -14,13 +14,35 @@ namespace UsefulProteomicsDatabases
     {
         #region Private Fields
 
+        /// <summary>
+        /// Stores the last database file path.
+        /// </summary>
         private static string last_database_location = null;
+
+        /// <summary>
+        /// Stores the modification list read during LoadProteinXML
+        /// </summary>
         private static List<Modification> protein_xml_modlist = new List<Modification>();
 
         #endregion Private Fields
 
         #region Public Methods
 
+        /// <summary>
+        /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format). 
+        /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
+        /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
+        /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="proteinDbLocation"></param>
+        /// <param name="onTheFlyDecoys"></param>
+        /// <param name="allKnownModifications"></param>
+        /// <param name="IsContaminant"></param>
+        /// <param name="dbRefTypesToKeep"></param>
+        /// <param name="modTypesToExclude"></param>
+        /// <param name="unknownModifications"></param>
+        /// <returns></returns>
         public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> dbRefTypesToKeep, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
             where T : Modification
         {
@@ -29,7 +51,7 @@ namespace UsefulProteomicsDatabases
 
             Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
-                mod_dict = get_modification_dict(new HashSet<Modification>(prespecified.Concat(allKnownModifications), new ModificationComparer()));
+                mod_dict = get_modification_dict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
@@ -283,9 +305,7 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Reads the modification entries at the beginning of the XML file (.xml or .xml.gz), and returns the modifications when the first protein entry is reached.
-        /// If this protein XML with modification specifications has already been read, this method returns the modification list generated during that read.
-        /// If the file doesn't exist (e.g. null file path), this method returns the last modification list generated, or an empty list.
+        /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
         /// </summary>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
@@ -319,7 +339,7 @@ namespace UsefulProteomicsDatabases
 
                                     case "entry":
                                         if (storedKnownModificationsBuilder.Length <= 0) return result;
-                                        result = PtmListLoader.ReadMods(null, storedKnownModificationsBuilder.ToString()).ToList<Modification>();
+                                        result = PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList<Modification>();
                                         break;
                                 }
                                 break;

@@ -29,14 +29,15 @@ namespace Proteomics
             return sb.ToString();
         }
 
-        public virtual bool Equals(Modification m)
+        public override bool Equals(object o)
         {
-            return this.id == m.id;
+            Modification m = o as Modification;
+            return o == null ? false : this.id == m.id;
         }
 
-        public virtual int GetCustomHashCode()
+        public override int GetHashCode()
         {
-            return sum_string_chars(this.id);
+            return this.id == null ? 0 : this.id.GetHashCode();
         }
 
         #endregion Public Methods

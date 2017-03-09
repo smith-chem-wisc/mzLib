@@ -43,11 +43,12 @@ namespace Proteomics
             return sb.ToString();
         }
 
-        public override bool Equals(Modification m)
+        public override bool Equals(object o)
         {
-            return base.Equals(m)
-                && m as ModificationWithMass != null
-
+            ModificationWithMass m = o as ModificationWithMass;
+            return m == null ? false :
+                
+                base.Equals(m)
                 && (this.massesObserved == null && ((ModificationWithMass)m).massesObserved == null
                 || this.massesObserved != null && ((ModificationWithMass)m).massesObserved != null
                 && this.massesObserved.All(x => ((ModificationWithMass)m).massesObserved.Contains(x))
@@ -62,29 +63,15 @@ namespace Proteomics
                 && this.neutralLoss == ((ModificationWithMass)m).neutralLoss;
         }
 
-        public override int GetCustomHashCode()
+        public override int GetHashCode()
         {
-            int hash = base.GetCustomHashCode()
-                + sum_string_chars(null) // pointless, but satisfies test for nullable field, since there are none here, at the moment
-                + sum_string_chars(monoisotopicMass.ToString())
-                + sum_string_chars(monoisotopicMass.ToString());
-            if (massesObserved != null) hash += massesObserved.Sum(x => sum_string_chars(x.ToString()));
-            if (diagnosticIons != null) hash += diagnosticIons.Sum(x => sum_string_chars(x.ToString()));
+            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode() ^ monoisotopicMass.GetHashCode();
+            if (massesObserved != null) foreach (double x in massesObserved) hash = hash ^ x.GetHashCode();
+            if (diagnosticIons != null) foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
             return hash;
         }
 
         #endregion Public Methods
-
-        #region Private Methods
-
-        private int sum_string_chars(string s)
-        {
-            if (s == null) return 0;
-            int sum = int.MinValue + s.ToCharArray().Sum(c => 37 * c);
-            return sum != 0 ? sum : sum + 1;
-        }
-
-        #endregion Private Methods
 
     }
 }

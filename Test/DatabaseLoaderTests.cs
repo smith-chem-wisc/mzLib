@@ -112,21 +112,21 @@ namespace Test
                 }
             }
 
-            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), null).ToList();
+            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
         }
 
         [Test]
         public void SampleModFileLoading()
         {
-            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt"), null).ToList();
+            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt")).ToList();
             Console.WriteLine(sampleModList.First().ToString());
         }
 
         [Test]
         public void SampleModFileLoadingFail1()
         {
-            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail1.txt"), null).ToList(),
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail1.txt")).ToList(),
                                             Throws.TypeOf<PtmListLoaderException>()
                                             .With.Property("Message")
                                             .EqualTo("Could not get motif from NxS"));
@@ -135,7 +135,7 @@ namespace Test
         [Test]
         public void SampleModFileLoadingFail2()
         {
-            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail2.txt"), null).ToList(),
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail2.txt")).ToList(),
                                             Throws.TypeOf<PtmListLoaderException>()
                                             .With.Property("Message")
                                             .EqualTo("Could not get modification site from Anyplace."));
@@ -144,7 +144,7 @@ namespace Test
         [Test]
         public void SampleModFileLoadingFail3()
         {
-            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail3.txt"), null).ToList(),
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail3.txt")).ToList(),
                                             Throws.TypeOf<FormatException>()
                                             .With.Property("Message")
                                             .EqualTo("Input string for chemical formula was in an incorrect format: $%#$%"));
@@ -153,7 +153,7 @@ namespace Test
         [Test]
         public void SampleModFileLoadingFail4()
         {
-            Assert.That(() => PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "m.txt"), null).ToList(),
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "m.txt")).ToList(),
                                             Throws.TypeOf<PtmListLoaderException>()
                                             .With.Property("Message")
                                             .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
@@ -163,7 +163,7 @@ namespace Test
         public void modification_read_write_into_proteinDb()
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
-            var sampleModList = PtmListLoader.ReadMods(Path.Combine(TestContext.CurrentContext.TestDirectory, "z.txt"), null).ToList();
+            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "z.txt")).ToList();
             Assert.AreEqual(1, sampleModList.OfType<ModificationWithMass>().Count());
             Protein protein = new Protein("MCSSSSSSSSSS", "accession", new List<Tuple<string,string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, null, null, "name", "full_name", false, false, new List<DatabaseReference>() );
             Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
