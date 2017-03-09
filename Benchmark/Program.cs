@@ -135,9 +135,9 @@ namespace Benchmark
             Dictionary<string, Modification> um;
 
             stopWatch.Restart();
-            var a = ProteinDbLoader.LoadProteinXML(@"yeast_160126.xml.gz", true, ya, false, new List<string> { "GO", "EnsemblFungi"}, out um);
+            var a = ProteinDbLoader.LoadProteinXML(@"yeast_160126.xml.gz", true, ya, false, new List<string> { "GO", "EnsemblFungi"}, null, out um);
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<System.Tuple<int, ModificationWithMass>>>(), a.Where(p => !p.IsDecoy).ToList(), "rewrite_yeast.xml");
-            var b = ProteinDbLoader.LoadProteinXML(@"rewrite_yeast.xml", true, ya, false, new List<string> { "GO", "EnsemblFungi" }, out um);
+            var b = ProteinDbLoader.LoadProteinXML(@"rewrite_yeast.xml", true, ya, false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
             stopWatch.Stop();
 
             file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);

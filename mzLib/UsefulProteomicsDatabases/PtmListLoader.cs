@@ -75,6 +75,7 @@ namespace UsefulProteomicsDatabases
                 IEnumerable<double> neutralLosses = null;
                 IEnumerable<double> massesObserved = null;
                 IEnumerable<double> diagnosticIons = null;
+                string modificationType = null;
 
                 while (uniprot_mods.Peek() != -1)
                 {
@@ -141,6 +142,10 @@ namespace UsefulProteomicsDatabases
                                     diagnosticIons = null;
                                 break;
 
+                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
+                                modificationType = line.Substring(5).TrimEnd('.');
+                                break;
+
                             case "//":
                                 // Not CROSSLNK, LIPID and MOD_RES is fine. 
                                 if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
@@ -159,11 +164,12 @@ namespace UsefulProteomicsDatabases
                                             ModificationMotif motif;
                                             if (ModificationMotif.TryGetMotif(theMotif, out motif))
                                             {
+                                                modificationType = modificationType != null && modificationType != "" ? modificationType : Path.GetFileNameWithoutExtension(ptmListLocation);
                                                 // Add the modification!
                                                 if (!uniprotMM.HasValue)
                                                 {
                                                     // Return modification
-                                                    yield return new ModificationWithLocation(uniprotID, uniprotAC, motif, modSites, uniprotDR, Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                    yield return new ModificationWithLocation(uniprotID, uniprotAC, motif, modSites, uniprotDR, modificationType);
                                                 }
                                                 else
                                                 {
@@ -178,7 +184,7 @@ namespace UsefulProteomicsDatabases
                                                                 neutralLoss,
                                                                 massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
                                                                 diagnosticIons,
-                                                                Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                                modificationType);
                                                         }
                                                         else
                                                         {
@@ -186,8 +192,8 @@ namespace UsefulProteomicsDatabases
                                                             yield return new ModificationWithMassAndCf(uniprotID, uniprotAC, motif, modSites, uniprotCF, uniprotMM.Value, uniprotDR,
                                                                 neutralLoss,
                                                                 massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
-                                                                diagnosticIons,
-                                                                Path.GetFileNameWithoutExtension(ptmListLocation));
+                                                                diagnosticIons, 
+                                                                modificationType);
                                                         }
                                                     }
                                                 }
@@ -213,6 +219,7 @@ namespace UsefulProteomicsDatabases
                                 neutralLosses = null;
                                 massesObserved = null;
                                 diagnosticIons = null;
+                                modificationType = null;
 
                                 break;
                         }

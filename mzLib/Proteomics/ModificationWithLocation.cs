@@ -15,7 +15,7 @@ namespace Proteomics
         public readonly IDictionary<string, IList<string>> linksToOtherDbs;
         public readonly ModificationSites position;
         public readonly ModificationMotif motif;
-        public readonly string database;
+        public readonly string modificationType;
 
         #endregion Public Fields
 
@@ -32,13 +32,13 @@ namespace Proteomics
             modificationTypeCodes.Add("Protein core.", ModificationSites.Any);
         }
 
-        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites position, IDictionary<string, IList<string>> linksToOtherDbs, string database) : base(id)
+        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites position, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id)
         {
             this.accession = accession;
             this.motif = motif;
             this.position = position;
             this.linksToOtherDbs = linksToOtherDbs;
-            this.database = database;
+            this.modificationType = modificationType;
         }
 
         #endregion Public Constructors
@@ -55,7 +55,7 @@ namespace Proteomics
                 foreach (var nice in linksToOtherDbs)
                     foreach (var db in nice.Value)
                         sb.AppendLine("DR   " + nice.Key + "; " + db);
-            sb.Append("DB   " + database);
+            sb.Append("MT   " + modificationType);
             return sb.ToString();
         }
 

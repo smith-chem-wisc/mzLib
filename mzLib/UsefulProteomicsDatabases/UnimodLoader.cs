@@ -69,10 +69,10 @@ namespace UsefulProteomicsDatabases
                     ModificationMotif.TryGetMotif(tg, out motif);
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, 0, new List<double> { mm }, null, Path.GetFileNameWithoutExtension(unimodLocation));
+                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, 0, new List<double> { mm }, null, "unimod");
                     else
                         foreach (var nl in nice.NeutralLoss)
-                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nl.mono_mass, new List<double> { mm }, null, Path.GetFileNameWithoutExtension(unimodLocation));
+                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nl.mono_mass, new List<double> { mm }, null, "unimod");
                 }
             }
         }

@@ -18,8 +18,8 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, ModificationMotif uniprotTG, ModificationSites uniprotPP, double uniprotMM, IDictionary<string, IList<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string database)
-            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR, database)
+        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, ModificationMotif uniprotTG, ModificationSites uniprotPP, double uniprotMM, IDictionary<string, IList<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
+            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR, modificationType)
         {
             this.monoisotopicMass = uniprotMM;
             this.neutralLoss = neutralLoss;
