@@ -175,6 +175,8 @@ namespace Test
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
             Assert.AreEqual("Palmitoylation of C", new_proteins[0].OneBasedPossibleLocalizedModifications[2][0].id);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
+            Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(null).Count); // Check that Modifications were saved
+            Assert.True(ProteinDbLoader.GetPtmListFromProteinXml(null)[0] == new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First());
         }
 
         #endregion Public Methods
