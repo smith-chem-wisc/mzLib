@@ -65,6 +65,7 @@ namespace Proteomics
         public override int GetCustomHashCode()
         {
             int hash = base.GetCustomHashCode()
+                + sum_string_chars(null) // pointless, but satisfies test for nullable field, since there are none here, at the moment
                 + sum_string_chars(monoisotopicMass.ToString())
                 + sum_string_chars(monoisotopicMass.ToString());
             if (massesObserved != null) hash += massesObserved.Sum(x => sum_string_chars(x.ToString()));

@@ -18,6 +18,7 @@
 
 using NUnit.Framework;
 using Proteomics;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -158,8 +159,8 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine",null, null,ModificationSites.S ,null,  null),
-                new ModificationWithLocation("N-acetylserine",null, null,ModificationSites.S ,null,  null)
+                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "one"),
+                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
             };
 
             Dictionary<string, Modification> un;
@@ -173,7 +174,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine",null, null,ModificationSites.S ,null, "exclude_me")
+                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "exclude_me")
             };
 
             Dictionary<string, Modification> un;

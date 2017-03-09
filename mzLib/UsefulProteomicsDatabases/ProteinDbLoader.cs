@@ -27,16 +27,7 @@ namespace UsefulProteomicsDatabases
             unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
-                string accession = null;
-                string name = null;
-                string full_name = null;
-
                 Regex substituteWhitespace = new Regex(@"\s+");
-                
-                var oneBasedBeginPositions = new List<int?>();
-                var oneBasedEndPositions = new List<int?>();
-                var peptideTypes = new List<string>();
-                var oneBasedModifications = new Dictionary<int, List<Modification>>();
 
                 Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
@@ -44,6 +35,9 @@ namespace UsefulProteomicsDatabases
 
                 string[] nodes = new string[6];
 
+                string accession = null;
+                string name = null;
+                string full_name = null;
                 string sequence = null;
                 string feature_type = null;
                 string feature_description = null;
@@ -54,6 +48,10 @@ namespace UsefulProteomicsDatabases
                 int oneBasedfeature_position = -1;
                 int? oneBasedbeginPosition = null;
                 int? oneBasedendPosition = null;
+                var oneBasedBeginPositions = new List<int?>();
+                var oneBasedEndPositions = new List<int?>();
+                var peptideTypes = new List<string>();
+                var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
                 bool reading_gene = false;
                 List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
