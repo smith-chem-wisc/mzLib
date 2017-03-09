@@ -59,7 +59,56 @@ namespace Proteomics
             return sb.ToString();
         }
 
+        public override bool Equals(Modification m)
+        {
+            return base.Equals(m)
+                && m as ModificationWithLocation != null
+                
+                && (this.accession == null && ((ModificationWithLocation)m).accession == null
+                || this.accession != null && ((ModificationWithLocation)m).accession != null
+                && this.accession.Item1 == ((ModificationWithLocation)m).accession.Item1
+                && this.accession.Item2 == ((ModificationWithLocation)m).accession.Item2)
+
+                && (this.motif == null && ((ModificationWithLocation)m).motif == null
+                || this.motif != null && ((ModificationWithLocation)m).motif != null
+                && this.motif.Motif == ((ModificationWithLocation)m).motif.Motif)
+
+                && (this.linksToOtherDbs == null && ((ModificationWithLocation)m).linksToOtherDbs == null
+                || this.linksToOtherDbs != null && ((ModificationWithLocation)m).linksToOtherDbs != null
+                && this.linksToOtherDbs.Keys.All(a => ((ModificationWithLocation)m).linksToOtherDbs.Keys.Contains(a))
+                && this.linksToOtherDbs.Values.SelectMany(x => x).All(a => ((ModificationWithLocation)m).linksToOtherDbs.Values.SelectMany(x => x).Contains(a))
+                && ((ModificationWithLocation)m).linksToOtherDbs.Keys.All(a => this.linksToOtherDbs.Keys.Contains(a))
+                && ((ModificationWithLocation)m).linksToOtherDbs.Values.SelectMany(x => x).All(a => this.linksToOtherDbs.Values.SelectMany(x => x).Contains(a)))
+
+                && this.modificationType == ((ModificationWithLocation)m).modificationType
+                && this.position == ((ModificationWithLocation)m).position;
+        }
+
+        public override int GetCustomHashCode()
+        {
+            int hash = base.GetCustomHashCode() + sum_string_chars(position.ToString()) + sum_string_chars(modificationType);
+            if (accession != null) hash += sum_string_chars(accession.Item1) + sum_string_chars(accession.Item2);
+            if (motif != null) hash += sum_string_chars(motif.Motif);
+            if (linksToOtherDbs != null)
+            {
+                foreach (string a in linksToOtherDbs.Keys) hash += sum_string_chars(a);
+                foreach (string b in linksToOtherDbs.Values.SelectMany(c => c)) hash += sum_string_chars(b);
+            }
+            return hash;
+        }
+
         #endregion Public Methods
+
+        #region Private Methods
+
+        private int sum_string_chars(string s)
+        {
+            if (s == null) return 0;
+            int sum = int.MinValue + s.ToCharArray().Sum(c => 37 * c);
+            return sum != 0 ? sum : sum + 1;
+        }
+
+        #endregion Private Methods
 
     }
 }

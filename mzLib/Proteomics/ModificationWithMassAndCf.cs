@@ -34,6 +34,18 @@ namespace Proteomics
             return sb.ToString();
         }
 
+        public override bool Equals(Modification m)
+        {
+            return base.Equals(m)
+                && m as ModificationWithMassAndCf != null
+                && this.chemicalFormula.Equals(((ModificationWithMassAndCf)m).chemicalFormula);
+        }
+
+        public override int GetCustomHashCode()
+        {
+            return base.GetCustomHashCode() + chemicalFormula.GetHashCode();
+        }
+
         #endregion Public Methods
 
     }

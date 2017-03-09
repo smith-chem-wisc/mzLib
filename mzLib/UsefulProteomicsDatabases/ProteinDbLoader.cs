@@ -19,7 +19,9 @@ namespace UsefulProteomicsDatabases
             where T : Modification
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
-            var mod_dict = prespecified.Count > 0 ? get_modification_dict(prespecified) : get_modification_dict(allKnownModifications);
+            Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
+            if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
+                mod_dict = get_modification_dict(new HashSet<Modification>(prespecified.Concat(allKnownModifications), new ModificationComparer()));
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();

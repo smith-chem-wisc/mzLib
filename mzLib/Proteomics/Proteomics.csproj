@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="DatabaseReference.cs" />
     <Compile Include="Modification.cs" />
+    <Compile Include="ModificationComparer.cs" />
     <Compile Include="ModificationWithLocation.cs" />
     <Compile Include="ModificationMotif.cs" />
     <Compile Include="ModificationWithMass.cs" />
