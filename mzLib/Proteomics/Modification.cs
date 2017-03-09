@@ -41,16 +41,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
-        #region Private Methods
-
-        private int sum_string_chars(string s)
-        {
-            if (s == null) return 0;
-            int sum = int.MinValue + s.ToCharArray().Sum(c => 37 * c);
-            return sum != 0 ? sum : sum + 1;
-        }
-
-        #endregion Private Methods
     }
 }

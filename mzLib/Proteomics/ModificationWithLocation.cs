@@ -65,24 +65,22 @@ namespace Proteomics
             return m == null ? false :
                 
                 base.Equals(m)
-                && (this.accession == null && ((ModificationWithLocation)m).accession == null
-                || this.accession != null && ((ModificationWithLocation)m).accession != null
-                && this.accession.Item1 == ((ModificationWithLocation)m).accession.Item1
-                && this.accession.Item2 == ((ModificationWithLocation)m).accession.Item2)
+                && (this.accession == null && m.accession == null
+                || this.accession != null && m.accession != null
+                && this.accession.Item1 == m.accession.Item1
+                && this.accession.Item2 == m.accession.Item2)
 
-                && (this.motif == null && ((ModificationWithLocation)m).motif == null
-                || this.motif != null && ((ModificationWithLocation)m).motif != null
-                && this.motif.Motif == ((ModificationWithLocation)m).motif.Motif)
+                && (this.motif == null && m.motif == null
+                || this.motif != null && m.motif != null
+                && this.motif.Motif == m.motif.Motif)
 
-                && (this.linksToOtherDbs == null && ((ModificationWithLocation)m).linksToOtherDbs == null
-                || this.linksToOtherDbs != null && ((ModificationWithLocation)m).linksToOtherDbs != null
-                && this.linksToOtherDbs.Keys.All(a => ((ModificationWithLocation)m).linksToOtherDbs.Keys.Contains(a))
-                && this.linksToOtherDbs.Values.SelectMany(x => x).All(a => ((ModificationWithLocation)m).linksToOtherDbs.Values.SelectMany(x => x).Contains(a))
-                && ((ModificationWithLocation)m).linksToOtherDbs.Keys.All(a => this.linksToOtherDbs.Keys.Contains(a))
-                && ((ModificationWithLocation)m).linksToOtherDbs.Values.SelectMany(x => x).All(a => this.linksToOtherDbs.Values.SelectMany(x => x).Contains(a)))
+                && (this.linksToOtherDbs == null && m.linksToOtherDbs == null
+                || this.linksToOtherDbs != null && m.linksToOtherDbs != null
+                && this.linksToOtherDbs.Keys.OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Keys.OrderBy(x => x))
+                && this.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x)))
 
-                && this.modificationType == ((ModificationWithLocation)m).modificationType
-                && this.position == ((ModificationWithLocation)m).position;
+                && this.modificationType == m.modificationType
+                && this.position == m.position;
         }
 
         public override int GetHashCode()

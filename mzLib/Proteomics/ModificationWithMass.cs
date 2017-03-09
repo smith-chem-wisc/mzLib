@@ -49,23 +49,21 @@ namespace Proteomics
             return m == null ? false :
                 
                 base.Equals(m)
-                && (this.massesObserved == null && ((ModificationWithMass)m).massesObserved == null
-                || this.massesObserved != null && ((ModificationWithMass)m).massesObserved != null
-                && this.massesObserved.All(x => ((ModificationWithMass)m).massesObserved.Contains(x))
-                && ((ModificationWithMass)m).massesObserved.All(x => this.massesObserved.Contains(x)))
+                && (this.massesObserved == null && m.massesObserved == null
+                || this.massesObserved != null && m.massesObserved != null
+                && this.massesObserved.OrderBy(x => x).SequenceEqual(m.massesObserved.OrderBy(x => x)))
 
-                && (this.diagnosticIons == null && ((ModificationWithMass)m).diagnosticIons == null
-                || this.diagnosticIons != null && ((ModificationWithMass)m).diagnosticIons != null
-                && this.diagnosticIons.All(x => ((ModificationWithMass)m).diagnosticIons.Contains(x))
-                && ((ModificationWithMass)m).diagnosticIons.All(x => this.diagnosticIons.Contains(x)))
+                && (this.diagnosticIons == null && m.diagnosticIons == null
+                || this.diagnosticIons != null && m.diagnosticIons != null
+                && this.diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
 
-                && this.monoisotopicMass == ((ModificationWithMass)m).monoisotopicMass
-                && this.neutralLoss == ((ModificationWithMass)m).neutralLoss;
+                && this.monoisotopicMass == m.monoisotopicMass
+                && this.neutralLoss == m.neutralLoss;
         }
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode() ^ monoisotopicMass.GetHashCode();
+            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode() ^ neutralLoss.GetHashCode();
             if (massesObserved != null) foreach (double x in massesObserved) hash = hash ^ x.GetHashCode();
             if (diagnosticIons != null) foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
             return hash;
