@@ -14,6 +14,7 @@ namespace UsefulProteomicsDatabases
     {
         #region Private Fields
 
+        private static string last_database_location = null;
         private static List<Modification> protein_xml_modlist = new List<Modification>();
 
         #endregion Private Fields
@@ -283,13 +284,15 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Reads the modification entries at the beginning of the XML file (.xml or .xml.gz), and returns the modifications when the first protein entry is reached.
-        /// If a protein XML with modification specifications has already been read, this method returns the modification list generated during that read.
+        /// If this protein XML with modification specifications has already been read, this method returns the modification list generated during that read.
+        /// If the file doesn't exist (e.g. null file path), this method returns the last modification list generated, or an empty list.
         /// </summary>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
         public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
         {
-            if (protein_xml_modlist.Count > 0) return protein_xml_modlist;
+            if (protein_xml_modlist.Count > 0 && proteinDbLocation == last_database_location || !File.Exists(proteinDbLocation))
+                return protein_xml_modlist;
 
             List<Modification> result = new List<Modification>();
             StringBuilder storedKnownModificationsBuilder = new StringBuilder();
