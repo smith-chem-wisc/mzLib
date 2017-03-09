@@ -173,11 +173,12 @@ namespace Test
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
+            Assert.AreEqual("Type", new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).OfType<ModificationWithMass>().First().modificationType);
             Assert.AreEqual("Palmitoylation of C", new_proteins[0].OneBasedPossibleLocalizedModifications[2][0].id);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
 
             // Check that Modifications were saved after last load
-            Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(null).Count); 
+            Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(null).Count);
             Assert.True(ProteinDbLoader.GetPtmListFromProteinXml(null)[0] == new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First());
 
             //But that we can still read modifications from other protein XMLs that exist

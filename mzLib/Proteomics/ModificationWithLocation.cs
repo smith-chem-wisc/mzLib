@@ -55,7 +55,7 @@ namespace Proteomics
                 foreach (var nice in linksToOtherDbs)
                     foreach (var db in nice.Value)
                         sb.AppendLine("DR   " + nice.Key + "; " + db);
-            sb.Append("MT   " + modificationType);
+            sb.Append("MT   " + modificationType + ".");
             return sb.ToString();
         }
 
