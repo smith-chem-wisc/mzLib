@@ -1,6 +1,4 @@
 ﻿using Chemistry;
-using IO.MzML;
-using IO.Thermo;
 using Proteomics;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -126,22 +124,25 @@ namespace Benchmark
             file.WriteLine("Benchmark BenchmarkTimeGettingElementFromPeriodicTable finished");
         }
 
-        private static void BenchmarkDatabase(StreamWriter file)
+        private static void BenchmarkDatabaseLoadWrite(StreamWriter file)
         {
-            file.WriteLine("Starting benchmark BenchmarkDatabase");
+            file.WriteLine("Starting benchmark BenchmarkDatabaseLoadWrite");
 
             Stopwatch stopWatch = new Stopwatch();
 
-            IEnumerable<Modification> ya = PtmListLoader.ReadMods(@"ptmlist.txt").ToList();
+            Loaders.LoadElements("elements2.dat");
+            IEnumerable<Modification> ya = PtmListLoader.ReadModsFromFile(@"ptmlist.txt").ToList();
             Dictionary<string, Modification> um;
 
             stopWatch.Restart();
-            var a = ProteinDbLoader.LoadProteinXML(@"yeast_160126.xml.gz", true, ya, false, new List<string> { "Ensembl"}, out um);
+            var a = ProteinDbLoader.LoadProteinXML(@"yeast_160126.xml.gz", true, ya, false, new List<string> { "GO", "EnsemblFungi"}, null, out um);
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<System.Tuple<int, ModificationWithMass>>>(), a.Where(p => !p.IsDecoy).ToList(), "rewrite_yeast.xml");
+            var b = ProteinDbLoader.LoadProteinXML(@"rewrite_yeast.xml", true, ya, false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
             stopWatch.Stop();
 
             file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
 
-            file.WriteLine("Benchmark BenchmarkDatabase finished");
+            file.WriteLine("Benchmark BenchmarkDatabaseLoadWrite finished");
         }
 
         private static void Main(string[] args)
@@ -305,7 +306,7 @@ namespace Benchmark
                 BenchmarkIsotopicDistribution(file);
                 Loaders.LoadElements(@"elements.tmp");
                 file.WriteLine("");
-                BenchmarkDatabase(file);
+                BenchmarkDatabaseLoadWrite(file);
             }
         }
 

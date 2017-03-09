@@ -146,7 +146,7 @@ namespace UsefulProteomicsDatabases
         {
             if (!File.Exists(uniprotLocation))
                 UpdateUniprot(uniprotLocation);
-            return PtmListLoader.ReadMods(uniprotLocation);
+            return PtmListLoader.ReadModsFromFile(uniprotLocation);
         }
 
         #endregion Public Methods

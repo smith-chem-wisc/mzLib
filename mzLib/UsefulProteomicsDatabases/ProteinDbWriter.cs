@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Xml;
 using System.Linq;
 using System.Globalization;
@@ -26,6 +25,17 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
+                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(
+                    Mods.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
+                    .SelectMany(kv => kv.Value.Select(v => v.Item2))
+                    .Concat(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))));
+
+                foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
+                {
+                    writer.WriteStartElement("modification");
+                    writer.WriteString(mod.ToString() + Environment.NewLine + "//");
+                    writer.WriteEndElement();
+                }
                 foreach (Protein protein in proteinList)
                 {
                     writer.WriteStartElement("entry");

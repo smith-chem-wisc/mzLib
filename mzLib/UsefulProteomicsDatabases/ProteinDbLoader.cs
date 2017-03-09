@@ -12,36 +12,52 @@ namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
+        #region Private Fields
+
+        /// <summary>
+        /// Stores the last database file path.
+        /// </summary>
+        private static string last_database_location = null;
+
+        /// <summary>
+        /// Stores the modification list read during LoadProteinXML
+        /// </summary>
+        private static List<Modification> protein_xml_modlist = new List<Modification>();
+
+        #endregion Private Fields
 
         #region Public Methods
 
-        public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> dbRefTypesToKeep, out Dictionary<string, Modification> unknownModifications)
+        /// <summary>
+        /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format). 
+        /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
+        /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
+        /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="proteinDbLocation"></param>
+        /// <param name="onTheFlyDecoys"></param>
+        /// <param name="allKnownModifications"></param>
+        /// <param name="IsContaminant"></param>
+        /// <param name="dbRefTypesToKeep"></param>
+        /// <param name="modTypesToExclude"></param>
+        /// <param name="unknownModifications"></param>
+        /// <returns></returns>
+        public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> dbRefTypesToKeep, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
             where T : Modification
         {
-            var mod_dict = new Dictionary<string, IList<Modification>>();
-            foreach (var nice in allKnownModifications)
-            {
-                IList<Modification> val;
-                if (mod_dict.TryGetValue(nice.id, out val))
-                    val.Add(nice);
-                else
-                    mod_dict.Add(nice.id, new List<Modification> { nice });
-            }
+            List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
+            protein_xml_modlist = prespecified;
+
+            Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
+            if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
+                mod_dict = get_modification_dict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
-                string accession = null;
-                string name = null;
-                string full_name = null;
-
                 Regex substituteWhitespace = new Regex(@"\s+");
-
-                var oneBasedBeginPositions = new List<int?>();
-                var oneBasedEndPositions = new List<int?>();
-                var peptideTypes = new List<string>();
-                var oneBasedModifications = new Dictionary<int, List<Modification>>();
 
                 Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
@@ -49,6 +65,9 @@ namespace UsefulProteomicsDatabases
 
                 string[] nodes = new string[6];
 
+                string accession = null;
+                string name = null;
+                string full_name = null;
                 string sequence = null;
                 string feature_type = null;
                 string feature_description = null;
@@ -59,6 +78,10 @@ namespace UsefulProteomicsDatabases
                 int oneBasedfeature_position = -1;
                 int? oneBasedbeginPosition = null;
                 int? oneBasedendPosition = null;
+                var oneBasedBeginPositions = new List<int?>();
+                var oneBasedEndPositions = new List<int?>();
+                var peptideTypes = new List<string>();
+                var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
                 bool reading_gene = false;
                 List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
@@ -143,6 +166,7 @@ namespace UsefulProteomicsDatabases
                                         {
                                             feature_description = feature_description.Split(';')[0];
                                             List<Modification> residue_modifications;
+
                                             // Create new entry for this residue, if needed
                                             if (!oneBasedModifications.TryGetValue(oneBasedfeature_position, out residue_modifications))
                                             {
@@ -151,8 +175,16 @@ namespace UsefulProteomicsDatabases
                                             }
                                             if (mod_dict.ContainsKey(feature_description))
                                             {
-                                                // Known
-                                                residue_modifications.AddRange(mod_dict[feature_description]);
+                                                // Known and not of a type in the exclusion list
+                                                List<Modification> mods = mod_dict[feature_description].Where(m => m as ModificationWithLocation != null && (modTypesToExclude == null || !modTypesToExclude.Contains(((ModificationWithLocation)m).modificationType))).ToList();
+                                                if (mods.Count == 0 && oneBasedModifications[oneBasedfeature_position].Count == 0)
+                                                {
+                                                    oneBasedModifications.Remove(oneBasedfeature_position);
+                                                }
+                                                else
+                                                {
+                                                    oneBasedModifications[oneBasedfeature_position].AddRange(mods);
+                                                }
                                             }
                                             else if (unknownModifications.ContainsKey(feature_description))
                                             {
@@ -272,18 +304,76 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_]+)\w");
+        /// <summary>
+        /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
+        /// </summary>
+        /// <param name="proteinDbLocation"></param>
+        /// <returns></returns>
+        public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
+        {
+            if (protein_xml_modlist.Count > 0 && proteinDbLocation == last_database_location || !File.Exists(proteinDbLocation))
+                return protein_xml_modlist;
 
-        public static Regex uniprot_fullName_expression = new Regex(@"([a-zA-Z0-9_ ]+)(OS=)\w");
+            List<Modification> result = new List<Modification>();
+            StringBuilder storedKnownModificationsBuilder = new StringBuilder();
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            {
+                Regex startingWhitespace = new Regex(@"/^\s+/gm");
+                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
+                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
+                    stream;
 
-        public static Regex uniprot_gene_expression = new Regex(@"(?<=GN=)[A-Z0-9]+");
+                using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
+                {
+                    while (xml.Read())
+                    {
+                        switch (xml.NodeType)
+                        {
+                            case XmlNodeType.Element:
+                                switch (xml.Name)
+                                {
+                                    case "modification":
+                                        string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
+                                        storedKnownModificationsBuilder.AppendLine(modification);
+                                        break;
 
-        public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_]+)\w");
+                                    case "entry":
+                                        if (storedKnownModificationsBuilder.Length <= 0) return result;
+                                        result = PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList<Modification>();
+                                        break;
+                                }
+                                break;
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+
+        public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_]+)");
+
+        public static Regex uniprot_fullName_expression = new Regex(@"\|([^\|]+)\sOS=");
+        
+        public static Regex uniprot_gene_expression = new Regex(@"GN=([^ ]+)");
+
+        public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_]+)");
 
         public static Regex ensembl_fullName_expression = new Regex(@"(pep:.*)");
 
-        public static Regex ensembl_gene_expression = new Regex(@"(?<=gene:)[A-Z0-9]+");
+        public static Regex ensembl_gene_expression = new Regex(@"gene:([^ ]+)");
 
+        /// <summary>
+        /// Load a protein fasta database, using regular expressions to get various aspects of the headers. The first regex capture group is used as each field.
+        /// </summary>
+        /// <param name="proteinDbLocation"></param>
+        /// <param name="onTheFlyDecoys"></param>
+        /// <param name="IsContaminant"></param>
+        /// <param name="accession_expression"></param>
+        /// <param name="full_name_expression"></param>
+        /// <param name="name_expression"></param>
+        /// <param name="gene_expression"></param>
+        /// <returns></returns>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
             string accession = null;
@@ -315,11 +405,19 @@ namespace UsefulProteomicsDatabases
 
                     if (line.StartsWith(">"))
                     {
-                        accession = accession_expression.Match(line).Value;
-                        if (accession == null || accession == "") accession = line.Substring(1).TrimEnd();
-                        full_name = full_name_expression.Match(line).Value;
-                        name = name_expression.Match(line).Value;
-                        gene_name.Add(new Tuple<string, string>("primary", gene_expression.Match(line).Value));
+                        var accession_match = accession_expression.Match(line);
+                        var full_name_match = full_name_expression.Match(line);
+                        var name_match = name_expression.Match(line);
+                        var gene_name_match = gene_expression.Match(line);
+
+                        if (accession_match.Groups.Count > 1) accession = accession_expression.Match(line).Groups[1].Value;
+                        if (full_name_match.Groups.Count > 1) full_name = full_name_expression.Match(line).Groups[1].Value;
+                        if (name_match.Groups.Count > 1) name = name_expression.Match(line).Groups[1].Value;
+                        if (gene_name_match.Groups.Count > 1) gene_name.Add(new Tuple<string, string>("primary", gene_expression.Match(line).Groups[1].Value));
+
+                        if (accession == null || accession == "")
+                            accession = line.Substring(1).TrimEnd();
+                        
                         sb = new StringBuilder();
                     }
 
@@ -343,6 +441,11 @@ namespace UsefulProteomicsDatabases
                             Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
                             result.Add(decoy_protein);
                         }
+
+                        accession = null;
+                        name = null;
+                        full_name = null;
+                        gene_name = new List<Tuple<string, string>>();
                     }
 
                     // no input left
@@ -357,5 +460,22 @@ namespace UsefulProteomicsDatabases
 
         #endregion Public Methods
 
+        #region Private Methods
+
+        private static Dictionary<string, IList<Modification>> get_modification_dict(IEnumerable<Modification> mods)
+        {
+            var mod_dict = new Dictionary<string, IList<Modification>>();
+            foreach (Modification nice in mods)
+            {
+                IList<Modification> val;
+                if (mod_dict.TryGetValue(nice.id, out val))
+                    val.Add(nice);
+                else
+                    mod_dict.Add(nice.id, new List<Modification> { nice });
+            }
+            return mod_dict;
+        }
+
+        #endregion Private Methods
     }
 }

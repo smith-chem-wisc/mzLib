@@ -22,6 +22,7 @@ using Proteomics;
 using System;
 using System.Collections;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace Test
 {
@@ -151,6 +152,66 @@ namespace Test
             ModificationCollection b = new ModificationCollection(new OldSchoolModification(1, "Mod1"), new OldSchoolModification(3, "Mod3"));
 
             Assert.IsFalse(a.Equals(b));
+        }
+        
+        [Test]
+        public void test_modification_hash_set()
+        {
+            Modification m1 = new Modification("23");
+            Modification m2 = new Modification("23");
+            HashSet<Modification> mods = new HashSet<Modification>( new Modification[] { m1, m2 });
+            Assert.AreEqual(1, mods.Count);
+        }
+
+        [Test]
+        public void test_modificationNull_hash_set()
+        {
+            Modification m1 = new Modification(null);
+            Modification m2 = new Modification(null);
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.AreEqual(1, mods.Count);
+        }
+
+        [Test]
+        public void test_modification2_hash_set()
+        {
+            ModificationMotif motif;
+            ModificationMotif.TryGetMotif("K", out motif);
+            ModificationWithLocation m1 = new ModificationWithLocation(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new Dictionary<string, IList<string>>(), "modificationType");
+            ModificationWithLocation m2 = new ModificationWithLocation(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new Dictionary<string, IList<string>>(), "modificationType");
+            m1.linksToOtherDbs.Add("key", new List<string> { "value" });
+            m2.linksToOtherDbs.Add("key", new List<string> { "value" });
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.True(m1.Equals(m2));
+            Assert.AreEqual(1, mods.Count);
+        }
+
+        [Test]
+        public void test_modification3_hash_set()
+        {
+            ModificationMotif motif;
+            ModificationMotif.TryGetMotif("K", out motif);
+            ModificationWithMass m1 = new ModificationWithMass(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
+            ModificationWithMass m2 = new ModificationWithMass(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
+            m1.linksToOtherDbs.Add("key", new List<string> { "value" });
+            m2.linksToOtherDbs.Add("key", new List<string> { "value" });
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.AreEqual(1, mods.Count);
+            Assert.True(m1.Equals(m2));
+        }
+
+        [Test]
+        public void test_modification4_hash_set()
+        {
+            ModificationMotif motif;
+            ModificationMotif.TryGetMotif("K", out motif);
+            ModificationWithMassAndCf m1 = new ModificationWithMassAndCf(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
+            ModificationWithMassAndCf m2 = new ModificationWithMassAndCf(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
+            m1.linksToOtherDbs.Add("key", new List<string> { "value" });
+            m2.linksToOtherDbs.Add("key", new List<string> { "value" });
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.AreEqual(1, mods.Count);
+            Assert.True(m1.Equals(m2));
         }
 
         #endregion Public Methods
