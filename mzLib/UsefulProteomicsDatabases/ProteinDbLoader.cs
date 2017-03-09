@@ -136,6 +136,7 @@ namespace UsefulProteomicsDatabases
                                         {
                                             feature_description = feature_description.Split(';')[0];
                                             List<Modification> residue_modifications;
+
                                             // Create new entry for this residue, if needed
                                             if (!oneBasedModifications.TryGetValue(oneBasedfeature_position, out residue_modifications))
                                             {
