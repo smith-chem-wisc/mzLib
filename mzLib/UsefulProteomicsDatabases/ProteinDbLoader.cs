@@ -19,7 +19,7 @@ namespace UsefulProteomicsDatabases
             where T : Modification
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
-            var mod_dict = prespecified.Count > 0 ? get_modification_dict(prespecified, modTypesToExclude) : get_modification_dict(allKnownModifications, modTypesToExclude);
+            var mod_dict = prespecified.Count > 0 ? get_modification_dict(prespecified) : get_modification_dict(allKnownModifications);
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
@@ -144,8 +144,16 @@ namespace UsefulProteomicsDatabases
                                             }
                                             if (mod_dict.ContainsKey(feature_description))
                                             {
-                                                // Known
-                                                residue_modifications.AddRange(mod_dict[feature_description]);
+                                                // Known and not of a type in the exclusion list
+                                                List<Modification> mods = mod_dict[feature_description].Where(m => m as ModificationWithLocation != null && (modTypesToExclude == null || !modTypesToExclude.Contains(((ModificationWithLocation)m).modificationType))).ToList();
+                                                if (mods.Count == 0 && oneBasedModifications[oneBasedfeature_position].Count == 0)
+                                                {
+                                                    oneBasedModifications.Remove(oneBasedfeature_position);
+                                                }
+                                                else
+                                                {
+                                                    oneBasedModifications[oneBasedfeature_position].AddRange(mods);
+                                                }
                                             }
                                             else if (unknownModifications.ContainsKey(feature_description))
                                             {
@@ -296,7 +304,7 @@ namespace UsefulProteomicsDatabases
                                         break;
 
                                     case "entry":
-                                        if (storedKnownModificationsBuilder.Length <= 0) break;
+                                        if (storedKnownModificationsBuilder.Length <= 0) return result;
                                         result = PtmListLoader.ReadMods(null, storedKnownModificationsBuilder.ToString()).ToList<Modification>();
                                         break;
                                 }
@@ -420,42 +428,16 @@ namespace UsefulProteomicsDatabases
 
         #region Private Methods
 
-        /// <summary>
-        /// Generate a dictionary of modifications, with the ID string as the key. By default, keep all modifications, but if modification types to exclude are specified, exclude those types.
-        /// </summary>
-        /// <param name="mods"></param>
-        /// <param name="modTypesToExclude"></param>
-        /// <returns></returns>
-        private static Dictionary<string, IList<Modification>> get_modification_dict(IEnumerable<Modification> mods, IEnumerable<string> modTypesToExclude)
+        private static Dictionary<string, IList<Modification>> get_modification_dict(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
-            if (mods == null) return mod_dict;
-            if (modTypesToExclude == null || modTypesToExclude.Count() == 0)
+            foreach (Modification nice in mods)
             {
-                foreach (Modification nice in mods)
-                {
-                    IList<Modification> val;
-                    if (mod_dict.TryGetValue(nice.id, out val))
-                        val.Add(nice);
-                    else
-                        mod_dict.Add(nice.id, new List<Modification> { nice });
-                }
-            }
-
-            else
-            {
-                IEnumerable<ModificationWithLocation> modsWithLoc = mods.OfType<ModificationWithLocation>();
-                foreach (ModificationWithLocation nice in modsWithLoc)
-                {
-                    if (modTypesToExclude.Contains(nice.modificationType))
-                        continue;
-
-                    IList<Modification> val;
-                    if (mod_dict.TryGetValue(nice.id, out val))
-                        val.Add(nice);
-                    else
-                        mod_dict.Add(nice.id, new List<Modification> { nice });
-                }
+                IList<Modification> val;
+                if (mod_dict.TryGetValue(nice.id, out val))
+                    val.Add(nice);
+                else
+                    mod_dict.Add(nice.id, new List<Modification> { nice });
             }
             return mod_dict;
         }

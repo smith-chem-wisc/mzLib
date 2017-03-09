@@ -153,6 +153,34 @@ namespace Test
             ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
         }
 
+        [Test]
+        public void read_xml_mod_collision()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("N-acetylserine",null, null,ModificationSites.S ,null,  null),
+                new ModificationWithLocation("N-acetylserine",null, null,ModificationSites.S ,null,  null)
+            };
+
+            Dictionary<string, Modification> un;
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out un);
+            Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
+            Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
+        }
+
+        [Test]
+        public void read_xml_exclude_mods()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("N-acetylserine",null, null,ModificationSites.S ,null, "exclude_me")
+            };
+
+            Dictionary<string, Modification> un;
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, new string[] { "exclude_me" }, out un);
+            Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
+        }
+
         #endregion Public Methods
 
     }
