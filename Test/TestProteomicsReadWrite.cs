@@ -141,6 +141,20 @@ namespace Test
             Assert.AreEqual(3, ok2[0].OneBasedPossibleLocalizedModifications.Count);
         }
 
+        [Test]
+        public void AnotherTest()
+        {
+            List<ModificationWithMass> variableModifications = new List<ModificationWithMass>();
+            List<ModificationWithMass> fixedModifications = new List<ModificationWithMass>();
+
+            // Generate data for files
+            Protein ParentProtein = new Protein("MPEPTIDEKANTHE", "accession1", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), new int?[0], new int?[0], new string[0], "name1", "fullname1", false, false, new List<DatabaseReference>());
+
+            Protein proteinWithChain = new Protein("MAACNNNCAA", "accession3", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), new int?[] { 4 }, new int?[] { 8 }, new string[] { "chain" }, "name2", "fullname2", false, false, new List<DatabaseReference>());
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>(), new List<Protein> { ParentProtein, proteinWithChain }, Path.Combine(TestContext.CurrentContext.TestDirectory, @"fdsfsd.xml"));
+        }
+
         #endregion Public Methods
 
     }
