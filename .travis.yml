@@ -2,6 +2,8 @@ language: csharp
 mono: none
 dotnet: 1.0.0-preview2-003121
 solution: mzLib.sln
+dist: trusty
+sudo: required
 notifications:
   email: false
 
