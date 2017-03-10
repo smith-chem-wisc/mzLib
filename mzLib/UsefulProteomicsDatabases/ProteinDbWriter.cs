@@ -1,15 +1,16 @@
 ﻿using Proteomics;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Xml;
-using System.Linq;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
     public class ProteinDbWriter
     {
+
         #region Public Methods
 
         public static void WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
@@ -138,7 +139,7 @@ namespace UsefulProteomicsDatabases
         {
             using (StreamWriter writer = new StreamWriter(outputFileName))
             {
-                foreach(Protein protein in proteinList)
+                foreach (Protein protein in proteinList)
                 {
                     string header = protein.FullName != protein.Accession ?
                         protein.Accession + delimeter + protein.FullName :
@@ -149,6 +150,7 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        #endregion
+        #endregion Public Methods
+
     }
 }

@@ -3,15 +3,32 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
-using System.Linq;
 
 namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
+
+        #region Public Fields
+
+        public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_]+)");
+
+        public static Regex uniprot_fullName_expression = new Regex(@"\|([^\|]+)\sOS=");
+
+        public static Regex uniprot_gene_expression = new Regex(@"GN=([^ ]+)");
+
+        public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_]+)");
+
+        public static Regex ensembl_fullName_expression = new Regex(@"(pep:.*)");
+
+        public static Regex ensembl_gene_expression = new Regex(@"gene:([^ ]+)");
+
+        #endregion Public Fields
+
         #region Private Fields
 
         /// <summary>
@@ -29,7 +46,7 @@ namespace UsefulProteomicsDatabases
         #region Public Methods
 
         /// <summary>
-        /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format). 
+        /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
         /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
         /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
         /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
@@ -350,19 +367,6 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-
-        public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_]+)");
-
-        public static Regex uniprot_fullName_expression = new Regex(@"\|([^\|]+)\sOS=");
-        
-        public static Regex uniprot_gene_expression = new Regex(@"GN=([^ ]+)");
-
-        public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_]+)");
-
-        public static Regex ensembl_fullName_expression = new Regex(@"(pep:.*)");
-
-        public static Regex ensembl_gene_expression = new Regex(@"gene:([^ ]+)");
-
         /// <summary>
         /// Load a protein fasta database, using regular expressions to get various aspects of the headers. The first regex capture group is used as each field.
         /// </summary>
@@ -417,10 +421,9 @@ namespace UsefulProteomicsDatabases
 
                         if (accession == null || accession == "")
                             accession = line.Substring(1).TrimEnd();
-                        
+
                         sb = new StringBuilder();
                     }
-
                     else if (sb != null)
                     {
                         sb.Append(line.Trim());
@@ -477,5 +480,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
+
     }
 }

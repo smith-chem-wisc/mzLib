@@ -21,14 +21,15 @@ using NUnit.Framework;
 using Proteomics;
 using System;
 using System.Collections;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestModifications
     {
+
         #region Public Methods
 
         [Test]
@@ -154,13 +155,13 @@ namespace Test
 
             Assert.IsFalse(a.Equals(b));
         }
-        
+
         [Test]
         public void test_modification_hash_set()
         {
             Modification m1 = new Modification("23");
             Modification m2 = new Modification("23");
-            HashSet<Modification> mods = new HashSet<Modification>( new Modification[] { m1, m2 });
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
 
@@ -216,5 +217,6 @@ namespace Test
         }
 
         #endregion Public Methods
+
     }
 }

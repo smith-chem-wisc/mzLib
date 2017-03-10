@@ -1,17 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Proteomics;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
 namespace Test
 {
     [TestFixture]
-    class TestProteomicsReadWrite
+    internal class TestProteomicsReadWrite
     {
+
+        #region Public Methods
+
         [Test]
         public void test_read_write_read_xml()
         {
@@ -38,7 +41,6 @@ namespace Test
             Assert.AreEqual(3, ok2[0].GeneNames.Count());
             Assert.AreEqual("primary", ok2[0].GeneNames.First().Item1);
             Assert.AreEqual("JJJ1", ok2[0].GeneNames.First().Item2);
-
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
@@ -138,5 +140,8 @@ namespace Test
             Assert.AreEqual(2, ok[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(3, ok2[0].OneBasedPossibleLocalizedModifications.Count);
         }
+
+        #endregion Public Methods
+
     }
 }

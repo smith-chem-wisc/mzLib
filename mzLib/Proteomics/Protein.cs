@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Proteomics
 {
@@ -42,6 +42,7 @@ namespace Proteomics
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
         public IEnumerable<Tuple<string, string>> GeneNames { get; private set; }
+
         public string Accession { get; private set; }
         public string BaseSequence { get; private set; }
         public bool IsDecoy { get; private set; }

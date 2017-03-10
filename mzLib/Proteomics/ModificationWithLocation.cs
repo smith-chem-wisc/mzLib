@@ -63,7 +63,7 @@ namespace Proteomics
         {
             ModificationWithLocation m = o as ModificationWithLocation;
             return m == null ? false :
-                
+
                 base.Equals(m)
                 && (this.accession == null && m.accession == null
                 || this.accession != null && m.accession != null
