@@ -100,6 +100,7 @@ namespace Test
             foreach (var b in a)
                 ok += b.MonoisotopicMass;
             Assert.AreEqual(4, ok);
+
             a.Clear();
             Assert.AreEqual("", a.ToString());
         }
