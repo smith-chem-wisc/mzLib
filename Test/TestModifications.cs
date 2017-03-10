@@ -157,7 +157,7 @@ namespace Test
         }
 
         [Test]
-        public void test_modification_hash_set()
+        public void Test_modification_hash_set()
         {
             Modification m1 = new Modification("23");
             Modification m2 = new Modification("23");
@@ -166,7 +166,7 @@ namespace Test
         }
 
         [Test]
-        public void test_modificationNull_hash_set()
+        public void Test_modificationNull_hash_set()
         {
             Modification m1 = new Modification(null);
             Modification m2 = new Modification(null);
@@ -175,7 +175,7 @@ namespace Test
         }
 
         [Test]
-        public void test_modification2_hash_set()
+        public void Test_modification2_hash_set()
         {
             ModificationMotif motif;
             ModificationMotif.TryGetMotif("K", out motif);
@@ -189,7 +189,7 @@ namespace Test
         }
 
         [Test]
-        public void test_modification3_hash_set()
+        public void Test_modification3_hash_set()
         {
             ModificationMotif motif;
             ModificationMotif.TryGetMotif("K", out motif);
@@ -203,7 +203,7 @@ namespace Test
         }
 
         [Test]
-        public void test_modification4_hash_set()
+        public void Test_modification4_hash_set()
         {
             ModificationMotif motif;
             ModificationMotif.TryGetMotif("K", out motif);
