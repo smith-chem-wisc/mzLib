@@ -6,5 +6,5 @@ dist: trusty
 sudo: required
 notifications:
   email: false
-
-
+script:
+  dotnet /p:Configuration=TestAndReleaseNoThermo mzLib.sln 
