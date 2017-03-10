@@ -1,10 +1,10 @@
 ﻿using System.Text;
+using System.Linq;
 
 namespace Proteomics
 {
     public class Modification
     {
-
         #region Public Fields
 
         public readonly string id;
@@ -29,7 +29,17 @@ namespace Proteomics
             return sb.ToString();
         }
 
-        #endregion Public Methods
+        public override bool Equals(object o)
+        {
+            Modification m = o as Modification;
+            return o == null ? false : this.id == m.id;
+        }
 
+        public override int GetHashCode()
+        {
+            return this.id == null ? 0 : this.id.GetHashCode();
+        }
+
+        #endregion Public Methods
     }
 }

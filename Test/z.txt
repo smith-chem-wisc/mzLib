@@ -1,0 +1,10 @@
+Custom Modifications
+ID   Palmitoylation of C
+FT   MOD_RES
+TG   Cysteine
+PP   Anywhere.
+MM   238.229666
+MT   Type
+OM   181.208202
+CF   H30 C16 O1
+//
