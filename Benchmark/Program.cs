@@ -1,6 +1,4 @@
 ﻿using Chemistry;
-using IO.MzML;
-using IO.Thermo;
 using Proteomics;
 using System.Collections.Generic;
 using System.Diagnostics;
