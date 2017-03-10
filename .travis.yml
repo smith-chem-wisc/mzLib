@@ -7,4 +7,5 @@ sudo: required
 notifications:
   email: false
 script:
-  dotnet build mzLib.sln 
+  dotnet restore 
+  dotnet build
