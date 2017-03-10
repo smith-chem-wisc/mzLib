@@ -23,6 +23,7 @@ namespace Proteomics
 {
     public class Residue : IHasChemicalFormula
     {
+
         #region Public Fields
 
         public static readonly double[] ResidueMonoisotopicMass;
@@ -41,7 +42,7 @@ namespace Proteomics
         static Residue()
         {
             ResiduesDictionary = new Dictionary<string, Residue>
-            { 
+            {
             {"Alanine",        new Residue("Alanine",       'A', "Ala",ChemicalFormula.ParseFormula("C3H5NO"),   ModificationSites.A)},
             {"Arginine",       new Residue("Arginine",      'R', "Arg",ChemicalFormula.ParseFormula("C6H12N4O"), ModificationSites.R)},
             {"Asparagine",     new Residue("Asparagine",    'N', "Asn",ChemicalFormula.ParseFormula("C4H6N2O2"), ModificationSites.N)},
@@ -207,5 +208,6 @@ namespace Proteomics
         }
 
         #endregion Public Methods
+
     }
 }

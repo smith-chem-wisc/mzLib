@@ -50,7 +50,7 @@ namespace UsefulProteomicsDatabases
         #region Public Methods
 
         /// <summary>
-        /// Reads a list of modifications from a text file. 
+        /// Reads a list of modifications from a text file.
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
@@ -241,7 +241,7 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "//":
-                            // Not CROSSLNK, LIPID and MOD_RES is fine. 
+                            // Not CROSSLNK, LIPID and MOD_RES is fine.
                             if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
                             {
                                 ModificationSites modSites;
@@ -306,5 +306,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
+
     }
 }

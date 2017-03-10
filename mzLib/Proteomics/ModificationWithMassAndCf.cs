@@ -37,7 +37,7 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             ModificationWithMassAndCf m = o as ModificationWithMassAndCf;
-            return m == null ? false : 
+            return m == null ? false :
                 base.Equals(m) && this.chemicalFormula.Equals(m.chemicalFormula);
         }
 

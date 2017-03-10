@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Linq;
+using System.Text;
 
 namespace Proteomics
 {
@@ -47,7 +47,7 @@ namespace Proteomics
         {
             ModificationWithMass m = o as ModificationWithMass;
             return m == null ? false :
-                
+
                 base.Equals(m)
                 && (this.massesObserved == null && m.massesObserved == null
                 || this.massesObserved != null && m.massesObserved != null

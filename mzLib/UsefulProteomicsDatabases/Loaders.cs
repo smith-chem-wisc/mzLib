@@ -27,6 +27,7 @@ namespace UsefulProteomicsDatabases
 {
     public static class Loaders
     {
+
         #region Public Methods
 
         public static void UpdateUniprot(string uniprotLocation)
@@ -194,5 +195,6 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
+
     }
 }
