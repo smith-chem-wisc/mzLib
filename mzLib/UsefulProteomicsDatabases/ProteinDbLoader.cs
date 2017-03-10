@@ -68,7 +68,7 @@ namespace UsefulProteomicsDatabases
 
             Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
-                mod_dict = get_modification_dict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
+                mod_dict = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
@@ -182,10 +182,9 @@ namespace UsefulProteomicsDatabases
                                         if (feature_type == "modified residue")
                                         {
                                             feature_description = feature_description.Split(';')[0];
-                                            List<Modification> residue_modifications;
 
                                             // Create new entry for this residue, if needed
-                                            if (!oneBasedModifications.TryGetValue(oneBasedfeature_position, out residue_modifications))
+                                            if (!oneBasedModifications.TryGetValue(oneBasedfeature_position, out List<Modification> residue_modifications))
                                             {
                                                 residue_modifications = new List<Modification>();
                                                 oneBasedModifications.Add(oneBasedfeature_position, residue_modifications);
@@ -465,13 +464,12 @@ namespace UsefulProteomicsDatabases
 
         #region Private Methods
 
-        private static Dictionary<string, IList<Modification>> get_modification_dict(IEnumerable<Modification> mods)
+        private static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
             foreach (Modification nice in mods)
             {
-                IList<Modification> val;
-                if (mod_dict.TryGetValue(nice.id, out val))
+                if (mod_dict.TryGetValue(nice.id, out IList<Modification> val))
                     val.Add(nice);
                 else
                     mod_dict.Add(nice.id, new List<Modification> { nice });

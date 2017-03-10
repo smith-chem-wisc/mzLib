@@ -60,10 +60,22 @@ namespace IO.Thermo
 
         public void Dispose()
         {
-            _rawConnection.Close();
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         #endregion Public Methods
+
+        #region Protected Methods
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+                if (_rawConnection != null)
+                    _rawConnection.Close();
+        }
+
+        #endregion Protected Methods
 
     }
 }
