@@ -65,8 +65,7 @@ namespace UsefulProteomicsDatabases
                     var tg = nice.site;
                     if (tg.Length > 1)
                         tg = "X";
-                    ModificationMotif motif = null;
-                    ModificationMotif.TryGetMotif(tg, out motif);
+                    ModificationMotif.TryGetMotif(tg, out ModificationMotif motif);
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
                         yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, 0, new List<double> { mm }, null, "unimod");

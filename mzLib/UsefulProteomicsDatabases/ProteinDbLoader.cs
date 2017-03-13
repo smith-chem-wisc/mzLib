@@ -2,6 +2,7 @@
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -60,6 +61,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="modTypesToExclude"></param>
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
+        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> dbRefTypesToKeep, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
             where T : Modification
         {
@@ -325,6 +327,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
+        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
         {
             if (protein_xml_modlist.Count > 0 && proteinDbLocation == last_database_location || !File.Exists(proteinDbLocation))

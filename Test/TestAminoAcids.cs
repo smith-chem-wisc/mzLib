@@ -53,8 +53,7 @@ namespace Test
         [Test]
         public void GetResidueNotInDictionary()
         {
-            Residue r;
-            Assert.IsFalse(Residue.TryGetResidue("?", out r));
+            Assert.IsFalse(Residue.TryGetResidue("?", out Residue r));
             Assert.IsFalse(Residue.TryGetResidue('?', out r));
         }
 

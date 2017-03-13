@@ -325,8 +325,7 @@ namespace IO.MzML
 
         private static MZAnalyzerType GetMzAnalyzer(Generated.mzMLType _mzMLConnection, string filter)
         {
-            MZAnalyzerType valuee;
-            if (filter != null && analyzerDictionary.TryGetValue(MZAnalyzerTypeRegex.Match(filter).Captures[0].Value, out valuee))
+            if (filter != null && analyzerDictionary.TryGetValue(MZAnalyzerTypeRegex.Match(filter).Captures[0].Value, out MZAnalyzerType valuee))
                 return valuee;
 
             // Maybe in the beginning of the file, there is a single analyzer?

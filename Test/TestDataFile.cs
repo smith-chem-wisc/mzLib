@@ -57,8 +57,8 @@ namespace Test
 
             var peptide = new Peptide("KQEEQMETEQQNKDEGK");
 
-            MzmlMzSpectrum MS1 = createSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
-            MzmlMzSpectrum MS2 = createMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
+            MzmlMzSpectrum MS1 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
+            MzmlMzSpectrum MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             IMzmlScan[] Scans = new IMzmlScan[2];
             Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1);
@@ -182,13 +182,13 @@ namespace Test
 
         #region Private Methods
 
-        private MzmlMzSpectrum createMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+        private MzmlMzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
             List<double> allIntensities = new List<double>();
             foreach (ChemicalFormulaFragment f in fragments)
             {
-                foreach (var p in createSpectrum(f.ThisChemicalFormula, v1, v2, 2))
+                foreach (var p in CreateSpectrum(f.ThisChemicalFormula, v1, v2, 2))
                 {
                     allMasses.Add(p.Mz);
                     allIntensities.Add(p.Intensity);
@@ -201,7 +201,7 @@ namespace Test
             return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
-        private MzmlMzSpectrum createSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
+        private MzmlMzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
             MzmlMzSpectrum notActuallyMzS = new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);

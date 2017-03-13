@@ -23,13 +23,15 @@ namespace Proteomics
 
         static ModificationWithLocation()
         {
-            modificationTypeCodes = new Dictionary<string, ModificationSites>();
-            modificationTypeCodes.Add("N-terminal.", ModificationSites.NProt); // Implies protein only, not peptide
-            modificationTypeCodes.Add("C-terminal.", ModificationSites.ProtC);
-            modificationTypeCodes.Add("Peptide N-terminal.", ModificationSites.NPep);
-            modificationTypeCodes.Add("Peptide C-terminal.", ModificationSites.PepC);
-            modificationTypeCodes.Add("Anywhere.", ModificationSites.Any);
-            modificationTypeCodes.Add("Protein core.", ModificationSites.Any);
+            modificationTypeCodes = new Dictionary<string, ModificationSites>
+            {
+                { "N-terminal.", ModificationSites.NProt }, // Implies protein only, not peptide
+                { "C-terminal.", ModificationSites.ProtC },
+                { "Peptide N-terminal.", ModificationSites.NPep },
+                { "Peptide C-terminal.", ModificationSites.PepC },
+                { "Anywhere.", ModificationSites.Any },
+                { "Protein core.", ModificationSites.Any }
+            };
         }
 
         public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites position, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id)

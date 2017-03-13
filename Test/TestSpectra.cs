@@ -301,9 +301,11 @@ namespace Test
 
             //Assert.AreEqual(1, thisSpectrum.WithRangeRemoved(new DoubleRange(double.MinValue, 6)).Size);
 
-            List<DoubleRange> xRanges = new List<DoubleRange>();
-            xRanges.Add(new DoubleRange(2, 5));
-            xRanges.Add(new DoubleRange(3, 6));
+            List<DoubleRange> xRanges = new List<DoubleRange>
+            {
+                new DoubleRange(2, 5),
+                new DoubleRange(3, 6)
+            };
             //Assert.AreEqual(2, thisSpectrum.WithRangesRemoved(xRanges).Size);
 
             //Assert.AreEqual(3, thisSpectrum.Extract(new DoubleRange(4.5, 10)).Size);
