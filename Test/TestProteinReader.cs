@@ -39,8 +39,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -64,8 +63,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, new List<string> { "EnsemblFungi" }, null, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, new List<string> { "EnsemblFungi" }, null, out Dictionary<string, Modification> un);
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
 
@@ -90,8 +88,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, new List<string> { "Ensembl" }, null, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, new List<string> { "Ensembl" }, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -115,8 +112,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, null, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -130,8 +126,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, null, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -148,13 +143,13 @@ namespace Test
         }
 
         [Test]
-        public void load_fasta_handle_tooHigh_indices()
+        public void Load_fasta_handle_tooHigh_indices()
         {
             ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
         }
 
         [Test]
-        public void read_xml_mod_collision()
+        public void Read_xml_mod_collision()
         {
             var nice = new List<Modification>
             {
@@ -162,22 +157,20 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
             };
 
-            Dictionary<string, Modification> un;
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out Dictionary<string, Modification> un);
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
 
         [Test]
-        public void read_xml_exclude_mods()
+        public void Read_xml_exclude_mods()
         {
             var nice = new List<Modification>
             {
                 new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "exclude_me")
             };
 
-            Dictionary<string, Modification> un;
-            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, new string[] { "exclude_me" }, out un);
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
 

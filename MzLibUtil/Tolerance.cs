@@ -73,8 +73,7 @@ namespace MzLibUtil
         {
             Match m = StringRegex.Match(s);
             Value = Math.Abs(double.Parse(m.Groups[2].Value));
-            ToleranceUnit type;
-            Enum.TryParse(m.Groups[3].Value, true, out type);
+            Enum.TryParse(m.Groups[3].Value, true, out ToleranceUnit type);
             Unit = type;
         }
 

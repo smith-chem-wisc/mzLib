@@ -20,29 +20,31 @@ namespace UsefulProteomicsDatabases
 
         static PtmListLoader()
         {
-            aminoAcidCodes = new Dictionary<string, char>();
-            aminoAcidCodes.Add("Alanine", 'A');
-            aminoAcidCodes.Add("Arginine", 'R');
-            aminoAcidCodes.Add("Asparagine", 'N');
-            aminoAcidCodes.Add("Aspartate", 'D');
-            aminoAcidCodes.Add("Aspartic Acid", 'D');
-            aminoAcidCodes.Add("Cysteine", 'C');
-            aminoAcidCodes.Add("Glutamate", 'E');
-            aminoAcidCodes.Add("Glutamic Acid", 'E');
-            aminoAcidCodes.Add("Glutamine", 'Q');
-            aminoAcidCodes.Add("Glycine", 'G');
-            aminoAcidCodes.Add("Histidine", 'H');
-            aminoAcidCodes.Add("Isoleucine", 'I');
-            aminoAcidCodes.Add("Leucine", 'L');
-            aminoAcidCodes.Add("Lysine", 'K');
-            aminoAcidCodes.Add("Methionine", 'M');
-            aminoAcidCodes.Add("Phenylalanine", 'F');
-            aminoAcidCodes.Add("Proline", 'P');
-            aminoAcidCodes.Add("Serine", 'S');
-            aminoAcidCodes.Add("Threonine", 'T');
-            aminoAcidCodes.Add("Tryptophan", 'W');
-            aminoAcidCodes.Add("Tyrosine", 'Y');
-            aminoAcidCodes.Add("Valine", 'V');
+            aminoAcidCodes = new Dictionary<string, char>
+            {
+                { "Alanine", 'A' },
+                { "Arginine", 'R' },
+                { "Asparagine", 'N' },
+                { "Aspartate", 'D' },
+                { "Aspartic Acid", 'D' },
+                { "Cysteine", 'C' },
+                { "Glutamate", 'E' },
+                { "Glutamic Acid", 'E' },
+                { "Glutamine", 'Q' },
+                { "Glycine", 'G' },
+                { "Histidine", 'H' },
+                { "Isoleucine", 'I' },
+                { "Leucine", 'L' },
+                { "Lysine", 'K' },
+                { "Methionine", 'M' },
+                { "Phenylalanine", 'F' },
+                { "Proline", 'P' },
+                { "Serine", 'S' },
+                { "Threonine", 'T' },
+                { "Tryptophan", 'W' },
+                { "Tyrosine", 'Y' },
+                { "Valine", 'V' }
+            };
         }
 
         #endregion Public Constructors
@@ -244,19 +246,16 @@ namespace UsefulProteomicsDatabases
                             // Not CROSSLNK, LIPID and MOD_RES is fine.
                             if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
                             {
-                                ModificationSites modSites;
-                                if (ModificationWithLocation.modificationTypeCodes.TryGetValue(uniprotPP, out modSites))
+                                if (ModificationWithLocation.modificationTypeCodes.TryGetValue(uniprotPP, out ModificationSites modSites))
                                 {
                                     foreach (var singleTarget in uniprotTG)
                                     {
                                         string theMotif;
-                                        char possibleMotifChar;
-                                        if (aminoAcidCodes.TryGetValue(singleTarget, out possibleMotifChar))
+                                        if (aminoAcidCodes.TryGetValue(singleTarget, out char possibleMotifChar))
                                             theMotif = possibleMotifChar.ToString();
                                         else
                                             theMotif = singleTarget;
-                                        ModificationMotif motif;
-                                        if (ModificationMotif.TryGetMotif(theMotif, out motif))
+                                        if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                         {
                                             // Add the modification!
                                             if (!uniprotMM.HasValue)
@@ -275,7 +274,7 @@ namespace UsefulProteomicsDatabases
                                                         // Return modification with mass
                                                         result = new ModificationWithMass(uniprotID, uniprotAC, motif, modSites, uniprotMM.Value, uniprotDR,
                                                             neutralLoss,
-                                                            massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
+                                                            massesObserved ?? new HashSet<double> { uniprotMM.Value },
                                                             diagnosticIons,
                                                             modificationType);
                                                     }
@@ -284,7 +283,7 @@ namespace UsefulProteomicsDatabases
                                                         // Return modification with complete information!
                                                         result = new ModificationWithMassAndCf(uniprotID, uniprotAC, motif, modSites, uniprotCF, uniprotMM.Value, uniprotDR,
                                                             neutralLoss,
-                                                            massesObserved == null ? new HashSet<double> { uniprotMM.Value } : massesObserved,
+                                                            massesObserved ?? new HashSet<double> { uniprotMM.Value },
                                                             diagnosticIons,
                                                             modificationType);
                                                     }

@@ -571,10 +571,12 @@ namespace Test
             Peptide pepAa = new Peptide("ER");
             Peptide pepAb = new Peptide("RL");
             Peptide pepAc = new Peptide("LEK");
-            List<Peptide> myList = new List<Peptide>();
-            myList.Add(pepAa);
-            myList.Add(pepAb);
-            myList.Add(pepAc);
+            List<Peptide> myList = new List<Peptide>
+            {
+                pepAa,
+                pepAb,
+                pepAc
+            };
             Assert.IsTrue(pepA.GetSequenceCoverage(myList).SequenceEqual(new List<int> { 0, 1, 2, 2, 1, 1 }));
         }
 
@@ -604,9 +606,11 @@ namespace Test
             Peptide pepA = new Peptide("DERLEK");
             Peptide pepAa = new Peptide("ER");
             Peptide pepAb = new Peptide("RL");
-            List<Peptide> myList = new List<Peptide>();
-            myList.Add(pepAa);
-            myList.Add(pepAb);
+            List<Peptide> myList = new List<Peptide>
+            {
+                pepAa,
+                pepAb
+            };
             Assert.AreEqual(0.5, pepA.GetSequenceCoverageFraction(myList));
         }
 

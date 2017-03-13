@@ -26,12 +26,12 @@ namespace IO.Thermo
 
         public ThermoFile(IThermoScan[] scans, ThermoGlobalParams thermoGlobalParams) : base(scans)
         {
-            this.thermoGlobalParams = thermoGlobalParams;
+            this.ThermoGlobalParams = thermoGlobalParams;
         }
 
         public ThermoFile(IXRawfile5 _rawConnection, int numSpectra) : base(numSpectra)
         {
-            this.thermoGlobalParams = GetAllGlobalStuff(_rawConnection);
+            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection);
         }
 
         #endregion Public Constructors
@@ -53,7 +53,7 @@ namespace IO.Thermo
 
         #region Public Properties
 
-        public ThermoGlobalParams thermoGlobalParams { get; private set; }
+        public ThermoGlobalParams ThermoGlobalParams { get; private set; }
 
         #endregion Public Properties
 

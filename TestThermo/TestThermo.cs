@@ -42,7 +42,7 @@ namespace TestThermo
 
             Assert.AreEqual(double.NaN, spectrum.GetSignalToNoise(1));
 
-            Assert.AreEqual("1.3", a.thermoGlobalParams.pbstrInstSoftwareVersion);
+            Assert.AreEqual("1.3", a.ThermoGlobalParams.pbstrInstSoftwareVersion);
             var ms2scan = a.GetOneBasedScan(948) as IMsDataScanWithPrecursor<ThermoSpectrum>;
             Assert.IsNull(ms2scan.SelectedIonGuessChargeStateGuess);
             var precursorScan = a.GetOneBasedScan(ms2scan.OneBasedPrecursorScanNumber);
@@ -52,10 +52,10 @@ namespace TestThermo
             ms2scan.RecomputeSelectedPeak(precursorScan.MassSpectrum);
             Assert.AreEqual(4125760, ms2scan.SelectedIonGuessIntensity);
 
-            Assert.AreEqual("LCQ", a.thermoGlobalParams.pbstrInstName);
-            Assert.AreEqual("LCQ", a.thermoGlobalParams.pbstrInstModel);
+            Assert.AreEqual("LCQ", a.ThermoGlobalParams.pbstrInstName);
+            Assert.AreEqual("LCQ", a.ThermoGlobalParams.pbstrInstModel);
 
-            Assert.AreEqual(false, a.thermoGlobalParams.MonoisotopicselectionEnabled);
+            Assert.AreEqual(false, a.ThermoGlobalParams.MonoisotopicselectionEnabled);
         }
 
         [Test]
@@ -105,7 +105,7 @@ namespace TestThermo
 
             Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count() > 0);
 
-            Assert.IsFalse(a.thermoGlobalParams.MonoisotopicselectionEnabled);
+            Assert.IsFalse(a.ThermoGlobalParams.MonoisotopicselectionEnabled);
         }
 
         [Test]

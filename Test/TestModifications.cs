@@ -177,8 +177,7 @@ namespace Test
         [Test]
         public void Test_modification2_hash_set()
         {
-            ModificationMotif motif;
-            ModificationMotif.TryGetMotif("K", out motif);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
             ModificationWithLocation m1 = new ModificationWithLocation(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new Dictionary<string, IList<string>>(), "modificationType");
             ModificationWithLocation m2 = new ModificationWithLocation(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new Dictionary<string, IList<string>>(), "modificationType");
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
@@ -191,8 +190,7 @@ namespace Test
         [Test]
         public void Test_modification3_hash_set()
         {
-            ModificationMotif motif;
-            ModificationMotif.TryGetMotif("K", out motif);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
             ModificationWithMass m1 = new ModificationWithMass(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
             ModificationWithMass m2 = new ModificationWithMass(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
@@ -205,8 +203,7 @@ namespace Test
         [Test]
         public void Test_modification4_hash_set()
         {
-            ModificationMotif motif;
-            ModificationMotif.TryGetMotif("K", out motif);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
             ModificationWithMassAndCf m1 = new ModificationWithMassAndCf(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
             ModificationWithMassAndCf m2 = new ModificationWithMassAndCf(null, new Tuple<string, string>("item1", "item2"), motif, ModificationSites.K, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), 2.222222, new List<double>() { 5.55555 }, new List<double> { 1.2233 }, "modificationType");
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });

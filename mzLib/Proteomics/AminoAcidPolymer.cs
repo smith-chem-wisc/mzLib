@@ -559,8 +559,7 @@ namespace Proteomics
                                 monoMass += mod.MonoisotopicMass;
                                 if (isChemicalFormula)
                                 {
-                                    IHasChemicalFormula modFormula = mod as IHasChemicalFormula;
-                                    if (modFormula != null)
+                                    if (mod is IHasChemicalFormula modFormula)
                                     {
                                         formula.Add(modFormula);
                                     }
@@ -586,8 +585,7 @@ namespace Proteomics
                             monoMass += mod.MonoisotopicMass;
                             if (isChemicalFormula)
                             {
-                                IHasChemicalFormula modFormula = mod as IHasChemicalFormula;
-                                if (modFormula != null)
+                                if (mod is IHasChemicalFormula modFormula)
                                 {
                                     formula.Add(modFormula);
                                 }
@@ -650,7 +648,7 @@ namespace Proteomics
         /// <returns>The modification at the site, null if there isn't any modification present</returns>
         public IHasMass GetModification(int residueNumber)
         {
-            return _modifications == null ? null : _modifications[residueNumber];
+            return _modifications?[residueNumber];
         }
 
         /// <summary>
@@ -1121,14 +1119,13 @@ namespace Proteomics
                         string modString = modSb.ToString();
                         modSb.Clear();
                         IHasMass modification;
-                        double mass;
                         try
                         {
                             modification = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula(modString));
                         }
                         catch (FormatException)
                         {
-                            if (double.TryParse(modString, out mass))
+                            if (double.TryParse(modString, out double mass))
                             {
                                 modification = new ModWithOnlyMass(mass);
                             }
@@ -1161,9 +1158,8 @@ namespace Proteomics
                 }
                 else
                 {
-                    Residue residue;
                     //char upperletter = char.ToUpper(letter); // moved to amino acid dictionary
-                    if (Residue.TryGetResidue(letter, out residue))
+                    if (Residue.TryGetResidue(letter, out Residue residue))
                     {
                         residues[index++] = residue;
                         monoMass += residue.MonoisotopicMass;

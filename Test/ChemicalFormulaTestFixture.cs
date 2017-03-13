@@ -888,14 +888,14 @@ namespace Test
         }
 
         [Test]
-        public void catchProbStuff()
+        public void CatchProbStuff()
         {
             ChemicalFormula formula = (ChemicalFormula.ParseFormula("C50O50"));
             IsotopicDistribution.GetDistribution(formula, 0.001, 1e-50, 1e-15);
         }
 
         [Test]
-        public void i0j1()
+        public void I0j1()
         {
             ChemicalFormula formula = (ChemicalFormula.ParseFormula("C50O50"));
             IsotopicDistribution.GetDistribution(formula, 0.01, 0.1);
@@ -940,9 +940,11 @@ namespace Test
         [Test]
         public void CombineTest()
         {
-            List<IHasChemicalFormula> theList = new List<IHasChemicalFormula>();
-            theList.Add(new PhysicalObjectWithChemicalFormula("C2H3NO"));
-            theList.Add(new PhysicalObjectWithChemicalFormula("CO"));
+            List<IHasChemicalFormula> theList = new List<IHasChemicalFormula>
+            {
+                new PhysicalObjectWithChemicalFormula("C2H3NO"),
+                new PhysicalObjectWithChemicalFormula("CO")
+            };
             var c = ChemicalFormula.Combine(theList);
 
             Assert.AreEqual("C3H3NO2", c.Formula);

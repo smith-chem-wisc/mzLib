@@ -461,8 +461,7 @@ namespace Chemistry
         /// <returns></returns>
         public int CountSpecificIsotopes(Isotope isotope)
         {
-            int isotopeCount;
-            return (Isotopes.TryGetValue(isotope, out isotopeCount) ? isotopeCount : 0);
+            return (Isotopes.TryGetValue(isotope, out int isotopeCount) ? isotopeCount : 0);
         }
 
         /// <summary>
@@ -474,8 +473,7 @@ namespace Chemistry
         public int CountWithIsotopes(Element element)
         {
             var isotopeCount = element.Isotopes.Sum(isotope => CountSpecificIsotopes(isotope));
-            int ElementCount;
-            return isotopeCount + (Elements.TryGetValue(element, out ElementCount) ? ElementCount : 0);
+            return isotopeCount + (Elements.TryGetValue(element, out int ElementCount) ? ElementCount : 0);
         }
 
         public int CountSpecificIsotopes(Element element, int massNumber)
