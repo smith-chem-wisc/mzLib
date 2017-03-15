@@ -99,9 +99,8 @@
     <Image Include="app.ico" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Win32Project8\Win32Project8.vcxproj">
+    <ProjectReference Include="..\UnmanagedThermoHelperLayer\Win32Project8.vcxproj">
       <Project>{8913a108-5d93-4af7-b273-89a06e817611}</Project>
-      <CopyLocalSatelliteAssemblies>true</CopyLocalSatelliteAssemblies>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

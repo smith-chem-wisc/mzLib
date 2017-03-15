@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</ProjectGuid>
+    <ProjectGuid>{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Chemistry</RootNamespace>
-    <AssemblyName>Chemistry</AssemblyName>
+    <RootNamespace>UsefulProteomicsDatabases</RootNamespace>
+    <AssemblyName>UsefulProteomicsDatabases</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -21,44 +21,62 @@
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup>
-    <SignAssembly>false</SignAssembly>
-  </PropertyGroup>
   <ItemGroup>
+    <Reference Include="nunit.framework, Version=3.6.1.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\packages\NUnit.3.6.1\lib\net45\nunit.framework.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="Zlib.Portable, Version=1.11.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Zlib.Portable.1.11.0\lib\portable-net4+sl5+wp8+win8+wpa81+MonoTouch+MonoAndroid\Zlib.Portable.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChemicalFormula.cs" />
-    <Compile Include="Constants.cs" />
-    <Compile Include="Interfaces\IHasChemicalFormula.cs" />
-    <Compile Include="Interfaces\IHasMass.cs" />
-    <Compile Include="IsotopicDistribution.cs" />
-    <Compile Include="ClassExtensions.cs" />
-    <Compile Include="PeriodicTable.cs" />
-    <Compile Include="Element.cs" />
-    <Compile Include="Isotope.cs" />
+    <Compile Include="Generated\unimod_2.cs" />
+    <Compile Include="Loaders.cs" />
+    <Compile Include="PeriodicTableLoader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
+    <Compile Include="Generated\PsiModGenerated.cs" />
+    <Compile Include="ProteinDbLoader.cs" />
+    <Compile Include="ProteinDbWriter.cs" />
+    <Compile Include="PtmListLoader.cs" />
+    <Compile Include="PtmListLoaderException.cs" />
+    <Compile Include="UnimodLoader.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
+      <Name>Chemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Proteomics\Proteomics.csproj">
+      <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
+      <Name>Proteomics</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

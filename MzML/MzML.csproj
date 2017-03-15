@@ -1,16 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}</ProjectGuid>
+    <ProjectGuid>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>UsefulProteomicsDatabases</RootNamespace>
-    <AssemblyName>UsefulProteomicsDatabases</AssemblyName>
+    <RootNamespace>IO.MzML</RootNamespace>
+    <AssemblyName>MzML</AssemblyName>
     <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
@@ -26,61 +28,55 @@
     <OutputPath>bin\x64\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MathNet.Numerics, Version=3.17.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\MathNet.Numerics.3.17.0\lib\net40\MathNet.Numerics.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="nunit.framework, Version=3.6.1.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\packages\NUnit.3.6.1\lib\net45\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
     <Reference Include="Zlib.Portable, Version=1.11.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\Zlib.Portable.1.11.0\lib\portable-net4+sl5+wp8+win8+wpa81+MonoTouch+MonoAndroid\Zlib.Portable.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\packages\Zlib.Portable.1.11.0\lib\portable-net4+sl5+wp8+win8+wpa81+MonoTouch+MonoAndroid\Zlib.Portable.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Generated\unimod_2.cs" />
-    <Compile Include="Loaders.cs" />
-    <Compile Include="PeriodicTableLoader.cs" />
+    <Compile Include="IMzmlScan.cs" />
+    <Compile Include="Mzml.cs" />
+    <Compile Include="MzmlMethods.cs" />
+    <Compile Include="MzmlScanWithPrecursor.cs" />
+    <Compile Include="MzmlScan.cs" />
+    <Compile Include="MzmlSpectrum.cs" />
+    <Compile Include="MzmlPeak.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
-    <Compile Include="Generated\PsiModGenerated.cs" />
-    <Compile Include="ProteinDbLoader.cs" />
-    <Compile Include="ProteinDbWriter.cs" />
-    <Compile Include="PtmListLoader.cs" />
-    <Compile Include="PtmListLoaderException.cs" />
-    <Compile Include="UnimodLoader.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
-      <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
-      <Name>Chemistry</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Proteomics\Proteomics.csproj">
-      <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
-      <Name>Proteomics</Name>
-    </ProjectReference>
+    <Compile Include="XSD\mzML1_1_1_idx.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
+      <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
+      <Name>MassSpectrometry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Spectra\Spectra.csproj">
+      <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
+      <Name>Spectra</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
