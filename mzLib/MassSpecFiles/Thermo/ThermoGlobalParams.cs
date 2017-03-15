@@ -15,11 +15,13 @@ namespace IO.Thermo
         public readonly int pnControllerType;
         public readonly int pnNumInstMethods;
 
+        public readonly ClassLibrary1.PrecursorInfo[] couldBePrecursor;
+
         #endregion Public Fields
 
         #region Public Constructors
 
-        public ThermoGlobalParams(int pnNumInstMethods, string[] instrumentMethods, string pbstrInstSoftwareVersion, string pbstrInstName, string pbstrInstModel, int pnControllerType, int pnControllerNumber)
+        public ThermoGlobalParams(int pnNumInstMethods, string[] instrumentMethods, string pbstrInstSoftwareVersion, string pbstrInstName, string pbstrInstModel, int pnControllerType, int pnControllerNumber, ClassLibrary1.PrecursorInfo[] couldBePrecursor)
         {
             this.pnNumInstMethods = pnNumInstMethods;
             this.instrumentMethods = instrumentMethods;
@@ -28,6 +30,7 @@ namespace IO.Thermo
             this.pbstrInstModel = pbstrInstModel;
             this.pnControllerType = pnControllerType;
             this.pnControllerNumber = pnControllerNumber;
+            this.couldBePrecursor = couldBePrecursor;
         }
 
         #endregion Public Constructors

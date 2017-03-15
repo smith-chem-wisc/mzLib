@@ -81,18 +81,18 @@ namespace Chemistry
         /// <summary>
         /// The atomic number of this element (also the number of protons)
         /// </summary>
-        public int AtomicNumber { get; private set; }
+        public int AtomicNumber { get; }
 
         /// <summary>
         /// The atomic symbol of this element
         /// </summary>
-        public string AtomicSymbol { get; private set; }
+        public string AtomicSymbol { get; }
 
         /// <summary>
         /// The average mass of all this element's isotopes weighted by their
         /// relative natural abundance (in unified atomic mass units)
         /// </summary>
-        public double AverageMass { get; private set; }
+        public double AverageMass { get; }
 
         /// <summary>
         /// The most abundant (principal) isotope of this element
@@ -171,5 +171,6 @@ namespace Chemistry
         }
 
         #endregion Public Methods
+
     }
 }

@@ -54,7 +54,6 @@ namespace IO.MzML
             var mzML = new Generated.mzMLType()
             {
                 version = "1",
-
                 cvList = new Generated.CVListType()
             };
             mzML.cvList.count = "1";
@@ -81,7 +80,6 @@ namespace IO.MzML
             mzML.softwareList = new Generated.SoftwareListType()
             {
                 count = "1",
-
                 software = new Generated.SoftwareType[1]
             };
 
@@ -104,25 +102,24 @@ namespace IO.MzML
 
             mzML.dataProcessingList = new Generated.DataProcessingListType()
             {
-                // Only writing mine! Might have had some other data processing (but not if it is a raw file)
-                // ToDo: read dataProcessingList from mzML file
                 count = "1",
                 dataProcessing = new Generated.DataProcessingType[1]
             };
+            // Only writing mine! Might have had some other data processing (but not if it is a raw file)
+            // ToDo: read dataProcessingList from mzML file
             mzML.dataProcessingList.dataProcessing[0] = new Generated.DataProcessingType()
             {
                 id = "mzLibProcessing"
             };
             mzML.run = new Generated.RunType()
             {
-
-                // ToDo: Finish the chromatogram writing!
                 chromatogramList = new Generated.ChromatogramListType()
                 {
                     count = "1",
                     chromatogram = new Generated.ChromatogramType[1]
                 }
             };
+            // ToDo: Finish the chromatogram writing!
             mzML.run.chromatogramList.chromatogram[0] = new Generated.ChromatogramType();
 
             mzML.run.spectrumList = new Generated.SpectrumListType()
@@ -205,11 +202,10 @@ namespace IO.MzML
                     {
                         mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[2] = new Generated.CVParamType()
                         {
-                            name = "peak intensity"
+                            name = "peak intensity",
+                            value = scanWithPrecursor.SelectedIonGuessIntensity.Value.ToString(CultureInfo.InvariantCulture),
+                            accession = "MS:1000042"
                         };
-                        double selectedIonGuesssMonoisotopicIntensity = scanWithPrecursor.SelectedIonGuessIntensity.Value;
-                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[2].value = selectedIonGuesssMonoisotopicIntensity.ToString(CultureInfo.InvariantCulture);
-                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[2].accession = "MS:1000042";
                     }
 
                     MzRange isolationRange = scanWithPrecursor.IsolationRange;
@@ -371,7 +367,6 @@ namespace IO.MzML
                 };
                 mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType()
                 {
-
                     // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
                     // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
                     count = 2.ToString(),
@@ -524,14 +519,8 @@ namespace IO.MzML
         private static void Write(string filePath, Generated.mzMLType _indexedmzMLConnection)
         {
             TextWriter writer = new StreamWriter(filePath);
-
             mzmlSerializer.Serialize(writer, _indexedmzMLConnection);
             writer.Close();
-
-            //using (TextWriter writer = new StreamWriter(filePath))
-            //{
-            //    mzmlSerializer.Serialize(writer, _indexedmzMLConnection);
-            //}
         }
 
         #endregion Private Methods

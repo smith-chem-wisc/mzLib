@@ -10,12 +10,6 @@ namespace IO.Thermo
     public abstract class ThermoFile : MsDataFile<IThermoScan>
     {
 
-        #region Protected Fields
-
-        protected static bool?[] couldBePrecursor;
-
-        #endregion Protected Fields
-
         #region Private Fields
 
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
@@ -29,9 +23,9 @@ namespace IO.Thermo
             this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra) : base(numSpectra)
+        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ClassLibrary1.PrecursorInfo[] couldBePrecursor) : base(numSpectra)
         {
-            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection);
+            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor);
         }
 
         #endregion Public Constructors
@@ -53,13 +47,13 @@ namespace IO.Thermo
 
         #region Public Properties
 
-        public ThermoGlobalParams ThermoGlobalParams { get; private set; }
+        public ThermoGlobalParams ThermoGlobalParams { get; }
 
         #endregion Public Properties
 
         #region Public Methods
 
-        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection)
+        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ClassLibrary1.PrecursorInfo[] couldBePrecursor)
         {
             int pnNumInstMethods = 0;
             _rawConnection.GetNumInstMethods(ref pnNumInstMethods);
@@ -85,24 +79,15 @@ namespace IO.Thermo
             int pnControllerType = 0;
             _rawConnection.GetCurrentController(ref pnControllerType, ref pnControllerNumber);
 
-            return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber);
+            return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor);
         }
 
         #endregion Public Methods
 
         #region Protected Methods
 
-        protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(int nScanNumber, IXRawfile5 theConnection)
+        protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams)
         {
-            if (couldBePrecursor == null)
-            {
-                int pnFirstSpectrum = 0;
-                theConnection.GetFirstSpectrumNumber(ref pnFirstSpectrum);
-                int pnLastSpectrum = 0;
-                theConnection.GetLastSpectrumNumber(ref pnLastSpectrum);
-                couldBePrecursor = new bool?[pnLastSpectrum - pnFirstSpectrum + 1];
-            }
-
             int pnNumPackets = 0;
             double pdLowMass = 0;
             double pdHighMass = 0;
@@ -116,8 +101,6 @@ namespace IO.Thermo
             theConnection.GetScanHeaderInfoForScanNum(nScanNumber, ref pnNumPackets, ref pdStartTime, ref pdLowMass, ref pdHighMass, ref pdTIC, ref pdBasePeakMass, ref pdBasePeakIntensity, ref pnNumChannels, ref pbUniformTime, ref pdFrequency);
 
             double? ms2isolationWidth = null;
-            double? precursorMonoisotopicMZfromTrailierExtra = null;
-            int? chargeState = null;
             double? injectionTime = null;
 
             object pvarValues = null;
@@ -134,18 +117,6 @@ namespace IO.Thermo
                     ms2isolationWidth = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
-                }
-                if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
-                {
-                    precursorMonoisotopicMZfromTrailierExtra = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
-                        (double?)null :
-                        double.Parse(values[i], CultureInfo.InvariantCulture);
-                }
-                if (labels[i].StartsWith("Charge State", StringComparison.Ordinal))
-                {
-                    chargeState = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
-                        (int?)null :
-                        int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
                 if (labels[i].StartsWith("Ion Injection Time (ms)", StringComparison.Ordinal))
                 {
@@ -221,10 +192,7 @@ namespace IO.Thermo
                 int pnActivationType = 0;
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
 
-                double pdMass = 0;
-                theConnection.GetPrecursorMassForScanNum(nScanNumber, pnMSOrder, ref pdMass); // Precursor MZ
-
-                var precursorNumber = GetPrecursorScanNumber(theConnection, nScanNumber);
+                var precursorInfo = globalParams.couldBePrecursor[nScanNumber - 1];
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
@@ -236,12 +204,12 @@ namespace IO.Thermo
                     pbstrFilter,
                     mzAnalyzerType,
                     pdTIC,
-                    pdMass,
-                    chargeState,
+                    precursorInfo.dIsolationMass == 0 ? precursorInfo.dMonoIsoMass : precursorInfo.dIsolationMass,
+                    precursorInfo.nChargeState == 0 ? (int?)null : precursorInfo.nChargeState,
                     ms2isolationWidth,
                     (DissociationType)pnActivationType,
-                    precursorNumber,
-                    precursorMonoisotopicMZfromTrailierExtra,
+                    precursorInfo.nScanNumber,
+                    precursorInfo.dMonoIsoMass == 0 ? (double?)null : precursorInfo.dMonoIsoMass,
                     injectionTime,
                     noiseData);
             }
@@ -263,71 +231,5 @@ namespace IO.Thermo
 
         #endregion Protected Methods
 
-        #region Private Methods
-
-        private static int GetPrecursorScanNumber(IXRawfile5 _rawConnection, int scanNumber)
-        {
-            int oneBasedPrecursorNumber = scanNumber;
-            while (oneBasedPrecursorNumber > 0)
-            {
-                if (!couldBePrecursor[oneBasedPrecursorNumber - 1].HasValue)
-                {
-                    object pvarValue = null;
-                    _rawConnection.GetTrailerExtraValueForScanNum(oneBasedPrecursorNumber, "Scan Event:", ref pvarValue);
-                    couldBePrecursor[oneBasedPrecursorNumber - 1] = pvarValue.ToString().Equals("1");
-                }
-                if (couldBePrecursor[oneBasedPrecursorNumber - 1] == true)
-                {
-                    if (oneBasedPrecursorNumber == scanNumber)
-                        throw new ArgumentException("Could not find precursor for scan number " + scanNumber + " since Scan Event is 1");
-                    return oneBasedPrecursorNumber;
-                }
-                oneBasedPrecursorNumber--;
-            }
-            throw new ArgumentException("Could not find precursor for scan number " + scanNumber + " Since there were no scans with Scan Event 1");
-        }
-
-        #endregion Private Methods
-
-        //protected static ThermoSpectrum GetSpectrumFromRawFile(int spectrumNumber)
-        //{
-        //    double[,] data;
-        //    try
-        //    {
-        //        data = GetLabeledData(spectrumNumber);
-        //    }
-        //    catch (ArgumentException)
-        //    {
-        //        data = GetUnlabeledData(spectrumNumber, true);
-        //    }
-
-        //    //int arrayLength = data.GetLength(1);
-
-        //    //if (arrayLength > maxPeaksPerScan)
-        //    //{
-        //    //    double[] intensityArray = new double[arrayLength];
-        //    //    for (int i = 0; i < arrayLength; i++)
-        //    //        intensityArray[i] = data[1, i];
-        //    //    var cutoffIntensity = intensityArray.Quantile(1.0 - (double)maxPeaksPerScan / arrayLength);
-
-        //    //    int thiscOUNT = 0;
-        //    //    for (int j = 0; j < arrayLength; j++)
-        //    //        if (data[1, j] >= cutoffIntensity)
-        //    //            thiscOUNT++;
-
-        //    //    double[,] newData = new double[data.GetLength(0), thiscOUNT];
-        //    //    int okIndex = 0;
-        //    //    for (int j = 0; j < arrayLength; j++)
-        //    //        if (data[1, j] >= cutoffIntensity)
-        //    //        {
-        //    //            for (int i = 0; i < data.GetLength(0); i++)
-        //    //                newData[i, okIndex] = data[i, j];
-        //    //            okIndex++;
-        //    //        }
-        //    //    data = newData;
-        //    //}
-
-        //    return new ThermoSpectrum(data);
-        //}
     }
 }

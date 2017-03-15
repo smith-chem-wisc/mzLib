@@ -243,7 +243,7 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "//":
-                            // Not CROSSLNK, LIPID and MOD_RES is fine.
+                            // Not CROSSLNK. LIPID and MOD_RES is fine.
                             if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
                             {
                                 if (ModificationWithLocation.modificationTypeCodes.TryGetValue(uniprotPP, out ModificationSites modSites))
