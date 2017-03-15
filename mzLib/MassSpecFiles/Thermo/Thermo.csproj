@@ -55,7 +55,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\ClassLibrary1\ClassLibrary1.vcxproj">
       <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
-      <Name>ClassLibrary1</Name>
+      <Name>ManagedThermoHelperLayer</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\..\MzLibUtil\MzLibUtil.csproj">
       <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>

@@ -36,8 +36,8 @@ namespace IO.Thermo
 
         public static ThermoStaticData LoadAllStaticData(string filePath)
         {
-            var ok = new ClassLibrary1.Class1();
-            var couldBePrecursor = ok.runTheMethod(filePath);
+            var ok = new ManagedThermoHelperLayer.HelperClass();
+            var couldBePrecursor = ok.GetAllPrecursorInfos(filePath);
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();
             theConnection.Open(filePath);
             int pbSMData = 0;

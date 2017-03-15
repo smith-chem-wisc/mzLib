@@ -6,9 +6,9 @@
 
 using namespace std;
 
-WIN32PROJECT8_API MSFileReaderLib::IXRawfile5Ptr fnWin32Project8(void)
+WIN32PROJECT8_API IXRawfile5Ptr InitializeRawConnection(void)
 {
-	MSFileReaderLib::IXRawfile5Ptr m_Raw;
+	IXRawfile5Ptr m_Raw;
 	CoInitialize(NULL);
 	HRESULT hr = m_Raw.CreateInstance("MSFileReader.XRawfile.1");
 	return m_Raw;

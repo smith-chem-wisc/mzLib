@@ -11,6 +11,8 @@
 #endif
 
 
-#import "libid:F0C5F3E3-4F2A-443E-A74D-0AABE3237494"
+#import "libid:F0C5F3E3-4F2A-443E-A74D-0AABE3237494" rename_namespace("XRawfile")
 
-WIN32PROJECT8_API MSFileReaderLib::IXRawfile5Ptr fnWin32Project8(void);
+using namespace XRawfile;
+
+WIN32PROJECT8_API IXRawfile5Ptr InitializeRawConnection(void);
