@@ -29,6 +29,6 @@
     <file src="mzLib\UsefulProteomicsDatabases\bin\x64\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
     <file src="MzLibUtil\bin\x64\Release\MzLibUtil.dll" target="lib" /> 
     <file src="x64\Release\ClassLibrary1.dll" target="lib" /> 
-    <file src="x64\Release\Win32Project8.dll" target="lib" /> 
+    <file src="x64\Release\Win32Project8.dll" target="content" /> 
   </files>
 </package>
