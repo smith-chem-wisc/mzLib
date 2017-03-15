@@ -2,7 +2,7 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"> 
   <Target Name="AfterBuild"> 
     <ItemGroup> 
-      <MyPackageFiles Include="$(MSBuildProjectDirectory)\..\Packages\mzLib\build\*.*"/> 
+      <MyPackageFiles Include="$(MSBuildProjectDirectory)\..\Packages\mzLib.1.0.127\build\*.*"/> 
     </ItemGroup> 
     <Copy SourceFiles="@(MyPackageFiles)" DestinationFolder="$(OutputPath)" > 
     </Copy> 
