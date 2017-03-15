@@ -4,7 +4,7 @@
 
 using namespace System;
 
-namespace ClassLibrary1 {
+namespace ManagedThermoHelperLayer {
 
 	public value struct PrecursorInfo
 	{
@@ -14,10 +14,10 @@ namespace ClassLibrary1 {
 		long nScanNumber;
 	};
 
-	public ref class Class1
+	public ref class HelperClass
 	{
 		// TODO: Add your methods for this class here.
 	public:
-		array<PrecursorInfo>^ runTheMethod(String^ path);
+		array<PrecursorInfo>^ GetAllPrecursorInfos(String^ path);
 	};
 }

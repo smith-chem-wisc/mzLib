@@ -23,7 +23,7 @@ namespace IO.Thermo
             this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ClassLibrary1.PrecursorInfo[] couldBePrecursor) : base(numSpectra)
+        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor) : base(numSpectra)
         {
             this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor);
         }
@@ -53,7 +53,7 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ClassLibrary1.PrecursorInfo[] couldBePrecursor)
+        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor)
         {
             int pnNumInstMethods = 0;
             _rawConnection.GetNumInstMethods(ref pnNumInstMethods);

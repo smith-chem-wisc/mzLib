@@ -15,7 +15,7 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ClassLibrary1.PrecursorInfo[] couldBePrecursor) : base(_rawConnection, numSpectra, couldBePrecursor)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor) : base(_rawConnection, numSpectra, couldBePrecursor)
         {
             this._rawConnection = _rawConnection;
         }
@@ -26,8 +26,8 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string fileName)
         {
-            var ok = new ClassLibrary1.Class1();
-            var nice = ok.runTheMethod(fileName);
+            var ok = new ManagedThermoHelperLayer.HelperClass();
+            var nice = ok.GetAllPrecursorInfos(fileName);
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(fileName);
             _rawConnection.SetCurrentController(0, 1);
