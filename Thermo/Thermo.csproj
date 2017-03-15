@@ -29,9 +29,8 @@
     <OutputPath>bin\x64\Debug\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="MathNet.Numerics, Version=3.17.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\..\packages\MathNet.Numerics.3.17.0\lib\net40\MathNet.Numerics.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="nunit.framework, Version=3.6.1.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\packages\NUnit.3.6.1\lib\net45\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -53,19 +52,19 @@
     <Compile Include="ThermoSpectrum.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\ClassLibrary1\ClassLibrary1.vcxproj">
+    <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
       <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
       <Name>ManagedThermoHelperLayer</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\..\MzLibUtil\MzLibUtil.csproj">
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
       <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
       <Name>MzLibUtil</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\MassSpectrometry\MassSpectrometry.csproj">
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Spectra\Spectra.csproj">
+    <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
       <Name>Spectra</Name>
     </ProjectReference>
@@ -73,9 +72,6 @@
       <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
       <Name>MzML</Name>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="MSFileReaderLib">
@@ -87,6 +83,9 @@
       <Isolated>False</Isolated>
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
