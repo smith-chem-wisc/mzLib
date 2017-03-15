@@ -28,5 +28,7 @@
     <file src="mzLib\Spectra\bin\Release\Spectra.dll" target="lib" /> 
     <file src="mzLib\UsefulProteomicsDatabases\bin\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
     <file src="MzLibUtil\bin\Release\MzLibUtil.dll" target="lib" /> 
+    <file src="x64\Release\ClassLibrary1.dll" target="lib" /> 
+    <file src="x64\Release\Win32Project8.dll" target="lib" /> 
   </files>
 </package>
