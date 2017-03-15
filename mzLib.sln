@@ -4,6 +4,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 15.0.26228.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmark", "Benchmark\Benchmark.csproj", "{1B73064F-F8F8-44BE-9BDA-986A543DD72A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8913A108-5D93-4AF7-B273-89A06E817611} = {8913A108-5D93-4AF7-B273-89A06E817611}
+		{CDD56F70-D42F-4E86-A232-65F955CEF6EC} = {CDD56F70-D42F-4E86-A232-65F955CEF6EC}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chemistry", "mzLib\Chemistry\Chemistry.csproj", "{CBE368BB-FC84-458D-8099-87A63D17AA3B}"
 EndProject
