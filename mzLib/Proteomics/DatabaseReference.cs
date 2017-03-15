@@ -28,17 +28,17 @@ namespace Proteomics
         /// <summary>
         /// dbRef type, e.g. "GO" for GO terms
         /// </summary>
-        public string Type { get; private set; }
+        public string Type { get; }
 
         /// <summary>
         /// dbRef ID string
         /// </summary>
-        public string Id { get; private set; }
+        public string Id { get; }
 
         /// <summary>
         /// Each database reference contains a list of properties. Item1 of this Tuple is the "type", and Item2 is the "value" of the property.
         /// </summary>
-        public IEnumerable<Tuple<string, string>> Properties { get; private set; }
+        public IEnumerable<Tuple<string, string>> Properties { get; }
 
         #endregion Public Properties
 

@@ -1,10 +1,9 @@
 ﻿using Chemistry;
 using Proteomics;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Reflection;
 using UsefulProteomicsDatabases;
 
 namespace Benchmark
@@ -14,9 +13,9 @@ namespace Benchmark
 
         #region Private Methods
 
-        private static void BenchmarkFormula(StreamWriter file)
+        private static void BenchmarkFormula()
         {
-            file.WriteLine("Starting benchmark BenchmarkFormula");
+            Console.WriteLine("Starting benchmark BenchmarkFormula");
 
             int numRepetitions = 100000;
 
@@ -29,14 +28,14 @@ namespace Benchmark
                 var b = a.Formula + i;
             }
             stopWatch.Stop();
-            file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
+            Console.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
 
-            file.WriteLine("Benchmark BenchmarkFormula finished");
+            Console.WriteLine("Benchmark BenchmarkFormula finished");
         }
 
-        private static void BenchmarkFormula2(StreamWriter file)
+        private static void BenchmarkFormula2()
         {
-            file.WriteLine("Starting benchmark BenchmarkFormula2");
+            Console.WriteLine("Starting benchmark BenchmarkFormula2");
 
             int numRepetitions = 100000;
 
@@ -49,14 +48,14 @@ namespace Benchmark
                 var b = a.Formula + i;
             }
             stopWatch.Stop();
-            file.WriteLine("Time for creating and getting formulas: " + stopWatch.Elapsed);
+            Console.WriteLine("Time for creating and getting formulas: " + stopWatch.Elapsed);
 
-            file.WriteLine("Benchmark BenchmarkFormula2 finished");
+            Console.WriteLine("Benchmark BenchmarkFormula2 finished");
         }
 
-        private static void BenchmarkGettingIsotopes(StreamWriter file)
+        private static void BenchmarkGettingIsotopes()
         {
-            file.WriteLine("Starting benchmark BenchmarkGettingIsotopes");
+            Console.WriteLine("Starting benchmark BenchmarkGettingIsotopes");
 
             int numRepetitions = 10000000;
 
@@ -69,14 +68,14 @@ namespace Benchmark
                 a += PeriodicTable.GetElement(20).Isotopes.Count();
             }
             stopWatch.Stop();
-            file.WriteLine("Time for getting isotopes1: " + stopWatch.Elapsed + " a = " + a);
+            Console.WriteLine("Time for getting isotopes1: " + stopWatch.Elapsed + " a = " + a);
 
-            file.WriteLine("Benchmark BenchmarkGettingIsotopes finished");
+            Console.WriteLine("Benchmark BenchmarkGettingIsotopes finished");
         }
 
-        private static void BenchmarkIsotopicDistribution(StreamWriter file)
+        private static void BenchmarkIsotopicDistribution()
         {
-            file.WriteLine("Starting benchmark BenchmarkIsotopicDistribution");
+            Console.WriteLine("Starting benchmark BenchmarkIsotopicDistribution");
 
             int numRepetitions = 100;
 
@@ -90,14 +89,14 @@ namespace Benchmark
                 b += IsotopicDistribution.GetDistribution(a).Intensities.First();
             }
             stopWatch.Stop();
-            file.WriteLine("Time for generating isotopic distributions: " + stopWatch.Elapsed + " a = " + a);
+            Console.WriteLine("Time for generating isotopic distributions: " + stopWatch.Elapsed + " a = " + a);
 
-            file.WriteLine("Benchmark BenchmarkIsotopicDistribution finished");
+            Console.WriteLine("Benchmark BenchmarkIsotopicDistribution finished");
         }
 
-        private static void BenchmarkTimeGettingElementFromPeriodicTable(StreamWriter file)
+        private static void BenchmarkTimeGettingElementFromPeriodicTable()
         {
-            file.WriteLine("Starting benchmark BenchmarkTimeGettingElementFromPeriodicTable");
+            Console.WriteLine("Starting benchmark BenchmarkTimeGettingElementFromPeriodicTable");
 
             int numRepetitions = 100000000;
 
@@ -110,7 +109,7 @@ namespace Benchmark
                 var b = a.Protons + a.AverageMass + 4;
             }
             stopWatch.Stop();
-            file.WriteLine("Time for getting by atomic number: " + stopWatch.Elapsed);
+            Console.WriteLine("Time for getting by atomic number: " + stopWatch.Elapsed);
 
             stopWatch.Restart();
             for (int i = 0; i < numRepetitions; i++)
@@ -119,14 +118,14 @@ namespace Benchmark
                 var b = a.Protons + a.AverageMass + 4;
             }
             stopWatch.Stop();
-            file.WriteLine("Time for getting by atomic symbol: " + stopWatch.Elapsed);
+            Console.WriteLine("Time for getting by atomic symbol: " + stopWatch.Elapsed);
 
-            file.WriteLine("Benchmark BenchmarkTimeGettingElementFromPeriodicTable finished");
+            Console.WriteLine("Benchmark BenchmarkTimeGettingElementFromPeriodicTable finished");
         }
 
-        private static void BenchmarkDatabaseLoadWrite(StreamWriter file)
+        private static void BenchmarkDatabaseLoadWrite()
         {
-            file.WriteLine("Starting benchmark BenchmarkDatabaseLoadWrite");
+            Console.WriteLine("Starting benchmark BenchmarkDatabaseLoadWrite");
 
             Stopwatch stopWatch = new Stopwatch();
 
@@ -139,16 +138,16 @@ namespace Benchmark
             var b = ProteinDbLoader.LoadProteinXML(@"rewrite_yeast.xml", true, ya, false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
             stopWatch.Stop();
 
-            file.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
+            Console.WriteLine("Time for getting formulas: " + stopWatch.Elapsed);
 
-            file.WriteLine("Benchmark BenchmarkDatabaseLoadWrite finished");
+            Console.WriteLine("Benchmark BenchmarkDatabaseLoadWrite finished");
         }
 
         private static void Main(string[] args)
         {
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
             //var oddk = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac1.raw");
-            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac15.raw");
+            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\yeast_tmt\m04667.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac16.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
 
@@ -228,85 +227,20 @@ namespace Benchmark
             //    hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
             //}
 
-            string gitStatus = string.Empty;
-            Stream stream = null;
-            try
-            {
-                stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Benchmark." + "status.txt");
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    stream = null;
-                    // Use the reader object...
-                    gitStatus = reader.ReadToEnd();
-                }
-            }
-            finally
-            {
-                if (stream != null)
-                    stream.Dispose();
-            }
-            string gitShow = string.Empty;
-            stream = null;
-            try
-            {
-                stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Benchmark." + "show.txt");
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    stream = null;
-                    // Use the reader object...
-                    gitShow = reader.ReadToEnd();
-                }
-            }
-            finally
-            {
-                if (stream != null)
-                    stream.Dispose();
-            }
-            string compileTime = string.Empty;
-            stream = null;
-            try
-            {
-                stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("Benchmark." + "buildDate.txt");
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    stream = null;
-                    // Use the reader object...
-                    compileTime = reader.ReadToEnd();
-                }
-            }
-            finally
-            {
-                if (stream != null)
-                    stream.Dispose();
-            }
             PopulatePeriodicTable();
 
-            using (StreamWriter file =
-            new StreamWriter(@"..\..\..\Benchmark.txt"))
-            {
-                file.WriteLine("At compile time, date and time:");
-                file.WriteLine(compileTime);
-                file.WriteLine("");
-                file.WriteLine("At compile time, git show was:");
-                file.WriteLine(gitShow);
-                file.WriteLine("");
-                file.WriteLine("At compile time, git status was:");
-                file.WriteLine(gitStatus);
-                file.WriteLine("");
-
-                BenchmarkFormula(file);
-                file.WriteLine("");
-                BenchmarkFormula2(file);
-                file.WriteLine("");
-                BenchmarkTimeGettingElementFromPeriodicTable(file);
-                file.WriteLine("");
-                BenchmarkGettingIsotopes(file);
-                file.WriteLine("");
-                BenchmarkIsotopicDistribution(file);
-                Loaders.LoadElements(@"elements.tmp");
-                file.WriteLine("");
-                BenchmarkDatabaseLoadWrite(file);
-            }
+            BenchmarkFormula();
+            Console.WriteLine("");
+            BenchmarkFormula2();
+            Console.WriteLine("");
+            BenchmarkTimeGettingElementFromPeriodicTable();
+            Console.WriteLine("");
+            BenchmarkGettingIsotopes();
+            Console.WriteLine("");
+            BenchmarkIsotopicDistribution();
+            Loaders.LoadElements(@"elements.tmp");
+            Console.WriteLine("");
+            BenchmarkDatabaseLoadWrite();
         }
 
         private static void PopulatePeriodicTable()

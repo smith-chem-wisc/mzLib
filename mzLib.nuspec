@@ -19,14 +19,16 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="mzLib\Chemistry\bin\Release\Chemistry.dll" target="lib" /> 
-    <file src="mzLib\MassSpecFiles\mzIdentML\bin\Release\mzIdentML.dll" target="lib" /> 
-    <file src="mzLib\MassSpecFiles\MzML\bin\Release\MzML.dll" target="lib" /> 
-    <file src="mzLib\MassSpecFiles\Thermo\bin\Release\Thermo.dll" target="lib" /> 
-    <file src="mzLib\MassSpectrometry\bin\Release\MassSpectrometry.dll" target="lib" /> 
-    <file src="mzLib\Proteomics\bin\Release\Proteomics.dll" target="lib" /> 
-    <file src="mzLib\Spectra\bin\Release\Spectra.dll" target="lib" /> 
-    <file src="mzLib\UsefulProteomicsDatabases\bin\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
-    <file src="MzLibUtil\bin\Release\MzLibUtil.dll" target="lib" /> 
+    <file src="mzLib\Chemistry\bin\x64\Release\Chemistry.dll" target="lib" /> 
+    <file src="mzLib\MassSpecFiles\mzIdentML\bin\x64\Release\mzIdentML.dll" target="lib" /> 
+    <file src="mzLib\MassSpecFiles\MzML\bin\x64\Release\MzML.dll" target="lib" /> 
+    <file src="mzLib\MassSpecFiles\Thermo\bin\x64\Release\Thermo.dll" target="lib" /> 
+    <file src="mzLib\MassSpectrometry\bin\x64\Release\MassSpectrometry.dll" target="lib" /> 
+    <file src="mzLib\Proteomics\bin\x64\Release\Proteomics.dll" target="lib" /> 
+    <file src="mzLib\Spectra\bin\x64\Release\Spectra.dll" target="lib" /> 
+    <file src="mzLib\UsefulProteomicsDatabases\bin\x64\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
+    <file src="MzLibUtil\bin\x64\Release\MzLibUtil.dll" target="lib" /> 
+    <file src="x64\Release\ClassLibrary1.dll" target="lib" /> 
+    <file src="x64\Release\Win32Project8.dll" target="lib" /> 
   </files>
 </package>

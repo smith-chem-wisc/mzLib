@@ -15,7 +15,7 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra) : base(_rawConnection, numSpectra)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ClassLibrary1.PrecursorInfo[] couldBePrecursor) : base(_rawConnection, numSpectra, couldBePrecursor)
         {
             this._rawConnection = _rawConnection;
         }
@@ -26,7 +26,8 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string fileName)
         {
-            couldBePrecursor = null;
+            var ok = new ClassLibrary1.Class1();
+            var nice = ok.runTheMethod(fileName);
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(fileName);
             _rawConnection.SetCurrentController(0, 1);
@@ -36,13 +37,13 @@ namespace IO.Thermo
             int firstspectrumNumber = -1;
             _rawConnection.GetFirstSpectrumNumber(ref firstspectrumNumber);
 
-            return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1);
+            return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1, nice);
         }
 
         public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)
-                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection);
+                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection, ThermoGlobalParams);
             return Scans[oneBasedScanNumber - 1];
         }
 

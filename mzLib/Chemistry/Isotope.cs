@@ -26,6 +26,7 @@ namespace Chemistry
     /// </summary>
     public sealed class Isotope
     {
+
         #region Internal Constructors
 
         /// <summary>
@@ -74,22 +75,22 @@ namespace Chemistry
         /// <summary>
         /// The element this isotope is apart of (based on atomic number)
         /// </summary>
-        public Element Element { get; private set; }
+        public Element Element { get; }
 
         /// <summary>
         /// The atomic mass of this isotope (in unified atomic mass units)
         /// </summary>
-        public double AtomicMass { get; private set; }
+        public double AtomicMass { get; }
 
         /// <summary>
         /// The total number of nucleons (protons and neutrons) in this isotope
         /// </summary>
-        public int MassNumber { get; private set; }
+        public int MassNumber { get; }
 
         /// <summary>
         /// The relative natural abundance of this isotope in nature (on Earth)
         /// </summary>
-        public double RelativeAbundance { get; private set; }
+        public double RelativeAbundance { get; }
 
         #endregion Public Properties
 
@@ -105,5 +106,6 @@ namespace Chemistry
         }
 
         #endregion Public Methods
+
     }
 }
