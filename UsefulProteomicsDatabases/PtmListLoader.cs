@@ -258,6 +258,10 @@ namespace UsefulProteomicsDatabases
                                         if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                         {
                                             // Add the modification!
+
+                                            if (uniprotAC != null)
+                                                modificationType = "uniprot";
+
                                             if (!uniprotMM.HasValue)
                                             {
                                                 // Return modification
