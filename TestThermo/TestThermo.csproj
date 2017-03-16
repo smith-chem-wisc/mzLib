@@ -58,7 +58,7 @@
   <ItemGroup>
     <None Include="packages.config" />
     <None Include="small.raw">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>

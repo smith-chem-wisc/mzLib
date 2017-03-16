@@ -97,9 +97,21 @@
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
+      <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
+      <Name>ManagedThermoHelperLayer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
+      <Project>{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}</Project>
+      <Name>MassSpectrometry</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Proteomics\Proteomics.csproj">
       <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
       <Name>Proteomics</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Thermo\Thermo.csproj">
+      <Project>{24DC85FF-E97B-4140-9614-77DD8FDDD32F}</Project>
+      <Name>Thermo</Name>
     </ProjectReference>
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
