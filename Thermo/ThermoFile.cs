@@ -100,8 +100,10 @@ namespace IO.Thermo
             double pdStartTime = 0;
             theConnection.GetScanHeaderInfoForScanNum(nScanNumber, ref pnNumPackets, ref pdStartTime, ref pdLowMass, ref pdHighMass, ref pdTIC, ref pdBasePeakMass, ref pdBasePeakIntensity, ref pnNumChannels, ref pbUniformTime, ref pdFrequency);
 
-            double? ms2isolationWidth = null;
-            double? injectionTime = null;
+            double? ms2isolationWidthFromTrailerExtra = null;
+            double? injectionTimeFromTrailerExtra = null;
+            double? precursorMonoisotopicMZfromTrailierExtra = null;
+            int? chargeStatefromTrailierExtra = null;
 
             object pvarValues = null;
             object pvarLables = null;
@@ -114,15 +116,27 @@ namespace IO.Thermo
             {
                 if (labels[i].StartsWith("MS2 Isolation Width", StringComparison.Ordinal))
                 {
-                    ms2isolationWidth = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                    ms2isolationWidthFromTrailerExtra = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
                 }
                 if (labels[i].StartsWith("Ion Injection Time (ms)", StringComparison.Ordinal))
                 {
-                    injectionTime = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                    injectionTimeFromTrailerExtra = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("Monoisotopic M/Z", StringComparison.Ordinal))
+                {
+                    precursorMonoisotopicMZfromTrailierExtra = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                        (double?)null :
+                        double.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("Charge State", StringComparison.Ordinal))
+                {
+                    chargeStatefromTrailierExtra = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                        (int?)null :
+                        int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
             }
 
@@ -192,7 +206,36 @@ namespace IO.Thermo
                 int pnActivationType = 0;
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
 
+                // Trust this first
                 var precursorInfo = globalParams.couldBePrecursor[nScanNumber - 1];
+
+                int pnChargeState = 0;
+                double pdHeaderMass = 0;
+                int pnMasterScan = 0;
+                double pdFoundMass = 0;
+                theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
+
+                // TODO: Get it from more locations
+                double selectedIonGuessMZ = precursorInfo.dIsolationMass > 0 ? precursorInfo.dIsolationMass : pdHeaderMass;
+
+                int? selectedIonGuessChargeStateGuess = null;
+                if (precursorInfo.nChargeState > 0)
+                    selectedIonGuessChargeStateGuess = precursorInfo.nChargeState;
+                else if (pnChargeState > 0)
+                    selectedIonGuessChargeStateGuess = pnChargeState;
+                else if (chargeStatefromTrailierExtra.HasValue)
+                    selectedIonGuessChargeStateGuess = chargeStatefromTrailierExtra;
+
+                // TODO: Get it from more locations
+                int oneBasedPrecursorScanNumber = precursorInfo.nScanNumber > 0 ? precursorInfo.nScanNumber : pnMasterScan;
+
+                double? selectedIonGuessMonoisotopicMz = null;
+                if (precursorInfo.dMonoIsoMass > 0)
+                    selectedIonGuessMonoisotopicMz = precursorInfo.dMonoIsoMass;
+                else if (precursorMonoisotopicMZfromTrailierExtra.HasValue)
+                    selectedIonGuessMonoisotopicMz = precursorMonoisotopicMZfromTrailierExtra;
+                else if (pdFoundMass > 0)
+                    selectedIonGuessMonoisotopicMz = pdFoundMass;
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
@@ -204,13 +247,13 @@ namespace IO.Thermo
                     pbstrFilter,
                     mzAnalyzerType,
                     pdTIC,
-                    precursorInfo.dIsolationMass == 0 ? precursorInfo.dMonoIsoMass : precursorInfo.dIsolationMass,
-                    precursorInfo.nChargeState == 0 ? (int?)null : precursorInfo.nChargeState,
-                    ms2isolationWidth,
+                    selectedIonGuessMZ,
+                    selectedIonGuessChargeStateGuess,
+                    ms2isolationWidthFromTrailerExtra,
                     (DissociationType)pnActivationType,
-                    precursorInfo.nScanNumber,
-                    precursorInfo.dMonoIsoMass == 0 ? (double?)null : precursorInfo.dMonoIsoMass,
-                    injectionTime,
+                    oneBasedPrecursorScanNumber,
+                    selectedIonGuessMonoisotopicMz,
+                    injectionTimeFromTrailerExtra,
                     noiseData);
             }
             else
@@ -224,7 +267,7 @@ namespace IO.Thermo
                     pbstrFilter,
                     mzAnalyzerType,
                     pdTIC,
-                    injectionTime,
+                    injectionTimeFromTrailerExtra,
                     noiseData);
             }
         }

@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using IO.Thermo;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -148,7 +149,7 @@ namespace Benchmark
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
             //var oddk = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac1.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\yeast_tmt\m04667.raw");
-            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac16.raw");
+            ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\human_spike\C14-11130.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
 
             //var hheh = oddk.GetMsScansInTimeRange(47.2469, 47.25693).ToList();
