@@ -34,7 +34,7 @@ namespace MzLibUtil
 
         public override string ToString(string format)
         {
-            return string.Format("[{0} to {1}] m/z", Minimum.ToString(format), Maximum.ToString(format));
+            return $"[{Minimum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)} to {Maximum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}] m/z";
         }
 
         #endregion Public Methods

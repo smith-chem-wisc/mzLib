@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using IO.Thermo;
+using MzLibUtil;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -146,6 +147,10 @@ namespace Benchmark
 
         private static void Main(string[] args)
         {
+            DoubleRange r = new DoubleRange(-187, double.PositiveInfinity);
+            Console.WriteLine(r);
+            Console.WriteLine(r.ToString());
+
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
             //var oddk = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac1.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\yeast_tmt\m04667.raw");

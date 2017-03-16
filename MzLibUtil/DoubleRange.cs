@@ -108,7 +108,7 @@ namespace MzLibUtil
 
         public virtual string ToString(string format)
         {
-            return string.Format("[{0} to {1}]", Minimum.ToString(format), Maximum.ToString(format));
+            return $"[{Minimum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)};{Maximum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}]";
         }
 
         public int CompareTo(double item)

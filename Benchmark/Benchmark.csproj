@@ -105,6 +105,10 @@
       <Project>{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}</Project>
       <Name>MassSpectrometry</Name>
     </ProjectReference>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Proteomics\Proteomics.csproj">
       <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
       <Name>Proteomics</Name>
