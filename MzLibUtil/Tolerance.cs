@@ -26,15 +26,16 @@ namespace MzLibUtil
     /// </summary>
     public class Tolerance
     {
+
         #region Private Fields
 
         /// <summary>
         /// A regex for parsing a string representation of a tolerance
         /// <para>
-        /// i.e., "10 PPM", "-+10 PPM", "5 AbsoluteUnits", etc...
+        /// i.e., "10 PPM", "-+10 PPM", "5 Absolute", etc...
         /// </para>
         /// </summary>
-        private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|AbsoluteUnits)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|Absolute)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         #endregion Private Fields
 
@@ -65,7 +66,7 @@ namespace MzLibUtil
         /// <summary>
         /// Calculates a tolerance from the string representation
         /// <para>
-        /// i.e., "10 PPM", "-+10 PPM", "5 AbsoluteUnits", etc...
+        /// i.e., "10 PPM", "-+10 PPM", "5 Absolute", etc...
         /// </para>
         /// </summary>
         /// <param name="s"></param>
@@ -196,5 +197,6 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
+
     }
 }
