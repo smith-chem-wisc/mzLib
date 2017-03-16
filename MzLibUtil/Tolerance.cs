@@ -193,7 +193,7 @@ namespace MzLibUtil
 
         public override string ToString()
         {
-            return string.Format("{0}{1:f4} {2}", "±", Value, Enum.GetName(typeof(ToleranceUnit), Unit));
+            return $"{"±"}{Value.ToString("f4", System.Globalization.CultureInfo.InvariantCulture)} {Enum.GetName(typeof(ToleranceUnit), Unit)}";
         }
 
         #endregion Public Methods
