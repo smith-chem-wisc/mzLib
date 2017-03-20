@@ -37,7 +37,10 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Deconvolution\IsotopicPeakGroup.cs" />
+    <Compile Include="Deconvolution\PossibleProteoform.cs" />
     <Compile Include="IThermoScan.cs" />
+    <Compile Include="Deconvolution\ThermoDecon.cs" />
     <Compile Include="ThermoDynamicData.cs" />
     <Compile Include="ThermoFile.cs" />
     <Compile Include="ThermoGlobalParams.cs" />
@@ -52,6 +55,10 @@
     <Compile Include="ThermoSpectrum.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
+      <Name>Chemistry</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
       <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
       <Name>ManagedThermoHelperLayer</Name>

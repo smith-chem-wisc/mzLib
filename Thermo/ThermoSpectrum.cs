@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
+using IO.Thermo.Deconvolution;
 using MassSpectrometry;
 using System;
+using System.Collections.Generic;
 
 namespace IO.Thermo
 {
@@ -157,6 +159,13 @@ namespace IO.Thermo
 
             Buffer.BlockCopy(charges, 0, data, 4 * bytesToCopy, bytesToCopy);
             return data;
+        }
+
+        public IEnumerable<PossibleProteoform> Deconvolute(double tol, int minEvidence)
+        {
+            var isotopicPeakGroups = ThermoDecon.GetIsotopicPeakGroups(this, tol);
+
+            return ThermoDecon.GetPossibleProteoforms(isotopicPeakGroups, tol);
         }
 
         #endregion Public Methods
