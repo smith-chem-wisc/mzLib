@@ -49,7 +49,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static void CreateAndWriteMyMzmlWithCalibratedSpectra(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile, string outputFile)
+        public static void CreateAndWriteMyMzmlWithCalibratedSpectra(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile, string outputFile, bool writeIndexed)
         {
             var mzML = new Generated.mzMLType()
             {
@@ -509,21 +509,18 @@ namespace IO.MzML
                 }
             }
 
-            Write(outputFile, mzML);
+            if (writeIndexed)
+                throw new NotImplementedException("Writing indexed mzMLs not yet supported");
+            else
+            {
+                using (TextWriter writer = new StreamWriter(outputFile))
+                {
+                    mzmlSerializer.Serialize(writer, mzML);
+                }
+            }
         }
 
         #endregion Public Methods
-
-        #region Private Methods
-
-        private static void Write(string filePath, Generated.mzMLType _indexedmzMLConnection)
-        {
-            TextWriter writer = new StreamWriter(filePath);
-            mzmlSerializer.Serialize(writer, _indexedmzMLConnection);
-            writer.Close();
-        }
-
-        #endregion Private Methods
 
     }
 }

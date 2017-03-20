@@ -47,7 +47,7 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
             {
