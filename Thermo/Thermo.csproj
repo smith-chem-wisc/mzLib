@@ -37,7 +37,10 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Deconvolution\IsotopicPeakGroup.cs" />
+    <Compile Include="Deconvolution\PossibleProteoform.cs" />
     <Compile Include="IThermoScan.cs" />
+    <Compile Include="Deconvolution\ThermoDecon.cs" />
     <Compile Include="ThermoDynamicData.cs" />
     <Compile Include="ThermoFile.cs" />
     <Compile Include="ThermoGlobalParams.cs" />
