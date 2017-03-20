@@ -52,6 +52,10 @@
     <Compile Include="ThermoSpectrum.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
+      <Name>Chemistry</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
       <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
       <Name>ManagedThermoHelperLayer</Name>
