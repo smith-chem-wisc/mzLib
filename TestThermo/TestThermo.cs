@@ -66,6 +66,28 @@ namespace TestThermo
             Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count() > 0);
 
             Assert.IsFalse(a.ThermoGlobalParams.MonoisotopicselectionEnabled);
+
+            var hehe = a.First(b => b.MsnOrder > 1) as ThermoScanWithPrecursor;
+
+            var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber);
+
+            Assert.IsNull(hehe.SelectedIonGuessChargeStateGuess);
+
+            hehe.RecomputeChargeState(prec.MassSpectrum, 0.1, 10);
+
+            Assert.AreEqual(2, hehe.SelectedIonGuessChargeStateGuess);
+
+            Assert.IsNull(hehe.SelectedIonGuessIntensity);
+
+            hehe.ComputeSelectedPeakIntensity(prec.MassSpectrum);
+
+            Assert.AreEqual(1017759, hehe.SelectedIonGuessIntensity, 1);
+
+            Assert.IsNull(hehe.SelectedIonGuessMonoisotopicIntensity);
+
+            hehe.ComputeMonoisotopicPeakIntensity(prec.MassSpectrum);
+
+            Assert.AreEqual(1017759, hehe.SelectedIonGuessMonoisotopicIntensity, 1);
         }
 
         [Test]
