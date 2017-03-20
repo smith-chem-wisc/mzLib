@@ -88,7 +88,7 @@ namespace Test
             var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
             Assert.AreEqual(1, secondScan.IsolationWidth);
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, "argh.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, "argh.mzML", false);
 
             Mzml okay = Mzml.LoadAllStaticData(@"argh.mzML");
             okay.GetOneBasedScan(2);
