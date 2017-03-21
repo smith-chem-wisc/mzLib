@@ -1,4 +1,5 @@
 ﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2017 Stefan Solntsev
 //
 // This file (AssemblyInfo.cs) is part of CSMSL.
 //
@@ -27,7 +28,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("Thermo")]
-[assembly: AssemblyCopyright("Copyright ©  2012")]
+[assembly: AssemblyCopyright("Copyright ©  2017")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

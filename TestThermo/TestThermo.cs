@@ -47,10 +47,10 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            var cool = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(0.1, 3).ToList();
+            var cool = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(0.1, 1).ToList();
 
             Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
-
+            
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
