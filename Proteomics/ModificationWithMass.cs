@@ -19,10 +19,10 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMass(string uniprotID, Tuple<string, string> uniprotAC, ModificationMotif uniprotTG, ModificationSites uniprotPP, double uniprotMM, IDictionary<string, IList<string>> uniprotDR, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
-            : base(uniprotID, uniprotAC, uniprotTG, uniprotPP, uniprotDR, modificationType)
+        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
+            : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
         {
-            this.monoisotopicMass = uniprotMM;
+            this.monoisotopicMass = monoisotopicMass;
             this.neutralLoss = neutralLoss;
             this.massesObserved = massesObserved;
             this.diagnosticIons = diagnosticIons;
@@ -36,9 +36,12 @@ namespace Proteomics
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
-            sb.AppendLine("NL   " + neutralLoss);
-            sb.AppendLine("MO   " + string.Join(" or ", massesObserved));
-            sb.AppendLine("DI   " + (diagnosticIons != null ? string.Join(" or ", diagnosticIons) : ""));
+            if (neutralLoss != 0)
+                sb.AppendLine("NL   " + neutralLoss);
+            if (massesObserved.Count() != 1 || massesObserved.First() != monoisotopicMass)
+                sb.AppendLine("MO   " + string.Join(" or ", massesObserved));
+            if (diagnosticIons != null)
+                sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons));
             sb.Append("MM   " + monoisotopicMass);
             return sb.ToString();
         }
