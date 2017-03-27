@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -37,12 +38,12 @@ namespace Proteomics
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
             if (neutralLoss != 0)
-                sb.AppendLine("NL   " + neutralLoss);
+                sb.AppendLine("NL   " + neutralLoss.ToString(CultureInfo.InvariantCulture));
             if (massesObserved.Count() != 1 || massesObserved.First() != monoisotopicMass)
-                sb.AppendLine("MO   " + string.Join(" or ", massesObserved));
+                sb.AppendLine("MO   " + string.Join(" or ", massesObserved.Select(b => b.ToString(CultureInfo.InvariantCulture))));
             if (diagnosticIons != null)
-                sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons));
-            sb.Append("MM   " + monoisotopicMass);
+                sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons.Select(b => b.ToString(CultureInfo.InvariantCulture))));
+            sb.Append("MM   " + monoisotopicMass.ToString(CultureInfo.InvariantCulture));
             return sb.ToString();
         }
 
