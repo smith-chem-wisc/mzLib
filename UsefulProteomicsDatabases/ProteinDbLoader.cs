@@ -212,7 +212,7 @@ namespace UsefulProteomicsDatabases
                                             else
                                             {
                                                 // Not known and not seen
-                                                unknownModifications[feature_description] = new Modification(feature_description);
+                                                unknownModifications[feature_description] = new Modification(feature_description, "unknown");
                                                 residue_modifications.Add(unknownModifications[feature_description]);
                                             }
                                         }

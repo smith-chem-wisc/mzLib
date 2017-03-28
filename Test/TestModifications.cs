@@ -159,8 +159,8 @@ namespace Test
         [Test]
         public void Test_modification_hash_set()
         {
-            Modification m1 = new Modification("23");
-            Modification m2 = new Modification("23");
+            Modification m1 = new Modification("23", "unknown");
+            Modification m2 = new Modification("23", "unknown");
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
@@ -168,8 +168,8 @@ namespace Test
         [Test]
         public void Test_modificationNull_hash_set()
         {
-            Modification m1 = new Modification(null);
-            Modification m2 = new Modification(null);
+            Modification m1 = new Modification(null, "unknown");
+            Modification m2 = new Modification(null, "unknown");
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }

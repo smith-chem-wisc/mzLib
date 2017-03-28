@@ -10,12 +10,11 @@ namespace Proteomics
 
         #region Public Fields
 
-        public static readonly Dictionary<string, ModificationSites> modificationTypeCodes;
+        public static readonly Dictionary<string, ModificationSites> terminusLocalizationTypeCodes;
         public readonly Tuple<string, string> accession;
         public readonly IDictionary<string, IList<string>> linksToOtherDbs;
-        public readonly ModificationSites position;
+        public readonly ModificationSites terminusLocalization;
         public readonly ModificationMotif motif;
-        public readonly string modificationType;
 
         #endregion Public Fields
 
@@ -23,7 +22,7 @@ namespace Proteomics
 
         static ModificationWithLocation()
         {
-            modificationTypeCodes = new Dictionary<string, ModificationSites>
+            terminusLocalizationTypeCodes = new Dictionary<string, ModificationSites>
             {
                 { "N-terminal.", ModificationSites.NProt }, // Implies protein only, not peptide
                 { "C-terminal.", ModificationSites.ProtC },
@@ -34,13 +33,12 @@ namespace Proteomics
             };
         }
 
-        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites position, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id)
+        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites terminusLocalization, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id, modificationType)
         {
             this.accession = accession;
             this.motif = motif;
-            this.position = position;
+            this.terminusLocalization = terminusLocalization;
             this.linksToOtherDbs = linksToOtherDbs;
-            this.modificationType = modificationType;
         }
 
         #endregion Public Constructors
@@ -51,13 +49,12 @@ namespace Proteomics
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
-            sb.AppendLine("PP   " + modificationTypeCodes.First(b => b.Value.Equals(position)).Key);
+            sb.AppendLine("PP   " + terminusLocalizationTypeCodes.First(b => b.Value.Equals(terminusLocalization)).Key);
             sb.AppendLine("TG   " + motif.Motif);
             if (linksToOtherDbs != null)
                 foreach (var nice in linksToOtherDbs)
                     foreach (var db in nice.Value)
                         sb.AppendLine("DR   " + nice.Key + "; " + db);
-            sb.Append("MT   " + modificationType);
             return sb.ToString();
         }
 
@@ -66,23 +63,23 @@ namespace Proteomics
             ModificationWithLocation m = o as ModificationWithLocation;
             return m == null ? false :
 
-                base.Equals(m)
-                && (this.accession == null && m.accession == null
-                || this.accession != null && m.accession != null
-                && this.accession.Item1 == m.accession.Item1
-                && this.accession.Item2 == m.accession.Item2)
+               base.Equals(m)
+               && (this.accession == null && m.accession == null
+               || this.accession != null && m.accession != null
+               && this.accession.Item1 == m.accession.Item1
+               && this.accession.Item2 == m.accession.Item2)
 
-                && (this.motif == null && m.motif == null
-                || this.motif != null && m.motif != null
-                && this.motif.Motif == m.motif.Motif)
+               && (this.motif == null && m.motif == null
+               || this.motif != null && m.motif != null
+               && this.motif.Motif == m.motif.Motif)
 
-                && (this.linksToOtherDbs == null && m.linksToOtherDbs == null
-                || this.linksToOtherDbs != null && m.linksToOtherDbs != null
-                && this.linksToOtherDbs.Keys.OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Keys.OrderBy(x => x))
-                && this.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x)))
+               && (this.linksToOtherDbs == null && m.linksToOtherDbs == null
+               || this.linksToOtherDbs != null && m.linksToOtherDbs != null
+               && this.linksToOtherDbs.Keys.OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Keys.OrderBy(x => x))
+               && this.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x)))
 
-                && this.modificationType == m.modificationType
-                && this.position == m.position;
+               && this.modificationType == m.modificationType
+               && this.position == m.position;
         }
 
         public override int GetHashCode()
