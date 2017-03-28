@@ -140,6 +140,13 @@ namespace Test
             {
                 value = 100.ToString()
             };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML.Generated.IonTypeType[1];
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML.Generated.IonTypeType();
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray = new mzIdentML.Generated.FragmentArrayType[1];
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML.Generated.FragmentArrayType()
+            {
+                values = new float[3] { 200, 300, 400 }
+            };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = new mzIdentML.Generated.PeptideEvidenceRefType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML.Generated.PeptideEvidenceRefType()
             {
@@ -165,15 +172,28 @@ namespace Test
             };
             _mzid.SequenceCollection.PeptideEvidence[0] = new mzIdentML.Generated.PeptideEvidenceType()
             {
+                endSpecified = true,
+                startSpecified = true,
+                start = 2,
+                end = 34,
                 isDecoy = false,
-                peptide_ref = "P_1"
+                peptide_ref = "P_1",
+                dBSequence_ref = "DB_1",
+                id = "PE_1"
             };
             _mzid.SequenceCollection.Peptide = new mzIdentML.Generated.PeptideType[1];
             _mzid.SequenceCollection.Peptide[0] = new mzIdentML.Generated.PeptideType()
             {
                 id = "P_1",
                 PeptideSequence = "GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR",
-                Modification = new mzIdentML.Generated.ModificationType[1]
+                Modification = new mzIdentML.Generated.ModificationType[1],
+            };
+            _mzid.SequenceCollection.DBSequence = new mzIdentML.Generated.DBSequenceType[1];
+            _mzid.SequenceCollection.DBSequence[0] = new mzIdentML.Generated.DBSequenceType()
+            {
+                id = "DB_1",
+                name = "Protein name",
+                accession = "ACCESSION",
             };
             _mzid.SequenceCollection.Peptide[0].Modification[0] = new mzIdentML.Generated.ModificationType()
             {
@@ -228,6 +248,12 @@ namespace Test
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
             Assert.AreEqual(true, identifications.PassThreshold(0));
+            Assert.AreEqual("Protein name", identifications.ProteinFullName(0));
+            Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0));
+            Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0));
+            Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0));
+            Assert.AreEqual(2, identifications.StartResidueInProtein(0));
+            Assert.AreEqual(34, identifications.EndResidueInProtein(0));
         }
 
         [Test]
@@ -259,6 +285,13 @@ namespace Test
                 chargeState = 3,
                 cvParam = new mzIdentML110.Generated.CVParamType[1]
             };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML110.Generated.IonTypeType[1];
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType();
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray = new mzIdentML110.Generated.FragmentArrayType[1];
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML110.Generated.FragmentArrayType()
+            {
+                values = new float[3] { 200, 300, 400 }
+            };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].cvParam[0] = new mzIdentML110.Generated.CVParamType()
             {
                 value = 100.ToString()
@@ -286,15 +319,28 @@ namespace Test
             };
             _mzid.SequenceCollection.PeptideEvidence[0] = new mzIdentML110.Generated.PeptideEvidenceType()
             {
+                endSpecified = true,
+                startSpecified = true,
                 isDecoy = false,
-                peptide_ref = "P_1"
-            };
+                start = 2,
+                end = 34,
+                dBSequence_ref = "DB_1",
+                peptide_ref = "P_1",
+                id = "PE_1",
+             };
             _mzid.SequenceCollection.Peptide = new mzIdentML110.Generated.PeptideType[1];
             _mzid.SequenceCollection.Peptide[0] = new mzIdentML110.Generated.PeptideType()
             {
                 id = "P_1",
                 PeptideSequence = "GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR",
                 Modification = new mzIdentML110.Generated.ModificationType[1]
+            };
+            _mzid.SequenceCollection.DBSequence = new mzIdentML110.Generated.DBSequenceType[1];
+            _mzid.SequenceCollection.DBSequence[0] = new mzIdentML110.Generated.DBSequenceType()
+            {
+                id = "DB_1",
+                name = "Protein name",
+                accession = "ACCESSION",
             };
             _mzid.SequenceCollection.Peptide[0].Modification[0] = new mzIdentML110.Generated.ModificationType()
             {
@@ -349,6 +395,12 @@ namespace Test
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
             Assert.AreEqual(false, identifications.PassThreshold(0));
+            Assert.AreEqual("Protein name", identifications.ProteinFullName(0));
+            Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0));
+            Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0));
+            Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0));
+            Assert.AreEqual(2, identifications.StartResidueInProtein(0));
+            Assert.AreEqual(34, identifications.EndResidueInProtein(0));
         }
 
         #endregion Public Methods
