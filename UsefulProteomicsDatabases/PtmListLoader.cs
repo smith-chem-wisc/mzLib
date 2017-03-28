@@ -157,14 +157,14 @@ namespace UsefulProteomicsDatabases
         private static ModificationWithLocation ReadMod(List<string> specification)
         {
             // UniProt fields
-            string uniprotID = null;
+            string id = null;
             Tuple<string, string> uniprotAC = null;
             string uniprotFT = null;
-            IEnumerable<string> uniprotTG = null;
-            string uniprotPP = null;
-            ChemicalFormula uniprotCF = null;
-            double? uniprotMM = null;
-            var uniprotDR = new Dictionary<string, IList<string>>();
+            IEnumerable<string> motifs = null;
+            string terminusLocalizationString = null;
+            ChemicalFormula correctionFormula = null;
+            double? monoisotopicMass = null;
+            var externalDatabaseLinks = new Dictionary<string, IList<string>>();
 
             // Custom fields
             IEnumerable<double> neutralLosses = null;
@@ -181,43 +181,43 @@ namespace UsefulProteomicsDatabases
                     switch (line.Substring(0, 2))
                     {
                         case "ID":
-                            uniprotID = line.Substring(5);
+                            id = line.Substring(5);
                             break;
 
-                        case "AC":
+                        case "AC": // Might not exist!
                             uniprotAC = new Tuple<string, string>("uniprot", line.Substring(5));
                             break;
 
-                        case "FT": // MOD_RES CROSSLNK LIPID
+                        case "FT": // MOD_RES CROSSLNK LIPID. Might not exist!
                             uniprotFT = line.Substring(5);
                             break;
 
                         case "TG": // Which amino acid(s) or motifs is the modification on
-                            uniprotTG = new List<string>(line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
+                            motifs = new List<string>(line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
                             break;
 
                         case "PP": // Terminus localization
-                            uniprotPP = line.Substring(5);
+                            terminusLocalizationString = line.Substring(5);
                             break;
 
                         case "CF": // Correction formula
-                            uniprotCF = ChemicalFormula.ParseFormula(line.Substring(5).Replace(" ", string.Empty));
+                            correctionFormula = ChemicalFormula.ParseFormula(line.Substring(5).Replace(" ", string.Empty));
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
                             double thisMM;
                             if (!double.TryParse(line.Substring(5), out thisMM))
                                 throw new PtmListLoaderException(line.Substring(5) + " is not a valid monoisotopic mass");
-                            uniprotMM = thisMM;
+                            monoisotopicMass = thisMM;
                             break;
 
                         case "DR": // External database links!
                             var splitString = line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
                             IList<string> val;
-                            if (uniprotDR.TryGetValue(splitString[0], out val))
+                            if (externalDatabaseLinks.TryGetValue(splitString[0], out val))
                                 val.Add(splitString[1]);
                             else
-                                uniprotDR.Add(splitString[0], new List<string> { splitString[1] });
+                                externalDatabaseLinks.Add(splitString[0], new List<string> { splitString[1] });
                             break;
 
                         // NOW CUSTOM FIELDS:
@@ -244,11 +244,11 @@ namespace UsefulProteomicsDatabases
 
                         case "//":
                             // Not CROSSLNK. LIPID and MOD_RES is fine.
-                            if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && uniprotPP != null && uniprotTG != null && uniprotID != null)
+                            if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && terminusLocalizationString != null && motifs != null && id != null)
                             {
-                                if (ModificationWithLocation.modificationTypeCodes.TryGetValue(uniprotPP, out ModificationSites modSites))
+                                if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out ModificationSites terminusLocalization))
                                 {
-                                    foreach (var singleTarget in uniprotTG)
+                                    foreach (var singleTarget in motifs)
                                     {
                                         string theMotif;
                                         if (aminoAcidCodes.TryGetValue(singleTarget, out char possibleMotifChar))
@@ -262,10 +262,10 @@ namespace UsefulProteomicsDatabases
                                             if (uniprotAC != null)
                                                 modificationType = "uniprot";
 
-                                            if (!uniprotMM.HasValue)
+                                            if (!monoisotopicMass.HasValue)
                                             {
                                                 // Return modification
-                                                result = new ModificationWithLocation(uniprotID, uniprotAC, motif, modSites, uniprotDR, modificationType);
+                                                result = new ModificationWithLocation(id, uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
                                             }
                                             else
                                             {
@@ -273,21 +273,21 @@ namespace UsefulProteomicsDatabases
                                                     neutralLosses = new HashSet<double> { 0 };
                                                 foreach (var neutralLoss in neutralLosses)
                                                 {
-                                                    if (uniprotCF == null)
+                                                    if (correctionFormula == null)
                                                     {
                                                         // Return modification with mass
-                                                        result = new ModificationWithMass(uniprotID, uniprotAC, motif, modSites, uniprotMM.Value, uniprotDR,
+                                                        result = new ModificationWithMass(id, uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
-                                                            massesObserved ?? new HashSet<double> { uniprotMM.Value },
+                                                            massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
                                                             modificationType);
                                                     }
                                                     else
                                                     {
                                                         // Return modification with complete information!
-                                                        result = new ModificationWithMassAndCf(uniprotID, uniprotAC, motif, modSites, uniprotCF, uniprotMM.Value, uniprotDR,
+                                                        result = new ModificationWithMassAndCf(id, uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
-                                                            massesObserved ?? new HashSet<double> { uniprotMM.Value },
+                                                            massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
                                                             modificationType);
                                                     }
@@ -299,7 +299,7 @@ namespace UsefulProteomicsDatabases
                                     }
                                 }
                                 else
-                                    throw new PtmListLoaderException("Could not get modification site from " + uniprotPP);
+                                    throw new PtmListLoaderException("Could not get modification site from " + terminusLocalizationString);
                             }
                             break;
                     }
