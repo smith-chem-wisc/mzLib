@@ -27,7 +27,7 @@ namespace Proteomics
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append("ID   " + id);
+            sb.AppendLine("ID   " + id);
             sb.Append("MT   " + modificationType);
             return sb.ToString();
         }

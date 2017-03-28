@@ -50,11 +50,11 @@ namespace Proteomics
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
             sb.AppendLine("PP   " + terminusLocalizationTypeCodes.First(b => b.Value.Equals(terminusLocalization)).Key);
-            sb.AppendLine("TG   " + motif.Motif);
             if (linksToOtherDbs != null)
                 foreach (var nice in linksToOtherDbs)
                     foreach (var db in nice.Value)
                         sb.AppendLine("DR   " + nice.Key + "; " + db);
+            sb.Append("TG   " + motif.Motif);
             return sb.ToString();
         }
 
