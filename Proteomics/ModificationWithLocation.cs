@@ -79,12 +79,12 @@ namespace Proteomics
                && this.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x)))
 
                && this.modificationType == m.modificationType
-               && this.position == m.position;
+               && this.terminusLocalization == m.terminusLocalization;
         }
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode() ^ position.GetHashCode();
+            int hash = base.GetHashCode() ^ terminusLocalization.GetHashCode();
             hash = hash ^ (modificationType == null ? 0 : modificationType.GetHashCode());
             hash = hash ^ (accession == null ? 0 : accession.GetHashCode());
             hash = hash ^ (motif == null ? 0 : motif.Motif.GetHashCode());
