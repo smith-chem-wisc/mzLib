@@ -616,14 +616,5 @@ namespace MzIdentML
         }
 
         #endregion Public Methods
-
-        #region Private Methods
-
-        private static int GetLastNumberFromString(string s)
-        {
-            return Convert.ToInt32(Regex.Match(s, @"\d+$").Value);
-        }
-
-        #endregion Private Methods
     }
 }
