@@ -16,14 +16,14 @@ namespace Proteomics
 
         private ModificationMotif(string motif)
         {
-            this.Motif = motif;
+            Motif = motif;
         }
 
         #endregion Private Constructors
 
         #region Public Properties
 
-        public string Motif { get; private set; }
+        public string Motif { get; }
 
         #endregion Public Properties
 
