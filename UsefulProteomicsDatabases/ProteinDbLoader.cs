@@ -35,12 +35,12 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Stores the last database file path.
         /// </summary>
-        private static string last_database_location = null;
+        private static string last_database_location;
 
         /// <summary>
         /// Stores the modification list read during LoadProteinXML
         /// </summary>
-        private static List<Modification> protein_xml_modlist = new List<Modification>();
+        private static List<Modification> protein_xml_modlist;
 
         #endregion Private Fields
 
@@ -66,7 +66,6 @@ namespace UsefulProteomicsDatabases
             where T : Modification
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
-            protein_xml_modlist = prespecified;
 
             Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
@@ -330,10 +329,10 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
         {
-            if (protein_xml_modlist.Count > 0 && proteinDbLocation == last_database_location || !File.Exists(proteinDbLocation))
+            if (last_database_location.Equals(proteinDbLocation))
                 return protein_xml_modlist;
+            last_database_location = proteinDbLocation;
 
-            List<Modification> result = new List<Modification>();
             StringBuilder storedKnownModificationsBuilder = new StringBuilder();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
             {
@@ -357,16 +356,19 @@ namespace UsefulProteomicsDatabases
                                         break;
 
                                     case "entry":
-                                        if (storedKnownModificationsBuilder.Length <= 0) return result;
-                                        result = PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList<Modification>();
-                                        break;
+                                        if (storedKnownModificationsBuilder.Length <= 0)
+                                            protein_xml_modlist = new List<Modification>();
+                                        else
+                                            protein_xml_modlist = PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList<Modification>();
+                                        return protein_xml_modlist;
                                 }
                                 break;
                         }
                     }
                 }
             }
-            return result;
+            protein_xml_modlist = new List<Modification>();
+            return protein_xml_modlist;
         }
 
         /// <summary>
