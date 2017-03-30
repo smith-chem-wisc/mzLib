@@ -177,8 +177,8 @@ namespace Test
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
 
             // Check that Modifications were saved after last load
-            Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(null).Count);
-            Assert.True(ProteinDbLoader.GetPtmListFromProteinXml(null)[0] == new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First());
+            Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml")).Count);
+            Assert.True(ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"))[0] == new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First());
 
             //But that we can still read modifications from other protein XMLs that exist
             Assert.AreEqual(0, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "xml.xml")).Count);

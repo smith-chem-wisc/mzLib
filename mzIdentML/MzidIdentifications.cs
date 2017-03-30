@@ -20,13 +20,13 @@ using MzLibUtil;
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
 namespace MzIdentML
 {
     public class MzidIdentifications : IIdentifications
     {
+
         #region Private Fields
 
         private readonly mzIdentML.Generated.MzIdentMLType dd;
@@ -443,7 +443,6 @@ namespace MzIdentML
             return ms2id;
         }
 
-
         public float[] MatchedIons(int sirIndex, int i)
         {
             try
@@ -581,7 +580,7 @@ namespace MzIdentML
                     }
                 }
             }
-           return startResidue;
+            return startResidue;
         }
 
         public int EndResidueInProtein(int sirIndex)
@@ -610,11 +609,11 @@ namespace MzIdentML
                         break;
                     }
                 }
-
             }
             return endResidue;
         }
 
         #endregion Public Methods
+
     }
 }
