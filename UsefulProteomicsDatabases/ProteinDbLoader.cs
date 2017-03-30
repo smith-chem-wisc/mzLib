@@ -329,7 +329,7 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
         {
-            if (last_database_location.Equals(proteinDbLocation))
+            if (proteinDbLocation.Equals(last_database_location))
                 return protein_xml_modlist;
             last_database_location = proteinDbLocation;
 
