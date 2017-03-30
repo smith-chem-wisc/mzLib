@@ -160,14 +160,14 @@ namespace UsefulProteomicsDatabases
             string id = null;
             Tuple<string, string> uniprotAC = null;
             string uniprotFT = null;
-            IEnumerable<string> motifs = null;
+            List<string> motifs = null;
             string terminusLocalizationString = null;
             ChemicalFormula correctionFormula = null;
             double? monoisotopicMass = null;
             var externalDatabaseLinks = new Dictionary<string, IList<string>>();
 
             // Custom fields
-            IEnumerable<double> neutralLosses = null;
+            HashSet<double> neutralLosses = null;
             IEnumerable<double> massesObserved = null;
             IEnumerable<double> diagnosticIons = null;
             string modificationType = null;
@@ -265,7 +265,7 @@ namespace UsefulProteomicsDatabases
                                             if (!monoisotopicMass.HasValue)
                                             {
                                                 // Return modification
-                                                result = new ModificationWithLocation(id, uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
+                                                result = new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
                                             }
                                             else
                                             {
@@ -276,7 +276,7 @@ namespace UsefulProteomicsDatabases
                                                     if (correctionFormula == null)
                                                     {
                                                         // Return modification with mass
-                                                        result = new ModificationWithMass(id, uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        result = new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
                                                             massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
@@ -285,7 +285,7 @@ namespace UsefulProteomicsDatabases
                                                     else
                                                     {
                                                         // Return modification with complete information!
-                                                        result = new ModificationWithMassAndCf(id, uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        result = new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
                                                             massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
