@@ -2,6 +2,7 @@
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -276,7 +277,7 @@ namespace UsefulProteomicsDatabases
                                                     if (correctionFormula == null)
                                                     {
                                                         // Return modification with mass
-                                                        result = new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        result = new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F5", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
                                                             massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
@@ -285,7 +286,7 @@ namespace UsefulProteomicsDatabases
                                                     else
                                                     {
                                                         // Return modification with complete information!
-                                                        result = new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        result = new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F5", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
                                                             massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
