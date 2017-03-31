@@ -173,8 +173,6 @@ namespace UsefulProteomicsDatabases
             IEnumerable<double> diagnosticIons = null;
             string modificationType = null;
 
-            ModificationWithLocation result = null;
-
             foreach (string line in specification)
             {
                 if (line.Length >= 2)
