@@ -244,9 +244,15 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "//":
-                            // Not CROSSLNK. LIPID and MOD_RES is fine.
-                            if ((uniprotFT == null || !uniprotFT.Equals("CROSSLNK")) && terminusLocalizationString != null && motifs != null && id != null)
-                            {
+                            if (id == null)
+                                throw new PtmListLoaderException("id is null");
+                            if (uniprotFT != null && uniprotFT.Equals("CROSSLNK"))
+                                break;
+                            if (uniprotAC != null)
+                                modificationType = "uniprot";
+                            if (modificationType == null)
+                                throw new PtmListLoaderException("modificationType of " + id + " is null");
+                            if (terminusLocalizationString != null && motifs != null)
                                 if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out ModificationSites terminusLocalization))
                                 {
                                     foreach (var singleTarget in motifs)
@@ -259,9 +265,6 @@ namespace UsefulProteomicsDatabases
                                         if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                         {
                                             // Add the modification!
-
-                                            if (uniprotAC != null)
-                                                modificationType = "uniprot";
 
                                             if (!monoisotopicMass.HasValue)
                                             {
@@ -301,7 +304,6 @@ namespace UsefulProteomicsDatabases
                                 }
                                 else
                                     throw new PtmListLoaderException("Could not get modification site from " + terminusLocalizationString);
-                            }
                             break;
                     }
                 }
