@@ -89,8 +89,8 @@ namespace UsefulProteomicsDatabases
 
                             case "//":
                                 modification_specification.Add(line);
-                                ModificationWithLocation m = ReadMod(modification_specification);
-                                if (m != null) yield return m;
+                                foreach (var mod in ReadMod(modification_specification))
+                                    yield return mod;
                                 modification_specification = new List<string>();
                                 break;
                         }
@@ -136,8 +136,8 @@ namespace UsefulProteomicsDatabases
 
                             case "//":
                                 modification_specification.Add(line);
-                                ModificationWithLocation m = ReadMod(modification_specification);
-                                if (m != null) yield return m;
+                                foreach (var mod in ReadMod(modification_specification))
+                                    yield return mod;
                                 modification_specification = new List<string>();
                                 break;
                         }
@@ -155,7 +155,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="specification"></param>
         /// <returns></returns>
-        private static ModificationWithLocation ReadMod(List<string> specification)
+        private static IEnumerable<ModificationWithLocation> ReadMod(List<string> specification)
         {
             // UniProt fields
             string id = null;
@@ -269,7 +269,7 @@ namespace UsefulProteomicsDatabases
                                             if (!monoisotopicMass.HasValue)
                                             {
                                                 // Return modification
-                                                result = new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
+                                                yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
                                             }
                                             else
                                             {
@@ -280,7 +280,7 @@ namespace UsefulProteomicsDatabases
                                                     if (correctionFormula == null)
                                                     {
                                                         // Return modification with mass
-                                                        result = new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F3", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F3", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
                                                             massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
@@ -289,7 +289,7 @@ namespace UsefulProteomicsDatabases
                                                     else
                                                     {
                                                         // Return modification with complete information!
-                                                        result = new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F3", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F3", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                             neutralLoss,
                                                             massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
                                                             diagnosticIons,
@@ -308,7 +308,6 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-            return result;
         }
 
         #endregion Private Methods
