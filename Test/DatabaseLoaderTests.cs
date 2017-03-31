@@ -160,6 +160,24 @@ namespace Test
         }
 
         [Test]
+        public void SampleModFileLoadingFail5()
+        {
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail5.txt")).ToList(),
+                                            Throws.TypeOf<PtmListLoaderException>()
+                                            .With.Property("Message")
+                                            .EqualTo("id is null"));
+        }
+
+        [Test]
+        public void SampleModFileLoadingFail6()
+        {
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail6.txt")).ToList(),
+                                            Throws.TypeOf<PtmListLoaderException>()
+                                            .With.Property("Message")
+                                            .EqualTo("modificationType of lalaMod is null"));
+        }
+
+        [Test]
         public void Modification_read_write_into_proteinDb()
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
