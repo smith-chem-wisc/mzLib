@@ -133,6 +133,9 @@
     <Content Include="sampleModFileFail5.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <None Include="sampleModFileDouble.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <Content Include="xml2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -178,6 +178,12 @@ namespace Test
         }
 
         [Test]
+        public void CompactFormReading()
+        {
+            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileDouble.txt")).Count());
+        }
+
+        [Test]
         public void Modification_read_write_into_proteinDb()
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
