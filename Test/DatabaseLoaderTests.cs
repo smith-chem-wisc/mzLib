@@ -154,9 +154,7 @@ namespace Test
         public void SampleModFileLoadingFail4()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "m.txt")).ToList(),
-                                            Throws.TypeOf<PtmListLoaderException>()
-                                            .With.Property("Message")
-                                            .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
+                                            Throws.TypeOf<FormatException>());
         }
 
         [Test]

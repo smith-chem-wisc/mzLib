@@ -2,6 +2,7 @@
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -203,10 +204,7 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            double thisMM;
-                            if (!double.TryParse(line.Substring(5), out thisMM))
-                                throw new PtmListLoaderException(line.Substring(5) + " is not a valid monoisotopic mass");
-                            monoisotopicMass = thisMM;
+                            monoisotopicMass = double.Parse(line.Substring(5), CultureInfo.InvariantCulture);
                             break;
 
                         case "DR": // External database links!
@@ -221,19 +219,19 @@ namespace UsefulProteomicsDatabases
                         // NOW CUSTOM FIELDS:
 
                         case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
+                            neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             break;
 
                         case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            massesObserved = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
+                            massesObserved = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             break;
 
-                        case "DI": // Masses of diagnostic ions
+                        case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
                             var nice = line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None);
                             if (!string.IsNullOrEmpty(nice[0]))
-                                diagnosticIons = new HashSet<double>(nice.Select(b => double.Parse(b)));
+                                diagnosticIons = new List<double>(nice.Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             else
-                                diagnosticIons = null;
+                                diagnosticIons = new List<double>();
                             break;
 
                         case "MT": // Modification Type. If the field doesn't exist, set to the database name
@@ -270,14 +268,12 @@ namespace UsefulProteomicsDatabases
                                             }
                                             else
                                             {
-                                                if (neutralLosses == null)
-                                                    neutralLosses = new List<double> { 0 };
                                                 if (correctionFormula == null)
                                                 {
                                                     // Return modification with mass
                                                     yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
-                                                        neutralLosses,
-                                                        massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
+                                                        neutralLosses ?? new List<double> { 0 },
+                                                        massesObserved ?? new List<double> { monoisotopicMass.Value },
                                                         diagnosticIons,
                                                         modificationType);
                                                 }
@@ -285,8 +281,8 @@ namespace UsefulProteomicsDatabases
                                                 {
                                                     // Return modification with complete information!
                                                     yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
-                                                        neutralLosses,
-                                                        massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
+                                                        neutralLosses ?? new List<double> { 0 },
+                                                        massesObserved ?? new List<double> { monoisotopicMass.Value },
                                                         diagnosticIons,
                                                         modificationType);
                                                 }
