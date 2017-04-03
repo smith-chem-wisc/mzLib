@@ -265,14 +265,14 @@ namespace UsefulProteomicsDatabases
                                             if (!monoisotopicMass.HasValue)
                                             {
                                                 // Return modification
-                                                yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
+                                                yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
                                             }
                                             else
                                             {
                                                 if (correctionFormula == null)
                                                 {
                                                     // Return modification with mass
-                                                    yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                    yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                         neutralLosses ?? new List<double> { 0 },
                                                         massesObserved ?? new List<double> { monoisotopicMass.Value },
                                                         diagnosticIons ?? new List<double>(),
@@ -281,7 +281,7 @@ namespace UsefulProteomicsDatabases
                                                 else
                                                 {
                                                     // Return modification with complete information!
-                                                    yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                    yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                         neutralLosses ?? new List<double> { 0 },
                                                         massesObserved ?? new List<double> { monoisotopicMass.Value },
                                                         diagnosticIons ?? new List<double>(),
