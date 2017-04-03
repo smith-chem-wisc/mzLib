@@ -230,8 +230,6 @@ namespace UsefulProteomicsDatabases
                             var nice = line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None);
                             if (!string.IsNullOrEmpty(nice[0]))
                                 diagnosticIons = new List<double>(nice.Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
-                            else
-                                diagnosticIons = new List<double>();
                             break;
 
                         case "MT": // Modification Type. If the field doesn't exist, set to the database name
@@ -274,7 +272,7 @@ namespace UsefulProteomicsDatabases
                                                     yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                         neutralLosses ?? new List<double> { 0 },
                                                         massesObserved ?? new List<double> { monoisotopicMass.Value },
-                                                        diagnosticIons,
+                                                        diagnosticIons ?? new List<double>(),
                                                         modificationType);
                                                 }
                                                 else
@@ -283,7 +281,7 @@ namespace UsefulProteomicsDatabases
                                                     yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                         neutralLosses ?? new List<double> { 0 },
                                                         massesObserved ?? new List<double> { monoisotopicMass.Value },
-                                                        diagnosticIons,
+                                                        diagnosticIons ?? new List<double>(),
                                                         modificationType);
                                                 }
                                             }
