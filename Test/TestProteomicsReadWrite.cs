@@ -120,7 +120,7 @@ namespace Test
             };
 
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithMass m = new ModificationWithMass("mod", new Tuple<string, string>("", ""), motif, ModificationSites.Any, 1, new Dictionary<string, IList<string>>(), -1, new List<double>(), new List<double>(), "");
+            ModificationWithMass m = new ModificationWithMass("mod", new Tuple<string, string>("", ""), motif, ModificationSites.Any, 1, new Dictionary<string, IList<string>>(), new List<double> { -1 }, new List<double>(), new List<double>(), "");
 
             Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> new_mods = new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>
             {

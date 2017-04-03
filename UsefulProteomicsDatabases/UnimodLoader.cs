@@ -3,6 +3,7 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
 
@@ -68,10 +69,9 @@ namespace UsefulProteomicsDatabases
                     ModificationMotif.TryGetMotif(tg, out ModificationMotif motif);
                     var pos = nice.position;
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, 0, new List<double> { mm }, null, "unimod");
+                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, new List<double> { 0 }, new List<double> { mm }, null, "unimod");
                     else
-                        foreach (var nl in nice.NeutralLoss)
-                            yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nl.mono_mass, new List<double> { mm }, null, "unimod");
+                        yield return new ModificationWithMassAndCf(id, new Tuple<string, string>("unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nice.NeutralLoss.Select(b=>b.mono_mass), new List<double> { mm }, null, "unimod");
                 }
             }
         }

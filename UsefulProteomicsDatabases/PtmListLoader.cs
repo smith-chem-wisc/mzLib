@@ -2,7 +2,6 @@
 using Proteomics;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -168,7 +167,7 @@ namespace UsefulProteomicsDatabases
             var externalDatabaseLinks = new Dictionary<string, IList<string>>();
 
             // Custom fields
-            HashSet<double> neutralLosses = null;
+            IEnumerable<double> neutralLosses = null;
             IEnumerable<double> massesObserved = null;
             IEnumerable<double> diagnosticIons = null;
             string modificationType = null;
@@ -222,7 +221,7 @@ namespace UsefulProteomicsDatabases
                         // NOW CUSTOM FIELDS:
 
                         case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            neutralLosses = new HashSet<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
+                            neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b)));
                             break;
 
                         case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
@@ -272,27 +271,24 @@ namespace UsefulProteomicsDatabases
                                             else
                                             {
                                                 if (neutralLosses == null)
-                                                    neutralLosses = new HashSet<double> { 0 };
-                                                foreach (var neutralLoss in neutralLosses)
+                                                    neutralLosses = new List<double> { 0 };
+                                                if (correctionFormula == null)
                                                 {
-                                                    if (correctionFormula == null)
-                                                    {
-                                                        // Return modification with mass
-                                                        yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F3", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
-                                                            neutralLoss,
-                                                            massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
-                                                            diagnosticIons,
-                                                            modificationType);
-                                                    }
-                                                    else
-                                                    {
-                                                        // Return modification with complete information!
-                                                        yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif) + (neutralLosses.Count == 1 ? "" : " NL:" + neutralLoss.ToString("F3", CultureInfo.InvariantCulture)), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
-                                                            neutralLoss,
-                                                            massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
-                                                            diagnosticIons,
-                                                            modificationType);
-                                                    }
+                                                    // Return modification with mass
+                                                    yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        neutralLosses,
+                                                        massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
+                                                        diagnosticIons,
+                                                        modificationType);
+                                                }
+                                                else
+                                                {
+                                                    // Return modification with complete information!
+                                                    yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " of " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                        neutralLosses,
+                                                        massesObserved ?? new HashSet<double> { monoisotopicMass.Value },
+                                                        diagnosticIons,
+                                                        modificationType);
                                                 }
                                             }
                                         }
