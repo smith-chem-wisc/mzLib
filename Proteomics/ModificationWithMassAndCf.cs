@@ -16,8 +16,8 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMassAndCf(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites site, ChemicalFormula chemicalFormula, double mm, IDictionary<string, IList<string>> linksToOtherDbs, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
-            : base(id, accession, motif, site, mm, linksToOtherDbs, neutralLoss, massesObserved, diagnosticIons, modificationType)
+        public ModificationWithMassAndCf(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites site, ChemicalFormula chemicalFormula, double mm, IDictionary<string, IList<string>> linksToOtherDbs, IEnumerable<double> neutralLosses, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
+            : base(id, accession, motif, site, mm, linksToOtherDbs, neutralLosses, massesObserved, diagnosticIons, modificationType)
         {
             this.chemicalFormula = chemicalFormula;
         }

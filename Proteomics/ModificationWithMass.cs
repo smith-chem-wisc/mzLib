@@ -14,17 +14,17 @@ namespace Proteomics
         public readonly IEnumerable<double> massesObserved;
         public readonly double monoisotopicMass;
         public readonly IEnumerable<double> diagnosticIons;
-        public readonly double neutralLoss;
+        public readonly IEnumerable<double> neutralLosses;
 
         #endregion Public Fields
 
         #region Public Constructors
 
-        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, double neutralLoss, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
+        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, IEnumerable<double> neutralLosses, IEnumerable<double> massesObserved, IEnumerable<double> diagnosticIons, string modificationType)
             : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
         {
             this.monoisotopicMass = monoisotopicMass;
-            this.neutralLoss = neutralLoss;
+            this.neutralLosses = neutralLosses;
             this.massesObserved = massesObserved;
             this.diagnosticIons = diagnosticIons;
         }
@@ -37,8 +37,8 @@ namespace Proteomics
         {
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
-            if (neutralLoss != 0)
-                sb.AppendLine("NL   " + neutralLoss.ToString(CultureInfo.InvariantCulture));
+            if (neutralLosses.Count() != 1 || neutralLosses.First() != 0)
+                sb.AppendLine("NL   " + string.Join(" or ", neutralLosses.Select(b => b.ToString(CultureInfo.InvariantCulture))));
             if (massesObserved.Count() != 1 || massesObserved.First() != monoisotopicMass)
                 sb.AppendLine("MO   " + string.Join(" or ", massesObserved.Select(b => b.ToString(CultureInfo.InvariantCulture))));
             if (diagnosticIons != null)
@@ -61,13 +61,17 @@ namespace Proteomics
                 || this.diagnosticIons != null && m.diagnosticIons != null
                 && this.diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
 
-                && this.monoisotopicMass == m.monoisotopicMass
-                && this.neutralLoss == m.neutralLoss;
+                && (this.neutralLosses == null && m.neutralLosses == null
+                || this.neutralLosses != null && m.neutralLosses != null
+                && this.neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
+
+                && this.monoisotopicMass == m.monoisotopicMass; ;
         }
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode() ^ neutralLoss.GetHashCode();
+            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode();
+            if (neutralLosses != null) foreach (double x in neutralLosses) hash = hash ^ x.GetHashCode();
             if (massesObserved != null) foreach (double x in massesObserved) hash = hash ^ x.GetHashCode();
             if (diagnosticIons != null) foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
             return hash;
