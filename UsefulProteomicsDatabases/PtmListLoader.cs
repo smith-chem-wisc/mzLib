@@ -204,7 +204,10 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            monoisotopicMass = double.Parse(line.Substring(5), CultureInfo.InvariantCulture);
+                            double thisMM;
+                            if (!double.TryParse(line.Substring(5), NumberStyles.Any, CultureInfo.InvariantCulture, out thisMM))
+                                throw new PtmListLoaderException(line.Substring(5) + " is not a valid monoisotopic mass");
+                            monoisotopicMass = thisMM;
                             break;
 
                         case "DR": // External database links!
