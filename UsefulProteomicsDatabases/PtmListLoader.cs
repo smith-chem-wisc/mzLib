@@ -169,7 +169,6 @@ namespace UsefulProteomicsDatabases
 
             // Custom fields
             IEnumerable<double> neutralLosses = null;
-            IEnumerable<double> massesObserved = null;
             IEnumerable<double> diagnosticIons = null;
             string modificationType = null;
 
@@ -184,7 +183,7 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "AC": // Might not exist!
-                            uniprotAC = new Tuple<string, string>("uniprot", line.Substring(5));
+                            uniprotAC = new Tuple<string, string>("Uniprot", line.Substring(5));
                             break;
 
                         case "FT": // MOD_RES CROSSLNK LIPID. Might not exist!
@@ -225,10 +224,6 @@ namespace UsefulProteomicsDatabases
                             neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             break;
 
-                        case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            massesObserved = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
-                            break;
-
                         case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
                             var nice = line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None);
                             if (!string.IsNullOrEmpty(nice[0]))
@@ -245,7 +240,7 @@ namespace UsefulProteomicsDatabases
                             if (uniprotFT != null && uniprotFT.Equals("CROSSLNK"))
                                 break;
                             if (uniprotAC != null)
-                                modificationType = "uniprot";
+                                modificationType = "Uniprot";
                             if (modificationType == null)
                                 throw new PtmListLoaderException("modificationType of " + id + " is null");
                             if (terminusLocalizationString != null && motifs != null)
@@ -274,7 +269,6 @@ namespace UsefulProteomicsDatabases
                                                     // Return modification with mass
                                                     yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                         neutralLosses ?? new List<double> { 0 },
-                                                        massesObserved ?? new List<double> { monoisotopicMass.Value },
                                                         diagnosticIons ?? new List<double>(),
                                                         modificationType);
                                                 }
@@ -283,7 +277,6 @@ namespace UsefulProteomicsDatabases
                                                     // Return modification with complete information!
                                                     yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
                                                         neutralLosses ?? new List<double> { 0 },
-                                                        massesObserved ?? new List<double> { monoisotopicMass.Value },
                                                         diagnosticIons ?? new List<double>(),
                                                         modificationType);
                                                 }

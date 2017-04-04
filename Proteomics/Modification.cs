@@ -35,12 +35,12 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             Modification m = o as Modification;
-            return o == null ? false : this.id == m.id;
+            return o != null;
         }
 
         public override int GetHashCode()
         {
-            return this.id == null ? 0 : this.id.GetHashCode();
+            return 0;
         }
 
         #endregion Public Methods
