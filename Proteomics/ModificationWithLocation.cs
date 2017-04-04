@@ -64,19 +64,10 @@ namespace Proteomics
             return m == null ? false :
 
                base.Equals(m)
-               && (this.accession == null && m.accession == null
-               || this.accession != null && m.accession != null
-               && this.accession.Item1 == m.accession.Item1
-               && this.accession.Item2 == m.accession.Item2)
 
                && (this.motif == null && m.motif == null
                || this.motif != null && m.motif != null
                && this.motif.Motif == m.motif.Motif)
-
-               && (this.linksToOtherDbs == null && m.linksToOtherDbs == null
-               || this.linksToOtherDbs != null && m.linksToOtherDbs != null
-               && this.linksToOtherDbs.Keys.OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Keys.OrderBy(x => x))
-               && this.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x).SequenceEqual(m.linksToOtherDbs.Values.SelectMany(x => x).OrderBy(x => x)))
 
                && this.modificationType == m.modificationType
                && this.terminusLocalization == m.terminusLocalization;
@@ -86,13 +77,7 @@ namespace Proteomics
         {
             int hash = base.GetHashCode() ^ terminusLocalization.GetHashCode();
             hash = hash ^ (modificationType == null ? 0 : modificationType.GetHashCode());
-            hash = hash ^ (accession == null ? 0 : accession.GetHashCode());
             hash = hash ^ (motif == null ? 0 : motif.Motif.GetHashCode());
-            if (linksToOtherDbs != null)
-            {
-                foreach (string a in linksToOtherDbs.Keys) hash = hash ^ (a == null ? 0 : a.GetHashCode());
-                foreach (string b in linksToOtherDbs.Values.SelectMany(c => c)) hash = hash ^ (b == null ? 0 : b.GetHashCode());
-            }
             return hash;
         }
 
