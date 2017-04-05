@@ -37,7 +37,7 @@ namespace Proteomics
             sb.AppendLine(base.ToString());
             if (neutralLosses.Count() != 1 || neutralLosses.First() != 0)
                 sb.AppendLine("NL   " + string.Join(" or ", neutralLosses.Select(b => b.ToString(CultureInfo.InvariantCulture))));
-            if (diagnosticIons != null)
+            if (diagnosticIons.Count() != 0)
                 sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons.Select(b => b.ToString(CultureInfo.InvariantCulture))));
             sb.Append("MM   " + monoisotopicMass.ToString(CultureInfo.InvariantCulture));
             return sb.ToString();
