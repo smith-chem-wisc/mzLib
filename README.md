@@ -13,12 +13,9 @@ Releases are here: https://www.nuget.org/packages/mzLib/
 ## Reading Spectra Files
 To read Thermo or mzML files, use
 ```
-ThermoRawFile thermoFile = new ThermoRawFile(@"spectra.RAW");
-thermoFile.Open();
-thermoFile.Close();
-Mzml mzmlFile = new Mzml(@"spectra.mzML");
-mzmlFile.Open();
-mzmlFile.Close();
+ThermoStaticData staticThermo = ThermoStaticData.LoadAllStaticData(@"spectra.raw");
+ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"spectra.raw")
+Mzml mzmlFile = Mzml.LoadAllStaticData(@"spectra.mzML");
 ```
 Both filetypes implement the same interface that has all of the necessary functionality to interact with spectra files:
 ```
