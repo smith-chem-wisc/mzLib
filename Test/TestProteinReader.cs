@@ -39,20 +39,20 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First().Id);
-            Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First().Properties.First().Item1);
-            Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "Ensembl").Id);
+            Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "Ensembl").Properties.First().Item1);
+            Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "Ensembl").Properties.First().Item2);
             Assert.AreEqual(42, ok[0].GeneNames.Count());
             Assert.AreEqual(14, ok[0].GeneNames.Where(t => t.Item1 == "primary").Count());
             Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
-            Assert.AreEqual(23, ok[0].DatabaseReferences.Count());
+            Assert.AreEqual(23, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "Ensembl"));
         }
 
         [Test]
@@ -63,7 +63,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, new List<string> { "EnsemblFungi" }, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
 
@@ -76,8 +76,8 @@ namespace Test
             //GoTerm checks
             List<Protein> targets = ok.Where(p => !p.IsDecoy).ToList();
             Assert.AreEqual(2, targets.Count);
-            Assert.AreEqual(1, targets[0].DatabaseReferences.Count());
-            Assert.AreEqual(1, targets[1].DatabaseReferences.Count());
+            Assert.AreEqual(1, targets[0].DatabaseReferences.Count(dbRef => dbRef.Type == "EnsemblFungi"));
+            Assert.AreEqual(1, targets[1].DatabaseReferences.Count(dbRef => dbRef.Type == "EnsemblFungi"));
         }
 
         [Test]
@@ -88,20 +88,20 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, new List<string> { "Ensembl" }, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
 
             Assert.AreEqual("P62805|H4_HUMAN|Histone H4", ok[0].FullDescription);
             Assert.AreEqual("DECOY_P62805|H4_HUMAN|Histone H4", ok[1].FullDescription);
-            Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First().Id);
-            Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First().Properties.First().Item1);
-            Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First().Properties.First().Item2);
+            Assert.AreEqual("ENST00000244537", ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "Ensembl").Id);
+            Assert.AreEqual("protein sequence ID", ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "Ensembl").Properties.First().Item1);
+            Assert.AreEqual("ENSP00000244537", ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "Ensembl").Properties.First().Item2);
             Assert.AreEqual(42, ok[0].GeneNames.Count());
             Assert.AreEqual(14, ok[0].GeneNames.Where(t => t.Item1 == "primary").Count());
             Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
-            Assert.AreEqual(23, ok[0].DatabaseReferences.Count());
+            Assert.AreEqual(23, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "Ensembl"));
         }
 
         [Test]
@@ -112,7 +112,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -126,7 +126,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -157,7 +157,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
@@ -170,7 +170,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "exclude_me")
             };
 
-            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string> { "Ensembl" }, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
 
