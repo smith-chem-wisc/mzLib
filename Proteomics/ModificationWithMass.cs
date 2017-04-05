@@ -23,6 +23,8 @@ namespace Proteomics
             : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
         {
             this.monoisotopicMass = monoisotopicMass;
+            if (neutralLosses == null || neutralLosses.Count() == 0)
+                neutralLosses = new List<double> { 0 };
             this.neutralLosses = neutralLosses;
             this.diagnosticIons = diagnosticIons;
         }
@@ -37,7 +39,7 @@ namespace Proteomics
             sb.AppendLine(base.ToString());
             if (neutralLosses.Count() != 1 || neutralLosses.First() != 0)
                 sb.AppendLine("NL   " + string.Join(" or ", neutralLosses.Select(b => b.ToString(CultureInfo.InvariantCulture))));
-            if (diagnosticIons != null)
+            if (diagnosticIons != null && diagnosticIons.Count() > 0)
                 sb.AppendLine("DI   " + string.Join(" or ", diagnosticIons.Select(b => b.ToString(CultureInfo.InvariantCulture))));
             sb.Append("MM   " + monoisotopicMass.ToString(CultureInfo.InvariantCulture));
             return sb.ToString();
@@ -50,13 +52,11 @@ namespace Proteomics
 
                 base.Equals(m)
 
-                && (this.diagnosticIons == null && m.diagnosticIons == null
+                && ((this.diagnosticIons == null || this.diagnosticIons.Count() == 0) && (m.diagnosticIons == null || m.diagnosticIons.Count() == 0)
                 || this.diagnosticIons != null && m.diagnosticIons != null
                 && this.diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
 
-                && (this.neutralLosses == null && m.neutralLosses == null
-                || this.neutralLosses != null && m.neutralLosses != null
-                && this.neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
+                && (this.neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
 
                 && this.monoisotopicMass == m.monoisotopicMass; ;
         }
@@ -64,7 +64,7 @@ namespace Proteomics
         public override int GetHashCode()
         {
             int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode();
-            if (neutralLosses != null) foreach (double x in neutralLosses) hash = hash ^ x.GetHashCode();
+            foreach (double x in neutralLosses) hash = hash ^ x.GetHashCode();
             if (diagnosticIons != null) foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
             return hash;
         }
