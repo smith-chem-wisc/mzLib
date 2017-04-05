@@ -382,7 +382,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
-            Random random_identifier = new Random();
+            int unique_identifier = 1;
             string accession = null;
             string name = null;
             string full_name = null;
@@ -435,17 +435,12 @@ namespace UsefulProteomicsDatabases
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                     {
                         string sequence = substituteWhitespace.Replace(sb.ToString(), "");
-
-                        // FORCE ACCESSIONS TO BE UNIQUE
-                        string tmp_accession = new string(accession.ToArray());
-                        while (unique_accessions.Contains(tmp_accession))
+                        while (unique_accessions.Contains(accession))
                         {
-                            tmp_accession = new string(accession.ToArray());
-                            tmp_accession += "_" + random_identifier.Next().ToString();
+                            accession += "_" + unique_identifier.ToString();
+                            unique_identifier++;
                         }
-                        accession = tmp_accession;
                         unique_accessions.Add(accession);
-
                         Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences);
                         result.Add(protein);
 
