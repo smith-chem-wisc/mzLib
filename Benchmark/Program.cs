@@ -150,6 +150,12 @@ namespace Benchmark
             Console.WriteLine(r);
             Console.WriteLine(r.ToString());
 
+
+            //Loaders.LoadElements("elements2.dat");
+            //Dictionary<string, Modification> um;
+            //ProteinDbLoader.LoadProteinXML(@"C:\Users\stepa\Desktop\01012017_MM_ONLYGPTMD.xml", true, new List<Modification>(), false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
+
+
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\PrecursorProblems\2016_080902_SMC_EC_Glyco_EThcD.raw");
 
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\MetaMorpheus\Test\bin\Debug\ok.mzML");
