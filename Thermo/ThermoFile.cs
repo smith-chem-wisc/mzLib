@@ -232,9 +232,9 @@ namespace IO.Thermo
                 double? selectedIonGuessMonoisotopicMz = null;
                 if (precursorInfo.dMonoIsoMass > 0)
                     selectedIonGuessMonoisotopicMz = precursorInfo.dMonoIsoMass;
-                else if (precursorMonoisotopicMZfromTrailierExtra.HasValue)
+                if (precursorMonoisotopicMZfromTrailierExtra.HasValue && precursorMonoisotopicMZfromTrailierExtra.Value > 0 && (!selectedIonGuessMonoisotopicMz.HasValue || precursorMonoisotopicMZfromTrailierExtra.Value < selectedIonGuessMonoisotopicMz))
                     selectedIonGuessMonoisotopicMz = precursorMonoisotopicMZfromTrailierExtra;
-                else if (pdFoundMass > 0)
+                if (pdFoundMass > 0 && (!selectedIonGuessMonoisotopicMz.HasValue || pdFoundMass < selectedIonGuessMonoisotopicMz))
                     selectedIonGuessMonoisotopicMz = pdFoundMass;
 
                 return new ThermoScanWithPrecursor(
