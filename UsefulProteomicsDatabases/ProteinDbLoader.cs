@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> dbRefTypesToKeep, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
             where T : Modification
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
@@ -227,10 +227,7 @@ namespace UsefulProteomicsDatabases
                                         break;
 
                                     case "dbReference":
-                                        if (dbRefTypesToKeep != null && dbRefTypesToKeep.Contains(dbReference_type))
-                                        {
-                                            databaseReferences.Add(new DatabaseReference(dbReference_type, dbReference_id, Enumerable.Range(0, property_types.Count).Select(i => new Tuple<string, string>(property_types[i], property_values[i])).ToList()));
-                                        }
+                                        databaseReferences.Add(new DatabaseReference(dbReference_type, dbReference_id, Enumerable.Range(0, property_types.Count).Select(i => new Tuple<string, string>(property_types[i], property_values[i])).ToList()));
                                         property_types = new List<string>();
                                         property_values = new List<string>();
                                         dbReference_type = null;
@@ -384,6 +381,8 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
+            HashSet<string> unique_accessions = new HashSet<string>();
+            int unique_identifier = 1;
             string accession = null;
             string name = null;
             string full_name = null;
@@ -436,6 +435,12 @@ namespace UsefulProteomicsDatabases
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                     {
                         string sequence = substituteWhitespace.Replace(sb.ToString(), "");
+                        while (unique_accessions.Contains(accession))
+                        {
+                            accession += "_" + unique_identifier.ToString();
+                            unique_identifier++;
+                        }
+                        unique_accessions.Add(accession);
                         Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences);
                         result.Add(protein);
 
