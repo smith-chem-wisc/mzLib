@@ -23,20 +23,20 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
             };
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), false, nice, false, new List<string> { "GO" }, null, out Dictionary<string, Modification> un);
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"));
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"), false, nice, false, new List<string> { "GO" }, null, out un);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"), false, nice, false, null, out un);
 
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
-            Assert.AreEqual(9, ok[0].DatabaseReferences.Count());
-            Assert.AreEqual(3, ok[0].DatabaseReferences.First().Properties.Count());
+            Assert.AreEqual(9, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
+            Assert.AreEqual(3, ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
             Assert.AreEqual(3, ok[0].GeneNames.Count());
             Assert.AreEqual("primary", ok[0].GeneNames.First().Item1);
             Assert.AreEqual("JJJ1", ok[0].GeneNames.First().Item2);
 
-            Assert.AreEqual(9, ok2[0].DatabaseReferences.Count());
-            Assert.AreEqual(3, ok2[0].DatabaseReferences.First().Properties.Count());
+            Assert.AreEqual(9, ok2[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
+            Assert.AreEqual(3, ok2[0].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
             Assert.AreEqual(3, ok2[0].GeneNames.Count());
             Assert.AreEqual("primary", ok2[0].GeneNames.First().Item1);
             Assert.AreEqual("JJJ1", ok2[0].GeneNames.First().Item2);
@@ -57,7 +57,7 @@ namespace Test
 
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_ensembl.pep.all.fasta"), false, false, ProteinDbLoader.ensembl_accession_expression, ProteinDbLoader.ensembl_fullName_expression, ProteinDbLoader.ensembl_accession_expression, ProteinDbLoader.ensembl_gene_expression);
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_test_ensembl.pep.all.xml"));
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_test_ensembl.pep.all.xml"), false, nice, false, null, null, out Dictionary<string, Modification> un);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_test_ensembl.pep.all.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
@@ -127,9 +127,9 @@ namespace Test
                 {  "P53863", new HashSet<Tuple<int, ModificationWithMass>> {new Tuple<int, ModificationWithMass>(2, m ) } }
             };
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), false, nice, false, null, null, out Dictionary<string, Modification> un);
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
             ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"));
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"), false, nice, false, null, null, out un);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"), false, nice, false, null, out un);
 
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
