@@ -1,4 +1,6 @@
 ﻿using Chemistry;
+using IO.MzML;
+using IO.Thermo;
 using MzLibUtil;
 using Proteomics;
 using System;
@@ -150,11 +152,9 @@ namespace Benchmark
             Console.WriteLine(r);
             Console.WriteLine(r.ToString());
 
-
             //Loaders.LoadElements("elements2.dat");
             //Dictionary<string, Modification> um;
             //ProteinDbLoader.LoadProteinXML(@"C:\Users\stepa\Desktop\01012017_MM_ONLYGPTMD.xml", true, new List<Modification>(), false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
-
 
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\PrecursorProblems\2016_080902_SMC_EC_Glyco_EThcD.raw");
 
@@ -167,7 +167,17 @@ namespace Benchmark
             //var hheh = oddk.GetMsScansInTimeRange(47.2469, 47.25693).ToList();
 
             //Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.mzML");
-            //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
+
+
+            var cool = Mzml.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\2017-04-07-16-27-21\Task2Calibrate\04-29-13_B6_Frac9_9p5uL-Calibrated.mzML");
+
+            var hhih = cool.GetOneBasedScan(23480).MassSpectrum;
+
+            Console.WriteLine(string.Join(" , ", hhih.XArray));
+            Console.WriteLine(string.Join(" , ", hhih.YArray));
+
+
+            ////var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac28.raw");
             //var okff = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\ForRyan\golden.raw");
             //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(okff, @"C:\Users\stepa\Data\ForRyan\adsfjk.mzML");
 
@@ -178,11 +188,11 @@ namespace Benchmark
             //}
 
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw"))
-            //{
-            //    var ok = nice.GetOneBasedScan(24676);
-            //    var hm = ok as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
-            //    hm.RecomputeSelectedPeak(nice.GetOneBasedScan(hm.OneBasedPrecursorScanNumber).MassSpectrum);
-            //}
+
+            using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-29-13_B6_Frac9_9p5uL.raw"))
+            {
+                var ok = nice.GetOneBasedScan(21365);
+            }
 
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
             //{

@@ -68,6 +68,10 @@
     <Compile Include="Enums\SmoothingType.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
+      <Name>Chemistry</Name>
+    </ProjectReference>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
       <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
       <Name>MzLibUtil</Name>
