@@ -187,15 +187,17 @@ namespace MzIdentML
             }
         }
 
-        public bool PassThreshold(int sirIndex)
+        public double QValue(int sirIndex)
         {
             try
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].passThreshold;
+                var cvParam = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                return cvParam == null? -1 : Convert.ToDouble(cvParam.value);
             }
             catch
             {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].passThreshold;
+                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
             }
         }
 
