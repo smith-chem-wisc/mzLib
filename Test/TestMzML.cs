@@ -135,10 +135,13 @@ namespace Test
                 calculatedMassToChargeSpecified = true,
                 chargeState = 3,
                 cvParam = new mzIdentML.Generated.CVParamType[1]
-            };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].cvParam[0] = new mzIdentML.Generated.CVParamType()
-            {
-                value = 100.ToString()
+                {
+                    new mzIdentML.Generated.CVParamType()
+                    {
+                    accession = "MS:1002354",
+                    value = "0.05"
+                    }
+                }
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML.Generated.IonTypeType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML.Generated.IonTypeType();
@@ -247,7 +250,7 @@ namespace Test
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
-            Assert.AreEqual(true, identifications.PassThreshold(0));
+            Assert.AreEqual(.05, identifications.QValue(0));
             Assert.AreEqual("Protein name", identifications.ProteinFullName(0));
             Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0));
             Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0));
@@ -284,6 +287,13 @@ namespace Test
                 calculatedMassToChargeSpecified = true,
                 chargeState = 3,
                 cvParam = new mzIdentML110.Generated.CVParamType[1]
+                {
+                    new mzIdentML110.Generated.CVParamType()
+                    {
+                    accession = "MS:1002354",
+                    value = "0.05"
+                    }
+                }
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML110.Generated.IonTypeType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType();
@@ -291,10 +301,6 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML110.Generated.FragmentArrayType()
             {
                 values = new float[3] { 200, 300, 400 }
-            };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].cvParam[0] = new mzIdentML110.Generated.CVParamType()
-            {
-                value = 100.ToString()
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = new mzIdentML110.Generated.PeptideEvidenceRefType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML110.Generated.PeptideEvidenceRefType()
@@ -394,7 +400,7 @@ namespace Test
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
-            Assert.AreEqual(false, identifications.PassThreshold(0));
+            Assert.AreEqual(.05, identifications.QValue(0));
             Assert.AreEqual("Protein name", identifications.ProteinFullName(0));
             Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0));
             Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0));
