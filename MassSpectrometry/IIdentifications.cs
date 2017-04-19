@@ -34,7 +34,7 @@ namespace MassSpectrometry
 
         bool IsDecoy(int matchIndex);
 
-        bool PassThreshold(int matchIndex);
+        double QValue(int matchIndex);
 
         double CalculatedMassToCharge(int matchIndex);
 

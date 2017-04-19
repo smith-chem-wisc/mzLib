@@ -21,13 +21,21 @@ namespace IO.MzML
         #region Private Fields
 
         private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = new Dictionary<DissociationType, string>{
-            {DissociationType.HCD, "MS:1000422"},
             {DissociationType.CID, "MS:1000133"},
-            {DissociationType.Unknown, "MS:1000044"}};
+            {DissociationType.ISCID, "MS:1001880"},
+            {DissociationType.HCD, "MS:1000422" },
+            {DissociationType.ETD, "MS:1000598"},
+            {DissociationType.MPD, "MS:1000435"},
+            {DissociationType.PQD, "MS:1000599"},
+            {DissociationType.Unknown, "MS:1000044"} };
 
         private static readonly Dictionary<DissociationType, string> DissociationTypeNames = new Dictionary<DissociationType, string>{
-            {DissociationType.HCD, "beam-type collision-induced dissociation"},
             {DissociationType.CID, "collision-induced dissociation"},
+            {DissociationType.ISCID, "in-source collision-induced dissociation"},
+            {DissociationType.HCD, "beam-type collision-induced dissociation"},
+            {DissociationType.ETD, "electron transfer dissociation"},
+            {DissociationType.MPD, "photodissociation"},
+            {DissociationType.PQD, "pulsed q dissociation"},
             {DissociationType.Unknown, "dissociation method"}};
 
         private static readonly Dictionary<bool, string> CentroidAccessions = new Dictionary<bool, string>{
