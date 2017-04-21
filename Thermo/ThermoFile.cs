@@ -176,24 +176,17 @@ namespace IO.Thermo
                 double pdCentroidPeakWidth = 0;
                 object pvarnMassList = null;
                 object pvarPeakFlags = null;
-                try
-                {
-                    theConnection.GetMassListFromScanNum(ref nScanNumber,
-                                    bstrFilter,
-                                    nIntensityCutoffType,
-                                    nIntensityCutoffValue,
-                                    nMaxNumberOfPeaks,
-                                    bCentroidResult,
-                                    ref pdCentroidPeakWidth,
-                                    ref pvarnMassList,
-                                    ref pvarPeakFlags,
-                                    ref pnArraySize);
-                    data = (double[,])pvarnMassList;
-                }
-                catch (System.Runtime.InteropServices.COMException)
-                {
-                    data = new double[0, 2];
-                }
+                theConnection.GetMassListFromScanNum(ref nScanNumber,
+                                bstrFilter,
+                                nIntensityCutoffType,
+                                nIntensityCutoffValue,
+                                nMaxNumberOfPeaks,
+                                bCentroidResult,
+                                ref pdCentroidPeakWidth,
+                                ref pvarnMassList,
+                                ref pvarPeakFlags,
+                                ref pnArraySize);
+                data = (double[,])pvarnMassList;
             }
 
             MZAnalyzerType mzAnalyzerType;
