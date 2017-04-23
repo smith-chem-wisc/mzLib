@@ -16,11 +16,14 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using System;
 
 namespace Proteomics
 {
+    [Serializable]
     public class ChemicalFormulaTerminus : IHasChemicalFormula
     {
+
         #region Public Constructors
 
         public ChemicalFormulaTerminus(ChemicalFormula chemicalFormula)
@@ -46,5 +49,6 @@ namespace Proteomics
         }
 
         #endregion Public Properties
+
     }
 }
