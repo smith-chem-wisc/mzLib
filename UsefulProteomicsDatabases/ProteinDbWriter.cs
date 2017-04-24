@@ -116,7 +116,7 @@ namespace UsefulProteomicsDatabases
                                 modsToWrite[ye.Item1] = new HashSet<string> { ye.Item2.id };
                         }
 
-                    foreach (var hm in modsToWrite)
+                    foreach (var hm in modsToWrite.OrderBy(b=>b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
