@@ -29,6 +29,7 @@ namespace Chemistry
     /// A chemical formula class. This does NOT correspond to a physical object. A physical object can have a chemical formula.
     /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
+    [Serializable]
     public sealed class ChemicalFormula : IEquatable<ChemicalFormula>
     {
         // Main data stores, the isotopes and elements
