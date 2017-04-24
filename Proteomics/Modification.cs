@@ -1,7 +1,9 @@
 ﻿using System.Text;
+using System;
 
 namespace Proteomics
 {
+    [Serializable]
     public class Modification
     {
 

@@ -138,6 +138,13 @@ namespace Test
         }
 
         [Test]
+        public void Test_getptms_from_mzLibxml_without_prep()
+        {
+            List<Modification> ok = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"cRAP_databaseGPTMD.xml"));
+            Assert.AreEqual(70, ok.Count);
+        }
+
+        [Test]
         public void AnotherTest()
         {
             List<ModificationWithMass> variableModifications = new List<ModificationWithMass>();
