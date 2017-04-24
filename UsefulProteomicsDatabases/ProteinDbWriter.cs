@@ -93,34 +93,46 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                         writer.WriteEndElement();
                     }
-                    foreach (var ye in protein.OneBasedPossibleLocalizedModifications.OrderBy(b => b.Key))
+
+                    Dictionary<int, HashSet<string>> modsToWrite = new Dictionary<int, HashSet<string>>();
+
+                    foreach (var ye in protein.OneBasedPossibleLocalizedModifications)
                     {
                         foreach (var nice in ye.Value)
                         {
-                            writer.WriteStartElement("feature");
-                            writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", nice.id);
-                            writer.WriteStartElement("location");
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", ye.Key.ToString(CultureInfo.InvariantCulture));
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
+                            if (modsToWrite.ContainsKey(ye.Key))
+                                modsToWrite[ye.Key].Add(nice.id);
+                            else
+                                modsToWrite[ye.Key] = new HashSet<string> { nice.id };
                         }
                     }
+
                     if (Mods.ContainsKey(protein.Accession))
-                        foreach (var ye in Mods[protein.Accession].OrderBy(b => b.Item1))
+                        foreach (var ye in Mods[protein.Accession])
                         {
+                            if (modsToWrite.ContainsKey(ye.Item1))
+                                modsToWrite[ye.Item1].Add(ye.Item2.id);
+                            else
+                                modsToWrite[ye.Item1] = new HashSet<string> { ye.Item2.id };
+                        }
+
+                    foreach (var hm in modsToWrite)
+                    {
+                        foreach (var modId in hm.Value)
+                        {
+
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", ye.Item2.id);
+                            writer.WriteAttributeString("description", modId);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", ye.Item1.ToString(CultureInfo.InvariantCulture));
+                            writer.WriteAttributeString("position", hm.Key.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                             writer.WriteEndElement();
+
                         }
+                    }
 
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
