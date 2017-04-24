@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using System.Globalization;
 
 namespace Chemistry
@@ -24,6 +25,7 @@ namespace Chemistry
     /// Represents a single isotope of a chemical element. Contains a unique number
     /// of protons and neutrons compared to every other isotope.
     /// </summary>
+    [Serializable]
     public sealed class Isotope
     {
 
