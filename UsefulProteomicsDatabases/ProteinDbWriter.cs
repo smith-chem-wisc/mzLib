@@ -122,16 +122,20 @@ namespace UsefulProteomicsDatabases
                             int additionalModResidueIndex = ye.Item1;
                             string additionalModId = ye.Item2.id;
                             bool modAdded = false;
-                            // If we already have modifications that need to be written to a specific residue, get the hash set of those mods
+
+                            // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
                             if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
-                                // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added. Otherwise, nothing happens.
+                                // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
                                 modAdded = val.Add(additionalModId);
+
                             // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                             else
                             {
                                 modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
                                 modAdded = true;
                             }
+
+                            // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
                             if (modAdded)
                             {
                                 if (newModResEntries.ContainsKey(additionalModId))
