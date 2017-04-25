@@ -109,10 +109,10 @@ namespace UsefulProteomicsDatabases
                     {
                         foreach (var nice in ye.Value)
                         {
-                            if (modsToWrite.ContainsKey(ye.Key))
-                                modsToWrite[ye.Key].Add(nice.id);
+                            if (modsToWrite.TryGetValue(ye.Key, out HashSet<string> val))
+                                val.Add(nice.id);
                             else
-                                modsToWrite[ye.Key] = new HashSet<string> { nice.id };
+                                modsToWrite.Add(ye.Key, new HashSet<string> { nice.id });
                         }
                     }
 
@@ -120,16 +120,15 @@ namespace UsefulProteomicsDatabases
                         foreach (var ye in Mods[protein.Accession])
                         {
                             int modsAddedHere = 0;
-                            if (modsToWrite.ContainsKey(ye.Item1))
+                            if (modsToWrite.TryGetValue(ye.Item1, out HashSet<string> val))
                             {
-                                var theHashSet = modsToWrite[ye.Item1];
-                                modsAddedHere -= theHashSet.Count;
-                                theHashSet.Add(ye.Item2.id);
-                                modsAddedHere += theHashSet.Count;
+                                modsAddedHere -= val.Count;
+                                val.Add(ye.Item2.id);
+                                modsAddedHere += val.Count;
                             }
                             else
                             {
-                                modsToWrite[ye.Item1] = new HashSet<string> { ye.Item2.id };
+                                modsToWrite.Add(ye.Item1, new HashSet<string> { ye.Item2.id });
                                 modsAddedHere = 1;
                             }
                             if (modsAddedHere == 1)
