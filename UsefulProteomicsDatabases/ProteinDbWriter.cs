@@ -121,10 +121,7 @@ namespace UsefulProteomicsDatabases
                         {
                             bool modAdded = false;
                             if (modsToWrite.TryGetValue(ye.Item1, out HashSet<string> val))
-                            {
-                                if (val.Add(ye.Item2.id))
-                                    modAdded = true;
-                            }
+                                modAdded = val.Add(ye.Item2.id);
                             else
                             {
                                 modsToWrite.Add(ye.Item1, new HashSet<string> { ye.Item2.id });
