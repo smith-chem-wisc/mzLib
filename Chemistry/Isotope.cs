@@ -40,7 +40,7 @@ namespace Chemistry
         /// <param name="abundance">The natural relative abundance of the isotope</param>
         internal Isotope(Element parentElement, int massNumber, double atomicMass, double abundance)
         {
-            Element = parentElement;
+            _Element = parentElement;
             MassNumber = massNumber;
             AtomicMass = atomicMass;
             RelativeAbundance = abundance;
@@ -77,7 +77,7 @@ namespace Chemistry
         /// <summary>
         /// The element this isotope is apart of (based on atomic number)
         /// </summary>
-        public Element Element { get; }
+        public Element Element { get { return _Element; } }
 
         /// <summary>
         /// The atomic mass of this isotope (in unified atomic mass units)
@@ -95,6 +95,12 @@ namespace Chemistry
         public double RelativeAbundance { get; }
 
         #endregion Public Properties
+
+        #region Private Field
+
+        [NonSerialized] Element _Element; // Creates a circular reference with Element that is difficult to serialize 
+
+        #endregion Private Field
 
         #region Public Methods
 
