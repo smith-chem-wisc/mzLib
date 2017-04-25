@@ -119,19 +119,18 @@ namespace UsefulProteomicsDatabases
                     if (Mods.ContainsKey(protein.Accession))
                         foreach (var ye in Mods[protein.Accession])
                         {
-                            int modsAddedHere = 0;
+                            bool modAdded = false;
                             if (modsToWrite.TryGetValue(ye.Item1, out HashSet<string> val))
                             {
-                                modsAddedHere -= val.Count;
-                                val.Add(ye.Item2.id);
-                                modsAddedHere += val.Count;
+                                if (val.Add(ye.Item2.id))
+                                    modAdded = true;
                             }
                             else
                             {
                                 modsToWrite.Add(ye.Item1, new HashSet<string> { ye.Item2.id });
-                                modsAddedHere = 1;
+                                modAdded = true;
                             }
-                            if (modsAddedHere == 1)
+                            if (modAdded)
                             {
                                 if (newModResEntries.ContainsKey(ye.Item2.id))
                                     newModResEntries[ye.Item2.id]++;
