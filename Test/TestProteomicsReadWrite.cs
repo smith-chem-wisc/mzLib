@@ -128,7 +128,7 @@ namespace Test
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
-            ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"));
+            Assert.AreEqual(1, ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml")));
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"), false, nice, false, null, out un);
 
             Assert.AreEqual(ok.Count, ok2.Count);

@@ -237,7 +237,7 @@ namespace Test
 
             dictWithThisMod.Add("accession", value);
 
-            ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"));
+            Assert.AreEqual(0, ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml")));
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"), false, new List<Modification>(), false, null, out Dictionary<string, Modification> um);
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
@@ -265,7 +265,7 @@ namespace Test
 
             dictWithThisMod.Add("accession", value);
 
-            ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml"));
+            Assert.AreEqual(0, ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml")));
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml"), false, new List<Modification>(), false, null, out Dictionary<string, Modification> um);
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);

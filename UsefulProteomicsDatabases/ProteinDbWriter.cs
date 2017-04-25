@@ -13,13 +13,22 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static void WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
+        /// <summary>
+        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the Mods list.
+        /// </summary>
+        /// <param name="Mods"></param>
+        /// <param name="proteinList"></param>
+        /// <param name="outputFileName"></param>
+        /// <returns>Number of "modified residue" entries that are added due to being in the Mods dictionary</returns>
+        public static int WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
         {
             var xmlWriterSettings = new XmlWriterSettings
             {
                 Indent = true,
                 IndentChars = "  "
             };
+
+            int numberOfNewModResEntries = 0;
 
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
@@ -110,17 +119,26 @@ namespace UsefulProteomicsDatabases
                     if (Mods.ContainsKey(protein.Accession))
                         foreach (var ye in Mods[protein.Accession])
                         {
+                            int modsAddedHere = 0;
                             if (modsToWrite.ContainsKey(ye.Item1))
-                                modsToWrite[ye.Item1].Add(ye.Item2.id);
+                            {
+                                var theHashSet = modsToWrite[ye.Item1];
+                                modsAddedHere -= theHashSet.Count;
+                                theHashSet.Add(ye.Item2.id);
+                                modsAddedHere += theHashSet.Count;
+                            }
                             else
+                            {
                                 modsToWrite[ye.Item1] = new HashSet<string> { ye.Item2.id };
+                                modsAddedHere = 1;
+                            }
+                            numberOfNewModResEntries += modsAddedHere;
                         }
 
-                    foreach (var hm in modsToWrite.OrderBy(b=>b.Key))
+                    foreach (var hm in modsToWrite.OrderBy(b => b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
-
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
                             writer.WriteAttributeString("description", modId);
@@ -130,7 +148,6 @@ namespace UsefulProteomicsDatabases
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                             writer.WriteEndElement();
-
                         }
                     }
 
@@ -145,6 +162,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteEndElement();
                 writer.WriteEndDocument();
             }
+            return numberOfNewModResEntries;
         }
 
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
