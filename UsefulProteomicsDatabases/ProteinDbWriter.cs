@@ -103,28 +103,32 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    Dictionary<int, HashSet<string>> modsToWrite = new Dictionary<int, HashSet<string>>();
+                    Dictionary<int, HashSet<string>> modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
                     foreach (var ye in protein.OneBasedPossibleLocalizedModifications)
                     {
                         foreach (var nice in ye.Value)
                         {
-                            if (modsToWrite.TryGetValue(ye.Key, out HashSet<string> val))
+                            if (modsToWriteForThisSpecificProtein.TryGetValue(ye.Key, out HashSet<string> val))
                                 val.Add(nice.id);
                             else
-                                modsToWrite.Add(ye.Key, new HashSet<string> { nice.id });
+                                modsToWriteForThisSpecificProtein.Add(ye.Key, new HashSet<string> { nice.id });
                         }
                     }
 
                     if (Mods.ContainsKey(protein.Accession))
                         foreach (var ye in Mods[protein.Accession])
                         {
+                            int residueIndex = ye.Item1;
                             bool modAdded = false;
-                            if (modsToWrite.TryGetValue(ye.Item1, out HashSet<string> val))
+                            // If we already have modifications that need to be written to a specific residue, get the hash set of those mods
+                            if (modsToWriteForThisSpecificProtein.TryGetValue(residueIndex, out HashSet<string> val))
+                                // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added. Otherwise, nothing happens.
                                 modAdded = val.Add(ye.Item2.id);
+                            // No modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                             else
                             {
-                                modsToWrite.Add(ye.Item1, new HashSet<string> { ye.Item2.id });
+                                modsToWriteForThisSpecificProtein.Add(residueIndex, new HashSet<string> { ye.Item2.id });
                                 modAdded = true;
                             }
                             if (modAdded)
@@ -136,7 +140,7 @@ namespace UsefulProteomicsDatabases
                             }
                         }
 
-                    foreach (var hm in modsToWrite.OrderBy(b => b.Key))
+                    foreach (var hm in modsToWriteForThisSpecificProtein.OrderBy(b => b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
