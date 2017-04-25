@@ -14,7 +14,7 @@ namespace UsefulProteomicsDatabases
         #region Public Methods
 
         /// <summary>
-        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the Mods list.
+        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
         /// <param name="AdditionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
