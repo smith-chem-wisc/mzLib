@@ -19,8 +19,8 @@ namespace UsefulProteomicsDatabases
         /// <param name="Mods"></param>
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
-        /// <returns>Number of "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static int WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
+        /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
         {
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -28,7 +28,7 @@ namespace UsefulProteomicsDatabases
                 IndentChars = "  "
             };
 
-            int numberOfNewModResEntries = 0;
+            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
 
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
@@ -132,7 +132,13 @@ namespace UsefulProteomicsDatabases
                                 modsToWrite[ye.Item1] = new HashSet<string> { ye.Item2.id };
                                 modsAddedHere = 1;
                             }
-                            numberOfNewModResEntries += modsAddedHere;
+                            if (modsAddedHere == 1)
+                            {
+                                if (newModResEntries.ContainsKey(ye.Item2.id))
+                                    newModResEntries[ye.Item2.id]++;
+                                else
+                                    newModResEntries.Add(ye.Item2.id, 1);
+                            }
                         }
 
                     foreach (var hm in modsToWrite.OrderBy(b => b.Key))
@@ -162,7 +168,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteEndElement();
                 writer.WriteEndDocument();
             }
-            return numberOfNewModResEntries;
+            return newModResEntries;
         }
 
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
