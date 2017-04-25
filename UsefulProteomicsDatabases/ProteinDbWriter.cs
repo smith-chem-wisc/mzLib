@@ -16,11 +16,11 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Writes a protein database in mzLibProteinDb format, with additional modifications from the Mods list.
         /// </summary>
-        /// <param name="Mods"></param>
+        /// <param name="AdditionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> AdditionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
         {
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -36,7 +36,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("mzLibProteinDb");
 
                 HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(
-                    Mods.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
+                    AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
                     .SelectMany(kv => kv.Value.Select(v => v.Item2))
                     .Concat(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))));
 
@@ -116,27 +116,28 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
-                    if (Mods.ContainsKey(protein.Accession))
-                        foreach (var ye in Mods[protein.Accession])
+                    if (AdditionalModsToAddToProteins.ContainsKey(protein.Accession))
+                        foreach (var ye in AdditionalModsToAddToProteins[protein.Accession])
                         {
-                            int residueIndex = ye.Item1;
+                            int additionalModResidueIndex = ye.Item1;
+                            string additionalModId = ye.Item2.id;
                             bool modAdded = false;
                             // If we already have modifications that need to be written to a specific residue, get the hash set of those mods
-                            if (modsToWriteForThisSpecificProtein.TryGetValue(residueIndex, out HashSet<string> val))
+                            if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
                                 // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added. Otherwise, nothing happens.
-                                modAdded = val.Add(ye.Item2.id);
+                                modAdded = val.Add(additionalModId);
                             // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                             else
                             {
-                                modsToWriteForThisSpecificProtein.Add(residueIndex, new HashSet<string> { ye.Item2.id });
+                                modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
                                 modAdded = true;
                             }
                             if (modAdded)
                             {
-                                if (newModResEntries.ContainsKey(ye.Item2.id))
-                                    newModResEntries[ye.Item2.id]++;
+                                if (newModResEntries.ContainsKey(additionalModId))
+                                    newModResEntries[additionalModId]++;
                                 else
-                                    newModResEntries.Add(ye.Item2.id, 1);
+                                    newModResEntries.Add(additionalModId, 1);
                             }
                         }
 
