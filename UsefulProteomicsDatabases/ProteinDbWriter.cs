@@ -125,7 +125,7 @@ namespace UsefulProteomicsDatabases
                             if (modsToWriteForThisSpecificProtein.TryGetValue(residueIndex, out HashSet<string> val))
                                 // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added. Otherwise, nothing happens.
                                 modAdded = val.Add(ye.Item2.id);
-                            // No modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
+                            // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                             else
                             {
                                 modsToWriteForThisSpecificProtein.Add(residueIndex, new HashSet<string> { ye.Item2.id });
