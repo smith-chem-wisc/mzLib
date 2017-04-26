@@ -1,10 +1,8 @@
 ﻿using System.Linq;
 using System.Text.RegularExpressions;
-using System;
 
 namespace Proteomics
 {
-    [Serializable]
     public class ModificationMotif
     {
 
