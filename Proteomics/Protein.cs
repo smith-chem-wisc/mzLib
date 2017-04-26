@@ -3,7 +3,6 @@ using System.Collections.Generic;
 
 namespace Proteomics
 {
-    [Serializable]
     public class Protein
     {
 

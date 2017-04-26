@@ -6,7 +6,6 @@ using System.Text;
 
 namespace Proteomics
 {
-    [Serializable]
     public class ModificationWithMass : ModificationWithLocation
     {
 
