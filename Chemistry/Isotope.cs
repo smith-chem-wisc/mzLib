@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
-using System;
 using System.Globalization;
 
 namespace Chemistry
@@ -25,7 +24,6 @@ namespace Chemistry
     /// Represents a single isotope of a chemical element. Contains a unique number
     /// of protons and neutrons compared to every other isotope.
     /// </summary>
-    [Serializable]
     public sealed class Isotope
     {
 
@@ -40,7 +38,7 @@ namespace Chemistry
         /// <param name="abundance">The natural relative abundance of the isotope</param>
         internal Isotope(Element parentElement, int massNumber, double atomicMass, double abundance)
         {
-            _Element = parentElement;
+            Element = parentElement;
             MassNumber = massNumber;
             AtomicMass = atomicMass;
             RelativeAbundance = abundance;
@@ -77,7 +75,7 @@ namespace Chemistry
         /// <summary>
         /// The element this isotope is apart of (based on atomic number)
         /// </summary>
-        public Element Element { get { return _Element; } }
+        public Element Element { get; }
 
         /// <summary>
         /// The atomic mass of this isotope (in unified atomic mass units)
@@ -95,12 +93,6 @@ namespace Chemistry
         public double RelativeAbundance { get; }
 
         #endregion Public Properties
-
-        #region Private Field
-
-        [NonSerialized] Element _Element; // Creates a circular reference with Element that is difficult to serialize 
-
-        #endregion Private Field
 
         #region Public Methods
 
