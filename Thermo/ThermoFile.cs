@@ -214,7 +214,6 @@ namespace IO.Thermo
                 // THIS METHOD IS BUGGY!!! DO NOT USE
                 //theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
 
-                // TODO: Get it from more locations
                 int oneBasedPrecursorScanNumber;
                 if (precursorInfo.nScanNumber > 0)
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
@@ -254,7 +253,6 @@ namespace IO.Thermo
                 if (precursorInfo.dMonoIsoMass > 0 && !selectedIonGuessMonoisotopicMz.HasValue)
                     selectedIonGuessMonoisotopicMz = precursorInfo.dMonoIsoMass;
 
-                // TODO: Get it from more locations
                 double selectedIonGuessMZ;
                 if (precursorInfo.dIsolationMass > 0)
                     selectedIonGuessMZ = precursorInfo.dIsolationMass;
