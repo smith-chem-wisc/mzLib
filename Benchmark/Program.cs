@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using IO.Thermo;
 using MzLibUtil;
 using Proteomics;
 using System;
@@ -175,6 +176,11 @@ namespace Benchmark
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
             //{
             //    Console.WriteLine(nice.GetOneBasedScan(1000).RetentionTime);
+            //}
+
+            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw"))
+            //{
+            //    var ok = nice.GetOneBasedScan(42670);
             //}
 
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw"))
