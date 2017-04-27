@@ -1,8 +1,5 @@
-﻿using System;
-
-namespace Proteomics
+﻿namespace Proteomics
 {
-    [Serializable]
     public class ProteolysisProduct
     {
 

@@ -17,12 +17,10 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using System;
 using System.Collections.Generic;
 
 namespace Proteomics
 {
-    [Serializable]
     public class Residue : IHasChemicalFormula
     {
 

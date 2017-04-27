@@ -26,7 +26,6 @@ namespace Chemistry
     /// isotopes, with the element mass being a weighted average of all the
     /// isotopes atomic masses weighted by their natural relative abundance.
     /// </summary>
-    [Serializable]
     public class Element
     {
         // Two data stores for isotopes! An array for fast access and a list for enumeration!
