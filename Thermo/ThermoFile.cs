@@ -229,7 +229,7 @@ namespace IO.Thermo
                             object pvarValuesHere = null;
                             object pvarLablesHere = null;
                             int pnArraySizeHere = 0;
-                            theConnection.GetTrailerExtraForScanNum(nScanNumber, ref pvarLablesHere, ref pvarValuesHere, ref pnArraySizeHere);
+                            theConnection.GetTrailerExtraForScanNum(oneBasedPrecursorScanNumber, ref pvarLablesHere, ref pvarValuesHere, ref pnArraySizeHere);
                             string[] labelsHere = (string[])pvarLablesHere;
                             string[] valuesHere = (string[])pvarValuesHere;
                             for (int i = labelsHere.GetLowerBound(0); i <= labelsHere.GetUpperBound(0); i++)
