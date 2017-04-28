@@ -56,7 +56,7 @@ namespace MassSpectrometry
         /// <param name="precursorSpectrum"></param>
         void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
-        List<Tuple<double, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance);
+        IEnumerable<Tuple<List<double>, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio, int minAdditionalIsotopePeaks);
 
         void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 

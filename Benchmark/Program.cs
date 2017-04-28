@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using IO.Thermo;
+using MassSpectrometry;
 using MzLibUtil;
 using Proteomics;
 using System;
@@ -151,11 +152,9 @@ namespace Benchmark
             Console.WriteLine(r);
             Console.WriteLine(r.ToString());
 
-
             //Loaders.LoadElements("elements2.dat");
             //Dictionary<string, Modification> um;
             //ProteinDbLoader.LoadProteinXML(@"C:\Users\stepa\Desktop\01012017_MM_ONLYGPTMD.xml", true, new List<Modification>(), false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
-
 
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\PrecursorProblems\2016_080902_SMC_EC_Glyco_EThcD.raw");
 
@@ -178,10 +177,60 @@ namespace Benchmark
             //    Console.WriteLine(nice.GetOneBasedScan(1000).RetentionTime);
             //}
 
-            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw"))
-            //{
-            //    var ok = nice.GetOneBasedScan(42670);
-            //}
+            using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw"))
+            {
+                //var hehdfe = nice.GetOneBasedScan(14) as IMsDataScanWithPrecursor<ThermoSpectrum>;
+                //Console.WriteLine("Scan " + hehdfe.OneBasedScanNumber + " ; isolation=" + hehdfe.IsolationMz + " ; mm=" + hehdfe.SelectedIonMonoisotopicGuessMz);
+
+                //var fdf = hehdfe.GetIsolatedMassesAndCharges(nice.GetOneBasedScan(hehdfe.OneBasedPrecursorScanNumber).MassSpectrum, 10, new Tolerance("20 PPM"), 10);
+
+                //Console.WriteLine(string.Join(Environment.NewLine, fdf.Select(b => "\t" + b.Item1 + "; " + b.Item2 + "; " + b.Item1.ToMz(b.Item2))));
+
+                //Console.WriteLine();
+                int totalHaveMM = 0;
+                int totalHaveMMandMatch = 0;
+                int totalHaveMyMass = 0;
+                int totalHaveMMandMatchAll = 0;
+                int totalHaveMyMassAll = 0;
+                var tol = new Tolerance("20 PPM");
+                foreach (var hehdfe in nice.OfType<IMsDataScanWithPrecursor<ThermoSpectrum>>())
+                {
+                    Console.WriteLine("Scan " + hehdfe.OneBasedScanNumber + " ; isolation=" + hehdfe.IsolationMz + " ; mm=" + hehdfe.SelectedIonMonoisotopicGuessMz + " ; charge=" + hehdfe.SelectedIonChargeStateGuess);
+
+                    //var fdf = hehdfe.GetIsolatedMassesAndCharges(nice.GetOneBasedScan(hehdfe.OneBasedPrecursorScanNumber).MassSpectrum, 10, tol, 10, 1).ToList();
+
+                    //if (fdf.Count() > 0)
+                    //    totalHaveMyMass++;
+
+                    //if (hehdfe.SelectedIonMonoisotopicGuessMz.HasValue)
+                    //{
+                    //    totalHaveMM++;
+                    //    if (fdf.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), hehdfe.SelectedIonMonoisotopicGuessMz.Value.ToMass(hehdfe.SelectedIonChargeStateGuess.Value))))
+                    //        totalHaveMMandMatch++;
+                    //}
+
+                    var fdfAll = hehdfe.GetIsolatedMassesAndCharges(nice.GetOneBasedScan(hehdfe.OneBasedPrecursorScanNumber).MassSpectrum, 10, tol, 10, 0).ToList();
+
+                    if (fdfAll.Count() > 0)
+                        totalHaveMyMassAll++;
+                    Console.WriteLine(fdfAll.Count() + ";" + hehdfe.SelectedIonMonoisotopicGuessMz.HasValue);
+
+                    // Console.WriteLine(string.Join(Environment.NewLine, fdfAll.Select(b => "\t" + b.Item1 + "; " + b.Item2 + "; " + b.Item1.First())));
+
+                    if (hehdfe.SelectedIonMonoisotopicGuessMz.HasValue)
+                    {
+                        totalHaveMM++;
+                        var massFromScan = hehdfe.SelectedIonMonoisotopicGuessMz.Value.ToMass(hehdfe.SelectedIonChargeStateGuess.Value);
+                        if (fdfAll.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), massFromScan)))
+                            totalHaveMMandMatchAll++;
+
+                        if (totalHaveMMandMatchAll - totalHaveMyMassAll < -7)
+                            Console.WriteLine(totalHaveMMandMatchAll + " not equal " + totalHaveMyMassAll);
+                    }
+
+                    Console.WriteLine();
+                }
+            }
 
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw"))
             //{

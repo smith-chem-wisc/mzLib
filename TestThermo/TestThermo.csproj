@@ -63,6 +63,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
+      <Name>Chemistry</Name>
+    </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
