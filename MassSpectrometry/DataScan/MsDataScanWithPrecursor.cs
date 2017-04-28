@@ -41,16 +41,17 @@ namespace MassSpectrometry
         protected MsDataScanWithPrecursor(int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicMzGuess, double? injectionTime, double[,] noiseData)
                                                 : base(ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData)
         {
-            this.IsolationMz = isolationMZ; // double
-            this.DissociationType = dissociationType; //DissociationType
-            this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber; //int
+            this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
 
-            this.IsolationWidth = isolationWidth; //double?
+            this.IsolationMz = isolationMZ;
+            this.IsolationWidth = isolationWidth;
 
-            this.SelectedIonMonoisotopicMzGuess = selectedIonMonoisotopicMzGuess; //double?
-            this.SelectedIonChargeStateGuess = selectedIonChargeStateGuess; //int?
-            this.SelectedIonIntensity = selectedIonIntensity; //double?
-            this.SelectedIonMZ = selectedIonMZ; //double
+            this.DissociationType = dissociationType;
+
+            this.SelectedIonMZ = selectedIonMZ;
+            this.SelectedIonIntensity = selectedIonIntensity;
+            this.SelectedIonChargeStateGuess = selectedIonChargeStateGuess;
+            this.SelectedIonMonoisotopicMzGuess = selectedIonMonoisotopicMzGuess;
         }
 
         #endregion Protected Constructors
