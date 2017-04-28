@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace MassSpectrometry
@@ -28,47 +30,52 @@ namespace MassSpectrometry
 
         #region Private Fields
 
-        //TODO: Validate these values
-        private static readonly double[] mms = new double[] { 1.0025, 2.005, 3.0075, 4.010 };
+        private static readonly double[] mms = new double[] { 1.0029, 2.0052, 3.0077, 4.01, 5.012, 6.0139, 7.0154, 8.0164 };
+
+        private MzRange isolationRange;
 
         #endregion Private Fields
 
         #region Protected Constructors
 
-        protected MsDataScanWithPrecursor(int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double? selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double? selectedIonGuessIntensity, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonGuessMonoisotopicMZ, double? injectionTime, double[,] noiseData)
-                                : base(ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData)
+        protected MsDataScanWithPrecursor(int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicMzGuess, double? injectionTime, double[,] noiseData)
+                                                : base(ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData)
         {
-            this.IsolationMz = isolationMZ;
-            this.SelectedIonGuessChargeStateGuess = selectedIonGuessChargeStateGuess;
-            this.SelectedIonGuessIntensity = selectedIonGuessIntensity;
-            this.SelectedIonGuessMZ = selectedIonGuessMZ;
-            this.DissociationType = dissociationType;
-            this.IsolationWidth = isolationWidth;
-            this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
-            this.SelectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
+            this.IsolationMz = isolationMZ; // double
+            this.DissociationType = dissociationType; //DissociationType
+            this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber; //int
+
+            this.IsolationWidth = isolationWidth; //double?
+
+            this.SelectedIonMonoisotopicMzGuess = selectedIonMonoisotopicMzGuess; //double?
+            this.SelectedIonChargeStateGuess = selectedIonChargeStateGuess; //int?
+            this.SelectedIonIntensity = selectedIonIntensity; //double?
+            this.SelectedIonMZ = selectedIonMZ; //double
         }
 
         #endregion Protected Constructors
 
         #region Public Properties
 
-        public double IsolationMz { get; private set; }
-        public int? SelectedIonGuessChargeStateGuess { get; private set; }
-        public double? SelectedIonGuessIntensity { get; private set; }
-        public double? SelectedIonGuessMZ { get; private set; }
-        public DissociationType DissociationType { get; private set; }
-        public double? IsolationWidth { get; private set; }
-        public int OneBasedPrecursorScanNumber { get; private set; }
-        public double? SelectedIonGuessMonoisotopicIntensity { get; private set; }
-        public double? SelectedIonGuessMonoisotopicMZ { get; private set; }
+        public double IsolationMz { get; private set; } // May be adjusted by calibration
+        public int? SelectedIonChargeStateGuess { get; }
+        public double? SelectedIonIntensity { get; private set; } // May be refined
+        public double SelectedIonMZ { get; private set; } // May be adjusted by calibration
+        public DissociationType DissociationType { get; }
+        public double? IsolationWidth { get; }
+        public int OneBasedPrecursorScanNumber { get; }
+        public double? SelectedIonMonoisotopicIntensityGuess { get; private set; } // May be refined
+        public double? SelectedIonMonoisotopicMzGuess { get; private set; } // May be refined
 
         public MzRange IsolationRange
         {
             get
             {
+                if (isolationRange != null)
+                    return isolationRange;
                 if (IsolationWidth.HasValue)
-                    return new MzRange(IsolationMz - IsolationWidth.Value / 2, IsolationMz + IsolationWidth.Value / 2);
-                return null;
+                    isolationRange = new MzRange(IsolationMz - IsolationWidth.Value / 2, IsolationMz + IsolationWidth.Value / 2);
+                return isolationRange;
             }
         }
 
@@ -76,77 +83,90 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ)
+        public List<double> GetIsolatedMasses(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, int maxMms)
+        {
+            if (IsolationRange == null)
+                return null;
+
+            var isolatedMasses = new List<double>();
+
+            HashSet<IMzPeak> excluded = new HashSet<IMzPeak>();
+
+            foreach (var peak in precursorSpectrum.Extract(new DoubleRange(IsolationRange.Minimum - maxMms - 0.5, IsolationRange.Maximum + maxMms + 0.5)))
+            {
+                if (excluded.Contains(peak))
+                    continue;
+
+                // This is a monoisotopic peak!
+
+                var bestListOfPeaks = new List<IMzPeak>();
+                int bestChargeState = 1;
+                bool withinIsolationWindow = IsolationRange.Contains(peak.Mz);
+                for (int chargeState = 1; chargeState <= maxAssumedChargeState; chargeState++)
+                {
+                    var mMass = peak.Mz.ToMass(chargeState);
+                    var listOfAdditionalPeaksForThisChargeState = new List<IMzPeak>();
+                    for (int mm = 1; mm <= maxMms; mm++)
+                    {
+                        double diffToNextMmPeak = mms[mm - 1];
+                        double theorMass = mMass + diffToNextMmPeak;
+                        var closestpeak = precursorSpectrum.GetClosestPeak(theorMass.ToMz(chargeState));
+                        if (massTolerance.Within(closestpeak.Mz.ToMass(chargeState), theorMass))
+                        {
+                            // Found a match to an isotope peak for this charge state!
+                            listOfAdditionalPeaksForThisChargeState.Add(closestpeak);
+                        }
+                        else
+                            break;
+                    }
+                    if (listOfAdditionalPeaksForThisChargeState.Count > bestListOfPeaks.Count)
+                    {
+                        bestListOfPeaks = listOfAdditionalPeaksForThisChargeState;
+                        if (!withinIsolationWindow)
+                            withinIsolationWindow = listOfAdditionalPeaksForThisChargeState.Any(b => IsolationRange.Contains(b.Mz));
+                        bestChargeState = chargeState;
+                    }
+                }
+
+                foreach (var peakToExclude in bestListOfPeaks)
+                    excluded.Add(peakToExclude);
+                if (withinIsolationWindow)
+                    isolatedMasses.Add(peak.Mz.ToMass(bestChargeState));
+            }
+            return isolatedMasses;
+        }
+
+        public void TransformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
-            this.SelectedIonGuessMZ = selectedIonGuessMZ;
-            this.SelectedIonGuessMonoisotopicMZ = selectedIonGuessMonoisotopicMZ;
+            this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));
+            if (SelectedIonMonoisotopicMzGuess.HasValue)
+                this.SelectedIonMonoisotopicMzGuess = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicMzGuess.Value, SelectedIonMonoisotopicIntensityGuess.Value));
+            this.IsolationMz = convertorForPrecursor(new MzPeak(IsolationMz, SelectedIonIntensity.Value));
+
+            // Will need to recompute this...
+            isolationRange = null;
         }
 
-        public void RecomputeChargeState(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, int maxCharge)
-        {
-            var peaksCloseToIsolated = precursorSpectrum.Extract(IsolationMz - 2.1, IsolationMz + 2.1).ToList();
-            int[] chargeCount = new int[maxCharge]; // charges 1,2,3,4
-            for (int i = 0; i < peaksCloseToIsolated.Count; i++)
-                for (int j = i + 1; j < peaksCloseToIsolated.Count; j++)
-                    for (int charge = 1; charge <= maxCharge; charge++)
-                        for (int isotope = 0; isotope < mms.Length; isotope++)
-                            if (Math.Abs(peaksCloseToIsolated[j].X - peaksCloseToIsolated[i].X - mms[isotope] / charge) < tolHere)
-                                chargeCount[charge - 1]++;
-            SelectedIonGuessChargeStateGuess = Array.IndexOf(chargeCount, chargeCount.Max()) + 1;
-        }
-
-        public void RecomputeSelectedPeak(IMzSpectrum<IMzPeak> precursorSpectrum)
+        public void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
             var thePeak = precursorSpectrum.GetClosestPeak(IsolationMz);
-            SelectedIonGuessIntensity = thePeak.Intensity;
-            SelectedIonGuessMZ = thePeak.Mz;
+            SelectedIonIntensity = thePeak.Intensity;
+            SelectedIonMZ = thePeak.Mz;
         }
 
         public void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonGuessMZ.Value);
-            SelectedIonGuessIntensity = thePeak.Intensity;
-            SelectedIonGuessMZ = thePeak.Mz;
+            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonMZ);
+            SelectedIonIntensity = thePeak.Intensity;
+            SelectedIonMZ = thePeak.Mz;
         }
 
         public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonGuessMonoisotopicMZ.Value);
-            SelectedIonGuessMonoisotopicIntensity = thePeak.Intensity;
-            SelectedIonGuessMonoisotopicMZ = thePeak.Mz;
-        }
-
-        public void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded)
-        {
-            if (!SelectedIonGuessChargeStateGuess.HasValue)
-                throw new Exception("Need charge state!");
-            if (!SelectedIonGuessIntensity.HasValue || !SelectedIonGuessMZ.HasValue)
-                RecomputeSelectedPeak(precursorSpectrum);
-            IMzPeak mPeak = null;
-            foreach (var ok in mms)
-            {
-                var closestPeak = precursorSpectrum.GetClosestPeak(IsolationMz - ok / SelectedIonGuessChargeStateGuess.Value);
-                if ((Math.Abs(closestPeak.Mz
-                    - (IsolationMz - ok / SelectedIonGuessChargeStateGuess.Value))
-                    < tolHere)
-                    && closestPeak.Intensity > SelectedIonGuessIntensity.Value * intensityFractionNeeded)
-                {
-                    mPeak = closestPeak;
-                }
-                else
-                    break;
-            }
-            if (mPeak != null)
-            {
-                SelectedIonGuessMonoisotopicIntensity = mPeak.Intensity;
-                SelectedIonGuessMonoisotopicMZ = mPeak.Mz;
-            }
-            else
-            {
-                SelectedIonGuessMonoisotopicIntensity = SelectedIonGuessIntensity;
-                SelectedIonGuessMonoisotopicMZ = SelectedIonGuessMZ;
-            }
+            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonMonoisotopicMzGuess.Value);
+            SelectedIonMonoisotopicIntensityGuess = thePeak.Intensity;
+            SelectedIonMonoisotopicMzGuess = thePeak.Mz;
         }
 
         #endregion Public Methods

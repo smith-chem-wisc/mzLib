@@ -225,7 +225,7 @@ namespace IO.MzML
                 return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic, injectionTime);
             }
 
-            double? selectedIonMz = null;
+            double selectedIonMz = double.NaN;
             int? selectedIonCharge = null;
             double? selectedIonIntensity = null;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam)

@@ -178,40 +178,32 @@ namespace IO.MzML
                     {
                         cvParam = new Generated.CVParamType[3]
                     };
+                    // Selected ion MZ
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[0] = new Generated.CVParamType()
                     {
-                        name = "selected ion m/z"
+                        name = "selected ion m/z",
+                        value = scanWithPrecursor.SelectedIonMZ.ToString(CultureInfo.InvariantCulture),
+                        accession = "MS:1000744"
                     };
 
-                    // Selected ion MZ
-                    if (scanWithPrecursor.SelectedIonGuessMonoisotopicMZ.HasValue)
-                    {
-                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[0] = new Generated.CVParamType()
-                        {
-                            name = "selected ion m/z",
-                            value = scanWithPrecursor.SelectedIonGuessMonoisotopicMZ.Value.ToString(CultureInfo.InvariantCulture),
-                            accession = "MS:1000744"
-                        };
-                    }
-
                     // Charge State
-                    if (scanWithPrecursor.SelectedIonGuessChargeStateGuess.HasValue)
+                    if (scanWithPrecursor.SelectedIonChargeStateGuess.HasValue)
                     {
                         mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[1] = new Generated.CVParamType()
                         {
                             name = "charge state",
-                            value = scanWithPrecursor.SelectedIonGuessChargeStateGuess.Value.ToString(CultureInfo.InvariantCulture),
+                            value = scanWithPrecursor.SelectedIonChargeStateGuess.Value.ToString(CultureInfo.InvariantCulture),
                             accession = "MS:1000041"
                         };
                     }
 
                     // Selected ion intensity
-                    if (scanWithPrecursor.SelectedIonGuessIntensity.HasValue)
+                    if (scanWithPrecursor.SelectedIonIntensity.HasValue)
                     {
                         mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[2] = new Generated.CVParamType()
                         {
                             name = "peak intensity",
-                            value = scanWithPrecursor.SelectedIonGuessIntensity.Value.ToString(CultureInfo.InvariantCulture),
+                            value = scanWithPrecursor.SelectedIonIntensity.Value.ToString(CultureInfo.InvariantCulture),
                             accession = "MS:1000042"
                         };
                     }
@@ -341,13 +333,13 @@ namespace IO.MzML
                 if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>)
                 {
                     var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
-                    if (scanWithPrecursor.SelectedIonGuessMonoisotopicMZ.HasValue)
+                    if (scanWithPrecursor.SelectedIonMonoisotopicMzGuess.HasValue)
                     {
                         mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].userParam = new Generated.UserParamType[1];
                         mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].userParam[0] = new Generated.UserParamType()
                         {
                             name = "[mzLib]Monoisotopic M/Z:",
-                            value = scanWithPrecursor.SelectedIonGuessMonoisotopicMZ.Value.ToString(CultureInfo.InvariantCulture)
+                            value = scanWithPrecursor.SelectedIonMonoisotopicMzGuess.Value.ToString(CultureInfo.InvariantCulture)
                         };
                     }
                 }

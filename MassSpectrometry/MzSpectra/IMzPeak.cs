@@ -4,6 +4,7 @@ namespace MassSpectrometry
 {
     public interface IMzPeak : IPeak
     {
+
         #region Public Properties
 
         double Intensity { get; }
@@ -11,5 +12,6 @@ namespace MassSpectrometry
         double Mz { get; }
 
         #endregion Public Properties
+
     }
 }

@@ -68,6 +68,7 @@
     <Compile Include="TestProteinReader.cs" />
     <Compile Include="TestProteomicsReadWrite.cs" />
     <Compile Include="TestRange.cs" />
+    <Compile Include="TestIsolation.cs" />
     <Compile Include="TestSpectra.cs" />
     <Compile Include="TestTolerance.cs" />
   </ItemGroup>

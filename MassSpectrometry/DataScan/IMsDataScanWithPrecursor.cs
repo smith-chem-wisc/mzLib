@@ -18,6 +18,7 @@
 
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
@@ -28,13 +29,11 @@ namespace MassSpectrometry
         #region Public Properties
 
         int OneBasedPrecursorScanNumber { get; }
-        int? SelectedIonGuessChargeStateGuess { get; }
-        double? SelectedIonGuessMonoisotopicIntensity { get; }
-        double? SelectedIonGuessMonoisotopicMZ { get; }
-        double? SelectedIonGuessIntensity { get; }
-        double? SelectedIonGuessMZ { get; }
+        int? SelectedIonChargeStateGuess { get; }
+        double? SelectedIonMonoisotopicMzGuess { get; }
+        double? SelectedIonIntensity { get; }
+        double SelectedIonMZ { get; }
         DissociationType DissociationType { get; }
-        double? IsolationWidth { get; }
         double IsolationMz { get; }
         MzRange IsolationRange { get; }
 
@@ -42,17 +41,23 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void RecomputeChargeState(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, int maxCharge);
-
+        /// <summary>
+        /// Use to set value of SelectedIonIntensity based on SelectedIonMZ
+        /// </summary>
+        /// <param name="precursorSpectrum"></param>
         void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
+        /// <summary>
+        /// Used to set refine value of SelectedIonMZ and SelectedIonIntensity
+        /// </summary>
+        /// <param name="precursorSpectrum"></param>
+        void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
+
+        List<double> GetIsolatedMasses(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, int maxMms);
+        
         void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
-        void RecomputeSelectedPeak(IMzSpectrum<IMzPeak> precursorSpectrum);
-
-        void RecomputeMonoisotopicPeak(IMzSpectrum<IMzPeak> precursorSpectrum, double tolHere, double intensityFractionNeeded);
-
-        void TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, double selectedIonGuessMZ, double selectedIonGuessMonoisotopicMZ);
+        void TransformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor);
 
         #endregion Public Methods
 
