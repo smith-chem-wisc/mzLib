@@ -137,7 +137,7 @@ namespace MassSpectrometry
             return isolatedMasses;
         }
 
-        public void TransformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
+        public void TransforMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
             this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));

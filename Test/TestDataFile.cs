@@ -159,7 +159,7 @@ namespace Test
 
             theScan.ComputeMonoisotopicPeakIntensity(precursorScan.MassSpectrum);
 
-            theScan.TransformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, b => 0);
+            theScan.TransforMzs(b => 0, b => 0);
 
             Assert.AreEqual("Scan #2", myMsDataFile.GetOneBasedScan(2).ToString());
 
