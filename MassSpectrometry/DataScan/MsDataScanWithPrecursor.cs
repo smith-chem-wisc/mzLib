@@ -84,12 +84,12 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public List<double> GetIsolatedMasses(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance)
+        public List<Tuple<double, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance)
         {
             if (IsolationRange == null)
                 return null;
 
-            var isolatedMasses = new List<double>();
+            var isolatedMassesAndCharges = new List<Tuple<double, int>>();
 
             HashSet<IMzPeak> excluded = new HashSet<IMzPeak>();
 
@@ -132,9 +132,9 @@ namespace MassSpectrometry
                 foreach (var peakToExclude in bestListOfPeaks)
                     excluded.Add(peakToExclude);
                 if (withinIsolationWindow)
-                    isolatedMasses.Add(peak.Mz.ToMass(bestChargeState));
+                    isolatedMassesAndCharges.Add(new Tuple<double, int>(peak.Mz.ToMass(bestChargeState), bestChargeState));
             }
-            return isolatedMasses;
+            return isolatedMassesAndCharges;
         }
 
         public void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)

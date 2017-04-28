@@ -80,7 +80,7 @@ namespace Test
             int maxAssumedChargeState = 1;
             Tolerance massTolerance = new Tolerance("5 PPM");
 
-            var isolatedMasses = cool.GetIsolatedMasses(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance);
+            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance);
 
             Assert.AreEqual(2, isolatedMasses.Count);
         }
