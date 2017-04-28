@@ -83,11 +83,11 @@ namespace TestThermo
 
             Assert.AreEqual(1017759, hehe.SelectedIonIntensity, 1);
 
-            Assert.IsNull(hehe.SelectedIonMonoisotopicIntensityGuess);
+            Assert.IsNull(hehe.SelectedIonMonoisotopicGuessIntensity);
 
             hehe.ComputeMonoisotopicPeakIntensity(prec.MassSpectrum);
 
-            Assert.AreEqual(1017759, hehe.SelectedIonMonoisotopicIntensityGuess, 1);
+            Assert.AreEqual(1017759, hehe.SelectedIonMonoisotopicGuessIntensity, 1);
         }
 
         [Test]

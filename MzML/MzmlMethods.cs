@@ -333,13 +333,13 @@ namespace IO.MzML
                 if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>)
                 {
                     var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
-                    if (scanWithPrecursor.SelectedIonMonoisotopicMzGuess.HasValue)
+                    if (scanWithPrecursor.SelectedIonMonoisotopicGuessMz.HasValue)
                     {
                         mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].userParam = new Generated.UserParamType[1];
                         mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].userParam[0] = new Generated.UserParamType()
                         {
                             name = "[mzLib]Monoisotopic M/Z:",
-                            value = scanWithPrecursor.SelectedIonMonoisotopicMzGuess.Value.ToString(CultureInfo.InvariantCulture)
+                            value = scanWithPrecursor.SelectedIonMonoisotopicGuessMz.Value.ToString(CultureInfo.InvariantCulture)
                         };
                     }
                 }

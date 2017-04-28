@@ -38,7 +38,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected MsDataScanWithPrecursor(int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicMzGuess, double? injectionTime, double[,] noiseData)
+        protected MsDataScanWithPrecursor(int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData)
                                                 : base(ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData)
         {
             this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
@@ -51,7 +51,7 @@ namespace MassSpectrometry
             this.SelectedIonMZ = selectedIonMZ;
             this.SelectedIonIntensity = selectedIonIntensity;
             this.SelectedIonChargeStateGuess = selectedIonChargeStateGuess;
-            this.SelectedIonMonoisotopicMzGuess = selectedIonMonoisotopicMzGuess;
+            this.SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
         }
 
         #endregion Protected Constructors
@@ -65,8 +65,8 @@ namespace MassSpectrometry
         public DissociationType DissociationType { get; }
         public double? IsolationWidth { get; }
         public int OneBasedPrecursorScanNumber { get; }
-        public double? SelectedIonMonoisotopicIntensityGuess { get; private set; } // May be refined
-        public double? SelectedIonMonoisotopicMzGuess { get; private set; } // May be refined
+        public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
+        public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
 
         public MzRange IsolationRange
         {
@@ -137,12 +137,12 @@ namespace MassSpectrometry
             return isolatedMasses;
         }
 
-        public void TransforMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
+        public void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
             this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));
-            if (SelectedIonMonoisotopicMzGuess.HasValue)
-                this.SelectedIonMonoisotopicMzGuess = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicMzGuess.Value, SelectedIonMonoisotopicIntensityGuess.Value));
+            if (SelectedIonMonoisotopicGuessMz.HasValue)
+                this.SelectedIonMonoisotopicGuessMz = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicGuessMz.Value, SelectedIonMonoisotopicGuessIntensity.Value));
             this.IsolationMz = convertorForPrecursor(new MzPeak(IsolationMz, SelectedIonIntensity.Value));
 
             // Will need to recompute this...
@@ -165,9 +165,9 @@ namespace MassSpectrometry
 
         public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonMonoisotopicMzGuess.Value);
-            SelectedIonMonoisotopicIntensityGuess = thePeak.Intensity;
-            SelectedIonMonoisotopicMzGuess = thePeak.Mz;
+            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonMonoisotopicGuessMz.Value);
+            SelectedIonMonoisotopicGuessIntensity = thePeak.Intensity;
+            SelectedIonMonoisotopicGuessMz = thePeak.Mz;
         }
 
         #endregion Public Methods

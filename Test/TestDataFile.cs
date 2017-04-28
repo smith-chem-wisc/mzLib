@@ -149,7 +149,7 @@ namespace Test
             theScan.RefineSelectedMzAndIntensity(precursorScan.MassSpectrum);
             Assert.AreEqual(.32872, theScan.SelectedIonIntensity, 0.01);
             Assert.AreEqual(693.9892, theScan.SelectedIonMZ, 0.01);
-            Assert.AreEqual(693.655, theScan.SelectedIonMonoisotopicMzGuess, 0.001);
+            Assert.AreEqual(693.655, theScan.SelectedIonMonoisotopicGuessMz, 0.001);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
 
@@ -159,7 +159,7 @@ namespace Test
 
             theScan.ComputeMonoisotopicPeakIntensity(precursorScan.MassSpectrum);
 
-            theScan.TransforMzs(b => 0, b => 0);
+            theScan.TransformMzs(b => 0, b => 0);
 
             Assert.AreEqual("Scan #2", myMsDataFile.GetOneBasedScan(2).ToString());
 

@@ -33,7 +33,7 @@ namespace MassSpectrometry
         double SelectedIonMZ { get; }
         double? SelectedIonIntensity { get; }
         int? SelectedIonChargeStateGuess { get; }
-        double? SelectedIonMonoisotopicMzGuess { get; }
+        double? SelectedIonMonoisotopicGuessMz { get; }
 
         DissociationType DissociationType { get; }
 
@@ -60,7 +60,7 @@ namespace MassSpectrometry
 
         void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
-        void TransforMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor);
+        void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor);
 
         #endregion Public Methods
 
