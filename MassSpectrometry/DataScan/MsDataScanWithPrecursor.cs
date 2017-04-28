@@ -84,7 +84,7 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public List<double> GetIsolatedMasses(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, int maxMms)
+        public List<double> GetIsolatedMasses(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance)
         {
             if (IsolationRange == null)
                 return null;
@@ -93,7 +93,7 @@ namespace MassSpectrometry
 
             HashSet<IMzPeak> excluded = new HashSet<IMzPeak>();
 
-            foreach (var peak in precursorSpectrum.Extract(new DoubleRange(IsolationRange.Minimum - maxMms - 0.5, IsolationRange.Maximum + maxMms + 0.5)))
+            foreach (var peak in precursorSpectrum.Extract(new DoubleRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5)))
             {
                 if (excluded.Contains(peak))
                     continue;
@@ -107,7 +107,7 @@ namespace MassSpectrometry
                 {
                     var mMass = peak.Mz.ToMass(chargeState);
                     var listOfAdditionalPeaksForThisChargeState = new List<IMzPeak>();
-                    for (int mm = 1; mm <= maxMms; mm++)
+                    for (int mm = 1; mm <= mms.Length; mm++)
                     {
                         double diffToNextMmPeak = mms[mm - 1];
                         double theorMass = mMass + diffToNextMmPeak;

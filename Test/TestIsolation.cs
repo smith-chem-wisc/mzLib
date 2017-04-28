@@ -79,40 +79,10 @@ namespace Test
 
             int maxAssumedChargeState = 1;
             Tolerance massTolerance = new Tolerance("5 PPM");
-            int maxMms = 0;
 
-            var isolatedMasses = cool.GetIsolatedMasses(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance, maxMms);
-
-            Assert.NotNull(isolatedMasses);
-            Assert.AreEqual(5, isolatedMasses.Count);
-        }
-
-        [Test]
-        public void TestCoIsolation2()
-        {
-            var cool = myMsDataFile.Last() as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
-
-            int maxAssumedChargeState = 1;
-            Tolerance massTolerance = new Tolerance("5 PPM");
-            int maxMms = 2;
-
-            var isolatedMasses = cool.GetIsolatedMasses(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance, maxMms);
+            var isolatedMasses = cool.GetIsolatedMasses(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance);
 
             Assert.AreEqual(2, isolatedMasses.Count);
-        }
-
-        [Test]
-        public void TestCoIsolation3()
-        {
-            var cool = myMsDataFile.Last() as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
-
-            int maxAssumedChargeState = 1;
-            Tolerance massTolerance = new Tolerance("5 PPM");
-            int maxMms = 1;
-
-            var isolatedMasses = cool.GetIsolatedMasses(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance, maxMms);
-
-            Assert.AreEqual(3, isolatedMasses.Count);
         }
 
         #endregion Public Methods
