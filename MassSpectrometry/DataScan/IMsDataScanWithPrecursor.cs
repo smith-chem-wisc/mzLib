@@ -29,11 +29,14 @@ namespace MassSpectrometry
         #region Public Properties
 
         int OneBasedPrecursorScanNumber { get; }
+
+        double SelectedIonMZ { get; }
+        double? SelectedIonIntensity { get; }
         int? SelectedIonChargeStateGuess { get; }
         double? SelectedIonMonoisotopicMzGuess { get; }
-        double? SelectedIonIntensity { get; }
-        double SelectedIonMZ { get; }
+
         DissociationType DissociationType { get; }
+
         double IsolationMz { get; }
         MzRange IsolationRange { get; }
 
@@ -54,7 +57,7 @@ namespace MassSpectrometry
         void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
         List<double> GetIsolatedMasses(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, int maxMms);
-        
+
         void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
         void TransformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor);
