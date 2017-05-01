@@ -142,7 +142,8 @@ namespace MassSpectrometry
                         bestChargeState = chargeState;
                     }
                 }
-                isolatedMassesAndCharges.Add(new Tuple<List<double>, int>(bestListOfPeaks, bestChargeState));
+                if (bestListOfPeaks.Count >= 2)
+                    isolatedMassesAndCharges.Add(new Tuple<List<double>, int>(bestListOfPeaks, bestChargeState));
             }
 
             List<double> seen = new List<double>();

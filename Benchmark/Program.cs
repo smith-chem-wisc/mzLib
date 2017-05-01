@@ -178,10 +178,12 @@ namespace Benchmark
             //}
 
             // OLD MASS SPEC
-            var theFiles = new List<string>{ @"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
-                @"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
-                @"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
-                @"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw" };
+            var theFiles = new List<string>{
+                @"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
+                //@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
+                //@"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
+                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
+            };
 
             // Params
             var tols = new List<Tolerance> { new Tolerance("10 PPM") };
@@ -201,7 +203,7 @@ namespace Benchmark
                 {
                     countScans++;
 
-                    //Console.WriteLine("Scan " + scanWithPrec.OneBasedScanNumber + " ; isolation=" + scanWithPrec.IsolationMz + " ; mm=" + scanWithPrec.SelectedIonMonoisotopicGuessMz + " ; charge=" + scanWithPrec.SelectedIonChargeStateGuess);
+                    Console.WriteLine("Scan " + scanWithPrec.OneBasedScanNumber + " ; isolation=" + scanWithPrec.IsolationMz + " ; mm=" + scanWithPrec.SelectedIonMonoisotopicGuessMz + " ; charge=" + scanWithPrec.SelectedIonChargeStateGuess);
 
                     if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
                     {
@@ -225,7 +227,7 @@ namespace Benchmark
                                     totalMatch[i, j]++;
                                 else
                                 {
-                                    //Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
+                                    Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
                                 }
                             }
                         }
