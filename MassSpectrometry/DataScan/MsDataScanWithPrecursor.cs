@@ -33,6 +33,7 @@ namespace MassSpectrometry
         private static readonly double[] mms = new double[] { 1.0029, 2.0052, 3.0077, 4.01, 5.012, 6.0139, 7.0154, 8.0164 };
 
         private static readonly List<Tuple<double, List<double>>> intensityFractions = new List<Tuple<double, List<double>>>();
+
         private MzRange isolationRange;
 
         #endregion Private Fields
@@ -104,7 +105,7 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public IEnumerable<Tuple<List<double>, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio, int minAdditionalIsotopePeaks)
+        public IEnumerable<Tuple<List<double>, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
         {
             if (IsolationRange == null)
                 yield break;
@@ -135,7 +136,7 @@ namespace MassSpectrometry
                         else
                             break;
                     }
-                    if (listOfPeaksForThisChargeState.Count > bestListOfPeaks.Count)
+                    if (listOfPeaksForThisChargeState.Count >= bestListOfPeaks.Count)
                     {
                         bestListOfPeaks = listOfPeaksForThisChargeState;
                         bestChargeState = chargeState;
@@ -147,18 +148,14 @@ namespace MassSpectrometry
             List<double> seen = new List<double>();
             while (isolatedMassesAndCharges.Any())
             {
-                // Pick longest, and with highest charge state
-                var longest = isolatedMassesAndCharges.OrderByDescending(b => b.Item1.Count + b.Item2 * 0.0001).First();
+                // Pick longest
+                var longest = isolatedMassesAndCharges.OrderByDescending(b => b.Item1.Count).First();
                 if (longest.Item1.Count == 0)
                     yield break;
-                if (longest.Item1.Any(b => isolationRange.Contains(b)) && (longest.Item2 == 1 || longest.Item1.Count > 1))
-                {
-                    Console.WriteLine(longest.Item2 + " ; " + String.Join(",", longest.Item1));
+                if (longest.Item1.Any(b => isolationRange.Contains(b)))
                     yield return longest;
-                }
                 isolatedMassesAndCharges.Remove(longest);
-                foreach (var huh in isolatedMassesAndCharges)
-                    huh.Item1.RemoveAll(b => longest.Item1.Contains(b));
+                isolatedMassesAndCharges.RemoveAll(b => b.Item1.Intersect(longest.Item1).Any());
             }
         }
 
