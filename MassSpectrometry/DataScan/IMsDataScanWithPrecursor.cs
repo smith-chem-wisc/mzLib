@@ -34,6 +34,7 @@ namespace MassSpectrometry
         double? SelectedIonIntensity { get; }
         int? SelectedIonChargeStateGuess { get; }
         double? SelectedIonMonoisotopicGuessMz { get; }
+        double? SelectedIonMonoisotopicGuessIntensity { get; }
 
         DissociationType DissociationType { get; }
 
