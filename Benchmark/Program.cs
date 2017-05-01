@@ -187,7 +187,7 @@ namespace Benchmark
 
             // Params
             var tols = new List<Tolerance> { new Tolerance("10 PPM") };
-            var isotopeRatios = new List<int> { 4};
+            var isotopeRatios = new List<int> { 4 };
             var maxAssumedChargeState = 10;
 
             foreach (var theFile in theFiles)
@@ -224,7 +224,10 @@ namespace Benchmark
                             if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
                             {
                                 if (mzEnvelopesWithCharges.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), scanWithPrec.SelectedIonMonoisotopicGuessMz.Value.ToMass(scanWithPrec.SelectedIonChargeStateGuess.Value))))
+                                {
                                     totalMatch[i, j]++;
+                                    Console.WriteLine("Match!");
+                                }
                                 else
                                 {
                                     Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
