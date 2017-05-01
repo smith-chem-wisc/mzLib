@@ -1,6 +1,8 @@
 ﻿using Chemistry;
 using IO.MzML;
 using IO.Thermo;
+using IO.Thermo;
+using MassSpectrometry;
 using MzLibUtil;
 using Proteomics;
 using System;
@@ -183,6 +185,136 @@ namespace Benchmark
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Desktop\02-15-17_Cys-tag_light\02-14-17_Cl-1_rep1.raw"))
             //{
             //    Console.WriteLine(nice.GetOneBasedScan(1000).RetentionTime);
+            //}
+
+            // OLD MASS SPEC
+            var theFiles = new List<string>{
+                @"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
+                //@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
+                //@"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
+                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
+            };
+
+            // Params
+            var tols = new List<Tolerance> { new Tolerance("10 PPM") };
+            var isotopeRatios = new List<int> { 4 };
+            var maxAssumedChargeState = 10;
+
+            foreach (var theFile in theFiles)
+            {
+                var okff = ThermoStaticData.LoadAllStaticData(theFile);
+
+                int countScans = 0;
+                int totalHaveMMandCharge = 0;
+
+                var totalHaveMyMass = new int[1, 1];
+                var totalMatch = new int[1, 1];
+                foreach (var scanWithPrec in okff.OfType<IMsDataScanWithPrecursor<ThermoSpectrum>>())
+                {
+                    countScans++;
+
+                    Console.WriteLine("Scan " + scanWithPrec.OneBasedScanNumber + " ; isolation=" + scanWithPrec.IsolationMz + " ; mm=" + scanWithPrec.SelectedIonMonoisotopicGuessMz + " ; charge=" + scanWithPrec.SelectedIonChargeStateGuess);
+
+                    if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
+                    {
+                        totalHaveMMandCharge++;
+                    }
+
+                    for (int i = 0; i < tols.Count; i++)
+                    {
+                        var tol = tols[i];
+                        for (int j = 0; j < isotopeRatios.Count; j++)
+                        {
+                            var isotopeRatio = isotopeRatios[j];
+                            var mzEnvelopesWithCharges = scanWithPrec.GetIsolatedMassesAndCharges(okff.GetOneBasedScan(scanWithPrec.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, tol, isotopeRatio).ToList();
+
+                            if (mzEnvelopesWithCharges.Count() > 0)
+                                totalHaveMyMass[i, j]++;
+
+                            if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
+                            {
+                                if (mzEnvelopesWithCharges.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), scanWithPrec.SelectedIonMonoisotopicGuessMz.Value.ToMass(scanWithPrec.SelectedIonChargeStateGuess.Value))))
+                                {
+                                    totalMatch[i, j]++;
+                                    Console.WriteLine("Match!");
+                                }
+                                else
+                                {
+                                    Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Console.WriteLine("countScans: " + countScans);
+                Console.WriteLine("totalHaveMMandCharge: " + totalHaveMMandCharge);
+
+                for (int i = 0; i < tols.Count; i++)
+                {
+                    var tol = tols[i];
+                    for (int j = 0; j < isotopeRatios.Count; j++)
+                    {
+                        Console.WriteLine("i = " + i + " j = " + j);
+                        Console.WriteLine("totalHaveMyMass: " + totalHaveMyMass[i, j]);
+                        Console.WriteLine("totalMatch: " + totalMatch[i, j]);
+                    }
+                }
+            }
+
+            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw"))
+            ////{
+            //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw"))
+            //{
+            //var hehdfe = nice.GetOneBasedScan(168) as IMsDataScanWithPrecursor<ThermoSpectrum>;
+            //Console.WriteLine("Scan " + hehdfe.OneBasedScanNumber + " ; isolation=" + hehdfe.IsolationMz + " ; mm=" + hehdfe.SelectedIonMonoisotopicGuessMz);
+
+            //var fdf = hehdfe.GetIsolatedMassesAndCharges(nice.GetOneBasedScan(hehdfe.OneBasedPrecursorScanNumber).MassSpectrum, 10, new Tolerance("20 PPM"), 10, 1);
+
+            //Console.WriteLine(fdf.Count() + ";" + hehdfe.SelectedIonMonoisotopicGuessMz.HasValue);
+
+            //Console.WriteLine(string.Join(Environment.NewLine, fdf.Select(b => "\t" + b.Item1 + "; " + b.Item2 + "; " + b.Item1.First())));
+
+            //    Console.WriteLine();
+
+            //    int totalHaveMM = 0;
+            //    int totalHaveMMandMatch = 0;
+            //    int totalHaveMyMass = 0;
+            //    int totalHaveMMandMatchAll = 0;
+            //    int totalHaveMyMassAll = 0;
+            //    foreach (var hehdfe in nice.OfType<IMsDataScanWithPrecursor<ThermoSpectrum>>())
+            //    {
+            //        Console.WriteLine("Scan " + hehdfe.OneBasedScanNumber + " ; isolation=" + hehdfe.IsolationMz + " ; mm=" + hehdfe.SelectedIonMonoisotopicGuessMz + " ; charge=" + hehdfe.SelectedIonChargeStateGuess);
+
+            //        //var fdf = hehdfe.GetIsolatedMassesAndCharges(nice.GetOneBasedScan(hehdfe.OneBasedPrecursorScanNumber).MassSpectrum, 10, tol, 10, 1).ToList();
+
+            //        //if (fdf.Count() > 0)
+            //        //    totalHaveMyMass++;
+
+            //        //if (hehdfe.SelectedIonMonoisotopicGuessMz.HasValue)
+            //        //{
+            //        //    totalHaveMM++;
+            //        //    if (fdf.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), hehdfe.SelectedIonMonoisotopicGuessMz.Value.ToMass(hehdfe.SelectedIonChargeStateGuess.Value))))
+            //        //        totalHaveMMandMatch++;
+            //        //}
+
+            //        if (fdfAll.Count() > 0)
+            //            totalHaveMyMassAll++;
+            //        Console.WriteLine(fdfAll.Count() + ";" + hehdfe.SelectedIonMonoisotopicGuessMz.HasValue);
+
+            //        if (hehdfe.SelectedIonMonoisotopicGuessMz.HasValue)
+            //        {
+            //            totalHaveMM++;
+            //            var massFromScan = hehdfe.SelectedIonMonoisotopicGuessMz.Value.ToMass(hehdfe.SelectedIonChargeStateGuess.Value);
+            //            if (fdfAll.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), massFromScan)))
+            //                totalHaveMMandMatchAll++;
+
+            //            if (totalHaveMMandMatchAll - totalHaveMyMassAll < -6)
+            //                    Console.WriteLine(totalHaveMMandMatchAll + " not equal " + totalHaveMyMassAll);
+            //        }
+
+            //        Console.WriteLine();
+            //    }
             //}
 
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw"))

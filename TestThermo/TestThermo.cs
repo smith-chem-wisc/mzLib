@@ -50,7 +50,7 @@ namespace TestThermo
             var cool = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(0.1, 1).ToList();
 
             Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
-            
+
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
@@ -75,23 +75,19 @@ namespace TestThermo
 
             var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber);
 
-            Assert.IsNull(hehe.SelectedIonGuessChargeStateGuess);
+            Assert.IsNull(hehe.SelectedIonChargeStateGuess);
 
-            hehe.RecomputeChargeState(prec.MassSpectrum, 0.1, 10);
-
-            Assert.AreEqual(2, hehe.SelectedIonGuessChargeStateGuess);
-
-            Assert.IsNull(hehe.SelectedIonGuessIntensity);
+            Assert.IsNull(hehe.SelectedIonIntensity);
 
             hehe.ComputeSelectedPeakIntensity(prec.MassSpectrum);
 
-            Assert.AreEqual(1017759, hehe.SelectedIonGuessIntensity, 1);
+            Assert.AreEqual(1017759, hehe.SelectedIonIntensity, 1);
 
-            Assert.IsNull(hehe.SelectedIonGuessMonoisotopicIntensity);
+            Assert.IsNull(hehe.SelectedIonMonoisotopicGuessIntensity);
 
             hehe.ComputeMonoisotopicPeakIntensity(prec.MassSpectrum);
 
-            Assert.AreEqual(1017759, hehe.SelectedIonGuessMonoisotopicIntensity, 1);
+            Assert.AreEqual(1017759, hehe.SelectedIonMonoisotopicGuessIntensity, 1);
         }
 
         [Test]
