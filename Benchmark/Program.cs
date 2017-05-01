@@ -13,7 +13,6 @@ namespace Benchmark
 {
     internal class Program
     {
-
         #region Private Methods
 
         private static void BenchmarkFormula()
@@ -179,10 +178,10 @@ namespace Benchmark
 
             // OLD MASS SPEC
             var theFiles = new List<string>{
-                @"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
+                //@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
                 //@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
                 //@"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
-                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
+                @"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
             };
 
             // Params
@@ -232,6 +231,10 @@ namespace Benchmark
                                 {
                                     Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
                                 }
+                            }
+                            else
+                            {
+                                Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
                             }
                         }
                     }
@@ -455,6 +458,5 @@ namespace Benchmark
         }
 
         #endregion Private Methods
-
     }
 }

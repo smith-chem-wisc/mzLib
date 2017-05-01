@@ -151,8 +151,6 @@ namespace MassSpectrometry
             {
                 // Pick longest
                 var longest = isolatedMassesAndCharges.OrderByDescending(b => b.Item1.Count).First();
-                if (longest.Item1.Count == 0)
-                    yield break;
                 if (longest.Item1.Any(b => isolationRange.Contains(b)))
                     yield return longest;
                 isolatedMassesAndCharges.Remove(longest);
