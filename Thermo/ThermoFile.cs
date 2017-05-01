@@ -253,18 +253,12 @@ namespace IO.Thermo
                 if (precursorInfo.dMonoIsoMass > 0 && !selectedIonGuessMonoisotopicMz.HasValue)
                     selectedIonGuessMonoisotopicMz = precursorInfo.dMonoIsoMass;
 
-                double selectedIonGuessMZ;
-                if (precursorInfo.dIsolationMass > 0)
-                    selectedIonGuessMZ = precursorInfo.dIsolationMass;
+                Regex matcher;
+                if (pbstrFilter.ToLower().Contains("msx"))
+                    matcher = mFindParentIonOnlyMsx;
                 else
-                {
-                    Regex matcher;
-                    if (pbstrFilter.ToLower().Contains("msx"))
-                        matcher = mFindParentIonOnlyMsx;
-                    else
-                        matcher = mFindParentIonOnlyNonMsx;
-                    selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value);
-                }
+                    matcher = mFindParentIonOnlyNonMsx;
+                double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value);
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
