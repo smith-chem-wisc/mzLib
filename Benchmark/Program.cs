@@ -13,6 +13,7 @@ namespace Benchmark
 {
     internal class Program
     {
+
         #region Private Methods
 
         private static void BenchmarkFormula()
@@ -222,7 +223,7 @@ namespace Benchmark
 
                             if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
                             {
-                                if (mzEnvelopesWithCharges.Any(bd => tol.Within(bd.Item1.First().ToMass(bd.Item2), scanWithPrec.SelectedIonMonoisotopicGuessMz.Value.ToMass(scanWithPrec.SelectedIonChargeStateGuess.Value))))
+                                if (mzEnvelopesWithCharges.Any(bd => tol.Within(bd.Item1.First().Mz.ToMass(bd.Item2), scanWithPrec.SelectedIonMonoisotopicGuessMz.Value.ToMass(scanWithPrec.SelectedIonChargeStateGuess.Value))))
                                 {
                                     totalMatch[i, j]++;
                                     Console.WriteLine("Match!");
@@ -458,5 +459,6 @@ namespace Benchmark
         }
 
         #endregion Private Methods
+
     }
 }

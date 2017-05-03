@@ -105,23 +105,23 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public IEnumerable<Tuple<List<double>, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
+        public IEnumerable<Tuple<List<IMzPeak>, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
         {
             if (IsolationRange == null)
                 yield break;
 
-            var isolatedMassesAndCharges = new List<Tuple<List<double>, int>>();
+            var isolatedMassesAndCharges = new List<Tuple<List<IMzPeak>, int>>();
 
             foreach (var peak in precursorSpectrum.Extract(new DoubleRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5)))
             {
                 // Always assume the current peak is a monoisotopic peak!
 
-                List<double> bestListOfPeaks = new List<double>();
+                List<IMzPeak> bestListOfPeaks = new List<IMzPeak>();
                 int bestChargeState = 1;
                 bool withinIsolationWindow = IsolationRange.Contains(peak.Mz);
                 for (int chargeState = 1; chargeState <= maxAssumedChargeState; chargeState++)
                 {
-                    var listOfPeaksForThisChargeState = new List<double> { peak.Mz };
+                    var listOfPeaksForThisChargeState = new List<IMzPeak> { peak };
                     var mMass = peak.Mz.ToMass(chargeState);
                     for (int mm = 1; mm <= mms.Length; mm++)
                     {
@@ -131,7 +131,7 @@ namespace MassSpectrometry
                         if (massTolerance.Within(closestpeak.Mz.ToMass(chargeState), theorMass) && SatisfiesRatios(mMass, mm, peak, closestpeak, intensityRatio))
                         {
                             // Found a match to an isotope peak for this charge state!
-                            listOfPeaksForThisChargeState.Add(closestpeak.Mz);
+                            listOfPeaksForThisChargeState.Add(closestpeak);
                         }
                         else
                             break;
@@ -143,7 +143,7 @@ namespace MassSpectrometry
                     }
                 }
                 if (bestListOfPeaks.Count >= 2)
-                    isolatedMassesAndCharges.Add(new Tuple<List<double>, int>(bestListOfPeaks, bestChargeState));
+                    isolatedMassesAndCharges.Add(new Tuple<List<IMzPeak>, int>(bestListOfPeaks, bestChargeState));
             }
 
             List<double> seen = new List<double>();
@@ -151,7 +151,7 @@ namespace MassSpectrometry
             {
                 // Pick longest
                 var longest = isolatedMassesAndCharges.OrderByDescending(b => b.Item1.Count).First();
-                if (longest.Item1.Any(b => isolationRange.Contains(b)))
+                if (longest.Item1.Any(b => isolationRange.Contains(b.Mz)))
                     yield return longest;
                 isolatedMassesAndCharges.Remove(longest);
                 isolatedMassesAndCharges.RemoveAll(b => b.Item1.Intersect(longest.Item1).Any());
