@@ -182,24 +182,28 @@ namespace Benchmark
                 //@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
                 //@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
                 //@"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
-                @"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
+                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
+                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.mzML",
+                @"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-29-13_B6_Frac7_5uL.raw"
             };
 
             // Params
-            var tols = new List<Tolerance> { new Tolerance("10 PPM") };
+            var tols = new List<Tolerance> { new Tolerance("5 PPM") };
             var isotopeRatios = new List<int> { 4 };
             var maxAssumedChargeState = 10;
 
             foreach (var theFile in theFiles)
             {
                 var okff = ThermoStaticData.LoadAllStaticData(theFile);
+                //var okff = Mzml.LoadAllStaticData(theFile);
 
                 int countScans = 0;
                 int totalHaveMMandCharge = 0;
 
                 var totalHaveMyMass = new int[1, 1];
                 var totalMatch = new int[1, 1];
-                foreach (var scanWithPrec in okff.OfType<IMsDataScanWithPrecursor<ThermoSpectrum>>())
+                //foreach (var scanWithPrec in okff.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+                var scanWithPrec = okff.GetOneBasedScan(11042) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
                 {
                     countScans++;
 

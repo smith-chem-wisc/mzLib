@@ -161,7 +161,7 @@ namespace IO.Thermo
             return data;
         }
 
-        public IEnumerable<PossibleProteoform> Deconvolute(double tol, int minEvidence)
+        public IEnumerable<PossibleProteoform> Deconvolute(double tol)
         {
             var isotopicPeakGroups = ThermoDecon.GetIsotopicPeakGroups(this, tol);
 
