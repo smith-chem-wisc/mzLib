@@ -161,11 +161,11 @@ namespace IO.Thermo
             return data;
         }
 
-        public IEnumerable<PossibleProteoform> Deconvolute(double tol)
+        public IEnumerable<PossibleProteoform> SpecialThermoDeconvolution(double absoluteMassTolerance)
         {
-            var isotopicPeakGroups = ThermoDecon.GetIsotopicPeakGroups(this, tol);
+            var isotopicPeakGroups = ThermoDecon.GetIsotopicPeakGroups(this, absoluteMassTolerance);
 
-            return ThermoDecon.GetPossibleProteoforms(isotopicPeakGroups, tol);
+            return ThermoDecon.GetPossibleProteoforms(isotopicPeakGroups, absoluteMassTolerance);
         }
 
         #endregion Public Methods

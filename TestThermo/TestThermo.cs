@@ -50,7 +50,7 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            List<IO.Thermo.Deconvolution.PossibleProteoform> cool = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(0.1).ToList();
+            List<IO.Thermo.Deconvolution.PossibleProteoform> cool = a.GetOneBasedScan(1).MassSpectrum.SpecialThermoDeconvolution(0.1).ToList();
 
             Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
 
