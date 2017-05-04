@@ -78,8 +78,8 @@ namespace Test
 
             Assert.AreEqual(2, isolatedMasses.Count);
             Assert.AreEqual(2, isolatedMasses.Count(b => b.Item2 == 1));
-            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().ToMass(b.Item2)).Min(), 1e-9);
-            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().ToMass(b.Item2)).Max(), 1e-9);
+            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Min(), 1e-9);
+            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Max(), 1e-9);
         }
 
         [Test]
@@ -121,8 +121,8 @@ namespace Test
             Assert.AreEqual(2, isolatedMasses.Count);
             Assert.AreEqual(1, isolatedMasses.Count(b => b.Item2 == 1));
             Assert.AreEqual(1, isolatedMasses.Count(b => b.Item2 == 2));
-            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().ToMass(b.Item2)).Min(), 1e-9);
-            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().ToMass(b.Item2)).Max(), 1e-9);
+            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Min(), 1e-9);
+            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Max(), 1e-9);
         }
 
         #endregion Public Methods
