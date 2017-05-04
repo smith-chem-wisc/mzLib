@@ -1,7 +1,10 @@
-﻿using IO.MzML;
+﻿using Chemistry;
+using IO.MzML;
 using IO.Thermo;
+using MzLibUtil;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace TestThermo
@@ -47,9 +50,13 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            var cool = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(0.1, 1).ToList();
+            List<IO.Thermo.Deconvolution.PossibleProteoform> cool = a.GetOneBasedScan(1).MassSpectrum.SpecialThermoDeconvolution(0.1).ToList();
 
             Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
+
+            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, new Tolerance("1 PPM"), 4).ToList();
+
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.Item1.First().Mz.ToMass(b.Item2) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
 

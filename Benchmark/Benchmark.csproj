@@ -109,6 +109,10 @@
       <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
       <Name>MzLibUtil</Name>
     </ProjectReference>
+    <ProjectReference Include="..\MzML\MzML.csproj">
+      <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
+      <Name>MzML</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Proteomics\Proteomics.csproj">
       <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
       <Name>Proteomics</Name>
