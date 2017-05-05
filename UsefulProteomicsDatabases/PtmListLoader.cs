@@ -249,14 +249,13 @@ namespace UsefulProteomicsDatabases
                             if (modificationType == null)
                                 throw new PtmListLoaderException("modificationType of " + id + " is null");
 
-                            foreach (var dbAndAccession in externalDatabaseLinks.SelectMany(b => b.Value.Select(c => b.Key + "; MOD:" + c)))
+                            foreach (var dbAndAccession in externalDatabaseLinks.SelectMany(b => b.Value.Select(c => b.Key + "; " + c)))
                                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
                                 {
                                     if (monoisotopicMass.HasValue)
                                         monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.protonMass;
                                     if (correctionFormula != null)
                                         correctionFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
-                                    id += " corrected";
                                     break;
                                 }
 

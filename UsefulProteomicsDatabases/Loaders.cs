@@ -30,7 +30,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class Loaders
     {
-
         #region Public Methods
 
         public static void UpdateUniprot(string uniprotLocation)
@@ -127,7 +126,7 @@ namespace UsefulProteomicsDatabases
         {
             var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
             Regex digitsOnly = new Regex(@"[^\d]");
-            return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+            return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + int.Parse(digitsOnly.Replace(b.id, "")), b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
         public static void LoadElements(string elementLocation)
@@ -205,6 +204,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }
