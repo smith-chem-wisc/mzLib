@@ -19,9 +19,12 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Xml.Serialization;
+using UsefulProteomicsDatabases.Generated;
 
 namespace UsefulProteomicsDatabases
 {
@@ -118,6 +121,13 @@ namespace UsefulProteomicsDatabases
                 File.Move(elementLocation, elementLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
                 File.Move(elementLocation + ".temp", elementLocation);
             }
+        }
+
+        public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
+        {
+            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
+            Regex digitsOnly = new Regex(@"[^\d]");
+            return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
         public static void LoadElements(string elementLocation)

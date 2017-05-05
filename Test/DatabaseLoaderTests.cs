@@ -22,7 +22,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
 namespace Test
@@ -104,34 +103,9 @@ namespace Test
             // Phosphoserine
             Assert.IsFalse(psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
 
-            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
-
-            Regex digitsOnly = new Regex(@"[^\d]");
-
-            Dictionary<string, int> formalChargesDictionary = modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-
-            foreach (var ok in uniprotPtms)
-            {
-                if (ok.linksToOtherDbs.Keys.Contains("PSI-MOD"))
-                {
-                    //Console.WriteLine("awesome");
-                    //Console.WriteLine(string.Join(" ; ", ok.linksToOtherDbs["PSI-MOD"]));
-                    var thePsiModMod = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:" + ok.linksToOtherDbs["PSI-MOD"].First()));
-                    if (thePsiModMod.xref_analog.Any(b => b.dbname.Equals("FormalCharge")))
-                    {
-                        Console.WriteLine(ok.id);
-                        Console.WriteLine("\t" + (ok as ModificationWithMass).monoisotopicMass);
-                        Console.WriteLine("\t" + thePsiModMod.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
-                        Console.WriteLine("\t" + thePsiModMod.xref_analog.First(b => b.dbname.Equals("DiffMono")).name);
-                        Console.WriteLine("\t" + thePsiModMod.comment);
-                        Console.WriteLine();
-                    }
-                }
-                else
-                    Console.WriteLine(ok.id + " not in PSI-MOD");
-            }
 
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {

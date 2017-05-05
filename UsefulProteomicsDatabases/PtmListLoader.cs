@@ -256,6 +256,7 @@ namespace UsefulProteomicsDatabases
                                         monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.protonMass;
                                     if (correctionFormula != null)
                                         correctionFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                                    id += " corrected";
                                     break;
                                 }
 
