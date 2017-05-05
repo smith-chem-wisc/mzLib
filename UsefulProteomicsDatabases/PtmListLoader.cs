@@ -52,12 +52,17 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
+        public static IEnumerable<ModificationWithLocation> ReadModsFromFile(string ptmListLocation)
+        {
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>());
+        }
+
         /// <summary>
         /// Reads a list of modifications from a text file.
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
-        public static IEnumerable<ModificationWithLocation> ReadModsFromFile(string ptmListLocation)
+        public static IEnumerable<ModificationWithLocation> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary)
         {
             using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
@@ -89,7 +94,7 @@ namespace UsefulProteomicsDatabases
 
                             case "//":
                                 modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification))
+                                foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
                                     yield return mod;
                                 modification_specification = new List<string>();
                                 break;
@@ -136,7 +141,7 @@ namespace UsefulProteomicsDatabases
 
                             case "//":
                                 modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification))
+                                foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
                                     yield return mod;
                                 modification_specification = new List<string>();
                                 break;
@@ -155,7 +160,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="specification"></param>
         /// <returns></returns>
-        private static IEnumerable<ModificationWithLocation> ReadMod(List<string> specification)
+        private static IEnumerable<ModificationWithLocation> ReadMod(List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
             // UniProt fields
             string id = null;
@@ -243,6 +248,17 @@ namespace UsefulProteomicsDatabases
                                 modificationType = "Uniprot";
                             if (modificationType == null)
                                 throw new PtmListLoaderException("modificationType of " + id + " is null");
+
+                            foreach (var dbAndAccession in externalDatabaseLinks.SelectMany(b => b.Value.Select(c => b.Key + "; MOD:" + c)))
+                                if (formalChargesDictionary.ContainsKey(dbAndAccession))
+                                {
+                                    if (monoisotopicMass.HasValue)
+                                        monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.protonMass;
+                                    if (correctionFormula != null)
+                                        correctionFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                                    break;
+                                }
+
                             if (terminusLocalizationString != null && motifs != null)
                                 if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out ModificationSites terminusLocalization))
                                 {

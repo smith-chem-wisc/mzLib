@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UsefulProteomicsDatabases;
 
 namespace Test
@@ -97,12 +98,40 @@ namespace Test
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
 
             // N6,N6,N6-trimethyllysine
-            Assert.AreEqual("1+", psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083")).xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
+            var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
+            Assert.AreEqual("1+", trimethylLysine.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
 
             // Phosphoserine
             Assert.IsFalse(psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
 
-            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
+            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
+
+            Regex digitsOnly = new Regex(@"[^\d]");
+
+            Dictionary<string, int> formalChargesDictionary = modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            foreach (var ok in uniprotPtms)
+            {
+                if (ok.linksToOtherDbs.Keys.Contains("PSI-MOD"))
+                {
+                    //Console.WriteLine("awesome");
+                    //Console.WriteLine(string.Join(" ; ", ok.linksToOtherDbs["PSI-MOD"]));
+                    var thePsiModMod = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:" + ok.linksToOtherDbs["PSI-MOD"].First()));
+                    if (thePsiModMod.xref_analog.Any(b => b.dbname.Equals("FormalCharge")))
+                    {
+                        Console.WriteLine(ok.id);
+                        Console.WriteLine("\t" + (ok as ModificationWithMass).monoisotopicMass);
+                        Console.WriteLine("\t" + thePsiModMod.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
+                        Console.WriteLine("\t" + thePsiModMod.xref_analog.First(b => b.dbname.Equals("DiffMono")).name);
+                        Console.WriteLine("\t" + thePsiModMod.comment);
+                        Console.WriteLine();
+                    }
+                }
+                else
+                    Console.WriteLine(ok.id + " not in PSI-MOD");
+            }
 
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
@@ -119,7 +148,9 @@ namespace Test
             }
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
-            Console.WriteLine(sampleModList.First().ToString());
+
+            string stringRepresentation = "ID   (3R)-3-hydroxyarginine\r\nMT   Uniprot\r\nPP   Anywhere.\r\nDR   RESID; AA0601\r\nDR   PSI-MOD; 01956\r\nTG   R\r\nMM   15.994915\r\nCF   O";
+            Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
         }
 
         [Test]
