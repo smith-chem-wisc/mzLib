@@ -61,7 +61,7 @@ namespace Proteomics
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode();
+            int hash = base.GetHashCode();
             foreach (double x in neutralLosses) hash = hash ^ x.GetHashCode();
             if (diagnosticIons != null) foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
             return hash;
