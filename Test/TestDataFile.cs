@@ -141,21 +141,15 @@ namespace Test
             Assert.AreEqual(1, theScan.IsolationRange.Width);
             Assert.AreEqual(DissociationType.Unknown, theScan.DissociationType);
             Assert.AreEqual(693.99, theScan.IsolationMz);
-            Assert.AreEqual(1, theScan.IsolationWidth);
+            Assert.AreEqual(1, theScan.IsolationRange.Maximum - theScan.IsolationRange.Minimum);
             Assert.AreEqual(1, theScan.OneBasedPrecursorScanNumber);
-            Assert.AreEqual(3, theScan.SelectedIonGuessChargeStateGuess.Value);
+            Assert.AreEqual(3, theScan.SelectedIonChargeStateGuess.Value);
             //Assert.IsNull(theScan.SelectedIonGuessIntensity);
             var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber);
-            theScan.RecomputeSelectedPeak(precursorScan.MassSpectrum);
-            Assert.AreEqual(.32872, theScan.SelectedIonGuessIntensity, 0.01);
-            Assert.AreEqual(693.9892, theScan.SelectedIonGuessMZ, 0.01);
-
-            Assert.IsNull(theScan.SelectedIonGuessMonoisotopicIntensity);
-
-            theScan.RecomputeMonoisotopicPeak(precursorScan.MassSpectrum, 0.01, 0.01);
-
-            Assert.AreEqual(0.32374, theScan.SelectedIonGuessMonoisotopicIntensity, 0.001);
-            Assert.AreEqual(693.64802, theScan.SelectedIonGuessMonoisotopicMZ, 0.001);
+            theScan.RefineSelectedMzAndIntensity(precursorScan.MassSpectrum);
+            Assert.AreEqual(.32872, theScan.SelectedIonIntensity, 0.01);
+            Assert.AreEqual(693.9892, theScan.SelectedIonMZ, 0.01);
+            Assert.AreEqual(693.655, theScan.SelectedIonMonoisotopicGuessMz, 0.001);
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
 
@@ -163,13 +157,15 @@ namespace Test
 
             Assert.AreNotEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
 
-            theScan.TranformByApplyingFunctionsToSpectraAndReplacingPrecursorMZs(b => 0, 0, 0);
+            theScan.ComputeMonoisotopicPeakIntensity(precursorScan.MassSpectrum);
+
+            theScan.TransformMzs(b => 0, b => 0);
 
             Assert.AreEqual("Scan #2", myMsDataFile.GetOneBasedScan(2).ToString());
 
             Assert.AreEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.FirstX);
             Assert.AreEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
-            Assert.AreEqual(0, theScan.SelectedIonGuessMZ);
+            Assert.AreEqual(0, theScan.SelectedIonMZ);
 
             IEnumerable a = myMsDataFile;
             foreach (var b in a)

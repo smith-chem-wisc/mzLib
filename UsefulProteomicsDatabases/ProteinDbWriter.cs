@@ -13,7 +13,14 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static void WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> Mods, List<Protein> proteinList, string outputFileName)
+        /// <summary>
+        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
+        /// </summary>
+        /// <param name="AdditionalModsToAddToProteins"></param>
+        /// <param name="proteinList"></param>
+        /// <param name="outputFileName"></param>
+        /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> AdditionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
         {
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -21,13 +28,15 @@ namespace UsefulProteomicsDatabases
                 IndentChars = "  "
             };
 
+            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
+
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
                 HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(
-                    Mods.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
+                    AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
                     .SelectMany(kv => kv.Value.Select(v => v.Item2))
                     .Concat(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))));
 
@@ -93,34 +102,64 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                         writer.WriteEndElement();
                     }
-                    foreach (var ye in protein.OneBasedPossibleLocalizedModifications.OrderBy(b => b.Key))
+
+                    Dictionary<int, HashSet<string>> modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
+
+                    foreach (var ye in protein.OneBasedPossibleLocalizedModifications)
                     {
                         foreach (var nice in ye.Value)
                         {
+                            if (modsToWriteForThisSpecificProtein.TryGetValue(ye.Key, out HashSet<string> val))
+                                val.Add(nice.id);
+                            else
+                                modsToWriteForThisSpecificProtein.Add(ye.Key, new HashSet<string> { nice.id });
+                        }
+                    }
+
+                    if (AdditionalModsToAddToProteins.ContainsKey(protein.Accession))
+                        foreach (var ye in AdditionalModsToAddToProteins[protein.Accession])
+                        {
+                            int additionalModResidueIndex = ye.Item1;
+                            string additionalModId = ye.Item2.id;
+                            bool modAdded = false;
+
+                            // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
+                            if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
+                                // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
+                                modAdded = val.Add(additionalModId);
+
+                            // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
+                            else
+                            {
+                                modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
+                                modAdded = true;
+                            }
+
+                            // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
+                            if (modAdded)
+                            {
+                                if (newModResEntries.ContainsKey(additionalModId))
+                                    newModResEntries[additionalModId]++;
+                                else
+                                    newModResEntries.Add(additionalModId, 1);
+                            }
+                        }
+
+                    foreach (var hm in modsToWriteForThisSpecificProtein.OrderBy(b => b.Key))
+                    {
+                        foreach (var modId in hm.Value)
+                        {
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", nice.id);
+                            writer.WriteAttributeString("description", modId);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", ye.Key.ToString(CultureInfo.InvariantCulture));
+                            writer.WriteAttributeString("position", hm.Key.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                             writer.WriteEndElement();
                         }
                     }
-                    if (Mods.ContainsKey(protein.Accession))
-                        foreach (var ye in Mods[protein.Accession].OrderBy(b => b.Item1))
-                        {
-                            writer.WriteStartElement("feature");
-                            writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", ye.Item2.id);
-                            writer.WriteStartElement("location");
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", ye.Item1.ToString(CultureInfo.InvariantCulture));
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                        }
 
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
@@ -133,6 +172,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteEndElement();
                 writer.WriteEndDocument();
             }
+            return newModResEntries;
         }
 
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)

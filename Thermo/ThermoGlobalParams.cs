@@ -16,6 +16,7 @@ namespace IO.Thermo
         public readonly int pnNumInstMethods;
 
         public readonly ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor;
+        public readonly int[] scanEvent;
 
         #endregion Public Fields
 
@@ -31,6 +32,7 @@ namespace IO.Thermo
             this.pnControllerType = pnControllerType;
             this.pnControllerNumber = pnControllerNumber;
             this.couldBePrecursor = couldBePrecursor;
+            scanEvent = new int[couldBePrecursor.Length];
         }
 
         #endregion Public Constructors

@@ -2,8 +2,9 @@
 
 namespace MassSpectrometry
 {
-    public abstract class MzPeak : Peak, IMzPeak
+    public class MzPeak : Peak, IMzPeak
     {
+
         #region Public Constructors
 
         public MzPeak(double mz, double intensity)
@@ -41,5 +42,6 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
+
     }
 }

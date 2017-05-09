@@ -94,9 +94,18 @@ namespace Test
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
 
-            Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
 
-            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt")).ToList();
+            // N6,N6,N6-trimethyllysine
+            var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
+            Assert.AreEqual("1+", trimethylLysine.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
+
+            // Phosphoserine
+            Assert.IsFalse(psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
+
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
@@ -113,7 +122,9 @@ namespace Test
             }
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
-            Console.WriteLine(sampleModList.First().ToString());
+
+            string stringRepresentation = "ID   (3R)-3-hydroxyarginine\r\nMT   Uniprot\r\nPP   Anywhere.\r\nDR   RESID; AA0601\r\nDR   PSI-MOD; 01956\r\nTG   R\r\nMM   15.994915\r\nCF   O";
+            Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
         }
 
         [Test]
@@ -212,6 +223,65 @@ namespace Test
 
             //But that we can still read modifications from other protein XMLs that exist
             Assert.AreEqual(0, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "xml.xml")).Count);
+        }
+
+        [Test]
+        public void DoNotWriteSameModTwiceAndDoNotWriteInHeaderSinceDifferent()
+        {
+            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
+            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "z.txt")).ToList();
+            Protein protein = new Protein("MCSSSSSSSSSS", "accession", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, null, null, "name", "full_name", false, false, new List<DatabaseReference>());
+            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
+
+            Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> dictWithThisMod = new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>();
+
+            HashSet<Tuple<int, ModificationWithMass>> value = new HashSet<Tuple<int, ModificationWithMass>>();
+
+            var modReadFromFile = sampleModList.First() as ModificationWithMassAndCf;
+            ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
+            ModificationWithMass newMod = new ModificationWithMassAndCf("Palmitoylation of C", null, motif, ModificationSites.Any, modReadFromFile.chemicalFormula, modReadFromFile.monoisotopicMass, null, null, null, modReadFromFile.modificationType);
+
+            Assert.AreEqual(newMod, sampleModList.First());
+            Assert.AreEqual(sampleModList.First(), newMod);
+
+            value.Add(new Tuple<int, ModificationWithMass>(2, newMod));
+
+            dictWithThisMod.Add("accession", value);
+            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"));
+            Assert.AreEqual(0, newModResEntries.Count);
+            List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"), false, new List<Modification>(), false, null, out Dictionary<string, Modification> um);
+            Assert.AreEqual(1, new_proteins.Count);
+            Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
+        }
+
+        [Test]
+        public void DoNotWriteSameModTwiceButWriteInHeaderSinceDifferent()
+        {
+            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
+            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "z.txt")).ToList();
+            Protein protein = new Protein("MCSSSSSSSSSS", "accession", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, null, null, "name", "full_name", false, false, new List<DatabaseReference>());
+            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
+
+            Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> dictWithThisMod = new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>();
+
+            HashSet<Tuple<int, ModificationWithMass>> value = new HashSet<Tuple<int, ModificationWithMass>>();
+
+            ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
+            ModificationWithMass newMod = new ModificationWithMass("Palmitoylation of C", null, motif, ModificationSites.Any, double.NaN, null, null, null, null);
+
+            Assert.AreNotEqual(newMod, sampleModList.First());
+
+            value.Add(new Tuple<int, ModificationWithMass>(2, newMod));
+
+            dictWithThisMod.Add("accession", value);
+
+            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml"));
+            Assert.AreEqual(0, newModResEntries.Count);
+            List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml"), false, new List<Modification>(), false, null, out Dictionary<string, Modification> um);
+            Assert.AreEqual(1, new_proteins.Count);
+            Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(2, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
         }
 
         #endregion Public Methods

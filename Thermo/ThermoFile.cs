@@ -13,6 +13,8 @@ namespace IO.Thermo
         #region Private Fields
 
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
+        private static readonly Regex mFindParentIonOnlyNonMsx = new Regex(@"[Mm][Ss]\d*[^\[\r\n]* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*(\[[^\]\r\n]\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex mFindParentIonOnlyMsx = new Regex(@"[Mm][Ss]\d* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*[^\[\r\n]*(\[[^\]\r\n]+\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         #endregion Private Fields
 
@@ -209,33 +211,54 @@ namespace IO.Thermo
                 // Trust this first
                 var precursorInfo = globalParams.couldBePrecursor[nScanNumber - 1];
 
-                int pnChargeState = 0;
-                double pdHeaderMass = 0;
-                int pnMasterScan = 0;
-                double pdFoundMass = 0;
-                theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
+                // THIS METHOD IS BUGGY!!! DO NOT USE
+                //theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
 
-                // TODO: Get it from more locations
-                double selectedIonGuessMZ = precursorInfo.dIsolationMass > 0 ? precursorInfo.dIsolationMass : pdHeaderMass;
+                int oneBasedPrecursorScanNumber;
+                if (precursorInfo.nScanNumber > 0)
+                    oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
+                else
+                {
+                    oneBasedPrecursorScanNumber = nScanNumber - 1;
+                    // Use info from ScanEvent! Loop back until scan event is equal to 1
+                    while (true)
+                    {
+                        if (globalParams.scanEvent[oneBasedPrecursorScanNumber - 1] == 0)
+                        {
+                            object pvarValuesHere = null;
+                            object pvarLablesHere = null;
+                            int pnArraySizeHere = 0;
+                            theConnection.GetTrailerExtraForScanNum(oneBasedPrecursorScanNumber, ref pvarLablesHere, ref pvarValuesHere, ref pnArraySizeHere);
+                            string[] labelsHere = (string[])pvarLablesHere;
+                            string[] valuesHere = (string[])pvarValuesHere;
+                            for (int i = labelsHere.GetLowerBound(0); i <= labelsHere.GetUpperBound(0); i++)
+                                if (labelsHere[i].StartsWith("Scan Event", StringComparison.Ordinal))
+                                    globalParams.scanEvent[oneBasedPrecursorScanNumber - 1] = int.Parse(valuesHere[i], CultureInfo.InvariantCulture);
+                        }
+                        if (globalParams.scanEvent[oneBasedPrecursorScanNumber - 1] == 1)
+                            break;
+                        oneBasedPrecursorScanNumber--;
+                    }
+                }
 
                 int? selectedIonGuessChargeStateGuess = null;
                 if (precursorInfo.nChargeState > 0)
                     selectedIonGuessChargeStateGuess = precursorInfo.nChargeState;
-                else if (pnChargeState > 0)
-                    selectedIonGuessChargeStateGuess = pnChargeState;
                 else if (chargeStatefromTrailierExtra.HasValue)
                     selectedIonGuessChargeStateGuess = chargeStatefromTrailierExtra;
-
-                // TODO: Get it from more locations
-                int oneBasedPrecursorScanNumber = precursorInfo.nScanNumber > 0 ? precursorInfo.nScanNumber : pnMasterScan;
 
                 double? selectedIonGuessMonoisotopicMz = null;
                 if (precursorMonoisotopicMZfromTrailierExtra.HasValue && precursorMonoisotopicMZfromTrailierExtra.Value > 0)
                     selectedIonGuessMonoisotopicMz = precursorMonoisotopicMZfromTrailierExtra;
                 if (precursorInfo.dMonoIsoMass > 0 && !selectedIonGuessMonoisotopicMz.HasValue)
                     selectedIonGuessMonoisotopicMz = precursorInfo.dMonoIsoMass;
-                if (pdFoundMass > 0 && !selectedIonGuessMonoisotopicMz.HasValue)
-                    selectedIonGuessMonoisotopicMz = pdFoundMass;
+
+                Regex matcher;
+                if (pbstrFilter.ToLower().Contains("msx"))
+                    matcher = mFindParentIonOnlyMsx;
+                else
+                    matcher = mFindParentIonOnlyNonMsx;
+                double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value);
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,

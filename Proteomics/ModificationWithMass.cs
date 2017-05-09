@@ -55,15 +55,13 @@ namespace Proteomics
                 && ((this.diagnosticIons == null || this.diagnosticIons.Count() == 0) && (m.diagnosticIons == null || m.diagnosticIons.Count() == 0)
                 || this.diagnosticIons != null && m.diagnosticIons != null
                 && this.diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
-
                 && (this.neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
-
-                && this.monoisotopicMass == m.monoisotopicMass; ;
+                && Math.Abs(this.monoisotopicMass - m.monoisotopicMass) < 1e-9;
         }
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode() ^ monoisotopicMass.GetHashCode();
+            int hash = base.GetHashCode();
             foreach (double x in neutralLosses) hash = hash ^ x.GetHashCode();
             if (diagnosticIons != null) foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
             return hash;

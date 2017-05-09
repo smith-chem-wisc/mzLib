@@ -19,9 +19,12 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Xml.Serialization;
+using UsefulProteomicsDatabases.Generated;
 
 namespace UsefulProteomicsDatabases
 {
@@ -120,6 +123,13 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+        public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
+        {
+            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
+            Regex digitsOnly = new Regex(@"[^\d]");
+            return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + digitsOnly.Replace(b.id, ""), b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+        }
+
         public static void LoadElements(string elementLocation)
         {
             if (!File.Exists(elementLocation))
@@ -143,11 +153,11 @@ namespace UsefulProteomicsDatabases
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open)) as Generated.obo;
         }
 
-        public static IEnumerable<ModificationWithLocation> LoadUniprot(string uniprotLocation)
+        public static IEnumerable<ModificationWithLocation> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
         {
             if (!File.Exists(uniprotLocation))
                 UpdateUniprot(uniprotLocation);
-            return PtmListLoader.ReadModsFromFile(uniprotLocation);
+            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary);
         }
 
         #endregion Public Methods

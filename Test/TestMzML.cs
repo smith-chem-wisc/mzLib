@@ -86,7 +86,7 @@ namespace Test
             var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.FirstX;
 
             var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
-            Assert.AreEqual(1, secondScan.IsolationWidth);
+            Assert.AreEqual(1, secondScan.IsolationRange.Maximum - secondScan.IsolationRange.Minimum);
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, "argh.mzML", false);
 
@@ -101,7 +101,7 @@ namespace Test
 
             var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
-            Assert.AreEqual(1, secondScan2.IsolationWidth);
+            Assert.AreEqual(1, secondScan2.IsolationRange.Maximum - secondScan2.IsolationRange.Minimum);
 
             secondScan2.TransformByApplyingFunctionToSpectra((a) => 44);
             Assert.AreEqual(44, secondScan2.MassSpectrum.LastX);
@@ -144,8 +144,10 @@ namespace Test
                 }
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML.Generated.IonTypeType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML.Generated.IonTypeType();
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray = new mzIdentML.Generated.FragmentArrayType[1];
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML.Generated.IonTypeType()
+            {
+                FragmentArray = new mzIdentML.Generated.FragmentArrayType[1]
+            };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML.Generated.FragmentArrayType()
             {
                 values = new float[3] { 200, 300, 400 }
@@ -296,8 +298,10 @@ namespace Test
                 }
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML110.Generated.IonTypeType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType();
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray = new mzIdentML110.Generated.FragmentArrayType[1];
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType()
+            {
+                FragmentArray = new mzIdentML110.Generated.FragmentArrayType[1]
+            };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML110.Generated.FragmentArrayType()
             {
                 values = new float[3] { 200, 300, 400 }
@@ -333,7 +337,7 @@ namespace Test
                 dBSequence_ref = "DB_1",
                 peptide_ref = "P_1",
                 id = "PE_1",
-             };
+            };
             _mzid.SequenceCollection.Peptide = new mzIdentML110.Generated.PeptideType[1];
             _mzid.SequenceCollection.Peptide[0] = new mzIdentML110.Generated.PeptideType()
             {

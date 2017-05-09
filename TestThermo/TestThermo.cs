@@ -1,7 +1,10 @@
-﻿using IO.MzML;
+﻿using Chemistry;
+using IO.MzML;
 using IO.Thermo;
+using MzLibUtil;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace TestThermo
@@ -47,10 +50,14 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            var cool = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(0.1, 1).ToList();
+            List<IO.Thermo.Deconvolution.PossibleProteoform> cool = a.GetOneBasedScan(1).MassSpectrum.SpecialThermoDeconvolution(0.1).ToList();
 
             Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
-            
+
+            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, new Tolerance("1 PPM"), 4).ToList();
+
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.Item1.First().Mz.ToMass(b.Item2) - 523.257) < 0.001));
+
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
@@ -75,23 +82,19 @@ namespace TestThermo
 
             var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber);
 
-            Assert.IsNull(hehe.SelectedIonGuessChargeStateGuess);
+            Assert.IsNull(hehe.SelectedIonChargeStateGuess);
 
-            hehe.RecomputeChargeState(prec.MassSpectrum, 0.1, 10);
-
-            Assert.AreEqual(2, hehe.SelectedIonGuessChargeStateGuess);
-
-            Assert.IsNull(hehe.SelectedIonGuessIntensity);
+            Assert.IsNull(hehe.SelectedIonIntensity);
 
             hehe.ComputeSelectedPeakIntensity(prec.MassSpectrum);
 
-            Assert.AreEqual(1017759, hehe.SelectedIonGuessIntensity, 1);
+            Assert.AreEqual(1017759, hehe.SelectedIonIntensity, 1);
 
-            Assert.IsNull(hehe.SelectedIonGuessMonoisotopicIntensity);
+            Assert.IsNull(hehe.SelectedIonMonoisotopicGuessIntensity);
 
             hehe.ComputeMonoisotopicPeakIntensity(prec.MassSpectrum);
 
-            Assert.AreEqual(1017759, hehe.SelectedIonGuessMonoisotopicIntensity, 1);
+            Assert.AreEqual(1017759, hehe.SelectedIonMonoisotopicGuessIntensity, 1);
         }
 
         [Test]
