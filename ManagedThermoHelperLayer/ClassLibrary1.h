@@ -19,5 +19,6 @@ namespace ManagedThermoHelperLayer {
 		// TODO: Add your methods for this class here.
 	public:
 		array<PrecursorInfo>^ GetAllPrecursorInfos(String^ path);
+		PrecursorInfo GetSingleScanPrecursorInfo(int oneBasedScanNumber, String^ path);
 	};
 }

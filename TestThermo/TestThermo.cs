@@ -111,6 +111,19 @@ namespace TestThermo
             Assert.AreEqual(4, s2.First().Mz);
         }
 
+        [Test]
+        public void ThermoDynamicTest()
+        {
+            ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS2.raw");
+            var ms1scan = dynamicThermo.GetOneBasedScan(1);
+            ThermoScanWithPrecursor ms2scan = dynamicThermo.GetOneBasedScan(651) as ThermoScanWithPrecursor;
+            Assert.That(ms1scan.OneBasedScanNumber == 1);
+            Assert.That(ms2scan.OneBasedScanNumber == 651);
+            Assert.That(Math.Round(ms2scan.RetentionTime, 2) == 12.16);
+            Assert.That(ms2scan.OneBasedPrecursorScanNumber == 650);
+            Assert.That(ms2scan.SelectedIonMZ == 442.67);
+        }
+
         #endregion Public Methods
 
     }
