@@ -81,7 +81,11 @@ namespace IO.Thermo
             int pnControllerType = 0;
             _rawConnection.GetCurrentController(ref pnControllerType, ref pnControllerNumber);
 
-            return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath);
+            int[] msOrderByScan = new int[couldBePrecursor.Length];
+            for (int i = 0; i < couldBePrecursor.Length; i++)
+                _rawConnection.GetMSOrderForScanNum((i + 1), ref msOrderByScan[i]);
+
+            return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }
 
         #endregion Public Methods

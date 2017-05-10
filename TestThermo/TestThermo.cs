@@ -122,6 +122,12 @@ namespace TestThermo
             Assert.That(Math.Round(ms2scan.RetentionTime, 2) == 12.16);
             Assert.That(ms2scan.OneBasedPrecursorScanNumber == 650);
             Assert.That(ms2scan.SelectedIonMZ == 442.67);
+            var t = dynamicThermo.ThermoGlobalParams.msOrderByScan;
+            Assert.That(t[0] == 1);
+            Assert.That(t[5] == 1);
+            Assert.That(t[649] == 1);
+            Assert.That(t[650] == 2);
+            Assert.That(!t.Where(v => v == 0).Any());
         }
 
         #endregion Public Methods
