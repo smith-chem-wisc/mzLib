@@ -235,7 +235,10 @@ namespace UsefulProteomicsDatabases
                                         }
                                         else if (feature_type == "sequence variant")
                                         {
-                                            sequenceVariations.Add(new SequenceVariation(oneBasedbeginPosition, oneBasedendPosition, oneBasedfeature_position, original_value, variation_value, feature_description));
+                                            //Don't keep if there is no position or sequence information
+                                            if (!(oneBasedfeature_position < 1 && oneBasedbeginPosition == null && oneBasedendPosition == null
+                                                || (original_value == null || original_value == "") && (variation_value == null || variation_value == "")))
+                                                    sequenceVariations.Add(new SequenceVariation(oneBasedbeginPosition, oneBasedendPosition, oneBasedfeature_position, original_value, variation_value, feature_description));
                                         }
                                         oneBasedbeginPosition = null;
                                         oneBasedendPosition = null;
@@ -308,21 +311,24 @@ namespace UsefulProteomicsDatabases
                                                 foreach (SequenceVariation sv in sequenceVariations)
                                                 {
                                                     char[] original_array = sv.OriginalSequence.ToArray();
-                                                    if (sv.OneBasedBeginPosition != null && sv.OneBasedEndPosition != null && sv.OneBasedBeginPosition == 1 && sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture))
-                                                        Array.Reverse(original_array, 1, sequence.Length - 1);
-                                                    else
-                                                        Array.Reverse(original_array);
-
                                                     char[] variation_array = sv.VariantSequence.ToArray();
-                                                    if (sv.OneBasedBeginPosition != null && sv.OneBasedEndPosition != null && sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture))
-                                                        Array.Reverse(variation_array, 1, sequence.Length - 1);
-                                                    else
-                                                        Array.Reverse(variation_array);
-
-                                                    int? decoy_begin = sv.OneBasedBeginPosition == null ? null : sequence.Length - sv.OneBasedBeginPosition + 1;
-                                                    int? decoy_end = sv.OneBasedBeginPosition == null ? null : sequence.Length - sv.OneBasedEndPosition + 1;
-                                                    int decoy_position = sv.OneBasedPosition == -1 ? -1 : sequence.Length - sv.OneBasedPosition + 1;
-
+                                                    if (sv.OneBasedBeginPosition != null && sv.OneBasedEndPosition != null && sv.OneBasedBeginPosition == 1)
+                                                    {
+                                                        bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                        bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                        if (orig_init_m && !var_init_m)
+                                                            decoy_variations.Add(new SequenceVariation(null, null, 1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                        original_array = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
+                                                        variation_array = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
+                                                    }
+                                                    int? decoy_end = sv.OneBasedEndPosition != null ? null : 
+                                                        sequence.Length - sv.OneBasedBeginPosition + 1 + Convert.ToInt32(sv.OneBasedEndPosition == reversed_sequence.Length);
+                                                    int? decoy_begin = sv.OneBasedBeginPosition != null ? null : 
+                                                        decoy_end - original_array.Length;
+                                                    int decoy_position = sv.OneBasedPosition == -1 ? -1 : 
+                                                        sequence.Length - sv.OneBasedPosition + 2 + Convert.ToInt32(sv.OneBasedPosition == reversed_sequence.Length);
+                                                    Array.Reverse(original_array);
+                                                    Array.Reverse(variation_array);
                                                     decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, decoy_position, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
                                                 }
                                                 var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null, decoy_variations);

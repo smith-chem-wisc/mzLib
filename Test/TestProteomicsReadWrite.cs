@@ -180,6 +180,27 @@ namespace Test
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
 
+        [Test]
+        public void TestReadWriteSeqVars2()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+            };
+
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_seqvartests.xml"));
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_seqvartests.xml"), false, nice, false, null, out un);
+
+            Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
+            Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedEndPosition, ok2[0].SequenceVariations.First().OneBasedEndPosition);
+            Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedPosition, ok2[0].SequenceVariations.First().OneBasedPosition);
+            Assert.AreEqual(ok[0].SequenceVariations.First().Description, ok2[0].SequenceVariations.First().Description);
+            Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
+            Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
+        }
+
         #endregion Public Methods
 
     }

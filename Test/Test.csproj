@@ -146,6 +146,9 @@
     <None Include="sampleModFileDouble.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <Content Include="seqvartests.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="xml2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -65,6 +65,46 @@ namespace Test
         }
 
         [Test]
+        public void SeqVarXmlTest()
+        {
+            var nice = new List<Modification>
+            {
+                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+            };
+
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+
+            Assert.AreEqual('M', ok[0][0]);
+            Assert.AreEqual('M', ok[1][0]);
+            List<SequenceVariation> seqvar0 = ok[0].SequenceVariations.ToList();
+            List<SequenceVariation> seqvar1 = ok[1].SequenceVariations.ToList();
+            Assert.AreEqual(seqvar0.Count + 1, seqvar1.Count);
+            Assert.AreEqual('M', ok[0].SequenceVariations.First().OriginalSequence[0]);
+            Assert.AreEqual('M', ok[0].SequenceVariations.First().VariantSequence[0]);
+            Assert.AreEqual('A', ok[1].SequenceVariations.First().OriginalSequence[0]);
+            Assert.AreEqual('P', ok[1].SequenceVariations.First().VariantSequence[0]);
+            Assert.AreEqual('M', seqvar0[1].OriginalSequence[0]);
+            Assert.AreEqual("", seqvar1[1].VariantSequence);
+            foreach (SequenceVariation s in seqvar0.Where(se => se.OneBasedBeginPosition != null))
+            {
+                Assert.AreEqual(ok[0].BaseSequence.Substring((int)s.OneBasedBeginPosition - 1, (int)s.OneBasedEndPosition - (int)s.OneBasedBeginPosition + 1), s.OriginalSequence);
+            }
+            foreach (SequenceVariation s in seqvar1.Where(se => se.OneBasedBeginPosition != null))
+            {
+                Assert.AreEqual(ok[1].BaseSequence.Substring((int)s.OneBasedBeginPosition - 1, (int)s.OneBasedEndPosition - (int)s.OneBasedBeginPosition + 1), s.OriginalSequence);
+            }
+            foreach (SequenceVariation s in seqvar0.Where(se => se.OneBasedPosition != -1))
+            {
+                Assert.AreEqual(ok[0].BaseSequence[s.OneBasedPosition - 1].ToString(), s.OriginalSequence);
+            }
+            foreach (SequenceVariation s in seqvar1.Where(se => se.OneBasedPosition != -1))
+            {
+                Assert.AreEqual(ok[1].BaseSequence[s.OneBasedPosition - 1].ToString(), s.OriginalSequence);
+            }
+            Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+        }
+
+        [Test]
         public void XmlTest_2entry()
         {
             var nice = new List<Modification>
