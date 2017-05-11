@@ -163,8 +163,9 @@ namespace UsefulProteomicsDatabases
 
                     foreach (var hm in protein.SequenceVariations)
                     {
-                        //Don't write if there is an error in position information
-                        if (hm.OneBasedPosition < 1 || hm.OneBasedBeginPosition == null || hm.OneBasedEndPosition == null || hm.OriginalSequence == null || hm.VariantSequence == null)
+                        //Don't write if there is no position or sequence information
+                        if (hm.OneBasedPosition < 1 && hm.OneBasedBeginPosition == null && hm.OneBasedEndPosition == null 
+                            || (hm.OriginalSequence == null || hm.OriginalSequence == "") && (hm.VariantSequence == null || hm.VariantSequence == ""))
                             continue;
 
                         writer.WriteStartElement("feature");
