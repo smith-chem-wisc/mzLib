@@ -161,12 +161,46 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
+                    foreach (var hm in protein.SequenceVariations)
+                    {
+                        //Don't write if there is an error in position information
+                        if (hm.OneBasedPosition < 1 || hm.OneBasedBeginPosition == null || hm.OneBasedEndPosition == null || hm.OriginalSequence == null || hm.VariantSequence == null)
+                            continue;
+
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "sequence variant");
+                        writer.WriteAttributeString("description", hm.Description);
+                        writer.WriteStartElement("original");
+                        writer.WriteString(hm.OriginalSequence);
+                        writer.WriteEndElement(); // original
+                        writer.WriteStartElement("variation");
+                        writer.WriteString(hm.VariantSequence);
+                        writer.WriteEndElement(); // variation
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedPosition >= 1)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
+
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
                     writer.WriteString(protein.BaseSequence);
-                    writer.WriteEndElement();
-
-                    writer.WriteEndElement();
+                    writer.WriteEndElement(); // sequence
+                    writer.WriteEndElement(); // entry
                 }
 
                 writer.WriteEndElement();

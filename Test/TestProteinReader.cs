@@ -53,6 +53,9 @@ namespace Test
             Assert.AreEqual(14, ok[0].GeneNames.Where(t => t.Item1 == "primary").Count());
             Assert.AreEqual("HIST1H4A", ok[0].GeneNames.Where(t => t.Item1 == "primary").First().Item2);
             Assert.AreEqual(23, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "Ensembl"));
+            Assert.AreEqual(1, ok[0].SequenceVariations.Count());
+            Assert.AreEqual(1, ok[1].SequenceVariations.Count()); // decoys get the same sequence variations
+            Assert.AreNotEqual(ok[0].SequenceVariations.First().OneBasedPosition, ok[1].SequenceVariations.First().OneBasedPosition); // but the position information has been reversed
         }
 
         [Test]

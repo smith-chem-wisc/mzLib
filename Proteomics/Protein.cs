@@ -8,7 +8,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, IEnumerable<Tuple<string, string>> gene_names, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<DatabaseReference> databaseReferences)
+        public Protein(string sequence, string accession, IEnumerable<Tuple<string, string>> gene_names, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<DatabaseReference> databaseReferences, IEnumerable<SequenceVariation> sequenceVariations)
         {
             BaseSequence = sequence;
             Accession = accession;
@@ -28,6 +28,7 @@ namespace Proteomics
                                                                    oneBasedEndPositionsForProteolysisProducts[i],
                                                                    oneBasedProteolysisProductsTypes[i]));
             ProteolysisProducts = proteolysisProducts;
+            SequenceVariations = sequenceVariations;
             OneBasedPossibleLocalizedModifications = oneBasedModifications;
             DatabaseReferences = databaseReferences;
         }
@@ -46,6 +47,7 @@ namespace Proteomics
         public string Accession { get; private set; }
         public string BaseSequence { get; private set; }
         public bool IsDecoy { get; private set; }
+        public IEnumerable<SequenceVariation> SequenceVariations { get; private set; }
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; private set; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; private set; }
 
