@@ -162,7 +162,8 @@ namespace Benchmark
             //var oddk = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac1.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\yeast_tmt\m04667.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\human_spike\C14-11130.raw");
-            ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
+            //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
+            ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\CoIsolation\05-11-17_YL_1-2iso_control.raw");
 
             //var hheh = oddk.GetMsScansInTimeRange(47.2469, 47.25693).ToList();
 
@@ -177,88 +178,88 @@ namespace Benchmark
             //    Console.WriteLine(nice.GetOneBasedScan(1000).RetentionTime);
             //}
 
-            // OLD MASS SPEC
-            var theFiles = new List<string>{
-                //@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
-                //@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
-                //@"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
-                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
-                //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.mzML",
-                @"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-29-13_B6_Frac7_5uL.raw"
-            };
+            //// OLD MASS SPEC
+            //var theFiles = new List<string>{
+            //    //@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac17.raw",
+            //    //@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw",
+            //    //@"C:\Users\stepa\Data\CalibrationPaperData\Yeast\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
+            //    //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.raw",
+            //    //@"C:\Users\stepa\Desktop\MvsMM\04-21-17_Lys_1-200_rep1.mzML",
+            //    @"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-29-13_B6_Frac7_5uL.raw"
+            //};
 
-            // Params
-            var tols = new List<Tolerance> { new Tolerance("5 PPM") };
-            var isotopeRatios = new List<int> { 4 };
-            var maxAssumedChargeState = 10;
+            //// Params
+            //var tols = new List<Tolerance> { new Tolerance("5 PPM") };
+            //var isotopeRatios = new List<int> { 4 };
+            //var maxAssumedChargeState = 10;
 
-            foreach (var theFile in theFiles)
-            {
-                var okff = ThermoStaticData.LoadAllStaticData(theFile);
-                //var okff = Mzml.LoadAllStaticData(theFile);
+            //foreach (var theFile in theFiles)
+            //{
+            //    var okff = ThermoStaticData.LoadAllStaticData(theFile);
+            //    //var okff = Mzml.LoadAllStaticData(theFile);
 
-                int countScans = 0;
-                int totalHaveMMandCharge = 0;
+            //    int countScans = 0;
+            //    int totalHaveMMandCharge = 0;
 
-                var totalHaveMyMass = new int[1, 1];
-                var totalMatch = new int[1, 1];
-                //foreach (var scanWithPrec in okff.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
-                var scanWithPrec = okff.GetOneBasedScan(11042) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
-                {
-                    countScans++;
+            //    var totalHaveMyMass = new int[1, 1];
+            //    var totalMatch = new int[1, 1];
+            //    //foreach (var scanWithPrec in okff.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+            //    var scanWithPrec = okff.GetOneBasedScan(11042) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+            //    {
+            //        countScans++;
 
-                    Console.WriteLine("Scan " + scanWithPrec.OneBasedScanNumber + " ; isolation=" + scanWithPrec.IsolationMz + " ; mm=" + scanWithPrec.SelectedIonMonoisotopicGuessMz + " ; charge=" + scanWithPrec.SelectedIonChargeStateGuess);
+            //        Console.WriteLine("Scan " + scanWithPrec.OneBasedScanNumber + " ; isolation=" + scanWithPrec.IsolationMz + " ; mm=" + scanWithPrec.SelectedIonMonoisotopicGuessMz + " ; charge=" + scanWithPrec.SelectedIonChargeStateGuess);
 
-                    if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
-                    {
-                        totalHaveMMandCharge++;
-                    }
+            //        if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
+            //        {
+            //            totalHaveMMandCharge++;
+            //        }
 
-                    for (int i = 0; i < tols.Count; i++)
-                    {
-                        var tol = tols[i];
-                        for (int j = 0; j < isotopeRatios.Count; j++)
-                        {
-                            var isotopeRatio = isotopeRatios[j];
-                            var mzEnvelopesWithCharges = scanWithPrec.GetIsolatedMassesAndCharges(okff.GetOneBasedScan(scanWithPrec.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, tol, isotopeRatio).ToList();
+            //        for (int i = 0; i < tols.Count; i++)
+            //        {
+            //            var tol = tols[i];
+            //            for (int j = 0; j < isotopeRatios.Count; j++)
+            //            {
+            //                var isotopeRatio = isotopeRatios[j];
+            //                var mzEnvelopesWithCharges = scanWithPrec.GetIsolatedMassesAndCharges(okff.GetOneBasedScan(scanWithPrec.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, tol, isotopeRatio).ToList();
 
-                            if (mzEnvelopesWithCharges.Count() > 0)
-                                totalHaveMyMass[i, j]++;
+            //                if (mzEnvelopesWithCharges.Count() > 0)
+            //                    totalHaveMyMass[i, j]++;
 
-                            if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
-                            {
-                                if (mzEnvelopesWithCharges.Any(bd => tol.Within(bd.Item1.First().Mz.ToMass(bd.Item2), scanWithPrec.SelectedIonMonoisotopicGuessMz.Value.ToMass(scanWithPrec.SelectedIonChargeStateGuess.Value))))
-                                {
-                                    totalMatch[i, j]++;
-                                    Console.WriteLine("Match!");
-                                }
-                                else
-                                {
-                                    Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
-                            }
-                        }
-                    }
-                }
+            //                if (scanWithPrec.SelectedIonMonoisotopicGuessMz.HasValue && scanWithPrec.SelectedIonChargeStateGuess.HasValue)
+            //                {
+            //                    if (mzEnvelopesWithCharges.Any(bd => tol.Within(bd.Item1.First().Mz.ToMass(bd.Item2), scanWithPrec.SelectedIonMonoisotopicGuessMz.Value.ToMass(scanWithPrec.SelectedIonChargeStateGuess.Value))))
+            //                    {
+            //                        totalMatch[i, j]++;
+            //                        Console.WriteLine("Match!");
+            //                    }
+            //                    else
+            //                    {
+            //                        Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
+            //                    }
+            //                }
+            //                else
+            //                {
+            //                    Console.WriteLine(string.Join(Environment.NewLine, mzEnvelopesWithCharges.Select(b => "\t" + b.Item2 + " : " + string.Join(",", b.Item1))));
+            //                }
+            //            }
+            //        }
+            //    }
 
-                Console.WriteLine("countScans: " + countScans);
-                Console.WriteLine("totalHaveMMandCharge: " + totalHaveMMandCharge);
+            //    Console.WriteLine("countScans: " + countScans);
+            //    Console.WriteLine("totalHaveMMandCharge: " + totalHaveMMandCharge);
 
-                for (int i = 0; i < tols.Count; i++)
-                {
-                    var tol = tols[i];
-                    for (int j = 0; j < isotopeRatios.Count; j++)
-                    {
-                        Console.WriteLine("i = " + i + " j = " + j);
-                        Console.WriteLine("totalHaveMyMass: " + totalHaveMyMass[i, j]);
-                        Console.WriteLine("totalMatch: " + totalMatch[i, j]);
-                    }
-                }
-            }
+            //    for (int i = 0; i < tols.Count; i++)
+            //    {
+            //        var tol = tols[i];
+            //        for (int j = 0; j < isotopeRatios.Count; j++)
+            //        {
+            //            Console.WriteLine("i = " + i + " j = " + j);
+            //            Console.WriteLine("totalHaveMyMass: " + totalHaveMyMass[i, j]);
+            //            Console.WriteLine("totalMatch: " + totalMatch[i, j]);
+            //        }
+            //    }
+            //}
 
             //using (var nice = ThermoDynamicData.InitiateDynamicConnection(@"C:\Users\stepa\Data\CalibrationPaperData\Mouse\04-30-13_CAST_Frac5_4uL.raw"))
             ////{
