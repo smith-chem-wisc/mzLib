@@ -60,6 +60,7 @@
     <Compile Include="DigestionPoint.cs" />
     <Compile Include="Fragment.cs" />
     <Compile Include="FragmentTypes.cs" />
+    <Compile Include="SequenceVariation.cs" />
     <Compile Include="Util\AminoAcidPolymerExtensions.cs" />
     <Compile Include="Interfaces\IProtease.cs" />
     <Compile Include="OldSchoolModificationWithMultiplePossibilities.cs" />

@@ -89,6 +89,8 @@ namespace UsefulProteomicsDatabases
                 string sequence = null;
                 string feature_type = null;
                 string feature_description = null;
+                string original_value = ""; // if no content is found, assume it is empty, not null (e.g. <original>A</original><variation/> for a deletion event)
+                string variation_value = "";
                 string dbReference_type = null;
                 string dbReference_id = null;
                 List<string> property_types = new List<string>();
@@ -99,6 +101,7 @@ namespace UsefulProteomicsDatabases
                 var oneBasedBeginPositions = new List<int?>();
                 var oneBasedEndPositions = new List<int?>();
                 var peptideTypes = new List<string>();
+                List<SequenceVariation> sequenceVariations = new List<SequenceVariation>();
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
                 bool reading_gene = false;
@@ -146,6 +149,14 @@ namespace UsefulProteomicsDatabases
                                         feature_description = xml.GetAttribute("description");
                                         break;
 
+                                    case "original":
+                                        original_value = xml.ReadElementString();
+                                        break;
+
+                                    case "variation":
+                                        variation_value = xml.ReadElementString();
+                                        break;
+
                                     case "dbReference":
                                         property_types.Clear();
                                         property_values.Clear();
@@ -173,6 +184,7 @@ namespace UsefulProteomicsDatabases
                                     case "sequence":
                                         sequence = substituteWhitespace.Replace(xml.ReadElementString(), "");
                                         break;
+
                                 }
                                 break;
 
@@ -221,9 +233,20 @@ namespace UsefulProteomicsDatabases
                                             oneBasedEndPositions.Add(oneBasedendPosition);
                                             peptideTypes.Add(feature_type);
                                         }
+                                        else if (feature_type == "sequence variant" // Only keep if there is variant sequence information and position information
+                                            && variation_value != null 
+                                            && variation_value != "")
+                                        {
+                                            if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                                sequenceVariations.Add(new SequenceVariation((int)oneBasedbeginPosition, (int)oneBasedendPosition, original_value, variation_value, feature_description));
+                                            else if (oneBasedfeature_position >= 1)
+                                                sequenceVariations.Add(new SequenceVariation(oneBasedfeature_position, original_value, variation_value, feature_description));
+                                        }
                                         oneBasedbeginPosition = null;
                                         oneBasedendPosition = null;
                                         oneBasedfeature_position = -1;
+                                        original_value = "";
+                                        variation_value = "";
                                         break;
 
                                     case "dbReference":
@@ -241,7 +264,7 @@ namespace UsefulProteomicsDatabases
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences);
+                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences, sequenceVariations);
 
                                             result.Add(protein);
 
@@ -285,7 +308,28 @@ namespace UsefulProteomicsDatabases
                                                     decoyendPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedBeginPositions[i] + 1;
                                                     decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
                                                 }
-                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null);
+
+                                                List<SequenceVariation> decoy_variations = new List<SequenceVariation>();
+                                                foreach (SequenceVariation sv in sequenceVariations)
+                                                {
+                                                    char[] original_array = sv.OriginalSequence.ToArray();
+                                                    char[] variation_array = sv.VariantSequence.ToArray();
+                                                    if (sv.OneBasedBeginPosition == 1)
+                                                    {
+                                                        bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                        bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                        if (orig_init_m && !var_init_m)
+                                                            decoy_variations.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                        original_array = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
+                                                        variation_array = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
+                                                    }
+                                                    int decoy_end = sequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == reversed_sequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
+                                                    int decoy_begin = decoy_end - original_array.Length + 1;
+                                                    Array.Reverse(original_array);
+                                                    Array.Reverse(variation_array);
+                                                    decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
+                                                }
+                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null, decoy_variations);
 
                                                 result.Add(decoy_protein);
                                             }
@@ -296,6 +340,8 @@ namespace UsefulProteomicsDatabases
                                         sequence = null;
                                         feature_type = null;
                                         feature_description = null;
+                                        original_value = "";
+                                        variation_value = "";
                                         dbReference_type = null;
                                         dbReference_id = null;
                                         property_types = new List<string>();
@@ -305,6 +351,7 @@ namespace UsefulProteomicsDatabases
                                         oneBasedBeginPositions = new List<int?>();
                                         oneBasedEndPositions = new List<int?>();
                                         peptideTypes = new List<string>();
+                                        sequenceVariations = new List<SequenceVariation>();
                                         databaseReferences = new List<DatabaseReference>();
                                         gene_names = new List<Tuple<string, string>>();
                                         reading_gene = false;
@@ -441,7 +488,7 @@ namespace UsefulProteomicsDatabases
                             unique_identifier++;
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences);
+                        Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences, new List<SequenceVariation>());
                         result.Add(protein);
 
                         if (onTheFlyDecoys)
@@ -450,7 +497,7 @@ namespace UsefulProteomicsDatabases
                             int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                             Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                             var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null, new List<SequenceVariation>());
                             result.Add(decoy_protein);
                         }
 
