@@ -233,8 +233,7 @@ namespace UsefulProteomicsDatabases
                                             oneBasedEndPositions.Add(oneBasedendPosition);
                                             peptideTypes.Add(feature_type);
                                         }
-                                        else if (feature_type == "sequence variant" // Don't keep if there is no position or variant sequence information
-                                            && (oneBasedfeature_position >= 1 || oneBasedbeginPosition != null || oneBasedendPosition != null)
+                                        else if (feature_type == "sequence variant" // Only keep if there is variant sequence information and position information
                                             && variation_value != null 
                                             && variation_value != "")
                                         {
