@@ -233,12 +233,15 @@ namespace UsefulProteomicsDatabases
                                             oneBasedEndPositions.Add(oneBasedendPosition);
                                             peptideTypes.Add(feature_type);
                                         }
-                                        else if (feature_type == "sequence variant")
+                                        else if (feature_type == "sequence variant" // Don't keep if there is no position or variant sequence information
+                                            && (oneBasedfeature_position >= 1 || oneBasedbeginPosition != null || oneBasedendPosition != null)
+                                            && variation_value != null 
+                                            && variation_value != "")
                                         {
-                                            //Don't keep if there is no position or sequence information
-                                            if (!(oneBasedfeature_position < 1 && oneBasedbeginPosition == null && oneBasedendPosition == null
-                                                || (original_value == null || original_value == "") && (variation_value == null || variation_value == "")))
-                                                    sequenceVariations.Add(new SequenceVariation(oneBasedbeginPosition, oneBasedendPosition, oneBasedfeature_position, original_value, variation_value, feature_description));
+                                            if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                                sequenceVariations.Add(new SequenceVariation((int)oneBasedbeginPosition, (int)oneBasedendPosition, original_value, variation_value, feature_description));
+                                            else if (oneBasedfeature_position >= 1)
+                                                sequenceVariations.Add(new SequenceVariation(oneBasedfeature_position, original_value, variation_value, feature_description));
                                         }
                                         oneBasedbeginPosition = null;
                                         oneBasedendPosition = null;
@@ -312,24 +315,20 @@ namespace UsefulProteomicsDatabases
                                                 {
                                                     char[] original_array = sv.OriginalSequence.ToArray();
                                                     char[] variation_array = sv.VariantSequence.ToArray();
-                                                    if (sv.OneBasedBeginPosition != null && sv.OneBasedEndPosition != null && sv.OneBasedBeginPosition == 1)
+                                                    if (sv.OneBasedBeginPosition == 1)
                                                     {
                                                         bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
                                                         bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
                                                         if (orig_init_m && !var_init_m)
-                                                            decoy_variations.Add(new SequenceVariation(null, null, 1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                            decoy_variations.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
                                                         original_array = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
                                                         variation_array = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
                                                     }
-                                                    int? decoy_end = sv.OneBasedEndPosition != null ? null : 
-                                                        sequence.Length - sv.OneBasedBeginPosition + 1 + Convert.ToInt32(sv.OneBasedEndPosition == reversed_sequence.Length);
-                                                    int? decoy_begin = sv.OneBasedBeginPosition != null ? null : 
-                                                        decoy_end - original_array.Length;
-                                                    int decoy_position = sv.OneBasedPosition == -1 ? -1 : 
-                                                        sequence.Length - sv.OneBasedPosition + 2 + Convert.ToInt32(sv.OneBasedPosition == reversed_sequence.Length);
+                                                    int decoy_end = sequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == reversed_sequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
+                                                    int decoy_begin = decoy_end - original_array.Length + 1;
                                                     Array.Reverse(original_array);
                                                     Array.Reverse(variation_array);
-                                                    decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, decoy_position, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
+                                                    decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
                                                 }
                                                 var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null, decoy_variations);
 

@@ -55,12 +55,10 @@ namespace Test
             Assert.AreEqual(23, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "Ensembl"));
             Assert.AreEqual(1, ok[0].SequenceVariations.Count());
             Assert.AreEqual(1, ok[1].SequenceVariations.Count()); // decoys get the same sequence variations
-            Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedPosition);
-            Assert.AreEqual(null, ok[0].SequenceVariations.First().OneBasedBeginPosition);
-            Assert.AreEqual(null, ok[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(103-64+2, ok[1].SequenceVariations.First().OneBasedPosition);
-            Assert.AreEqual(null, ok[1].SequenceVariations.First().OneBasedBeginPosition);
-            Assert.AreEqual(null, ok[1].SequenceVariations.First().OneBasedEndPosition);
+            Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedEndPosition);
+            Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
         }
 
@@ -85,21 +83,13 @@ namespace Test
             Assert.AreEqual('P', ok[1].SequenceVariations.First().VariantSequence[0]);
             Assert.AreEqual('M', seqvar0[1].OriginalSequence[0]);
             Assert.AreEqual("", seqvar1[1].VariantSequence);
-            foreach (SequenceVariation s in seqvar0.Where(se => se.OneBasedBeginPosition != null))
+            foreach (SequenceVariation s in seqvar0)
             {
-                Assert.AreEqual(ok[0].BaseSequence.Substring((int)s.OneBasedBeginPosition - 1, (int)s.OneBasedEndPosition - (int)s.OneBasedBeginPosition + 1), s.OriginalSequence);
+                Assert.AreEqual(s.OriginalSequence, ok[0].BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
             }
-            foreach (SequenceVariation s in seqvar1.Where(se => se.OneBasedBeginPosition != null))
+            foreach (SequenceVariation s in seqvar1)
             {
-                Assert.AreEqual(ok[1].BaseSequence.Substring((int)s.OneBasedBeginPosition - 1, (int)s.OneBasedEndPosition - (int)s.OneBasedBeginPosition + 1), s.OriginalSequence);
-            }
-            foreach (SequenceVariation s in seqvar0.Where(se => se.OneBasedPosition != -1))
-            {
-                Assert.AreEqual(ok[0].BaseSequence[s.OneBasedPosition - 1].ToString(), s.OriginalSequence);
-            }
-            foreach (SequenceVariation s in seqvar1.Where(se => se.OneBasedPosition != -1))
-            {
-                Assert.AreEqual(ok[1].BaseSequence[s.OneBasedPosition - 1].ToString(), s.OriginalSequence);
+                Assert.AreEqual(s.OriginalSequence, ok[1].BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
             }
             Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
         }

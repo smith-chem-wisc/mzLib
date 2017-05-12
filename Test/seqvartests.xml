@@ -471,6 +471,14 @@
       </location>
     </feature>
     <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>YPSE</original>
+      <variation/>
+      <location>
+        <begin position="960"/>
+        <end position="964"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
       <original>S</original>
       <variation>N</variation>
       <location>

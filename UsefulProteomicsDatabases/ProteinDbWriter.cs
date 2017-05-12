@@ -173,10 +173,10 @@ namespace UsefulProteomicsDatabases
                         writer.WriteString(hm.VariantSequence);
                         writer.WriteEndElement(); // variation
                         writer.WriteStartElement("location");
-                        if (hm.OneBasedPosition >= 1)
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
                         {
                             writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedPosition.ToString());
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
                             writer.WriteEndElement();
                         }
                         else
