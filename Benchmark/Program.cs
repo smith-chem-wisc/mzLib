@@ -163,7 +163,7 @@ namespace Benchmark
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\yeast_tmt\m04667.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\human_spike\C14-11130.raw");
             //ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Data\CalibrationPaperData\Jurkat\120426_Jurkat_highLC_Frac18.raw");
-            ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\CoIsolation\05-11-17_YL_1-2iso_control.raw");
+            ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\CoIsolation\05-11-17_YL_25iso.raw");
 
             //var hheh = oddk.GetMsScansInTimeRange(47.2469, 47.25693).ToList();
 
