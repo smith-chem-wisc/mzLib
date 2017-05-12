@@ -25,9 +25,9 @@ namespace IO.Thermo
             this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor) : base(numSpectra)
+        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath) : base(numSpectra)
         {
-            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor);
+            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor, filePath);
         }
 
         #endregion Public Constructors
@@ -55,7 +55,7 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor)
+        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
         {
             int pnNumInstMethods = 0;
             _rawConnection.GetNumInstMethods(ref pnNumInstMethods);
@@ -81,7 +81,11 @@ namespace IO.Thermo
             int pnControllerType = 0;
             _rawConnection.GetCurrentController(ref pnControllerType, ref pnControllerNumber);
 
-            return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor);
+            int[] msOrderByScan = new int[couldBePrecursor.Length];
+            for (int i = 0; i < couldBePrecursor.Length; i++)
+                _rawConnection.GetMSOrderForScanNum((i + 1), ref msOrderByScan[i]);
+
+            return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }
 
         #endregion Public Methods
@@ -209,6 +213,14 @@ namespace IO.Thermo
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
 
                 // Trust this first
+
+                // INITIALIZE globalParams.couldBePrecursor[nScanNumber - 1] (for dynamic connections that don't have it initialized yet)
+                if (globalParams.couldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
+                {
+                    var ok = new ManagedThermoHelperLayer.HelperClass();
+                    globalParams.couldBePrecursor[nScanNumber - 1] = ok.GetSingleScanPrecursorInfo(nScanNumber, globalParams.filePath);
+                }
+
                 var precursorInfo = globalParams.couldBePrecursor[nScanNumber - 1];
 
                 // THIS METHOD IS BUGGY!!! DO NOT USE

@@ -52,7 +52,7 @@ namespace IO.Thermo
             int pnLastSpectrum = 0;
             theConnection.GetLastSpectrumNumber(ref pnLastSpectrum);
 
-            ThermoGlobalParams p = GetAllGlobalStuff(theConnection, couldBePrecursor);
+            ThermoGlobalParams p = GetAllGlobalStuff(theConnection, couldBePrecursor, filePath);
 
             IThermoScan[] scans = new IThermoScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)

@@ -123,7 +123,7 @@ namespace Test
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
 
-            string stringRepresentation = "ID   (3R)-3-hydroxyarginine\r\nMT   Uniprot\r\nPP   Anywhere.\r\nDR   RESID; AA0601\r\nDR   PSI-MOD; 01956\r\nTG   R\r\nMM   15.994915\r\nCF   O";
+            string stringRepresentation = "ID   (3R)-3-hydroxyarginine\r\nMT   Uniprot\r\nPP   Anywhere.\r\nDR   RESID; AA0601\r\nDR   PSI-MOD; MOD:01956\r\nTG   R\r\nMM   15.994915\r\nCF   O";
             Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
         }
 

@@ -14,15 +14,17 @@ namespace IO.Thermo
         public readonly int pnControllerNumber;
         public readonly int pnControllerType;
         public readonly int pnNumInstMethods;
+        public readonly string filePath;
 
         public readonly ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor;
         public readonly int[] scanEvent;
+        public readonly int[] msOrderByScan;
 
         #endregion Public Fields
 
         #region Public Constructors
 
-        public ThermoGlobalParams(int pnNumInstMethods, string[] instrumentMethods, string pbstrInstSoftwareVersion, string pbstrInstName, string pbstrInstModel, int pnControllerType, int pnControllerNumber, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor)
+        public ThermoGlobalParams(int pnNumInstMethods, string[] instrumentMethods, string pbstrInstSoftwareVersion, string pbstrInstName, string pbstrInstModel, int pnControllerType, int pnControllerNumber, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath, int[] msOrderByScan)
         {
             this.pnNumInstMethods = pnNumInstMethods;
             this.instrumentMethods = instrumentMethods;
@@ -33,6 +35,8 @@ namespace IO.Thermo
             this.pnControllerNumber = pnControllerNumber;
             this.couldBePrecursor = couldBePrecursor;
             scanEvent = new int[couldBePrecursor.Length];
+            this.filePath = filePath;
+            this.msOrderByScan = msOrderByScan;
         }
 
         #endregion Public Constructors

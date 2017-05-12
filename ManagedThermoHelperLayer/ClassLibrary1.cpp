@@ -50,3 +50,36 @@ array<ManagedThermoHelperLayer::PrecursorInfo>^ ManagedThermoHelperLayer::Helper
 	return infos;
 
 }
+
+ManagedThermoHelperLayer::PrecursorInfo ManagedThermoHelperLayer::HelperClass::GetSingleScanPrecursorInfo(int oneBasedScanNumber, String^ path)
+{
+	IXRawfile5Ptr m_Raw = InitializeRawConnection();
+
+	pin_ptr<const wchar_t> wch = PtrToStringChars(path);
+
+	m_Raw->Open(wch);
+
+	m_Raw->SetCurrentController(0, 1);
+
+	_variant_t vPrecursorInfos;
+	long nPrecursorInfos;
+	m_Raw->GetPrecursorInfoFromScanNum(oneBasedScanNumber, &vPrecursorInfos, &nPrecursorInfos);
+
+	BYTE* pData;
+	SafeArrayAccessData(vPrecursorInfos.parray, (void**)&pData);
+	PrecursorInfo info;
+
+	if (nPrecursorInfos>0)
+	{
+		MS_PrecursorInfo precursorInfo;
+
+		// Always grab the FIRST precursor info to be the actual precursor info
+		memcpy(&precursorInfo,
+			pData,
+			sizeof(MS_PrecursorInfo));
+		info = safe_cast<PrecursorInfo>(Marshal::PtrToStructure(IntPtr(&precursorInfo), PrecursorInfo::typeid));
+	}
+
+	m_Raw->Close();
+	return info;
+}
