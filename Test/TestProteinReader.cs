@@ -58,7 +58,7 @@ namespace Test
             Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedPosition);
             Assert.AreEqual(null, ok[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(null, ok[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(103-64+1, ok[1].SequenceVariations.First().OneBasedPosition);
+            Assert.AreEqual(103-64+2, ok[1].SequenceVariations.First().OneBasedPosition);
             Assert.AreEqual(null, ok[1].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(null, ok[1].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
