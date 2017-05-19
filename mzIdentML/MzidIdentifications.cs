@@ -208,6 +208,18 @@ namespace MzIdentML
             }
         }
 
+        public int NumPSMsFromScan(int sirIndex)
+        {
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem.Count(i => i != null);
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem.Count(i => i != null);
+            }
+        }
+
         public string ModificationAcession(int sirIndex, int siiIndex, int i)
         {
             string s = null;

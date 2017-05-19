@@ -50,6 +50,8 @@ namespace MassSpectrometry
 
         string ModificationAcession(int matchIndex, int siiIndex, int i);
 
+        int NumPSMsFromScan(int matchIndex);
+
         #endregion Public Methods
     }
 }

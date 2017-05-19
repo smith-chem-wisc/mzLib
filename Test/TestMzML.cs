@@ -126,7 +126,7 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML.Generated.SpectrumIdentificationResultType()
             {
                 spectrumID = "spectrum 2",
-                SpectrumIdentificationItem = new mzIdentML.Generated.SpectrumIdentificationItemType[1]
+                SpectrumIdentificationItem = new mzIdentML.Generated.SpectrumIdentificationItemType[50]
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML.Generated.SpectrumIdentificationItemType()
             {
@@ -143,6 +143,7 @@ namespace Test
                     }
                 }
             };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML.Generated.IonTypeType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML.Generated.IonTypeType()
             {
@@ -259,6 +260,7 @@ namespace Test
             Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0, 0));
             Assert.AreEqual("2", identifications.StartResidueInProtein(0, 0));
             Assert.AreEqual("34", identifications.EndResidueInProtein(0, 0));
+            Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
         [Test]
@@ -280,7 +282,7 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML110.Generated.SpectrumIdentificationResultType()
             {
                 spectrumID = "spectrum 2",
-                SpectrumIdentificationItem = new mzIdentML110.Generated.SpectrumIdentificationItemType[1]
+                SpectrumIdentificationItem = new mzIdentML110.Generated.SpectrumIdentificationItemType[50]
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML110.Generated.SpectrumIdentificationItemType()
             {
@@ -297,6 +299,7 @@ namespace Test
                     }
                 }
             };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML110.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML110.Generated.IonTypeType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType()
             {
@@ -411,6 +414,7 @@ namespace Test
             Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0, 0));
             Assert.AreEqual("2", identifications.StartResidueInProtein(0, 0));
             Assert.AreEqual("34", identifications.EndResidueInProtein(0, 0));
+            Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
         #endregion Public Methods
