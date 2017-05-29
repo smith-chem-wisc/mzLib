@@ -126,7 +126,7 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML.Generated.SpectrumIdentificationResultType()
             {
                 spectrumID = "spectrum 2",
-                SpectrumIdentificationItem = new mzIdentML.Generated.SpectrumIdentificationItemType[1]
+                SpectrumIdentificationItem = new mzIdentML.Generated.SpectrumIdentificationItemType[50]
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML.Generated.SpectrumIdentificationItemType()
             {
@@ -143,6 +143,7 @@ namespace Test
                     }
                 }
             };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML.Generated.IonTypeType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML.Generated.IonTypeType()
             {
@@ -239,26 +240,27 @@ namespace Test
 
             var identifications = new MzidIdentifications("myIdentifications.mzid");
 
-            Assert.AreEqual(1134.26091302033, identifications.CalculatedMassToCharge(0));
-            Assert.AreEqual(3, identifications.ChargeState(0));
+            Assert.AreEqual(1134.26091302033, identifications.CalculatedMassToCharge(0, 0));
+            Assert.AreEqual(3, identifications.ChargeState(0, 0));
             Assert.AreEqual(1, identifications.Count);
-            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0), 1e-10);
-            Assert.IsFalse(identifications.IsDecoy(0));
-            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0));
-            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0));
-            Assert.AreEqual(17, identifications.ModificationLocation(0, 0));
+            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0, 0), 1e-10);
+            Assert.IsFalse(identifications.IsDecoy(0, 0));
+            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0, 0));
+            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0, 0));
+            Assert.AreEqual(17, identifications.ModificationLocation(0, 0, 0));
             Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
-            Assert.AreEqual(1, identifications.NumModifications(0));
-            Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
+            Assert.AreEqual(1, identifications.NumModifications(0, 0));
+            Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0, 0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
-            Assert.AreEqual(.05, identifications.QValue(0));
-            Assert.AreEqual("Protein name", identifications.ProteinFullName(0));
-            Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0));
-            Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0));
-            Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0));
-            Assert.AreEqual(2, identifications.StartResidueInProtein(0));
-            Assert.AreEqual(34, identifications.EndResidueInProtein(0));
+            Assert.AreEqual(.05, identifications.QValue(0, 0));
+            Assert.AreEqual("Protein name", identifications.ProteinFullName(0, 0));
+            Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0, 0));
+            Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0, 0));
+            Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0, 0));
+            Assert.AreEqual("2", identifications.StartResidueInProtein(0, 0));
+            Assert.AreEqual("34", identifications.EndResidueInProtein(0, 0));
+            Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
         [Test]
@@ -280,7 +282,7 @@ namespace Test
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML110.Generated.SpectrumIdentificationResultType()
             {
                 spectrumID = "spectrum 2",
-                SpectrumIdentificationItem = new mzIdentML110.Generated.SpectrumIdentificationItemType[1]
+                SpectrumIdentificationItem = new mzIdentML110.Generated.SpectrumIdentificationItemType[50]
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML110.Generated.SpectrumIdentificationItemType()
             {
@@ -297,6 +299,7 @@ namespace Test
                     }
                 }
             };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML110.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML110.Generated.IonTypeType[1];
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType()
             {
@@ -391,26 +394,27 @@ namespace Test
 
             var identifications = new MzidIdentifications("myIdentifications.mzid");
 
-            Assert.AreEqual(1134.26091302033, identifications.CalculatedMassToCharge(0));
-            Assert.AreEqual(3, identifications.ChargeState(0));
+            Assert.AreEqual(1134.26091302033, identifications.CalculatedMassToCharge(0, 0));
+            Assert.AreEqual(3, identifications.ChargeState(0, 0));
             Assert.AreEqual(1, identifications.Count);
-            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0), 1e-10);
-            Assert.IsFalse(identifications.IsDecoy(0));
-            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0));
-            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0));
-            Assert.AreEqual(17, identifications.ModificationLocation(0, 0));
+            Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0, 0), 1e-10);
+            Assert.IsFalse(identifications.IsDecoy(0, 0));
+            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0, 0));
+            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0, 0));
+            Assert.AreEqual(17, identifications.ModificationLocation(0, 0, 0));
             Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
-            Assert.AreEqual(1, identifications.NumModifications(0));
-            Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0));
+            Assert.AreEqual(1, identifications.NumModifications(0, 0));
+            Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0, 0));
             Assert.AreEqual(0.1, identifications.ParentTolerance.Value);
             Assert.AreEqual(0.01, identifications.FragmentTolerance.Value);
-            Assert.AreEqual(.05, identifications.QValue(0));
-            Assert.AreEqual("Protein name", identifications.ProteinFullName(0));
-            Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0));
-            Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0));
-            Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0));
-            Assert.AreEqual(2, identifications.StartResidueInProtein(0));
-            Assert.AreEqual(34, identifications.EndResidueInProtein(0));
+            Assert.AreEqual(.05, identifications.QValue(0, 0));
+            Assert.AreEqual("Protein name", identifications.ProteinFullName(0, 0));
+            Assert.AreEqual("ACCESSION", identifications.ProteinAccession(0, 0));
+            Assert.AreEqual(new float[3] { 200, 300, 400 }, identifications.MatchedIons(0, 0, 0));
+            Assert.AreEqual(3, identifications.MatchedIonCounts(0, 0, 0));
+            Assert.AreEqual("2", identifications.StartResidueInProtein(0, 0));
+            Assert.AreEqual("34", identifications.EndResidueInProtein(0, 0));
+            Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
         #endregion Public Methods
