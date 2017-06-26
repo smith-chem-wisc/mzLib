@@ -152,7 +152,31 @@ namespace Benchmark
             Console.WriteLine(r);
             Console.WriteLine(r.ToString());
 
-            //Loaders.LoadElements("elements2.dat");
+            Loaders.LoadElements("elements2.dat");
+
+            int? minScan = null;
+            int? maxScan = null;
+            double deconvolutionTolerancePpm = 10;
+            double aggregationTolerancePpm = 10;
+            //string filename = @"C:\Users\stepa\Desktop\DeconvolutionStuff\03-01-17_B2A_targeted_td_yeast_fract6_intact.raw";
+            //string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-23-15_A_fract5_rep2.raw";
+            string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-28-15_S_fract5_rep1.raw";
+            int maxAssumedChargeState = 30;
+            double intensityRatioLimit = 2;
+            Func<IMzPeak, bool> peakFilter = b => (b as ThermoMzPeak).SignalToNoise > 2;
+
+            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> f = ThermoDynamicData.InitiateDynamicConnection(filename);
+
+            IEnumerable<DeconvolutionFeatureWithMassesAndScans> nice = f.Deconvolute(minScan, maxScan, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm);
+
+            Console.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Take(10)));
+
+            using (System.IO.StreamWriter file =
+            new System.IO.StreamWriter(@"out.txt"))
+            {
+                file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Select(b => b.OneLineString())));
+            }
+
             //Dictionary<string, Modification> um;
             //ProteinDbLoader.LoadProteinXML(@"C:\Users\stepa\Desktop\01012017_MM_ONLYGPTMD.xml", true, new List<Modification>(), false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
 

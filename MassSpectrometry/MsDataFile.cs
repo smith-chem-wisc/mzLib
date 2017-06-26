@@ -18,7 +18,10 @@
 
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
@@ -114,6 +117,60 @@ namespace MassSpectrometry
         public IEnumerator<TScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
+        }
+
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, Func<IMzPeak, bool> peakFilter, double aggregationTolerancePpm)
+        {
+            minScan = minScan ?? 1;
+            maxScan = maxScan ?? NumSpectra;
+
+            var allAggregateGroups = new List<IsotopicEnvelope>[maxScan.Value - minScan.Value + 1];
+            Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), fff =>
+            {
+                for (int scanIndex = fff.Item1; scanIndex < fff.Item2; scanIndex++)
+                {
+                    var theScan = GetOneBasedScan(scanIndex);
+                    allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter).ToList();
+                }
+            });
+
+            List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
+            for (int scanIndex = minScan.Value; scanIndex <= maxScan.Value; scanIndex++)
+            {
+                foreach (var isotopicEnvelope in allAggregateGroups[scanIndex - minScan.Value])
+                {
+                    DeconvolutionFeatureWithMassesAndScans matchingGroup = null;
+                    var mass = isotopicEnvelope.monoisotopicMass;
+                    foreach (var possibleGroup in currentListOfGroups)
+                    {
+                        var possibleGroupMass = possibleGroup.mass;
+                        if (Math.Abs(mass - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass + 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass + 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass + 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass - 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass - 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass - 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm)
+                        {
+                            matchingGroup = possibleGroup;
+                            matchingGroup.AddEnvelope(isotopicEnvelope, scanIndex);
+                            break;
+                        }
+                    }
+
+                    if (matchingGroup == null)
+                    {
+                        var newGroupScans = new DeconvolutionFeatureWithMassesAndScans();
+                        newGroupScans.AddEnvelope(isotopicEnvelope, scanIndex);
+                        currentListOfGroups.Add(newGroupScans);
+                    }
+                }
+                foreach (var ok in currentListOfGroups.Where(b => b.maxScanIndex < scanIndex))
+                    yield return ok;
+                currentListOfGroups.RemoveAll(b => b.maxScanIndex < scanIndex);
+            }
+            foreach (var ok in currentListOfGroups)
+                yield return ok;
         }
 
         #endregion Public Methods

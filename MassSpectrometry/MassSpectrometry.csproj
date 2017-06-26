@@ -46,6 +46,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DeconvolutionFeatureWithMassesAndScans.cs" />
+    <Compile Include="DeconvolutionFeature.cs" />
     <Compile Include="Chromatogram\Chromatogram.cs" />
     <Compile Include="Chromatogram\ChromatographicElutionProfile.cs" />
     <Compile Include="Chromatogram\ChromatographicPeak.cs" />

@@ -43,11 +43,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnmanagedThermoHelperLayer"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsefulProteomicsDatabases", "UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj", "{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deconvolution", "Deconvolution\Deconvolution.csproj", "{2EF0CEA2-0790-4F41-B60B-120CE49AB54B}"
-	ProjectSection(ProjectDependencies) = postProject
-		{CDD56F70-D42F-4E86-A232-65F955CEF6EC} = {CDD56F70-D42F-4E86-A232-65F955CEF6EC}
-	EndProjectSection
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -110,10 +105,6 @@ Global
 		{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}.Debug|x64.Build.0 = Debug|x64
 		{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}.TestAndRelease|x64.Build.0 = Release|x64
-		{2EF0CEA2-0790-4F41-B60B-120CE49AB54B}.Debug|x64.ActiveCfg = Debug|x64
-		{2EF0CEA2-0790-4F41-B60B-120CE49AB54B}.Debug|x64.Build.0 = Debug|x64
-		{2EF0CEA2-0790-4F41-B60B-120CE49AB54B}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{2EF0CEA2-0790-4F41-B60B-120CE49AB54B}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
