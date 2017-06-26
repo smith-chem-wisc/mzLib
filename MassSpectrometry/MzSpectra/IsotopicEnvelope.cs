@@ -33,7 +33,7 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return "MM: " + monoisotopicMass + " charge: " + charge + " numPeaks: " + peaks.Count + " mostIntensePeak: " + peaks[0].Mz;
+            return "MM: " + monoisotopicMass + " charge: " + charge + " numPeaks: " + peaks.Count + " mostIntensePeak: " + peaks[0].Mz + " offset: " + indexOfMostIntenseHere;
         }
 
         #endregion Public Methods

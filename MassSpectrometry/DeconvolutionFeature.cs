@@ -15,9 +15,9 @@ namespace MassSpectrometry
 
         #region Public Properties
 
-        public double Mass { get { return isotopicEnvelopes.Select(b => b.monoisotopicMass).Average(); } }
+        public double Mass { get; private set; }
 
-        public int NumPeaks { get { return isotopicEnvelopes.Select(b => b.peaks.Count).Sum(); } }
+        public int NumPeaks { get; private set; }
 
         #endregion Public Properties
 
@@ -27,7 +27,6 @@ namespace MassSpectrometry
         {
             StringBuilder sb = new StringBuilder();
             sb.Append(" Mass: " + Mass + " NumPeaks: " + NumPeaks);
-
             foreach (var heh in isotopicEnvelopes.OrderBy(b => -b.peaks.Count))
             {
                 sb.AppendLine();
@@ -43,6 +42,8 @@ namespace MassSpectrometry
         internal void AddEnvelope(IsotopicEnvelope isotopicEnvelope)
         {
             isotopicEnvelopes.Add(isotopicEnvelope);
+            Mass = isotopicEnvelopes.Select(b => b.monoisotopicMass).Average();
+            NumPeaks = isotopicEnvelopes.Select(b => b.peaks.Count).Sum();
         }
 
         #endregion Internal Methods

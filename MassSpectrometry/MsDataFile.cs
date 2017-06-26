@@ -143,7 +143,7 @@ namespace MassSpectrometry
                     var mass = isotopicEnvelope.monoisotopicMass;
                     foreach (var possibleGroup in currentListOfGroups)
                     {
-                        var possibleGroupMass = possibleGroup.mass;
+                        var possibleGroupMass = possibleGroup.Mass;
                         if (Math.Abs(mass - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
                             Math.Abs(mass + 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
                             Math.Abs(mass + 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
@@ -165,9 +165,9 @@ namespace MassSpectrometry
                         currentListOfGroups.Add(newGroupScans);
                     }
                 }
-                foreach (var ok in currentListOfGroups.Where(b => b.maxScanIndex < scanIndex))
+                foreach (var ok in currentListOfGroups.Where(b => b.MaxScanIndex < scanIndex))
                     yield return ok;
-                currentListOfGroups.RemoveAll(b => b.maxScanIndex < scanIndex);
+                currentListOfGroups.RemoveAll(b => b.MaxScanIndex < scanIndex);
             }
             foreach (var ok in currentListOfGroups)
                 yield return ok;

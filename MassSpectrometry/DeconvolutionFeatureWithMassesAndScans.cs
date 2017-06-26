@@ -8,23 +8,30 @@ namespace MassSpectrometry
     public class DeconvolutionFeatureWithMassesAndScans
     {
 
-        #region Public Fields
-
-        public int minScanIndex = int.MaxValue;
-
-        public int maxScanIndex = int.MinValue;
-
-        public double mass;
-
-        #endregion Public Fields
-
         #region Private Fields
 
         private List<DeconvolutionFeature> groups = new List<DeconvolutionFeature>();
 
         #endregion Private Fields
 
+        #region Public Constructors
+
+        public DeconvolutionFeatureWithMassesAndScans()
+        {
+            MinScanIndex = int.MaxValue;
+
+            MaxScanIndex = int.MinValue;
+        }
+
+        #endregion Public Constructors
+
         #region Public Properties
+
+        public int MinScanIndex { get; private set; }
+
+        public int MaxScanIndex { get; private set; }
+
+        public double Mass { get; private set; }
 
         public int NumPeaks
         {
@@ -50,7 +57,7 @@ namespace MassSpectrometry
 
         public string OneLineString()
         {
-            return "Mass: " + mass + " NumPeaks: " + NumPeaks + " NumScans: " + (maxScanIndex - minScanIndex + 1) + " ScanRange: " + minScanIndex + " to " + maxScanIndex;
+            return "Mass: " + Mass + " NumPeaks: " + NumPeaks + " NumScans: " + (MaxScanIndex - MinScanIndex + 1) + " ScanRange: " + MinScanIndex + " to " + MaxScanIndex;
         }
 
         #endregion Public Methods
@@ -59,14 +66,14 @@ namespace MassSpectrometry
 
         internal void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex)
         {
-            minScanIndex = Math.Min(scanIndex, minScanIndex);
-            maxScanIndex = Math.Max(scanIndex, maxScanIndex);
+            MinScanIndex = Math.Min(scanIndex, MinScanIndex);
+            MaxScanIndex = Math.Max(scanIndex, MaxScanIndex);
             foreach (var massGroup in groups)
             {
                 if (Math.Abs(massGroup.Mass - isotopicEnvelope.monoisotopicMass) < 0.5)
                 {
                     massGroup.AddEnvelope(isotopicEnvelope);
-                    mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
+                    Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
                     return;
                 }
             }
@@ -74,7 +81,7 @@ namespace MassSpectrometry
             newMassGroup.AddEnvelope(isotopicEnvelope);
             groups.Add(newMassGroup);
 
-            mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
+            Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
         }
 
         #endregion Internal Methods
