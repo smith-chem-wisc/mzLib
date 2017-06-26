@@ -16,10 +16,12 @@ namespace Deconvolution
 
         private static void Main(string[] args)
         {
-            int minScan = 450;
-            int maxScan = 1500;
+            int? minScan = null;
+            int? maxScan = null;
             double deconvolutionTolerancePpm = 10;
-            string filename = @"C:\Users\stepa\Desktop\DeconvolutionStuff\03-01-17_B2A_targeted_td_yeast_fract6_intact.raw";
+            //string filename = @"C:\Users\stepa\Desktop\DeconvolutionStuff\03-01-17_B2A_targeted_td_yeast_fract6_intact.raw";
+            //string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-23-15_A_fract5_rep2.raw";
+            string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-28-15_S_fract5_rep1.raw";
             int maxAssumedChargeState = 30;
             double intensityRatioLimit = 2;
             Func<IMzPeak, bool> peakFilter = b => (b as ThermoMzPeak).SignalToNoise > 2;
@@ -28,14 +30,17 @@ namespace Deconvolution
 
             var f = ThermoDynamicData.InitiateDynamicConnection(filename);
 
-            var allAggregateGroups = new List<IsotopicEnvelope>[maxScan - minScan + 1];
-            Parallel.ForEach(Partitioner.Create(minScan, maxScan + 1), fff =>
+            minScan = minScan ?? 1;
+            maxScan = maxScan ?? f.NumSpectra;
+
+            var allAggregateGroups = new List<IsotopicEnvelope>[maxScan.Value - minScan.Value + 1];
+            Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), fff =>
             {
                 for (int scanIndex = fff.Item1; scanIndex < fff.Item2; scanIndex++)
                 {
                     var theScan = f.GetOneBasedScan(scanIndex);
                     Console.WriteLine("Deconvoluting scan " + theScan.OneBasedScanNumber);
-                    allAggregateGroups[scanIndex - minScan] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter).ToList();
+                    allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter).ToList();
                 }
             });
 
