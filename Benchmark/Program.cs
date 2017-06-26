@@ -1,7 +1,6 @@
 ﻿using Chemistry;
 using IO.Thermo;
 using MassSpectrometry;
-using MzLibUtil;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -148,11 +147,11 @@ namespace Benchmark
 
         private static void Main(string[] args)
         {
-            DoubleRange r = new DoubleRange(-187, double.PositiveInfinity);
-            Console.WriteLine(r);
-            Console.WriteLine(r.ToString());
-
             Loaders.LoadElements("elements2.dat");
+
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Source\Repos\mzLib\TestThermo\05-13-16_cali_MS_60K-res_MS.raw");
+
+            Console.WriteLine(string.Join(Environment.NewLine, sdafaf.OrderBy(b => -b.NumPeaks).Take(10)));
 
             int? minScan = null;
             int? maxScan = null;

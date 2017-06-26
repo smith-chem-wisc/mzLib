@@ -4,7 +4,6 @@ using IO.Thermo;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace TestThermo
@@ -50,15 +49,15 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            List<IO.Thermo.Deconvolution.PossibleProteoform> cool = a.GetOneBasedScan(1).MassSpectrum.SpecialThermoDeconvolution(0.1).ToList();
-
-            Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
-
             var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, 1, 4, b => true).ToList();
 
             Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Mz.ToMass(b.charge) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
+
+            var sdafaf = a.Deconvolute(null, null, 30, 10, 3, b => true, 10).OrderByDescending(b => b.NumPeaks).First();
+
+            Assert.IsTrue(Math.Abs(262.64 - sdafaf.Mass.ToMz(2)) <= 0.01);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
             {
