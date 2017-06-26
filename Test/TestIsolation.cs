@@ -72,14 +72,13 @@ namespace Test
             var cool = myMsDataFile.Last() as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
             int maxAssumedChargeState = 1;
-            Tolerance massTolerance = new Tolerance("10 PPM");
 
-            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance, 5).ToList();
+            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, 10, 5, b => true).ToList();
 
             Assert.AreEqual(2, isolatedMasses.Count);
-            Assert.AreEqual(2, isolatedMasses.Count(b => b.Item2 == 1));
-            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Min(), 1e-9);
-            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Max(), 1e-9);
+            Assert.AreEqual(2, isolatedMasses.Count(b => b.charge == 1));
+            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Mz.ToMass(b.charge)).Min(), 1e-9);
+            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Mz.ToMass(b.charge)).Max(), 1e-9);
         }
 
         [Test]
@@ -114,15 +113,13 @@ namespace Test
             var cool = myMsDataFile.Last() as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
             int maxAssumedChargeState = 2;
-            Tolerance massTolerance = new Tolerance("10 PPM");
-
-            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance, 5).ToList();
+            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, 10, 5, b=>true).ToList();
 
             Assert.AreEqual(2, isolatedMasses.Count);
-            Assert.AreEqual(1, isolatedMasses.Count(b => b.Item2 == 1));
-            Assert.AreEqual(1, isolatedMasses.Count(b => b.Item2 == 2));
-            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Min(), 1e-9);
-            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.Item1.First().Mz.ToMass(b.Item2)).Max(), 1e-9);
+            Assert.AreEqual(1, isolatedMasses.Count(b => b.charge == 1));
+            Assert.AreEqual(1, isolatedMasses.Count(b => b.charge == 2));
+            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Mz.ToMass(b.charge)).Min(), 1e-9);
+            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Mz.ToMass(b.charge)).Max(), 1e-9);
         }
 
         #endregion Public Methods

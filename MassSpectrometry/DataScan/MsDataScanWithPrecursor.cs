@@ -81,13 +81,13 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public IEnumerable<Tuple<List<IMzPeak>, int>> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, Func<IMzPeak, bool> peakFilterFunction)
         {
             if (IsolationRange == null)
                 yield break;
 
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, massTolerance, intensityRatio)
-                                                  .Where(b => b.Item1.Any(cc => isolationRange.Contains(cc.Mz))))
+            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio, peakFilterFunction)
+                                                  .Where(b => b.peaks.Any(cc => isolationRange.Contains(cc.Mz))))
                 yield return haha;
         }
 

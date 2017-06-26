@@ -187,8 +187,7 @@ namespace MzLibUtil
         /// <returns>Returns true if the value is within this tolerance  </returns>
         public bool Within(double experimental, double theoretical)
         {
-            double tolerance = Math.Abs(GetTolerance(experimental, theoretical, Unit));
-            return tolerance <= Value;
+            return GetTolerance(experimental, theoretical, Unit) <= Value;
         }
 
         public override string ToString()

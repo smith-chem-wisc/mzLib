@@ -32,9 +32,11 @@ namespace MassSpectrometry
 
         #region Private Fields
 
-        private static readonly double[] mms = new double[] { 1.0029, 2.0052, 3.0077, 4.01, 5.012, 6.0139, 7.0154, 8.0164 };
+        private static readonly List<List<double>> allMasses = new List<List<double>>();
+        private static readonly List<List<double>> allIntensities = new List<List<double>>();
 
-        private static readonly List<Tuple<double, List<double>>> intensityFractions = new List<Tuple<double, List<double>>>();
+        private static readonly double[] mostIntenseMasses = new double[271];
+        private static readonly int[] indicesOfMostIntense = new int[271];
 
         #endregion Private Fields
 
@@ -42,17 +44,43 @@ namespace MassSpectrometry
 
         static MzSpectrum()
         {
-            intensityFractions.Add(new Tuple<double, List<double>>(155, new List<double> { 0.915094568, 0.07782302, 0.006528797, 0.000289506 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(226, new List<double> { 0.88015657, 0.107467263, 0.011417303, 0.000730494 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(310, new List<double> { 0.837398069, 0.142430845, 0.01821746, 0.001683771 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(437, new List<double> { 0.777595132, 0.186958768, 0.031114269, 0.003704342, 0.000220493 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(620, new List<double> { 0.701235526, 0.238542629, 0.050903269, 0.008082801, 0.000985192 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(888, new List<double> { 0.602453248, 0.291899044, 0.084076553, 0.01790019, 0.002916629, 0.000410371 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(1243, new List<double> { 0.492328432, 0.333344333, 0.128351944, 0.035959923, 0.008063481, 0.001433271, 0.000195251 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(1797, new List<double> { 0.348495022, 0.336686099, 0.193731423, 0.082270917, 0.028068866, 0.008052644, 0.001907311, 0.000372359, 4.52281E-05 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(2515, new List<double> { 0.229964408, 0.313975523, 0.238643189, 0.130654102, 0.056881604, 0.020732138, 0.006490044, 0.001706308, 0.000373761, 4.55951E-05 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(3532, new List<double> { 0.12863395, 0.247015676, 0.254100853, 0.184302695, 0.104989402, 0.049731171, 0.020279668, 0.007267861, 0.002300006, 0.000619357, 9.64322E-05 }));
-            intensityFractions.Add(new Tuple<double, List<double>>(5019, new List<double> { 0.053526677, 0.145402081, 0.208920636, 0.209809764, 0.164605485, 0.107024765, 0.059770563, 0.029447041, 0.012957473, 0.005127018, 0.001845335, 0.000572486, 0.000115904 }));
+            // AVERAGINE
+            const double averageC = 4.9384;
+            const double averageH = 7.7583;
+            const double averageO = 1.4773;
+            const double averageN = 1.3577;
+            const double averageS = 0.0417;
+
+            int i = 0;
+            do
+            {
+                i++;
+                ChemicalFormula chemicalFormula = new ChemicalFormula();
+                chemicalFormula.Add("C", Convert.ToInt32(averageC * i));
+                chemicalFormula.Add("H", Convert.ToInt32(averageH * i));
+                chemicalFormula.Add("O", Convert.ToInt32(averageO * i));
+                chemicalFormula.Add("N", Convert.ToInt32(averageN * i));
+                chemicalFormula.Add("S", Convert.ToInt32(averageS * i));
+
+                double fineRes = 0.5;
+                var ye = IsotopicDistribution.GetDistribution(chemicalFormula, fineRes, 0);
+                int firstCount = ye.Intensities.Count();
+                do
+                {
+                    fineRes /= 2;
+                    ye = IsotopicDistribution.GetDistribution(chemicalFormula, fineRes, 0);
+                } while (ye.Intensities.Count() <= firstCount);
+                fineRes *= 2;
+                ye = IsotopicDistribution.GetDistribution(chemicalFormula, fineRes, 0);
+
+                var masses = ye.Masses.ToList();
+                var intensities = ye.Intensities.ToList();
+
+                indicesOfMostIntense[i - 1] = intensities.IndexOf(intensities.Max());
+                mostIntenseMasses[i - 1] = masses[indicesOfMostIntense[i - 1]];
+                allMasses.Add(masses);
+                allIntensities.Add(intensities);
+            } while (mostIntenseMasses[i - 1] < 30000);
         }
 
         #endregion Public Constructors
@@ -118,51 +146,96 @@ namespace MassSpectrometry
             return string.Format("{0} (Peaks {1})", Range, Size);
         }
 
-        public IEnumerable<Tuple<List<IMzPeak>, int>> Deconvolute(MzRange theRange, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
+        // Mass tolerance must account for different isotope spacing!
+        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, Func<IMzPeak, bool> peakFilter)
         {
-            var isolatedMassesAndCharges = new List<Tuple<List<IMzPeak>, int>>();
+            var isolatedMassesAndCharges = new List<Tuple<List<IMzPeak>, int, int, double, List<double>>>();
 
-            foreach (var peak in Extract(theRange))
+            foreach (var candidateForMostIntensePeak in Extract(theRange).Where(b => peakFilter(b)))
             {
-                // Always assume the current peak is a monoisotopic peak!
-
                 List<IMzPeak> bestListOfPeaks = new List<IMzPeak>();
                 int bestChargeState = 1;
+                int bestIndexOfMostIntense = 0;
+                double bestMonoisotopicMass = 0;
+                var bestListOfRatios = new List<double>();
+
                 for (int chargeState = 1; chargeState <= maxAssumedChargeState; chargeState++)
                 {
-                    var listOfPeaksForThisChargeState = new List<IMzPeak> { peak };
-                    var mMass = peak.Mz.ToMass(chargeState);
-                    for (int mm = 1; mm <= mms.Length; mm++)
+                    var testMostIntenseMass = candidateForMostIntensePeak.Mz.ToMass(chargeState);
+
+                    var indexOfMassInStaticArrays = Array.BinarySearch(mostIntenseMasses, testMostIntenseMass);
+                    if (indexOfMassInStaticArrays < 0)
+                        indexOfMassInStaticArrays = ~indexOfMassInStaticArrays;
+                    if (indexOfMassInStaticArrays == mostIntenseMasses.Length)
+                        indexOfMassInStaticArrays--;
+
+                    var listOfPeaksForThisChargeState = new List<IMzPeak> { candidateForMostIntensePeak };
+                    var listOfRatios = new List<double> { allIntensities[indexOfMassInStaticArrays][indicesOfMostIntense[indexOfMassInStaticArrays]] / candidateForMostIntensePeak.Intensity };
+                    // Assuming the test peak is most intense...
+                    // Try to find the rest of the isotopes!
+
+                    int indexOfLowestFoundMass = indicesOfMostIntense[indexOfMassInStaticArrays];
+                    int indexDown = indicesOfMostIntense[indexOfMassInStaticArrays] - 1;
+                    int indexUp = indicesOfMostIntense[indexOfMassInStaticArrays] + 1;
+                    while (indexDown >= 0 || indexUp < allIntensities[indexOfMassInStaticArrays].Count)
                     {
-                        double diffToNextMmPeak = mms[mm - 1];
-                        double theorMass = mMass + diffToNextMmPeak;
-                        var closestpeak = GetClosestPeak(theorMass.ToMz(chargeState));
-                        if (massTolerance.Within(closestpeak.Mz.ToMass(chargeState), theorMass) && SatisfiesRatios(mMass, mm, peak, closestpeak, intensityRatio))
+                        int indexToLookAt;
+                        if (indexDown < 0)
+                        {
+                            indexToLookAt = indexUp;
+                            indexUp++;
+                        }
+                        else if (indexUp == allIntensities[indexOfMassInStaticArrays].Count)
+                        {
+                            indexToLookAt = indexDown;
+                            indexDown--;
+                        }
+                        else if (allIntensities[indexOfMassInStaticArrays][indexDown] > allIntensities[indexOfMassInStaticArrays][indexUp])
+                        {
+                            indexToLookAt = indexDown;
+                            indexDown--;
+                        }
+                        else
+                        {
+                            indexToLookAt = indexUp;
+                            indexUp++;
+                        }
+
+                        double theorMassThatTryingToFind = testMostIntenseMass + allMasses[indexOfMassInStaticArrays][indexToLookAt] - allMasses[indexOfMassInStaticArrays][indicesOfMostIntense[indexOfMassInStaticArrays]];
+                        var closestPeakToTheorMass = GetClosestPeak(theorMassThatTryingToFind.ToMz(chargeState));
+                        if (Math.Abs(closestPeakToTheorMass.Mz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
+                            && Peak2satisfiesRatio(allIntensities[indexOfMassInStaticArrays][indicesOfMostIntense[indexOfMassInStaticArrays]], allIntensities[indexOfMassInStaticArrays][indexToLookAt], candidateForMostIntensePeak, closestPeakToTheorMass, intensityRatioLimit))
                         {
                             // Found a match to an isotope peak for this charge state!
-                            listOfPeaksForThisChargeState.Add(closestpeak);
+                            listOfPeaksForThisChargeState.Add(closestPeakToTheorMass);
+                            listOfRatios.Add(allIntensities[indexOfMassInStaticArrays][indexToLookAt] / closestPeakToTheorMass.Intensity);
+                            indexOfLowestFoundMass = Math.Min(indexToLookAt, indexOfLowestFoundMass);
                         }
                         else
                             break;
                     }
-                    if (listOfPeaksForThisChargeState.Count >= bestListOfPeaks.Count)
+                    if (listOfPeaksForThisChargeState.Count > bestListOfPeaks.Count)
                     {
                         bestListOfPeaks = listOfPeaksForThisChargeState;
                         bestChargeState = chargeState;
+                        bestMonoisotopicMass = listOfPeaksForThisChargeState.Min(b => b.Mz).ToMass(chargeState) - allMasses[indexOfMassInStaticArrays][indexOfLowestFoundMass] + allMasses[indexOfMassInStaticArrays][0];
+                        bestIndexOfMostIntense = indicesOfMostIntense[indexOfMassInStaticArrays];
+                        bestListOfRatios = listOfRatios;
                     }
                 }
+
                 if (bestListOfPeaks.Count >= 2)
-                    isolatedMassesAndCharges.Add(new Tuple<List<IMzPeak>, int>(bestListOfPeaks, bestChargeState));
+                    isolatedMassesAndCharges.Add(new Tuple<List<IMzPeak>, int, int, double, List<double>>(bestListOfPeaks, bestChargeState, bestIndexOfMostIntense, bestMonoisotopicMass, bestListOfRatios));
             }
 
-            List<double> seen = new List<double>();
-            while (isolatedMassesAndCharges.Any())
+            HashSet<double> seen = new HashSet<double>();
+            foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.Item1.Count - MathNet.Numerics.Statistics.Statistics.StandardDeviation(b.Item5)))
             {
-                // Pick longest
-                var longest = isolatedMassesAndCharges.OrderByDescending(b => b.Item1.Count).First();
-                yield return longest;
-                isolatedMassesAndCharges.Remove(longest);
-                isolatedMassesAndCharges.RemoveAll(b => b.Item1.Intersect(longest.Item1).Any());
+                if (seen.Overlaps(ok.Item1.Select(b => b.Mz)))
+                    continue;
+                foreach (var ah in ok.Item1.Select(b => b.Mz))
+                    seen.Add(ah);
+                yield return new IsotopicEnvelope(ok);
             }
         }
 
@@ -170,28 +243,11 @@ namespace MassSpectrometry
 
         #region Private Methods
 
-        private bool SatisfiesRatios(double mMass, int mm, IMzPeak ye, IMzPeak closestpeak, double intensityRatio)
+        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, IMzPeak peak1, IMzPeak peak2, double intensityRatio)
         {
-            double bestDiff = double.MaxValue;
-            List<double> bestFracList = null;
-            for (int i = 0; i < intensityFractions.Count; i++)
-            {
-                var diff = Math.Abs(mMass - intensityFractions[i].Item1);
-                if (diff < bestDiff)
-                {
-                    bestDiff = diff;
-                    bestFracList = intensityFractions[i].Item2;
-                }
-            }
-            if (bestFracList.Count <= mm)
-                return false;
+            var comparedShouldBe = peak1.Intensity / peak1theorIntensity * peak2theorIntensity;
 
-            var theMM = bestFracList[0];
-            var theCompared = bestFracList[mm];
-
-            var comparedShouldBe = ye.Intensity / theMM * theCompared;
-
-            if (closestpeak.Intensity < comparedShouldBe / intensityRatio || closestpeak.Intensity > comparedShouldBe * intensityRatio)
+            if (peak2.Intensity < comparedShouldBe / intensityRatio || peak2.Intensity > comparedShouldBe * intensityRatio)
                 return false;
 
             return true;
