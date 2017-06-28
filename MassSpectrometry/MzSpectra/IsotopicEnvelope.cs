@@ -7,9 +7,9 @@ namespace MassSpectrometry
 
         #region Public Fields
 
-        public readonly List<IMzPeak> listOfPeaks;
+        public readonly List<IMzPeak> peaks;
         public readonly double monoisotopicMass;
-        public readonly int chargeState;
+        public readonly int charge;
         public readonly double totalIntensity;
         public readonly double stDev;
         public readonly int massIndex;
@@ -21,9 +21,9 @@ namespace MassSpectrometry
 
         public IsotopicEnvelope(List<IMzPeak> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex, int bestJ)
         {
-            this.listOfPeaks = bestListOfPeaks;
+            this.peaks = bestListOfPeaks;
             this.monoisotopicMass = bestMonoisotopicMass;
-            this.chargeState = bestChargeState;
+            this.charge = bestChargeState;
             this.totalIntensity = bestTotalIntensity;
             this.stDev = bestStDev;
             this.massIndex = bestMassIndex;
@@ -36,7 +36,7 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return "MM: " + monoisotopicMass + " charge: " + chargeState + " numPeaks: " + listOfPeaks.Count + " mostIntensePeak: " + listOfPeaks[0].Mz + " bestJ: " + bestJ;
+            return "MM: " + monoisotopicMass + " charge: " + charge + " numPeaks: " + peaks.Count + " mostIntensePeak: " + peaks[0].Mz + " bestJ: " + bestJ;
         }
 
         #endregion Public Methods

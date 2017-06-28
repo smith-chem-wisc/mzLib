@@ -341,9 +341,9 @@ namespace MassSpectrometry
             HashSet<double> seen = new HashSet<double>();
             foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.totalIntensity - b.stDev))
             {
-                if (seen.Overlaps(ok.listOfPeaks.Select(b => b.Mz)))
+                if (seen.Overlaps(ok.peaks.Select(b => b.Mz)))
                     continue;
-                foreach (var ah in ok.listOfPeaks.Select(b => b.Mz))
+                foreach (var ah in ok.peaks.Select(b => b.Mz))
                     seen.Add(ah);
                 yield return ok;
             }

@@ -91,7 +91,7 @@ namespace MassSpectrometry
             groups.Add(newMassGroup);
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
-            TotalIntensity += isotopicEnvelope.listOfPeaks.Sum(b => b.Intensity);
+            TotalIntensity += isotopicEnvelope.peaks.Sum(b => b.Intensity);
         }
 
         #endregion Internal Methods
