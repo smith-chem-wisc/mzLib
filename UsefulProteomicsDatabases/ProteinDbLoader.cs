@@ -245,7 +245,10 @@ namespace UsefulProteomicsDatabases
                                         }
                                         else if (feature_type == "disulfide bond")
                                         {
-                                            disulfideBonds.Add(new DisulfideBond((int)oneBasedbeginPosition, (int)oneBasedendPosition, feature_description));
+                                            if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                                disulfideBonds.Add(new DisulfideBond((int)oneBasedbeginPosition, (int)oneBasedendPosition, feature_description));
+                                            else if (oneBasedfeature_position >= 1)
+                                                disulfideBonds.Add(new DisulfideBond(oneBasedfeature_position, feature_description));
                                         }
                                         oneBasedbeginPosition = null;
                                         oneBasedendPosition = null;
@@ -317,7 +320,7 @@ namespace UsefulProteomicsDatabases
 
                                                 foreach (DisulfideBond disulfideBond in disulfideBonds)
                                                 {
-                                                    decoy_disulfides.Add(new DisulfideBond(reversed_sequence.Length - disulfideBond.OneBasedBeginPosition + 1, reversed_sequence.Length - disulfideBond.OneBasedEndPosition + 1, disulfideBond.Description));
+                                                    decoy_disulfides.Add(new DisulfideBond(reversed_sequence.Length - disulfideBond.OneBasedBeginPosition + 1, reversed_sequence.Length - disulfideBond.OneBasedEndPosition + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
                                                 }
 
                                                 List<SequenceVariation> decoy_variations = new List<SequenceVariation>();

@@ -29,13 +29,18 @@ namespace Proteomics
 
         #region Public Constructor
 
-
         public DisulfideBond(int OneBasedBeginPosition, int OneBasedEndPosition, string Description)
         {
             this.OneBasedBeginPosition = OneBasedBeginPosition;
             this.OneBasedEndPosition = OneBasedEndPosition;
             this.Description = Description;
         }
+
+        /// For interchain disulfide bonds, sets begin and end to the same position.
+        public DisulfideBond(int OneBasedPosition, string Description)
+            : this(OneBasedPosition, OneBasedPosition, Description)
+        { }
+
         #endregion Public Constructor
     }
 }

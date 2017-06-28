@@ -105,9 +105,23 @@ namespace Test
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+
+            Assert.AreEqual('M', ok[0][0]);
+            Assert.AreEqual('M', ok[1][0]);
+
             Assert.AreEqual(3, ok[0].DisulfideBonds.Count());
             Assert.AreEqual(31, ok[0].DisulfideBonds.First().OneBasedBeginPosition);
             Assert.AreEqual(94, ok[0].DisulfideBonds.First().OneBasedEndPosition);
+            Assert.AreEqual(93, ok[0].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
+            Assert.AreEqual(93, ok[0].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
+
+            Assert.AreEqual(3, ok[1].DisulfideBonds.Count());
+            Assert.AreEqual(78, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
+            Assert.AreEqual(15, ok[1].DisulfideBonds.First().OneBasedEndPosition);
+            Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
+            Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
+            Assert.AreNotEqual(ok[0].DisulfideBonds.First().Description, ok[1].DisulfideBonds.First().Description); //decoys and target disulfide bonds don't have the same desc.
+
         }
 
         [Test]

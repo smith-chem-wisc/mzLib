@@ -725,8 +725,7 @@
 		</feature>
 		<feature type="disulfide bond" evidence="1">
 		<location>
-		<begin position="93"/>
-		<end position="98"/>
+		<position position = "93"/>
 		</location>
 		</feature>
 		<feature type="sequence conflict" description="In Ref. 4; BAB25058." ref="4" evidence="3">
