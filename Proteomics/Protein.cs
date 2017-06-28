@@ -8,7 +8,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, IEnumerable<Tuple<string, string>> gene_names, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<DatabaseReference> databaseReferences, IEnumerable<SequenceVariation> sequenceVariations)
+        public Protein(string sequence, string accession, IEnumerable<Tuple<string, string>> gene_names, IDictionary<int, List<Modification>> oneBasedModifications, int?[] oneBasedBeginPositionsForProteolysisProducts, int?[] oneBasedEndPositionsForProteolysisProducts, string[] oneBasedProteolysisProductsTypes, string name, string full_name, bool isDecoy, bool isContaminant, IEnumerable<DatabaseReference> databaseReferences, IEnumerable<SequenceVariation> sequenceVariations, IEnumerable<DisulfideBond> disulfideBonds)
         {
             BaseSequence = sequence;
             Accession = accession;
@@ -29,6 +29,7 @@ namespace Proteomics
                                                                    oneBasedProteolysisProductsTypes[i]));
             ProteolysisProducts = proteolysisProducts;
             SequenceVariations = sequenceVariations;
+            DisulfideBonds = disulfideBonds;
             OneBasedPossibleLocalizedModifications = oneBasedModifications;
             DatabaseReferences = databaseReferences;
         }
@@ -48,6 +49,7 @@ namespace Proteomics
         public string BaseSequence { get; private set; }
         public bool IsDecoy { get; private set; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; private set; }
+        public IEnumerable<DisulfideBond> DisulfideBonds { get; private set; }
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; private set; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; private set; }
 
