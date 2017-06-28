@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DatabaseReference.cs" />
+    <Compile Include="DisulfideBond.cs" />
     <Compile Include="Modification.cs" />
     <Compile Include="ModificationWithLocation.cs" />
     <Compile Include="ModificationMotif.cs" />

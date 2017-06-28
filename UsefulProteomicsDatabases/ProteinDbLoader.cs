@@ -102,6 +102,7 @@ namespace UsefulProteomicsDatabases
                 var oneBasedEndPositions = new List<int?>();
                 var peptideTypes = new List<string>();
                 List<SequenceVariation> sequenceVariations = new List<SequenceVariation>();
+                List<DisulfideBond> disulfideBonds = new List<DisulfideBond>();
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
                 bool reading_gene = false;
@@ -242,6 +243,13 @@ namespace UsefulProteomicsDatabases
                                             else if (oneBasedfeature_position >= 1)
                                                 sequenceVariations.Add(new SequenceVariation(oneBasedfeature_position, original_value, variation_value, feature_description));
                                         }
+                                        else if (feature_type == "disulfide bond")
+                                        {
+                                            if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                                disulfideBonds.Add(new DisulfideBond((int)oneBasedbeginPosition, (int)oneBasedendPosition, feature_description));
+                                            else if (oneBasedfeature_position >= 1)
+                                                disulfideBonds.Add(new DisulfideBond(oneBasedfeature_position, feature_description));
+                                        }
                                         oneBasedbeginPosition = null;
                                         oneBasedendPosition = null;
                                         oneBasedfeature_position = -1;
@@ -264,7 +272,7 @@ namespace UsefulProteomicsDatabases
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences, sequenceVariations);
+                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds);
 
                                             result.Add(protein);
 
@@ -272,6 +280,7 @@ namespace UsefulProteomicsDatabases
                                             {
                                                 char[] sequence_array = sequence.ToCharArray();
                                                 Dictionary<int, List<Modification>> decoy_modifications = null;
+                                                List<DisulfideBond> decoy_disulfides = new List<DisulfideBond>();
                                                 if (sequence.StartsWith("M", StringComparison.InvariantCulture))
                                                 {
                                                     // Do not include the initiator methionine in reversal!!!
@@ -309,6 +318,11 @@ namespace UsefulProteomicsDatabases
                                                     decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
                                                 }
 
+                                                foreach (DisulfideBond disulfideBond in disulfideBonds)
+                                                {
+                                                    decoy_disulfides.Add(new DisulfideBond(reversed_sequence.Length - disulfideBond.OneBasedBeginPosition + 1, reversed_sequence.Length - disulfideBond.OneBasedEndPosition + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
+                                                }
+
                                                 List<SequenceVariation> decoy_variations = new List<SequenceVariation>();
                                                 foreach (SequenceVariation sv in sequenceVariations)
                                                 {
@@ -329,7 +343,7 @@ namespace UsefulProteomicsDatabases
                                                     Array.Reverse(variation_array);
                                                     decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
                                                 }
-                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null, decoy_variations);
+                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null, decoy_variations, decoy_disulfides);
 
                                                 result.Add(decoy_protein);
                                             }
@@ -352,6 +366,7 @@ namespace UsefulProteomicsDatabases
                                         oneBasedEndPositions = new List<int?>();
                                         peptideTypes = new List<string>();
                                         sequenceVariations = new List<SequenceVariation>();
+                                        disulfideBonds = new List<DisulfideBond>();
                                         databaseReferences = new List<DatabaseReference>();
                                         gene_names = new List<Tuple<string, string>>();
                                         reading_gene = false;
@@ -488,7 +503,7 @@ namespace UsefulProteomicsDatabases
                             unique_identifier++;
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences, new List<SequenceVariation>());
+                        Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences, new List<SequenceVariation>(), new List<DisulfideBond>());
                         result.Add(protein);
 
                         if (onTheFlyDecoys)
@@ -497,7 +512,7 @@ namespace UsefulProteomicsDatabases
                             int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                             Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                             var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null, new List<SequenceVariation>());
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null, new List<SequenceVariation>(), new List<DisulfideBond>());
                             result.Add(decoy_protein);
                         }
 
