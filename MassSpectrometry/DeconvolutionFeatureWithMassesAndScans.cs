@@ -21,6 +21,9 @@ namespace MassSpectrometry
             MinScanIndex = int.MaxValue;
 
             MaxScanIndex = int.MinValue;
+            MinElutionTime = double.MaxValue;
+
+            MaxElutionTime = double.MinValue;
         }
 
         #endregion Public Constructors
@@ -37,6 +40,10 @@ namespace MassSpectrometry
         {
             get { return groups.Select(b => b.NumPeaks).Sum(); }
         }
+
+        public double MinElutionTime { get; private set; }
+        public double MaxElutionTime { get; private set; }
+        public double TotalIntensity { get; private set; }
 
         #endregion Public Properties
 
@@ -57,17 +64,19 @@ namespace MassSpectrometry
 
         public string OneLineString()
         {
-            return "Mass: " + Mass + " NumPeaks: " + NumPeaks + " NumScans: " + (MaxScanIndex - MinScanIndex + 1) + " ScanRange: " + MinScanIndex + " to " + MaxScanIndex;
+            return "Mass: " + Mass.ToString("G8") + " NumPeaks: " + NumPeaks + " NumScans: " + (MaxScanIndex - MinScanIndex + 1) + " ScanRange: " + MinScanIndex + " to " + MaxScanIndex + " elutionTime: " + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + " totalIntensity: " + TotalIntensity.ToString("E5");
         }
 
         #endregion Public Methods
 
         #region Internal Methods
 
-        internal void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex)
+        internal void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
         {
             MinScanIndex = Math.Min(scanIndex, MinScanIndex);
             MaxScanIndex = Math.Max(scanIndex, MaxScanIndex);
+            MinElutionTime = Math.Min(elutionTime, MinElutionTime);
+            MaxElutionTime = Math.Max(elutionTime, MaxElutionTime);
             foreach (var massGroup in groups)
             {
                 if (Math.Abs(massGroup.Mass - isotopicEnvelope.monoisotopicMass) < 0.5)
@@ -82,6 +91,7 @@ namespace MassSpectrometry
             groups.Add(newMassGroup);
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
+            TotalIntensity += isotopicEnvelope.listOfPeaks.Sum(b => b.Intensity);
         }
 
         #endregion Internal Methods

@@ -153,7 +153,7 @@ namespace MassSpectrometry
                             Math.Abs(mass - 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm)
                         {
                             matchingGroup = possibleGroup;
-                            matchingGroup.AddEnvelope(isotopicEnvelope, scanIndex);
+                            matchingGroup.AddEnvelope(isotopicEnvelope, scanIndex, GetOneBasedScan(scanIndex).RetentionTime);
                             break;
                         }
                     }
@@ -161,7 +161,7 @@ namespace MassSpectrometry
                     if (matchingGroup == null)
                     {
                         var newGroupScans = new DeconvolutionFeatureWithMassesAndScans();
-                        newGroupScans.AddEnvelope(isotopicEnvelope, scanIndex);
+                        newGroupScans.AddEnvelope(isotopicEnvelope, scanIndex, GetOneBasedScan(scanIndex).RetentionTime);
                         currentListOfGroups.Add(newGroupScans);
                     }
                 }
