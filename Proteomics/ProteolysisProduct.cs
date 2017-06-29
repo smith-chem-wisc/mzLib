@@ -16,9 +16,9 @@
 
         #region Public Properties
 
-        public int? OneBasedBeginPosition { get; private set; }
-        public int? OneBasedEndPosition { get; private set; }
-        public string Type { get; private set; }
+        public int? OneBasedBeginPosition { get; }
+        public int? OneBasedEndPosition { get; }
+        public string Type { get; }
 
         #endregion Public Properties
 
