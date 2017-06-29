@@ -35,10 +35,8 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                var modsInProteins = proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list)).ToList();
-                var modsToAdd = AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2)).ToList();
-
-                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(modsInProteins.Concat(modsToAdd));
+                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
+                    .Concat(AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
                 {
