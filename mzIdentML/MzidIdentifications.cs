@@ -40,7 +40,7 @@ namespace MzIdentML
         {
             try
             {
-                using (Stream stream = new FileStream(mzidFile, FileMode.Open))
+                using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML.Generated.MzIdentMLType));
                     // Read the XML file into the variable
@@ -49,7 +49,7 @@ namespace MzIdentML
             }
             catch
             {
-                using (Stream stream = new FileStream(mzidFile, FileMode.Open))
+                using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType));
                     // Read the XML file into the variable
@@ -659,5 +659,6 @@ namespace MzIdentML
         }
 
         #endregion Public Methods
+
     }
 }
