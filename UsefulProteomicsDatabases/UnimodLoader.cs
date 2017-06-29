@@ -38,7 +38,7 @@ namespace UsefulProteomicsDatabases
         internal static IEnumerable<ModificationWithLocation> ReadMods(string unimodLocation)
         {
             var unimodSerializer = new XmlSerializer(typeof(Generated.unimod_t));
-            var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open)) as Generated.unimod_t;
+            var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as Generated.unimod_t;
 
             foreach (var cool in deserialized.modifications)
             {
