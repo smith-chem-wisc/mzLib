@@ -73,7 +73,7 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
 
@@ -185,7 +185,6 @@ namespace UsefulProteomicsDatabases
                                     case "sequence":
                                         sequence = substituteWhitespace.Replace(xml.ReadElementString(), "");
                                         break;
-
                                 }
                                 break;
 
@@ -235,7 +234,7 @@ namespace UsefulProteomicsDatabases
                                             peptideTypes.Add(feature_type);
                                         }
                                         else if (feature_type == "sequence variant" // Only keep if there is variant sequence information and position information
-                                            && variation_value != null 
+                                            && variation_value != null
                                             && variation_value != "")
                                         {
                                             if (oneBasedbeginPosition != null && oneBasedendPosition != null)
@@ -393,7 +392,7 @@ namespace UsefulProteomicsDatabases
             last_database_location = proteinDbLocation;
 
             StringBuilder storedKnownModificationsBuilder = new StringBuilder();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex startingWhitespace = new Regex(@"/^\s+/gm");
                 Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
@@ -459,7 +458,7 @@ namespace UsefulProteomicsDatabases
             List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
             List<Protein> result = new List<Protein>();
 
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Stream fastaFileStream = proteinDbLocation.EndsWith(".gz") ?
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
