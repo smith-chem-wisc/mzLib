@@ -7,7 +7,6 @@ namespace Proteomics
 {
     public class ModificationWithLocation : Modification
     {
-
         #region Public Fields
 
         public static readonly Dictionary<string, ModificationSites> terminusLocalizationTypeCodes;
@@ -38,7 +37,7 @@ namespace Proteomics
             this.accession = accession;
             this.motif = motif;
             this.terminusLocalization = terminusLocalization;
-            this.linksToOtherDbs = linksToOtherDbs;
+            this.linksToOtherDbs = linksToOtherDbs ?? new Dictionary<string, IList<string>>();
         }
 
         #endregion Public Constructors
@@ -50,10 +49,9 @@ namespace Proteomics
             StringBuilder sb = new StringBuilder();
             sb.AppendLine(base.ToString());
             sb.AppendLine("PP   " + terminusLocalizationTypeCodes.First(b => b.Value.Equals(terminusLocalization)).Key);
-            if (linksToOtherDbs != null)
-                foreach (var nice in linksToOtherDbs)
-                    foreach (var db in nice.Value)
-                        sb.AppendLine("DR   " + nice.Key + "; " + db);
+            foreach (var nice in linksToOtherDbs)
+                foreach (var db in nice.Value)
+                    sb.AppendLine("DR   " + nice.Key + "; " + db);
             sb.Append("TG   " + motif.Motif);
             return sb.ToString();
         }
@@ -82,6 +80,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }
