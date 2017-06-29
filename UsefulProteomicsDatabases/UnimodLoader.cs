@@ -71,7 +71,7 @@ namespace UsefulProteomicsDatabases
                     if (nice.NeutralLoss == null)
                         yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], new Tuple<string, string>("Unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, new List<double> { 0 }, null, "Unimod");
                     else
-                        yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], new Tuple<string, string>("Unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nice.NeutralLoss.Select(b => b.mono_mass), null, "Unimod");
+                        yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], new Tuple<string, string>("Unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nice.NeutralLoss.Select(b => b.mono_mass).ToList(), null, "Unimod");
                 }
             }
         }
