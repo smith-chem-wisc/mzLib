@@ -1,6 +1,5 @@
 ﻿using Chemistry;
 using IO.Thermo;
-using MassSpectrometry;
 using MzLibUtil;
 using Proteomics;
 using System;
@@ -137,7 +136,7 @@ namespace Benchmark
 
             stopWatch.Restart();
             var a = ProteinDbLoader.LoadProteinXML(@"yeast_160126.xml.gz", true, ya, false, null, out Dictionary<string, Modification> um);
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<System.Tuple<int, ModificationWithMass>>>(), a.Where(p => !p.IsDecoy).ToList(), "rewrite_yeast.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), a.Where(p => !p.IsDecoy).ToList(), "rewrite_yeast.xml");
             var b = ProteinDbLoader.LoadProteinXML(@"rewrite_yeast.xml", true, ya, false, null, out um);
             stopWatch.Stop();
 
