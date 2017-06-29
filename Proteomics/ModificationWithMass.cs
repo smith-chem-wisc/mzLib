@@ -12,21 +12,21 @@ namespace Proteomics
         #region Public Fields
 
         public readonly double monoisotopicMass;
-        public readonly IEnumerable<double> diagnosticIons;
-        public readonly IEnumerable<double> neutralLosses;
+        public readonly List<double> diagnosticIons;
+        public readonly List<double> neutralLosses;
 
         #endregion Public Fields
 
         #region Public Constructors
 
-        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, List<double> neutralLosses, List<double> diagnosticIons, string modificationType)
+        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, IEnumerable<double> neutralLosses, IEnumerable<double> diagnosticIons, string modificationType)
             : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
         {
             this.monoisotopicMass = monoisotopicMass;
             if (neutralLosses == null || neutralLosses.Count() == 0)
                 neutralLosses = new List<double> { 0 };
-            this.neutralLosses = neutralLosses ?? new List<double> { 0 };
-            this.diagnosticIons = diagnosticIons ?? new List<double>();
+            this.neutralLosses = neutralLosses != null ? neutralLosses.ToList() : new List<double> { 0 };
+            this.diagnosticIons = diagnosticIons != null ? diagnosticIons.ToList() : new List<double>();
         }
 
         #endregion Public Constructors
