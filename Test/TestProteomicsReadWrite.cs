@@ -211,12 +211,12 @@ namespace Test
             List<DatabaseReference> databaseReferences = new List<DatabaseReference> { new DatabaseReference("type1", "id1", new List<Tuple<string, string>> { new Tuple<string, string>("e1", "e2") }) };
 
             List<SequenceVariation> sequenceVariations = new List<SequenceVariation> { new SequenceVariation(3,"Q", "N", "replace Q by N"),
-            new SequenceVariation(3,4,"QE" , "NN", "replace QE by NN")};
+            new SequenceVariation(3,4,"QE", "NN", "replace QE by NN")};
 
             List<DisulfideBond> disulfideBonds = new List<DisulfideBond> { new DisulfideBond(1, "ds1"), new DisulfideBond(2, 3, "ds2") };
 
             Protein p1 = new Protein("SEQENCE",
-                                        "p1",
+                                        "a1",
                                         gene_names: gene_names,
                                         oneBasedModifications: oneBasedModifications,
                                         proteolysisProducts: proteolysisProducts,
