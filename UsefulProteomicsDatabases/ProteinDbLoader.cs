@@ -62,8 +62,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
-            where T : Modification
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
 
