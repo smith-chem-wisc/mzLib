@@ -95,7 +95,6 @@ namespace Test
             Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
         }
 
-
         [Test]
         public void DisulfideXmlTest()
         {
@@ -121,7 +120,6 @@ namespace Test
             Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
             Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
             Assert.AreNotEqual(ok[0].DisulfideBonds.First().Description, ok[1].DisulfideBonds.First().Description); //decoys and target disulfide bonds don't have the same desc.
-
         }
 
         [Test]
@@ -226,7 +224,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }

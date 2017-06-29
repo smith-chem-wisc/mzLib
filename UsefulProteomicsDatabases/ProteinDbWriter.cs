@@ -35,10 +35,10 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(
-                    AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
-                    .SelectMany(kv => kv.Value.Select(v => v.Item2))
-                    .Concat(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))));
+                var modsInProteins = proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list)).ToList();
+                var modsToAdd = AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2)).ToList();
+
+                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(modsInProteins.Concat(modsToAdd));
 
                 foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
                 {
@@ -52,17 +52,24 @@ namespace UsefulProteomicsDatabases
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
-                    writer.WriteStartElement("name");
-                    writer.WriteString(protein.Name);
-                    writer.WriteEndElement();
 
-                    writer.WriteStartElement("protein");
-                    writer.WriteStartElement("recommendedName");
-                    writer.WriteStartElement("fullName");
-                    writer.WriteString(protein.FullName);
-                    writer.WriteEndElement();
-                    writer.WriteEndElement();
-                    writer.WriteEndElement();
+                    if (protein.Name != null)
+                    {
+                        writer.WriteStartElement("name");
+                        writer.WriteString(protein.Name);
+                        writer.WriteEndElement();
+                    }
+
+                    if (protein.FullName != null)
+                    {
+                        writer.WriteStartElement("protein");
+                        writer.WriteStartElement("recommendedName");
+                        writer.WriteStartElement("fullName");
+                        writer.WriteString(protein.FullName);
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
 
                     writer.WriteStartElement("gene");
                     foreach (var gene_name in protein.GeneNames)
@@ -172,6 +179,31 @@ namespace UsefulProteomicsDatabases
                         writer.WriteStartElement("variation");
                         writer.WriteString(hm.VariantSequence);
                         writer.WriteEndElement(); // variation
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
+
+                    foreach (var hm in protein.DisulfideBonds)
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "disulfide bond");
+                        writer.WriteAttributeString("description", hm.Description);
                         writer.WriteStartElement("location");
                         if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
                         {

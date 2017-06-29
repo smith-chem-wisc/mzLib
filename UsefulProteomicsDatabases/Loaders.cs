@@ -153,11 +153,11 @@ namespace UsefulProteomicsDatabases
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as Generated.obo;
         }
 
-        public static IEnumerable<ModificationWithLocation> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
+        public static IEnumerable<Modification> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
         {
             if (!File.Exists(uniprotLocation))
                 UpdateUniprot(uniprotLocation);
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary);
+            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary).OfType<ModificationWithLocation>();
         }
 
         #endregion Public Methods
