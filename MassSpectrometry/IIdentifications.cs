@@ -54,6 +54,8 @@ namespace MassSpectrometry
 
         double ModificationMass(int matchIndex, int siiIndex, int i);
 
+        string ModificationValue(int matchIndex, int siiIndex, int i);
+
         #endregion Public Methods
     }
 }
