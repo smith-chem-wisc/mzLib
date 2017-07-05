@@ -248,6 +248,7 @@ namespace Test
             Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0, 0));
             Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0, 0));
             Assert.AreEqual(17, identifications.ModificationLocation(0, 0, 0));
+            Assert.AreEqual(57.02146373, identifications.ModificationMass(0, 0, 0));
             Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0, 0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0, 0));
@@ -402,6 +403,7 @@ namespace Test
             Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0, 0));
             Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0, 0));
             Assert.AreEqual(17, identifications.ModificationLocation(0, 0, 0));
+            Assert.AreEqual(57.02146373, identifications.ModificationMass(0, 0, 0));
             Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
             Assert.AreEqual(1, identifications.NumModifications(0, 0));
             Assert.AreEqual("GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR", identifications.PeptideSequenceWithoutModifications(0, 0));
