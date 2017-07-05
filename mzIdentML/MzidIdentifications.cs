@@ -346,6 +346,48 @@ namespace MzIdentML
             return modLoc;
         }
 
+        public double ModificationMass(int sirIndex, int siiIndex, int i)
+        {
+            double modMass = -1;
+            try
+            {
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                modMass = ok2.Modification[i].monoisotopicMassDelta;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd110.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                modMass = ok2.Modification[i].monoisotopicMassDelta;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return modMass;
+        }
+
         public int NumModifications(int sirIndex, int siiIndex)
         {
             int numMod = 0;
