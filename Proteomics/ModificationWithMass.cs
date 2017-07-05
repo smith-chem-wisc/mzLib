@@ -23,8 +23,6 @@ namespace Proteomics
             : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
         {
             this.monoisotopicMass = monoisotopicMass;
-            if (neutralLosses == null || neutralLosses.Count() == 0)
-                neutralLosses = new List<double> { 0 };
             this.neutralLosses = neutralLosses != null ? neutralLosses.ToList() : new List<double> { 0 };
             this.diagnosticIons = diagnosticIons != null ? diagnosticIons.ToList() : new List<double>();
         }
