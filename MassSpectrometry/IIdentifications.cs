@@ -52,6 +52,8 @@ namespace MassSpectrometry
 
         int NumPSMsFromScan(int matchIndex);
 
+        double ModificationMass(int matchIndex, int siiIndex, int i);
+
         #endregion Public Methods
     }
 }
