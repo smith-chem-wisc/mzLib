@@ -140,8 +140,8 @@ namespace IO.MzML
 
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
-            double[] masses = null;
-            double[] intensities = null;
+            double[] masses = new double[0];
+            double[] intensities = new double[0];
 
             foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].binaryDataArrayList.binaryDataArray)
             {
@@ -186,6 +186,9 @@ namespace IO.MzML
                 polarityDictionary.TryGetValue(cv.accession, out polarity);
             }
 
+            if (!msOrder.HasValue || !isCentroid.HasValue)
+                throw new Exception("!msOrder.HasValue || !isCentroid.HasValue");
+
             double rtInMinutes = double.NaN;
             string scanFilter = null;
             double? injectionTime = null;
@@ -220,7 +223,7 @@ namespace IO.MzML
                         high = double.Parse(cv.value);
                 }
 
-            if (msOrder.Value == 1)
+            if (msOrder == 1)
             {
                 return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic, injectionTime);
             }
@@ -256,6 +259,10 @@ namespace IO.MzML
                     highIsolation = double.Parse(cv.value);
                 }
             }
+
+            if (!isolationMz.HasValue)
+                throw new Exception("!isolationMz.HasValue");
+
             DissociationType dissociationType = DissociationType.Unknown;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
             {
