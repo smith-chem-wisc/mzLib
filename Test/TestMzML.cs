@@ -211,9 +211,10 @@ namespace Test
             };
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0] = new mzIdentML.Generated.CVParamType()
             {
-                accession = "UNIMOD:4",
-                name = "Carbamidomethyl",
-                cvRef = "UNIMOD"
+                accession = "MS:1001460",
+                name = "unknown modification",
+                value = "Carbamidomethyl",
+                cvRef = "PSI-MS"
             };
             _mzid.AnalysisProtocolCollection = new mzIdentML.Generated.AnalysisProtocolCollectionType()
             {
@@ -245,8 +246,9 @@ namespace Test
             Assert.AreEqual(1, identifications.Count);
             Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0, 0), 1e-10);
             Assert.IsFalse(identifications.IsDecoy(0, 0));
-            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0, 0));
-            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0, 0));
+            Assert.AreEqual("MS:1001460", identifications.ModificationAcession(0, 0, 0));
+            Assert.AreEqual("PSI-MS", identifications.ModificationDictionary(0, 0, 0));
+            Assert.AreEqual("Carbamidomethyl", identifications.ModificationValue(0, 0, 0));
             Assert.AreEqual(17, identifications.ModificationLocation(0, 0, 0));
             Assert.AreEqual(57.02146373, identifications.ModificationMass(0, 0, 0));
             Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
@@ -366,9 +368,10 @@ namespace Test
             };
             _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0] = new mzIdentML110.Generated.CVParamType()
             {
-                accession = "UNIMOD:4",
-                name = "Carbamidomethyl",
-                cvRef = "UNIMOD"
+                accession = "MS:1001460",
+                name = "unknown modification",
+                value = "Carbamidomethyl",
+                cvRef = "PSI-MS"
             };
             _mzid.AnalysisProtocolCollection = new mzIdentML110.Generated.AnalysisProtocolCollectionType()
             {
@@ -400,8 +403,9 @@ namespace Test
             Assert.AreEqual(1, identifications.Count);
             Assert.AreEqual(1134.26091302033 + 0.000001 * 1134.2609130203 + 0.000001, identifications.ExperimentalMassToCharge(0, 0), 1e-10);
             Assert.IsFalse(identifications.IsDecoy(0, 0));
-            Assert.AreEqual("UNIMOD:4", identifications.ModificationAcession(0, 0, 0));
-            Assert.AreEqual("UNIMOD", identifications.ModificationDictionary(0, 0, 0));
+            Assert.AreEqual("MS:1001460", identifications.ModificationAcession(0, 0, 0));
+            Assert.AreEqual("PSI-MS", identifications.ModificationDictionary(0, 0, 0));
+            Assert.AreEqual("Carbamidomethyl", identifications.ModificationValue(0, 0, 0));
             Assert.AreEqual(17, identifications.ModificationLocation(0, 0, 0));
             Assert.AreEqual(57.02146373, identifications.ModificationMass(0, 0, 0));
             Assert.AreEqual("spectrum 2", identifications.Ms2SpectrumID(0));
