@@ -262,6 +262,48 @@ namespace MzIdentML
             return s;
         }
 
+        public string ModificationValue(int sirIndex, int siiIndex, int i)
+        {
+            string s = null;
+            try
+            {
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                s = ok2.Modification[i].cvParam[0].value;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd110.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                s = ok2.Modification[i].cvParam[0].value;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return s;
+        }
+
         public string ModificationDictionary(int sirIndex, int siiIndex, int i)
         {
             string s = null;
