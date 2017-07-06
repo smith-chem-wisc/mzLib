@@ -53,8 +53,9 @@
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
+    <Compile Include="PpmTolerance.cs" />
+    <Compile Include="AbsoluteTolerance.cs" />
     <Compile Include="Tolerance.cs" />
-    <Compile Include="ToleranceUnit.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
