@@ -1,6 +1,7 @@
-﻿using Chemistry;
+using Chemistry;
 using IO.MzML;
 using IO.Thermo;
+using IO.Thermo.Deconvolution;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
@@ -128,6 +129,15 @@ namespace TestThermo
             Assert.That(t[649] == 1);
             Assert.That(t[650] == 2);
             Assert.That(!t.Where(v => v == 0).Any());
+        }
+
+        [Test]
+        public void TestIsotopicToString()
+        {
+            ThermoMzPeak peak = new ThermoMzPeak(10, 15, 6, 7, 8);
+            IsotopicPeakGroup iso = new IsotopicPeakGroup(peak);
+            Assert.AreEqual(iso.ToString(), "C: 6");
+            Console.WriteLine(iso.ToString());
         }
 
         #endregion Public Methods
