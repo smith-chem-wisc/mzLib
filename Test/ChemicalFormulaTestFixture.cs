@@ -1000,6 +1000,16 @@ namespace Test
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CO");
             Assert.AreEqual(ChemicalFormula.ParseFormula("CO"), formulaB);
         }
+        
+        [Test]
+        public void AddtoFormulaWithParse()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H2NO");
+            formulaA.Add(ChemicalFormula.ParseFormula("C"));
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H2NO");
+            //Console.WriteLine(formulaB.ToString());
+            Assert.AreEqual(formulaA, formulaB);
+        }
 
         [Test]
         public void IsoTest()
