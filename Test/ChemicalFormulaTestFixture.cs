@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
 // This file (ChemicalFormulaTestFixture.cs) is part of Chemistry Library.
@@ -17,6 +17,8 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
 using Chemistry;
+using IO.Thermo;
+using IO.Thermo.Deconvolution;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -81,6 +83,16 @@ namespace Test
             formulaA.Add(formulaB);
 
             Assert.AreEqual(formulaA, formulaC);
+        }
+
+        [Test]
+        public void AddtoFormulaWithParse()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H2NO");
+            formulaA.Add(ChemicalFormula.ParseFormula("C"));
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H2NO");
+            //Console.WriteLine(formulaB.ToString());
+            Assert.AreEqual(formulaA, formulaB);
         }
 
         [Test]
@@ -881,6 +893,16 @@ namespace Test
         }
 
         [Test]
+        public void TestIsotopicToString()
+        {
+             ThermoMzPeak peak = new ThermoMzPeak(10, 15, 6, 7, 8);
+             IsotopicPeakGroup iso = new IsotopicPeakGroup(peak);
+             Assert.AreEqual(iso.ToString(), "C: 6");
+             Console.WriteLine(iso.ToString());
+        }
+
+
+        [Test]
         public void CatchIsotopicDistributionStuff()
         {
             ChemicalFormula formula = (ChemicalFormula.ParseFormula("C500O50H250N50"));
@@ -1000,16 +1022,7 @@ namespace Test
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("CO");
             Assert.AreEqual(ChemicalFormula.ParseFormula("CO"), formulaB);
         }
-        
-        [Test]
-        public void AddtoFormulaWithParse()
-        {
-            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H2NO");
-            formulaA.Add(ChemicalFormula.ParseFormula("C"));
-            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H2NO");
-            //Console.WriteLine(formulaB.ToString());
-            Assert.AreEqual(formulaA, formulaB);
-        }
+
 
         [Test]
         public void IsoTest()
