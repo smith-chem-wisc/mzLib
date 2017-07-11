@@ -31,6 +31,15 @@ namespace UsefulProteomicsDatabases
     public static class Loaders
     {
 
+        #region Public Constructors
+
+        static Loaders()
+        {
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+        }
+
+        #endregion Public Constructors
+
         #region Public Methods
 
         public static void UpdateUniprot(string uniprotLocation)
