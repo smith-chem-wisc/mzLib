@@ -40,7 +40,7 @@ namespace MzIdentML
         {
             try
             {
-                using (Stream stream = new FileStream(mzidFile, FileMode.Open))
+                using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML.Generated.MzIdentMLType));
                     // Read the XML file into the variable
@@ -49,7 +49,7 @@ namespace MzIdentML
             }
             catch
             {
-                using (Stream stream = new FileStream(mzidFile, FileMode.Open))
+                using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType));
                     // Read the XML file into the variable
@@ -70,15 +70,15 @@ namespace MzIdentML
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
             }
         }
@@ -91,15 +91,15 @@ namespace MzIdentML
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
             }
         }
@@ -123,90 +123,109 @@ namespace MzIdentML
 
         #region Public Methods
 
-        public double CalculatedMassToCharge(int sirIndex)
+        public double CalculatedMassToCharge(int sirIndex, int siiIndex)
         {
             try
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].calculatedMassToCharge;
             }
             catch
             {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].calculatedMassToCharge;
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].calculatedMassToCharge;
             }
         }
 
-        public int ChargeState(int sirIndex)
+        public int ChargeState(int sirIndex, int siiIndex)
         {
             try
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].chargeState;
             }
             catch
             {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].chargeState;
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].chargeState;
             }
         }
 
-        public double ExperimentalMassToCharge(int sirIndex)
+        public double ExperimentalMassToCharge(int sirIndex, int siiIndex)
         {
             try
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].experimentalMassToCharge;
             }
             catch
             {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].experimentalMassToCharge;
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].experimentalMassToCharge;
             }
         }
 
-        public bool IsDecoy(int sirIndex)
+        public bool IsDecoy(int sirIndex, int siiIndex)
         {
+            //if any of the peptide evidences is decoy, is decoy
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML.Generated.PeptideEvidenceRefType pe in dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                     {
-                        return ok.isDecoy;
+                        if (ok.id.Equals(peptideEvidenceRef))
+                        {
+                            if (!ok.isDecoy) return false;
+                        }
                     }
                 }
-                return false;
+                return true;
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML110.Generated.PeptideEvidenceRefType pe in dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                     {
-                        return ok.isDecoy;
+                        if (ok.id.Equals(peptideEvidenceRef))
+                        {
+                            if (!ok.isDecoy) return false;
+                        }
                     }
                 }
-                return false;
+                return true;
             }
         }
 
-        public double QValue(int sirIndex)
+        public double QValue(int sirIndex, int siiIndex)
         {
             try
             {
-                var cvParam = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null? -1 : Convert.ToDouble(cvParam.value);
+                var cvParam = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
             }
             catch
             {
-                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
                 return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
             }
         }
 
-        public string ModificationAcession(int sirIndex, int i)
+        public int NumPSMsFromScan(int sirIndex)
+        {
+            try
+            {
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem.Count(i => i != null);
+            }
+            catch
+            {
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem.Count(i => i != null);
+            }
+        }
+
+        public string ModificationAcession(int sirIndex, int siiIndex, int i)
         {
             string s = null;
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -224,7 +243,7 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -243,12 +262,54 @@ namespace MzIdentML
             return s;
         }
 
-        public string ModificationDictionary(int sirIndex, int i)
+        public string ModificationValue(int sirIndex, int siiIndex, int i)
         {
             string s = null;
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                s = ok2.Modification[i].cvParam[0].value;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd110.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                s = ok2.Modification[i].cvParam[0].value;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return s;
+        }
+
+        public string ModificationDictionary(int sirIndex, int siiIndex, int i)
+        {
+            string s = null;
+            try
+            {
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -266,7 +327,7 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -285,12 +346,12 @@ namespace MzIdentML
             return s;
         }
 
-        public int ModificationLocation(int sirIndex, int i)
+        public int ModificationLocation(int sirIndex, int siiIndex, int i)
         {
             int modLoc = -1;
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -308,7 +369,7 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -327,12 +388,54 @@ namespace MzIdentML
             return modLoc;
         }
 
-        public int NumModifications(int sirIndex)
+        public double ModificationMass(int sirIndex, int siiIndex, int i)
+        {
+            double modMass = -1;
+            try
+            {
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                modMass = ok2.Modification[i].monoisotopicMassDelta;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
+                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                {
+                    if (ok.id.Equals(peptideEvidenceRef))
+                    {
+                        foreach (var ok2 in dd110.SequenceCollection.Peptide)
+                        {
+                            if (ok2.id.Equals(ok.peptide_ref))
+                            {
+                                modMass = ok2.Modification[i].monoisotopicMassDelta;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return modMass;
+        }
+
+        public int NumModifications(int sirIndex, int siiIndex)
         {
             int numMod = 0;
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -352,7 +455,7 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -373,12 +476,12 @@ namespace MzIdentML
             return numMod;
         }
 
-        public string PeptideSequenceWithoutModifications(int sirIndex)
+        public string PeptideSequenceWithoutModifications(int sirIndex, int siiIndex)
         {
             string s = null;
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -396,7 +499,7 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -445,37 +548,37 @@ namespace MzIdentML
             return ms2id;
         }
 
-        public float[] MatchedIons(int sirIndex, int i)
+        public float[] MatchedIons(int sirIndex, int siiIndex, int i)
         {
             try
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].Fragmentation[i].FragmentArray[0].values;
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].Fragmentation[i].FragmentArray[0].values;
             }
             catch
             {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].Fragmentation[i].FragmentArray[0].values;
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].Fragmentation[i].FragmentArray[0].values;
             }
         }
 
-        public int MatchedIonCounts(int sirIndex, int i)
+        public int MatchedIonCounts(int sirIndex, int siiIndex, int i)
         {
             try
             {
-                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].Fragmentation[i].FragmentArray[0].values.Length;
+                return dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].Fragmentation[i].FragmentArray[0].values.Length;
             }
             catch
             {
-                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].Fragmentation[i].FragmentArray[0].values.Length;
+                return dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].Fragmentation[i].FragmentArray[0].values.Length;
             }
         }
 
-        public string ProteinAccession(int sirIndex)
+        public string ProteinAccession(int sirIndex, int siiIndex)
         {
             string s = null;
 
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -493,7 +596,7 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
+                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef[0].peptideEvidence_ref;
                 foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                 {
                     if (ok.id.Equals(peptideEvidenceRef))
@@ -512,23 +615,27 @@ namespace MzIdentML
             return s;
         }
 
-        public string ProteinFullName(int sirIndex)
+        public string ProteinFullName(int sirIndex, int siiIndex)
         {
-            string s = null;
+            string s = "";
 
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML.Generated.PeptideEvidenceRefType pe in dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                     {
-                        foreach (var ok2 in dd.SequenceCollection.DBSequence)
+                        if (ok.id.Equals(peptideEvidenceRef))
                         {
-                            if (ok2.id.Equals(ok.dBSequence_ref))
+                            foreach (var ok2 in dd.SequenceCollection.DBSequence)
                             {
-                                s = ok2.name;
-                                break;
+                                if (ok2.id.Equals(ok.dBSequence_ref))
+                                {
+                                    if (s.Length != 0) s += " or ";
+                                    s += ok2.name;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -536,17 +643,21 @@ namespace MzIdentML
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML110.Generated.PeptideEvidenceRefType pe in dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                     {
-                        foreach (var ok2 in dd110.SequenceCollection.DBSequence)
+                        if (ok.id.Equals(peptideEvidenceRef))
                         {
-                            if (ok2.id.Equals(ok.dBSequence_ref))
+                            foreach (var ok2 in dd110.SequenceCollection.DBSequence)
                             {
-                                s = ok2.name;
-                                break;
+                                if (ok2.id.Equals(ok.dBSequence_ref))
+                                {
+                                    if (s.Length != 0) s += " or ";
+                                    s += ok2.name;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -555,60 +666,76 @@ namespace MzIdentML
             return s;
         }
 
-        public int StartResidueInProtein(int sirIndex)
+        public string StartResidueInProtein(int sirIndex, int siiIndex)
         {
-            int startResidue = -1;
+            string startResidue = "";
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML.Generated.PeptideEvidenceRefType pe in dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                     {
-                        startResidue = ok.start;
-                        break;
+                        if (ok.id.Equals(peptideEvidenceRef))
+                        {
+                            if (startResidue.Length != 0) startResidue += " or ";
+                            startResidue += ok.start;
+                            break;
+                        }
                     }
                 }
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML110.Generated.PeptideEvidenceRefType pe in dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                     {
-                        startResidue = ok.start;
-                        break;
+                        if (ok.id.Equals(peptideEvidenceRef))
+                        {
+                            if (startResidue.Length != 0) startResidue += " or ";
+                            startResidue += ok.start;
+                            break;
+                        }
                     }
                 }
             }
             return startResidue;
         }
 
-        public int EndResidueInProtein(int sirIndex)
+        public string EndResidueInProtein(int sirIndex, int siiIndex)
         {
-            int endResidue = -1;
+            string endResidue = "";
             try
             {
-                string peptideEvidenceRef = dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML.Generated.PeptideEvidenceRefType pe in dd.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd.SequenceCollection.PeptideEvidence)
                     {
-                        endResidue = ok.end;
-                        break;
+                        if (ok.id.Equals(peptideEvidenceRef))
+                        {
+                            if (endResidue.Length != 0) endResidue += " or ";
+                            endResidue += ok.end;
+                            break;
+                        }
                     }
                 }
             }
             catch
             {
-                string peptideEvidenceRef = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[0].PeptideEvidenceRef[0].peptideEvidence_ref;
-                foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
+                foreach (mzIdentML110.Generated.PeptideEvidenceRefType pe in dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                 {
-                    if (ok.id.Equals(peptideEvidenceRef))
+                    string peptideEvidenceRef = pe.peptideEvidence_ref;
+                    foreach (var ok in dd110.SequenceCollection.PeptideEvidence)
                     {
-                        endResidue = ok.end;
-                        break;
+                        if (ok.id.Equals(peptideEvidenceRef))
+                        {
+                            if (endResidue.Length != 0) endResidue += " or ";
+                            endResidue += ok.end;
+                            break;
+                        }
                     }
                 }
             }

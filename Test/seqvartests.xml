@@ -1,0 +1,1271 @@
+<?xml version='1.0' encoding='utf-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+  <entry dataset="Swiss-Prot" created="1995-02-01" modified="2016-01-20" version="128">
+    <accession>P40467</accession>
+    <accession>D6VVF7</accession>
+    <accession>Q45U13</accession>
+    <name>ASG1_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Activator of stress genes 1</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ASG1</name>
+      <name type="ordered locus">YIL130W</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+      <name type="common">Baker's yeast</name>
+      <dbReference type="NCBI Taxonomy" id="559292"/>
+      <lineage>
+        <taxon>Eukaryota</taxon>
+        <taxon>Fungi</taxon>
+        <taxon>Dikarya</taxon>
+        <taxon>Ascomycota</taxon>
+        <taxon>Saccharomycotina</taxon>
+        <taxon>Saccharomycetes</taxon>
+        <taxon>Saccharomycetales</taxon>
+        <taxon>Saccharomycetaceae</taxon>
+        <taxon>Saccharomyces</taxon>
+      </lineage>
+    </organism>
+    <reference key="1">
+      <citation type="journal article" date="2005" name="Nat. Genet." volume="37" first="1333" last="1340">
+        <title>Quantitative trait loci mapped to single-nucleotide resolution in yeast.</title>
+        <authorList>
+          <person name="Deutschbauer A.M."/>
+          <person name="Davis R.W."/>
+        </authorList>
+        <dbReference type="PubMed" id="16273108"/>
+        <dbReference type="DOI" id="10.1038/ng1674"/>
+      </citation>
+      <scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+      <scope>VARIANTS ASN-77; SER-149; PHE-353; SER-682; PHE-707; THR-770; SER-811; ASN-ASP-ASN-ASN-ASN-852 INS; ASN-887 INS AND 926-ASN--GLN-933 DEL</scope>
+      <source>
+        <strain>SK1</strain>
+      </source>
+    </reference>
+    <reference key="2">
+      <citation type="journal article" date="1997" name="Nature" volume="387" first="84" last="87">
+        <title>The nucleotide sequence of Saccharomyces cerevisiae chromosome IX.</title>
+        <authorList>
+          <person name="Churcher C.M."/>
+          <person name="Bowman S."/>
+          <person name="Badcock K."/>
+          <person name="Bankier A.T."/>
+          <person name="Brown D."/>
+          <person name="Chillingworth T."/>
+          <person name="Connor R."/>
+          <person name="Devlin K."/>
+          <person name="Gentles S."/>
+          <person name="Hamlin N."/>
+          <person name="Harris D.E."/>
+          <person name="Horsnell T."/>
+          <person name="Hunt S."/>
+          <person name="Jagels K."/>
+          <person name="Jones M."/>
+          <person name="Lye G."/>
+          <person name="Moule S."/>
+          <person name="Odell C."/>
+          <person name="Pearson D."/>
+          <person name="Rajandream M.A."/>
+          <person name="Rice P."/>
+          <person name="Rowley N."/>
+          <person name="Skelton J."/>
+          <person name="Smith V."/>
+          <person name="Walsh S.V."/>
+          <person name="Whitehead S."/>
+          <person name="Barrell B.G."/>
+        </authorList>
+        <dbReference type="PubMed" id="9169870"/>
+      </citation>
+      <scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+      <source>
+        <strain>ATCC 204508 / S288c</strain>
+      </source>
+    </reference>
+    <reference key="3">
+      <citation type="journal article" date="2014" name="G3 (Bethesda)" volume="4" first="389" last="398">
+        <title>The reference genome sequence of Saccharomyces cerevisiae: Then and now.</title>
+        <authorList>
+          <person name="Engel S.R."/>
+          <person name="Dietrich F.S."/>
+          <person name="Fisk D.G."/>
+          <person name="Binkley G."/>
+          <person name="Balakrishnan R."/>
+          <person name="Costanzo M.C."/>
+          <person name="Dwight S.S."/>
+          <person name="Hitz B.C."/>
+          <person name="Karra K."/>
+          <person name="Nash R.S."/>
+          <person name="Weng S."/>
+          <person name="Wong E.D."/>
+          <person name="Lloyd P."/>
+          <person name="Skrzypek M.S."/>
+          <person name="Miyasato S.R."/>
+          <person name="Simison M."/>
+          <person name="Cherry J.M."/>
+        </authorList>
+        <dbReference type="PubMed" id="24374639"/>
+        <dbReference type="DOI" id="10.1534/g3.113.008995"/>
+      </citation>
+      <scope>GENOME REANNOTATION</scope>
+      <source>
+        <strain>ATCC 204508 / S288c</strain>
+      </source>
+    </reference>
+    <reference key="4">
+      <citation type="journal article" date="2001" name="Nucleic Acids Res." volume="29" first="2181" last="2190">
+        <title>Phenotypic analysis of genes encoding yeast zinc cluster proteins.</title>
+        <authorList>
+          <person name="Akache B."/>
+          <person name="Wu K."/>
+          <person name="Turcotte B."/>
+        </authorList>
+        <dbReference type="PubMed" id="11353088"/>
+        <dbReference type="DOI" id="10.1093/nar/29.10.2181"/>
+      </citation>
+      <scope>DISRUPTION PHENOTYPE</scope>
+      <scope>FUNCTION</scope>
+    </reference>
+    <reference key="5">
+      <citation type="journal article" date="2003" name="Nature" volume="425" first="686" last="691">
+        <title>Global analysis of protein localization in budding yeast.</title>
+        <authorList>
+          <person name="Huh W.-K."/>
+          <person name="Falvo J.V."/>
+          <person name="Gerke L.C."/>
+          <person name="Carroll A.S."/>
+          <person name="Howson R.W."/>
+          <person name="Weissman J.S."/>
+          <person name="O'Shea E.K."/>
+        </authorList>
+        <dbReference type="PubMed" id="14562095"/>
+        <dbReference type="DOI" id="10.1038/nature02026"/>
+      </citation>
+      <scope>SUBCELLULAR LOCATION [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="6">
+      <citation type="journal article" date="2003" name="Nature" volume="425" first="737" last="741">
+        <title>Global analysis of protein expression in yeast.</title>
+        <authorList>
+          <person name="Ghaemmaghami S."/>
+          <person name="Huh W.-K."/>
+          <person name="Bower K."/>
+          <person name="Howson R.W."/>
+          <person name="Belle A."/>
+          <person name="Dephoure N."/>
+          <person name="O'Shea E.K."/>
+          <person name="Weissman J.S."/>
+        </authorList>
+        <dbReference type="PubMed" id="14562106"/>
+        <dbReference type="DOI" id="10.1038/nature02046"/>
+      </citation>
+      <scope>LEVEL OF PROTEIN EXPRESSION [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="7">
+      <citation type="journal article" date="2007" name="J. Proteome Res." volume="6" first="1190" last="1197">
+        <title>Large-scale phosphorylation analysis of alpha-factor-arrested Saccharomyces cerevisiae.</title>
+        <authorList>
+          <person name="Li X."/>
+          <person name="Gerber S.A."/>
+          <person name="Rudner A.D."/>
+          <person name="Beausoleil S.A."/>
+          <person name="Haas W."/>
+          <person name="Villen J."/>
+          <person name="Elias J.E."/>
+          <person name="Gygi S.P."/>
+        </authorList>
+        <dbReference type="PubMed" id="17330950"/>
+        <dbReference type="DOI" id="10.1021/pr060559j"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-963</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+      <source>
+        <strain>ADR376</strain>
+      </source>
+    </reference>
+    <reference key="8">
+      <citation type="journal article" date="2008" name="Mol. Cell. Proteomics" volume="7" first="1389" last="1396">
+        <title>A multidimensional chromatography technology for in-depth phosphoproteome analysis.</title>
+        <authorList>
+          <person name="Albuquerque C.P."/>
+          <person name="Smolka M.B."/>
+          <person name="Payne S.H."/>
+          <person name="Bafna V."/>
+          <person name="Eng J."/>
+          <person name="Zhou H."/>
+        </authorList>
+        <dbReference type="PubMed" id="18407956"/>
+        <dbReference type="DOI" id="10.1074/mcp.M700468-MCP200"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-166 AND SER-963</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="9">
+      <citation type="journal article" date="2009" name="Science" volume="325" first="1682" last="1686">
+        <title>Global analysis of Cdk1 substrate phosphorylation sites provides insights into evolution.</title>
+        <authorList>
+          <person name="Holt L.J."/>
+          <person name="Tuch B.B."/>
+          <person name="Villen J."/>
+          <person name="Johnson A.D."/>
+          <person name="Gygi S.P."/>
+          <person name="Morgan D.O."/>
+        </authorList>
+        <dbReference type="PubMed" id="19779198"/>
+        <dbReference type="DOI" id="10.1126/science.1172867"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-186 AND SER-963</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="10">
+      <citation type="journal article" date="2012" name="Proc. Natl. Acad. Sci. U.S.A." volume="109" first="12449" last="12454">
+        <title>N-terminal acetylome analyses and functional insights of the N-terminal acetyltransferase NatB.</title>
+        <authorList>
+          <person name="Van Damme P."/>
+          <person name="Lasa M."/>
+          <person name="Polevoda B."/>
+          <person name="Gazquez C."/>
+          <person name="Elosegui-Artola A."/>
+          <person name="Kim D.S."/>
+          <person name="De Juan-Pardo E."/>
+          <person name="Demeyer K."/>
+          <person name="Hole K."/>
+          <person name="Larrea E."/>
+          <person name="Timmerman E."/>
+          <person name="Prieto J."/>
+          <person name="Arnesen T."/>
+          <person name="Sherman F."/>
+          <person name="Gevaert K."/>
+          <person name="Aldabe R."/>
+        </authorList>
+        <dbReference type="PubMed" id="22814378"/>
+        <dbReference type="DOI" id="10.1073/pnas.1210303109"/>
+      </citation>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <comment type="function">
+      <text evidence="5">Probable transcription factor involved in the stress response.</text>
+    </comment>
+    <comment type="subcellular location">
+      <subcellularLocation>
+        <location evidence="4 6">Nucleus</location>
+      </subcellularLocation>
+    </comment>
+    <comment type="disruption phenotype">
+      <text evidence="5">No growth on non-fermentable carbon sources like glycerol and lactate and sensitivity to calcofluor white.</text>
+    </comment>
+    <comment type="miscellaneous">
+      <text evidence="7">Present with 396 molecules/cell in log phase SD medium.</text>
+    </comment>
+    <comment type="similarity">
+      <text evidence="9">Belongs to the ASG1 family.</text>
+    </comment>
+    <comment type="similarity">
+      <text evidence="4">Contains 1 Zn(2)-C6 fungal-type DNA-binding domain.</text>
+    </comment>
+    <dbReference type="EMBL" id="DQ115392">
+      <property type="protein sequence ID" value="AAZ22497.1"/>
+      <property type="molecule type" value="Genomic_DNA"/>
+    </dbReference>
+    <dbReference type="EMBL" id="Z38059">
+      <property type="protein sequence ID" value="CAA86148.1"/>
+      <property type="molecule type" value="Genomic_DNA"/>
+    </dbReference>
+    <dbReference type="EMBL" id="BK006942">
+      <property type="protein sequence ID" value="DAA08423.1"/>
+      <property type="molecule type" value="Genomic_DNA"/>
+    </dbReference>
+    <dbReference type="PIR" id="S48404">
+      <property type="entry name" value="S48404"/>
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_012136.1">
+      <property type="nucleotide sequence ID" value="NM_001179478.1"/>
+    </dbReference>
+    <dbReference type="ProteinModelPortal" id="P40467"/>
+    <dbReference type="SMR" id="P40467">
+      <property type="residue range" value="19-50"/>
+    </dbReference>
+    <dbReference type="BioGrid" id="34861">
+      <property type="interactions" value="29"/>
+    </dbReference>
+    <dbReference type="DIP" id="DIP-820N"/>
+    <dbReference type="IntAct" id="P40467">
+      <property type="interactions" value="4"/>
+    </dbReference>
+    <dbReference type="MINT" id="MINT-598320"/>
+    <dbReference type="iPTMnet" id="P40467"/>
+    <dbReference type="MaxQB" id="P40467"/>
+    <dbReference type="PeptideAtlas" id="P40467"/>
+    <dbReference type="EnsemblFungi" id="YIL130W">
+      <property type="protein sequence ID" value="YIL130W"/>
+      <property type="gene ID" value="YIL130W"/>
+    </dbReference>
+    <dbReference type="GeneID" id="854676"/>
+    <dbReference type="KEGG" id="sce:YIL130W"/>
+    <dbReference type="EuPathDB" id="FungiDB:YIL130W"/>
+    <dbReference type="SGD" id="S000001392">
+      <property type="gene designation" value="ASG1"/>
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00530000068025"/>
+    <dbReference type="HOGENOM" id="HOG000247856"/>
+    <dbReference type="InParanoid" id="P40467"/>
+    <dbReference type="OMA" id="IRGERHQ"/>
+    <dbReference type="OrthoDB" id="EOG7WDN9X"/>
+    <dbReference type="BioCyc" id="YEAST:G3O-31381-MONOMER"/>
+    <dbReference type="NextBio" id="977274"/>
+    <dbReference type="PRO" id="PR:P40467"/>
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome IX"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0005634">
+      <property type="term" value="C:nucleus"/>
+      <property type="evidence" value="ECO:0000501"/>
+      <property type="project" value="UniProtKB-SubCell"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0003677">
+      <property type="term" value="F:DNA binding"/>
+      <property type="evidence" value="ECO:0000501"/>
+      <property type="project" value="UniProtKB-KW"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0000981">
+      <property type="term" value="F:RNA polymerase II transcription factor activity, sequence-specific DNA binding"/>
+      <property type="evidence" value="ECO:0000501"/>
+      <property type="project" value="InterPro"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0008270">
+      <property type="term" value="F:zinc ion binding"/>
+      <property type="evidence" value="ECO:0000501"/>
+      <property type="project" value="InterPro"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0006351">
+      <property type="term" value="P:transcription, DNA-templated"/>
+      <property type="evidence" value="ECO:0000501"/>
+      <property type="project" value="UniProtKB-KW"/>
+    </dbReference>
+    <dbReference type="Gene3D" id="4.10.240.10">
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="InterPro" id="IPR007219">
+      <property type="entry name" value="Transcription_factor_dom_fun"/>
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001138">
+      <property type="entry name" value="Zn2-C6_fun-type_DNA-bd"/>
+    </dbReference>
+    <dbReference type="Pfam" id="PF04082">
+      <property type="entry name" value="Fungal_trans"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="Pfam" id="PF00172">
+      <property type="entry name" value="Zn_clus"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="SMART" id="SM00906">
+      <property type="entry name" value="Fungal_trans"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="SMART" id="SM00066">
+      <property type="entry name" value="GAL4"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF57701">
+      <property type="entry name" value="SSF57701"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00463">
+      <property type="entry name" value="ZN2_CY6_FUNGAL_1"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50048">
+      <property type="entry name" value="ZN2_CY6_FUNGAL_2"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <proteinExistence type="evidence at protein level"/>
+    <keyword id="KW-0181">Complete proteome</keyword>
+    <keyword id="KW-0238">DNA-binding</keyword>
+    <keyword id="KW-0479">Metal-binding</keyword>
+    <keyword id="KW-0539">Nucleus</keyword>
+    <keyword id="KW-0597">Phosphoprotein</keyword>
+    <keyword id="KW-1185">Reference proteome</keyword>
+    <keyword id="KW-0346">Stress response</keyword>
+    <keyword id="KW-0804">Transcription</keyword>
+    <keyword id="KW-0805">Transcription regulation</keyword>
+    <keyword id="KW-0862">Zinc</keyword>
+    <feature type="chain" description="Activator of stress genes 1" id="PRO_0000114997">
+      <location>
+        <begin position="1"/>
+        <end position="964"/>
+      </location>
+    </feature>
+    <feature type="DNA-binding region" description="Zn(2)-C6 fungal-type" evidence="4">
+      <location>
+        <begin position="21"/>
+        <end position="47"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Asn">
+      <location>
+        <begin position="832"/>
+        <end position="837"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Asn">
+      <location>
+        <begin position="840"/>
+        <end position="869"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Asn">
+      <location>
+        <begin position="875"/>
+        <end position="887"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine; by ATM or ATR" evidence="2">
+      <location>
+        <position position="166"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="3">
+      <location>
+        <position position="186"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="1 2 3">
+      <location>
+        <position position="963"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>MPEQA</original>
+      <variation>MP</variation>
+      <location>
+        <begin position="1"/>
+        <end position="5"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>MPEQA</original>
+      <variation>P</variation>
+      <location>
+        <begin position="1"/>
+        <end position="5"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>PEQA</original>
+      <variation>P</variation>
+      <location>
+        <begin position="2"/>
+        <end position="5"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>EQA</original>
+      <variation/>
+      <location>
+        <begin position="3"/>
+        <end position="5"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>YPSE</original>
+      <variation/>
+      <location>
+        <begin position="960"/>
+        <end position="964"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>S</original>
+      <variation>N</variation>
+      <location>
+        <position position="77"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>N</original>
+      <variation>S</variation>
+      <location>
+        <position position="149"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>I</original>
+      <variation>F</variation>
+      <location>
+        <position position="353"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>F</original>
+      <variation>S</variation>
+      <location>
+        <position position="682"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>S</original>
+      <variation>F</variation>
+      <location>
+        <position position="707"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>I</original>
+      <variation>T</variation>
+      <location>
+        <position position="770"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>N</original>
+      <variation>S</variation>
+      <location>
+        <position position="811"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1.">
+      <original>D</original>
+      <variation>NDNNN</variation>
+      <location>
+        <position position="852"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>N</original>
+      <variation>NN</variation>
+      <location>
+        <position position="887"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <location>
+        <begin position="926"/>
+        <end position="933"/>
+      </location>
+    </feature>
+    <evidence key="1" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="17330950"/>
+      </source>
+    </evidence>
+    <evidence key="2" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="18407956"/>
+      </source>
+    </evidence>
+    <evidence key="3" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="19779198"/>
+      </source>
+    </evidence>
+    <evidence key="4" type="ECO:0000255">
+      <source>
+        <dbReference type="PROSITE-ProRule" id="PRU00227"/>
+      </source>
+    </evidence>
+    <evidence key="5" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="11353088"/>
+      </source>
+    </evidence>
+    <evidence key="6" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="14562095"/>
+      </source>
+    </evidence>
+    <evidence key="7" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="14562106"/>
+      </source>
+    </evidence>
+    <evidence key="8" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="16273108"/>
+      </source>
+    </evidence>
+    <evidence key="9" type="ECO:0000305"/>
+    <sequence length="964" mass="108781" checksum="AD5ABE59E4B022CC" modified="1995-02-01" version="1">
+      MPEQAQQGEQSVKRRRVTRACDECRKKKVKCDGQQPCIHCTVYSYECTYKKPTKRTQNSG
+      NSGVLTLGNVTTGPSSSTVVAAAASNPNKLLSNIKTERAILPGASTIPASNNPSKPRKYK
+      TKSTRLQSKIDRYKQIFDEVFPQLPDIDNLDIPVFLQIFHNFKRDSQSFLDDTVKEYTLI
+      VNDSSSPIQPVLSSNSKNSTPDEFLPNMKSDSNSASSNREQDSVDTYSNIPVGREIKIIL
+      PPKAIALQFVKSTWEHCCVLLRFYHRPSFIRQLDELYETDPNNYTSKQMQFLPLCYAAIA
+      VGALFSKSIVSNDSSREKFLQDEGYKYFIAARKLIDITNARDLNSIQAILMLIIFLQCSA
+      RLSTCYTYIGVAMRSALRAGFHRKLSPNSGFSPIEIEMRKRLFYTIYKLDVYINAMLGLP
+      RSISPDDFDQTLPLDLSDENITEVAYLPENQHSVLSSTGISNEHTKLFLILNEIISELYP
+      IKKTSNIISHETVTSLELKLRNWLDSLPKELIPNAENIDPEYERANRLLHLSFLHVQIIL
+      YRPFIHYLSRNMNAENVDPLCYRRARNSIAVARTVIKLAKEMVSNNLLTGSYWYACYTIF
+      YSVAGLLFYIHEAQLPDKDSAREYYDILKDAETGRSVLIQLKDSSMAASRTYNLLNQIFE
+      KLNSKTIQLTALHSSPSNESAFLVTNNSSALKPHLGDSLQPPVFFSSQDTKNSFSLAKSE
+      ESTNDYAMANYLNNTPISENPLNEAQQQDQVSQGTTNMSNERDPNNFLSIDIRLDNNGQS
+      NILDATDDVFIRNDGDIPTNSAFDFSSSKSNASNNSNPDTINNNYNNVSGKNNNNNNITN
+      NSNNNHNNNNNDNNNNNNNNNNNNNNNNNSGNSSNNNNNNNNNKNNNDFGIKIDNNSPSY
+      EGFPQLQIPLSQDNLNIEDKEEMSPNIEIKNEQNMTDSNDILGVFDQLDAQLFGKYLPLN
+      YPSE
+    </sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1996-02-01" modified="2016-01-20" version="124">
+    <accession>P48361</accession>
+    <accession>D6VUM9</accession>
+    <name>ASK10_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Activator of SKN7 protein 10</fullName>
+      </recommendedName>
+      <alternativeName>
+        <fullName>Regulator of the glycerol channel 2</fullName>
+      </alternativeName>
+    </protein>
+    <gene>
+      <name type="primary">ASK10</name>
+      <name type="synonym">RGC2</name>
+      <name type="ordered locus">YGR097W</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+      <name type="common">Baker's yeast</name>
+      <dbReference type="NCBI Taxonomy" id="559292"/>
+      <lineage>
+        <taxon>Eukaryota</taxon>
+        <taxon>Fungi</taxon>
+        <taxon>Dikarya</taxon>
+        <taxon>Ascomycota</taxon>
+        <taxon>Saccharomycotina</taxon>
+        <taxon>Saccharomycetes</taxon>
+        <taxon>Saccharomycetales</taxon>
+        <taxon>Saccharomycetaceae</taxon>
+        <taxon>Saccharomyces</taxon>
+      </lineage>
+    </organism>
+    <reference key="1">
+      <citation type="journal article" date="1996" name="Yeast" volume="12" first="267" last="272">
+        <title>Identification of ASK10 as a multicopy activator of Skn7p-dependent transcription of a HIS3 reporter gene.</title>
+        <authorList>
+          <person name="Page N."/>
+          <person name="Sheraton J."/>
+          <person name="Brown J.L."/>
+          <person name="Stewart R.S."/>
+          <person name="Bussey H."/>
+        </authorList>
+        <dbReference type="PubMed" id="8904339"/>
+        <dbReference type="DOI" id="10.1002/(SICI)1097-0061(19960315)12:3&lt;267::AID-YEA897>3.0.CO;2-U"/>
+      </citation>
+      <scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+      <source>
+        <strain>ATCC 96099 / S288c / SEY6210</strain>
+      </source>
+    </reference>
+    <reference key="2">
+      <citation type="journal article" date="1997" name="Nature" volume="387" first="81" last="84">
+        <title>The nucleotide sequence of Saccharomyces cerevisiae chromosome VII.</title>
+        <authorList>
+          <person name="Tettelin H."/>
+          <person name="Agostoni-Carbone M.L."/>
+          <person name="Albermann K."/>
+          <person name="Albers M."/>
+          <person name="Arroyo J."/>
+          <person name="Backes U."/>
+          <person name="Barreiros T."/>
+          <person name="Bertani I."/>
+          <person name="Bjourson A.J."/>
+          <person name="Brueckner M."/>
+          <person name="Bruschi C.V."/>
+          <person name="Carignani G."/>
+          <person name="Castagnoli L."/>
+          <person name="Cerdan E."/>
+          <person name="Clemente M.L."/>
+          <person name="Coblenz A."/>
+          <person name="Coglievina M."/>
+          <person name="Coissac E."/>
+          <person name="Defoor E."/>
+          <person name="Del Bino S."/>
+          <person name="Delius H."/>
+          <person name="Delneri D."/>
+          <person name="de Wergifosse P."/>
+          <person name="Dujon B."/>
+          <person name="Durand P."/>
+          <person name="Entian K.-D."/>
+          <person name="Eraso P."/>
+          <person name="Escribano V."/>
+          <person name="Fabiani L."/>
+          <person name="Fartmann B."/>
+          <person name="Feroli F."/>
+          <person name="Feuermann M."/>
+          <person name="Frontali L."/>
+          <person name="Garcia-Gonzalez M."/>
+          <person name="Garcia-Saez M.I."/>
+          <person name="Goffeau A."/>
+          <person name="Guerreiro P."/>
+          <person name="Hani J."/>
+          <person name="Hansen M."/>
+          <person name="Hebling U."/>
+          <person name="Hernandez K."/>
+          <person name="Heumann K."/>
+          <person name="Hilger F."/>
+          <person name="Hofmann B."/>
+          <person name="Indge K.J."/>
+          <person name="James C.M."/>
+          <person name="Klima R."/>
+          <person name="Koetter P."/>
+          <person name="Kramer B."/>
+          <person name="Kramer W."/>
+          <person name="Lauquin G."/>
+          <person name="Leuther H."/>
+          <person name="Louis E.J."/>
+          <person name="Maillier E."/>
+          <person name="Marconi A."/>
+          <person name="Martegani E."/>
+          <person name="Mazon M.J."/>
+          <person name="Mazzoni C."/>
+          <person name="McReynolds A.D.K."/>
+          <person name="Melchioretto P."/>
+          <person name="Mewes H.-W."/>
+          <person name="Minenkova O."/>
+          <person name="Mueller-Auer S."/>
+          <person name="Nawrocki A."/>
+          <person name="Netter P."/>
+          <person name="Neu R."/>
+          <person name="Nombela C."/>
+          <person name="Oliver S.G."/>
+          <person name="Panzeri L."/>
+          <person name="Paoluzi S."/>
+          <person name="Plevani P."/>
+          <person name="Portetelle D."/>
+          <person name="Portillo F."/>
+          <person name="Potier S."/>
+          <person name="Purnelle B."/>
+          <person name="Rieger M."/>
+          <person name="Riles L."/>
+          <person name="Rinaldi T."/>
+          <person name="Robben J."/>
+          <person name="Rodrigues-Pousada C."/>
+          <person name="Rodriguez-Belmonte E."/>
+          <person name="Rodriguez-Torres A.M."/>
+          <person name="Rose M."/>
+          <person name="Ruzzi M."/>
+          <person name="Saliola M."/>
+          <person name="Sanchez-Perez M."/>
+          <person name="Schaefer B."/>
+          <person name="Schaefer M."/>
+          <person name="Scharfe M."/>
+          <person name="Schmidheini T."/>
+          <person name="Schreer A."/>
+          <person name="Skala J."/>
+          <person name="Souciet J.-L."/>
+          <person name="Steensma H.Y."/>
+          <person name="Talla E."/>
+          <person name="Thierry A."/>
+          <person name="Vandenbol M."/>
+          <person name="van der Aart Q.J.M."/>
+          <person name="Van Dyck L."/>
+          <person name="Vanoni M."/>
+          <person name="Verhasselt P."/>
+          <person name="Voet M."/>
+          <person name="Volckaert G."/>
+          <person name="Wambutt R."/>
+          <person name="Watson M.D."/>
+          <person name="Weber N."/>
+          <person name="Wedler E."/>
+          <person name="Wedler H."/>
+          <person name="Wipfli P."/>
+          <person name="Wolf K."/>
+          <person name="Wright L.F."/>
+          <person name="Zaccaria P."/>
+          <person name="Zimmermann M."/>
+          <person name="Zollner A."/>
+          <person name="Kleine K."/>
+        </authorList>
+        <dbReference type="PubMed" id="9169869"/>
+      </citation>
+      <scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+      <source>
+        <strain>ATCC 204508 / S288c</strain>
+      </source>
+    </reference>
+    <reference key="3">
+      <citation type="journal article" date="2014" name="G3 (Bethesda)" volume="4" first="389" last="398">
+        <title>The reference genome sequence of Saccharomyces cerevisiae: Then and now.</title>
+        <authorList>
+          <person name="Engel S.R."/>
+          <person name="Dietrich F.S."/>
+          <person name="Fisk D.G."/>
+          <person name="Binkley G."/>
+          <person name="Balakrishnan R."/>
+          <person name="Costanzo M.C."/>
+          <person name="Dwight S.S."/>
+          <person name="Hitz B.C."/>
+          <person name="Karra K."/>
+          <person name="Nash R.S."/>
+          <person name="Weng S."/>
+          <person name="Wong E.D."/>
+          <person name="Lloyd P."/>
+          <person name="Skrzypek M.S."/>
+          <person name="Miyasato S.R."/>
+          <person name="Simison M."/>
+          <person name="Cherry J.M."/>
+        </authorList>
+        <dbReference type="PubMed" id="24374639"/>
+        <dbReference type="DOI" id="10.1534/g3.113.008995"/>
+      </citation>
+      <scope>GENOME REANNOTATION</scope>
+      <source>
+        <strain>ATCC 204508 / S288c</strain>
+      </source>
+    </reference>
+    <reference key="4">
+      <citation type="journal article" date="2003" name="Eukaryot. Cell" volume="2" first="962" last="970">
+        <title>Ask10p mediates the oxidative stress-induced destruction of the Saccharomyces cerevisiae C-type cyclin Ume3p/Srb11p.</title>
+        <authorList>
+          <person name="Cohen T.J."/>
+          <person name="Lee K."/>
+          <person name="Rutkowski L.H."/>
+          <person name="Strich R."/>
+        </authorList>
+        <dbReference type="PubMed" id="14555478"/>
+        <dbReference type="DOI" id="10.1128/EC.2.5.962-970.2003"/>
+      </citation>
+      <scope>FUNCTION</scope>
+      <scope>IDENTIFICATION IN THE RNA POLYMERASE II HOLOENZYME</scope>
+      <scope>INTERACTION WITH RPO21 AND SSN8</scope>
+      <scope>PHOSPHORYLATION</scope>
+    </reference>
+    <reference key="5">
+      <citation type="journal article" date="2003" name="Nature" volume="425" first="686" last="691">
+        <title>Global analysis of protein localization in budding yeast.</title>
+        <authorList>
+          <person name="Huh W.-K."/>
+          <person name="Falvo J.V."/>
+          <person name="Gerke L.C."/>
+          <person name="Carroll A.S."/>
+          <person name="Howson R.W."/>
+          <person name="Weissman J.S."/>
+          <person name="O'Shea E.K."/>
+        </authorList>
+        <dbReference type="PubMed" id="14562095"/>
+        <dbReference type="DOI" id="10.1038/nature02026"/>
+      </citation>
+      <scope>SUBCELLULAR LOCATION [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="6">
+      <citation type="journal article" date="2005" name="Mol. Cell. Proteomics" volume="4" first="310" last="327">
+        <title>Quantitative phosphoproteomics applied to the yeast pheromone signaling pathway.</title>
+        <authorList>
+          <person name="Gruhler A."/>
+          <person name="Olsen J.V."/>
+          <person name="Mohammed S."/>
+          <person name="Mortensen P."/>
+          <person name="Faergeman N.J."/>
+          <person name="Mann M."/>
+          <person name="Jensen O.N."/>
+        </authorList>
+        <dbReference type="PubMed" id="15665377"/>
+        <dbReference type="DOI" id="10.1074/mcp.M400219-MCP200"/>
+      </citation>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+      <source>
+        <strain>YAL6B</strain>
+      </source>
+    </reference>
+    <reference key="7">
+      <citation type="journal article" date="2007" name="J. Proteome Res." volume="6" first="1190" last="1197">
+        <title>Large-scale phosphorylation analysis of alpha-factor-arrested Saccharomyces cerevisiae.</title>
+        <authorList>
+          <person name="Li X."/>
+          <person name="Gerber S.A."/>
+          <person name="Rudner A.D."/>
+          <person name="Beausoleil S.A."/>
+          <person name="Haas W."/>
+          <person name="Villen J."/>
+          <person name="Elias J.E."/>
+          <person name="Gygi S.P."/>
+        </authorList>
+        <dbReference type="PubMed" id="17330950"/>
+        <dbReference type="DOI" id="10.1021/pr060559j"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-793 AND THR-1017</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+      <source>
+        <strain>ADR376</strain>
+      </source>
+    </reference>
+    <reference key="8">
+      <citation type="journal article" date="2007" name="Proc. Natl. Acad. Sci. U.S.A." volume="104" first="2193" last="2198">
+        <title>Analysis of phosphorylation sites on proteins from Saccharomyces cerevisiae by electron transfer dissociation (ETD) mass spectrometry.</title>
+        <authorList>
+          <person name="Chi A."/>
+          <person name="Huttenhower C."/>
+          <person name="Geer L.Y."/>
+          <person name="Coon J.J."/>
+          <person name="Syka J.E.P."/>
+          <person name="Bai D.L."/>
+          <person name="Shabanowitz J."/>
+          <person name="Burke D.J."/>
+          <person name="Troyanskaya O.G."/>
+          <person name="Hunt D.F."/>
+        </authorList>
+        <dbReference type="PubMed" id="17287358"/>
+        <dbReference type="DOI" id="10.1073/pnas.0607084104"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-344 AND SER-1070</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="9">
+      <citation type="journal article" date="2008" name="Mol. Cell. Proteomics" volume="7" first="1389" last="1396">
+        <title>A multidimensional chromatography technology for in-depth phosphoproteome analysis.</title>
+        <authorList>
+          <person name="Albuquerque C.P."/>
+          <person name="Smolka M.B."/>
+          <person name="Payne S.H."/>
+          <person name="Bafna V."/>
+          <person name="Eng J."/>
+          <person name="Zhou H."/>
+        </authorList>
+        <dbReference type="PubMed" id="18407956"/>
+        <dbReference type="DOI" id="10.1074/mcp.M700468-MCP200"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT THR-808 AND SER-1070</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <reference key="10">
+      <citation type="journal article" date="2009" name="PLoS Genet." volume="5" first="E1000738" last="E1000738">
+        <title>Identification of positive regulators of the yeast fps1 glycerol channel.</title>
+        <authorList>
+          <person name="Beese S.E."/>
+          <person name="Negishi T."/>
+          <person name="Levin D.E."/>
+        </authorList>
+        <dbReference type="PubMed" id="19956799"/>
+        <dbReference type="DOI" id="10.1371/journal.pgen.1000738"/>
+      </citation>
+      <scope>FUNCTION</scope>
+      <scope>SUBCELLULAR LOCATION</scope>
+      <scope>PHOSPHORYLATION</scope>
+    </reference>
+    <reference key="11">
+      <citation type="journal article" date="2009" name="Science" volume="325" first="1682" last="1686">
+        <title>Global analysis of Cdk1 substrate phosphorylation sites provides insights into evolution.</title>
+        <authorList>
+          <person name="Holt L.J."/>
+          <person name="Tuch B.B."/>
+          <person name="Villen J."/>
+          <person name="Johnson A.D."/>
+          <person name="Gygi S.P."/>
+          <person name="Morgan D.O."/>
+        </authorList>
+        <dbReference type="PubMed" id="19779198"/>
+        <dbReference type="DOI" id="10.1126/science.1172867"/>
+      </citation>
+      <scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-944; SER-969; SER-1070; SER-1095 AND SER-1098</scope>
+      <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    </reference>
+    <comment type="function">
+      <text evidence="5 7">Positive regulator of FPS1 glycerol channel required for the glycerol efflux. As a component of the RNA polymerase II holoenzyme, is required for SSN8 destruction in response to oxidative stress but not heat shock. Required for cell survival in response to heat shock independent of SSN8.</text>
+    </comment>
+    <comment type="subunit">
+      <text evidence="5">Component of the RNA polymerase II holoenzyme. Interacts with RPO21 and SSN8.</text>
+    </comment>
+    <comment type="subcellular location">
+      <subcellularLocation>
+        <location evidence="6 7">Cytoplasm</location>
+      </subcellularLocation>
+      <text>Displays diffuse cytoplasmic localization, but very rapidly aggregates into punctate spots that appear near the cell surface in response to hypo-osmotic shock.</text>
+    </comment>
+    <comment type="PTM">
+      <text evidence="5 7">Phosphorylated in response to various stresses. stress-induced phosphorylation is partially dependent on HOG1.</text>
+    </comment>
+    <comment type="similarity">
+      <text evidence="8">Belongs to the RGC1 family.</text>
+    </comment>
+    <comment type="similarity">
+      <text evidence="8">Contains 1 PH domain.</text>
+    </comment>
+    <dbReference type="EMBL" id="U27209">
+      <property type="protein sequence ID" value="AAA67368.1"/>
+      <property type="molecule type" value="Genomic_DNA"/>
+    </dbReference>
+    <dbReference type="EMBL" id="Z72882">
+      <property type="protein sequence ID" value="CAA97100.1"/>
+      <property type="molecule type" value="Genomic_DNA"/>
+    </dbReference>
+    <dbReference type="EMBL" id="BK006941">
+      <property type="protein sequence ID" value="DAA08190.1"/>
+      <property type="molecule type" value="Genomic_DNA"/>
+    </dbReference>
+    <dbReference type="PIR" id="S64402">
+      <property type="entry name" value="S64402"/>
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_011611.1">
+      <property type="nucleotide sequence ID" value="NM_001181226.1"/>
+    </dbReference>
+    <dbReference type="ProteinModelPortal" id="P48361"/>
+    <dbReference type="BioGrid" id="33340">
+      <property type="interactions" value="196"/>
+    </dbReference>
+    <dbReference type="DIP" id="DIP-1920N"/>
+    <dbReference type="IntAct" id="P48361">
+      <property type="interactions" value="27"/>
+    </dbReference>
+    <dbReference type="MINT" id="MINT-8285230"/>
+    <dbReference type="iPTMnet" id="P48361"/>
+    <dbReference type="MaxQB" id="P48361"/>
+    <dbReference type="PRIDE" id="P48361"/>
+    <dbReference type="EnsemblFungi" id="YGR097W">
+      <property type="protein sequence ID" value="YGR097W"/>
+      <property type="gene ID" value="YGR097W"/>
+    </dbReference>
+    <dbReference type="GeneID" id="852989"/>
+    <dbReference type="KEGG" id="sce:YGR097W"/>
+    <dbReference type="EuPathDB" id="FungiDB:YGR097W"/>
+    <dbReference type="SGD" id="S000003329">
+      <property type="gene designation" value="ASK10"/>
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00390000002928"/>
+    <dbReference type="HOGENOM" id="HOG000034101"/>
+    <dbReference type="InParanoid" id="P48361"/>
+    <dbReference type="OrthoDB" id="EOG7FZ06S"/>
+    <dbReference type="BioCyc" id="YEAST:G3O-30807-MONOMER"/>
+    <dbReference type="NextBio" id="972812"/>
+    <dbReference type="PRO" id="PR:P48361"/>
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome VII"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0005737">
+      <property type="term" value="C:cytoplasm"/>
+      <property type="evidence" value="ECO:0000314"/>
+      <property type="project" value="SGD"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0016247">
+      <property type="term" value="F:channel regulator activity"/>
+      <property type="evidence" value="ECO:0000315"/>
+      <property type="project" value="SGD"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0044257">
+      <property type="term" value="P:cellular protein catabolic process"/>
+      <property type="evidence" value="ECO:0000315"/>
+      <property type="project" value="SGD"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0034599">
+      <property type="term" value="P:cellular response to oxidative stress"/>
+      <property type="evidence" value="ECO:0000315"/>
+      <property type="project" value="SGD"/>
+    </dbReference>
+    <dbReference type="GO" id="GO:0090372">
+      <property type="term" value="P:positive regulation of glycerol transport"/>
+      <property type="evidence" value="ECO:0000315"/>
+      <property type="project" value="SGD"/>
+    </dbReference>
+    <dbReference type="Gene3D" id="2.30.29.30">
+      <property type="match status" value="3"/>
+    </dbReference>
+    <dbReference type="InterPro" id="IPR011993">
+      <property type="entry name" value="PH_dom-like"/>
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001849">
+      <property type="entry name" value="PH_domain"/>
+    </dbReference>
+    <dbReference type="SMART" id="SM00233">
+      <property type="entry name" value="PH"/>
+      <property type="match status" value="1"/>
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF50729">
+      <property type="entry name" value="SSF50729"/>
+      <property type="match status" value="2"/>
+    </dbReference>
+    <proteinExistence type="evidence at protein level"/>
+    <keyword id="KW-0181">Complete proteome</keyword>
+    <keyword id="KW-0963">Cytoplasm</keyword>
+    <keyword id="KW-0597">Phosphoprotein</keyword>
+    <keyword id="KW-1185">Reference proteome</keyword>
+    <feature type="chain" description="Activator of SKN7 protein 10" id="PRO_0000064699">
+      <location>
+        <begin position="1"/>
+        <end position="1146"/>
+      </location>
+    </feature>
+    <feature type="domain" description="PH">
+      <location>
+        <begin position="482"/>
+        <end position="606"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Gly">
+      <location>
+        <begin position="22"/>
+        <end position="26"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Ser">
+      <location>
+        <begin position="625"/>
+        <end position="628"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Asn">
+      <location>
+        <begin position="933"/>
+        <end position="938"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Gln">
+      <location>
+        <begin position="958"/>
+        <end position="961"/>
+      </location>
+    </feature>
+    <feature type="compositionally biased region" description="Poly-Ser">
+      <location>
+        <begin position="972"/>
+        <end position="975"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="1">
+      <location>
+        <position position="344"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="2">
+      <location>
+        <position position="793"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine" evidence="3">
+      <location>
+        <position position="808"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="4">
+      <location>
+        <position position="944"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="4">
+      <location>
+        <position position="969"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine" evidence="2">
+      <location>
+        <position position="1017"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="1 3 4">
+      <location>
+        <position position="1070"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="4">
+      <location>
+        <position position="1095"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="4">
+      <location>
+        <position position="1098"/>
+      </location>
+    </feature>
+    <feature type="sequence conflict" description="In Ref. 1; AAA67368." ref="1" evidence="8">
+      <original>I</original>
+      <variation>T</variation>
+      <location>
+        <position position="57"/>
+      </location>
+    </feature>
+    <feature type="sequence conflict" description="In Ref. 1; AAA67368." ref="1" evidence="8">
+      <original>T</original>
+      <variation>N</variation>
+      <location>
+        <position position="346"/>
+      </location>
+    </feature>
+    <feature type="sequence conflict" description="In Ref. 1; AAA67368." ref="1" evidence="8">
+      <original>P</original>
+      <variation>R</variation>
+      <location>
+        <position position="464"/>
+      </location>
+    </feature>
+    <feature type="sequence conflict" description="In Ref. 1; AAA67368." ref="1" evidence="8">
+      <original>V</original>
+      <variation>A</variation>
+      <location>
+        <position position="467"/>
+      </location>
+    </feature>
+    <feature type="sequence conflict" description="In Ref. 1; AAA67368." ref="1" evidence="8">
+      <original>A</original>
+      <variation>V</variation>
+      <location>
+        <position position="603"/>
+      </location>
+    </feature>
+    <feature type="sequence conflict" description="In Ref. 1; AAA67368." ref="1" evidence="8">
+      <original>L</original>
+      <variation>P</variation>
+      <location>
+        <position position="906"/>
+      </location>
+    </feature>
+    <evidence key="1" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="17287358"/>
+      </source>
+    </evidence>
+    <evidence key="2" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="17330950"/>
+      </source>
+    </evidence>
+    <evidence key="3" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="18407956"/>
+      </source>
+    </evidence>
+    <evidence key="4" type="ECO:0000244">
+      <source>
+        <dbReference type="PubMed" id="19779198"/>
+      </source>
+    </evidence>
+    <evidence key="5" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="14555478"/>
+      </source>
+    </evidence>
+    <evidence key="6" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="14562095"/>
+      </source>
+    </evidence>
+    <evidence key="7" type="ECO:0000269">
+      <source>
+        <dbReference type="PubMed" id="19956799"/>
+      </source>
+    </evidence>
+    <evidence key="8" type="ECO:0000305"/>
+    <sequence length="1146" mass="126864" checksum="9E9EF22B0EE496EE" modified="1996-10-01" version="2">
+      MSDYFSSRPSQTLTPMGNKPSGGGGGDDASSIHSKSSQYLMDILPDSMTLNESVSSIVAN
+      NQAKEFILPETDERSPYFINVPIPKAQPTSTTETKKPLAGDEAIDGQFVKEYPTDILVDR
+      FYKWKKILKGLVIYLREVAYAQEQFARINYQLKGSVKFPFLTDIDETTNTITDPFTTAPR
+      GPKKAQPAQKKVGLTDSEQFQMQMQQEQQENAVQAPTDESKMSLAPHEYKPVQTTESDNT
+      SAASGFVKFGSGSIQDIQVILKKYHLSLANQQFKISKEITSTVIPKLEELRKDLRYKITE
+      IKDLHGDFKTNIGAHIQLTSQLLKKYIAAVKFMNAHGIGNDRASPTNKKPHKLDPKHDPY
+      LLKLQLDLQLKRQVAEETYLQEAFINLQSSGLQLEKIIYTKIQHALLRYSALIDSEARLM
+      IKNMCQELQHGIISKPPAFEWDNFVTQHPSCLLNWKSNDPIPPPRKVSDVIYPHMKSPLA
+      KCIKAGYFLKKSELLPTYHQGYFVLTSNYIHEFQSSDFYNLSSSTPNSTKSSAYSSSVSI
+      ADTYANANNAKANNHHRQASDVHNSSTTTGGTAGANGIRGIRKKSYLAPIMSIPLNDCTL
+      KDASSTKFVLVGKPTLNENADVRKSSSSTYLSGSSQASLPKYGHETAKIFSKAPFHKFLK
+      GSKPKNKNTKSSELDQFYAAAQKESNNYVTWTFKIVSPEPSEEELKHFKRWVQDLKNLTS
+      FNDTKDRIKFIEDRVMKSHRFKAGHMSRNSVNIGSHTPCLTDSTFTLQDGTTTSVNLKGR
+      AEKPQYIHIQNNSLADFDGNGFRSKVNTPAIDDYGNLITVERRPAQSPHQYSDYMATSGN
+      TTPSYSSGSRPQSMYNGYNPAVSITSNGMMLQQSTANNNTNPTTNLRHQRNISQTSSLPG
+      FSYTSLSLPVNSPGSSNSESSSGGYFAIPLHGNNNNNNYTQRNSEGSSPCYNDDQIRQQQ
+      QPLQMQPLSRTSSSSVNVTAMRSTSAGNSITANAPVVPKVMVNNQNVKTVAADQSATAPS
+      SPTMNSSVTTINRESPYQTLKKTNSTGNVPCLTAEKTHAHPAFYKRGNNSAQNLTTSSST
+      ASRVHPIRKHKKNVSFSSLNSLMFSKKGANHGGNLMTNQFMSGGIQEDDGDSTNNDTIKL
+      NQSIYS
+    </sequence>
+  </entry>
+  </uniprot>

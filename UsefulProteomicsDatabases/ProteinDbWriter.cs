@@ -20,7 +20,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationWithMass>>> AdditionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> AdditionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
         {
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -35,10 +35,8 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(
-                    AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key))
-                    .SelectMany(kv => kv.Value.Select(v => v.Item2))
-                    .Concat(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))));
+                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
+                    .Concat(AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
                 {
@@ -52,17 +50,24 @@ namespace UsefulProteomicsDatabases
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
-                    writer.WriteStartElement("name");
-                    writer.WriteString(protein.Name);
-                    writer.WriteEndElement();
 
-                    writer.WriteStartElement("protein");
-                    writer.WriteStartElement("recommendedName");
-                    writer.WriteStartElement("fullName");
-                    writer.WriteString(protein.FullName);
-                    writer.WriteEndElement();
-                    writer.WriteEndElement();
-                    writer.WriteEndElement();
+                    if (protein.Name != null)
+                    {
+                        writer.WriteStartElement("name");
+                        writer.WriteString(protein.Name);
+                        writer.WriteEndElement();
+                    }
+
+                    if (protein.FullName != null)
+                    {
+                        writer.WriteStartElement("protein");
+                        writer.WriteStartElement("recommendedName");
+                        writer.WriteStartElement("fullName");
+                        writer.WriteString(protein.FullName);
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
 
                     writer.WriteStartElement("gene");
                     foreach (var gene_name in protein.GeneNames)
@@ -161,12 +166,67 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
+                    foreach (var hm in protein.SequenceVariations)
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "sequence variant");
+                        writer.WriteAttributeString("description", hm.Description);
+                        writer.WriteStartElement("original");
+                        writer.WriteString(hm.OriginalSequence);
+                        writer.WriteEndElement(); // original
+                        writer.WriteStartElement("variation");
+                        writer.WriteString(hm.VariantSequence);
+                        writer.WriteEndElement(); // variation
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
+
+                    foreach (var hm in protein.DisulfideBonds)
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "disulfide bond");
+                        writer.WriteAttributeString("description", hm.Description);
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
+
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
                     writer.WriteString(protein.BaseSequence);
-                    writer.WriteEndElement();
-
-                    writer.WriteEndElement();
+                    writer.WriteEndElement(); // sequence
+                    writer.WriteEndElement(); // entry
                 }
 
                 writer.WriteEndElement();

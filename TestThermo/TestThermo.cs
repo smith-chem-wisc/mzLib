@@ -1,6 +1,7 @@
-﻿using Chemistry;
+using Chemistry;
 using IO.MzML;
 using IO.Thermo;
+using IO.Thermo.Deconvolution;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
@@ -54,7 +55,7 @@ namespace TestThermo
 
             Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
 
-            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, new Tolerance("1 PPM"), 4).ToList();
+            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, Tolerance.ParseToleranceString("1 PPM"), 4).ToList();
 
             Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.Item1.First().Mz.ToMass(b.Item2) - 523.257) < 0.001));
 
@@ -128,6 +129,15 @@ namespace TestThermo
             Assert.That(t[649] == 1);
             Assert.That(t[650] == 2);
             Assert.That(!t.Where(v => v == 0).Any());
+        }
+
+        [Test]
+        public void TestIsotopicToString()
+        {
+            ThermoMzPeak peak = new ThermoMzPeak(10, 15, 6, 7, 8);
+            IsotopicPeakGroup iso = new IsotopicPeakGroup(peak);
+            Assert.AreEqual(iso.ToString(), "C: 6");
+            Console.WriteLine(iso.ToString());
         }
 
         #endregion Public Methods

@@ -107,7 +107,7 @@ namespace IO.MzML
 
             try
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open))
+                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
                     _mzMLConnection = _indexedmzMLConnection.mzML;
@@ -115,7 +115,7 @@ namespace IO.MzML
             }
             catch
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open))
+                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
             }
 
@@ -140,8 +140,8 @@ namespace IO.MzML
 
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
-            double[] masses = null;
-            double[] intensities = null;
+            double[] masses = new double[0];
+            double[] intensities = new double[0];
 
             foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].binaryDataArrayList.binaryDataArray)
             {
@@ -185,6 +185,9 @@ namespace IO.MzML
                     tic = double.Parse(cv.value);
                 polarityDictionary.TryGetValue(cv.accession, out polarity);
             }
+
+            if (!msOrder.HasValue || !isCentroid.HasValue)
+                throw new MzmlReaderException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -256,6 +259,10 @@ namespace IO.MzML
                     highIsolation = double.Parse(cv.value);
                 }
             }
+
+            if (!isolationMz.HasValue)
+                throw new MzmlReaderException("!isolationMz.HasValue");
+
             DissociationType dissociationType = DissociationType.Unknown;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
             {

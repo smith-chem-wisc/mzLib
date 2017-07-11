@@ -24,7 +24,7 @@ namespace MzLibUtil
     /// <summary>
     /// The tolerance, or error, of two points
     /// </summary>
-    public class Tolerance
+    public abstract class Tolerance
     {
 
         #region Private Fields
@@ -39,29 +39,30 @@ namespace MzLibUtil
 
         #endregion Private Fields
 
-        #region Public Constructors
+        #region Protected Constructors
 
         /// <summary>
         /// Creates a new tolerance given a unit, value, and whether the tolerance is ±
         /// </summary>
         /// <param name="unit">The units for this tolerance</param>
         /// <param name="value">The numerical value of the tolerance</param>
-        public Tolerance(ToleranceUnit unit, double value)
+        protected Tolerance(double value)
         {
-            Unit = unit;
             Value = Math.Abs(value);
         }
 
+        #endregion Protected Constructors
+
+        #region Public Properties
+
         /// <summary>
-        /// Creates a new tolerance given a unit, two points (one experimental and one theoretical), and whether the tolerance is ±
+        /// The value of the tolerance
         /// </summary>
-        /// <param name="unit">The units for this tolerance</param>
-        /// <param name="experimental">The experimental value</param>
-        /// <param name="theoretical">The theoretical value</param>
-        public Tolerance(ToleranceUnit unit, double experimental, double theoretical)
-            : this(unit, GetTolerance(experimental, theoretical, unit))
-        {
-        }
+        public double Value { get; }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         /// <summary>
         /// Calculates a tolerance from the string representation
@@ -70,52 +71,13 @@ namespace MzLibUtil
         /// </para>
         /// </summary>
         /// <param name="s"></param>
-        public Tolerance(string s)
+        public static Tolerance ParseToleranceString(string s)
         {
             Match m = StringRegex.Match(s);
-            Value = Math.Abs(double.Parse(m.Groups[2].Value));
-            Enum.TryParse(m.Groups[3].Value, true, out ToleranceUnit type);
-            Unit = type;
-        }
-
-        #endregion Public Constructors
-
-        #region Public Properties
-
-        /// <summary>
-        /// The tolerance unit type
-        /// </summary>
-        public ToleranceUnit Unit { get; set; }
-
-        /// <summary>
-        /// The value of the tolerance
-        /// </summary>
-        public double Value { get; set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
-
-        public static double GetTolerance(double experimental, double theoretical, ToleranceUnit type)
-        {
-            switch (type)
-            {
-                case ToleranceUnit.PPM:
-                    return Math.Abs((experimental - theoretical) / theoretical * 1e6);
-
-                default:
-                    return Math.Abs(experimental - theoretical);
-            }
-        }
-
-        public static Tolerance FromPpm(double value)
-        {
-            return new Tolerance(ToleranceUnit.PPM, value);
-        }
-
-        public static Tolerance FromAbsolute(double value)
-        {
-            return new Tolerance(ToleranceUnit.Absolute, value);
+            if (m.Groups[3].Value.Equals("PPM", StringComparison.InvariantCultureIgnoreCase))
+                return new PpmTolerance(double.Parse(m.Groups[2].Value));
+            else
+                return new AbsoluteTolerance(double.Parse(m.Groups[2].Value));
         }
 
         /// <summary>
@@ -123,61 +85,21 @@ namespace MzLibUtil
         /// </summary>
         /// <param name="mean">The mean value</param>
         /// <returns></returns>
-        public DoubleRange GetRange(double mean)
-        {
-            double value = Value * 2;
-
-            double tol;
-            switch (Unit)
-            {
-                case ToleranceUnit.PPM:
-                    tol = value * mean / 2e6;
-                    break;
-
-                default:
-                    tol = value / 2.0;
-                    break;
-            }
-            return new DoubleRange(mean - tol, mean + tol);
-        }
+        public abstract DoubleRange GetRange(double mean);
 
         /// <summary>
         /// Gets the minimum value that is still within this tolerance
         /// </summary>
         /// <param name="mean"></param>
         /// <returns></returns>
-        public double GetMinimumValue(double mean)
-        {
-            double value = Value;
-
-            switch (Unit)
-            {
-                case ToleranceUnit.PPM:
-                    return mean * (1 - (value / 2e6));
-
-                default:
-                    return mean - value;
-            }
-        }
+        public abstract double GetMinimumValue(double mean);
 
         /// <summary>
         /// Gets the maximum value that is still within this tolerance
         /// </summary>
         /// <param name="mean"></param>
         /// <returns></returns>
-        public double GetMaximumValue(double mean)
-        {
-            double value = Value;
-
-            switch (Unit)
-            {
-                case ToleranceUnit.PPM:
-                    return mean * (1 + (value / 2e6));
-
-                default:
-                    return mean + value;
-            }
-        }
+        public abstract double GetMaximumValue(double mean);
 
         /// <summary>
         /// Indicates if the two values provided are within this tolerance
@@ -185,16 +107,7 @@ namespace MzLibUtil
         /// <param name="experimental">The experimental value</param>
         /// <param name="theoretical">The theoretical value</param>
         /// <returns>Returns true if the value is within this tolerance  </returns>
-        public bool Within(double experimental, double theoretical)
-        {
-            double tolerance = Math.Abs(GetTolerance(experimental, theoretical, Unit));
-            return tolerance <= Value;
-        }
-
-        public override string ToString()
-        {
-            return $"{"±"}{Value.ToString("f4", System.Globalization.CultureInfo.InvariantCulture)} {Enum.GetName(typeof(ToleranceUnit), Unit)}";
-        }
+        public abstract bool Within(double experimental, double theoretical);
 
         #endregion Public Methods
 

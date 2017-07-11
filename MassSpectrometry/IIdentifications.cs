@@ -18,37 +18,43 @@ namespace MassSpectrometry
 
         string Ms2SpectrumID(int matchIndex);
 
-        int ChargeState(int matchIndex);
+        int ChargeState(int matchIndex, int siiIndex);
 
-        float[] MatchedIons(int matchIndex, int i);
+        float[] MatchedIons(int matchIndex, int siiIndex, int i);
 
-        int MatchedIonCounts(int matchIndex, int i);
+        int MatchedIonCounts(int matchIndex, int siiIndex, int i);
 
-        string ProteinAccession(int matchIndex);
+        string ProteinAccession(int matchIndex, int siiIndex);
 
-        string ProteinFullName(int matchIndex);
+        string ProteinFullName(int matchIndex, int siiIndex);
 
-        int StartResidueInProtein(int matchIndex);
+        string StartResidueInProtein(int matchIndex, int siiIndex);
 
-        int EndResidueInProtein(int matchIndex);
+        string EndResidueInProtein(int matchIndex, int siiIndex);
 
-        bool IsDecoy(int matchIndex);
+        bool IsDecoy(int matchIndex, int siiIndex);
 
-        double QValue(int matchIndex);
+        double QValue(int matchIndex, int siiIndex);
 
-        double CalculatedMassToCharge(int matchIndex);
+        double CalculatedMassToCharge(int matchIndex, int siiIndex);
 
-        double ExperimentalMassToCharge(int matchIndex);
+        double ExperimentalMassToCharge(int matchIndex, int siiIndex);
 
-        string PeptideSequenceWithoutModifications(int matchIndex);
+        string PeptideSequenceWithoutModifications(int matchIndex, int siiIndex);
 
-        int NumModifications(int matchIndex);
+        int NumModifications(int matchIndex, int siiIndex);
 
-        int ModificationLocation(int matchIndex, int i);
+        int ModificationLocation(int matchIndex, int siiIndex, int i);
 
-        string ModificationDictionary(int matchIndex, int i);
+        string ModificationDictionary(int matchIndex, int siiIndex, int i);
 
-        string ModificationAcession(int matchIndex, int i);
+        string ModificationAcession(int matchIndex, int siiIndex, int i);
+
+        int NumPSMsFromScan(int matchIndex);
+
+        double ModificationMass(int matchIndex, int siiIndex, int i);
+
+        string ModificationValue(int matchIndex, int siiIndex, int i);
 
         #endregion Public Methods
     }

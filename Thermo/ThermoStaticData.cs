@@ -37,7 +37,6 @@ namespace IO.Thermo
         public static ThermoStaticData LoadAllStaticData(string filePath)
         {
             var ok = new ManagedThermoHelperLayer.HelperClass();
-            var couldBePrecursor = ok.GetAllPrecursorInfos(filePath);
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();
             theConnection.Open(filePath);
             int pbSMData = 0;
@@ -47,12 +46,19 @@ namespace IO.Thermo
 
             theConnection.SetCurrentController(0, 1);
 
+            var precursorInfosArray = ok.GetAllPrecursorInfos(filePath);
+            for (int i = 0; i < precursorInfosArray.Length; i++)
+            {
+                if (precursorInfosArray[i].nScanNumber == 0)
+                    precursorInfosArray[i].nScanNumber = -1;
+            }
+
             int pnFirstSpectrum = 0;
             theConnection.GetFirstSpectrumNumber(ref pnFirstSpectrum);
             int pnLastSpectrum = 0;
             theConnection.GetLastSpectrumNumber(ref pnLastSpectrum);
 
-            ThermoGlobalParams p = GetAllGlobalStuff(theConnection, couldBePrecursor, filePath);
+            ThermoGlobalParams p = GetAllGlobalStuff(theConnection, precursorInfosArray, filePath);
 
             IThermoScan[] scans = new IThermoScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)

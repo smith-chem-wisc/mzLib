@@ -62,8 +62,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML<T>(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<T> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
-            where T : Modification
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
 
@@ -73,7 +72,7 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> result = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
 
@@ -89,6 +88,8 @@ namespace UsefulProteomicsDatabases
                 string sequence = null;
                 string feature_type = null;
                 string feature_description = null;
+                string original_value = ""; // if no content is found, assume it is empty, not null (e.g. <original>A</original><variation/> for a deletion event)
+                string variation_value = "";
                 string dbReference_type = null;
                 string dbReference_id = null;
                 List<string> property_types = new List<string>();
@@ -96,9 +97,9 @@ namespace UsefulProteomicsDatabases
                 int oneBasedfeature_position = -1;
                 int? oneBasedbeginPosition = null;
                 int? oneBasedendPosition = null;
-                var oneBasedBeginPositions = new List<int?>();
-                var oneBasedEndPositions = new List<int?>();
-                var peptideTypes = new List<string>();
+                List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>();
+                List<SequenceVariation> sequenceVariations = new List<SequenceVariation>();
+                List<DisulfideBond> disulfideBonds = new List<DisulfideBond>();
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
                 bool reading_gene = false;
@@ -144,6 +145,14 @@ namespace UsefulProteomicsDatabases
                                     case "feature":
                                         feature_type = xml.GetAttribute("type");
                                         feature_description = xml.GetAttribute("description");
+                                        break;
+
+                                    case "original":
+                                        original_value = xml.ReadElementString();
+                                        break;
+
+                                    case "variation":
+                                        variation_value = xml.ReadElementString();
                                         break;
 
                                     case "dbReference":
@@ -193,7 +202,7 @@ namespace UsefulProteomicsDatabases
                                             if (mod_dict.ContainsKey(feature_description))
                                             {
                                                 // Known and not of a type in the exclusion list
-                                                List<Modification> mods = mod_dict[feature_description].Where(m => m as ModificationWithLocation != null && (modTypesToExclude == null || !modTypesToExclude.Contains(((ModificationWithLocation)m).modificationType))).ToList();
+                                                List<Modification> mods = mod_dict[feature_description].Where(m => !modTypesToExclude.Contains(m.modificationType)).ToList();
                                                 if (mods.Count == 0 && oneBasedModifications[oneBasedfeature_position].Count == 0)
                                                 {
                                                     oneBasedModifications.Remove(oneBasedfeature_position);
@@ -217,13 +226,29 @@ namespace UsefulProteomicsDatabases
                                         }
                                         else if (feature_type == "peptide" || feature_type == "propeptide" || feature_type == "chain" || feature_type == "signal peptide")
                                         {
-                                            oneBasedBeginPositions.Add(oneBasedbeginPosition);
-                                            oneBasedEndPositions.Add(oneBasedendPosition);
-                                            peptideTypes.Add(feature_type);
+                                            proteolysisProducts.Add(new ProteolysisProduct(oneBasedbeginPosition, oneBasedendPosition, feature_type));
+                                        }
+                                        else if (feature_type == "sequence variant" // Only keep if there is variant sequence information and position information
+                                            && variation_value != null
+                                            && variation_value != "")
+                                        {
+                                            if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                                sequenceVariations.Add(new SequenceVariation((int)oneBasedbeginPosition, (int)oneBasedendPosition, original_value, variation_value, feature_description));
+                                            else if (oneBasedfeature_position >= 1)
+                                                sequenceVariations.Add(new SequenceVariation(oneBasedfeature_position, original_value, variation_value, feature_description));
+                                        }
+                                        else if (feature_type == "disulfide bond")
+                                        {
+                                            if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                                disulfideBonds.Add(new DisulfideBond((int)oneBasedbeginPosition, (int)oneBasedendPosition, feature_description));
+                                            else if (oneBasedfeature_position >= 1)
+                                                disulfideBonds.Add(new DisulfideBond(oneBasedfeature_position, feature_description));
                                         }
                                         oneBasedbeginPosition = null;
                                         oneBasedendPosition = null;
                                         oneBasedfeature_position = -1;
+                                        original_value = "";
+                                        variation_value = "";
                                         break;
 
                                     case "dbReference":
@@ -241,7 +266,7 @@ namespace UsefulProteomicsDatabases
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, oneBasedBeginPositions.ToArray(), oneBasedEndPositions.ToArray(), peptideTypes.ToArray(), name, full_name, false, IsContaminant, databaseReferences);
+                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds);
 
                                             result.Add(protein);
 
@@ -249,6 +274,7 @@ namespace UsefulProteomicsDatabases
                                             {
                                                 char[] sequence_array = sequence.ToCharArray();
                                                 Dictionary<int, List<Modification>> decoy_modifications = null;
+                                                List<DisulfideBond> decoy_disulfides = new List<DisulfideBond>();
                                                 if (sequence.StartsWith("M", StringComparison.InvariantCulture))
                                                 {
                                                     // Do not include the initiator methionine in reversal!!!
@@ -276,16 +302,38 @@ namespace UsefulProteomicsDatabases
                                                     }
                                                 }
                                                 var reversed_sequence = new string(sequence_array);
-                                                int?[] decoybeginPositions = new int?[oneBasedBeginPositions.Count];
-                                                int?[] decoyendPositions = new int?[oneBasedEndPositions.Count];
-                                                string[] decoyBigPeptideTypes = new string[oneBasedEndPositions.Count];
-                                                for (int i = 0; i < decoybeginPositions.Length; i++)
+
+                                                List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
+                                                foreach (ProteolysisProduct pp in proteolysisProducts)
                                                 {
-                                                    decoybeginPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedEndPositions[i] + 1;
-                                                    decoyendPositions[oneBasedBeginPositions.Count - i - 1] = sequence.Length - oneBasedBeginPositions[i] + 1;
-                                                    decoyBigPeptideTypes[oneBasedBeginPositions.Count - i - 1] = peptideTypes[i];
+                                                    decoyPP.Add(new ProteolysisProduct(sequence.Length - pp.OneBasedEndPosition + 1, sequence.Length - pp.OneBasedBeginPosition, pp.Type));
                                                 }
-                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoybeginPositions, decoyendPositions, decoyBigPeptideTypes, name, full_name, true, IsContaminant, null);
+                                                foreach (DisulfideBond disulfideBond in disulfideBonds)
+                                                {
+                                                    decoy_disulfides.Add(new DisulfideBond(reversed_sequence.Length - disulfideBond.OneBasedBeginPosition + 1, reversed_sequence.Length - disulfideBond.OneBasedEndPosition + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
+                                                }
+
+                                                List<SequenceVariation> decoy_variations = new List<SequenceVariation>();
+                                                foreach (SequenceVariation sv in sequenceVariations)
+                                                {
+                                                    char[] original_array = sv.OriginalSequence.ToArray();
+                                                    char[] variation_array = sv.VariantSequence.ToArray();
+                                                    if (sv.OneBasedBeginPosition == 1)
+                                                    {
+                                                        bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                        bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                        if (orig_init_m && !var_init_m)
+                                                            decoy_variations.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                        original_array = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
+                                                        variation_array = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
+                                                    }
+                                                    int decoy_end = sequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == reversed_sequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
+                                                    int decoy_begin = decoy_end - original_array.Length + 1;
+                                                    Array.Reverse(original_array);
+                                                    Array.Reverse(variation_array);
+                                                    decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
+                                                }
+                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP, name, full_name, true, IsContaminant, null, decoy_variations, decoy_disulfides);
 
                                                 result.Add(decoy_protein);
                                             }
@@ -296,15 +344,17 @@ namespace UsefulProteomicsDatabases
                                         sequence = null;
                                         feature_type = null;
                                         feature_description = null;
+                                        original_value = "";
+                                        variation_value = "";
                                         dbReference_type = null;
                                         dbReference_id = null;
                                         property_types = new List<string>();
                                         property_values = new List<string>();
                                         oneBasedfeature_position = -1;
                                         oneBasedModifications = new Dictionary<int, List<Modification>>();
-                                        oneBasedBeginPositions = new List<int?>();
-                                        oneBasedEndPositions = new List<int?>();
-                                        peptideTypes = new List<string>();
+                                        proteolysisProducts = new List<ProteolysisProduct>();
+                                        sequenceVariations = new List<SequenceVariation>();
+                                        disulfideBonds = new List<DisulfideBond>();
                                         databaseReferences = new List<DatabaseReference>();
                                         gene_names = new List<Tuple<string, string>>();
                                         reading_gene = false;
@@ -331,7 +381,7 @@ namespace UsefulProteomicsDatabases
             last_database_location = proteinDbLocation;
 
             StringBuilder storedKnownModificationsBuilder = new StringBuilder();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex startingWhitespace = new Regex(@"/^\s+/gm");
                 Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
@@ -390,14 +440,9 @@ namespace UsefulProteomicsDatabases
 
             Regex substituteWhitespace = new Regex(@"\s+");
 
-            int?[] oneBasedBeginPositions = null;
-            int?[] oneBasedEndPositions = null;
-            string[] productTypes = null;
-            Dictionary<int, List<Modification>> oneBasedModifications = new Dictionary<int, List<Modification>>();
-            List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
             List<Protein> result = new List<Protein>();
 
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open))
+            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Stream fastaFileStream = proteinDbLocation.EndsWith(".gz") ?
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
@@ -441,7 +486,7 @@ namespace UsefulProteomicsDatabases
                             unique_identifier++;
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, false, IsContaminant, databaseReferences);
+                        Protein protein = new Protein(sequence, accession, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant);
                         result.Add(protein);
 
                         if (onTheFlyDecoys)
@@ -450,7 +495,7 @@ namespace UsefulProteomicsDatabases
                             int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                             Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                             var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, oneBasedModifications, oneBasedBeginPositions, oneBasedEndPositions, productTypes, name, full_name, true, IsContaminant, null);
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant);
                             result.Add(decoy_protein);
                         }
 

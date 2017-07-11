@@ -52,7 +52,7 @@ namespace UsefulProteomicsDatabases
 
         #region Public Methods
 
-        public static IEnumerable<ModificationWithLocation> ReadModsFromFile(string ptmListLocation)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
             return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>());
         }
@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
-        public static IEnumerable<ModificationWithLocation> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary)
         {
             using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
@@ -109,7 +109,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="storedModifications"></param>
         /// <returns></returns>
-        public static IEnumerable<ModificationWithLocation> ReadModsFromString(string storedModifications)
+        public static IEnumerable<Modification> ReadModsFromString(string storedModifications)
         {
             using (StringReader uniprot_mods = new StringReader(storedModifications))
             {
@@ -160,7 +160,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="specification"></param>
         /// <returns></returns>
-        private static IEnumerable<ModificationWithLocation> ReadMod(List<string> specification, Dictionary<string, int> formalChargesDictionary)
+        private static IEnumerable<Modification> ReadMod(List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
             // UniProt fields
             string id = null;
@@ -173,8 +173,8 @@ namespace UsefulProteomicsDatabases
             var externalDatabaseLinks = new Dictionary<string, IList<string>>();
 
             // Custom fields
-            IEnumerable<double> neutralLosses = null;
-            IEnumerable<double> diagnosticIons = null;
+            List<double> neutralLosses = null;
+            List<double> diagnosticIons = null;
             string modificationType = null;
 
             foreach (string line in specification)
@@ -258,52 +258,52 @@ namespace UsefulProteomicsDatabases
                                         correctionFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
                                     break;
                                 }
-
-                            if (terminusLocalizationString != null && motifs != null)
-                                if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out ModificationSites terminusLocalization))
+                            if (terminusLocalizationString == null || motifs == null)
+                                yield return new Modification(id, modificationType);
+                            else if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out ModificationSites terminusLocalization))
+                            {
+                                foreach (var singleTarget in motifs)
                                 {
-                                    foreach (var singleTarget in motifs)
+                                    string theMotif;
+                                    if (aminoAcidCodes.TryGetValue(singleTarget, out char possibleMotifChar))
+                                        theMotif = possibleMotifChar.ToString();
+                                    else
+                                        theMotif = singleTarget;
+                                    if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                     {
-                                        string theMotif;
-                                        if (aminoAcidCodes.TryGetValue(singleTarget, out char possibleMotifChar))
-                                            theMotif = possibleMotifChar.ToString();
-                                        else
-                                            theMotif = singleTarget;
-                                        if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
-                                        {
-                                            // Add the modification!
+                                        // Add the modification!
 
-                                            if (!monoisotopicMass.HasValue)
+                                        if (!monoisotopicMass.HasValue)
+                                        {
+                                            // Return modification
+                                            yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
+                                        }
+                                        else
+                                        {
+                                            if (correctionFormula == null)
                                             {
-                                                // Return modification
-                                                yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
+                                                // Return modification with mass
+                                                yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                    neutralLosses,
+                                                    diagnosticIons,
+                                                    modificationType);
                                             }
                                             else
                                             {
-                                                if (correctionFormula == null)
-                                                {
-                                                    // Return modification with mass
-                                                    yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
-                                                        neutralLosses ?? new List<double> { 0 },
-                                                        diagnosticIons ?? new List<double>(),
-                                                        modificationType);
-                                                }
-                                                else
-                                                {
-                                                    // Return modification with complete information!
-                                                    yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
-                                                        neutralLosses ?? new List<double> { 0 },
-                                                        diagnosticIons ?? new List<double>(),
-                                                        modificationType);
-                                                }
+                                                // Return modification with complete information!
+                                                yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                    neutralLosses,
+                                                    diagnosticIons,
+                                                    modificationType);
                                             }
                                         }
-                                        else
-                                            throw new PtmListLoaderException("Could not get motif from " + singleTarget);
                                     }
+                                    else
+                                        throw new PtmListLoaderException("Could not get motif from " + singleTarget);
                                 }
-                                else
-                                    throw new PtmListLoaderException("Could not get modification site from " + terminusLocalizationString);
+                            }
+                            else
+                                throw new PtmListLoaderException("Could not get modification site from " + terminusLocalizationString);
                             break;
                     }
                 }
