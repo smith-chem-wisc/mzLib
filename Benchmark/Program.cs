@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using UsefulProteomicsDatabases;
 
 namespace Benchmark
@@ -147,6 +148,9 @@ namespace Benchmark
 
         private static void Main(string[] args)
         {
+            using (WebClient Client = new WebClient())
+                Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", "Dddd.temp");
+
             DoubleRange r = new DoubleRange(-187, double.PositiveInfinity);
             Console.WriteLine(r);
             Console.WriteLine(r.ToString());
