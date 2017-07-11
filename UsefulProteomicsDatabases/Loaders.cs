@@ -35,7 +35,7 @@ namespace UsefulProteomicsDatabases
 
         static Loaders()
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
         }
 
         #endregion Public Constructors
