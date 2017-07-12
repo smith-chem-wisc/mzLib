@@ -192,7 +192,7 @@ namespace Test
         [Test]
         public void MassRangeFromDAWidth()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
 
             Assert.AreEqual(8, range1.Width);
         }
@@ -200,7 +200,7 @@ namespace Test
         [Test]
         public void MassRangeFromDAMean()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
 
             Assert.AreEqual(10, range1.Mean);
         }
@@ -208,7 +208,7 @@ namespace Test
         [Test]
         public void MassRangeFromDAMin()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
 
             Assert.AreEqual(6, range1.Minimum);
         }
@@ -216,48 +216,16 @@ namespace Test
         [Test]
         public void MassRangeFromDAMax()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
 
             Assert.AreEqual(14, range1.Maximum);
         }
 
         [Test]
-        public void MassRangeFromDANullMean()
-        {
-            var range1 = new DoubleRange(10, null);
-
-            Assert.AreEqual(10, range1.Mean);
-        }
-
-        [Test]
-        public void MassRangeFromDANullWidth()
-        {
-            var range1 = new DoubleRange(10, null);
-
-            Assert.AreEqual(0, range1.Width);
-        }
-
-        [Test]
-        public void MassRangeFromDANullMin()
-        {
-            var range1 = new DoubleRange(10, null);
-
-            Assert.AreEqual(10, range1.Minimum);
-        }
-
-        [Test]
-        public void MassRangeFromDANullMax()
-        {
-            var range1 = new DoubleRange(10, null);
-
-            Assert.AreEqual(10, range1.Maximum);
-        }
-
-        [Test]
         public void MassRangeFromDANegative()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
-            var range2 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, -4));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
+            var range2 = new AbsoluteTolerance(-4).GetRange(10);
 
             Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
             Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
@@ -266,7 +234,7 @@ namespace Test
         [Test]
         public void RangeFromRange()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
             var range2 = new DoubleRange(range1);
             Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
             Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
@@ -275,8 +243,8 @@ namespace Test
         [Test]
         public void SuperRange()
         {
-            var range1 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 4));
-            var range2 = new DoubleRange(10, new Tolerance(ToleranceUnit.Absolute, 3));
+            var range1 = new AbsoluteTolerance(4).GetRange(10);
+            var range2 = new AbsoluteTolerance(3).GetRange(10);
             Assert.IsTrue(range1.IsSuperRange(range2));
         }
 
@@ -284,7 +252,7 @@ namespace Test
         public void TestDoubleRangeStuff()
         {
             DoubleRange range1 = new DoubleRange(new DoubleRange(1000000 - 1, 1000000 + 1));
-            DoubleRange range2 = new DoubleRange(1000000, new Tolerance(ToleranceUnit.PPM, 1));
+            DoubleRange range2 = new PpmTolerance(1).GetRange(1000000);
 
             Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
             Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);

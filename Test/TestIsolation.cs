@@ -72,6 +72,7 @@ namespace Test
             var cool = myMsDataFile.Last() as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
             int maxAssumedChargeState = 1;
+            Tolerance massTolerance = Tolerance.ParseToleranceString("10 PPM");
 
             var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, 10, 5, b => true).ToList();
 
@@ -113,7 +114,9 @@ namespace Test
             var cool = myMsDataFile.Last() as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
             int maxAssumedChargeState = 2;
-            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, 10, 5, b=>true).ToList();
+            Tolerance massTolerance = Tolerance.ParseToleranceString("10 PPM");
+
+            var isolatedMasses = cool.GetIsolatedMassesAndCharges(myMsDataFile.GetOneBasedScan(cool.OneBasedPrecursorScanNumber).MassSpectrum, maxAssumedChargeState, massTolerance, 5).ToList();
 
             Assert.AreEqual(2, isolatedMasses.Count);
             Assert.AreEqual(1, isolatedMasses.Count(b => b.charge == 1));

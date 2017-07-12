@@ -24,28 +24,13 @@ namespace Test
     [TestFixture]
     public sealed class MassToleranceTestFixture
     {
+
         #region Public Methods
 
         [Test]
         public void MassToleranceConstructorDaValue()
         {
-            var tol = new Tolerance(ToleranceUnit.Absolute, 10);
-
-            Assert.AreEqual(10, tol.Value);
-        }
-
-        [Test]
-        public void MassToleranceConstructorDaType()
-        {
-            var tol = new Tolerance(ToleranceUnit.Absolute, 10);
-
-            Assert.AreEqual(ToleranceUnit.Absolute, tol.Unit);
-        }
-
-        [Test]
-        public void MassToleranceFromDaValue()
-        {
-            var tol = Tolerance.FromAbsolute(10);
+            var tol = new AbsoluteTolerance(10);
 
             Assert.AreEqual(10, tol.Value);
         }
@@ -53,7 +38,7 @@ namespace Test
         [Test]
         public void MassToleranceImplicitValue()
         {
-            var tol = new Tolerance("10 ppm");
+            var tol = Tolerance.ParseToleranceString("10 ppm");
 
             Assert.AreEqual(10, tol.Value);
 
@@ -62,57 +47,9 @@ namespace Test
         }
 
         [Test]
-        public void MassToleranceImplicitType()
-        {
-            var tol = new Tolerance("10 ppm");
-
-            Assert.AreEqual(ToleranceUnit.PPM, tol.Unit);
-        }
-
-        [Test]
-        public void MassToleranceFromDaType()
-        {
-            var tol = Tolerance.FromAbsolute(10);
-
-            Assert.AreEqual(ToleranceUnit.Absolute, tol.Unit);
-        }
-
-        [Test]
-        public void GetToleranceDaPositive()
-        {
-            double value = Tolerance.GetTolerance(10, 5, ToleranceUnit.Absolute);
-
-            Assert.AreEqual(5, value);
-        }
-
-        [Test]
-        public void GetToleranceDaNegative()
-        {
-            double value = Tolerance.GetTolerance(5, 10, ToleranceUnit.Absolute);
-
-            Assert.AreEqual(5, value);
-        }
-
-        [Test]
-        public void GetToleranceDaZero()
-        {
-            double value = Tolerance.GetTolerance(10, 10, ToleranceUnit.Absolute);
-
-            Assert.AreEqual(0, value);
-        }
-
-        [Test]
-        public void GetTolerancePPMPositive()
-        {
-            double value = Tolerance.GetTolerance(500.001, 500.0, ToleranceUnit.PPM);
-
-            Assert.AreEqual(1.9999999999527063, value);
-        }
-
-        [Test]
         public void ToleranceWithin1()
         {
-            var tol = Tolerance.FromPpm(10);
+            var tol = new PpmTolerance(10);
 
             Assert.IsTrue(tol.Within(500, 500.005));
         }
@@ -120,7 +57,7 @@ namespace Test
         [Test]
         public void ToleranceNewTest()
         {
-            var tol = new Tolerance(ToleranceUnit.Absolute, 9, 10);
+            var tol = new AbsoluteTolerance(1);
             Assert.AreEqual(4, tol.GetRange(5).Minimum);
             Assert.AreEqual(6, tol.GetRange(5).Maximum);
         }
@@ -128,7 +65,7 @@ namespace Test
         [Test]
         public void ToleranceMinMaxTest()
         {
-            var tol = new Tolerance(ToleranceUnit.Absolute, 9, 10);
+            var tol = new AbsoluteTolerance(1);
             Assert.AreEqual(2, tol.GetMaximumValue(1));
             Assert.AreEqual(0, tol.GetMinimumValue(1));
         }
@@ -136,12 +73,13 @@ namespace Test
         [Test]
         public void TolerancePPMGetRange()
         {
-            var tol = new Tolerance(ToleranceUnit.PPM, 1e6 - 1, 1e6);
+            var tol = new PpmTolerance(1);
             Assert.AreEqual(20, tol.GetRange(1e7).Width);
 
             Assert.AreEqual("±1.0000 PPM", tol.ToString());
         }
 
         #endregion Public Methods
+
     }
 }

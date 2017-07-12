@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using UsefulProteomicsDatabases;
 
 namespace Benchmark
@@ -148,65 +149,6 @@ namespace Benchmark
 
         private static void Main(string[] args)
         {
-            Loaders.LoadElements("elements2.dat");
-
-            Console.WriteLine("Neucode mass:" + ChemicalFormula.ParseFormula("H{2}8 H{1}-8 N{15}-2 C{13}-6 N{14}2 C{12}6").MonoisotopicMass);
-
-            int? minScan = 605;
-            int? maxScan = 631;
-            double deconvolutionTolerancePpm = 1;
-            double aggregationTolerancePpm = 3;
-            //string filename = @"C:\Users\stepa\Desktop\DeconvolutionStuff\03-01-17_B2A_targeted_td_yeast_fract6_intact.raw";
-            //string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-23-15_A_fract5_rep2.raw";
-            string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\2to1-10-28-15_S_fract5_rep1.raw";
-            int maxAssumedChargeState = 30;
-            double intensityRatioLimit = 2;
-            Func<IMzPeak, bool> peakFilter = b => (b as ThermoMzPeak).SignalToNoise > 2;
-            //Func<IMzPeak, bool> peakFilter = b => true;
-
-            //IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw = ThermoStaticData.LoadAllStaticData(filename);
-            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw = ThermoDynamicData.InitiateDynamicConnection(filename);
-            List<DeconvolutionFeatureWithMassesAndScans> nice = raw.Deconvolute(minScan, maxScan, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm).ToList();
-            Console.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Take(15)));
-
-            Console.WriteLine();
-
-            //Console.WriteLine("Combining 3");
-            //IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> f = new GeneratedMsDataFile(raw, 3, 1);
-            //nice = f.Deconvolute(minScan - 1, maxScan - 1, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm).ToList();
-            //Console.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.TotalIntensity).Take(5)));
-
-            //Console.WriteLine();
-
-            //Console.WriteLine();
-            //Console.WriteLine("Combining 5");
-            //f = new GeneratedMsDataFile(raw, 5, 1);
-            //nice = f.Deconvolute(minScan - 2, maxScan - 2, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm).ToList();
-            //Console.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.TotalIntensity).Take(10).Select(b => b.OneLineString())));
-
-            //Console.WriteLine();
-            //Console.WriteLine("Combining 7");
-            //f = new GeneratedMsDataFile(raw, 7, 1);
-            //nice = f.Deconvolute(minScan - 3, maxScan - 3, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm).ToList();
-            //Console.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.TotalIntensity).Take(10).Select(b => b.OneLineString())));
-
-            //using (System.IO.StreamWriter file =
-            //new System.IO.StreamWriter(@"orderedByNumPeaks.txt"))
-            //{
-            //    file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Select(b => b.OneLineString())));
-            //}
-
-            //using (System.IO.StreamWriter file =
-            //new System.IO.StreamWriter(@"orderedByElution.txt"))
-            //{
-            //    file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => (b.MinElutionTime + b.MaxElutionTime) / 2).Select(b => b.OneLineString())));
-            //}
-
-            //using (System.IO.StreamWriter file =
-            //new System.IO.StreamWriter(@"orderedByTotalIntensity.txt"))
-            //{
-            //    file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.TotalIntensity).Select(b => b.OneLineString())));
-            //}
 
             //Dictionary<string, Modification> um;
             //ProteinDbLoader.LoadProteinXML(@"C:\Users\stepa\Desktop\01012017_MM_ONLYGPTMD.xml", true, new List<Modification>(), false, new List<string> { "GO", "EnsemblFungi" }, null, out um);
