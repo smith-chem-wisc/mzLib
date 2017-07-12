@@ -55,7 +55,7 @@ namespace TestThermo
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
 
-            var sdafaf = a.Deconvolute(null, null, 30, 10, 3, b => true, 10).OrderByDescending(b => b.NumPeaks).First();
+            var sdafaf = a.Deconvolute(null, null, 30, 10, 3, b => true, 10, b => true).OrderByDescending(b => b.NumPeaks).First();
 
             Assert.IsTrue(Math.Abs(262.64 - sdafaf.Mass.ToMz(2)) <= 0.01);
 

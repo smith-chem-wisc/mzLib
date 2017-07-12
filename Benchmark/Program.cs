@@ -195,6 +195,12 @@ namespace Benchmark
                 file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => b.MinScanIndex).Select(b => b.OneLineString())));
             }
 
+            using (System.IO.StreamWriter file =
+            new System.IO.StreamWriter(@"out-elutionTime.txt"))
+            {
+                file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => (b.MinElutionTime+b.MaxElutionTime)/2).Select(b => b.OneLineString())));
+            }
+
 
 
             using (WebClient Client = new WebClient())
