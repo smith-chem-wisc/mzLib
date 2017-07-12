@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using UsefulProteomicsDatabases;
 
 namespace Benchmark
@@ -172,6 +173,12 @@ namespace Benchmark
             {
                 file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Select(b => b.OneLineString())));
             }
+            using (WebClient Client = new WebClient())
+                Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", "Dddd.temp");
+
+            DoubleRange r = new DoubleRange(-187, double.PositiveInfinity);
+            Console.WriteLine(r);
+            Console.WriteLine(r.ToString());
 
             //Dictionary<string, Modification> um;
             //ProteinDbLoader.LoadProteinXML(@"C:\Users\stepa\Desktop\01012017_MM_ONLYGPTMD.xml", true, new List<Modification>(), false, new List<string> { "GO", "EnsemblFungi" }, null, out um);

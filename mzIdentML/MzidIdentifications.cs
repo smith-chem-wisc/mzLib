@@ -70,15 +70,15 @@ namespace MzIdentML
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
             }
         }
@@ -91,15 +91,15 @@ namespace MzIdentML
                 {
                     var hm = dd.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
                 catch
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           new Tolerance(ToleranceUnit.Absolute, Convert.ToDouble(hm[0].value)) :
-                           new Tolerance(ToleranceUnit.PPM, Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value));
                 }
             }
         }

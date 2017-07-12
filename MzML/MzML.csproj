@@ -49,6 +49,7 @@
     <Compile Include="IMzmlScan.cs" />
     <Compile Include="Mzml.cs" />
     <Compile Include="MzmlMethods.cs" />
+    <Compile Include="MzmlReaderException.cs" />
     <Compile Include="MzmlScanWithPrecursor.cs" />
     <Compile Include="MzmlScan.cs" />
     <Compile Include="MzmlSpectrum.cs" />

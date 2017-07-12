@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using System;
-
 namespace MzLibUtil
 {
     public class DoubleRange
@@ -44,25 +42,6 @@ namespace MzLibUtil
         public DoubleRange(DoubleRange range)
             : this(range.Minimum, range.Maximum)
         {
-        }
-
-        /// <summary>
-        /// Creates a range around some mean value with a specified tolerance.
-        /// <para>
-        /// i.e. 10 ppm at 500 would give you 499.9975 - 500.0025
-        /// which has a width of 0.005. Converting back to ppm
-        /// (1e6) *0.005 / 500 = 10 ppm.
-        /// </para>
-        /// <para>
-        /// The difference from the mean value to an boundary is exactly
-        /// half the tolerance you specified
-        /// </para>
-        /// </summary>
-        /// <param name="mean">The mean value for the range</param>
-        /// <param name="tolerance">The tolerance range</param>
-        public DoubleRange(double mean, Tolerance tolerance)
-        {
-            SetTolerance(mean, tolerance);
         }
 
         #endregion Public Constructors
@@ -161,37 +140,6 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
-
-        #region Internal Methods
-
-        internal void SetTolerance(double mean, Tolerance tolerance)
-        {
-            if (tolerance == null)
-            {
-                Minimum = mean;
-                Maximum = mean;
-                return;
-            }
-
-            double value = Math.Abs(tolerance.Value);
-
-            value *= 2;
-
-            switch (tolerance.Unit)
-            {
-                default:
-                    Minimum = mean - value / 2.0;
-                    Maximum = mean + value / 2.0;
-                    break;
-
-                case ToleranceUnit.PPM:
-                    Minimum = mean - mean * value / 2e6;
-                    Maximum = mean + mean * value / 2e6;
-                    break;
-            }
-        }
-
-        #endregion Internal Methods
 
     }
 }
