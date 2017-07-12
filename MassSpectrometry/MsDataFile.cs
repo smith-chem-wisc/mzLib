@@ -119,7 +119,7 @@ namespace MassSpectrometry
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, Func<IMzPeak, bool> peakFilter, double aggregationTolerancePpm)
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, Func<IMzPeak, bool> peakFilter, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc)
         {
             minScan = minScan ?? 1;
             maxScan = maxScan ?? NumSpectra;
@@ -130,13 +130,16 @@ namespace MassSpectrometry
                 for (int scanIndex = fff.Item1; scanIndex < fff.Item2; scanIndex++)
                 {
                     var theScan = GetOneBasedScan(scanIndex);
-                    allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter).ToList();
+                    if (scanFilterFunc(theScan))
+                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter).ToList();
                 }
             });
 
             List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
             for (int scanIndex = minScan.Value; scanIndex <= maxScan.Value; scanIndex++)
             {
+                if (allAggregateGroups[scanIndex - minScan.Value] == null)
+                    continue;
                 foreach (var isotopicEnvelope in allAggregateGroups[scanIndex - minScan.Value])
                 {
                     DeconvolutionFeatureWithMassesAndScans matchingGroup = null;

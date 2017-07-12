@@ -32,7 +32,7 @@ namespace MassSpectrometry
 
         #region Private Fields
 
-        private const int numJ = 3;
+        private const int numJ = 1;
         private const int numAveragines = 550;
         private static readonly double[][][] allMasses = new double[numJ][][];
         private static readonly double[][][] allIntensities = new double[numJ][][];
@@ -89,45 +89,45 @@ namespace MassSpectrometry
                     allIntensities[0][i] = intensities;
                 }
 
-                // Light
-                {
-                    int numberOfLysines = (int)(0.0582 * numAveragines);
-                    ChemicalFormula chemicalFormulaLight = new ChemicalFormula(chemicalFormula);
-                    chemicalFormulaLight.Add(PeriodicTable.GetElement(6)[13], 6 * numberOfLysines);
-                    chemicalFormulaLight.Add(PeriodicTable.GetElement(6), -6 * numberOfLysines);
-                    chemicalFormulaLight.Add(PeriodicTable.GetElement(7)[15], 2 * numberOfLysines);
-                    chemicalFormulaLight.Add(PeriodicTable.GetElement(7), -2 * numberOfLysines);
-                    IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaLight, fineRes, minRes);
-                    var masses = ye.Masses.ToArray();
-                    var intensities = ye.Intensities.ToArray();
-                    Array.Sort(intensities, masses);
-                    Array.Reverse(intensities);
-                    Array.Reverse(masses);
+                //// Light
+                //{
+                //    int numberOfLysines = (int)(0.0582 * numAveragines);
+                //    ChemicalFormula chemicalFormulaLight = new ChemicalFormula(chemicalFormula);
+                //    chemicalFormulaLight.Add(PeriodicTable.GetElement(6)[13], 6 * numberOfLysines);
+                //    chemicalFormulaLight.Add(PeriodicTable.GetElement(6), -6 * numberOfLysines);
+                //    chemicalFormulaLight.Add(PeriodicTable.GetElement(7)[15], 2 * numberOfLysines);
+                //    chemicalFormulaLight.Add(PeriodicTable.GetElement(7), -2 * numberOfLysines);
+                //    IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaLight, fineRes, minRes);
+                //    var masses = ye.Masses.ToArray();
+                //    var intensities = ye.Intensities.ToArray();
+                //    Array.Sort(intensities, masses);
+                //    Array.Reverse(intensities);
+                //    Array.Reverse(masses);
 
-                    mostIntenseMasses[1][i] = masses[0];
-                    diffToMonoisotopic[1][i] = masses[0] - chemicalFormulaLight.MonoisotopicMass;
-                    allMasses[1][i] = masses;
-                    allIntensities[1][i] = intensities;
-                }
+                //    mostIntenseMasses[1][i] = masses[0];
+                //    diffToMonoisotopic[1][i] = masses[0] - chemicalFormulaLight.MonoisotopicMass;
+                //    allMasses[1][i] = masses;
+                //    allIntensities[1][i] = intensities;
+                //}
 
-                // Heavy
-                {
-                    int numberOfLysines = (int)(0.0582 * numAveragines);
-                    ChemicalFormula chemicalFormulaHeavy = new ChemicalFormula(chemicalFormula);
-                    chemicalFormulaHeavy.Add(PeriodicTable.GetElement(1)[2], 8 * numberOfLysines);
-                    chemicalFormulaHeavy.Add(PeriodicTable.GetElement(1), -8 * numberOfLysines);
-                    IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaHeavy, fineRes, minRes);
-                    var masses = ye.Masses.ToArray();
-                    var intensities = ye.Intensities.ToArray();
-                    Array.Sort(intensities, masses);
-                    Array.Reverse(intensities);
-                    Array.Reverse(masses);
+                //// Heavy
+                //{
+                //    int numberOfLysines = (int)(0.0582 * numAveragines);
+                //    ChemicalFormula chemicalFormulaHeavy = new ChemicalFormula(chemicalFormula);
+                //    chemicalFormulaHeavy.Add(PeriodicTable.GetElement(1)[2], 8 * numberOfLysines);
+                //    chemicalFormulaHeavy.Add(PeriodicTable.GetElement(1), -8 * numberOfLysines);
+                //    IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaHeavy, fineRes, minRes);
+                //    var masses = ye.Masses.ToArray();
+                //    var intensities = ye.Intensities.ToArray();
+                //    Array.Sort(intensities, masses);
+                //    Array.Reverse(intensities);
+                //    Array.Reverse(masses);
 
-                    mostIntenseMasses[2][i] = masses[0];
-                    diffToMonoisotopic[2][i] = masses[0] - chemicalFormulaHeavy.MonoisotopicMass;
-                    allMasses[2][i] = masses;
-                    allIntensities[2][i] = intensities;
-                }
+                //    mostIntenseMasses[2][i] = masses[0];
+                //    diffToMonoisotopic[2][i] = masses[0] - chemicalFormulaHeavy.MonoisotopicMass;
+                //    allMasses[2][i] = masses;
+                //    allIntensities[2][i] = intensities;
+                //}
 
                 //{
                 //    ChemicalFormula chemicalFormulaMg = new ChemicalFormula(chemicalFormula);
@@ -290,7 +290,7 @@ namespace MassSpectrometry
                 {
                     var testMostIntenseMass = candidateForMostIntensePeak.Mz.ToMass(chargeState);
 
-                    for (int j = 1; j < numJ; j++)
+                    for (int j = 0; j < numJ; j++)
                     {
                         var massIndex = Array.BinarySearch(mostIntenseMasses[j], testMostIntenseMass);
                         if (massIndex < 0)

@@ -153,26 +153,50 @@ namespace Benchmark
 
             int? minScan = null;
             int? maxScan = null;
-            double deconvolutionTolerancePpm = 10;
-            double aggregationTolerancePpm = 10;
+            double deconvolutionTolerancePpm = 5;
+            double aggregationTolerancePpm = 5;
             //string filename = @"C:\Users\stepa\Desktop\DeconvolutionStuff\03-01-17_B2A_targeted_td_yeast_fract6_intact.raw";
             //string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-23-15_A_fract5_rep2.raw";
-            string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-28-15_S_fract5_rep1.raw";
-            int maxAssumedChargeState = 30;
-            double intensityRatioLimit = 2;
+            //string filename = @"C:\Users\stepa\Desktop\neucode_for_deconv\10-28-15_S_fract5_rep1.raw";
+            string filename = @"C:\Users\stepa\Desktop\RobDeconvolution\B02_06_161103_A1_HCD_OT_4ul.raw";
+            int maxAssumedChargeState = 10;
+            double intensityRatioLimit = 4;
             Func<IMzPeak, bool> peakFilter = b => (b as ThermoMzPeak).SignalToNoise > 2;
 
-            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> f = ThermoDynamicData.InitiateDynamicConnection(filename);
+            IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> f = ThermoStaticData.LoadAllStaticData(filename);
+            //IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> f = ThermoDynamicData.InitiateDynamicConnection(filename);
 
-            IEnumerable<DeconvolutionFeatureWithMassesAndScans> nice = f.Deconvolute(minScan, maxScan, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm);
+            Func<IMsDataScan<IMzSpectrum<IMzPeak>>, bool> scanFilterFunc = b => b.MsnOrder == 1;
+            IEnumerable<DeconvolutionFeatureWithMassesAndScans> nice = f.Deconvolute(minScan, maxScan, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter, aggregationTolerancePpm, scanFilterFunc);
 
             Console.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Take(10)));
 
             using (System.IO.StreamWriter file =
-            new System.IO.StreamWriter(@"out.txt"))
+            new System.IO.StreamWriter(@"out-numPeaks.txt"))
             {
                 file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.NumPeaks).Select(b => b.OneLineString())));
             }
+
+            using (System.IO.StreamWriter file =
+            new System.IO.StreamWriter(@"out-int.txt"))
+            {
+                file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.TotalIntensity).Select(b => b.OneLineString())));
+            }
+
+            using (System.IO.StreamWriter file =
+            new System.IO.StreamWriter(@"out-Mass.txt"))
+            {
+                file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => -b.Mass).Select(b => b.OneLineString())));
+            }
+
+            using (System.IO.StreamWriter file =
+            new System.IO.StreamWriter(@"out-MinScanIndex.txt"))
+            {
+                file.WriteLine(string.Join(Environment.NewLine, nice.OrderBy(b => b.MinScanIndex).Select(b => b.OneLineString())));
+            }
+
+
+
             using (WebClient Client = new WebClient())
                 Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", "Dddd.temp");
 
