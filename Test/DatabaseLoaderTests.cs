@@ -125,6 +125,10 @@ namespace Test
 
             string stringRepresentation = "ID   (3R)-3-hydroxyarginine\r\nMT   Uniprot\r\nPP   Anywhere.\r\nDR   RESID; AA0601\r\nDR   PSI-MOD; MOD:01956\r\nTG   R\r\nMM   15.994915\r\nCF   O";
             Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
+
+            // N,N,N-trimethylalanine
+            Assert.IsTrue((sampleModList[156] as ModificationWithMass).monoisotopicMass > 42);
+            Assert.IsTrue((sampleModList[156] as ModificationWithMass).monoisotopicMass < 43);
         }
 
         [Test]
