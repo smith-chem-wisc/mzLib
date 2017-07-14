@@ -78,7 +78,7 @@ namespace MassSpectrometry
                 if ((nextMz - lastPeak.Mz) / lastPeak.Mz * 1e6 <= ppmTolerance)
                 {
                     // Combine next peak with lastPeak
-                    lastPeak.Add(nextMz, nextPeaksIntensites[indexOfNextScanToConsider]);
+                    lastPeak.AddMzPeak(nextMz, nextPeaksIntensites[indexOfNextScanToConsider]);
                 }
                 else
                 {

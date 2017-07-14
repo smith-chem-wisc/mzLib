@@ -25,16 +25,14 @@ namespace MassSpectrometry
 
         #region Internal Methods
 
-        internal void Add(double nextMz, double v)
+        internal void AddMzPeak(double anotherMz, double anotherIntensity)
         {
-            mzs.Add(nextMz);
-            intensities.Add(v);
+            mzs.Add(anotherMz);
+            intensities.Add(anotherIntensity);
             Y = intensities.Sum();
             double weightedSumMz = 0;
             for (int i = 0; i < mzs.Count; i++)
-            {
                 weightedSumMz += mzs[i] * intensities[i];
-            }
             X = weightedSumMz / Y;
         }
 
