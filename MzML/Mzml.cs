@@ -187,7 +187,7 @@ namespace IO.MzML
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzmlReaderException("!msOrder.HasValue || !isCentroid.HasValue");
+                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -261,7 +261,7 @@ namespace IO.MzML
             }
 
             if (!isolationMz.HasValue)
-                throw new MzmlReaderException("!isolationMz.HasValue");
+                throw new MzLibException("!isolationMz.HasValue");
 
             DissociationType dissociationType = DissociationType.Unknown;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)

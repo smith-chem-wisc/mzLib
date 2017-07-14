@@ -25,7 +25,7 @@ namespace TestThermo
         [Test]
         public void ThermoLoadError()
         {
-            Assert.Throws<ThermoReadException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
+            Assert.Throws<MzLibException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
         }
 
         [Test]

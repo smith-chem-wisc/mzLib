@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MzLibUtil;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -210,7 +211,7 @@ namespace UsefulProteomicsDatabases
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
                             double thisMM;
                             if (!double.TryParse(line.Substring(5), NumberStyles.Any, CultureInfo.InvariantCulture, out thisMM))
-                                throw new PtmListLoaderException(line.Substring(5) + " is not a valid monoisotopic mass");
+                                throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass");
                             monoisotopicMass = thisMM;
                             break;
 
@@ -241,13 +242,13 @@ namespace UsefulProteomicsDatabases
 
                         case "//":
                             if (id == null)
-                                throw new PtmListLoaderException("id is null");
+                                throw new MzLibException("id is null");
                             if (uniprotFT != null && uniprotFT.Equals("CROSSLNK"))
                                 break;
                             if (uniprotAC != null)
                                 modificationType = "Uniprot";
                             if (modificationType == null)
-                                throw new PtmListLoaderException("modificationType of " + id + " is null");
+                                throw new MzLibException("modificationType of " + id + " is null");
 
                             foreach (var dbAndAccession in externalDatabaseLinks.SelectMany(b => b.Value.Select(c => b.Key + "; " + c)))
                                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
@@ -299,11 +300,11 @@ namespace UsefulProteomicsDatabases
                                         }
                                     }
                                     else
-                                        throw new PtmListLoaderException("Could not get motif from " + singleTarget);
+                                        throw new MzLibException("Could not get motif from " + singleTarget);
                                 }
                             }
                             else
-                                throw new PtmListLoaderException("Could not get modification site from " + terminusLocalizationString);
+                                throw new MzLibException("Could not get modification site from " + terminusLocalizationString);
                             break;
                     }
                 }

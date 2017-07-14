@@ -748,7 +748,7 @@ namespace Proteomics
         public virtual void SetModification(IHasMass modification, int residueNumber)
         {
             if (residueNumber > Length || residueNumber < 1)
-                throw new ArgumentOutOfRangeException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, residueNumber));
+                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Residue number not in the correct range: [{0}-{1}] you specified: {2}", 1, Length, residueNumber));
 
             ReplaceMod(residueNumber, modification);
         }
@@ -788,7 +788,7 @@ namespace Proteomics
         public virtual int ReplaceModification(IHasMass oldMod, IHasMass newMod)
         {
             if (oldMod == null)
-                throw new ArgumentException("Cannot replace a null modification");
+                throw new MzLibException("Cannot replace a null modification");
 
             int count = 0;
             for (int i = 0; i < Length + 2; i++)
@@ -980,7 +980,7 @@ namespace Proteomics
                     IHasChemicalFormula chemMod = _modifications[i] as IHasChemicalFormula;
 
                     if (chemMod == null)
-                        throw new InvalidCastException("Modification " + _modifications[i] + " does not have a chemical formula!");
+                        throw new MzLibException("Modification " + _modifications[i] + " does not have a chemical formula!");
 
                     formula.Add(chemMod.ThisChemicalFormula);
                 }
@@ -1123,7 +1123,7 @@ namespace Proteomics
                         {
                             modification = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula(modString));
                         }
-                        catch (FormatException)
+                        catch (MzLibException)
                         {
                             if (double.TryParse(modString, out double mass))
                             {
@@ -1131,7 +1131,7 @@ namespace Proteomics
                             }
                             else
                             {
-                                throw new ArgumentException("Unable to correctly parse the following modification: " + modString);
+                                throw new MzLibException("Unable to correctly parse the following modification: " + modString);
                             }
                         }
 
@@ -1177,14 +1177,14 @@ namespace Proteomics
                                 break;
 
                             default:
-                                throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, "Amino Acid Letter {0} does not exist in the Amino Acid Dictionary. {0} is also not a valid character", letter));
+                                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Amino Acid Letter {0} does not exist in the Amino Acid Dictionary. {0} is also not a valid character", letter));
                         }
                     }
                 }
             }
 
             if (inMod)
-                throw new ArgumentException("Couldn't find the closing ] for a modification in this sequence: " + sequence);
+                throw new MzLibException("Couldn't find the closing ] for a modification in this sequence: " + sequence);
 
             Length = index;
             MonoisotopicMass += monoMass;

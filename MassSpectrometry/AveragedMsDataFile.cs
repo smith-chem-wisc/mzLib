@@ -5,24 +5,24 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class GeneratedMsDataFile : MsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>>
+    public class AveragedMsDataFile : MsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>>
     {
 
         #region Private Fields
 
-        private IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw;
-        private int numToCombine;
-        private double combinationPpmTolerance;
+        private readonly IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw;
+        private readonly int numScansToAverage;
+        private readonly double ppmToleranceForPeakCombination;
 
         #endregion Private Fields
 
         #region Public Constructors
 
-        public GeneratedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numToCombine, double ppmTolerance) : base(raw.NumSpectra - numToCombine + 1)
+        public AveragedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numScansToAverage, double ppmToleranceForPeakCombination) : base(raw.NumSpectra - numScansToAverage + 1)
         {
             this.raw = raw;
-            this.numToCombine = numToCombine;
-            this.combinationPpmTolerance = ppmTolerance;
+            this.numScansToAverage = numScansToAverage;
+            this.ppmToleranceForPeakCombination = ppmToleranceForPeakCombination;
         }
 
         #endregion Public Constructors
@@ -33,14 +33,17 @@ namespace MassSpectrometry
         {
             if (Scans[oneBasedScanNumber - 1] == null)
             {
-                var representative = raw.GetOneBasedScan(oneBasedScanNumber + (numToCombine - 1) / 2);
+                var representativeScanNumber = oneBasedScanNumber + (numScansToAverage - 1) / 2;
+                var representative = raw.GetOneBasedScan(representativeScanNumber);
+                if (representative.MsnOrder != 1)
+                    throw new MzLibException("Scan " + representativeScanNumber + " is not MS1 scan");
                 int msnOrder = 1;
                 Polarity polarity = representative.Polarity;
                 bool isCentroid = true;
                 double retentionTime = representative.RetentionTime;
                 MZAnalyzerType mzAnalyzer = representative.MzAnalyzer;
 
-                IMzSpectrum<IMzPeak> peaks = CombinePeaks(raw.Where(b => b.OneBasedScanNumber >= oneBasedScanNumber && b.OneBasedScanNumber <= oneBasedScanNumber + numToCombine - 1).Select(b => b.MassSpectrum).ToList(), combinationPpmTolerance);
+                IMzSpectrum<IMzPeak> peaks = CombinePeaks(raw.Where(b => b.OneBasedScanNumber >= oneBasedScanNumber && b.OneBasedScanNumber <= oneBasedScanNumber + numScansToAverage - 1).Select(b => b.MassSpectrum).ToList(), ppmToleranceForPeakCombination);
 
                 MzRange scanWindowRange = peaks.Range;
 
