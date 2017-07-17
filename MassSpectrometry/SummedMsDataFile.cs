@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class AveragedMsDataFile : MsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>>
+    public class SummedMsDataFile : MsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>>
     {
 
         #region Private Fields
@@ -18,7 +18,7 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public AveragedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numScansToAverage, double ppmToleranceForPeakCombination) : base(raw.NumSpectra - numScansToAverage + 1)
+        public SummedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numScansToAverage, double ppmToleranceForPeakCombination) : base(raw.NumSpectra - numScansToAverage + 1)
         {
             this.raw = raw;
             this.numScansToAverage = numScansToAverage;
@@ -39,13 +39,15 @@ namespace MassSpectrometry
                     throw new MzLibException("Scan " + representativeScanNumber + " is not MS1 scan");
                 int msnOrder = 1;
                 Polarity polarity = representative.Polarity;
+                if (!representative.IsCentroid)
+                    throw new MzLibException("Scan " + representativeScanNumber + " is not centroid scan");
                 bool isCentroid = true;
                 double retentionTime = representative.RetentionTime;
                 MZAnalyzerType mzAnalyzer = representative.MzAnalyzer;
 
                 IMzSpectrum<IMzPeak> peaks = CombinePeaks(raw.Where(b => b.OneBasedScanNumber >= oneBasedScanNumber && b.OneBasedScanNumber <= oneBasedScanNumber + numScansToAverage - 1).Select(b => b.MassSpectrum).ToList(), ppmToleranceForPeakCombination);
 
-                MzRange scanWindowRange = peaks.Range;
+                MzRange scanWindowRange = representative.ScanWindowRange;
 
                 double totalIonCurrent = peaks.SumOfAllY;
                 double injectionTime = double.NaN;
@@ -64,10 +66,10 @@ namespace MassSpectrometry
         {
             List<IMzPeak> finalizedPeaks = new List<IMzPeak>();
 
-            int[] peaksLeft = spectraToCombine.Select(b => b.Count()).ToArray();
-            int[] totalPeaks = spectraToCombine.Select(b => b.Count()).ToArray();
-            double[] nextPeakMzs = spectraToCombine.Select(b => b.First().Mz).ToArray();
-            double[] nextPeaksIntensites = spectraToCombine.Select(b => b.First().Intensity).ToArray();
+            int[] peaksLeft = spectraToCombine.Select(b => b.Size).ToArray();
+            int[] totalPeaks = spectraToCombine.Select(b => b.Size).ToArray();
+            double[] nextPeakMzs = spectraToCombine.Select(b => b[0].Mz).ToArray();
+            double[] nextPeaksIntensites = spectraToCombine.Select(b => b[0].Intensity).ToArray();
 
             double nextMz = nextPeakMzs.Min();
             int indexOfNextScanToConsider = Array.IndexOf(nextPeakMzs, nextMz);
@@ -99,6 +101,8 @@ namespace MassSpectrometry
                     nextPeaksIntensites[indexOfNextScanToConsider] = spectraToCombine[indexOfNextScanToConsider][totalPeaks[indexOfNextScanToConsider] - peaksLeft[indexOfNextScanToConsider]].Intensity;
                 }
             } while (peaksLeft.Any(b => b > 0));
+
+            finalizedPeaks.Add(lastPeak);
 
             return new GeneratedMzSpectrum(finalizedPeaks.Select(b => b.Mz).ToArray(), finalizedPeaks.Select(b => b.Intensity).ToArray(), false);
         }
