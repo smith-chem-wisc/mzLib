@@ -52,7 +52,6 @@
     <Compile Include="DataScan\IMsDataScanWithPrecursor.cs" />
     <Compile Include="DataScan\MsDataScanWithPrecursor.cs" />
     <Compile Include="AveragedMsDataFile.cs" />
-    <Compile Include="GeneratedMsDataScan.cs" />
     <Compile Include="GeneratedMzSpectrum.cs" />
     <Compile Include="GeneratedPeak.cs" />
     <Compile Include="IIdentifications.cs" />

@@ -51,7 +51,7 @@ namespace MassSpectrometry
                 double injectionTime = double.NaN;
                 double[,] noiseData = null;
 
-                Scans[oneBasedScanNumber - 1] = new GeneratedMsDataScan(peaks, oneBasedScanNumber, msnOrder, isCentroid, polarity, retentionTime, scanWindowRange, oneBasedScanNumber.ToString(), mzAnalyzer, totalIonCurrent, injectionTime, noiseData);
+                Scans[oneBasedScanNumber - 1] = new MsDataScan<IMzSpectrum<IMzPeak>>(peaks, oneBasedScanNumber, msnOrder, isCentroid, polarity, retentionTime, scanWindowRange, oneBasedScanNumber.ToString(), mzAnalyzer, totalIonCurrent, injectionTime, noiseData);
             }
             return Scans[oneBasedScanNumber - 1];
         }
