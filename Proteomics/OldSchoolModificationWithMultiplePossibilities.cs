@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
-using System;
+using MzLibUtil;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -64,7 +64,7 @@ namespace Proteomics
         public void AddModification(OldSchoolModification modification)
         {
             if (!Sites.ContainsSites(modification.Sites))
-                throw new ArgumentException("Unable to add a modification with sites other than " + Sites);
+                throw new MzLibException("Unable to add a modification with sites other than " + Sites);
 
             _modifications.Add(modification.MonoisotopicMass, modification);
         }

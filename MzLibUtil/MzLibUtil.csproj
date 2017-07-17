@@ -50,6 +50,7 @@
   <ItemGroup>
     <Compile Include="ClassExtensions.cs" />
     <Compile Include="DoubleRange.cs" />
+    <Compile Include="MzLibException.cs" />
     <Compile Include="MzRange.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>

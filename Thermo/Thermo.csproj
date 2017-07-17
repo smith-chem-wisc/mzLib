@@ -42,7 +42,6 @@
     <Compile Include="ThermoFile.cs" />
     <Compile Include="ThermoGlobalParams.cs" />
     <Compile Include="ThermoMzPeak.cs" />
-    <Compile Include="ThermoReadException.cs" />
     <Compile Include="ThermoStaticData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>

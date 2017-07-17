@@ -17,12 +17,9 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using IO.MzML;
-using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -86,7 +83,7 @@ namespace Test
         [Test]
         public void SpectrumGetIntensityFirst()
         {
-            Assert.AreEqual(81007096.0, _mzSpectrumA.First().Intensity);
+            Assert.AreEqual(81007096.0, _mzSpectrumA[0].Intensity);
         }
 
         [Test]
@@ -158,22 +155,6 @@ namespace Test
             var filteredMzSpectrum = _mzSpectrumA.FilterByY(28604417, 28604419);
 
             Assert.AreEqual(1, filteredMzSpectrum.Count());
-        }
-
-        [Test]
-        public void SpectrumSelect()
-        {
-            MzSpectrum<MzmlPeak> v2 = _mzSpectrumA;
-            ISpectrum<IPeak> v3 = v2;
-
-            v3.Take(4);
-
-            var v5 = v3.Select(b => b.X);
-            Assert.AreEqual(328.73795, v5.First());
-
-            var bn = v2[0];
-
-            var bsrg = _mzSpectrumA[0];
         }
 
         [Test]
@@ -323,15 +304,6 @@ namespace Test
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(7).X);
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeak(8).X);
-
-            IEnumerable hnm = thisSpectrum;
-
-            double dudu = 0;
-            foreach (var ikik in hnm)
-            {
-                dudu += ((Peak)ikik).X;
-            }
-            Assert.AreEqual(1 + 2 + 3 + 4 + 5 + 6 + 7, dudu);
         }
 
         #endregion Public Methods

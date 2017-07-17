@@ -62,13 +62,16 @@
     <Compile Include="ProteinDbLoader.cs" />
     <Compile Include="ProteinDbWriter.cs" />
     <Compile Include="PtmListLoader.cs" />
-    <Compile Include="PtmListLoaderException.cs" />
     <Compile Include="UnimodLoader.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
     </ProjectReference>
     <ProjectReference Include="..\Proteomics\Proteomics.csproj">
       <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
