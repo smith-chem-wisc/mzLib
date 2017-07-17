@@ -33,6 +33,9 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=3.19.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathNet.Numerics.3.19.0\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -48,6 +51,9 @@
     <Compile Include="Chromatogram\ChromatographicPeak.cs" />
     <Compile Include="DataScan\IMsDataScanWithPrecursor.cs" />
     <Compile Include="DataScan\MsDataScanWithPrecursor.cs" />
+    <Compile Include="SummedMsDataFile.cs" />
+    <Compile Include="GeneratedMzSpectrum.cs" />
+    <Compile Include="GeneratedPeak.cs" />
     <Compile Include="IIdentifications.cs" />
     <Compile Include="IMsDynamicDataFile.cs" />
     <Compile Include="IMsStaticDataFile.cs" />

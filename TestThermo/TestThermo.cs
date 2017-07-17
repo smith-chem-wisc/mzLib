@@ -1,11 +1,10 @@
 using Chemistry;
 using IO.MzML;
 using IO.Thermo;
-using IO.Thermo.Deconvolution;
+using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace TestThermo
@@ -25,7 +24,7 @@ namespace TestThermo
         [Test]
         public void ThermoLoadError()
         {
-            Assert.Throws<ThermoReadException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
+            Assert.Throws<MzLibException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
         }
 
         [Test]
@@ -50,10 +49,6 @@ namespace TestThermo
             Assert.AreEqual(102604, newSpectrum.GetResolutions()[1]);
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
-
-            List<IO.Thermo.Deconvolution.PossibleProteoform> cool = a.GetOneBasedScan(1).MassSpectrum.SpecialThermoDeconvolution(0.1).ToList();
-
-            Assert.AreEqual(523.257, cool[0].GetMonoisotopicMass(), 0.001);
 
             var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, Tolerance.ParseToleranceString("1 PPM"), 4).ToList();
 
@@ -109,7 +104,7 @@ namespace TestThermo
             ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             s1.ReplaceXbyApplyingFunction((a) => 4);
-            Assert.AreEqual(4, s2.First().Mz);
+            Assert.AreEqual(4, s2[0].Mz);
         }
 
         [Test]
@@ -132,12 +127,52 @@ namespace TestThermo
         }
 
         [Test]
-        public void TestIsotopicToString()
+        public void TestSummedMsDataFile()
         {
-            ThermoMzPeak peak = new ThermoMzPeak(10, 15, 6, 7, 8);
-            IsotopicPeakGroup iso = new IsotopicPeakGroup(peak);
-            Assert.AreEqual(iso.ToString(), "C: 6");
-            Console.WriteLine(iso.ToString());
+            ThermoStaticData rawFile = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+
+            // 3 scans
+
+            SummedMsDataFile summed3 = new SummedMsDataFile(rawFile, 3, 10);
+
+            Assert.AreEqual(rawFile.NumSpectra - 2, summed3.NumSpectra);
+
+            var resultingTic = summed3.GetOneBasedScan(1).TotalIonCurrent;
+            var mySummedTic = rawFile.GetOneBasedScan(1).MassSpectrum.SumOfAllY + rawFile.GetOneBasedScan(2).MassSpectrum.SumOfAllY + rawFile.GetOneBasedScan(3).MassSpectrum.SumOfAllY;
+            var instrumentSummedTic = rawFile.GetOneBasedScan(1).TotalIonCurrent + rawFile.GetOneBasedScan(2).TotalIonCurrent + rawFile.GetOneBasedScan(3).TotalIonCurrent;
+
+            // Tics are approximately what they should be
+            Assert.IsTrue(Math.Abs(resultingTic - mySummedTic) / mySummedTic < 1e-4);
+            Assert.IsTrue(Math.Abs(resultingTic - instrumentSummedTic) / instrumentSummedTic < 1e-1);
+
+            // Equal to representative
+            Assert.AreEqual(summed3.GetOneBasedScan(1).RetentionTime, rawFile.GetOneBasedScan(2).RetentionTime);
+
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size <= rawFile.GetOneBasedScan(1).MassSpectrum.Size + rawFile.GetOneBasedScan(2).MassSpectrum.Size + rawFile.GetOneBasedScan(3).MassSpectrum.Size);
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(1).MassSpectrum.Size);
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(2).MassSpectrum.Size);
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(3).MassSpectrum.Size);
+
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity == rawFile.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity + rawFile.GetOneBasedScan(2).MassSpectrum.PeakWithHighestY.Intensity + rawFile.GetOneBasedScan(3).MassSpectrum.PeakWithHighestY.Intensity);
+
+            // Interval of 893-899 mz
+
+            Assert.AreEqual(2, rawFile.GetOneBasedScan(1).MassSpectrum.NumPeaksWithinRange(893, 899));
+            Assert.AreEqual(2, rawFile.GetOneBasedScan(2).MassSpectrum.NumPeaksWithinRange(893, 899));
+            Assert.AreEqual(1, rawFile.GetOneBasedScan(3).MassSpectrum.NumPeaksWithinRange(893, 899));
+
+            // One peak persists across the three scans! So instead of 5 see three peaks in summed
+            Assert.AreEqual(3, summed3.GetOneBasedScan(1).MassSpectrum.NumPeaksWithinRange(893, 899));
+
+            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.FirstX, Math.Min(Math.Min(rawFile.GetOneBasedScan(1).MassSpectrum.FirstX, rawFile.GetOneBasedScan(2).MassSpectrum.FirstX), rawFile.GetOneBasedScan(3).MassSpectrum.FirstX));
+
+            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX, rawFile.GetOneBasedScan(2).MassSpectrum.LastX), rawFile.GetOneBasedScan(3).MassSpectrum.LastX));
+
+            // 5 scans
+
+            SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);
+
+            Assert.AreEqual(rawFile.NumSpectra - 4, summed5.NumSpectra);
         }
 
         #endregion Public Methods

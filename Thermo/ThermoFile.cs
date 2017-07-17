@@ -170,9 +170,9 @@ namespace IO.Thermo
                 theConnection.GetLabelData(ref pvarLabels, ref pvarFlags, ref nScanNumber);
                 data = pvarLabels as double[,];
                 if (data == null || data.Length == 0)
-                    throw new ArgumentException("For spectrum number " + nScanNumber + " the data is null!");
+                    throw new MzLibException("For spectrum number " + nScanNumber + " the data is null!");
             }
-            catch (ArgumentException)
+            catch (MzLibException)
             {
                 string bstrFilter = null;
                 int nIntensityCutoffType = 0;

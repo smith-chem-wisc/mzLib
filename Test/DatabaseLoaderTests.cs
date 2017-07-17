@@ -16,6 +16,7 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
 using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
@@ -142,7 +143,7 @@ namespace Test
         public void SampleModFileLoadingFail1()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail1.txt")).ToList(),
-                                            Throws.TypeOf<PtmListLoaderException>()
+                                            Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Could not get motif from NxS"));
         }
@@ -151,7 +152,7 @@ namespace Test
         public void SampleModFileLoadingFail2()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail2.txt")).ToList(),
-                                            Throws.TypeOf<PtmListLoaderException>()
+                                            Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Could not get modification site from Anyplace."));
         }
@@ -160,7 +161,7 @@ namespace Test
         public void SampleModFileLoadingFail3()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail3.txt")).ToList(),
-                                            Throws.TypeOf<FormatException>()
+                                            Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Input string for chemical formula was in an incorrect format: $%#$%"));
         }
@@ -169,7 +170,7 @@ namespace Test
         public void SampleModFileLoadingFail4()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "m.txt")).ToList(),
-                                            Throws.TypeOf<PtmListLoaderException>()
+                                            Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
         }
@@ -178,7 +179,7 @@ namespace Test
         public void SampleModFileLoadingFail5()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail5.txt")).ToList(),
-                                            Throws.TypeOf<PtmListLoaderException>()
+                                            Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("id is null"));
         }
@@ -187,7 +188,7 @@ namespace Test
         public void SampleModFileLoadingFail6()
         {
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFileFail6.txt")).ToList(),
-                                            Throws.TypeOf<PtmListLoaderException>()
+                                            Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("modificationType of lalaMod is null"));
         }

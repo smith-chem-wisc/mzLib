@@ -17,6 +17,7 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
 using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -27,13 +28,14 @@ namespace Test
     [TestFixture]
     public class ChemicalFormulaTestFixture
     {
+
         #region Public Methods
 
         [Test]
         public void AddIsotopeWithExistingMassNumber()
         {
             Element al = PeriodicTable.GetElement("Al");
-            Assert.Throws<ArgumentException>(() =>
+            Assert.Throws<MzLibException>(() =>
             {
                 al.AddIsotope(27, 28, 1);
             }, "Isotope with mass number " + 28 + " already exists");
@@ -433,7 +435,7 @@ namespace Test
         [Test]
         public void BadFormula()
         {
-            Assert.Throws<FormatException>(() => { ChemicalFormula.ParseFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
+            Assert.Throws<MzLibException>(() => { ChemicalFormula.ParseFormula("!@#$"); }, "Input string for chemical formula was in an incorrect format");
         }
 
         [Test]
@@ -934,7 +936,7 @@ namespace Test
         public void NeutronCountFail()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("CO");
-            Assert.Throws<NotSupportedException>(() => { formulaA.NeutronCount(); }, "Cannot know for sure what the number of neutrons is!");
+            Assert.Throws<MzLibException>(() => { formulaA.NeutronCount(); }, "Cannot know for sure what the number of neutrons is!");
         }
 
         [Test]
@@ -1021,6 +1023,7 @@ namespace Test
 
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
+
             #region Public Constructors
 
             public PhysicalObjectWithChemicalFormula(string v)
@@ -1046,8 +1049,10 @@ namespace Test
             }
 
             #endregion Public Properties
+
         }
 
         #endregion Private Classes
+
     }
 }

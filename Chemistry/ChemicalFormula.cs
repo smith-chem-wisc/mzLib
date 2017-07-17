@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -198,7 +199,7 @@ namespace Chemistry
             ChemicalFormula f = new ChemicalFormula();
 
             if (!ValidateFormulaRegex.IsMatch(formula))
-                throw new FormatException("Input string for chemical formula was in an incorrect format: " + formula);
+                throw new MzLibException("Input string for chemical formula was in an incorrect format: " + formula);
 
             foreach (Match match in FormulaRegex.Matches(formula))
             {
@@ -231,7 +232,7 @@ namespace Chemistry
         public int NeutronCount()
         {
             if (Elements.Count > 0)
-                throw new NotSupportedException("Cannot know for sure what the number of neutrons is!");
+                throw new MzLibException("Cannot know for sure what the number of neutrons is!");
             return Isotopes.Sum(b => b.Key.Neutrons * b.Value);
         }
 
