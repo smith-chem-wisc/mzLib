@@ -127,7 +127,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void TestAveragedMsDataFile()
+        public void TestSummedMsDataFile()
         {
             ThermoStaticData rawFile = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
 
