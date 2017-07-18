@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
@@ -122,7 +123,7 @@ namespace Test
             m.AddModification(new OldSchoolModification(2, "My Mod2b", ModificationSites.E));
             Assert.AreEqual(2, m.Count);
             Assert.AreEqual("My Mod2b", m[1].Name);
-            Assert.Throws<ArgumentException>(() => { m.AddModification(new OldSchoolModification(1, "gg", ModificationSites.R)); }, "Unable to add a modification with sites other than ModificationSites.E");
+            Assert.Throws<MzLibException>(() => { m.AddModification(new OldSchoolModification(1, "gg", ModificationSites.R)); }, "Unable to add a modification with sites other than ModificationSites.E");
             Assert.IsTrue(m.Contains(new OldSchoolModification(2, "My Mod2b", ModificationSites.E)));
             double kk = 0;
             IEnumerable a = m;

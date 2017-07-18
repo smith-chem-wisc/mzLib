@@ -510,7 +510,7 @@ namespace IO.MzML
             }
 
             if (writeIndexed)
-                throw new NotImplementedException("Writing indexed mzMLs not yet supported");
+                throw new MzLibException("Writing indexed mzMLs not yet supported");
             else
             {
                 using (TextWriter writer = new StreamWriter(outputFile))

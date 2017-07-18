@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 
@@ -44,6 +45,7 @@ namespace Proteomics
 
     public static class FragmentTypesExtension
     {
+
         #region Private Fields
 
         private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
@@ -86,7 +88,7 @@ namespace Proteomics
             // Super handy: http://stackoverflow.com/questions/4624248/c-logical-riddle-with-bit-operations-only-one-bit-is-set
             if (fragmentType == FragmentTypes.None || (fragmentType & (fragmentType - 1)) != FragmentTypes.None)
             {
-                throw new ArgumentException("Fragment Type must be a single value to determine the terminus");
+                throw new MzLibException("Fragment Type must be a single value to determine the terminus");
             }
             return fragmentType >= FragmentTypes.x ? Terminus.C : Terminus.N;
         }
@@ -95,11 +97,12 @@ namespace Proteomics
         {
             if (fragmentType == FragmentTypes.None || (fragmentType & (fragmentType - 1)) != FragmentTypes.None)
             {
-                throw new ArgumentException("Fragment Type must be a single value to determine the ion cap");
+                throw new MzLibException("Fragment Type must be a single value to determine the ion cap");
             }
             return FragmentIonCaps[fragmentType];
         }
 
         #endregion Public Methods
+
     }
 }

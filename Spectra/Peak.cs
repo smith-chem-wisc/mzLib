@@ -15,8 +15,8 @@
 
         #region Public Properties
 
-        public double X { get; }
-        public double Y { get; }
+        public double X { get; protected set; }
+        public double Y { get; protected set; }
 
         #endregion Public Properties
 
