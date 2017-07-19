@@ -28,6 +28,20 @@ namespace TestThermo
         }
 
         [Test]
+        public void LoadCompressedMzml()
+        {
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
+
+            Mzml b = Mzml.LoadAllStaticData(@"small.mzML");
+
+            Assert.AreEqual(a.NumSpectra, b.NumSpectra);
+
+            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Mz, b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Mz, 1e-3);
+
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity - b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity) / b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity) < 1e-3);
+        }
+
+        [Test]
         public void LoadThermoTest2()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
