@@ -1,9 +1,9 @@
-﻿using Ionic.Zlib;
-using Proteomics;
+﻿using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
