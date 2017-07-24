@@ -236,10 +236,10 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public static byte[] Get64Bitarray(IEnumerable<double> yArray)
+        public static byte[] Get64Bitarray(IEnumerable<double> array)
         {
             var mem = new MemoryStream();
-            foreach (var okk in yArray)
+            foreach (var okk in array)
             {
                 byte[] ok = BitConverter.GetBytes(okk);
                 mem.Write(ok, 0, ok.Length);
