@@ -308,24 +308,24 @@ namespace IO.MzML
         private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
         {
             // Add capability of compressed data
+
             if (zlibCompressed)
-                if (zlibCompressed) 
-                                    {
-                
+            {
+
                 var output = new MemoryStream();
-                                using (var compressStream = new MemoryStream(bytes))
-                                   {
+                using (var compressStream = new MemoryStream(bytes))
+                {
                     compressStream.ReadByte();
                     compressStream.ReadByte();
-                                        using (var decompressor = new DeflateStream(compressStream, CompressionMode.Decompress))
-                                            {
+                    using (var decompressor = new DeflateStream(compressStream, CompressionMode.Decompress))
+                    {
                         decompressor.CopyTo(output);
                         decompressor.Close();
                         output.Position = 0;
                         bytes = output.ToArray();
-                                            }
-                                    }
-                            }
+                    }
+                }
+            }
 
             int size = is32bit ? sizeof(float) : sizeof(double);
 
