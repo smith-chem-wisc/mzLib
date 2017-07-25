@@ -25,7 +25,7 @@ namespace Spectra
     /// Spectrum that has at least an X array and a Y array
     /// </summary>
     /// <typeparam name="TPeak"></typeparam>
-    public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
+    public interface ISpectrum<out TPeak>
         where TPeak : IPeak
     {
 

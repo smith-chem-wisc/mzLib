@@ -37,15 +37,11 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Deconvolution\IsotopicPeakGroup.cs" />
-    <Compile Include="Deconvolution\PossibleProteoform.cs" />
     <Compile Include="IThermoScan.cs" />
-    <Compile Include="Deconvolution\ThermoDecon.cs" />
     <Compile Include="ThermoDynamicData.cs" />
     <Compile Include="ThermoFile.cs" />
     <Compile Include="ThermoGlobalParams.cs" />
     <Compile Include="ThermoMzPeak.cs" />
-    <Compile Include="ThermoReadException.cs" />
     <Compile Include="ThermoStaticData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>

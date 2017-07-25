@@ -1,14 +1,14 @@
 ﻿using System;
 
-namespace IO.MzML
+namespace MzLibUtil
 {
     [Serializable]
-    internal class MzmlReaderException : Exception
+    public class MzLibException : Exception
     {
 
         #region Public Constructors
 
-        public MzmlReaderException(string message) : base(message)
+        public MzLibException(string message) : base(message)
         {
         }
 

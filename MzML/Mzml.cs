@@ -16,13 +16,13 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
-using Ionic.Zlib;
 using MassSpectrometry;
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -187,7 +187,7 @@ namespace IO.MzML
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzmlReaderException("!msOrder.HasValue || !isCentroid.HasValue");
+                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -261,7 +261,7 @@ namespace IO.MzML
             }
 
             if (!isolationMz.HasValue)
-                throw new MzmlReaderException("!isolationMz.HasValue");
+                throw new MzLibException("!isolationMz.HasValue");
 
             DissociationType dissociationType = DissociationType.Unknown;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
@@ -309,7 +309,21 @@ namespace IO.MzML
         {
             // Add capability of compressed data
             if (zlibCompressed)
-                bytes = ZlibStream.UncompressBuffer(bytes);
+            {
+                var output = new MemoryStream();
+                using (var compressStream = new MemoryStream(bytes))
+                {
+                    compressStream.ReadByte();
+                    compressStream.ReadByte();
+                    using (var decompressor = new DeflateStream(compressStream, CompressionMode.Decompress))
+                    {
+                        decompressor.CopyTo(output);
+                        decompressor.Close();
+                        output.Position = 0;
+                        bytes = output.ToArray();
+                    }
+                }
+            }
 
             int size = is32bit ? sizeof(float) : sizeof(double);
 

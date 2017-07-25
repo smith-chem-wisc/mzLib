@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
-using System;
+using MzLibUtil;
 using System.Collections.Generic;
 
 namespace Chemistry
@@ -159,7 +159,7 @@ namespace Chemistry
         public void AddIsotope(int massNumber, double atomicMass, double abundance)
         {
             if (IsotopesByMassNumber[massNumber] != null)
-                throw new ArgumentException("Isotope with mass number " + massNumber + " already exists!");
+                throw new MzLibException("Isotope with mass number " + massNumber + " already exists!");
             var isotope = new Isotope(this, massNumber, atomicMass, abundance);
             IsotopesByMassNumber[massNumber] = isotope;
             int ok = 0;
