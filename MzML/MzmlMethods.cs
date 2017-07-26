@@ -135,7 +135,6 @@ namespace IO.MzML
             {
                 count = "1",
                 dataProcessing = new Generated.DataProcessingType[1]
-
             };
             // Only writing mine! Might have had some other data processing (but not if it is a raw file)
             // ToDo: read dataProcessingList from mzML file
@@ -143,7 +142,6 @@ namespace IO.MzML
             {
                 id = "mzLibProcessing",
                 processingMethod = new Generated.ProcessingMethodType[1]
-
             };
             mzML.run = new Generated.RunType()
             {
@@ -156,11 +154,11 @@ namespace IO.MzML
                 count = "1",
                 chromatogram = new Generated.ChromatogramType[1],
                 defaultDataProcessingRef = "mzLibProcessing"
-
             };
             // ToDo: Finish the chromatogram writing! (think finished)
 
             #region Chromatogram
+
             //Chromatagram info
             mzML.run.chromatogramList.chromatogram[0] = new Generated.ChromatogramType()
             {
@@ -174,7 +172,6 @@ namespace IO.MzML
                     binaryDataArray = new Generated.BinaryDataArrayType[2]
                 },
                 cvParam = new Generated.CVParamType[1]
-
             };
 
             mzML.run.chromatogramList.chromatogram[0].cvParam[0] = new Generated.CVParamType()
@@ -184,7 +181,6 @@ namespace IO.MzML
                 cvRef = "MS",
                 value = ""
             };
-
 
             double[] times = new double[myMsDataFile.NumSpectra];
             double[] intensities = new double[myMsDataFile.NumSpectra];
@@ -199,15 +195,12 @@ namespace IO.MzML
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType()
             {
                 binary = MzSpectrum<MzPeak>.Get64Bitarray(times)
-
             };
-
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].encodedLength = (4 * Math.Ceiling(((double)mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
 
             //mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].cvParam = new Generated.CVParamType[3];
             //mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].cvParam[0] = new Generated.CVParamType();
-
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].cvParam = new Generated.CVParamType[3];
 
@@ -238,14 +231,10 @@ namespace IO.MzML
                 value = ""
             };
 
-
-
             //Chromatogram Y axis (total intensity)
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1] = new Generated.BinaryDataArrayType()
             {
-
                 binary = MzSpectrum<MzPeak>.Get64Bitarray(intensities)
-
             };
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].encodedLength = (4 * Math.Ceiling(((double)mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
@@ -283,9 +272,8 @@ namespace IO.MzML
                 cvRef = "MS",
                 value = ""
             };
+
             #endregion Chromatogram
-
-
 
             mzML.run.spectrumList = new Generated.SpectrumListType()
             {
@@ -297,7 +285,6 @@ namespace IO.MzML
             // Loop over all spectra
             for (int i = 1; i <= myMsDataFile.NumSpectra; i++)
             {
-
                 mzML.run.spectrumList.spectrum[i - 1] = new Generated.SpectrumType()
                 {
                     defaultArrayLength = myMsDataFile.GetOneBasedScan(i).MassSpectrum.YArray.Length,
@@ -310,7 +297,6 @@ namespace IO.MzML
                 mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
                 {
                     count = 1.ToString()
-
                 };
 
                 // mzML.run.spectrumList.spectrum[i - 1].cvParam[0] = new Generated.CVParamType();
@@ -489,11 +475,9 @@ namespace IO.MzML
                     accession = "MS:1000285",
                     value = myMsDataFile.GetOneBasedScan(i).TotalIonCurrent.ToString(CultureInfo.InvariantCulture),
                     cvRef = "MS",
-
-
                 };
 
-                //base peak m/z 
+                //base peak m/z
                 mzML.run.spectrumList.spectrum[i - 1].cvParam[8] = new Generated.CVParamType()
                 {
                     name = "base peak m/z",
@@ -516,7 +500,6 @@ namespace IO.MzML
                     unitAccession = "MS:1000131",
                     cvRef = "MS"
                 };
-
 
                 // Retention time
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()
@@ -666,7 +649,6 @@ namespace IO.MzML
                     cvRef = "MS"
                 };
 
-
                 if (myMsDataFile.GetOneBasedScan(i).NoiseData != null)
                 {
                     // mass
@@ -733,14 +715,12 @@ namespace IO.MzML
                     {
                         name = "kelleherCustomType",
                         value = "noise baseline",
-
                     };
 
                     // baseline
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4] = new Generated.BinaryDataArrayType()
                     {
                         binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataBaseline(),
-
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].arrayLength = (mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].binary.Length / 8).ToString();
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].encodedLength = (4 * Math.Ceiling(((double)mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
@@ -756,14 +736,12 @@ namespace IO.MzML
                         accession = "MS:1000523",
                         name = "64-bit float",
                         cvRef = "MS"
-
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].cvParam[2] = new Generated.CVParamType()
                     {
                         accession = "MS:1000576",
                         name = "no compression",
                         cvRef = "MS"
-
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].userParam = new Generated.UserParamType[1];
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4].userParam[0] = new Generated.UserParamType()
@@ -786,12 +764,6 @@ namespace IO.MzML
         }
 
         #endregion Public Methods
+
     }
 }
-
-
-
-
-
-
-
