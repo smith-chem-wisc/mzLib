@@ -34,13 +34,13 @@ namespace Test
             Assert.AreEqual(3, ok[0].GeneNames.Count());
             Assert.AreEqual("primary", ok[0].GeneNames.First().Item1);
             Assert.AreEqual("JJJ1", ok[0].GeneNames.First().Item2);
-
+            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), ok[0].DatabaseFilePath);
             Assert.AreEqual(9, ok2[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
             Assert.AreEqual(3, ok2[0].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
             Assert.AreEqual(3, ok2[0].GeneNames.Count());
             Assert.AreEqual("primary", ok2[0].GeneNames.First().Item1);
             Assert.AreEqual("JJJ1", ok2[0].GeneNames.First().Item2);
-
+            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_xml2.xml"), ok2[0].DatabaseFilePath);
             Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
             Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
@@ -67,6 +67,7 @@ namespace Test
             Assert.AreEqual("ENSG00000099977", ok[1].GeneNames.First().Item2);
             Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24316773:-1 gene:ENSG00000099977 transcript:ENST00000398344 gene_biotype:protein_coding transcript_biotype:protein_coding", ok[0].FullName);
             Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding", ok[1].FullName);
+            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_ensembl.pep.all.fasta"), ok[0].DatabaseFilePath);
 
             Assert.AreEqual("ENSP00000381386", ok2[0].Accession);
             Assert.AreEqual("ENSP00000215773", ok2[1].Accession);
@@ -74,6 +75,7 @@ namespace Test
             Assert.AreEqual("ENSG00000099977", ok2[1].GeneNames.First().Item2);
             Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24316773:-1 gene:ENSG00000099977 transcript:ENST00000398344 gene_biotype:protein_coding transcript_biotype:protein_coding", ok2[0].FullName);
             Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding", ok2[1].FullName);
+            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, @"rewrite_test_ensembl.pep.all.xml"), ok2[0].DatabaseFilePath);
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
@@ -226,7 +228,8 @@ namespace Test
                                         isContaminant: true,
                                         databaseReferences: databaseReferences,
                                         sequenceVariations: sequenceVariations,
-                                        disulfideBonds: disulfideBonds);
+                                        disulfideBonds: disulfideBonds,
+                                        databaseFilePath: Path.Combine(TestContext.CurrentContext.TestDirectory, @"bnueiwhf.xml"));
 
             // Generate data for files
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { p1 }, Path.Combine(TestContext.CurrentContext.TestDirectory, @"bnueiwhf.xml"));
@@ -255,7 +258,7 @@ namespace Test
             Assert.AreEqual(p1.IsDecoy, ok[0].IsDecoy);
             Assert.AreEqual(p1.Length, ok[0].Length);
             Assert.AreEqual(p1.Name, ok[0].Name);
-
+            Assert.AreEqual(p1.DatabaseFilePath, ok[0].DatabaseFilePath);
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0], ok[0].OneBasedPossibleLocalizedModifications[3][0]);
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0].id, ok[0].OneBasedPossibleLocalizedModifications[3][0].id);
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0].modificationType, ok[0].OneBasedPossibleLocalizedModifications[3][0].modificationType);
