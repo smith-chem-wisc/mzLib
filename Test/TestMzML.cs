@@ -19,6 +19,32 @@ namespace Test
 
         #region Public Methods
 
+        [Test]
+        public static void AnotherMzMLtest()
+        {
+            IMzmlScan[] scans = new IMzmlScan[2];
+            double[] intensities1 = new double[] { 1 };
+            double[] mz1 = new double[] { 50 };
+            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
+            scans[0] = new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "filter1", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null);
+
+            double[] intensities2 = new double[] { 1 };
+            double[] mz2 = new double[] { 30 };
+            MzmlMzSpectrum massSpec2 = new MzmlMzSpectrum(mz2, intensities2, false);
+            scans[1] = new MzmlScanWithPrecursor(2, massSpec2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "filter2", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY,
+                50, null, null, 50, 1, DissociationType.CID, 1, null, null);
+
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzml"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzml"));
+
+            var scanWithPrecursor = ok.First(b => b is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+
+            Assert.AreEqual(1, scanWithPrecursor.OneBasedPrecursorScanNumber);
+        }
+
         [OneTimeSetUp]
         public void Setup()
         {
