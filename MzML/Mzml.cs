@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016, 2017 Stefan Solntsev
 //
 // This file (Mzml.cs) is part of MassSpecFiles.
@@ -19,10 +19,10 @@
 using MassSpectrometry;
 using MzLibUtil;
 using System;
+using System.IO.Compression;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -308,8 +308,10 @@ namespace IO.MzML
         private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
         {
             // Add capability of compressed data
+
             if (zlibCompressed)
             {
+
                 var output = new MemoryStream();
                 using (var compressStream = new MemoryStream(bytes))
                 {
@@ -363,7 +365,7 @@ namespace IO.MzML
             do
             {
                 oneBasedSpectrumNumber--;
-            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
+            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber-1].id));
             return oneBasedSpectrumNumber;
         }
 
