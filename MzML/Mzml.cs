@@ -365,7 +365,7 @@ namespace IO.MzML
             do
             {
                 oneBasedSpectrumNumber--;
-            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber].id));
+            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber-1].id));
             return oneBasedSpectrumNumber;
         }
 
