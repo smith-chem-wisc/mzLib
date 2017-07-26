@@ -16,667 +16,204 @@ using System.Xml.Serialization;
 
 namespace mzIdentML110.Generated
 {
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIspectraSpectraDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSourceFileType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSearchDatabaseType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Data.ExternalDataType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("ExternalData", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGEBioDataExternalDataType : FuGEBioDataDataType
-    {
-
-        private string externalFormatDocumentationField;
-
-        private FuGEBioDataExternalDataTypeFileFormat fileFormatField;
-
-        private string locationField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute(DataType = "anyURI")]
-        public string externalFormatDocumentation
-        {
-            get
-            {
-                return this.externalFormatDocumentationField;
-            }
-            set
-            {
-                this.externalFormatDocumentationField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGEBioDataExternalDataTypeFileFormat fileFormat
-        {
-            get
-            {
-                return this.fileFormatField;
-            }
-            set
-            {
-                this.fileFormatField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute(DataType = "anyURI")]
-        public string location
-        {
-            get
-            {
-                return this.locationField;
-            }
-            set
-            {
-                this.locationField = value;
-            }
-        }
-    }
 
     /// <remarks/>
     [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGEBioDataExternalDataTypeFileFormat
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    [System.Xml.Serialization.XmlRootAttribute("MzIdentML", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1", IsNullable = false)]
+    public partial class MzIdentMLType : IdentifiableType
     {
 
-        private FuGECommonOntologycvParamType cvParamField;
+        private cvType[] cvListField;
+
+        private AnalysisSoftwareType[] analysisSoftwareListField;
+
+        private ProviderType providerField;
+
+        private AbstractContactType[] auditCollectionField;
+
+        private SampleType[] analysisSampleCollectionField;
+
+        private SequenceCollectionType sequenceCollectionField;
+
+        private AnalysisCollectionType analysisCollectionField;
+
+        private AnalysisProtocolCollectionType analysisProtocolCollectionField;
+
+        private DataCollectionType dataCollectionField;
+
+        private BibliographicReferenceType[] bibliographicReferenceField;
+
+        private System.DateTime creationDateField;
+
+        private bool creationDateFieldSpecified;
+
+        private string versionField;
 
         /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
+        [System.Xml.Serialization.XmlArrayItemAttribute("cv", IsNullable = false)]
+        public cvType[] cvList
         {
             get
             {
-                return this.cvParamField;
+                return this.cvListField;
             }
             set
             {
-                this.cvParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Ontology.cvParamType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("cvParam", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonOntologycvParamType : FuGECommonOntologyParamType
-    {
-
-        private string cvRefField;
-
-        private string accessionField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string cvRef
-        {
-            get
-            {
-                return this.cvRefField;
-            }
-            set
-            {
-                this.cvRefField = value;
+                this.cvListField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string accession
+        [System.Xml.Serialization.XmlArrayItemAttribute("AnalysisSoftware", IsNullable = false)]
+        public AnalysisSoftwareType[] AnalysisSoftwareList
         {
             get
             {
-                return this.accessionField;
+                return this.analysisSoftwareListField;
             }
             set
             {
-                this.accessionField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonOntologycvParamType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonOntologyuserParamType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Ontology.ParamType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonOntologyParamType
-    {
-
-        private string nameField;
-
-        private string valueField;
-
-        private string unitAccessionField;
-
-        private string unitNameField;
-
-        private string unitCvRefField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string name
-        {
-            get
-            {
-                return this.nameField;
-            }
-            set
-            {
-                this.nameField = value;
+                this.analysisSoftwareListField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string value
+        public ProviderType Provider
         {
             get
             {
-                return this.valueField;
+                return this.providerField;
             }
             set
             {
-                this.valueField = value;
+                this.providerField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string unitAccession
+        [System.Xml.Serialization.XmlArrayItemAttribute("Organization", typeof(OrganizationType), IsNullable = false)]
+        [System.Xml.Serialization.XmlArrayItemAttribute("Person", typeof(PersonType), IsNullable = false)]
+        public AbstractContactType[] AuditCollection
         {
             get
             {
-                return this.unitAccessionField;
+                return this.auditCollectionField;
             }
             set
             {
-                this.unitAccessionField = value;
+                this.auditCollectionField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string unitName
+        [System.Xml.Serialization.XmlArrayItemAttribute("Sample", IsNullable = false)]
+        public SampleType[] AnalysisSampleCollection
         {
             get
             {
-                return this.unitNameField;
+                return this.analysisSampleCollectionField;
             }
             set
             {
-                this.unitNameField = value;
+                this.analysisSampleCollectionField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string unitCvRef
+        public SequenceCollectionType SequenceCollection
         {
             get
             {
-                return this.unitCvRefField;
+                return this.sequenceCollectionField;
             }
             set
             {
-                this.unitCvRefField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class AnalysisDataType
-    {
-
-        private PSIPIanalysissearchSpectrumIdentificationListType[] spectrumIdentificationListField;
-
-        private PSIPIanalysisprocessProteinDetectionListType proteinDetectionListField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationList")]
-        public PSIPIanalysissearchSpectrumIdentificationListType[] SpectrumIdentificationList
-        {
-            get
-            {
-                return this.spectrumIdentificationListField;
-            }
-            set
-            {
-                this.spectrumIdentificationListField = value;
+                this.sequenceCollectionField = value;
             }
         }
 
         /// <remarks/>
-        public PSIPIanalysisprocessProteinDetectionListType ProteinDetectionList
+        public AnalysisCollectionType AnalysisCollection
         {
             get
             {
-                return this.proteinDetectionListField;
+                return this.analysisCollectionField;
             }
             set
             {
-                this.proteinDetectionListField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SpectrumIdentificationListType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSpectrumIdentificationListType : FuGEBioDataInternalDataType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private MeasureType[] fragmentationTableField;
-
-        private PSIPIanalysissearchSpectrumIdentificationResultType[] spectrumIdentificationResultField;
-
-        private long numSequencesSearchedField;
-
-        private bool numSequencesSearchedFieldSpecified;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
+                this.analysisCollectionField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
+        public AnalysisProtocolCollectionType AnalysisProtocolCollection
         {
             get
             {
-                return this.userParamField;
+                return this.analysisProtocolCollectionField;
             }
             set
             {
-                this.userParamField = value;
+                this.analysisProtocolCollectionField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("Measure", IsNullable = false)]
-        public MeasureType[] FragmentationTable
+        public DataCollectionType DataCollection
         {
             get
             {
-                return this.fragmentationTableField;
+                return this.dataCollectionField;
             }
             set
             {
-                this.fragmentationTableField = value;
+                this.dataCollectionField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationResult")]
-        public PSIPIanalysissearchSpectrumIdentificationResultType[] SpectrumIdentificationResult
+        [System.Xml.Serialization.XmlElementAttribute("BibliographicReference")]
+        public BibliographicReferenceType[] BibliographicReference
         {
             get
             {
-                return this.spectrumIdentificationResultField;
+                return this.bibliographicReferenceField;
             }
             set
             {
-                this.spectrumIdentificationResultField = value;
+                this.bibliographicReferenceField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public long numSequencesSearched
+        public System.DateTime creationDate
         {
             get
             {
-                return this.numSequencesSearchedField;
+                return this.creationDateField;
             }
             set
             {
-                this.numSequencesSearchedField = value;
+                this.creationDateField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool numSequencesSearchedSpecified
+        public bool creationDateSpecified
         {
             get
             {
-                return this.numSequencesSearchedFieldSpecified;
+                return this.creationDateFieldSpecified;
             }
             set
             {
-                this.numSequencesSearchedFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Ontology.userParamType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("userParam", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonOntologyuserParamType : FuGECommonOntologyParamType
-    {
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class MeasureType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIMainmzIdentMLType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECollectionProviderType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolParameterizableApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolActionApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolSoftwareApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolEquipmentApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolEquipmentType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericEquipmentType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolSoftwareType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchAnalysisSoftwareType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericSoftwareType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolProtocolApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericProtocolApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(TranslationTableType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchMassTableType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolActionType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericActionType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolParameterType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericParameterType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolProtocolType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionProtocolType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationProtocolType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericProtocolType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonReferencesDatabaseType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonReferencesBibliographicReferenceType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonAuditContactType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonAuditOrganizationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonAuditPersonType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioMaterialMaterialType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SampleType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioMaterialGenericMaterialType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionHypothesisType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinAmbiguityGroupType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessPeptideEvidenceType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationItemType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationResultType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(MeasureType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioDataDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioDataInternalDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionListType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationListType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioDataExternalDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIspectraSpectraDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSourceFileType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSearchDatabaseType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioConceptualMoleculeConceptualMoleculeType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchDBSequenceType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIpolypeptidePeptideType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.IdentifiableType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonIdentifiableType
-    {
-
-        private string idField;
-
-        private string nameField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string id
-        {
-            get
-            {
-                return this.idField;
-            }
-            set
-            {
-                this.idField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string name
-        {
-            get
-            {
-                return this.nameField;
-            }
-            set
-            {
-                this.nameField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolActionApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolSoftwareApplicationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolEquipmentApplicationType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ParameterizableApplicationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolParameterizableApplicationType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonProtocolParameterValueType[] parameterValueField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ParameterValue")]
-        public FuGECommonProtocolParameterValueType[] ParameterValue
-        {
-            get
-            {
-                return this.parameterValueField;
-            }
-            set
-            {
-                this.parameterValueField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ParameterValueType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("ParameterValue", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolParameterValueType
-    {
-
-        private string valueField;
-
-        private string parameter_refField;
-
-        /// <remarks/>
-        public string value
-        {
-            get
-            {
-                return this.valueField;
-            }
-            set
-            {
-                this.valueField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Parameter_ref
-        {
-            get
-            {
-                return this.parameter_refField;
-            }
-            set
-            {
-                this.parameter_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericEquipmentType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.EquipmentType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolEquipmentType : FuGECommonIdentifiableType
-    {
-
-        private ParamType makeField;
-
-        private ParamType modelField;
-
-        /// <remarks/>
-        public ParamType make
-        {
-            get
-            {
-                return this.makeField;
-            }
-            set
-            {
-                this.makeField = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamType model
-        {
-            get
-            {
-                return this.modelField;
-            }
-            set
-            {
-                this.modelField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class ParamType
-    {
-
-        private FuGECommonOntologyParamType itemField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam", typeof(FuGECommonOntologycvParamType))]
-        [System.Xml.Serialization.XmlElementAttribute("userParam", typeof(FuGECommonOntologyuserParamType))]
-        public FuGECommonOntologyParamType Item
-        {
-            get
-            {
-                return this.itemField;
-            }
-            set
-            {
-                this.itemField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchAnalysisSoftwareType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericSoftwareType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.SoftwareType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolSoftwareType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonAuditContactRoleType contactRoleField;
-
-        private string versionField;
-
-        /// <remarks/>
-        public FuGECommonAuditContactRoleType ContactRole
-        {
-            get
-            {
-                return this.contactRoleField;
-            }
-            set
-            {
-                this.contactRoleField = value;
+                this.creationDateFieldSpecified = value;
             }
         }
 
@@ -700,1540 +237,57 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Audit.ContactRoleType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("ContactRole", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonAuditContactRoleType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class cvType
     {
 
-        private FuGECommonAuditContactRoleTypeRole roleField;
+        private string fullNameField;
 
-        private string contact_refField;
+        private string versionField;
+
+        private string uriField;
+
+        private string idField;
 
         /// <remarks/>
-        public FuGECommonAuditContactRoleTypeRole role
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string fullName
         {
             get
             {
-                return this.roleField;
+                return this.fullNameField;
             }
             set
             {
-                this.roleField = value;
+                this.fullNameField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Contact_ref
+        public string version
         {
             get
             {
-                return this.contact_refField;
+                return this.versionField;
             }
             set
             {
-                this.contact_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonAuditContactRoleTypeRole
-    {
-
-        private FuGECommonOntologycvParamType cvParamField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.AnalysisSoftwareType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchAnalysisSoftwareType : FuGECommonProtocolSoftwareType
-    {
-
-        private ParamType softwareNameField;
-
-        private string customizationsField;
-
-        private string uRIField;
-
-        /// <remarks/>
-        public ParamType SoftwareName
-        {
-            get
-            {
-                return this.softwareNameField;
-            }
-            set
-            {
-                this.softwareNameField = value;
-            }
-        }
-
-        /// <remarks/>
-        public string Customizations
-        {
-            get
-            {
-                return this.customizationsField;
-            }
-            set
-            {
-                this.customizationsField = value;
+                this.versionField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute(DataType = "anyURI")]
-        public string URI
+        public string uri
         {
             get
             {
-                return this.uRIField;
+                return this.uriField;
             }
             set
             {
-                this.uRIField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericProtocolApplicationType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ProtocolApplicationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolProtocolApplicationType : FuGECommonIdentifiableType
-    {
-
-        private System.DateTime activityDateField;
-
-        private bool activityDateFieldSpecified;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public System.DateTime activityDate
-        {
-            get
-            {
-                return this.activityDateField;
-            }
-            set
-            {
-                this.activityDateField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool activityDateSpecified
-        {
-            get
-            {
-                return this.activityDateFieldSpecified;
-            }
-            set
-            {
-                this.activityDateFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.process.ProteinDetectionType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysisprocessProteinDetectionType : FuGECommonProtocolProtocolApplicationType
-    {
-
-        private InputSpectrumIdentificationsType[] inputSpectrumIdentificationsField;
-
-        private string proteinDetectionList_refField;
-
-        private string proteinDetectionProtocol_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("InputSpectrumIdentifications")]
-        public InputSpectrumIdentificationsType[] InputSpectrumIdentifications
-        {
-            get
-            {
-                return this.inputSpectrumIdentificationsField;
-            }
-            set
-            {
-                this.inputSpectrumIdentificationsField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string ProteinDetectionList_ref
-        {
-            get
-            {
-                return this.proteinDetectionList_refField;
-            }
-            set
-            {
-                this.proteinDetectionList_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string ProteinDetectionProtocol_ref
-        {
-            get
-            {
-                return this.proteinDetectionProtocol_refField;
-            }
-            set
-            {
-                this.proteinDetectionProtocol_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class InputSpectrumIdentificationsType
-    {
-
-        private string spectrumIdentificationList_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SpectrumIdentificationList_ref
-        {
-            get
-            {
-                return this.spectrumIdentificationList_refField;
-            }
-            set
-            {
-                this.spectrumIdentificationList_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SpectrumIdentificationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSpectrumIdentificationType : FuGECommonProtocolProtocolApplicationType
-    {
-
-        private InputSpectraType[] inputSpectraField;
-
-        private SearchDatabaseType[] searchDatabaseField;
-
-        private string spectrumIdentificationProtocol_refField;
-
-        private string spectrumIdentificationList_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("InputSpectra")]
-        public InputSpectraType[] InputSpectra
-        {
-            get
-            {
-                return this.inputSpectraField;
-            }
-            set
-            {
-                this.inputSpectraField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SearchDatabase")]
-        public SearchDatabaseType[] SearchDatabase
-        {
-            get
-            {
-                return this.searchDatabaseField;
-            }
-            set
-            {
-                this.searchDatabaseField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SpectrumIdentificationProtocol_ref
-        {
-            get
-            {
-                return this.spectrumIdentificationProtocol_refField;
-            }
-            set
-            {
-                this.spectrumIdentificationProtocol_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SpectrumIdentificationList_ref
-        {
-            get
-            {
-                return this.spectrumIdentificationList_refField;
-            }
-            set
-            {
-                this.spectrumIdentificationList_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class InputSpectraType
-    {
-
-        private string spectraData_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SpectraData_ref
-        {
-            get
-            {
-                return this.spectraData_refField;
-            }
-            set
-            {
-                this.spectraData_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class SearchDatabaseType
-    {
-
-        private string searchDatabase_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SearchDatabase_ref
-        {
-            get
-            {
-                return this.searchDatabase_refField;
-            }
-            set
-            {
-                this.searchDatabase_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class TranslationTableType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.MassTableType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchMassTableType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private ResidueType[] residueField;
-
-        private AmbiguousResidueType[] ambiguousResidueField;
-
-        private string[] msLevelField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Residue")]
-        public ResidueType[] Residue
-        {
-            get
-            {
-                return this.residueField;
-            }
-            set
-            {
-                this.residueField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("AmbiguousResidue")]
-        public AmbiguousResidueType[] AmbiguousResidue
-        {
-            get
-            {
-                return this.ambiguousResidueField;
-            }
-            set
-            {
-                this.ambiguousResidueField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute(DataType = "integer")]
-        public string[] msLevel
-        {
-            get
-            {
-                return this.msLevelField;
-            }
-            set
-            {
-                this.msLevelField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class ResidueType
-    {
-
-        private string codeField;
-
-        private float massField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Code
-        {
-            get
-            {
-                return this.codeField;
-            }
-            set
-            {
-                this.codeField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public float Mass
-        {
-            get
-            {
-                return this.massField;
-            }
-            set
-            {
-                this.massField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class AmbiguousResidueType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private string codeField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Code
-        {
-            get
-            {
-                return this.codeField;
-            }
-            set
-            {
-                this.codeField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericActionType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ActionType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolActionType : FuGECommonIdentifiableType
-    {
-
-        private int actionOrdinalField;
-
-        private bool actionOrdinalFieldSpecified;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int actionOrdinal
-        {
-            get
-            {
-                return this.actionOrdinalField;
-            }
-            set
-            {
-                this.actionOrdinalField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool actionOrdinalSpecified
-        {
-            get
-            {
-                return this.actionOrdinalFieldSpecified;
-            }
-            set
-            {
-                this.actionOrdinalFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericParameterType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ParameterType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolParameterType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonMeasurementAtomicValueType atomicValueField;
-
-        private FuGECommonMeasurementBooleanValueType booleanValueField;
-
-        private FuGECommonMeasurementComplexValueType complexValueField;
-
-        private FuGECommonMeasurementRangeType rangeField;
-
-        /// <remarks/>
-        public FuGECommonMeasurementAtomicValueType AtomicValue
-        {
-            get
-            {
-                return this.atomicValueField;
-            }
-            set
-            {
-                this.atomicValueField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementBooleanValueType BooleanValue
-        {
-            get
-            {
-                return this.booleanValueField;
-            }
-            set
-            {
-                this.booleanValueField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementComplexValueType ComplexValue
-        {
-            get
-            {
-                return this.complexValueField;
-            }
-            set
-            {
-                this.complexValueField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementRangeType Range
-        {
-            get
-            {
-                return this.rangeField;
-            }
-            set
-            {
-                this.rangeField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Measurement.AtomicValueType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementAtomicValueType : FuGECommonMeasurementMeasurementType
-    {
-
-        private FuGECommonOntologyPropertyValue propertyValueField;
-
-        /// <remarks/>
-        public FuGECommonOntologyPropertyValue PropertyValue
-        {
-            get
-            {
-                return this.propertyValueField;
-            }
-            set
-            {
-                this.propertyValueField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Ontology.PropertyValue", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("PropertyValue", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonOntologyPropertyValue
-    {
-
-        private string valueField;
-
-        private string unitAccessionField;
-
-        private string unitNameField;
-
-        private string unitCvRefField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string value
-        {
-            get
-            {
-                return this.valueField;
-            }
-            set
-            {
-                this.valueField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string unitAccession
-        {
-            get
-            {
-                return this.unitAccessionField;
-            }
-            set
-            {
-                this.unitAccessionField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string unitName
-        {
-            get
-            {
-                return this.unitNameField;
-            }
-            set
-            {
-                this.unitNameField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string unitCvRef
-        {
-            get
-            {
-                return this.unitCvRefField;
-            }
-            set
-            {
-                this.unitCvRefField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonMeasurementRangeType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonMeasurementComplexValueType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonMeasurementBooleanValueType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonMeasurementAtomicValueType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Measurement.MeasurementType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonMeasurementMeasurementType
-    {
-
-        private FuGECommonOntologycvParamType dataTypeField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType dataType
-        {
-            get
-            {
-                return this.dataTypeField;
-            }
-            set
-            {
-                this.dataTypeField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Measurement.RangeType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementRangeType : FuGECommonMeasurementMeasurementType
-    {
-
-        private FuGECommonMeasurementRangeTypeLowerLimit lowerLimitField;
-
-        private FuGECommonMeasurementRangeTypeUpperLimit upperLimitField;
-
-        private FuGECommonMeasurementRangeTypeRangeDescriptors[] rangeDescriptorsField;
-
-        /// <remarks/>
-        public FuGECommonMeasurementRangeTypeLowerLimit lowerLimit
-        {
-            get
-            {
-                return this.lowerLimitField;
-            }
-            set
-            {
-                this.lowerLimitField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementRangeTypeUpperLimit upperLimit
-        {
-            get
-            {
-                return this.upperLimitField;
-            }
-            set
-            {
-                this.upperLimitField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("rangeDescriptors")]
-        public FuGECommonMeasurementRangeTypeRangeDescriptors[] rangeDescriptors
-        {
-            get
-            {
-                return this.rangeDescriptorsField;
-            }
-            set
-            {
-                this.rangeDescriptorsField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementRangeTypeLowerLimit
-    {
-
-        private FuGECommonOntologyPropertyValue propertyValueField;
-
-        /// <remarks/>
-        public FuGECommonOntologyPropertyValue PropertyValue
-        {
-            get
-            {
-                return this.propertyValueField;
-            }
-            set
-            {
-                this.propertyValueField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementRangeTypeUpperLimit
-    {
-
-        private FuGECommonOntologyPropertyValue propertyValueField;
-
-        /// <remarks/>
-        public FuGECommonOntologyPropertyValue PropertyValue
-        {
-            get
-            {
-                return this.propertyValueField;
-            }
-            set
-            {
-                this.propertyValueField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementRangeTypeRangeDescriptors
-    {
-
-        private FuGECommonOntologycvParamType cvParamField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Measurement.ComplexValueType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementComplexValueType : FuGECommonMeasurementMeasurementType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Measurement.BooleanValueType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonMeasurementBooleanValueType : FuGECommonMeasurementMeasurementType
-    {
-
-        private bool valueField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public bool value
-        {
-            get
-            {
-                return this.valueField;
-            }
-            set
-            {
-                this.valueField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionProtocolType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationProtocolType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonProtocolGenericProtocolType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ProtocolType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonProtocolProtocolType : FuGECommonIdentifiableType
-    {
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.process.ProteinDetectionProtocolType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysisprocessProteinDetectionProtocolType : FuGECommonProtocolProtocolType
-    {
-
-        private ParamListType analysisParamsField;
-
-        private ParamListType thresholdField;
-
-        private string analysisSoftware_refField;
-
-        /// <remarks/>
-        public ParamListType AnalysisParams
-        {
-            get
-            {
-                return this.analysisParamsField;
-            }
-            set
-            {
-                this.analysisParamsField = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamListType Threshold
-        {
-            get
-            {
-                return this.thresholdField;
-            }
-            set
-            {
-                this.thresholdField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string AnalysisSoftware_ref
-        {
-            get
-            {
-                return this.analysisSoftware_refField;
-            }
-            set
-            {
-                this.analysisSoftware_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class ParamListType
-    {
-
-        private FuGECommonOntologyParamType[] itemsField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam", typeof(FuGECommonOntologycvParamType))]
-        [System.Xml.Serialization.XmlElementAttribute("userParam", typeof(FuGECommonOntologyuserParamType))]
-        public FuGECommonOntologyParamType[] Items
-        {
-            get
-            {
-                return this.itemsField;
-            }
-            set
-            {
-                this.itemsField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SpectrumIdentificationProtocolType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSpectrumIdentificationProtocolType : FuGECommonProtocolProtocolType
-    {
-
-        private ParamType searchTypeField;
-
-        private ParamListType additionalSearchParamsField;
-
-        private PSIPIanalysissearchSearchModificationType[] modificationParamsField;
-
-        private PSIPIanalysissearchEnzymesType enzymesField;
-
-        private PSIPIanalysissearchMassTableType[] massTableField;
-
-        private FuGECommonOntologycvParamType[] fragmentToleranceField;
-
-        private FuGECommonOntologycvParamType[] parentToleranceField;
-
-        private ParamListType thresholdField;
-
-        private FilterType[] databaseFiltersField;
-
-        private DatabaseTranslationType databaseTranslationField;
-
-        private string analysisSoftware_refField;
-
-        /// <remarks/>
-        public ParamType SearchType
-        {
-            get
-            {
-                return this.searchTypeField;
-            }
-            set
-            {
-                this.searchTypeField = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamListType AdditionalSearchParams
-        {
-            get
-            {
-                return this.additionalSearchParamsField;
-            }
-            set
-            {
-                this.additionalSearchParamsField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("SearchModification", IsNullable = false)]
-        public PSIPIanalysissearchSearchModificationType[] ModificationParams
-        {
-            get
-            {
-                return this.modificationParamsField;
-            }
-            set
-            {
-                this.modificationParamsField = value;
-            }
-        }
-
-        /// <remarks/>
-        public PSIPIanalysissearchEnzymesType Enzymes
-        {
-            get
-            {
-                return this.enzymesField;
-            }
-            set
-            {
-                this.enzymesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("MassTable")]
-        public PSIPIanalysissearchMassTableType[] MassTable
-        {
-            get
-            {
-                return this.massTableField;
-            }
-            set
-            {
-                this.massTableField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", IsNullable = false)]
-        public FuGECommonOntologycvParamType[] FragmentTolerance
-        {
-            get
-            {
-                return this.fragmentToleranceField;
-            }
-            set
-            {
-                this.fragmentToleranceField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", IsNullable = false)]
-        public FuGECommonOntologycvParamType[] ParentTolerance
-        {
-            get
-            {
-                return this.parentToleranceField;
-            }
-            set
-            {
-                this.parentToleranceField = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamListType Threshold
-        {
-            get
-            {
-                return this.thresholdField;
-            }
-            set
-            {
-                this.thresholdField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("Filter", IsNullable = false)]
-        public FilterType[] DatabaseFilters
-        {
-            get
-            {
-                return this.databaseFiltersField;
-            }
-            set
-            {
-                this.databaseFiltersField = value;
-            }
-        }
-
-        /// <remarks/>
-        public DatabaseTranslationType DatabaseTranslation
-        {
-            get
-            {
-                return this.databaseTranslationField;
-            }
-            set
-            {
-                this.databaseTranslationField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string AnalysisSoftware_ref
-        {
-            get
-            {
-                return this.analysisSoftware_refField;
-            }
-            set
-            {
-                this.analysisSoftware_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SearchModificationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSearchModificationType
-    {
-
-        private PSIPIpolypeptideModParamType modParamField;
-
-        private FuGECommonOntologycvParamType[] specificityRulesField;
-
-        private bool fixedModField;
-
-        /// <remarks/>
-        public PSIPIpolypeptideModParamType ModParam
-        {
-            get
-            {
-                return this.modParamField;
-            }
-            set
-            {
-                this.modParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", IsNullable = false)]
-        public FuGECommonOntologycvParamType[] SpecificityRules
-        {
-            get
-            {
-                return this.specificityRulesField;
-            }
-            set
-            {
-                this.specificityRulesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public bool fixedMod
-        {
-            get
-            {
-                return this.fixedModField;
-            }
-            set
-            {
-                this.fixedModField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.polypeptide.ModParamType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIpolypeptideModParamType
-    {
-
-        private FuGECommonOntologycvParamType cvParamField;
-
-        private float massDeltaField;
-
-        private string[] residuesField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public float massDelta
-        {
-            get
-            {
-                return this.massDeltaField;
-            }
-            set
-            {
-                this.massDeltaField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string[] residues
-        {
-            get
-            {
-                return this.residuesField;
-            }
-            set
-            {
-                this.residuesField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.EnzymesType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchEnzymesType
-    {
-
-        private PSIPIanalysissearchEnzymeType[] enzymeField;
-
-        private bool independentField;
-
-        private bool independentFieldSpecified;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Enzyme")]
-        public PSIPIanalysissearchEnzymeType[] Enzyme
-        {
-            get
-            {
-                return this.enzymeField;
-            }
-            set
-            {
-                this.enzymeField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public bool independent
-        {
-            get
-            {
-                return this.independentField;
-            }
-            set
-            {
-                this.independentField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool independentSpecified
-        {
-            get
-            {
-                return this.independentFieldSpecified;
-            }
-            set
-            {
-                this.independentFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.EnzymeType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchEnzymeType
-    {
-
-        private string siteRegexpField;
-
-        private ParamListType enzymeNameField;
-
-        private string idField;
-
-        private string nTermGainField;
-
-        private string cTermGainField;
-
-        private bool semiSpecificField;
-
-        private bool semiSpecificFieldSpecified;
-
-        private int missedCleavagesField;
-
-        private bool missedCleavagesFieldSpecified;
-
-        private int minDistanceField;
-
-        private bool minDistanceFieldSpecified;
-
-        /// <remarks/>
-        public string SiteRegexp
-        {
-            get
-            {
-                return this.siteRegexpField;
-            }
-            set
-            {
-                this.siteRegexpField = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamListType EnzymeName
-        {
-            get
-            {
-                return this.enzymeNameField;
-            }
-            set
-            {
-                this.enzymeNameField = value;
+                this.uriField = value;
             }
         }
 
@@ -2250,118 +304,6 @@ namespace mzIdentML110.Generated
                 this.idField = value;
             }
         }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string NTermGain
-        {
-            get
-            {
-                return this.nTermGainField;
-            }
-            set
-            {
-                this.nTermGainField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string CTermGain
-        {
-            get
-            {
-                return this.cTermGainField;
-            }
-            set
-            {
-                this.cTermGainField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public bool semiSpecific
-        {
-            get
-            {
-                return this.semiSpecificField;
-            }
-            set
-            {
-                this.semiSpecificField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool semiSpecificSpecified
-        {
-            get
-            {
-                return this.semiSpecificFieldSpecified;
-            }
-            set
-            {
-                this.semiSpecificFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int missedCleavages
-        {
-            get
-            {
-                return this.missedCleavagesField;
-            }
-            set
-            {
-                this.missedCleavagesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool missedCleavagesSpecified
-        {
-            get
-            {
-                return this.missedCleavagesFieldSpecified;
-            }
-            set
-            {
-                this.missedCleavagesFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int minDistance
-        {
-            get
-            {
-                return this.minDistanceField;
-            }
-            set
-            {
-                this.minDistanceField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool minDistanceSpecified
-        {
-            get
-            {
-                return this.minDistanceFieldSpecified;
-            }
-            set
-            {
-                this.minDistanceFieldSpecified = value;
-            }
-        }
     }
 
     /// <remarks/>
@@ -2369,53 +311,23 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FilterType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIdentificationItemRefType
     {
 
-        private ParamType filterType1Field;
-
-        private ParamListType includeField;
-
-        private ParamListType excludeField;
+        private string spectrumIdentificationItem_refField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("FilterType")]
-        public ParamType FilterType1
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectrumIdentificationItem_ref
         {
             get
             {
-                return this.filterType1Field;
+                return this.spectrumIdentificationItem_refField;
             }
             set
             {
-                this.filterType1Field = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamListType Include
-        {
-            get
-            {
-                return this.includeField;
-            }
-            set
-            {
-                this.includeField = value;
-            }
-        }
-
-        /// <remarks/>
-        public ParamListType Exclude
-        {
-            get
-            {
-                return this.excludeField;
-            }
-            set
-            {
-                this.excludeField = value;
+                this.spectrumIdentificationItem_refField = value;
             }
         }
     }
@@ -2425,359 +337,39 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class DatabaseTranslationType
-    {
-
-        private TranslationTableType[] translationTableField;
-
-        private int[] framesField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("TranslationTable")]
-        public TranslationTableType[] TranslationTable
-        {
-            get
-            {
-                return this.translationTableField;
-            }
-            set
-            {
-                this.translationTableField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int[] frames
-        {
-            get
-            {
-                return this.framesField;
-            }
-            set
-            {
-                this.framesField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonAuditOrganizationType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGECommonAuditPersonType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Audit.ContactType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGECommonAuditContactType : FuGECommonIdentifiableType
-    {
-
-        private string addressField;
-
-        private string phoneField;
-
-        private string emailField;
-
-        private string faxField;
-
-        private string tollFreePhoneField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string address
-        {
-            get
-            {
-                return this.addressField;
-            }
-            set
-            {
-                this.addressField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string phone
-        {
-            get
-            {
-                return this.phoneField;
-            }
-            set
-            {
-                this.phoneField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string email
-        {
-            get
-            {
-                return this.emailField;
-            }
-            set
-            {
-                this.emailField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string fax
-        {
-            get
-            {
-                return this.faxField;
-            }
-            set
-            {
-                this.faxField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string tollFreePhone
-        {
-            get
-            {
-                return this.tollFreePhoneField;
-            }
-            set
-            {
-                this.tollFreePhoneField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SampleType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioMaterialGenericMaterialType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Material.MaterialType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGEBioMaterialMaterialType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonAuditContactRoleType[] contactRoleField;
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ContactRole")]
-        public FuGECommonAuditContactRoleType[] ContactRole
-        {
-            get
-            {
-                return this.contactRoleField;
-            }
-            set
-            {
-                this.contactRoleField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class SampleType : FuGEBioMaterialMaterialType
-    {
-
-        private subSampleType[] subSampleField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("subSample")]
-        public subSampleType[] subSample
-        {
-            get
-            {
-                return this.subSampleField;
-            }
-            set
-            {
-                this.subSampleField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class subSampleType
-    {
-
-        private string sample_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Sample_ref
-        {
-            get
-            {
-                return this.sample_refField;
-            }
-            set
-            {
-                this.sample_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.process.ProteinDetectionHypothesisType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysisprocessProteinDetectionHypothesisType : FuGECommonIdentifiableType
-    {
-
-        private PeptideHypothesisType[] peptideHypothesisField;
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private string dBSequence_refField;
-
-        private bool passThresholdField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("PeptideHypothesis")]
-        public PeptideHypothesisType[] PeptideHypothesis
-        {
-            get
-            {
-                return this.peptideHypothesisField;
-            }
-            set
-            {
-                this.peptideHypothesisField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string DBSequence_ref
-        {
-            get
-            {
-                return this.dBSequence_refField;
-            }
-            set
-            {
-                this.dBSequence_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public bool passThreshold
-        {
-            get
-            {
-                return this.passThresholdField;
-            }
-            set
-            {
-                this.passThresholdField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
     public partial class PeptideHypothesisType
     {
 
-        private string peptideEvidence_RefField;
+        private SpectrumIdentificationItemRefType[] spectrumIdentificationItemRefField;
+
+        private string peptideEvidence_refField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string PeptideEvidence_Ref
+        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationItemRef")]
+        public SpectrumIdentificationItemRefType[] SpectrumIdentificationItemRef
         {
             get
             {
-                return this.peptideEvidence_RefField;
+                return this.spectrumIdentificationItemRefField;
             }
             set
             {
-                this.peptideEvidence_RefField = value;
+                this.spectrumIdentificationItemRefField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string peptideEvidence_ref
+        {
+            get
+            {
+                return this.peptideEvidence_refField;
+            }
+            set
+            {
+                this.peptideEvidence_refField = value;
             }
         }
     }
@@ -2787,55 +379,39 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.process.ProteinAmbiguityGroupType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysisprocessProteinAmbiguityGroupType : FuGECommonIdentifiableType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class FragmentArrayType
     {
 
-        private PSIPIanalysisprocessProteinDetectionHypothesisType[] proteinDetectionHypothesisField;
+        private float[] valuesField;
 
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
+        private string measure_refField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ProteinDetectionHypothesis")]
-        public PSIPIanalysisprocessProteinDetectionHypothesisType[] ProteinDetectionHypothesis
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public float[] values
         {
             get
             {
-                return this.proteinDetectionHypothesisField;
+                return this.valuesField;
             }
             set
             {
-                this.proteinDetectionHypothesisField = value;
+                this.valuesField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string measure_ref
         {
             get
             {
-                return this.cvParamField;
+                return this.measure_refField;
             }
             set
             {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
+                this.measure_refField = value;
             }
         }
     }
@@ -2845,536 +421,17 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.process.PeptideEvidenceType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysisprocessPeptideEvidenceType : FuGECommonIdentifiableType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private string dBSequence_RefField;
-
-        private int startField;
-
-        private bool startFieldSpecified;
-
-        private int endField;
-
-        private bool endFieldSpecified;
-
-        private string preField;
-
-        private string postField;
-
-        private string translationTable_refField;
-
-        private int frameField;
-
-        private bool frameFieldSpecified;
-
-        private bool isDecoyField;
-
-        private int missedCleavagesField;
-
-        private bool missedCleavagesFieldSpecified;
-
-        public PSIPIanalysisprocessPeptideEvidenceType()
-        {
-            this.isDecoyField = false;
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string DBSequence_Ref
-        {
-            get
-            {
-                return this.dBSequence_RefField;
-            }
-            set
-            {
-                this.dBSequence_RefField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int start
-        {
-            get
-            {
-                return this.startField;
-            }
-            set
-            {
-                this.startField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool startSpecified
-        {
-            get
-            {
-                return this.startFieldSpecified;
-            }
-            set
-            {
-                this.startFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int end
-        {
-            get
-            {
-                return this.endField;
-            }
-            set
-            {
-                this.endField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool endSpecified
-        {
-            get
-            {
-                return this.endFieldSpecified;
-            }
-            set
-            {
-                this.endFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string pre
-        {
-            get
-            {
-                return this.preField;
-            }
-            set
-            {
-                this.preField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string post
-        {
-            get
-            {
-                return this.postField;
-            }
-            set
-            {
-                this.postField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string TranslationTable_ref
-        {
-            get
-            {
-                return this.translationTable_refField;
-            }
-            set
-            {
-                this.translationTable_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int frame
-        {
-            get
-            {
-                return this.frameField;
-            }
-            set
-            {
-                this.frameField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool frameSpecified
-        {
-            get
-            {
-                return this.frameFieldSpecified;
-            }
-            set
-            {
-                this.frameFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        [System.ComponentModel.DefaultValueAttribute(false)]
-        public bool isDecoy
-        {
-            get
-            {
-                return this.isDecoyField;
-            }
-            set
-            {
-                this.isDecoyField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int missedCleavages
-        {
-            get
-            {
-                return this.missedCleavagesField;
-            }
-            set
-            {
-                this.missedCleavagesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool missedCleavagesSpecified
-        {
-            get
-            {
-                return this.missedCleavagesFieldSpecified;
-            }
-            set
-            {
-                this.missedCleavagesFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SpectrumIdentificationItemType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSpectrumIdentificationItemType : FuGECommonIdentifiableType
-    {
-
-        private PSIPIanalysisprocessPeptideEvidenceType[] peptideEvidenceField;
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private IonTypeType[] fragmentationField;
-
-        private int chargeStateField;
-
-        private double experimentalMassToChargeField;
-
-        private double calculatedMassToChargeField;
-
-        private bool calculatedMassToChargeFieldSpecified;
-
-        private float calculatedPIField;
-
-        private bool calculatedPIFieldSpecified;
-
-        private string peptide_refField;
-
-        private int rankField;
-
-        private bool passThresholdField;
-
-        private string massTable_refField;
-
-        private string sample_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("PeptideEvidence")]
-        public PSIPIanalysisprocessPeptideEvidenceType[] PeptideEvidence
-        {
-            get
-            {
-                return this.peptideEvidenceField;
-            }
-            set
-            {
-                this.peptideEvidenceField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("IonType", IsNullable = false)]
-        public IonTypeType[] Fragmentation
-        {
-            get
-            {
-                return this.fragmentationField;
-            }
-            set
-            {
-                this.fragmentationField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int chargeState
-        {
-            get
-            {
-                return this.chargeStateField;
-            }
-            set
-            {
-                this.chargeStateField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public double experimentalMassToCharge
-        {
-            get
-            {
-                return this.experimentalMassToChargeField;
-            }
-            set
-            {
-                this.experimentalMassToChargeField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public double calculatedMassToCharge
-        {
-            get
-            {
-                return this.calculatedMassToChargeField;
-            }
-            set
-            {
-                this.calculatedMassToChargeField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool calculatedMassToChargeSpecified
-        {
-            get
-            {
-                return this.calculatedMassToChargeFieldSpecified;
-            }
-            set
-            {
-                this.calculatedMassToChargeFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public float calculatedPI
-        {
-            get
-            {
-                return this.calculatedPIField;
-            }
-            set
-            {
-                this.calculatedPIField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool calculatedPISpecified
-        {
-            get
-            {
-                return this.calculatedPIFieldSpecified;
-            }
-            set
-            {
-                this.calculatedPIFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Peptide_ref
-        {
-            get
-            {
-                return this.peptide_refField;
-            }
-            set
-            {
-                this.peptide_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int rank
-        {
-            get
-            {
-                return this.rankField;
-            }
-            set
-            {
-                this.rankField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public bool passThreshold
-        {
-            get
-            {
-                return this.passThresholdField;
-            }
-            set
-            {
-                this.passThresholdField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string MassTable_ref
-        {
-            get
-            {
-                return this.massTable_refField;
-            }
-            set
-            {
-                this.massTable_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Sample_ref
-        {
-            get
-            {
-                return this.sample_refField;
-            }
-            set
-            {
-                this.sample_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
     public partial class IonTypeType
     {
 
-        private FuGECommonOntologycvParamType cvParamField;
-
         private FragmentArrayType[] fragmentArrayField;
+
+        private CVParamType cvParamField;
 
         private string[] indexField;
 
         private int chargeField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute("FragmentArray")]
@@ -3387,6 +444,19 @@ namespace mzIdentML110.Generated
             set
             {
                 this.fragmentArrayField = value;
+            }
+        }
+
+        /// <remarks/>
+        public CVParamType cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
             }
         }
 
@@ -3424,335 +494,25 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FragmentArrayType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class CVParamType : AbstractParamType
     {
 
-        private float[] valuesField;
-
-        private string measure_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public float[] values
-        {
-            get
-            {
-                return this.valuesField;
-            }
-            set
-            {
-                this.valuesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Measure_ref
-        {
-            get
-            {
-                return this.measure_refField;
-            }
-            set
-            {
-                this.measure_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SpectrumIdentificationResultType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSpectrumIdentificationResultType : FuGECommonIdentifiableType
-    {
-
-        private PSIPIanalysissearchSpectrumIdentificationItemType[] spectrumIdentificationItemField;
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private string spectrumIDField;
-
-        private string spectraData_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationItem")]
-        public PSIPIanalysissearchSpectrumIdentificationItemType[] SpectrumIdentificationItem
-        {
-            get
-            {
-                return this.spectrumIdentificationItemField;
-            }
-            set
-            {
-                this.spectrumIdentificationItemField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string spectrumID
-        {
-            get
-            {
-                return this.spectrumIDField;
-            }
-            set
-            {
-                this.spectrumIDField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SpectraData_ref
-        {
-            get
-            {
-                return this.spectraData_refField;
-            }
-            set
-            {
-                this.spectraData_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioDataInternalDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionListType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationListType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioDataExternalDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIspectraSpectraDataType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSourceFileType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSearchDatabaseType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Data.DataType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGEBioDataDataType : FuGECommonIdentifiableType
-    {
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysisprocessProteinDetectionListType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchSpectrumIdentificationListType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Data.InternalDataType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGEBioDataInternalDataType : FuGEBioDataDataType
-    {
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.process.ProteinDetectionListType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysisprocessProteinDetectionListType : FuGEBioDataInternalDataType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private PSIPIanalysisprocessProteinAmbiguityGroupType[] proteinAmbiguityGroupField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ProteinAmbiguityGroup")]
-        public PSIPIanalysisprocessProteinAmbiguityGroupType[] ProteinAmbiguityGroup
-        {
-            get
-            {
-                return this.proteinAmbiguityGroupField;
-            }
-            set
-            {
-                this.proteinAmbiguityGroupField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIanalysissearchDBSequenceType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PSIPIpolypeptidePeptideType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.ConceptualMolecule.ConceptualMoleculeType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGEBioConceptualMoleculeConceptualMoleculeType : FuGECommonIdentifiableType
-    {
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.DBSequenceType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchDBSequenceType : FuGEBioConceptualMoleculeConceptualMoleculeType
-    {
-
-        private string seqField;
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private int lengthField;
-
-        private bool lengthFieldSpecified;
-
-        private string searchDatabase_refField;
+        private string cvRefField;
 
         private string accessionField;
 
         /// <remarks/>
-        public string seq
-        {
-            get
-            {
-                return this.seqField;
-            }
-            set
-            {
-                this.seqField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-
-        /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int length
+        public string cvRef
         {
             get
             {
-                return this.lengthField;
+                return this.cvRefField;
             }
             set
             {
-                this.lengthField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool lengthSpecified
-        {
-            get
-            {
-                return this.lengthFieldSpecified;
-            }
-            set
-            {
-                this.lengthFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string SearchDatabase_ref
-        {
-            get
-            {
-                return this.searchDatabase_refField;
-            }
-            set
-            {
-                this.searchDatabase_refField = value;
+                this.cvRefField = value;
             }
         }
 
@@ -3772,68 +532,242 @@ namespace mzIdentML110.Generated
     }
 
     /// <remarks/>
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(CVParamType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(UserParamType))]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.polypeptide.PeptideType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIpolypeptidePeptideType : FuGEBioConceptualMoleculeConceptualMoleculeType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public abstract partial class AbstractParamType
     {
 
-        private string peptideSequenceField;
+        private string nameField;
 
-        private PSIPIpolypeptideModificationType[] modificationField;
+        private string valueField;
 
-        private PSIPIpolypeptideSubstitutionModificationType[] substitutionModificationField;
+        private string unitAccessionField;
 
-        private FuGECommonOntologycvParamType[] cvParamField;
+        private string unitNameField;
 
-        private FuGECommonOntologyuserParamType[] userParamField;
+        private string unitCvRefField;
 
         /// <remarks/>
-        public string peptideSequence
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string name
         {
             get
             {
-                return this.peptideSequenceField;
+                return this.nameField;
             }
             set
             {
-                this.peptideSequenceField = value;
+                this.nameField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Modification")]
-        public PSIPIpolypeptideModificationType[] Modification
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string value
         {
             get
             {
-                return this.modificationField;
+                return this.valueField;
             }
             set
             {
-                this.modificationField = value;
+                this.valueField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SubstitutionModification")]
-        public PSIPIpolypeptideSubstitutionModificationType[] SubstitutionModification
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string unitAccession
         {
             get
             {
-                return this.substitutionModificationField;
+                return this.unitAccessionField;
             }
             set
             {
-                this.substitutionModificationField = value;
+                this.unitAccessionField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string unitName
+        {
+            get
+            {
+                return this.unitNameField;
+            }
+            set
+            {
+                this.unitNameField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string unitCvRef
+        {
+            get
+            {
+                return this.unitCvRefField;
+            }
+            set
+            {
+                this.unitCvRefField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class UserParamType : AbstractParamType
+    {
+
+        private string typeField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string type
+        {
+            get
+            {
+                return this.typeField;
+            }
+            set
+            {
+                this.typeField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class PeptideEvidenceRefType
+    {
+
+        private string peptideEvidence_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string peptideEvidence_ref
+        {
+            get
+            {
+                return this.peptideEvidence_refField;
+            }
+            set
+            {
+                this.peptideEvidence_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class AnalysisDataType
+    {
+
+        private SpectrumIdentificationListType[] spectrumIdentificationListField;
+
+        private ProteinDetectionListType proteinDetectionListField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationList")]
+        public SpectrumIdentificationListType[] SpectrumIdentificationList
+        {
+            get
+            {
+                return this.spectrumIdentificationListField;
+            }
+            set
+            {
+                this.spectrumIdentificationListField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ProteinDetectionListType ProteinDetectionList
+        {
+            get
+            {
+                return this.proteinDetectionListField;
+            }
+            set
+            {
+                this.proteinDetectionListField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIdentificationListType : IdentifiableType
+    {
+
+        private MeasureType[] fragmentationTableField;
+
+        private SpectrumIdentificationResultType[] spectrumIdentificationResultField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private long numSequencesSearchedField;
+
+        private bool numSequencesSearchedFieldSpecified;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("Measure", IsNullable = false)]
+        public MeasureType[] FragmentationTable
+        {
+            get
+            {
+                return this.fragmentationTableField;
+            }
+            set
+            {
+                this.fragmentationTableField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationResult")]
+        public SpectrumIdentificationResultType[] SpectrumIdentificationResult
+        {
+            get
+            {
+                return this.spectrumIdentificationResultField;
+            }
+            set
+            {
+                this.spectrumIdentificationResultField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
+        public CVParamType[] cvParam
         {
             get
             {
@@ -3847,63 +781,7 @@ namespace mzIdentML110.Generated
 
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.polypeptide.ModificationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIpolypeptideModificationType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
-
-        private int locationField;
-
-        private bool locationFieldSpecified;
-
-        private string[] residuesField;
-
-        private double avgMassDeltaField;
-
-        private bool avgMassDeltaFieldSpecified;
-
-        private double monoisotopicMassDeltaField;
-
-        private bool monoisotopicMassDeltaFieldSpecified;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
+        public UserParamType[] userParam
         {
             get
             {
@@ -3917,99 +795,29 @@ namespace mzIdentML110.Generated
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int location
+        public long numSequencesSearched
         {
             get
             {
-                return this.locationField;
+                return this.numSequencesSearchedField;
             }
             set
             {
-                this.locationField = value;
+                this.numSequencesSearchedField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool locationSpecified
+        public bool numSequencesSearchedSpecified
         {
             get
             {
-                return this.locationFieldSpecified;
+                return this.numSequencesSearchedFieldSpecified;
             }
             set
             {
-                this.locationFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string[] residues
-        {
-            get
-            {
-                return this.residuesField;
-            }
-            set
-            {
-                this.residuesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public double avgMassDelta
-        {
-            get
-            {
-                return this.avgMassDeltaField;
-            }
-            set
-            {
-                this.avgMassDeltaField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool avgMassDeltaSpecified
-        {
-            get
-            {
-                return this.avgMassDeltaFieldSpecified;
-            }
-            set
-            {
-                this.avgMassDeltaFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public double monoisotopicMassDelta
-        {
-            get
-            {
-                return this.monoisotopicMassDeltaField;
-            }
-            set
-            {
-                this.monoisotopicMassDeltaField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool monoisotopicMassDeltaSpecified
-        {
-            get
-            {
-                return this.monoisotopicMassDeltaFieldSpecified;
-            }
-            set
-            {
-                this.monoisotopicMassDeltaFieldSpecified = value;
+                this.numSequencesSearchedFieldSpecified = value;
             }
         }
     }
@@ -4019,414 +827,15 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.polypeptide.SubstitutionModificationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIpolypeptideSubstitutionModificationType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class MeasureType : IdentifiableType
     {
 
-        private string originalResidueField;
-
-        private string replacementResidueField;
-
-        private int locationField;
-
-        private bool locationFieldSpecified;
-
-        private double avgMassDeltaField;
-
-        private bool avgMassDeltaFieldSpecified;
-
-        private double monoisotopicMassDeltaField;
-
-        private bool monoisotopicMassDeltaFieldSpecified;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string originalResidue
-        {
-            get
-            {
-                return this.originalResidueField;
-            }
-            set
-            {
-                this.originalResidueField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string replacementResidue
-        {
-            get
-            {
-                return this.replacementResidueField;
-            }
-            set
-            {
-                this.replacementResidueField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public int location
-        {
-            get
-            {
-                return this.locationField;
-            }
-            set
-            {
-                this.locationField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool locationSpecified
-        {
-            get
-            {
-                return this.locationFieldSpecified;
-            }
-            set
-            {
-                this.locationFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public double avgMassDelta
-        {
-            get
-            {
-                return this.avgMassDeltaField;
-            }
-            set
-            {
-                this.avgMassDeltaField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool avgMassDeltaSpecified
-        {
-            get
-            {
-                return this.avgMassDeltaFieldSpecified;
-            }
-            set
-            {
-                this.avgMassDeltaFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public double monoisotopicMassDelta
-        {
-            get
-            {
-                return this.monoisotopicMassDeltaField;
-            }
-            set
-            {
-                this.monoisotopicMassDeltaField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool monoisotopicMassDeltaSpecified
-        {
-            get
-            {
-                return this.monoisotopicMassDeltaFieldSpecified;
-            }
-            set
-            {
-                this.monoisotopicMassDeltaFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class InputsType
-    {
-
-        private PSIPIanalysissearchSourceFileType[] sourceFileField;
-
-        private PSIPIanalysissearchSearchDatabaseType[] searchDatabaseField;
-
-        private PSIPIspectraSpectraDataType[] spectraDataField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SourceFile")]
-        public PSIPIanalysissearchSourceFileType[] SourceFile
-        {
-            get
-            {
-                return this.sourceFileField;
-            }
-            set
-            {
-                this.sourceFileField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SearchDatabase")]
-        public PSIPIanalysissearchSearchDatabaseType[] SearchDatabase
-        {
-            get
-            {
-                return this.searchDatabaseField;
-            }
-            set
-            {
-                this.searchDatabaseField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SpectraData")]
-        public PSIPIspectraSpectraDataType[] SpectraData
-        {
-            get
-            {
-                return this.spectraDataField;
-            }
-            set
-            {
-                this.spectraDataField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SourceFileType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSourceFileType : FuGEBioDataExternalDataType
-    {
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private FuGECommonOntologyuserParamType[] userParamField;
+        private CVParamType[] cvParamField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("userParam")]
-        public FuGECommonOntologyuserParamType[] userParam
-        {
-            get
-            {
-                return this.userParamField;
-            }
-            set
-            {
-                this.userParamField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.analysis.search.SearchDatabaseType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIanalysissearchSearchDatabaseType : FuGEBioDataExternalDataType
-    {
-
-        private ParamType databaseNameField;
-
-        private FuGECommonOntologycvParamType[] cvParamField;
-
-        private string versionField;
-
-        private string releaseDateField;
-
-        private long numDatabaseSequencesField;
-
-        private bool numDatabaseSequencesFieldSpecified;
-
-        private long numResiduesField;
-
-        private bool numResiduesFieldSpecified;
-
-        /// <remarks/>
-        public ParamType DatabaseName
-        {
-            get
-            {
-                return this.databaseNameField;
-            }
-            set
-            {
-                this.databaseNameField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
-        public FuGECommonOntologycvParamType[] cvParam
-        {
-            get
-            {
-                return this.cvParamField;
-            }
-            set
-            {
-                this.cvParamField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string version
-        {
-            get
-            {
-                return this.versionField;
-            }
-            set
-            {
-                this.versionField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string releaseDate
-        {
-            get
-            {
-                return this.releaseDateField;
-            }
-            set
-            {
-                this.releaseDateField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public long numDatabaseSequences
-        {
-            get
-            {
-                return this.numDatabaseSequencesField;
-            }
-            set
-            {
-                this.numDatabaseSequencesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool numDatabaseSequencesSpecified
-        {
-            get
-            {
-                return this.numDatabaseSequencesFieldSpecified;
-            }
-            set
-            {
-                this.numDatabaseSequencesFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public long numResidues
-        {
-            get
-            {
-                return this.numResiduesField;
-            }
-            set
-            {
-                this.numResiduesField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool numResiduesSpecified
-        {
-            get
-            {
-                return this.numResiduesFieldSpecified;
-            }
-            set
-            {
-                this.numResiduesFieldSpecified = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.spectra.SpectraDataType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class PSIPIspectraSpectraDataType : FuGEBioDataExternalDataType
-    {
-
-        private spectrumIDFormatType spectrumIDFormatField;
-
-        /// <remarks/>
-        public spectrumIDFormatType spectrumIDFormat
-        {
-            get
-            {
-                return this.spectrumIDFormatField;
-            }
-            set
-            {
-                this.spectrumIDFormatField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class spectrumIDFormatType
-    {
-
-        private FuGECommonOntologycvParamType cvParamField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
+        public CVParamType[] cvParam
         {
             get
             {
@@ -4440,391 +849,73 @@ namespace mzIdentML110.Generated
     }
 
     /// <remarks/>
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(BibliographicReferenceType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProteinDetectionHypothesisType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProteinAmbiguityGroupType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProteinDetectionListType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectrumIdentificationItemType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectrumIdentificationResultType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(MeasureType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectrumIdentificationListType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ExternalDataType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectraDataType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SourceFileType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SearchDatabaseType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProteinDetectionProtocolType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(TranslationTableType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(MassTableType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(EnzymeType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectrumIdentificationProtocolType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProtocolApplicationType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProteinDetectionType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectrumIdentificationType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PeptideEvidenceType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PeptideType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(DBSequenceType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SampleType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(AbstractContactType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(OrganizationType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PersonType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProviderType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(AnalysisSoftwareType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(MzIdentMLType))]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class DataCollectionType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public abstract partial class IdentifiableType
     {
 
-        private InputsType inputsField;
+        private string idField;
 
-        private AnalysisDataType analysisDataField;
-
-        /// <remarks/>
-        public InputsType Inputs
-        {
-            get
-            {
-                return this.inputsField;
-            }
-            set
-            {
-                this.inputsField = value;
-            }
-        }
-
-        /// <remarks/>
-        public AnalysisDataType AnalysisData
-        {
-            get
-            {
-                return this.analysisDataField;
-            }
-            set
-            {
-                this.analysisDataField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class AnalysisProtocolCollectionType
-    {
-
-        private PSIPIanalysissearchSpectrumIdentificationProtocolType[] spectrumIdentificationProtocolField;
-
-        private PSIPIanalysisprocessProteinDetectionProtocolType proteinDetectionProtocolField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationProtocol")]
-        public PSIPIanalysissearchSpectrumIdentificationProtocolType[] SpectrumIdentificationProtocol
-        {
-            get
-            {
-                return this.spectrumIdentificationProtocolField;
-            }
-            set
-            {
-                this.spectrumIdentificationProtocolField = value;
-            }
-        }
-
-        /// <remarks/>
-        public PSIPIanalysisprocessProteinDetectionProtocolType ProteinDetectionProtocol
-        {
-            get
-            {
-                return this.proteinDetectionProtocolField;
-            }
-            set
-            {
-                this.proteinDetectionProtocolField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class AnalysisCollectionType
-    {
-
-        private PSIPIanalysissearchSpectrumIdentificationType[] spectrumIdentificationField;
-
-        private PSIPIanalysisprocessProteinDetectionType proteinDetectionField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentification")]
-        public PSIPIanalysissearchSpectrumIdentificationType[] SpectrumIdentification
-        {
-            get
-            {
-                return this.spectrumIdentificationField;
-            }
-            set
-            {
-                this.spectrumIdentificationField = value;
-            }
-        }
-
-        /// <remarks/>
-        public PSIPIanalysisprocessProteinDetectionType ProteinDetection
-        {
-            get
-            {
-                return this.proteinDetectionField;
-            }
-            set
-            {
-                this.proteinDetectionField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class SequenceCollectionType
-    {
-
-        private PSIPIanalysissearchDBSequenceType[] dBSequenceField;
-
-        private PSIPIpolypeptidePeptideType[] peptideField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("DBSequence")]
-        public PSIPIanalysissearchDBSequenceType[] DBSequence
-        {
-            get
-            {
-                return this.dBSequenceField;
-            }
-            set
-            {
-                this.dBSequenceField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Peptide")]
-        public PSIPIpolypeptidePeptideType[] Peptide
-        {
-            get
-            {
-                return this.peptideField;
-            }
-            set
-            {
-                this.peptideField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(FuGEBioMaterialGenericMaterialMeasurementType))]
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Material.MaterialMeasurementType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public abstract partial class FuGEBioMaterialMaterialMeasurementType
-    {
-
-        private FuGECommonMeasurementAtomicValueType atomicValueField;
-
-        private FuGECommonMeasurementBooleanValueType booleanValueField;
-
-        private FuGECommonMeasurementComplexValueType complexValueField;
-
-        private FuGECommonMeasurementRangeType rangeField;
-
-        /// <remarks/>
-        public FuGECommonMeasurementAtomicValueType AtomicValue
-        {
-            get
-            {
-                return this.atomicValueField;
-            }
-            set
-            {
-                this.atomicValueField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementBooleanValueType BooleanValue
-        {
-            get
-            {
-                return this.booleanValueField;
-            }
-            set
-            {
-                this.booleanValueField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementComplexValueType ComplexValue
-        {
-            get
-            {
-                return this.complexValueField;
-            }
-            set
-            {
-                this.complexValueField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonMeasurementRangeType Range
-        {
-            get
-            {
-                return this.rangeField;
-            }
-            set
-            {
-                this.rangeField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Material.GenericMaterialType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericMaterial", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGEBioMaterialGenericMaterialType : FuGEBioMaterialMaterialType
-    {
-
-        private FuGEBioMaterialGenericMaterialTypeComponents[] componentsField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("components")]
-        public FuGEBioMaterialGenericMaterialTypeComponents[] components
-        {
-            get
-            {
-                return this.componentsField;
-            }
-            set
-            {
-                this.componentsField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGEBioMaterialGenericMaterialTypeComponents
-    {
-
-        private string genericMaterial_refField;
+        private string nameField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string GenericMaterial_ref
+        public string id
         {
             get
             {
-                return this.genericMaterial_refField;
+                return this.idField;
             }
             set
             {
-                this.genericMaterial_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Bio.Material.GenericMaterialMeasurementType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericMaterialMeasurement", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGEBioMaterialGenericMaterialMeasurementType : FuGEBioMaterialMaterialMeasurementType
-    {
-
-        private string material_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Material_ref
-        {
-            get
-            {
-                return this.material_refField;
-            }
-            set
-            {
-                this.material_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Audit.PersonType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("Person", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonAuditPersonType : FuGECommonAuditContactType
-    {
-
-        private FuGECommonAuditPersonTypeAffiliations[] affiliationsField;
-
-        private string lastNameField;
-
-        private string firstNameField;
-
-        private string midInitialsField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("affiliations")]
-        public FuGECommonAuditPersonTypeAffiliations[] affiliations
-        {
-            get
-            {
-                return this.affiliationsField;
-            }
-            set
-            {
-                this.affiliationsField = value;
+                this.idField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string lastName
+        public string name
         {
             get
             {
-                return this.lastNameField;
+                return this.nameField;
             }
             set
             {
-                this.lastNameField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string firstName
-        {
-            get
-            {
-                return this.firstNameField;
-            }
-            set
-            {
-                this.firstNameField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string midInitials
-        {
-            get
-            {
-                return this.midInitialsField;
-            }
-            set
-            {
-                this.midInitialsField = value;
+                this.nameField = value;
             }
         }
     }
@@ -4834,87 +925,8 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonAuditPersonTypeAffiliations
-    {
-
-        private string organization_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Organization_ref
-        {
-            get
-            {
-                return this.organization_refField;
-            }
-            set
-            {
-                this.organization_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Audit.OrganizationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("Organization", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonAuditOrganizationType : FuGECommonAuditContactType
-    {
-
-        private FuGECommonAuditOrganizationTypeParent parentField;
-
-        /// <remarks/>
-        public FuGECommonAuditOrganizationTypeParent parent
-        {
-            get
-            {
-                return this.parentField;
-            }
-            set
-            {
-                this.parentField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonAuditOrganizationTypeParent
-    {
-
-        private string organization_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Organization_ref
-        {
-            get
-            {
-                return this.organization_refField;
-            }
-            set
-            {
-                this.organization_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.References.BibliographicReferenceType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("BibliographicReference", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonReferencesBibliographicReferenceType : FuGECommonIdentifiableType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class BibliographicReferenceType : IdentifiableType
     {
 
         private string authorsField;
@@ -4936,6 +948,8 @@ namespace mzIdentML110.Generated
         private string pagesField;
 
         private string titleField;
+
+        private string doiField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
@@ -5076,6 +1090,20 @@ namespace mzIdentML110.Generated
                 this.titleField = value;
             }
         }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string doi
+        {
+            get
+            {
+                return this.doiField;
+            }
+            set
+            {
+                this.doiField = value;
+            }
+        }
     }
 
     /// <remarks/>
@@ -5083,28 +1111,775 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.References.DatabaseType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("Database", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonReferencesDatabaseType : FuGECommonIdentifiableType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ProteinDetectionHypothesisType : IdentifiableType
     {
 
-        private FuGECommonAuditContactRoleType[] contactRoleField;
+        private PeptideHypothesisType[] peptideHypothesisField;
 
-        private string versionField;
+        private CVParamType[] cvParamField;
 
-        private string uRIField;
+        private UserParamType[] userParamField;
+
+        private string dBSequence_refField;
+
+        private bool passThresholdField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ContactRole")]
-        public FuGECommonAuditContactRoleType[] ContactRole
+        [System.Xml.Serialization.XmlElementAttribute("PeptideHypothesis")]
+        public PeptideHypothesisType[] PeptideHypothesis
         {
             get
             {
-                return this.contactRoleField;
+                return this.peptideHypothesisField;
             }
             set
             {
-                this.contactRoleField = value;
+                this.peptideHypothesisField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string dBSequence_ref
+        {
+            get
+            {
+                return this.dBSequence_refField;
+            }
+            set
+            {
+                this.dBSequence_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public bool passThreshold
+        {
+            get
+            {
+                return this.passThresholdField;
+            }
+            set
+            {
+                this.passThresholdField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ProteinAmbiguityGroupType : IdentifiableType
+    {
+
+        private ProteinDetectionHypothesisType[] proteinDetectionHypothesisField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("ProteinDetectionHypothesis")]
+        public ProteinDetectionHypothesisType[] ProteinDetectionHypothesis
+        {
+            get
+            {
+                return this.proteinDetectionHypothesisField;
+            }
+            set
+            {
+                this.proteinDetectionHypothesisField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ProteinDetectionListType : IdentifiableType
+    {
+
+        private ProteinAmbiguityGroupType[] proteinAmbiguityGroupField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("ProteinAmbiguityGroup")]
+        public ProteinAmbiguityGroupType[] ProteinAmbiguityGroup
+        {
+            get
+            {
+                return this.proteinAmbiguityGroupField;
+            }
+            set
+            {
+                this.proteinAmbiguityGroupField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIdentificationItemType : IdentifiableType
+    {
+
+        private PeptideEvidenceRefType[] peptideEvidenceRefField;
+
+        private IonTypeType[] fragmentationField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private int chargeStateField;
+
+        private double experimentalMassToChargeField;
+
+        private double calculatedMassToChargeField;
+
+        private bool calculatedMassToChargeFieldSpecified;
+
+        private float calculatedPIField;
+
+        private bool calculatedPIFieldSpecified;
+
+        private string peptide_refField;
+
+        private int rankField;
+
+        private bool passThresholdField;
+
+        private string massTable_refField;
+
+        private string sample_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("PeptideEvidenceRef")]
+        public PeptideEvidenceRefType[] PeptideEvidenceRef
+        {
+            get
+            {
+                return this.peptideEvidenceRefField;
+            }
+            set
+            {
+                this.peptideEvidenceRefField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("IonType", IsNullable = false)]
+        public IonTypeType[] Fragmentation
+        {
+            get
+            {
+                return this.fragmentationField;
+            }
+            set
+            {
+                this.fragmentationField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int chargeState
+        {
+            get
+            {
+                return this.chargeStateField;
+            }
+            set
+            {
+                this.chargeStateField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public double experimentalMassToCharge
+        {
+            get
+            {
+                return this.experimentalMassToChargeField;
+            }
+            set
+            {
+                this.experimentalMassToChargeField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public double calculatedMassToCharge
+        {
+            get
+            {
+                return this.calculatedMassToChargeField;
+            }
+            set
+            {
+                this.calculatedMassToChargeField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool calculatedMassToChargeSpecified
+        {
+            get
+            {
+                return this.calculatedMassToChargeFieldSpecified;
+            }
+            set
+            {
+                this.calculatedMassToChargeFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public float calculatedPI
+        {
+            get
+            {
+                return this.calculatedPIField;
+            }
+            set
+            {
+                this.calculatedPIField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool calculatedPISpecified
+        {
+            get
+            {
+                return this.calculatedPIFieldSpecified;
+            }
+            set
+            {
+                this.calculatedPIFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string peptide_ref
+        {
+            get
+            {
+                return this.peptide_refField;
+            }
+            set
+            {
+                this.peptide_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int rank
+        {
+            get
+            {
+                return this.rankField;
+            }
+            set
+            {
+                this.rankField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public bool passThreshold
+        {
+            get
+            {
+                return this.passThresholdField;
+            }
+            set
+            {
+                this.passThresholdField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string massTable_ref
+        {
+            get
+            {
+                return this.massTable_refField;
+            }
+            set
+            {
+                this.massTable_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string sample_ref
+        {
+            get
+            {
+                return this.sample_refField;
+            }
+            set
+            {
+                this.sample_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIdentificationResultType : IdentifiableType
+    {
+
+        private SpectrumIdentificationItemType[] spectrumIdentificationItemField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private string spectrumIDField;
+
+        private string spectraData_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationItem")]
+        public SpectrumIdentificationItemType[] SpectrumIdentificationItem
+        {
+            get
+            {
+                return this.spectrumIdentificationItemField;
+            }
+            set
+            {
+                this.spectrumIdentificationItemField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectrumID
+        {
+            get
+            {
+                return this.spectrumIDField;
+            }
+            set
+            {
+                this.spectrumIDField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectraData_ref
+        {
+            get
+            {
+                return this.spectraData_refField;
+            }
+            set
+            {
+                this.spectraData_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectraDataType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SourceFileType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SearchDatabaseType))]
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ExternalDataType : IdentifiableType
+    {
+
+        private string externalFormatDocumentationField;
+
+        private FileFormatType fileFormatField;
+
+        private string locationField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute(DataType = "anyURI")]
+        public string ExternalFormatDocumentation
+        {
+            get
+            {
+                return this.externalFormatDocumentationField;
+            }
+            set
+            {
+                this.externalFormatDocumentationField = value;
+            }
+        }
+
+        /// <remarks/>
+        public FileFormatType FileFormat
+        {
+            get
+            {
+                return this.fileFormatField;
+            }
+            set
+            {
+                this.fileFormatField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute(DataType = "anyURI")]
+        public string location
+        {
+            get
+            {
+                return this.locationField;
+            }
+            set
+            {
+                this.locationField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class FileFormatType
+    {
+
+        private CVParamType cvParamField;
+
+        /// <remarks/>
+        public CVParamType cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectraDataType : ExternalDataType
+    {
+
+        private SpectrumIDFormatType spectrumIDFormatField;
+
+        /// <remarks/>
+        public SpectrumIDFormatType SpectrumIDFormat
+        {
+            get
+            {
+                return this.spectrumIDFormatField;
+            }
+            set
+            {
+                this.spectrumIDFormatField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIDFormatType
+    {
+
+        private CVParamType cvParamField;
+
+        /// <remarks/>
+        public CVParamType cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SourceFileType : ExternalDataType
+    {
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SearchDatabaseType : ExternalDataType
+    {
+
+        private ParamType databaseNameField;
+
+        private CVParamType[] cvParamField;
+
+        private string versionField;
+
+        private System.DateTime releaseDateField;
+
+        private bool releaseDateFieldSpecified;
+
+        private long numDatabaseSequencesField;
+
+        private bool numDatabaseSequencesFieldSpecified;
+
+        private long numResiduesField;
+
+        private bool numResiduesFieldSpecified;
+
+        /// <remarks/>
+        public ParamType DatabaseName
+        {
+            get
+            {
+                return this.databaseNameField;
+            }
+            set
+            {
+                this.databaseNameField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
             }
         }
 
@@ -5123,16 +1898,86 @@ namespace mzIdentML110.Generated
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute(DataType = "anyURI")]
-        public string URI
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public System.DateTime releaseDate
         {
             get
             {
-                return this.uRIField;
+                return this.releaseDateField;
             }
             set
             {
-                this.uRIField = value;
+                this.releaseDateField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool releaseDateSpecified
+        {
+            get
+            {
+                return this.releaseDateFieldSpecified;
+            }
+            set
+            {
+                this.releaseDateFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public long numDatabaseSequences
+        {
+            get
+            {
+                return this.numDatabaseSequencesField;
+            }
+            set
+            {
+                this.numDatabaseSequencesField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool numDatabaseSequencesSpecified
+        {
+            get
+            {
+                return this.numDatabaseSequencesFieldSpecified;
+            }
+            set
+            {
+                this.numDatabaseSequencesFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public long numResidues
+        {
+            get
+            {
+                return this.numResiduesField;
+            }
+            set
+            {
+                this.numResiduesField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool numResiduesSpecified
+        {
+            get
+            {
+                return this.numResiduesFieldSpecified;
+            }
+            set
+            {
+                this.numResiduesFieldSpecified = value;
             }
         }
     }
@@ -5142,16 +1987,1886 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.References.DatabaseReferenceType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("DatabaseReference", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonReferencesDatabaseReferenceType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ParamType
     {
+
+        private AbstractParamType itemField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam", typeof(CVParamType))]
+        [System.Xml.Serialization.XmlElementAttribute("userParam", typeof(UserParamType))]
+        public AbstractParamType Item
+        {
+            get
+            {
+                return this.itemField;
+            }
+            set
+            {
+                this.itemField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ProteinDetectionProtocolType : IdentifiableType
+    {
+
+        private ParamListType analysisParamsField;
+
+        private ParamListType thresholdField;
+
+        private string analysisSoftware_refField;
+
+        /// <remarks/>
+        public ParamListType AnalysisParams
+        {
+            get
+            {
+                return this.analysisParamsField;
+            }
+            set
+            {
+                this.analysisParamsField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamListType Threshold
+        {
+            get
+            {
+                return this.thresholdField;
+            }
+            set
+            {
+                this.thresholdField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string analysisSoftware_ref
+        {
+            get
+            {
+                return this.analysisSoftware_refField;
+            }
+            set
+            {
+                this.analysisSoftware_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ParamListType
+    {
+
+        private AbstractParamType[] itemsField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam", typeof(CVParamType))]
+        [System.Xml.Serialization.XmlElementAttribute("userParam", typeof(UserParamType))]
+        public AbstractParamType[] Items
+        {
+            get
+            {
+                return this.itemsField;
+            }
+            set
+            {
+                this.itemsField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class TranslationTableType : IdentifiableType
+    {
+
+        private CVParamType[] cvParamField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class MassTableType : IdentifiableType
+    {
+
+        private ResidueType[] residueField;
+
+        private AmbiguousResidueType[] ambiguousResidueField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private string[] msLevelField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("Residue")]
+        public ResidueType[] Residue
+        {
+            get
+            {
+                return this.residueField;
+            }
+            set
+            {
+                this.residueField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("AmbiguousResidue")]
+        public AmbiguousResidueType[] AmbiguousResidue
+        {
+            get
+            {
+                return this.ambiguousResidueField;
+            }
+            set
+            {
+                this.ambiguousResidueField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute(DataType = "integer")]
+        public string[] msLevel
+        {
+            get
+            {
+                return this.msLevelField;
+            }
+            set
+            {
+                this.msLevelField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ResidueType
+    {
+
+        private string codeField;
+
+        private float massField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string code
+        {
+            get
+            {
+                return this.codeField;
+            }
+            set
+            {
+                this.codeField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public float mass
+        {
+            get
+            {
+                return this.massField;
+            }
+            set
+            {
+                this.massField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class AmbiguousResidueType
+    {
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private string codeField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string code
+        {
+            get
+            {
+                return this.codeField;
+            }
+            set
+            {
+                this.codeField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class EnzymeType : IdentifiableType
+    {
+
+        private string siteRegexpField;
+
+        private ParamListType enzymeNameField;
+
+        private string nTermGainField;
+
+        private string cTermGainField;
+
+        private bool semiSpecificField;
+
+        private bool semiSpecificFieldSpecified;
+
+        private int missedCleavagesField;
+
+        private bool missedCleavagesFieldSpecified;
+
+        private int minDistanceField;
+
+        private bool minDistanceFieldSpecified;
+
+        /// <remarks/>
+        public string SiteRegexp
+        {
+            get
+            {
+                return this.siteRegexpField;
+            }
+            set
+            {
+                this.siteRegexpField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamListType EnzymeName
+        {
+            get
+            {
+                return this.enzymeNameField;
+            }
+            set
+            {
+                this.enzymeNameField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string nTermGain
+        {
+            get
+            {
+                return this.nTermGainField;
+            }
+            set
+            {
+                this.nTermGainField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string cTermGain
+        {
+            get
+            {
+                return this.cTermGainField;
+            }
+            set
+            {
+                this.cTermGainField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public bool semiSpecific
+        {
+            get
+            {
+                return this.semiSpecificField;
+            }
+            set
+            {
+                this.semiSpecificField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool semiSpecificSpecified
+        {
+            get
+            {
+                return this.semiSpecificFieldSpecified;
+            }
+            set
+            {
+                this.semiSpecificFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int missedCleavages
+        {
+            get
+            {
+                return this.missedCleavagesField;
+            }
+            set
+            {
+                this.missedCleavagesField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool missedCleavagesSpecified
+        {
+            get
+            {
+                return this.missedCleavagesFieldSpecified;
+            }
+            set
+            {
+                this.missedCleavagesFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int minDistance
+        {
+            get
+            {
+                return this.minDistanceField;
+            }
+            set
+            {
+                this.minDistanceField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool minDistanceSpecified
+        {
+            get
+            {
+                return this.minDistanceFieldSpecified;
+            }
+            set
+            {
+                this.minDistanceFieldSpecified = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIdentificationProtocolType : IdentifiableType
+    {
+
+        private ParamType searchTypeField;
+
+        private ParamListType additionalSearchParamsField;
+
+        private SearchModificationType[] modificationParamsField;
+
+        private EnzymesType enzymesField;
+
+        private MassTableType[] massTableField;
+
+        private CVParamType[] fragmentToleranceField;
+
+        private CVParamType[] parentToleranceField;
+
+        private ParamListType thresholdField;
+
+        private FilterType[] databaseFiltersField;
+
+        private DatabaseTranslationType databaseTranslationField;
+
+        private string analysisSoftware_refField;
+
+        /// <remarks/>
+        public ParamType SearchType
+        {
+            get
+            {
+                return this.searchTypeField;
+            }
+            set
+            {
+                this.searchTypeField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamListType AdditionalSearchParams
+        {
+            get
+            {
+                return this.additionalSearchParamsField;
+            }
+            set
+            {
+                this.additionalSearchParamsField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("SearchModification", IsNullable = false)]
+        public SearchModificationType[] ModificationParams
+        {
+            get
+            {
+                return this.modificationParamsField;
+            }
+            set
+            {
+                this.modificationParamsField = value;
+            }
+        }
+
+        /// <remarks/>
+        public EnzymesType Enzymes
+        {
+            get
+            {
+                return this.enzymesField;
+            }
+            set
+            {
+                this.enzymesField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("MassTable")]
+        public MassTableType[] MassTable
+        {
+            get
+            {
+                return this.massTableField;
+            }
+            set
+            {
+                this.massTableField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", IsNullable = false)]
+        public CVParamType[] FragmentTolerance
+        {
+            get
+            {
+                return this.fragmentToleranceField;
+            }
+            set
+            {
+                this.fragmentToleranceField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", IsNullable = false)]
+        public CVParamType[] ParentTolerance
+        {
+            get
+            {
+                return this.parentToleranceField;
+            }
+            set
+            {
+                this.parentToleranceField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamListType Threshold
+        {
+            get
+            {
+                return this.thresholdField;
+            }
+            set
+            {
+                this.thresholdField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("Filter", IsNullable = false)]
+        public FilterType[] DatabaseFilters
+        {
+            get
+            {
+                return this.databaseFiltersField;
+            }
+            set
+            {
+                this.databaseFiltersField = value;
+            }
+        }
+
+        /// <remarks/>
+        public DatabaseTranslationType DatabaseTranslation
+        {
+            get
+            {
+                return this.databaseTranslationField;
+            }
+            set
+            {
+                this.databaseTranslationField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string analysisSoftware_ref
+        {
+            get
+            {
+                return this.analysisSoftware_refField;
+            }
+            set
+            {
+                this.analysisSoftware_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SearchModificationType
+    {
+
+        private CVParamType[] specificityRulesField;
+
+        private CVParamType[] cvParamField;
+
+        private bool fixedModField;
+
+        private float massDeltaField;
+
+        private string residuesField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", typeof(CVParamType), IsNullable = false)]
+        public CVParamType[] SpecificityRules
+        {
+            get
+            {
+                return this.specificityRulesField;
+            }
+            set
+            {
+                this.specificityRulesField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public bool fixedMod
+        {
+            get
+            {
+                return this.fixedModField;
+            }
+            set
+            {
+                this.fixedModField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public float massDelta
+        {
+            get
+            {
+                return this.massDeltaField;
+            }
+            set
+            {
+                this.massDeltaField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string residues
+        {
+            get
+            {
+                return this.residuesField;
+            }
+            set
+            {
+                this.residuesField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class EnzymesType
+    {
+
+        private EnzymeType[] enzymeField;
+
+        private bool independentField;
+
+        private bool independentFieldSpecified;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("Enzyme")]
+        public EnzymeType[] Enzyme
+        {
+            get
+            {
+                return this.enzymeField;
+            }
+            set
+            {
+                this.enzymeField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public bool independent
+        {
+            get
+            {
+                return this.independentField;
+            }
+            set
+            {
+                this.independentField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool independentSpecified
+        {
+            get
+            {
+                return this.independentFieldSpecified;
+            }
+            set
+            {
+                this.independentFieldSpecified = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class FilterType
+    {
+
+        private ParamType filterType1Field;
+
+        private ParamListType includeField;
+
+        private ParamListType excludeField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("FilterType")]
+        public ParamType FilterType1
+        {
+            get
+            {
+                return this.filterType1Field;
+            }
+            set
+            {
+                this.filterType1Field = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamListType Include
+        {
+            get
+            {
+                return this.includeField;
+            }
+            set
+            {
+                this.includeField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamListType Exclude
+        {
+            get
+            {
+                return this.excludeField;
+            }
+            set
+            {
+                this.excludeField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class DatabaseTranslationType
+    {
+
+        private TranslationTableType[] translationTableField;
+
+        private int[] framesField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("TranslationTable")]
+        public TranslationTableType[] TranslationTable
+        {
+            get
+            {
+                return this.translationTableField;
+            }
+            set
+            {
+                this.translationTableField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int[] frames
+        {
+            get
+            {
+                return this.framesField;
+            }
+            set
+            {
+                this.framesField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProteinDetectionType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(SpectrumIdentificationType))]
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public abstract partial class ProtocolApplicationType : IdentifiableType
+    {
+
+        private System.DateTime activityDateField;
+
+        private bool activityDateFieldSpecified;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public System.DateTime activityDate
+        {
+            get
+            {
+                return this.activityDateField;
+            }
+            set
+            {
+                this.activityDateField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool activityDateSpecified
+        {
+            get
+            {
+                return this.activityDateFieldSpecified;
+            }
+            set
+            {
+                this.activityDateFieldSpecified = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ProteinDetectionType : ProtocolApplicationType
+    {
+
+        private InputSpectrumIdentificationsType[] inputSpectrumIdentificationsField;
+
+        private string proteinDetectionList_refField;
+
+        private string proteinDetectionProtocol_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("InputSpectrumIdentifications")]
+        public InputSpectrumIdentificationsType[] InputSpectrumIdentifications
+        {
+            get
+            {
+                return this.inputSpectrumIdentificationsField;
+            }
+            set
+            {
+                this.inputSpectrumIdentificationsField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string proteinDetectionList_ref
+        {
+            get
+            {
+                return this.proteinDetectionList_refField;
+            }
+            set
+            {
+                this.proteinDetectionList_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string proteinDetectionProtocol_ref
+        {
+            get
+            {
+                return this.proteinDetectionProtocol_refField;
+            }
+            set
+            {
+                this.proteinDetectionProtocol_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class InputSpectrumIdentificationsType
+    {
+
+        private string spectrumIdentificationList_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectrumIdentificationList_ref
+        {
+            get
+            {
+                return this.spectrumIdentificationList_refField;
+            }
+            set
+            {
+                this.spectrumIdentificationList_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SpectrumIdentificationType : ProtocolApplicationType
+    {
+
+        private InputSpectraType[] inputSpectraField;
+
+        private SearchDatabaseRefType[] searchDatabaseRefField;
+
+        private string spectrumIdentificationProtocol_refField;
+
+        private string spectrumIdentificationList_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("InputSpectra")]
+        public InputSpectraType[] InputSpectra
+        {
+            get
+            {
+                return this.inputSpectraField;
+            }
+            set
+            {
+                this.inputSpectraField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("SearchDatabaseRef")]
+        public SearchDatabaseRefType[] SearchDatabaseRef
+        {
+            get
+            {
+                return this.searchDatabaseRefField;
+            }
+            set
+            {
+                this.searchDatabaseRefField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectrumIdentificationProtocol_ref
+        {
+            get
+            {
+                return this.spectrumIdentificationProtocol_refField;
+            }
+            set
+            {
+                this.spectrumIdentificationProtocol_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectrumIdentificationList_ref
+        {
+            get
+            {
+                return this.spectrumIdentificationList_refField;
+            }
+            set
+            {
+                this.spectrumIdentificationList_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class InputSpectraType
+    {
+
+        private string spectraData_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string spectraData_ref
+        {
+            get
+            {
+                return this.spectraData_refField;
+            }
+            set
+            {
+                this.spectraData_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SearchDatabaseRefType
+    {
+
+        private string searchDatabase_refField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string searchDatabase_ref
+        {
+            get
+            {
+                return this.searchDatabase_refField;
+            }
+            set
+            {
+                this.searchDatabase_refField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class PeptideEvidenceType : IdentifiableType
+    {
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private string dBSequence_refField;
+
+        private string peptide_refField;
+
+        private int startField;
+
+        private bool startFieldSpecified;
+
+        private int endField;
+
+        private bool endFieldSpecified;
+
+        private string preField;
+
+        private string postField;
+
+        private string translationTable_refField;
+
+        private int frameField;
+
+        private bool frameFieldSpecified;
+
+        private bool isDecoyField;
+
+        public PeptideEvidenceType()
+        {
+            this.isDecoyField = false;
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string dBSequence_ref
+        {
+            get
+            {
+                return this.dBSequence_refField;
+            }
+            set
+            {
+                this.dBSequence_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string peptide_ref
+        {
+            get
+            {
+                return this.peptide_refField;
+            }
+            set
+            {
+                this.peptide_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int start
+        {
+            get
+            {
+                return this.startField;
+            }
+            set
+            {
+                this.startField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool startSpecified
+        {
+            get
+            {
+                return this.startFieldSpecified;
+            }
+            set
+            {
+                this.startFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int end
+        {
+            get
+            {
+                return this.endField;
+            }
+            set
+            {
+                this.endField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool endSpecified
+        {
+            get
+            {
+                return this.endFieldSpecified;
+            }
+            set
+            {
+                this.endFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string pre
+        {
+            get
+            {
+                return this.preField;
+            }
+            set
+            {
+                this.preField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string post
+        {
+            get
+            {
+                return this.postField;
+            }
+            set
+            {
+                this.postField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string translationTable_ref
+        {
+            get
+            {
+                return this.translationTable_refField;
+            }
+            set
+            {
+                this.translationTable_refField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int frame
+        {
+            get
+            {
+                return this.frameField;
+            }
+            set
+            {
+                this.frameField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool frameSpecified
+        {
+            get
+            {
+                return this.frameFieldSpecified;
+            }
+            set
+            {
+                this.frameFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        [System.ComponentModel.DefaultValueAttribute(false)]
+        public bool isDecoy
+        {
+            get
+            {
+                return this.isDecoyField;
+            }
+            set
+            {
+                this.isDecoyField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class PeptideType : IdentifiableType
+    {
+
+        private string peptideSequenceField;
+
+        private ModificationType[] modificationField;
+
+        private SubstitutionModificationType[] substitutionModificationField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        /// <remarks/>
+        public string PeptideSequence
+        {
+            get
+            {
+                return this.peptideSequenceField;
+            }
+            set
+            {
+                this.peptideSequenceField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("Modification")]
+        public ModificationType[] Modification
+        {
+            get
+            {
+                return this.modificationField;
+            }
+            set
+            {
+                this.modificationField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("SubstitutionModification")]
+        public SubstitutionModificationType[] SubstitutionModification
+        {
+            get
+            {
+                return this.substitutionModificationField;
+            }
+            set
+            {
+                this.substitutionModificationField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ModificationType
+    {
+
+        private CVParamType[] cvParamField;
+
+        private int locationField;
+
+        private bool locationFieldSpecified;
+
+        private string[] residuesField;
+
+        private double avgMassDeltaField;
+
+        private bool avgMassDeltaFieldSpecified;
+
+        private double monoisotopicMassDeltaField;
+
+        private bool monoisotopicMassDeltaFieldSpecified;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int location
+        {
+            get
+            {
+                return this.locationField;
+            }
+            set
+            {
+                this.locationField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool locationSpecified
+        {
+            get
+            {
+                return this.locationFieldSpecified;
+            }
+            set
+            {
+                this.locationFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string[] residues
+        {
+            get
+            {
+                return this.residuesField;
+            }
+            set
+            {
+                this.residuesField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public double avgMassDelta
+        {
+            get
+            {
+                return this.avgMassDeltaField;
+            }
+            set
+            {
+                this.avgMassDeltaField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool avgMassDeltaSpecified
+        {
+            get
+            {
+                return this.avgMassDeltaFieldSpecified;
+            }
+            set
+            {
+                this.avgMassDeltaFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public double monoisotopicMassDelta
+        {
+            get
+            {
+                return this.monoisotopicMassDeltaField;
+            }
+            set
+            {
+                this.monoisotopicMassDeltaField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool monoisotopicMassDeltaSpecified
+        {
+            get
+            {
+                return this.monoisotopicMassDeltaFieldSpecified;
+            }
+            set
+            {
+                this.monoisotopicMassDeltaFieldSpecified = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SubstitutionModificationType
+    {
+
+        private string originalResidueField;
+
+        private string replacementResidueField;
+
+        private int locationField;
+
+        private bool locationFieldSpecified;
+
+        private double avgMassDeltaField;
+
+        private bool avgMassDeltaFieldSpecified;
+
+        private double monoisotopicMassDeltaField;
+
+        private bool monoisotopicMassDeltaFieldSpecified;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string originalResidue
+        {
+            get
+            {
+                return this.originalResidueField;
+            }
+            set
+            {
+                this.originalResidueField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string replacementResidue
+        {
+            get
+            {
+                return this.replacementResidueField;
+            }
+            set
+            {
+                this.replacementResidueField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int location
+        {
+            get
+            {
+                return this.locationField;
+            }
+            set
+            {
+                this.locationField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool locationSpecified
+        {
+            get
+            {
+                return this.locationFieldSpecified;
+            }
+            set
+            {
+                this.locationFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public double avgMassDelta
+        {
+            get
+            {
+                return this.avgMassDeltaField;
+            }
+            set
+            {
+                this.avgMassDeltaField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool avgMassDeltaSpecified
+        {
+            get
+            {
+                return this.avgMassDeltaFieldSpecified;
+            }
+            set
+            {
+                this.avgMassDeltaFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public double monoisotopicMassDelta
+        {
+            get
+            {
+                return this.monoisotopicMassDeltaField;
+            }
+            set
+            {
+                this.monoisotopicMassDeltaField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool monoisotopicMassDeltaSpecified
+        {
+            get
+            {
+                return this.monoisotopicMassDeltaFieldSpecified;
+            }
+            set
+            {
+                this.monoisotopicMassDeltaFieldSpecified = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class DBSequenceType : IdentifiableType
+    {
+
+        private string seqField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
+
+        private int lengthField;
+
+        private bool lengthFieldSpecified;
+
+        private string searchDatabase_refField;
 
         private string accessionField;
 
-        private string accessionVersionField;
+        /// <remarks/>
+        public string Seq
+        {
+            get
+            {
+                return this.seqField;
+            }
+            set
+            {
+                this.seqField = value;
+            }
+        }
 
-        private string database_refField;
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public int length
+        {
+            get
+            {
+                return this.lengthField;
+            }
+            set
+            {
+                this.lengthField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlIgnoreAttribute()]
+        public bool lengthSpecified
+        {
+            get
+            {
+                return this.lengthFieldSpecified;
+            }
+            set
+            {
+                this.lengthFieldSpecified = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlAttributeAttribute()]
+        public string searchDatabase_ref
+        {
+            get
+            {
+                return this.searchDatabase_refField;
+            }
+            set
+            {
+                this.searchDatabase_refField = value;
+            }
+        }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
@@ -5166,32 +3881,78 @@ namespace mzIdentML110.Generated
                 this.accessionField = value;
             }
         }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SampleType : IdentifiableType
+    {
+
+        private ContactRoleType[] contactRoleField;
+
+        private SubSampleType[] subSampleField;
+
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string accessionVersion
+        [System.Xml.Serialization.XmlElementAttribute("ContactRole")]
+        public ContactRoleType[] ContactRole
         {
             get
             {
-                return this.accessionVersionField;
+                return this.contactRoleField;
             }
             set
             {
-                this.accessionVersionField = value;
+                this.contactRoleField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Database_ref
+        [System.Xml.Serialization.XmlElementAttribute("SubSample")]
+        public SubSampleType[] SubSample
         {
             get
             {
-                return this.database_refField;
+                return this.subSampleField;
             }
             set
             {
-                this.database_refField = value;
+                this.subSampleField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
+        {
+            get
+            {
+                return this.cvParamField;
+            }
+            set
+            {
+                this.cvParamField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
+        {
+            get
+            {
+                return this.userParamField;
+            }
+            set
+            {
+                this.userParamField = value;
             }
         }
     }
@@ -5201,67 +3962,38 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Description.DescriptionType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("Description", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonDescriptionDescriptionType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ContactRoleType
     {
 
-        private string textField;
+        private RoleType roleField;
+
+        private string contact_refField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string text
+        public RoleType Role
         {
             get
             {
-                return this.textField;
+                return this.roleField;
             }
             set
             {
-                this.textField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.EquipmentApplicationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("EquipmentApplication", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolEquipmentApplicationType : FuGECommonProtocolParameterizableApplicationType
-    {
-
-        private string serialNumberField;
-
-        private string equipment_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string serialNumber
-        {
-            get
-            {
-                return this.serialNumberField;
-            }
-            set
-            {
-                this.serialNumberField = value;
+                this.roleField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Equipment_ref
+        public string contact_ref
         {
             get
             {
-                return this.equipment_refField;
+                return this.contact_refField;
             }
             set
             {
-                this.equipment_refField = value;
+                this.contact_refField = value;
             }
         }
     }
@@ -5271,292 +4003,14 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.SoftwareApplicationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("SoftwareApplication", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolSoftwareApplicationType : FuGECommonProtocolParameterizableApplicationType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class RoleType
     {
 
-        private string software_refField;
+        private CVParamType cvParamField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Software_ref
-        {
-            get
-            {
-                return this.software_refField;
-            }
-            set
-            {
-                this.software_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ActionApplicationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("ActionApplication", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolActionApplicationType : FuGECommonProtocolParameterizableApplicationType
-    {
-
-        private FuGECommonProtocolActionApplicationTypeActionDeviation actionDeviationField;
-
-        private string action_refField;
-
-        private string protocolApplication_refField;
-
-        /// <remarks/>
-        public FuGECommonProtocolActionApplicationTypeActionDeviation actionDeviation
-        {
-            get
-            {
-                return this.actionDeviationField;
-            }
-            set
-            {
-                this.actionDeviationField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Action_ref
-        {
-            get
-            {
-                return this.action_refField;
-            }
-            set
-            {
-                this.action_refField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string ProtocolApplication_ref
-        {
-            get
-            {
-                return this.protocolApplication_refField;
-            }
-            set
-            {
-                this.protocolApplication_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolActionApplicationTypeActionDeviation
-    {
-
-        private FuGECommonDescriptionDescriptionType descriptionField;
-
-        /// <remarks/>
-        public FuGECommonDescriptionDescriptionType Description
-        {
-            get
-            {
-                return this.descriptionField;
-            }
-            set
-            {
-                this.descriptionField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.GenericProtocolType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericProtocol", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolGenericProtocolType : FuGECommonProtocolProtocolType
-    {
-
-        private string protocolTextField;
-
-        private FuGECommonProtocolGenericProtocolTypeSoftware[] softwareField;
-
-        private FuGECommonProtocolGenericProtocolTypeEquipment[] equipmentField;
-
-        private FuGECommonProtocolGenericParameterType[] genericParameterField;
-
-        private FuGECommonProtocolGenericActionType[] genericActionField;
-
-        /// <remarks/>
-        public string protocolText
-        {
-            get
-            {
-                return this.protocolTextField;
-            }
-            set
-            {
-                this.protocolTextField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("software")]
-        public FuGECommonProtocolGenericProtocolTypeSoftware[] software
-        {
-            get
-            {
-                return this.softwareField;
-            }
-            set
-            {
-                this.softwareField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("equipment")]
-        public FuGECommonProtocolGenericProtocolTypeEquipment[] equipment
-        {
-            get
-            {
-                return this.equipmentField;
-            }
-            set
-            {
-                this.equipmentField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("GenericParameter")]
-        public FuGECommonProtocolGenericParameterType[] GenericParameter
-        {
-            get
-            {
-                return this.genericParameterField;
-            }
-            set
-            {
-                this.genericParameterField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("GenericAction")]
-        public FuGECommonProtocolGenericActionType[] GenericAction
-        {
-            get
-            {
-                return this.genericActionField;
-            }
-            set
-            {
-                this.genericActionField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericProtocolTypeSoftware
-    {
-
-        private string genericSoftware_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string GenericSoftware_ref
-        {
-            get
-            {
-                return this.genericSoftware_refField;
-            }
-            set
-            {
-                this.genericSoftware_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericProtocolTypeEquipment
-    {
-
-        private string genericEquipment_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string GenericEquipment_ref
-        {
-            get
-            {
-                return this.genericEquipment_refField;
-            }
-            set
-            {
-                this.genericEquipment_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.GenericParameterType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericParameter", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolGenericParameterType : FuGECommonProtocolParameterType
-    {
-
-        private FuGECommonProtocolGenericParameterTypeParameterType parameterTypeField;
-
-        /// <remarks/>
-        public FuGECommonProtocolGenericParameterTypeParameterType parameterType
-        {
-            get
-            {
-                return this.parameterTypeField;
-            }
-            set
-            {
-                this.parameterTypeField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericParameterTypeParameterType
-    {
-
-        private FuGECommonOntologycvParamType cvParamField;
-
-        /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
+        public CVParamType cvParam
         {
             get
             {
@@ -5574,104 +4028,45 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.GenericActionType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericAction", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolGenericActionType : FuGECommonProtocolActionType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SubSampleType
     {
 
-        private FuGECommonProtocolGenericActionTypeActionTerm actionTermField;
-
-        private FuGECommonProtocolGenericParameterType[] genericParameterField;
-
-        private FuGECommonProtocolParameterPairType[] parameterPairField;
-
-        private string actionTextField;
-
-        private string protocol_refField;
-
-        /// <remarks/>
-        public FuGECommonProtocolGenericActionTypeActionTerm actionTerm
-        {
-            get
-            {
-                return this.actionTermField;
-            }
-            set
-            {
-                this.actionTermField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("GenericParameter")]
-        public FuGECommonProtocolGenericParameterType[] GenericParameter
-        {
-            get
-            {
-                return this.genericParameterField;
-            }
-            set
-            {
-                this.genericParameterField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ParameterPair")]
-        public FuGECommonProtocolParameterPairType[] ParameterPair
-        {
-            get
-            {
-                return this.parameterPairField;
-            }
-            set
-            {
-                this.parameterPairField = value;
-            }
-        }
+        private string sample_refField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string actionText
+        public string sample_ref
         {
             get
             {
-                return this.actionTextField;
+                return this.sample_refField;
             }
             set
             {
-                this.actionTextField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Protocol_ref
-        {
-            get
-            {
-                return this.protocol_refField;
-            }
-            set
-            {
-                this.protocol_refField = value;
+                this.sample_refField = value;
             }
         }
     }
 
     /// <remarks/>
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(OrganizationType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(PersonType))]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericActionTypeActionTerm
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public abstract partial class AbstractContactType : IdentifiableType
     {
 
-        private FuGECommonOntologycvParamType cvParamField;
+        private CVParamType[] cvParamField;
+
+        private UserParamType[] userParamField;
 
         /// <remarks/>
-        public FuGECommonOntologycvParamType cvParam
+        [System.Xml.Serialization.XmlElementAttribute("cvParam")]
+        public CVParamType[] cvParam
         {
             get
             {
@@ -5682,45 +4077,18 @@ namespace mzIdentML110.Generated
                 this.cvParamField = value;
             }
         }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.ParameterPairType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("ParameterPair", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolParameterPairType
-    {
-
-        private FuGECommonProtocolParameterPairTypeTargetParameter targetParameterField;
-
-        private FuGECommonProtocolParameterPairTypeSourceParameter sourceParameterField;
 
         /// <remarks/>
-        public FuGECommonProtocolParameterPairTypeTargetParameter targetParameter
+        [System.Xml.Serialization.XmlElementAttribute("userParam")]
+        public UserParamType[] userParam
         {
             get
             {
-                return this.targetParameterField;
+                return this.userParamField;
             }
             set
             {
-                this.targetParameterField = value;
-            }
-        }
-
-        /// <remarks/>
-        public FuGECommonProtocolParameterPairTypeSourceParameter sourceParameter
-        {
-            get
-            {
-                return this.sourceParameterField;
-            }
-            set
-            {
-                this.sourceParameterField = value;
+                this.userParamField = value;
             }
         }
     }
@@ -5730,23 +4098,48 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolParameterPairTypeTargetParameter
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class OrganizationType : AbstractContactType
     {
 
-        private string parameter_refField;
+        private ParentOrganizationType parentField;
+
+        /// <remarks/>
+        public ParentOrganizationType Parent
+        {
+            get
+            {
+                return this.parentField;
+            }
+            set
+            {
+                this.parentField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ParentOrganizationType
+    {
+
+        private string organization_refField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Parameter_ref
+        public string organization_ref
         {
             get
             {
-                return this.parameter_refField;
+                return this.organization_refField;
             }
             set
             {
-                this.parameter_refField = value;
+                this.organization_refField = value;
             }
         }
     }
@@ -5756,378 +4149,71 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolParameterPairTypeSourceParameter
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class PersonType : AbstractContactType
     {
 
-        private string parameter_refField;
+        private AffiliationType[] affiliationField;
+
+        private string lastNameField;
+
+        private string firstNameField;
+
+        private string midInitialsField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Parameter_ref
+        [System.Xml.Serialization.XmlElementAttribute("Affiliation")]
+        public AffiliationType[] Affiliation
         {
             get
             {
-                return this.parameter_refField;
+                return this.affiliationField;
             }
             set
             {
-                this.parameter_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.GenericSoftwareType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericSoftware", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolGenericSoftwareType : FuGECommonProtocolSoftwareType
-    {
-
-        private FuGECommonProtocolGenericSoftwareTypeEquipment[] equipmentField;
-
-        private FuGECommonProtocolGenericParameterType[] genericParameterField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("equipment")]
-        public FuGECommonProtocolGenericSoftwareTypeEquipment[] equipment
-        {
-            get
-            {
-                return this.equipmentField;
-            }
-            set
-            {
-                this.equipmentField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("GenericParameter")]
-        public FuGECommonProtocolGenericParameterType[] GenericParameter
-        {
-            get
-            {
-                return this.genericParameterField;
-            }
-            set
-            {
-                this.genericParameterField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericSoftwareTypeEquipment
-    {
-
-        private string genericEquipment_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string GenericEquipment_ref
-        {
-            get
-            {
-                return this.genericEquipment_refField;
-            }
-            set
-            {
-                this.genericEquipment_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.GenericEquipmentType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericEquipment", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolGenericEquipmentType : FuGECommonProtocolEquipmentType
-    {
-
-        private FuGECommonProtocolGenericEquipmentTypeSoftware[] softwareField;
-
-        private FuGECommonProtocolGenericParameterType[] genericParameterField;
-
-        private FuGECommonProtocolGenericEquipmentTypeEquipmentParts[] equipmentPartsField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("software")]
-        public FuGECommonProtocolGenericEquipmentTypeSoftware[] software
-        {
-            get
-            {
-                return this.softwareField;
-            }
-            set
-            {
-                this.softwareField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("GenericParameter")]
-        public FuGECommonProtocolGenericParameterType[] GenericParameter
-        {
-            get
-            {
-                return this.genericParameterField;
-            }
-            set
-            {
-                this.genericParameterField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("equipmentParts")]
-        public FuGECommonProtocolGenericEquipmentTypeEquipmentParts[] equipmentParts
-        {
-            get
-            {
-                return this.equipmentPartsField;
-            }
-            set
-            {
-                this.equipmentPartsField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericEquipmentTypeSoftware
-    {
-
-        private string genericSoftware_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string GenericSoftware_ref
-        {
-            get
-            {
-                return this.genericSoftware_refField;
-            }
-            set
-            {
-                this.genericSoftware_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericEquipmentTypeEquipmentParts
-    {
-
-        private string genericEquipment_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string GenericEquipment_ref
-        {
-            get
-            {
-                return this.genericEquipment_refField;
-            }
-            set
-            {
-                this.genericEquipment_refField = value;
-            }
-        }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Protocol.GenericProtocolApplicationType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("GenericProtocolApplication", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonProtocolGenericProtocolApplicationType : FuGECommonProtocolProtocolApplicationType
-    {
-
-        private FuGEBioMaterialGenericMaterialMeasurementType[] genericMaterialMeasurementField;
-
-        private FuGECommonProtocolGenericProtocolApplicationTypeInputData[] inputDataField;
-
-        private FuGECommonProtocolGenericProtocolApplicationTypeOutputData[] outputDataField;
-
-        private FuGECommonProtocolGenericProtocolApplicationTypeOutputMaterials[] outputMaterialsField;
-
-        private FuGECommonProtocolGenericProtocolApplicationTypeInputCompleteMaterials[] inputCompleteMaterialsField;
-
-        private FuGECommonProtocolParameterValueType[] parameterValueField;
-
-        private string protocol_refField;
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("GenericMaterialMeasurement")]
-        public FuGEBioMaterialGenericMaterialMeasurementType[] GenericMaterialMeasurement
-        {
-            get
-            {
-                return this.genericMaterialMeasurementField;
-            }
-            set
-            {
-                this.genericMaterialMeasurementField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("inputData")]
-        public FuGECommonProtocolGenericProtocolApplicationTypeInputData[] inputData
-        {
-            get
-            {
-                return this.inputDataField;
-            }
-            set
-            {
-                this.inputDataField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("outputData")]
-        public FuGECommonProtocolGenericProtocolApplicationTypeOutputData[] outputData
-        {
-            get
-            {
-                return this.outputDataField;
-            }
-            set
-            {
-                this.outputDataField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("outputMaterials")]
-        public FuGECommonProtocolGenericProtocolApplicationTypeOutputMaterials[] outputMaterials
-        {
-            get
-            {
-                return this.outputMaterialsField;
-            }
-            set
-            {
-                this.outputMaterialsField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("inputCompleteMaterials")]
-        public FuGECommonProtocolGenericProtocolApplicationTypeInputCompleteMaterials[] inputCompleteMaterials
-        {
-            get
-            {
-                return this.inputCompleteMaterialsField;
-            }
-            set
-            {
-                this.inputCompleteMaterialsField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("ParameterValue")]
-        public FuGECommonProtocolParameterValueType[] ParameterValue
-        {
-            get
-            {
-                return this.parameterValueField;
-            }
-            set
-            {
-                this.parameterValueField = value;
+                this.affiliationField = value;
             }
         }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Protocol_ref
+        public string lastName
         {
             get
             {
-                return this.protocol_refField;
+                return this.lastNameField;
             }
             set
             {
-                this.protocol_refField = value;
+                this.lastNameField = value;
             }
         }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericProtocolApplicationTypeInputData
-    {
-
-        private string data_refField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Data_ref
+        public string firstName
         {
             get
             {
-                return this.data_refField;
+                return this.firstNameField;
             }
             set
             {
-                this.data_refField = value;
+                this.firstNameField = value;
             }
         }
-    }
-
-    /// <remarks/>
-    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
-    [System.SerializableAttribute()]
-    [System.Diagnostics.DebuggerStepThroughAttribute()]
-    [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericProtocolApplicationTypeOutputData
-    {
-
-        private string data_refField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Data_ref
+        public string midInitials
         {
             get
             {
-                return this.data_refField;
+                return this.midInitialsField;
             }
             set
             {
-                this.data_refField = value;
+                this.midInitialsField = value;
             }
         }
     }
@@ -6137,23 +4223,23 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericProtocolApplicationTypeOutputMaterials
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class AffiliationType
     {
 
-        private string material_refField;
+        private string organization_refField;
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Material_ref
+        public string organization_ref
         {
             get
             {
-                return this.material_refField;
+                return this.organization_refField;
             }
             set
             {
-                this.material_refField = value;
+                this.organization_refField = value;
             }
         }
     }
@@ -6163,23 +4249,38 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(AnonymousType = true, Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    public partial class FuGECommonProtocolGenericProtocolApplicationTypeInputCompleteMaterials
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class ProviderType : IdentifiableType
     {
 
-        private string material_refField;
+        private ContactRoleType contactRoleField;
+
+        private string analysisSoftware_refField;
+
+        /// <remarks/>
+        public ContactRoleType ContactRole
+        {
+            get
+            {
+                return this.contactRoleField;
+            }
+            set
+            {
+                this.contactRoleField = value;
+            }
+        }
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Material_ref
+        public string analysisSoftware_ref
         {
             get
             {
-                return this.material_refField;
+                return this.analysisSoftware_refField;
             }
             set
             {
-                this.material_refField = value;
+                this.analysisSoftware_refField = value;
             }
         }
     }
@@ -6189,30 +4290,56 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Common.Ontology.cvType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("cv", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECommonOntologycvType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class AnalysisSoftwareType : IdentifiableType
     {
 
-        private string fullNameField;
+        private ContactRoleType contactRoleField;
+
+        private ParamType softwareNameField;
+
+        private string customizationsField;
 
         private string versionField;
 
-        private string uRIField;
-
-        private string idField;
+        private string uriField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string fullName
+        public ContactRoleType ContactRole
         {
             get
             {
-                return this.fullNameField;
+                return this.contactRoleField;
             }
             set
             {
-                this.fullNameField = value;
+                this.contactRoleField = value;
+            }
+        }
+
+        /// <remarks/>
+        public ParamType SoftwareName
+        {
+            get
+            {
+                return this.softwareNameField;
+            }
+            set
+            {
+                this.softwareNameField = value;
+            }
+        }
+
+        /// <remarks/>
+        public string Customizations
+        {
+            get
+            {
+                return this.customizationsField;
+            }
+            set
+            {
+                this.customizationsField = value;
             }
         }
 
@@ -6232,29 +4359,15 @@ namespace mzIdentML110.Generated
 
         /// <remarks/>
         [System.Xml.Serialization.XmlAttributeAttribute(DataType = "anyURI")]
-        public string URI
+        public string uri
         {
             get
             {
-                return this.uRIField;
+                return this.uriField;
             }
             set
             {
-                this.uRIField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string id
-        {
-            get
-            {
-                return this.idField;
-            }
-            set
-            {
-                this.idField = value;
+                this.uriField = value;
             }
         }
     }
@@ -6264,40 +4377,55 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Collection.ReferenceableCollectionType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("ReferenceableCollection", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECollectionReferenceableCollectionType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class InputsType
     {
 
-        private FuGECommonReferencesBibliographicReferenceType[] bibliographicReferenceField;
+        private SourceFileType[] sourceFileField;
 
-        private FuGECommonReferencesDatabaseType[] databaseField;
+        private SearchDatabaseType[] searchDatabaseField;
+
+        private SpectraDataType[] spectraDataField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("BibliographicReference")]
-        public FuGECommonReferencesBibliographicReferenceType[] BibliographicReference
+        [System.Xml.Serialization.XmlElementAttribute("SourceFile")]
+        public SourceFileType[] SourceFile
         {
             get
             {
-                return this.bibliographicReferenceField;
+                return this.sourceFileField;
             }
             set
             {
-                this.bibliographicReferenceField = value;
+                this.sourceFileField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Database")]
-        public FuGECommonReferencesDatabaseType[] Database
+        [System.Xml.Serialization.XmlElementAttribute("SearchDatabase")]
+        public SearchDatabaseType[] SearchDatabase
         {
             get
             {
-                return this.databaseField;
+                return this.searchDatabaseField;
             }
             set
             {
-                this.databaseField = value;
+                this.searchDatabaseField = value;
+            }
+        }
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("SpectraData")]
+        public SpectraDataType[] SpectraData
+        {
+            get
+            {
+                return this.spectraDataField;
+            }
+            set
+            {
+                this.spectraDataField = value;
             }
         }
     }
@@ -6307,40 +4435,37 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Collection.AuditCollectionType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("AuditCollection", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECollectionAuditCollectionType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class DataCollectionType
     {
 
-        private FuGECommonAuditPersonType[] personField;
+        private InputsType inputsField;
 
-        private FuGECommonAuditOrganizationType[] organizationField;
+        private AnalysisDataType analysisDataField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Person")]
-        public FuGECommonAuditPersonType[] Person
+        public InputsType Inputs
         {
             get
             {
-                return this.personField;
+                return this.inputsField;
             }
             set
             {
-                this.personField = value;
+                this.inputsField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("Organization")]
-        public FuGECommonAuditOrganizationType[] Organization
+        public AnalysisDataType AnalysisData
         {
             get
             {
-                return this.organizationField;
+                return this.analysisDataField;
             }
             set
             {
-                this.organizationField = value;
+                this.analysisDataField = value;
             }
         }
     }
@@ -6350,39 +4475,38 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "FuGE.Collection.ProviderType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("Provider", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class FuGECollectionProviderType : FuGECommonIdentifiableType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class AnalysisProtocolCollectionType
     {
 
-        private FuGECommonAuditContactRoleType contactRoleField;
+        private SpectrumIdentificationProtocolType[] spectrumIdentificationProtocolField;
 
-        private string software_refField;
+        private ProteinDetectionProtocolType proteinDetectionProtocolField;
 
         /// <remarks/>
-        public FuGECommonAuditContactRoleType ContactRole
+        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentificationProtocol")]
+        public SpectrumIdentificationProtocolType[] SpectrumIdentificationProtocol
         {
             get
             {
-                return this.contactRoleField;
+                return this.spectrumIdentificationProtocolField;
             }
             set
             {
-                this.contactRoleField = value;
+                this.spectrumIdentificationProtocolField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string Software_ref
+        public ProteinDetectionProtocolType ProteinDetectionProtocol
         {
             get
             {
-                return this.software_refField;
+                return this.proteinDetectionProtocolField;
             }
             set
             {
-                this.software_refField = value;
+                this.proteinDetectionProtocolField = value;
             }
         }
     }
@@ -6392,210 +4516,96 @@ namespace mzIdentML110.Generated
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
     [System.ComponentModel.DesignerCategoryAttribute("code")]
-    [System.Xml.Serialization.XmlTypeAttribute(TypeName = "PSI-PI.Main.mzIdentMLType", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0")]
-    [System.Xml.Serialization.XmlRootAttribute("mzIdentML", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.0", IsNullable = false)]
-    public partial class PSIPIMainmzIdentMLType : FuGECommonIdentifiableType
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class AnalysisCollectionType
     {
 
-        private FuGECommonOntologycvType[] cvListField;
+        private SpectrumIdentificationType[] spectrumIdentificationField;
 
-        private PSIPIanalysissearchAnalysisSoftwareType[] analysisSoftwareListField;
-
-        private FuGECollectionProviderType providerField;
-
-        private FuGECollectionAuditCollectionType auditCollectionField;
-
-        private SampleType[] analysisSampleCollectionField;
-
-        private SequenceCollectionType sequenceCollectionField;
-
-        private AnalysisCollectionType analysisCollectionField;
-
-        private AnalysisProtocolCollectionType analysisProtocolCollectionField;
-
-        private DataCollectionType dataCollectionField;
-
-        private FuGECommonReferencesBibliographicReferenceType[] bibliographicReferenceField;
-
-        private System.DateTime creationDateField;
-
-        private bool creationDateFieldSpecified;
-
-        private string versionField;
+        private ProteinDetectionType proteinDetectionField;
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("cv", IsNullable = false)]
-        public FuGECommonOntologycvType[] cvList
+        [System.Xml.Serialization.XmlElementAttribute("SpectrumIdentification")]
+        public SpectrumIdentificationType[] SpectrumIdentification
         {
             get
             {
-                return this.cvListField;
+                return this.spectrumIdentificationField;
             }
             set
             {
-                this.cvListField = value;
+                this.spectrumIdentificationField = value;
             }
         }
 
         /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("AnalysisSoftware", IsNullable = false)]
-        public PSIPIanalysissearchAnalysisSoftwareType[] AnalysisSoftwareList
+        public ProteinDetectionType ProteinDetection
         {
             get
             {
-                return this.analysisSoftwareListField;
+                return this.proteinDetectionField;
             }
             set
             {
-                this.analysisSoftwareListField = value;
+                this.proteinDetectionField = value;
+            }
+        }
+    }
+
+    /// <remarks/>
+    [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
+    [System.SerializableAttribute()]
+    [System.Diagnostics.DebuggerStepThroughAttribute()]
+    [System.ComponentModel.DesignerCategoryAttribute("code")]
+    [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
+    public partial class SequenceCollectionType
+    {
+
+        private DBSequenceType[] dBSequenceField;
+
+        private PeptideType[] peptideField;
+
+        private PeptideEvidenceType[] peptideEvidenceField;
+
+        /// <remarks/>
+        [System.Xml.Serialization.XmlElementAttribute("DBSequence")]
+        public DBSequenceType[] DBSequence
+        {
+            get
+            {
+                return this.dBSequenceField;
+            }
+            set
+            {
+                this.dBSequenceField = value;
             }
         }
 
         /// <remarks/>
-        public FuGECollectionProviderType Provider
+        [System.Xml.Serialization.XmlElementAttribute("Peptide")]
+        public PeptideType[] Peptide
         {
             get
             {
-                return this.providerField;
+                return this.peptideField;
             }
             set
             {
-                this.providerField = value;
+                this.peptideField = value;
             }
         }
 
         /// <remarks/>
-        public FuGECollectionAuditCollectionType AuditCollection
+        [System.Xml.Serialization.XmlElementAttribute("PeptideEvidence")]
+        public PeptideEvidenceType[] PeptideEvidence
         {
             get
             {
-                return this.auditCollectionField;
+                return this.peptideEvidenceField;
             }
             set
             {
-                this.auditCollectionField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlArrayItemAttribute("Sample", IsNullable = false)]
-        public SampleType[] AnalysisSampleCollection
-        {
-            get
-            {
-                return this.analysisSampleCollectionField;
-            }
-            set
-            {
-                this.analysisSampleCollectionField = value;
-            }
-        }
-
-        /// <remarks/>
-        public SequenceCollectionType SequenceCollection
-        {
-            get
-            {
-                return this.sequenceCollectionField;
-            }
-            set
-            {
-                this.sequenceCollectionField = value;
-            }
-        }
-
-        /// <remarks/>
-        public AnalysisCollectionType AnalysisCollection
-        {
-            get
-            {
-                return this.analysisCollectionField;
-            }
-            set
-            {
-                this.analysisCollectionField = value;
-            }
-        }
-
-        /// <remarks/>
-        public AnalysisProtocolCollectionType AnalysisProtocolCollection
-        {
-            get
-            {
-                return this.analysisProtocolCollectionField;
-            }
-            set
-            {
-                this.analysisProtocolCollectionField = value;
-            }
-        }
-
-        /// <remarks/>
-        public DataCollectionType DataCollection
-        {
-            get
-            {
-                return this.dataCollectionField;
-            }
-            set
-            {
-                this.dataCollectionField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlElementAttribute("BibliographicReference")]
-        public FuGECommonReferencesBibliographicReferenceType[] BibliographicReference
-        {
-            get
-            {
-                return this.bibliographicReferenceField;
-            }
-            set
-            {
-                this.bibliographicReferenceField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public System.DateTime creationDate
-        {
-            get
-            {
-                return this.creationDateField;
-            }
-            set
-            {
-                this.creationDateField = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlIgnoreAttribute()]
-        public bool creationDateSpecified
-        {
-            get
-            {
-                return this.creationDateFieldSpecified;
-            }
-            set
-            {
-                this.creationDateFieldSpecified = value;
-            }
-        }
-
-        /// <remarks/>
-        [System.Xml.Serialization.XmlAttributeAttribute()]
-        public string version
-        {
-            get
-            {
-                return this.versionField;
-            }
-            set
-            {
-                this.versionField = value;
+                this.peptideEvidenceField = value;
             }
         }
     }

@@ -2667,7 +2667,7 @@ namespace mzIdentML.Generated
     public partial class SearchModificationType
     {
 
-        private CVParamType[][] specificityRulesField;
+        private CVParamType[] specificityRulesField;
 
         private CVParamType[] cvParamField;
 
@@ -2679,7 +2679,7 @@ namespace mzIdentML.Generated
 
         /// <remarks/>
         [System.Xml.Serialization.XmlArrayItemAttribute("cvParam", typeof(CVParamType), IsNullable = false)]
-        public CVParamType[][] SpecificityRules
+        public CVParamType[] SpecificityRules
         {
             get
             {
