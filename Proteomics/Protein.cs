@@ -8,7 +8,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public Protein(string sequence, string accession, List<Tuple<string, string>> gene_names = null, IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null, string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null)
+        public Protein(string sequence, string accession, List<Tuple<string, string>> gene_names = null, IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null, string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -18,6 +18,7 @@ namespace Proteomics
             FullName = full_name;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
+            DatabaseFilePath = databaseFilePath;
 
             GeneNames = gene_names ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
@@ -45,6 +46,7 @@ namespace Proteomics
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
+        public string DatabaseFilePath { get; }
 
         public int Length
         {
