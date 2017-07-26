@@ -22,7 +22,8 @@ namespace Test
         [Test]
         public static void AnotherMzMLtest()
         {
-            IMzmlScan[] scans = new IMzmlScan[2];
+            IMzmlScan[] scans = new IMzmlScan[4];
+
             double[] intensities1 = new double[] { 1 };
             double[] mz1 = new double[] { 50 };
             MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
@@ -34,15 +35,26 @@ namespace Test
             scans[1] = new MzmlScanWithPrecursor(2, massSpec2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "FTMS", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY,
                 50, null, null, 50, 1, DissociationType.CID, 1, null, null);
 
+            double[] intensities3 = new double[] { 1 };
+            double[] mz3 = new double[] { 50 };
+            MzmlMzSpectrum massSpec3 = new MzmlMzSpectrum(mz3, intensities3, false);
+            scans[2] = new MzmlScan(1, massSpec3, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "FTMS", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null);
+
+            double[] intensities4 = new double[] { 1 };
+            double[] mz4 = new double[] { 30 };
+            MzmlMzSpectrum massSpec4 = new MzmlMzSpectrum(mz4, intensities4, false);
+            scans[3] = new MzmlScanWithPrecursor(2, massSpec4, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "FTMS", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY,
+                50, null, null, 50, 1, DissociationType.CID, 1, null, null);
+
             FakeMsDataFile f = new FakeMsDataFile(scans);
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzml"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzml"));
 
-            var scanWithPrecursor = ok.First(b => b is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+            var scanWithPrecursor = ok.Last(b => b is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
 
-            Assert.AreEqual(1, scanWithPrecursor.OneBasedPrecursorScanNumber);
+            Assert.AreEqual(3, scanWithPrecursor.OneBasedPrecursorScanNumber);
         }
 
         [OneTimeSetUp]

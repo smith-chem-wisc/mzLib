@@ -19,10 +19,10 @@
 using MassSpectrometry;
 using MzLibUtil;
 using System;
-using System.IO.Compression;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -311,7 +311,6 @@ namespace IO.MzML
 
             if (zlibCompressed)
             {
-
                 var output = new MemoryStream();
                 using (var compressStream = new MemoryStream(bytes))
                 {
@@ -365,7 +364,7 @@ namespace IO.MzML
             do
             {
                 oneBasedSpectrumNumber--;
-            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber-1].id));
+            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
             return oneBasedSpectrumNumber;
         }
 
