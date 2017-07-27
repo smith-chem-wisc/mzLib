@@ -63,12 +63,7 @@ namespace IO.MzML
 
         private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
             {
-                { "ITMS", MZAnalyzerType.IonTrap2D},
-                { "TQMS", MZAnalyzerType.Unknown},
-                { "SQMS",MZAnalyzerType.Unknown},
-                { "TOFMS",MZAnalyzerType.TOF},
-                { "FTMS", MZAnalyzerType.Orbitrap},
-                { "Sector", MZAnalyzerType.Sector},
+                { "MS:1000443", MZAnalyzerType.Unknown},
                 { "MS:1000081",MZAnalyzerType.Quadrupole},
                 { "MS:1000291",MZAnalyzerType.IonTrap2D},
                 { "MS:1000082",MZAnalyzerType.IonTrap3D},
@@ -140,6 +135,39 @@ namespace IO.MzML
 
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
+            // Read in the instrument configuration types from connection (in mzml it's at the start)
+
+            Generated.InstrumentConfigurationType[] configs = new Generated.InstrumentConfigurationType[_mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length];
+            for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
+            {
+                configs[i] = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[i];
+            }
+
+            var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
+
+            // May be null!
+            var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
+
+            MZAnalyzerType analyzer = default(MZAnalyzerType);
+            // use default
+            if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
+            {
+                if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                    analyzer = returnVal;
+            }
+            // use scan-specific
+            else
+            {
+                for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
+                {
+                    if (configs[i].id.Equals(scanSpecificInsturmentConfig))
+                    {
+                        analyzerDictionary.TryGetValue(configs[i].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal);
+                        analyzer = returnVal;
+                    }
+                }
+            }
+
             double[] masses = new double[0];
             double[] intensities = new double[0];
 
@@ -183,7 +211,8 @@ namespace IO.MzML
                     isCentroid = false;
                 if (cv.accession.Equals(_totalIonCurrent))
                     tic = double.Parse(cv.value);
-                polarityDictionary.TryGetValue(cv.accession, out polarity);
+                if (polarity.Equals(Polarity.Unknown))
+                    polarityDictionary.TryGetValue(cv.accession, out polarity);
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
@@ -225,7 +254,7 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic, injectionTime);
+                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, analyzer, tic, injectionTime);
             }
 
             double selectedIonMz = double.NaN;
@@ -286,7 +315,7 @@ namespace IO.MzML
                 rtInMinutes,
                 new MzRange(low, high),
                 scanFilter,
-                GetMzAnalyzer(_mzMLConnection, scanFilter),
+                analyzer,
                 tic,
                 selectedIonMz,
                 selectedIonCharge,
@@ -343,19 +372,6 @@ namespace IO.MzML
                 }
             }
             return convertedArray;
-        }
-
-        private static MZAnalyzerType GetMzAnalyzer(Generated.mzMLType _mzMLConnection, string filter)
-        {
-            if (filter != null && analyzerDictionary.TryGetValue(MZAnalyzerTypeRegex.Match(filter).Captures[0].Value, out MZAnalyzerType valuee))
-                return valuee;
-
-            // Maybe in the beginning of the file, there is a single analyzer?
-            // Gets the first analyzer used.
-
-            if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration != null)
-                return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
-            return MZAnalyzerType.Unknown;
         }
 
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
