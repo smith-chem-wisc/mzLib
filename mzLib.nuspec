@@ -22,6 +22,7 @@
     <file src="Chemistry\bin\x64\Release\Chemistry.dll" target="lib" /> 
     <file src="mzIdentML\bin\x64\Release\mzIdentML.dll" target="lib" /> 
     <file src="MzML\bin\x64\Release\MzML.dll" target="lib" /> 
+    <file src="pepXML\bin\x64\Release\pepXML.dll" target="lib" /> 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib" /> 
     <file src="MassSpectrometry\bin\x64\Release\MassSpectrometry.dll" target="lib" /> 
     <file src="Proteomics\bin\x64\Release\Proteomics.dll" target="lib" /> 
