@@ -212,7 +212,8 @@ namespace IO.MzML
                     isCentroid = false;
                 if (cv.accession.Equals(_totalIonCurrent))
                     tic = double.Parse(cv.value);
-                polarityDictionary.TryGetValue(cv.accession, out polarity);
+                if (polarity.Equals(Polarity.Unknown))
+                    polarityDictionary.TryGetValue(cv.accession, out polarity);
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
