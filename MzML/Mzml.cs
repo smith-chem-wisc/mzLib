@@ -63,12 +63,6 @@ namespace IO.MzML
 
         private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
             {
-                { "ITMS", MZAnalyzerType.IonTrap2D},
-                { "TQMS", MZAnalyzerType.Unknown},
-                { "SQMS",MZAnalyzerType.Unknown},
-                { "TOFMS",MZAnalyzerType.TOF},
-                { "FTMS", MZAnalyzerType.Orbitrap},
-                { "Sector", MZAnalyzerType.Sector},
                 { "MS:1000081",MZAnalyzerType.Quadrupole},
                 { "MS:1000291",MZAnalyzerType.IonTrap2D},
                 { "MS:1000082",MZAnalyzerType.IonTrap3D},
