@@ -131,20 +131,22 @@ namespace IO.MzML
                 cvRef = "MS"
             };
 
-            List<MZAnalyzerType> allKnownAnalyzers = (new HashSet<MZAnalyzerType>(myMsDataFile.Select(b => b.MzAnalyzer))).ToList();
+            List<MZAnalyzerType> analyzersInThisFile = (new HashSet<MZAnalyzerType>(myMsDataFile.Select(b => b.MzAnalyzer))).ToList();
+            Dictionary<MZAnalyzerType, string> analyzersInThisFileDict = new Dictionary<MZAnalyzerType, string>();
 
             // Leaving empty. Can't figure out the configurations.
             // ToDo: read instrumentConfigurationList from mzML file
             mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType()
             {
-                count = allKnownAnalyzers.Count.ToString(),
-                instrumentConfiguration = new Generated.InstrumentConfigurationType[allKnownAnalyzers.Count]
+                count = analyzersInThisFile.Count.ToString(),
+                instrumentConfiguration = new Generated.InstrumentConfigurationType[analyzersInThisFile.Count]
             };
 
             // Write the analyzers, also the default, also in the scans if needed
 
             for (int i = 0; i < mzML.instrumentConfigurationList.instrumentConfiguration.Length; i++)
             {
+                analyzersInThisFileDict[analyzersInThisFile[i]] = "IC" + (i + 1).ToString();
                 mzML.instrumentConfigurationList.instrumentConfiguration[i] = new Generated.InstrumentConfigurationType()
                 {
                     id = "IC" + (i + 1).ToString(),
@@ -173,7 +175,7 @@ namespace IO.MzML
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[i].cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
-                    accession = analyzerDictionary[allKnownAnalyzers[i]],
+                    accession = analyzerDictionary[analyzersInThisFile[i]],
                 };
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType()
@@ -195,10 +197,9 @@ namespace IO.MzML
                 id = "mzLibProcessing",
                 processingMethod = new Generated.ProcessingMethodType[1]
             };
-
             mzML.run = new Generated.RunType()
             {
-                defaultInstrumentConfigurationRef = "IC1",
+                defaultInstrumentConfigurationRef = analyzersInThisFileDict[analyzersInThisFile[0]],
                 id = "mzLibGenerated"
             };
 
@@ -349,11 +350,6 @@ namespace IO.MzML
                 };
 
                 var h = myMsDataFile.GetOneBasedScan(i).MzAnalyzer;
-                Console.WriteLine("sdf" + h.ToString());
-                if (allKnownAnalyzers.Count > 1)
-                {
-                    Console.WriteLine("asdf");
-                }
                 mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
                 {
                 };
@@ -570,10 +566,21 @@ namespace IO.MzML
                     count = "1",
                     scan = new Generated.ScanType[1]
                 };
-                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType()
+                if (myMsDataFile.GetOneBasedScan(i).MzAnalyzer.Equals(analyzersInThisFile[0]))
                 {
-                    cvParam = new Generated.CVParamType[3]
-                };
+                    mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType()
+                    {
+                        cvParam = new Generated.CVParamType[3]
+                    };
+                }
+                else
+                {
+                    mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType()
+                    {
+                        cvParam = new Generated.CVParamType[3],
+                        instrumentConfigurationRef = analyzersInThisFileDict[myMsDataFile.GetOneBasedScan(i).MzAnalyzer]
+                    };
+                }
                 mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[0] = new Generated.CVParamType()
                 {
                     name = "scan start time",
@@ -816,10 +823,14 @@ namespace IO.MzML
             }
 
             if (writeIndexed)
-                throw new MzLibException("Writing indexed mzMLs not yet supported");
+                throw
+
+new MzLibException("Writing indexed mzMLs not yet supported");
             else
             {
-                using (TextWriter writer = new StreamWriter(outputFile))
+                using (TextWriter writer = new StreamWriter(outputFile)
+
+)
                 {
                     mzmlSerializer.Serialize(writer, mzML);
                 }
