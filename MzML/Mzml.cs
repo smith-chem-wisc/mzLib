@@ -149,7 +149,6 @@ namespace IO.MzML
             var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
 
             MZAnalyzerType analyzer = default(MZAnalyzerType);
-            Console.WriteLine(analyzer.ToString());
             // use default
             if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
             {
