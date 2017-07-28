@@ -140,7 +140,7 @@ namespace IO.MzML
             Generated.InstrumentConfigurationType[] configs = new Generated.InstrumentConfigurationType[_mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length];
             for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
             {
-                configs[i] = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0];
+                configs[i] = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[i];
             }
 
             var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
@@ -161,7 +161,7 @@ namespace IO.MzML
             {
                 for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
                 {
-                    if (configs[i].Equals(scanSpecificInsturmentConfig[i]))
+                    if (configs[i].id.Equals(scanSpecificInsturmentConfig))
                     {
                         analyzerDictionary.TryGetValue(configs[i].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal);
                         analyzer = returnVal;

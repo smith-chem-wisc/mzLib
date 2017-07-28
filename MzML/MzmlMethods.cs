@@ -172,13 +172,13 @@ namespace IO.MzML
                     cvParam = new Generated.CVParamType[1]
                 };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[i].cvParam[0] = new Generated.CVParamType()
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[0].cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
                     accession = analyzerDictionary[analyzersInThisFile[i]],
                 };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType()
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.detector[0] = new Generated.DetectorComponentType()
                 {
                     order = 3
                 };
