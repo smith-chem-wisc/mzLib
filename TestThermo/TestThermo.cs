@@ -5,6 +5,7 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace TestThermo
@@ -68,7 +69,7 @@ namespace TestThermo
 
             Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Mz.ToMass(b.charge) - 523.257) < 0.001));
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
 
             var sdafaf = a.Deconvolute(null, null, 30, 10, 3, b => true, 10, b => true).OrderByDescending(b => b.NumPeaks).First();
 
@@ -79,6 +80,10 @@ namespace TestThermo
                 Assert.AreEqual(136, dynamicThermo.GetClosestOneBasedSpectrumNumber(1.89));
                 dynamicThermo.ClearCachedScans();
             }
+
+            Mzml readCovertedMzmlFile = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"));
+
+            Assert.AreEqual(a.First().Polarity, readCovertedMzmlFile.First().Polarity);
         }
 
         [Test]

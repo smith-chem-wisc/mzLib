@@ -135,8 +135,7 @@ namespace Test
         [Test]
         public void SampleModFileLoading()
         {
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt")).ToList();
-            Console.WriteLine(sampleModList.First().ToString());
+            PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "sampleModFile.txt"));
         }
 
         [Test]
