@@ -140,7 +140,6 @@ namespace IO.MzML
 
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
-
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
             Generated.InstrumentConfigurationType[] configs = new Generated.InstrumentConfigurationType[_mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length];
@@ -166,7 +165,7 @@ namespace IO.MzML
                 if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
                     analyzer = returnVal;
             }
-            // use scan-specific 
+            // use scan-specific
             else
             {
                 for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
@@ -178,7 +177,6 @@ namespace IO.MzML
                     }
                 }
             }
-
 
             double[] masses = new double[0];
             double[] intensities = new double[0];

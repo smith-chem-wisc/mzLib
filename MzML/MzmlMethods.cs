@@ -60,10 +60,6 @@ namespace IO.MzML
 
         public static void CreateAndWriteMyMzmlWithCalibratedSpectra(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile, string outputFile, bool writeIndexed)
         {
-
-
-
-
             var mzML = new Generated.mzMLType()
             {
                 version = "1",
@@ -125,8 +121,6 @@ namespace IO.MzML
 
             HashSet<MZAnalyzerType> allKnownAnalyzers = new HashSet<MZAnalyzerType>(myMsDataFile.Select(b => b.MzAnalyzer));
 
-
-
             // Leaving empty. Can't figure out the configurations.
             // ToDo: read instrumentConfigurationList from mzML file
             mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType()
@@ -139,7 +133,6 @@ namespace IO.MzML
 
             for (int i = 0; i < mzML.instrumentConfigurationList.instrumentConfiguration.Length; i++)
             {
-
                 mzML.instrumentConfigurationList.instrumentConfiguration[i] = new Generated.InstrumentConfigurationType()
                 {
                     id = "IC" + (i + 1).ToString(),
@@ -152,56 +145,54 @@ namespace IO.MzML
                     source = new Generated.SourceComponentType[1],
                     analyzer = new Generated.AnalyzerComponentType[allKnownAnalyzers.Count],
                     detector = new Generated.DetectorComponentType[1],
-                    
                 };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] =  new Generated.SourceComponentType();
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType();
 
-
-                
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[i] = new Generated.AnalyzerComponentType()
                 {
-                    order = i+2,
+                    order = i + 2,
                     cvParam = new Generated.CVParamType[1]
                 };
 
                 String aType = allKnownAnalyzers.ElementAt(i).ToString();
                 String aNum = ""; ;
 
-
-            switch (aType)
+                switch (aType)
                 {
                     case "Quadrupole":
                         aNum = "MS:1000081";
                         break;
+
                     case "IonTrap2D":
                         aNum = "MS:1000291";
                         break;
+
                     case "IonTrap3D":
                         aNum = "MS:1000082";
                         break;
+
                     case "Orbitrap":
                         aNum = "MS:1000484";
                         break;
+
                     case "TOF":
                         aNum = "MS:1000084";
                         break;
+
                     case "FTICR":
                         aNum = "MS:1000079";
                         break;
+
                     case "Sector":
                         aNum = "MS:1000080";
                         break;
-
-
                 }
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[i].cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
                     accession = aNum
-
-                    
                 };
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType()
@@ -210,7 +201,6 @@ namespace IO.MzML
                 };
 
                 //if(allKnownAnalyzers.ElementAt(i). == Mzml. )
-
             }
 
             mzML.dataProcessingList = new Generated.DataProcessingListType()
@@ -374,7 +364,6 @@ namespace IO.MzML
                     id = "scan=" + (myMsDataFile.GetOneBasedScan(i).OneBasedScanNumber).ToString(),
                     cvParam = new Generated.CVParamType[10],
                     scanList = new Generated.ScanListType()
-
                 };
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()
                 {
@@ -388,17 +377,15 @@ namespace IO.MzML
                 {
                     Console.WriteLine("asdf");
                 }
-                    mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
-                    {
-
-                    };
+                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
+                {
+                };
 
                 //precursor info
                 mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
                 {
                     count = 1.ToString()
                 };
-
 
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
                 {
@@ -427,7 +414,6 @@ namespace IO.MzML
                     {
                         count = 1.ToString(),
                         precursor = new Generated.PrecursorType[1],
-
                     };
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType();
 
