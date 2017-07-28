@@ -5,6 +5,7 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace TestThermo
@@ -68,13 +69,17 @@ namespace TestThermo
 
             Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.Item1.First().Mz.ToMass(b.Item2) - 523.257) < 0.001));
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "convertedThermo.mzML", false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
             {
                 Assert.AreEqual(136, dynamicThermo.GetClosestOneBasedSpectrumNumber(1.89));
                 dynamicThermo.ClearCachedScans();
             }
+
+            Mzml readCovertedMzmlFile = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"));
+
+            Assert.AreEqual(a.First().Polarity, readCovertedMzmlFile.First().Polarity);
         }
 
         [Test]
