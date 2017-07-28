@@ -140,6 +140,46 @@ namespace IO.MzML
 
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
+
+            // Read in the instrument configuration types from connection (in mzml it's at the start)
+
+            Generated.InstrumentConfigurationType[] configs = new Generated.InstrumentConfigurationType[_mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length];
+            for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
+            {
+                configs[i] = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0];
+            }
+
+            //if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration != null)
+            //    return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
+            //return MZAnalyzerType.Unknown;
+
+            var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
+
+            // May be null!
+            var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
+
+            MZAnalyzerType analyzer = default(MZAnalyzerType);
+            Console.WriteLine(analyzer.ToString());
+            // use default
+            if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
+            {
+                if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                    analyzer = returnVal;
+            }
+            // use scan-specific 
+            else
+            {
+                for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
+                {
+                    if (configs[i].Equals(scanSpecificInsturmentConfig[i]))
+                    {
+                        analyzerDictionary.TryGetValue(configs[i].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal);
+                        analyzer = returnVal;
+                    }
+                }
+            }
+
+
             double[] masses = new double[0];
             double[] intensities = new double[0];
 
@@ -225,7 +265,7 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic, injectionTime);
+                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, analyzer, tic, injectionTime);
             }
 
             double selectedIonMz = double.NaN;
@@ -286,7 +326,7 @@ namespace IO.MzML
                 rtInMinutes,
                 new MzRange(low, high),
                 scanFilter,
-                GetMzAnalyzer(_mzMLConnection, scanFilter),
+                analyzer,
                 tic,
                 selectedIonMz,
                 selectedIonCharge,
@@ -346,26 +386,13 @@ namespace IO.MzML
             return convertedArray;
         }
 
-        private static MZAnalyzerType GetMzAnalyzer(Generated.mzMLType _mzMLConnection, string filter)
-        {
-            if (filter != null && analyzerDictionary.TryGetValue(MZAnalyzerTypeRegex.Match(filter).Captures[0].Value, out MZAnalyzerType valuee))
-                return valuee;
-
-            // Maybe in the beginning of the file, there is a single analyzer?
-            // Gets the first analyzer used.
-
-            if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration != null)
-                return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
-            return MZAnalyzerType.Unknown;
-        }
-
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
             string precursorID = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef;
             do
             {
                 oneBasedSpectrumNumber--;
-            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber-1].id));
+            } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
             return oneBasedSpectrumNumber;
         }
 
