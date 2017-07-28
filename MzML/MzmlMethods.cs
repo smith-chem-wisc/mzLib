@@ -39,6 +39,18 @@ namespace IO.MzML
             {DissociationType.PQD, "pulsed q dissociation"},
             {DissociationType.Unknown, "dissociation method"}};
 
+        private static readonly Dictionary<MZAnalyzerType, string> analyzerDictionary = new Dictionary<MZAnalyzerType, string>
+            {
+                {MZAnalyzerType.Unknown, "MS:1000443"},
+                {MZAnalyzerType.Quadrupole, "MS:1000081"},
+                {MZAnalyzerType.IonTrap2D, "MS:1000291"},
+                {MZAnalyzerType.IonTrap3D,"MS:1000082"},
+                {MZAnalyzerType.Orbitrap,"MS:1000484"},
+                {MZAnalyzerType.TOF,"MS:1000084"},
+                {MZAnalyzerType.FTICR ,"MS:1000079"},
+                {MZAnalyzerType.Sector,"MS:1000080"}
+            };
+
         private static readonly Dictionary<bool, string> CentroidAccessions = new Dictionary<bool, string>{
             {true, "MS:1000127"},
             {false, "MS:1000128"}};
@@ -119,7 +131,7 @@ namespace IO.MzML
                 cvRef = "MS"
             };
 
-            HashSet<MZAnalyzerType> allKnownAnalyzers = new HashSet<MZAnalyzerType>(myMsDataFile.Select(b => b.MzAnalyzer));
+            List<MZAnalyzerType> allKnownAnalyzers = (new HashSet<MZAnalyzerType>(myMsDataFile.Select(b => b.MzAnalyzer))).ToList();
 
             // Leaving empty. Can't figure out the configurations.
             // ToDo: read instrumentConfigurationList from mzML file
@@ -143,64 +155,31 @@ namespace IO.MzML
                 {
                     count = 3.ToString(),
                     source = new Generated.SourceComponentType[1],
-                    analyzer = new Generated.AnalyzerComponentType[allKnownAnalyzers.Count],
+                    analyzer = new Generated.AnalyzerComponentType[1],
                     detector = new Generated.DetectorComponentType[1],
                 };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType();
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType()
+                {
+                    order = 1,
+                };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[i] = new Generated.AnalyzerComponentType()
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[0] = new Generated.AnalyzerComponentType()
                 {
                     order = i + 2,
                     cvParam = new Generated.CVParamType[1]
                 };
 
-                String aType = allKnownAnalyzers.ElementAt(i).ToString();
-                String aNum = ""; ;
-
-                switch (aType)
-                {
-                    case "Quadrupole":
-                        aNum = "MS:1000081";
-                        break;
-
-                    case "IonTrap2D":
-                        aNum = "MS:1000291";
-                        break;
-
-                    case "IonTrap3D":
-                        aNum = "MS:1000082";
-                        break;
-
-                    case "Orbitrap":
-                        aNum = "MS:1000484";
-                        break;
-
-                    case "TOF":
-                        aNum = "MS:1000084";
-                        break;
-
-                    case "FTICR":
-                        aNum = "MS:1000079";
-                        break;
-
-                    case "Sector":
-                        aNum = "MS:1000080";
-                        break;
-                }
-
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[i].cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
-                    accession = aNum
+                    accession = analyzerDictionary[allKnownAnalyzers[i]],
                 };
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.source[0] = new Generated.SourceComponentType()
                 {
                     order = 3
                 };
-
-                //if(allKnownAnalyzers.ElementAt(i). == Mzml. )
             }
 
             mzML.dataProcessingList = new Generated.DataProcessingListType()
@@ -208,6 +187,7 @@ namespace IO.MzML
                 count = "1",
                 dataProcessing = new Generated.DataProcessingType[1]
             };
+
             // Only writing mine! Might have had some other data processing (but not if it is a raw file)
             // ToDo: read dataProcessingList from mzML file
             mzML.dataProcessingList.dataProcessing[0] = new Generated.DataProcessingType()
@@ -215,6 +195,7 @@ namespace IO.MzML
                 id = "mzLibProcessing",
                 processingMethod = new Generated.ProcessingMethodType[1]
             };
+
             mzML.run = new Generated.RunType()
             {
                 defaultInstrumentConfigurationRef = "IC1",
@@ -228,8 +209,6 @@ namespace IO.MzML
                 defaultDataProcessingRef = "mzLibProcessing"
             };
             // ToDo: Finish the chromatogram writing! (think finished)
-
-            #region Chromatogram
 
             //Chromatagram info
             mzML.run.chromatogramList.chromatogram[0] = new Generated.ChromatogramType()
@@ -344,8 +323,6 @@ namespace IO.MzML
                 cvRef = "MS",
                 value = ""
             };
-
-            #endregion Chromatogram
 
             mzML.run.spectrumList = new Generated.SpectrumListType()
             {

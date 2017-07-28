@@ -63,6 +63,7 @@ namespace IO.MzML
 
         private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
             {
+                { "MS:1000443", MZAnalyzerType.Unknown},
                 { "MS:1000081",MZAnalyzerType.Quadrupole},
                 { "MS:1000291",MZAnalyzerType.IonTrap2D},
                 { "MS:1000082",MZAnalyzerType.IonTrap3D},
@@ -141,10 +142,6 @@ namespace IO.MzML
             {
                 configs[i] = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0];
             }
-
-            //if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration != null)
-            //    return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
-            //return MZAnalyzerType.Unknown;
 
             var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
 
