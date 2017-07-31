@@ -74,7 +74,7 @@ namespace IO.MzML
         {
             var mzML = new Generated.mzMLType()
             {
-                version = "1",
+                version = "1.1.0",
                 cvList = new Generated.CVListType(),
             };
             mzML.cvList.count = "2";
@@ -176,6 +176,7 @@ namespace IO.MzML
                 {
                     cvRef = "MS",
                     accession = analyzerDictionary[analyzersInThisFile[i]],
+                    name = "analyzer Type"
                 };
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.detector[0] = new Generated.DetectorComponentType()
@@ -196,6 +197,11 @@ namespace IO.MzML
             {
                 id = "mzLibProcessing",
                 processingMethod = new Generated.ProcessingMethodType[1]
+            };
+            mzML.dataProcessingList.dataProcessing[0].processingMethod[0] = new Generated.ProcessingMethodType()
+            {
+                order = "0",
+                softwareRef = "mzLib"
             };
             mzML.run = new Generated.RunType()
             {
@@ -354,11 +360,7 @@ namespace IO.MzML
                 {
                 };
 
-                //precursor info
-                mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
-                {
-                    count = 1.ToString()
-                };
+
 
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
                 {
@@ -471,6 +473,8 @@ namespace IO.MzML
 
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = DissociationTypeAccessions[dissociationType];
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = DissociationTypeNames[dissociationType];
+                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].cvRef = "MS";
+
                 }
 
                 mzML.run.spectrumList.spectrum[i - 1].cvParam[1] = new Generated.CVParamType()
@@ -483,14 +487,16 @@ namespace IO.MzML
                 mzML.run.spectrumList.spectrum[i - 1].cvParam[2] = new Generated.CVParamType()
                 {
                     name = CentroidNames[myMsDataFile.GetOneBasedScan(i).IsCentroid],
-                    accession = CentroidAccessions[myMsDataFile.GetOneBasedScan(i).IsCentroid]
+                    accession = CentroidAccessions[myMsDataFile.GetOneBasedScan(i).IsCentroid],
+                    cvRef = "MS"
                 };
                 if (PolarityNames.TryGetValue(myMsDataFile.GetOneBasedScan(i).Polarity, out string polarityName) && PolarityAccessions.TryGetValue(myMsDataFile.GetOneBasedScan(i).Polarity, out string polarityAccession))
                 {
                     mzML.run.spectrumList.spectrum[i - 1].cvParam[3] = new Generated.CVParamType()
                     {
                         name = polarityName,
-                        accession = polarityAccession
+                        accession = polarityAccession,
+                        cvRef = "MS"
                     };
                 }
                 // Spectrum title
