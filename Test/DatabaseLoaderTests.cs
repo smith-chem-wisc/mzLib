@@ -243,7 +243,7 @@ namespace Test
 
             var modReadFromFile = sampleModList.First() as ModificationWithMassAndCf;
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            ModificationWithMass newMod = new ModificationWithMassAndCf("Palmitoylation of C", null, motif, ModificationSites.Any, modReadFromFile.chemicalFormula, modReadFromFile.monoisotopicMass, null, null, null, modReadFromFile.modificationType);
+            ModificationWithMass newMod = new ModificationWithMassAndCf("Palmitoylation of C", null, motif, TerminusLocalization.Any, modReadFromFile.chemicalFormula, modReadFromFile.monoisotopicMass, null, null, null, modReadFromFile.modificationType);
 
             Assert.AreEqual(newMod, sampleModList.First());
             Assert.AreEqual(sampleModList.First(), newMod);
@@ -272,7 +272,7 @@ namespace Test
             HashSet<Tuple<int, Modification>> value = new HashSet<Tuple<int, Modification>>();
 
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            ModificationWithMass newMod = new ModificationWithMass("Palmitoylation of C", null, motif, ModificationSites.Any, double.NaN, null, null, null, null);
+            ModificationWithMass newMod = new ModificationWithMass("Palmitoylation of C", null, motif, TerminusLocalization.Any, double.NaN, null, null, null, null);
 
             Assert.AreNotEqual(newMod, sampleModList.First());
 

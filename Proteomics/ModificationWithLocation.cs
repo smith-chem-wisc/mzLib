@@ -7,12 +7,13 @@ namespace Proteomics
 {
     public class ModificationWithLocation : Modification
     {
+
         #region Public Fields
 
-        public static readonly Dictionary<string, ModificationSites> terminusLocalizationTypeCodes;
+        public static readonly Dictionary<string, TerminusLocalization> terminusLocalizationTypeCodes;
         public readonly Tuple<string, string> accession;
         public readonly IDictionary<string, IList<string>> linksToOtherDbs;
-        public readonly ModificationSites terminusLocalization;
+        public readonly TerminusLocalization terminusLocalization;
         public readonly ModificationMotif motif;
 
         #endregion Public Fields
@@ -21,18 +22,18 @@ namespace Proteomics
 
         static ModificationWithLocation()
         {
-            terminusLocalizationTypeCodes = new Dictionary<string, ModificationSites>
+            terminusLocalizationTypeCodes = new Dictionary<string, TerminusLocalization>
             {
-                { "N-terminal.", ModificationSites.NProt }, // Implies protein only, not peptide
-                { "C-terminal.", ModificationSites.ProtC },
-                { "Peptide N-terminal.", ModificationSites.NPep },
-                { "Peptide C-terminal.", ModificationSites.PepC },
-                { "Anywhere.", ModificationSites.Any },
-                { "Protein core.", ModificationSites.Any }
+                { "N-terminal.", TerminusLocalization.NProt }, // Implies protein only, not peptide
+                { "C-terminal.", TerminusLocalization.ProtC },
+                { "Peptide N-terminal.", TerminusLocalization.NPep },
+                { "Peptide C-terminal.", TerminusLocalization.PepC },
+                { "Anywhere.", TerminusLocalization.Any },
+                { "Protein core.", TerminusLocalization.Any }
             };
         }
 
-        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites terminusLocalization, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id, modificationType)
+        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, TerminusLocalization terminusLocalization, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id, modificationType)
         {
             this.accession = accession;
             this.motif = motif;
@@ -80,5 +81,6 @@ namespace Proteomics
         }
 
         #endregion Public Methods
+
     }
 }
