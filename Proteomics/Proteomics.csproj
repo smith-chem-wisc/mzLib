@@ -47,6 +47,7 @@
     <Compile Include="DatabaseReference.cs" />
     <Compile Include="DisulfideBond.cs" />
     <Compile Include="Modification.cs" />
+    <Compile Include="TerminusLocalization.cs" />
     <Compile Include="ModificationWithLocation.cs" />
     <Compile Include="ModificationMotif.cs" />
     <Compile Include="ModificationWithMass.cs" />

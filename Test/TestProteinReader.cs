@@ -18,6 +18,7 @@
 
 using NUnit.Framework;
 using Proteomics;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -36,7 +37,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -68,7 +69,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -100,7 +101,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -127,7 +128,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -152,7 +153,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -176,7 +177,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -190,7 +191,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -220,8 +221,8 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "one"),
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "one"),
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "two")
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
@@ -234,11 +235,45 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "exclude_me")
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "exclude_me")
             };
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
+        }
+
+        [Test]
+        public void CompareOxidationWithAndWithoutCf()
+        {
+            string aString =
+@"ID   Methionine (R)-sulfoxide
+AC   PTM-0480
+FT   MOD_RES
+TG   Methionine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Oxidation.
+DR   RESID; AA0581.
+DR   PSI-MOD; MOD:00720.
+//";
+            var a = PtmListLoader.ReadModsFromString(aString).First();
+
+            string bString =
+@"ID   Oxidation of M
+TG   M
+PP   Anywhere.
+MT   Common Variable
+CF   O1
+//";
+            var b = PtmListLoader.ReadModsFromString(bString).First();
+
+            Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) < 1e-6);
+            Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) > 1e-7);
         }
 
         #endregion Public Methods

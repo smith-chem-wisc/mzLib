@@ -22,13 +22,13 @@ namespace UsefulProteomicsDatabases
             {"15N", "N{15}" }
         };
 
-        private static readonly Dictionary<position_t, ModificationSites> positionDict = new Dictionary<position_t, ModificationSites>
+        private static readonly Dictionary<position_t, TerminusLocalization> positionDict = new Dictionary<position_t, TerminusLocalization>
             {
-            {position_t.AnyCterm, ModificationSites.PepC },
-            {position_t.ProteinCterm, ModificationSites.ProtC },
-            {position_t.Anywhere, ModificationSites.Any },
-            {position_t.AnyNterm, ModificationSites.NPep },
-            {position_t.ProteinNterm, ModificationSites.NProt }
+            {position_t.AnyCterm, TerminusLocalization.PepC },
+            {position_t.ProteinCterm, TerminusLocalization.ProtC },
+            {position_t.Anywhere, TerminusLocalization.Any },
+            {position_t.AnyNterm, TerminusLocalization.NPep },
+            {position_t.ProteinNterm, TerminusLocalization.NProt }
             };
 
         #endregion Private Fields
