@@ -261,7 +261,7 @@ namespace UsefulProteomicsDatabases
                                 }
                             if (terminusLocalizationString == null || motifs == null)
                                 yield return new Modification(id, modificationType);
-                            else if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out ModificationSites terminusLocalization))
+                            else if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out TerminusLocalization terminusLocalization))
                             {
                                 foreach (var singleTarget in motifs)
                                 {

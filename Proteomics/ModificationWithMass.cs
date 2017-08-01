@@ -19,7 +19,7 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, IEnumerable<double> neutralLosses, IEnumerable<double> diagnosticIons, string modificationType)
+        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, TerminusLocalization modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, IEnumerable<double> neutralLosses, IEnumerable<double> diagnosticIons, string modificationType)
             : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
         {
             this.monoisotopicMass = monoisotopicMass;

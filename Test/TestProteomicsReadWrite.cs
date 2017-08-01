@@ -20,7 +20,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
@@ -52,7 +52,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_ensembl.pep.all.fasta"), false, false, ProteinDbLoader.ensembl_accession_expression, ProteinDbLoader.ensembl_fullName_expression, ProteinDbLoader.ensembl_accession_expression, ProteinDbLoader.ensembl_gene_expression);
@@ -121,13 +121,13 @@ namespace Test
 
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.Any,null,  null),
-                new ModificationWithLocation("Phosphoserine",null, m1,ModificationSites.Any,null,  null),
-                new ModificationWithLocation("Phosphothreonine",null, m2,ModificationSites.Any,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null),
+                new ModificationWithLocation("Phosphoserine",null, m1,TerminusLocalization.Any,null,  null),
+                new ModificationWithLocation("Phosphothreonine",null, m2,TerminusLocalization.Any,null,  null)
             };
 
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithMass m = new ModificationWithMass("mod", new Tuple<string, string>("", ""), motif, ModificationSites.Any, 1, new Dictionary<string, IList<string>>(), new List<double> { -1 }, new List<double>(), "");
+            ModificationWithMass m = new ModificationWithMass("mod", new Tuple<string, string>("", ""), motif, TerminusLocalization.Any, 1, new Dictionary<string, IList<string>>(), new List<double> { -1 }, new List<double>(), "");
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> new_mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>
             {
@@ -193,9 +193,9 @@ namespace Test
         {
             Modification mod = new Modification("mod1", "modType1");
             ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
-            ModificationWithLocation mod2 = new ModificationWithLocation("mod2", null, motif, ModificationSites.Any, null, "modType1");
+            ModificationWithLocation mod2 = new ModificationWithLocation("mod2", null, motif, TerminusLocalization.Any, null, "modType1");
             ModificationMotif.TryGetMotif("N", out ModificationMotif motif3);
-            ModificationWithMass mod3 = new ModificationWithMass("mod3", null, motif3, ModificationSites.Any, 10, null, null, null, "modType1");
+            ModificationWithMass mod3 = new ModificationWithMass("mod3", null, motif3, TerminusLocalization.Any, 10, null, null, null, "modType1");
 
             List<Tuple<string, string>> gene_names = new List<Tuple<string, string>> { new Tuple<string, string>("a", "b") };
             IDictionary<int, List<Modification>> oneBasedModifications = new Dictionary<int, List<Modification>>
@@ -295,7 +295,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), false, nice, false, null, out Dictionary<string, Modification> un);
@@ -315,7 +315,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), false, nice, false, new List<string>(), out Dictionary<string, Modification> un);

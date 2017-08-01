@@ -36,7 +36,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -68,7 +68,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -100,7 +100,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -127,7 +127,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -152,7 +152,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -176,7 +176,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -190,7 +190,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -220,8 +220,8 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "one"),
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "one"),
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "two")
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
@@ -234,7 +234,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "exclude_me")
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "exclude_me")
             };
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
