@@ -123,7 +123,11 @@ namespace pepXML.Generated
             }
         }
     }
-
+    public partial class msms_pipeline_analysis
+    {
+        [XmlAttributeAttribute("schemaLocation", Namespace = "http://www.w3.org/2001/XMLSchema-instance")]
+        public string xsiSchemaLocation = "http://regis-web.systemsbiology.net/pepXML http://sashimi.sourceforge.net/schema_revision/pepXML/pepXML_v120.xsd";
+    }
     /// <remarks/>
     [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
     [System.SerializableAttribute()]
