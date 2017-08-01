@@ -249,6 +249,8 @@ namespace UsefulProteomicsDatabases
                                 modificationType = "Uniprot";
                             if (modificationType == null)
                                 throw new MzLibException("modificationType of " + id + " is null");
+                            if (!monoisotopicMass.HasValue && correctionFormula != null)
+                                monoisotopicMass = correctionFormula.MonoisotopicMass;
 
                             foreach (var dbAndAccession in externalDatabaseLinks.SelectMany(b => b.Value.Select(c => b.Key + "; " + c)))
                                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
