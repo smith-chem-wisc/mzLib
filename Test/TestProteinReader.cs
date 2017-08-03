@@ -18,6 +18,7 @@
 
 using NUnit.Framework;
 using Proteomics;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -36,7 +37,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -68,7 +69,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -100,7 +101,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -127,7 +128,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -152,7 +153,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -176,7 +177,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -190,7 +191,7 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",null, null,ModificationSites.A,null,  null)
+                new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
@@ -220,8 +221,8 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "one"),
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "two")
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "one"),
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "two")
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
@@ -234,11 +235,103 @@ namespace Test
         {
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", null, null, ModificationSites.S, null, "exclude_me")
+                new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "exclude_me")
             };
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
+        }
+
+        [Test]
+        public void CompareOxidationWithAndWithoutCf()
+        {
+            string aString =
+@"ID   Methionine (R)-sulfoxide
+AC   PTM-0480
+FT   MOD_RES
+TG   Methionine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Oxidation.
+DR   RESID; AA0581.
+DR   PSI-MOD; MOD:00720.
+//";
+            var a = PtmListLoader.ReadModsFromString(aString).First();
+
+            string bString =
+@"ID   Oxidation of M
+TG   M
+PP   Anywhere.
+MT   Common Variable
+CF   O1
+//";
+            var b = PtmListLoader.ReadModsFromString(bString).First();
+
+            Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) < 1e-6);
+            Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) > 1e-7);
+        }
+
+        [Test]
+        public void compare_protein_properties()
+        {
+            DatabaseReference d = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference dd = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference de = new DatabaseReference("asdf", "asdefg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference df = new DatabaseReference("asddf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference dg = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("babb", "ccc") });
+            DatabaseReference dh = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "cccf") });
+            Assert.True(dd.Equals(d));
+            Assert.False(de.Equals(d));
+            Assert.False(df.Equals(d));
+            Assert.False(dg.Equals(d));
+            Assert.False(dh.Equals(d));
+            Assert.AreEqual(5, new HashSet<DatabaseReference> { d, dd, de, df, dg, dh }.Count);
+
+            SequenceVariation s = new SequenceVariation(1, "hello", "hey", "hi");
+            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");
+            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");
+            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi");
+            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii");
+            Assert.True(s.Equals(sv));
+            Assert.False(s.Equals(sss));
+            Assert.False(s.Equals(ssss));
+            Assert.False(s.Equals(sssss));
+            Assert.AreEqual(4, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
+
+            DisulfideBond b = new DisulfideBond(1, "hello");
+            DisulfideBond bb = new DisulfideBond(1, "hello");
+            DisulfideBond bbb = new DisulfideBond(1, 2, "hello");
+            DisulfideBond bbbb = new DisulfideBond(1, 2, "hello");
+            DisulfideBond ba = new DisulfideBond(1, 3, "hello");
+            DisulfideBond baa = new DisulfideBond(2, 2, "hello");
+            DisulfideBond baaa = new DisulfideBond(1, 2, "hallo");
+            Assert.AreEqual(b, bb);
+            Assert.AreEqual(bbb, bbbb);
+            Assert.AreNotEqual(b, bbb);
+            Assert.AreNotEqual(ba, bbb);
+            Assert.AreNotEqual(baa, bbb);
+            Assert.AreNotEqual(baaa, bbb);
+            Assert.AreEqual(5, new HashSet<DisulfideBond> { b, bb, bbb, bbbb, ba, baa, baaa }.Count);
+
+            ProteolysisProduct pp = new ProteolysisProduct(1, 1, "hello");
+            ProteolysisProduct paaa = new ProteolysisProduct(1, 1, "hello");
+            ProteolysisProduct p = new ProteolysisProduct(null, null, "hello");
+            ProteolysisProduct ppp = new ProteolysisProduct(1, 2, "hello");
+            ProteolysisProduct pa = new ProteolysisProduct(2, 1, "hello");
+            ProteolysisProduct paa = new ProteolysisProduct(1, 1, "hallo");
+            Assert.AreEqual(pp, paaa);
+            Assert.AreNotEqual(p, pp);
+            Assert.AreNotEqual(pp, ppp);
+            Assert.AreNotEqual(pp, pa);
+            Assert.AreNotEqual(pp, paa);
+            Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
+
+
         }
 
         #endregion Public Methods
