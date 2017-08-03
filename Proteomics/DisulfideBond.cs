@@ -8,6 +8,7 @@ namespace Proteomics
 {
     public class DisulfideBond
     {
+
         #region Public Properties
 
         /// <summary>
@@ -42,5 +43,24 @@ namespace Proteomics
         { }
 
         #endregion Public Constructor
+
+        #region Public Methods
+
+        public override bool Equals(object obj)
+        {
+            DisulfideBond bond = obj as DisulfideBond;
+            return bond != null
+                && bond.OneBasedBeginPosition == OneBasedBeginPosition
+                && bond.OneBasedEndPosition == OneBasedEndPosition
+                && bond.Description == Description;
+        }
+
+        public override int GetHashCode()
+        {
+            return OneBasedBeginPosition ^ OneBasedEndPosition ^ Description.GetHashCode();
+        }
+
+        #endregion Public Methods
+
     }
 }
