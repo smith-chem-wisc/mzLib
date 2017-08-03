@@ -22,5 +22,22 @@
 
         #endregion Public Properties
 
+        #region Public Methods
+
+        public override bool Equals(object obj)
+        {
+            return obj as ProteolysisProduct != null &&
+                (obj as ProteolysisProduct).OneBasedBeginPosition == OneBasedBeginPosition &&
+                (obj as ProteolysisProduct).OneBasedEndPosition == OneBasedEndPosition &&
+                (obj as ProteolysisProduct).Type == Type;
+        }
+
+        public override int GetHashCode()
+        {
+            return OneBasedBeginPosition.GetHashCode() ^ OneBasedEndPosition.GetHashCode() ^ Type.GetHashCode();
+        }
+
+        #endregion Public Methods
+
     }
 }

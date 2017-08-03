@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Proteomics
 {
@@ -41,6 +42,29 @@ namespace Proteomics
         public IEnumerable<Tuple<string, string>> Properties { get; }
 
         #endregion Public Properties
+
+        #region Public Methods
+
+        public override bool Equals(object obj)
+        {
+            DatabaseReference d = obj as DatabaseReference;
+            return obj != null
+                && d.Type == Type
+                && d.Id == Id
+                && d.Properties.OrderBy(x => x).SequenceEqual(Properties.OrderBy(x => x));
+        }
+
+        public override int GetHashCode()
+        {
+            int hash = Type.GetHashCode() ^ Id.GetHashCode();
+            foreach (Tuple<string, string> property in Properties)
+            {
+                hash = hash ^ property.GetHashCode();
+            }
+            return hash;
+        }
+
+        #endregion Public Methods
 
     }
 }
