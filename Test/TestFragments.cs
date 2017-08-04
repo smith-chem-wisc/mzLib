@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
@@ -27,18 +29,19 @@ namespace Test
     [TestFixture]
     public sealed class TestFragments
     {
+
+        #region Private Fields
+
         private Peptide _mockPeptideEveryAminoAcid;
+
+        #endregion Private Fields
+
+        #region Public Methods
 
         [SetUp]
         public void SetUp()
         {
             _mockPeptideEveryAminoAcid = new Peptide("ACDEFGHIKLMNPQRSTVWY");
-        }
-
-        [Test]
-        public void FragmentNumberToLow()
-        {
-            Assert.Throws<IndexOutOfRangeException>(() => _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 0).ToList());
         }
 
         [Test]
@@ -64,18 +67,34 @@ namespace Test
         }
 
         [Test]
+        public void FragmentAnotherTest()
+        {
+            List<Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1, 2).ToList();
+
+            Assert.AreEqual(2, fragments.Count);
+        }
+
+        [Test]
+        public void FragmentNTermModTest()
+        {
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("O"), "lala", ModificationSites.NTerminus));
+            Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("O"), "lala", ModificationSites.NTerminus) }));
+        }
+
+        [Test]
         public void FragmentModifications()
         {
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(1, "mod1", ModificationSites.C));
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(2, "mod2", ModificationSites.D));
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(3, "mod3", ModificationSites.A));
-            _mockPeptideEveryAminoAcid.AddModification(new Modification(4, "mod4", ModificationSites.Y));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(1, "mod1", ModificationSites.C));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(2, "mod2", ModificationSites.D));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(3, "mod3", ModificationSites.A));
+            _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(4, "mod4", ModificationSites.Y));
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
             Fragment fragmentEnd = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.y, 1).Last();
 
-            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<Modification>() { new Modification(3, "mod3", ModificationSites.A) }));
+            Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolModification(3, "mod3", ModificationSites.A) }));
 
-            Assert.IsTrue(fragmentEnd.Modifications.SequenceEqual(new List<Modification>() { new Modification(4, "mod4", ModificationSites.Y) }));
+            Assert.IsTrue(fragmentEnd.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolModification(4, "mod4", ModificationSites.Y) }));
         }
 
         [Test]
@@ -101,10 +120,64 @@ namespace Test
             var pep1 = new Peptide("ACDEFG");
             var pep2 = new Peptide("ACTVWY");
             var ok = pep1.GetSiteDeterminingFragments(pep2, FragmentTypes.b);
-            foreach (var kdasjfk in ok)
-                Console.WriteLine(kdasjfk.Sequence);
             Assert.AreEqual(6, ok.Count());
             Assert.Contains("ACT", ok.Select(b => b.Sequence).ToArray());
         }
+
+        [Test]
+        public void TestFormulaTerminusMods()
+        {
+            var pep1 = new Peptide("ACDEFG");
+            pep1.AddModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("H"), ModificationSites.NTerminus));
+
+            Assert.IsTrue(pep1.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
+
+            var pep2 = new Peptide("ACDEFG");
+            pep2.AddModification(new OldSchoolModification(2, "haha", ModificationSites.NTerminus));
+            Assert.IsFalse(pep2.Fragment(FragmentTypes.b, true).First() is IHasChemicalFormula);
+
+            var pep3 = new Peptide("ACDEFG");
+            pep3.AddModification(new OldSchoolModification(3, "haha", ModificationSites.D));
+
+            var list = pep3.Fragment(FragmentTypes.b, true).ToList();
+
+            Assert.IsTrue(list[0] is IHasChemicalFormula);
+            Assert.IsFalse(list[2] is IHasChemicalFormula);
+        }
+
+        [Test]
+        public void CleavageIndicesTest()
+        {
+            IEnumerable<IProtease> proteases = new List<TestProtease> { new TestProtease() };
+            var ok1 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, true).ToList();
+            var ok2 = AminoAcidPolymer.GetCleavageIndexes("ACDEFG", proteases, false).ToList();
+            var ok3 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, true).ToList();
+            var ok4 = AminoAcidPolymer.GetCleavageIndexes("ACDE", proteases, false).ToList();
+            Assert.AreEqual(3, ok1.Count());
+            Assert.AreEqual(2, ok2.Count());
+            Assert.AreEqual(4, ok3.Count());
+            Assert.AreEqual(2, ok4.Count());
+        }
+
+        [Test]
+        public void TestGetIonCapFailFail()
+        {
+            FragmentTypes f = FragmentTypes.All;
+            Assert.That(() => f.GetIonCap(), Throws.TypeOf<MzLibException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Fragment Type must be a single value to determine the ion cap"));
+        }
+
+        [Test]
+        public void TestGetTerminusFail()
+        {
+            FragmentTypes f = FragmentTypes.a | FragmentTypes.adot;
+            Assert.That(() => f.GetTerminus(), Throws.TypeOf<MzLibException>()
+                                            .With.Property("Message")
+                                            .EqualTo("Fragment Type must be a single value to determine the terminus"));
+        }
+
+        #endregion Public Methods
+
     }
 }

@@ -17,40 +17,19 @@
 
 using Chemistry;
 using NUnit.Framework;
-using System;
 
 namespace Test
 {
-    internal class ObjectWithMass1000 : IHasMass
-    {
-        public double MonoisotopicMass
-        {
-            get
-            {
-                return 1000;
-            }
-        }
-    }
-
-    internal class ObjectWithMass100 : IHasMass
-    {
-        public double MonoisotopicMass
-        {
-            get
-            {
-                return 100;
-            }
-        }
-    }
-
     [TestFixture]
     public class MassTestFixture
     {
+        #region Public Methods
+
         [Test]
         public void MassToMzToMass()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = a.ToMZ(2).ToMass(2);
+            double mz = a.ToMz(2).ToMass(2);
             Assert.AreEqual(1000, mz);
         }
 
@@ -58,7 +37,7 @@ namespace Test
         public void MassToMzPositiveCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = a.ToMZ(2);
+            double mz = a.ToMz(2);
             Assert.AreEqual(501.00727646687898, mz);
         }
 
@@ -66,16 +45,8 @@ namespace Test
         public void MassToMzNegativeCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = a.ToMZ(-2);
+            double mz = a.ToMz(-2);
             Assert.AreEqual(498.99272353312102, mz);
-        }
-
-        [Test]
-        public void MassToMzZeroCharge()
-        {
-            ObjectWithMass1000 a = new ObjectWithMass1000();
-            var ex = Assert.Throws<DivideByZeroException>(() => a.ToMZ(0));
-            Assert.That(ex.Message, Is.EqualTo("Charge cannot be zero"));
         }
 
         [Test]
@@ -92,12 +63,45 @@ namespace Test
             Assert.AreEqual(1050.614552933758, a.ToMass(-2));
         }
 
-        [Test]
-        public void MzTomassZeroCharge()
+        #endregion Public Methods
+    }
+
+    internal class ObjectWithMass1000 : IHasMass
+    {
+        #region Public Properties
+
+        public double MonoisotopicMass
         {
-            double a = 524.3;
-            var ex = Assert.Throws<DivideByZeroException>(() => a.ToMass(0));
-            Assert.That(ex.Message, Is.EqualTo("Charge cannot be zero"));
+            get
+            {
+                return 1000;
+            }
         }
+
+        #endregion Public Properties
+    }
+
+    internal class ObjectWithMass100 : IHasMass
+    {
+        #region Public Properties
+
+        public double MonoisotopicMass
+        {
+            get
+            {
+                return 100;
+            }
+        }
+
+        #endregion Public Properties
+
+        #region Public Methods
+
+        public override string ToString()
+        {
+            return "mass: 100";
+        }
+
+        #endregion Public Methods
     }
 }

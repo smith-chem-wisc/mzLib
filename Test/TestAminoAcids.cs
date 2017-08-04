@@ -18,39 +18,26 @@
 
 using NUnit.Framework;
 using Proteomics;
-using System;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestAminoAcids
     {
-        [Test]
-        public void GetResidueNotInDictionary()
-        {
-            AminoAcid r;
-            Assert.IsFalse(AminoAcid.TryGetResidue("?", out r));
-            Assert.IsFalse(AminoAcid.TryGetResidue('?', out r));
-        }
+        #region Public Methods
 
         [Test]
         public void GetResidueByCharacter()
         {
-            AminoAcid aa = AminoAcid.GetResidue('A');
+            Residue aa = Residue.GetResidue('A');
 
             Assert.AreEqual("Alanine", aa.Name);
         }
 
         [Test]
-        public void GetNullResidue()
-        {
-            Assert.Throws<ArgumentNullException>(() => { AminoAcid.GetResidue(null); });
-        }
-
-        [Test]
         public void GetResidueByCharacterString()
         {
-            AminoAcid aa = AminoAcid.GetResidue("A");
+            Residue aa = Residue.GetResidue("A");
 
             Assert.AreEqual(aa.Name, "Alanine");
         }
@@ -58,9 +45,24 @@ namespace Test
         [Test]
         public void GetResidueByName()
         {
-            AminoAcid aa = AminoAcid.GetResidue("Alanine");
+            Residue aa = Residue.GetResidue("Alanine");
 
             Assert.AreEqual("Alanine", aa.Name);
         }
+
+        [Test]
+        public void GetResidueNotInDictionary()
+        {
+            Assert.IsFalse(Residue.TryGetResidue("?", out Residue r));
+            Assert.IsFalse(Residue.TryGetResidue('?', out r));
+        }
+
+        [Test]
+        public void ResidueMonoisotopicMassTest()
+        {
+            Assert.AreEqual(Residue.ResidueMonoisotopicMass['A'], Residue.GetResidue('A').MonoisotopicMass, 1e-9);
+        }
+
+        #endregion Public Methods
     }
 }

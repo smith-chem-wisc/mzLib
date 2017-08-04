@@ -17,8 +17,8 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
-using Spectra;
 using System.Linq;
 
 namespace Test
@@ -26,23 +26,20 @@ namespace Test
     [TestFixture]
     public sealed class ChromatogramTestFixture
     {
+        #region Public Methods
+
         [Test]
         public void ChromatogramTest()
         {
-            Chromatogram a = new Chromatogram(new double[5] { 1, 2, 3, 4, 5 }, new double[5] { 1, 2, 6, 4, 2 }, false);
+            Chromatogram a = new Chromatogram(new double[] { 1, 2, 3, 4, 5 }, new double[] { 1, 2, 6, 4, 2 }, false);
             var b = a.CreateSmoothChromatogram(SmoothingType.BoxCar, 4);
-            Assert.IsTrue(b.GetTimes().SequenceEqual(new double[3] { 2, 3, 4 }));
-            Assert.IsTrue(b.GetIntensities().SequenceEqual(new double[3] { 3, 4, 4 }));
-            new Chromatogram(a);
+            Assert.IsTrue(b.GetTimes().SequenceEqual(new double[] { 2, 3, 4 }));
+            Assert.IsTrue(b.GetIntensities().SequenceEqual(new double[] { 3, 4, 4 }));
 
-            Chromatogram d = new Chromatogram(new double[9] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new double[9] { 10, 0, 2, 6, 2, 0, 1, 10, 1 }, false);
+            Chromatogram d = new Chromatogram(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new double[] { 10, 0, 2, 6, 2, 0, 1, 10, 1 }, false);
             // Finds the APEX! Not nearest peak!
-            Assert.AreEqual(6, d.FindNearestApex(5.9).Intensity);
-            Assert.AreEqual(10, d.FindNearestApex(6.1).Intensity);
-            // Finds the width of a large peak! Includes the zeros!
-            Assert.AreEqual(new DoubleRange(1, 2), d.GetPeakWidth(1));
-            Assert.AreEqual(new DoubleRange(2, 6), d.GetPeakWidth(3));
-            Assert.AreEqual(new DoubleRange(6, 9), d.GetPeakWidth(9));
+            Assert.AreEqual(6, d.FindNearestApex(5.9, 1).Intensity);
+            Assert.AreEqual(10, d.FindNearestApex(6.1, 1).Intensity);
 
             var elutionProfile = d.GetElutionProfile(new DoubleRange(3, 7));
 
@@ -70,14 +67,14 @@ namespace Test
         [Test]
         public void TestGetApex()
         {
-            Chromatogram d = new Chromatogram(new double[9] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new double[9] { 10, 0, 2, 6, 2, 0, 1, 10, 1 }, false);
+            Chromatogram d = new Chromatogram(new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new double[] { 10, 0, 2, 6, 2, 0, 1, 10, 1 }, false);
             Assert.AreEqual(6, d.GetApex(new DoubleRange(2, 6)).Y);
         }
 
         [Test]
         public void AnotherChromatogramTest()
         {
-            double[,] timeintensities = new double[,] { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
+            double[,] timeintensities = { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
             Chromatogram a = new Chromatogram(timeintensities);
             Assert.AreEqual(1, a.FirstTime);
             Assert.AreEqual(4, a.LastTime);
@@ -89,7 +86,11 @@ namespace Test
 
             Assert.AreEqual(6, a.CreateSmoothChromatogram(SmoothingType.None, -10).GetApex(1.5, 2.5).Intensity);
 
-            Assert.AreEqual(8, a.FindNearestApex(10).Y);
+            Assert.AreEqual(8, a.FindNearestApex(10, 1).Y);
+
+            Assert.AreEqual(4, a.GetApex(5, 6).X);
         }
+
+        #endregion Public Methods
     }
 }

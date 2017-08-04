@@ -18,13 +18,14 @@
 
 using Chemistry;
 using NUnit.Framework;
-using System;
 
 namespace Test
 {
     [TestFixture]
     public class ElementsAndIsotopesTest
     {
+        #region Public Methods
+
         [Test]
         public void AddIsotopeWithExistingMassNumber()
         {
@@ -42,10 +43,8 @@ namespace Test
         {
             var elementC = new Element("GGG", 127, 12.0106);
             PeriodicTable.Add(elementC);
-            var elementC1 = new Element("GGG", 127, 12.0106);
-            Assert.Throws<ArgumentException>(() => { PeriodicTable.Add(elementC1); }, "Element with symbol GGG already added!");
-            var elementC2 = new Element("GGG2", 127, 12.0106);
-            Assert.Throws<ArgumentException>(() => { PeriodicTable.Add(elementC2); }, "Element with atomic number 66 already added!");
         }
+
+        #endregion Public Methods
     }
 }

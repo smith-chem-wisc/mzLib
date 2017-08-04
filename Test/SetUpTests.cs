@@ -24,11 +24,15 @@ namespace Test
     [SetUpFixture]
     public class MySetUpClass
     {
+        #region Public Methods
+
         [OneTimeSetUp]
-        public void setup()
+        public void Setup()
         {
             var elementLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.dat");
             Loaders.LoadElements(elementLocation);
         }
+
+        #endregion Public Methods
     }
 }
