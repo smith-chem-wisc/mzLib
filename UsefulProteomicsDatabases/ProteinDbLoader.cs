@@ -551,7 +551,7 @@ namespace UsefulProteomicsDatabases
                     else
                         foreach (Modification mod in nice.Value)
                         {
-                            val.Add(mod); // consider modification mass, which isn't hashed
+                            val.Add(mod);
                         }
                 }
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
