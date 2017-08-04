@@ -516,23 +516,23 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Merges proteins of the same accession and sequence. Considers contaminants separately.
+        /// Merge proteins that have the same accession, sequence, and contaminant designation.
         /// </summary>
         /// <param name="merge_these"></param>
         /// <returns></returns>
         public static IEnumerable<Protein> merge_proteins(IEnumerable<Protein> merge_these)
         {
-            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteins_by_accession_seq_cont_isdecoy = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
+            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
             foreach (Protein p in merge_these)
             {
                 Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
-                if (!proteins_by_accession_seq_cont_isdecoy.TryGetValue(key, out List<Protein> bundled))
-                    proteins_by_accession_seq_cont_isdecoy.Add(key, new List<Protein> { p });
+                if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
+                    proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
                 else
                     bundled.Add(p);
             }
 
-            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteins_by_accession_seq_cont_isdecoy)
+            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
