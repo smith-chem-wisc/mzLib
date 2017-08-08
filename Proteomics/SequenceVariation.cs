@@ -63,5 +63,29 @@
 
         #endregion Public Constructor
 
+        #region Public Methods
+
+        public override bool Equals(object obj)
+        {
+            SequenceVariation s = obj as SequenceVariation;
+            return s != null
+                && OneBasedBeginPosition == s.OneBasedBeginPosition
+                && OneBasedEndPosition == s.OneBasedEndPosition
+                && OriginalSequence == s.OriginalSequence
+                && VariantSequence == s.VariantSequence
+                && Description == s.Description;
+        }
+
+        public override int GetHashCode()
+        {
+            return OneBasedBeginPosition.GetHashCode()
+                ^ OneBasedEndPosition.GetHashCode()
+                ^ OriginalSequence.GetHashCode()
+                ^ VariantSequence.GetHashCode()
+                ^ Description.GetHashCode();
+        }
+
+        #endregion Public Methods
+
     }
 }
