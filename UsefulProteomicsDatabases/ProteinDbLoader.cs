@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool originalTargets, bool onTheFlyDecoys, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
 
@@ -266,9 +266,11 @@ namespace UsefulProteomicsDatabases
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds, proteinDbLocation);
-
-                                            result.Add(protein);
+                                            if (originalTargets)
+                                            {
+                                                var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds, proteinDbLocation);
+                                                result.Add(protein);
+                                            }
 
                                             if (onTheFlyDecoys)
                                             {
@@ -429,7 +431,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="name_expression"></param>
         /// <param name="gene_expression"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -486,8 +488,11 @@ namespace UsefulProteomicsDatabases
                             unique_identifier++;
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
-                        result.Add(protein);
+                        if (originalTarget)
+                        {
+                            Protein protein = new Protein(sequence, accession, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            result.Add(protein);
+                        }
 
                         if (onTheFlyDecoys)
                         {
