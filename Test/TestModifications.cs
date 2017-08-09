@@ -59,7 +59,6 @@ namespace Test
             Assert.IsTrue(!mod1string.Contains("MM"));
             var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as ModificationWithMassAndCf;
             Assert.AreEqual(mod1, modAfterWriteRead);
-            Console.WriteLine(modAfterWriteRead);
         }
 
         [Test]
