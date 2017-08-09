@@ -24,14 +24,42 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestModifications
     {
-
         #region Public Methods
+
+        [Test]
+        public static void Test_modificationsHashCode()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            var mod1 = new ModificationWithMass("mod", new Tuple<string, string>("acc", "acc"), motif, TerminusLocalization.Any, 1, null, null, null, "type");
+            var mod2 = new ModificationWithMass("mod2", new Tuple<string, string>("acc2", "acc2"), motif, TerminusLocalization.Any, 10, null, null, null, "type");
+
+            Assert.AreEqual(mod1.GetHashCode(), mod2.GetHashCode());
+            Assert.AreNotEqual(mod1, mod2);
+            HashSet<Modification> myHashSet = new HashSet<Modification>
+            {
+                mod1,
+                mod2
+            };
+            Assert.AreEqual(2, myHashSet.Count);
+        }
+
+        [Test]
+        public static void Test_ModificationWithNoMassWritten()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            var mod1 = new ModificationWithMassAndCf("mod", new Tuple<string, string>("acc", "acc"), motif, TerminusLocalization.Any, ChemicalFormula.ParseFormula("H"), ChemicalFormula.ParseFormula("H").MonoisotopicMass, null, null, null, "type");
+            var mod1string = mod1.ToString();
+            Assert.IsTrue(!mod1string.Contains("MM"));
+            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as ModificationWithMassAndCf;
+            Assert.AreEqual(mod1, modAfterWriteRead);
+        }
 
         [Test]
         public void NameAndSites()
@@ -215,6 +243,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }
