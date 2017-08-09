@@ -24,6 +24,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -47,6 +48,18 @@ namespace Test
                 mod2
             };
             Assert.AreEqual(2, myHashSet.Count);
+        }
+
+        [Test]
+        public static void Test_ModificationWithNoMassWritten()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            var mod1 = new ModificationWithMassAndCf("mod", new Tuple<string, string>("acc", "acc"), motif, TerminusLocalization.Any, ChemicalFormula.ParseFormula("H"), ChemicalFormula.ParseFormula("H").MonoisotopicMass, null, null, null, "type");
+            var mod1string = mod1.ToString();
+            Assert.IsTrue(!mod1string.Contains("MM"));
+            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as ModificationWithMassAndCf;
+            Assert.AreEqual(mod1, modAfterWriteRead);
+            Console.WriteLine(modAfterWriteRead);
         }
 
         [Test]
