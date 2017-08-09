@@ -2,12 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Proteomics
 {
     public class ModificationWithMassAndCf : ModificationWithMass
     {
-
         #region Public Fields
 
         public readonly ChemicalFormula chemicalFormula;
@@ -29,8 +29,18 @@ namespace Proteomics
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine(base.ToString());
-            sb.Append("CF   " + chemicalFormula.Formula);
+
+            var baseString = base.ToString();
+            if (Math.Abs(this.monoisotopicMass - chemicalFormula.MonoisotopicMass) < 1e-9)
+            {
+                Regex.Replace(baseString, @"MM*$", "CF   " + chemicalFormula.Formula);
+                sb.Append(baseString);
+            }
+            else
+            {
+                sb.AppendLine(baseString);
+                sb.Append("CF   " + chemicalFormula.Formula);
+            }
             return sb.ToString();
         }
 
@@ -38,7 +48,7 @@ namespace Proteomics
         {
             ModificationWithMassAndCf m = o as ModificationWithMassAndCf;
             return m == null ? false :
-                base.Equals(m) && this.chemicalFormula.Equals(m.chemicalFormula);
+                base.Equals(m) && chemicalFormula.Equals(m.chemicalFormula);
         }
 
         public override int GetHashCode()
@@ -47,6 +57,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }
