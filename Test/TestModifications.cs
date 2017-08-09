@@ -33,6 +33,23 @@ namespace Test
         #region Public Methods
 
         [Test]
+        public static void Test_modificationsHashCode()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            var mod1 = new ModificationWithMass("mod", new Tuple<string, string>("acc", "acc"), motif, TerminusLocalization.Any, 1, null, null, null, "type");
+            var mod2 = new ModificationWithMass("mod2", new Tuple<string, string>("acc2", "acc2"), motif, TerminusLocalization.Any, 10, null, null, null, "type");
+
+            Assert.AreEqual(mod1.GetHashCode(), mod2.GetHashCode());
+            Assert.AreNotEqual(mod1, mod2);
+            HashSet<Modification> myHashSet = new HashSet<Modification>
+            {
+                mod1,
+                mod2
+            };
+            Assert.AreEqual(2, myHashSet.Count);
+        }
+
+        [Test]
         public void NameAndSites()
         {
             // Empty modification, has no name and by default has Sites = ModificationSites.Any
@@ -211,23 +228,6 @@ namespace Test
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
             Assert.True(m1.Equals(m2));
-        }
-
-        [Test]
-        public void Test_modificationsHashCode()
-        {
-            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            var mod1 = new ModificationWithMass("mod", new Tuple<string, string>("acc", "acc"), motif, TerminusLocalization.Any, 1, null, null, null, "type");
-            var mod2 = new ModificationWithMass("mod2", new Tuple<string, string>("acc2", "acc2"), motif, TerminusLocalization.Any, 10, null, null, null, "type");
-
-            Assert.AreEqual(mod1.GetHashCode(), mod2.GetHashCode());
-            Assert.AreNotEqual(mod1, mod2);
-            HashSet<Modification> myHashSet = new HashSet<Modification>
-            {
-                mod1,
-                mod2
-            };
-            Assert.AreEqual(2, myHashSet.Count);
         }
 
         #endregion Public Methods
