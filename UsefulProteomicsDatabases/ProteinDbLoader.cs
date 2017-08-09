@@ -54,7 +54,8 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="proteinDbLocation"></param>
-        /// <param name="onTheFlyDecoys"></param>
+        /// <param name="generateTargetProteins"></param>
+        /// <param name="generateDecoyProteins"></param>
         /// <param name="allKnownModifications"></param>
         /// <param name="IsContaminant"></param>
         /// <param name="dbRefTypesToKeep"></param>
@@ -62,7 +63,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool originalTargets, bool onTheFlyDecoys, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargetProteins, bool generateDecoyProteins, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
 
@@ -266,13 +267,13 @@ namespace UsefulProteomicsDatabases
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            if (originalTargets)
+                                            if (generateTargetProteins)
                                             {
                                                 var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds, proteinDbLocation);
                                                 result.Add(protein);
                                             }
 
-                                            if (onTheFlyDecoys)
+                                            if (generateDecoyProteins)
                                             {
                                                 char[] sequence_array = sequence.ToCharArray();
                                                 Dictionary<int, List<Modification>> decoy_modifications = null;
