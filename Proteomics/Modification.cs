@@ -43,7 +43,7 @@ namespace Proteomics
 
         public override int GetHashCode()
         {
-            return id.GetHashCode();
+            return 0;
         }
 
         #endregion Public Methods
