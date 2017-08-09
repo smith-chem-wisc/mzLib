@@ -40,7 +40,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -72,7 +72,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -104,7 +104,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -131,7 +131,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
 
@@ -156,7 +156,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -180,7 +180,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -194,7 +194,7 @@ namespace Test
                 new ModificationWithLocation("fayk",null, null,TerminusLocalization.Any,null,  null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -204,7 +204,7 @@ namespace Test
         [Test]
         public void FastaTest()
         {
-            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
             Assert.AreEqual("P62805", prots.First().Accession);
             Assert.AreEqual("H4_HUMAN Histone H4", prots.First().FullName);
             Assert.AreEqual("HIST1H4A", prots.First().GeneNames.First().Item2);
@@ -213,7 +213,7 @@ namespace Test
         [Test]
         public void Load_fasta_handle_tooHigh_indices()
         {
-            ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
+            ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
         }
 
         [Test]
@@ -225,7 +225,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "two")
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
@@ -238,7 +238,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", null, null, TerminusLocalization.Any, null, "exclude_me")
             };
 
-            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
 
@@ -274,6 +274,106 @@ CF   O1
 
             Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) < 1e-6);
             Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) > 1e-7);
+        }
+
+        [Test]
+        public void compare_protein_properties()
+        {
+            DatabaseReference d = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference dd = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference de = new DatabaseReference("asdf", "asdefg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference df = new DatabaseReference("asddf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
+            DatabaseReference dg = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("babb", "ccc") });
+            DatabaseReference dh = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "cccf") });
+            Assert.True(dd.Equals(d));
+            Assert.False(de.Equals(d));
+            Assert.False(df.Equals(d));
+            Assert.False(dg.Equals(d));
+            Assert.False(dh.Equals(d));
+            Assert.AreEqual(5, new HashSet<DatabaseReference> { d, dd, de, df, dg, dh }.Count);
+
+            SequenceVariation s = new SequenceVariation(1, "hello", "hey", "hi");
+            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");
+            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");
+            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi");
+            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii");
+            Assert.True(s.Equals(sv));
+            Assert.False(s.Equals(sss));
+            Assert.False(s.Equals(ssss));
+            Assert.False(s.Equals(sssss));
+            Assert.AreEqual(4, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
+
+            DisulfideBond b = new DisulfideBond(1, "hello");
+            DisulfideBond bb = new DisulfideBond(1, "hello");
+            DisulfideBond bbb = new DisulfideBond(1, 2, "hello");
+            DisulfideBond bbbb = new DisulfideBond(1, 2, "hello");
+            DisulfideBond ba = new DisulfideBond(1, 3, "hello");
+            DisulfideBond baa = new DisulfideBond(2, 2, "hello");
+            DisulfideBond baaa = new DisulfideBond(1, 2, "hallo");
+            Assert.AreEqual(b, bb);
+            Assert.AreEqual(bbb, bbbb);
+            Assert.AreNotEqual(b, bbb);
+            Assert.AreNotEqual(ba, bbb);
+            Assert.AreNotEqual(baa, bbb);
+            Assert.AreNotEqual(baaa, bbb);
+            Assert.AreEqual(5, new HashSet<DisulfideBond> { b, bb, bbb, bbbb, ba, baa, baaa }.Count);
+
+            ProteolysisProduct pp = new ProteolysisProduct(1, 1, "hello");
+            ProteolysisProduct paaa = new ProteolysisProduct(1, 1, "hello");
+            ProteolysisProduct p = new ProteolysisProduct(null, null, "hello");
+            ProteolysisProduct ppp = new ProteolysisProduct(1, 2, "hello");
+            ProteolysisProduct pa = new ProteolysisProduct(2, 1, "hello");
+            ProteolysisProduct paa = new ProteolysisProduct(1, 1, "hallo");
+            Assert.AreEqual(pp, paaa);
+            Assert.AreNotEqual(p, pp);
+            Assert.AreNotEqual(pp, ppp);
+            Assert.AreNotEqual(pp, pa);
+            Assert.AreNotEqual(pp, paa);
+            Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
+        }
+
+        [Test]
+        public void merge_a_couple_proteins()
+        {
+            ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
+            Protein p = new Protein(
+                "ASEQUENCE",
+                "id",
+                isContaminant: false,
+                isDecoy: false,
+                name: "name",
+                full_name: "full_name",
+                gene_names: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
+                databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
+                sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
+                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new ModificationWithMass("mod", new Tuple<string, string>("acc", "acc"), motif, TerminusLocalization.Any, 1, null, null, null, "type") } } }
+                );
+
+            Protein p2 = new Protein(
+                "ASEQUENCE",
+                "id",
+                isContaminant: false,
+                isDecoy: false,
+                name: "name",
+                full_name: "full_name",
+                gene_names: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
+                databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
+                sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
+                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new ModificationWithMass("mod2", new Tuple<string, string>("acc2", "acc2"), motif, TerminusLocalization.Any, 10, null, null, null, "type") } } }
+                );
+
+            List<Protein> merged = ProteinDbLoader.merge_proteins(new List<Protein> { p, p2 }).ToList();
+            Assert.AreEqual(1, merged.Count);
+            Assert.AreEqual(1, merged.First().DatabaseReferences.Count());
+            Assert.AreEqual(1, merged.First().GeneNames.Count());
+            Assert.AreEqual(1, merged.First().SequenceVariations.Count());
+            Assert.AreEqual(1, merged.First().ProteolysisProducts.Count());
+            Assert.AreEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First().GetHashCode(), p2.OneBasedPossibleLocalizedModifications.First().Value.First().GetHashCode());
+            Assert.AreNotEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First(), p2.OneBasedPossibleLocalizedModifications.First().Value.First());
+            Assert.AreEqual(1, merged.First().OneBasedPossibleLocalizedModifications.Count());
+            Assert.AreEqual(2, merged.First().OneBasedPossibleLocalizedModifications.First().Value.Count);
         }
 
         #endregion Public Methods
