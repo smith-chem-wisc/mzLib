@@ -28,7 +28,6 @@ namespace Test
     [TestFixture]
     public class ChemicalFormulaTestFixture
     {
-
         #region Public Methods
 
         [Test]
@@ -1023,7 +1022,6 @@ namespace Test
 
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
-
             #region Public Constructors
 
             public PhysicalObjectWithChemicalFormula(string v)
@@ -1049,10 +1047,8 @@ namespace Test
             }
 
             #endregion Public Properties
-
         }
 
         #endregion Private Classes
-
     }
 }

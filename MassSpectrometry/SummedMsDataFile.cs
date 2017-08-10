@@ -7,7 +7,6 @@ namespace MassSpectrometry
 {
     public class SummedMsDataFile : MsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>>
     {
-
         #region Private Fields
 
         private readonly IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw;
@@ -108,6 +107,5 @@ namespace MassSpectrometry
         }
 
         #endregion Private Methods
-
     }
 }

@@ -11,7 +11,6 @@ namespace IO.MzML
 {
     public static class MzmlMethods
     {
-
         #region Internal Fields
 
         internal static readonly XmlSerializer indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
@@ -66,6 +65,7 @@ namespace IO.MzML
         private static readonly Dictionary<Polarity, string> PolarityNames = new Dictionary<Polarity, string>{
             {Polarity.Negative, "negative scan"},
             {Polarity.Positive, "positive scan"}};
+
         #endregion Private Fields
 
         #region Public Methods
@@ -360,8 +360,6 @@ namespace IO.MzML
                 {
                 };
 
-
-
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
                 {
                     mzML.run.spectrumList.spectrum[i - 1].cvParam[0] = new Generated.CVParamType()
@@ -474,7 +472,6 @@ namespace IO.MzML
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = DissociationTypeAccessions[dissociationType];
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = DissociationTypeNames[dissociationType];
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].cvRef = "MS";
-
                 }
 
                 mzML.run.spectrumList.spectrum[i - 1].cvParam[1] = new Generated.CVParamType()
@@ -844,6 +841,5 @@ new MzLibException("Writing indexed mzMLs not yet supported");
         }
 
         #endregion Public Methods
-
     }
 }

@@ -29,7 +29,6 @@ namespace Test
     [TestFixture]
     public sealed class TestIsolation
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -126,6 +125,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

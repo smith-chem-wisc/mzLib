@@ -24,7 +24,6 @@ namespace TestThermo
     [SetUpFixture]
     public class MySetUpClass
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -35,6 +34,5 @@ namespace TestThermo
         }
 
         #endregion Public Methods
-
     }
 }

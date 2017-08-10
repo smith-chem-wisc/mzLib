@@ -6,7 +6,6 @@ namespace IO.Thermo
 {
     public class ThermoDynamicData : ThermoFile, IMsDynamicDataFile<IThermoScan>
     {
-
         #region Private Fields
 
         private IXRawfile5 _rawConnection;
@@ -34,7 +33,7 @@ namespace IO.Thermo
             _rawConnection.GetLastSpectrumNumber(ref lastspectrumNumber);
             int firstspectrumNumber = -1;
             _rawConnection.GetFirstSpectrumNumber(ref firstspectrumNumber);
-            
+
             var precursorInfoArray = new ManagedThermoHelperLayer.PrecursorInfo[lastspectrumNumber - firstspectrumNumber + 1];
 
             return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, fileName);
@@ -77,6 +76,5 @@ namespace IO.Thermo
         }
 
         #endregion Protected Methods
-
     }
 }

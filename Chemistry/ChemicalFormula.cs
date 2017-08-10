@@ -546,6 +546,5 @@ namespace Chemistry
         }
 
         #endregion Private Methods
-
     }
 }

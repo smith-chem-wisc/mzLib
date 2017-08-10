@@ -6,7 +6,6 @@ namespace Proteomics
 {
     public class DatabaseReference
     {
-
         #region Public Constructors
 
         /// <summary>
@@ -65,6 +64,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

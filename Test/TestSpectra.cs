@@ -28,7 +28,6 @@ namespace Test
     [TestFixture]
     public sealed class SpectrumTestFixture
     {
-
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -307,6 +306,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

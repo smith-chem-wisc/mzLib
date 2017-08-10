@@ -13,7 +13,6 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -195,6 +194,5 @@ namespace TestThermo
         }
 
         #endregion Public Methods
-
     }
 }

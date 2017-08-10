@@ -29,7 +29,6 @@ namespace MassSpectrometry
     public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
         where TPeak : IMzPeak
     {
-
         #region Private Fields
 
         private static readonly double[] mms = new double[] { 1.0029, 2.0052, 3.0077, 4.01, 5.012, 6.0139, 7.0154, 8.0164 };
@@ -183,7 +182,7 @@ namespace MassSpectrometry
                     bestFracList = intensityFractions[i].Item2;
                 }
             }
-            if (bestFracList.Count <= mm)
+            if (bestFracList == null || bestFracList.Count <= mm)
                 return false;
 
             var theMM = bestFracList[0];
@@ -198,6 +197,5 @@ namespace MassSpectrometry
         }
 
         #endregion Private Methods
-
     }
 }

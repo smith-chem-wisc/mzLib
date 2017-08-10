@@ -1,11 +1,9 @@
 ﻿using System.Text;
-using System;
 
 namespace Proteomics
 {
     public class Modification
     {
-
         #region Public Fields
 
         public readonly string id;
@@ -45,6 +43,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

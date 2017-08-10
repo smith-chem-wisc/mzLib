@@ -12,7 +12,6 @@ namespace Test
     [TestFixture]
     internal class TestProteomicsReadWrite
     {
-
         #region Public Methods
 
         [Test]
@@ -331,6 +330,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

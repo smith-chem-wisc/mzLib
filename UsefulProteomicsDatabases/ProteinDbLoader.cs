@@ -13,7 +13,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
-
         #region Public Fields
 
         public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_]+)");
@@ -596,6 +595,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }

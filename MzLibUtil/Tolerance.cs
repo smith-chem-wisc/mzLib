@@ -26,7 +26,6 @@ namespace MzLibUtil
     /// </summary>
     public abstract class Tolerance
     {
-
         #region Private Fields
 
         /// <summary>
@@ -110,6 +109,5 @@ namespace MzLibUtil
         public abstract bool Within(double experimental, double theoretical);
 
         #endregion Public Methods
-
     }
 }

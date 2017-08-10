@@ -5,7 +5,6 @@ namespace Proteomics
 {
     public class Protein
     {
-
         #region Public Constructors
 
         public Protein(string sequence, string accession, List<Tuple<string, string>> gene_names = null, IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null, string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
@@ -83,6 +82,5 @@ namespace Proteomics
         }
 
         #endregion Public Indexers
-
     }
 }

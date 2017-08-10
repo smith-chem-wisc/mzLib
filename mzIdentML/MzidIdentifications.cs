@@ -26,7 +26,6 @@ namespace MzIdentML
 {
     public class MzidIdentifications : IIdentifications
     {
-
         #region Private Fields
 
         private readonly mzIdentML.Generated.MzIdentMLType dd;
@@ -743,6 +742,5 @@ namespace MzIdentML
         }
 
         #endregion Public Methods
-
     }
 }

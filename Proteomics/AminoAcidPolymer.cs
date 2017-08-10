@@ -32,7 +32,6 @@ namespace Proteomics
     /// </summary>
     public abstract class AminoAcidPolymer : IEquatable<AminoAcidPolymer>, IHasMass
     {
-
         #region Private Fields
 
         /// <summary>
@@ -1199,7 +1198,6 @@ namespace Proteomics
 
         private class ModWithOnlyMass : IHasMass
         {
-
             #region Private Fields
 
             private readonly double mass;
@@ -1235,10 +1233,8 @@ namespace Proteomics
             }
 
             #endregion Public Methods
-
         }
 
         #endregion Private Classes
-
     }
 }

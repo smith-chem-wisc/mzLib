@@ -2,7 +2,6 @@
 {
     internal class GeneratedMzSpectrum : MzSpectrum<IMzPeak>
     {
-
         #region Public Constructors
 
         public GeneratedMzSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
@@ -19,6 +18,5 @@
         }
 
         #endregion Protected Methods
-
     }
 }

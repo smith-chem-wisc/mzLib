@@ -24,7 +24,6 @@ namespace Test
     [TestFixture]
     public sealed class RangeTest
     {
-
         #region Public Methods
 
         [Test]
@@ -260,6 +259,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

@@ -21,7 +21,6 @@ namespace Proteomics
 {
     public class ChemicalFormulaTerminus : IHasChemicalFormula
     {
-
         #region Public Constructors
 
         public ChemicalFormulaTerminus(ChemicalFormula chemicalFormula)
@@ -47,6 +46,5 @@ namespace Proteomics
         }
 
         #endregion Public Properties
-
     }
 }

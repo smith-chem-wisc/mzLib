@@ -20,7 +20,6 @@ namespace MzLibUtil
 {
     public class DoubleRange
     {
-
         #region Public Constructors
 
         /// <summary>
@@ -140,6 +139,5 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
-
     }
 }

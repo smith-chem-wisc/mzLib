@@ -26,7 +26,6 @@ namespace MassSpectrometry
     public abstract class MsDataScanWithPrecursor<TSpectrum> : MsDataScan<TSpectrum>, IMsDataScanWithPrecursor<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
-
         #region Private Fields
 
         private MzRange isolationRange;
@@ -125,6 +124,5 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
-
     }
 }

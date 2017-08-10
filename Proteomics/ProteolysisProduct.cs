@@ -2,7 +2,6 @@
 {
     public class ProteolysisProduct
     {
-
         #region Public Constructors
 
         public ProteolysisProduct(int? oneBasedBeginPosition, int? oneBasedEndPosition, string type)
@@ -38,6 +37,5 @@
         }
 
         #endregion Public Methods
-
     }
 }
