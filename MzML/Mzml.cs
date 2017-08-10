@@ -30,7 +30,6 @@ namespace IO.MzML
 {
     public class Mzml : MsDataFile<IMzmlScan>, IMsStaticDataFile<IMzmlScan>
     {
-
         #region Private Fields
 
         private const string _zlibCompression = "MS:1000574";
@@ -385,6 +384,5 @@ namespace IO.MzML
         }
 
         #endregion Private Methods
-
     }
 }

@@ -25,7 +25,6 @@ namespace MassSpectrometry
     public class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
-
         #region Public Constructors
 
         public MsDataScan(TSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData)
@@ -126,6 +125,5 @@ namespace MassSpectrometry
         }
 
         #endregion Private Methods
-
     }
 }

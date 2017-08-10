@@ -27,7 +27,6 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
-
         #region Private Fields
 
         private readonly double[] _noises;
@@ -171,6 +170,5 @@ namespace IO.Thermo
         }
 
         #endregion Protected Methods
-
     }
 }

@@ -29,7 +29,6 @@ namespace Test
     [TestFixture]
     public sealed class TestPeptides
     {
-
         #region Private Fields
 
         private Peptide _mockPeptideEveryAminoAcid;
@@ -773,7 +772,6 @@ namespace Test
 
         private class OkComparer : IEqualityComparer<DigestionPointAndLength>
         {
-
             #region Public Methods
 
             public bool Equals(DigestionPointAndLength x, DigestionPointAndLength y)
@@ -787,16 +785,13 @@ namespace Test
             }
 
             #endregion Public Methods
-
         }
 
         #endregion Private Classes
-
     }
 
     internal class TestProtease : IProtease
     {
-
         #region Public Methods
 
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)
@@ -821,6 +816,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

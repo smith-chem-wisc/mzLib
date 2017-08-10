@@ -24,7 +24,6 @@ namespace Test
     [TestFixture]
     public sealed class MassToleranceTestFixture
     {
-
         #region Public Methods
 
         [Test]
@@ -80,6 +79,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

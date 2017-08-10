@@ -24,7 +24,6 @@ namespace MassSpectrometry
     public interface IMsDataScan<out TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
-
         #region Public Properties
 
         TSpectrum MassSpectrum { get; }
@@ -53,6 +52,5 @@ namespace MassSpectrometry
         byte[] Get64BitNoiseDataBaseline();
 
         #endregion Public Methods
-
     }
 }

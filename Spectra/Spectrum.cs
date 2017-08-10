@@ -31,7 +31,6 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
-
         #region Protected Fields
 
         protected TPeak[] peakList;
@@ -246,6 +245,5 @@ namespace Spectra
         }
 
         #endregion Private Methods
-
     }
 }

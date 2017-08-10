@@ -8,7 +8,6 @@ namespace Proteomics
 {
     public class ModificationWithMass : ModificationWithLocation
     {
-
         #region Public Fields
 
         public readonly double monoisotopicMass;
@@ -62,6 +61,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

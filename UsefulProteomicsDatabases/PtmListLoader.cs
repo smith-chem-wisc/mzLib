@@ -11,7 +11,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class PtmListLoader
     {
-
         #region Private Fields
 
         private static readonly Dictionary<string, char> aminoAcidCodes;
@@ -314,6 +313,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }

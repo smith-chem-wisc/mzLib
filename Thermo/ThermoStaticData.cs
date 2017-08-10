@@ -24,7 +24,6 @@ namespace IO.Thermo
 {
     public class ThermoStaticData : ThermoFile, IMsStaticDataFile<IThermoScan>
     {
-
         #region Private Constructors
 
         private ThermoStaticData(IThermoScan[] scans, ThermoGlobalParams p) : base(scans, p)
@@ -76,6 +75,5 @@ namespace IO.Thermo
         }
 
         #endregion Public Methods
-
     }
 }

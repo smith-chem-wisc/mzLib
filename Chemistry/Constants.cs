@@ -27,7 +27,6 @@ namespace Chemistry
     /// </summary>
     public static class Constants
     {
-
         #region Public Fields
 
         /// <summary>
@@ -60,6 +59,5 @@ namespace Chemistry
         internal const int HydrogenAtomicNumber = 1;
 
         #endregion Internal Fields
-
     }
 }

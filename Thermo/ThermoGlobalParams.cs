@@ -4,7 +4,6 @@ namespace IO.Thermo
 {
     public class ThermoGlobalParams
     {
-
         #region Public Fields
 
         public readonly string[] instrumentMethods;
@@ -57,6 +56,5 @@ namespace IO.Thermo
         }
 
         #endregion Public Properties
-
     }
 }

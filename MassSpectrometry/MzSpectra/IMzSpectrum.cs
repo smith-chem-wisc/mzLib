@@ -26,7 +26,6 @@ namespace MassSpectrometry
     public interface IMzSpectrum<out TPeak> : ISpectrum<TPeak>
         where TPeak : IMzPeak
     {
-
         #region Public Properties
 
         new MzRange Range { get; }
@@ -44,6 +43,5 @@ namespace MassSpectrometry
         IEnumerable<Tuple<List<IMzPeak>, int>> Deconvolute(MzRange range, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio);
 
         #endregion Public Methods
-
     }
 }

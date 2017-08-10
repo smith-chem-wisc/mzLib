@@ -7,7 +7,6 @@ namespace Proteomics
 {
     public class ModificationWithLocation : Modification
     {
-
         #region Public Fields
 
         public static readonly Dictionary<string, TerminusLocalization> terminusLocalizationTypeCodes;
@@ -81,6 +80,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

@@ -30,7 +30,6 @@ namespace Test
     [TestFixture]
     public class DatabaseLoaderTests
     {
-
         #region Public Methods
 
         [Test]
@@ -289,6 +288,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

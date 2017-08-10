@@ -29,7 +29,6 @@ namespace Test
     [TestFixture]
     public sealed class TestProteinReader
     {
-
         #region Public Methods
 
         [Test]
@@ -377,6 +376,5 @@ CF   O1
         }
 
         #endregion Public Methods
-
     }
 }

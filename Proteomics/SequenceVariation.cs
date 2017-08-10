@@ -2,6 +2,36 @@
 {
     public class SequenceVariation
     {
+        #region Public Constructors
+
+        /// <summary>
+        /// For longer sequence variations, where a range of sequence is replaced. Point mutations should be specified with the same begin and end positions.
+        /// </summary>
+        /// <param name="OneBasedBeginPosition"></param>
+        /// <param name="OneBasedEndPosition"></param>
+        /// <param name="OriginalSequence"></param>
+        /// <param name="VariantSequence"></param>
+        public SequenceVariation(int OneBasedBeginPosition, int OneBasedEndPosition, string OriginalSequence, string VariantSequence, string Description)
+        {
+            this.OneBasedBeginPosition = OneBasedBeginPosition;
+            this.OneBasedEndPosition = OneBasedEndPosition;
+            this.OriginalSequence = OriginalSequence;
+            this.VariantSequence = VariantSequence;
+            this.Description = Description;
+        }
+
+        /// <summary>
+        /// For point mutations. Sets begin and end to the same position.
+        /// </summary>
+        /// <param name="OneBasedPosition"></param>
+        /// <param name="OriginalSequence"></param>
+        /// <param name="VariantSequence"></param>
+        /// <param name="Description"></param>
+        public SequenceVariation(int OneBasedPosition, string OriginalSequence, string VariantSequence, string Description)
+            : this(OneBasedPosition, OneBasedPosition, OriginalSequence, VariantSequence, Description)
+        { }
+
+        #endregion Public Constructors
 
         #region Public Properties
 
@@ -32,37 +62,6 @@
 
         #endregion Public Properties
 
-        #region Public Constructor
-
-        /// <summary>
-        /// For longer sequence variations, where a range of sequence is replaced. Point mutations should be specified with the same begin and end positions.
-        /// </summary>
-        /// <param name="OneBasedBeginPosition"></param>
-        /// <param name="OneBasedEndPosition"></param>
-        /// <param name="OriginalSequence"></param>
-        /// <param name="VariantSequence"></param>
-        public SequenceVariation(int OneBasedBeginPosition, int OneBasedEndPosition, string OriginalSequence, string VariantSequence, string Description)
-        {
-            this.OneBasedBeginPosition = OneBasedBeginPosition;
-            this.OneBasedEndPosition = OneBasedEndPosition;
-            this.OriginalSequence = OriginalSequence;
-            this.VariantSequence = VariantSequence;
-            this.Description = Description;
-        }
-
-        /// <summary>
-        /// For point mutations. Sets begin and end to the same position.
-        /// </summary>
-        /// <param name="OneBasedPosition"></param>
-        /// <param name="OriginalSequence"></param>
-        /// <param name="VariantSequence"></param>
-        /// <param name="Description"></param>
-        public SequenceVariation(int OneBasedPosition, string OriginalSequence, string VariantSequence, string Description)
-            : this(OneBasedPosition, OneBasedPosition, OriginalSequence, VariantSequence, Description)
-        { }
-
-        #endregion Public Constructor
-
         #region Public Methods
 
         public override bool Equals(object obj)
@@ -86,6 +85,5 @@
         }
 
         #endregion Public Methods
-
     }
 }
