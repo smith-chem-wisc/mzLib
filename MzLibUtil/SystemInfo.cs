@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Management;
 using System.Text;
 
-
 namespace MzLibUtil
 {
     public static class SystemInfo
@@ -31,14 +30,14 @@ namespace MzLibUtil
         #endregion Public Methods
 
         #region Private Methods
-        
+
         private static string GetWindowsOs()
         {
             try
             {
                 var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
 
-                return ((string)reg.GetValue("ProductName") +"\n");
+                return ((string)reg.GetValue("ProductName") + "\n");
             }
             catch
             {
@@ -110,7 +109,7 @@ namespace MzLibUtil
                     Capacity += Convert.ToUInt64(WniPART.Properties["Capacity"].Value);
                 }
 
-                return ("Installed RAM:     " + (Capacity / 1073741824).ToString() +"\n");
+                return ("Installed RAM:     " + (Capacity / 1073741824).ToString() + "\n");
             }
             catch
             {
@@ -204,7 +203,5 @@ namespace MzLibUtil
         }
 
         #endregion Private Methods
-
     }
-
 }

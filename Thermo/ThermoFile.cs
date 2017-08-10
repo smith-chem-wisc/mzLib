@@ -9,7 +9,6 @@ namespace IO.Thermo
 {
     public abstract class ThermoFile : MsDataFile<IThermoScan>
     {
-
         #region Private Fields
 
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
@@ -308,6 +307,5 @@ namespace IO.Thermo
         }
 
         #endregion Protected Methods
-
     }
 }

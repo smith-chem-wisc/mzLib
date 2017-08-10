@@ -30,7 +30,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class Loaders
     {
-
         #region Public Constructors
 
         static Loaders()
@@ -214,6 +213,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }

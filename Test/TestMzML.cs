@@ -16,7 +16,6 @@ namespace Test
     [TestFixture]
     public sealed class TestMzML
     {
-
         #region Public Methods
 
         [Test]
@@ -547,6 +546,5 @@ namespace Test
         }
 
         #endregion Private Methods
-
     }
 }

@@ -32,7 +32,6 @@ namespace Test
     [TestFixture]
     public sealed class TestDataFile
     {
-
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -232,6 +231,5 @@ namespace Test
         }
 
         #endregion Private Methods
-
     }
 }

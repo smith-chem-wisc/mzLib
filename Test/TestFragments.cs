@@ -29,7 +29,6 @@ namespace Test
     [TestFixture]
     public sealed class TestFragments
     {
-
         #region Private Fields
 
         private Peptide _mockPeptideEveryAminoAcid;
@@ -178,6 +177,5 @@ namespace Test
         }
 
         #endregion Public Methods
-
     }
 }

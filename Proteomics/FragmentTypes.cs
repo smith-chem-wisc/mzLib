@@ -45,7 +45,6 @@ namespace Proteomics
 
     public static class FragmentTypesExtension
     {
-
         #region Private Fields
 
         private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
@@ -103,6 +102,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

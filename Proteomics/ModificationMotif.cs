@@ -5,7 +5,6 @@ namespace Proteomics
 {
     public class ModificationMotif
     {
-
         #region Private Fields
 
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
@@ -47,6 +46,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

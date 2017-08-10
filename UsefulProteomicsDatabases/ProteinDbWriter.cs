@@ -10,7 +10,6 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinDbWriter
     {
-
         #region Public Methods
 
         /// <summary>
@@ -251,6 +250,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
-
     }
 }

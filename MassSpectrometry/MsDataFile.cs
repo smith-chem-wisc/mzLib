@@ -28,7 +28,6 @@ namespace MassSpectrometry
     public abstract class MsDataFile<TScan> : IMsDataFile<TScan>
         where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
     {
-
         #region Protected Fields
 
         protected TScan[] Scans;
@@ -117,6 +116,5 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
-
     }
 }
