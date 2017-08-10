@@ -36,7 +36,9 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             Modification m = o as Modification;
-            return o != null;
+            return o != null 
+                && m.id == this.id 
+                && m.modificationType == this.modificationType;
         }
 
         public override int GetHashCode()
