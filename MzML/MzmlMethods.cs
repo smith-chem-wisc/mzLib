@@ -16,6 +16,8 @@ namespace IO.MzML
 {
     public static class MzmlMethods
     {
+
+
         #region Internal Fields
 
         internal static readonly XmlSerializer indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
@@ -70,7 +72,6 @@ namespace IO.MzML
         private static readonly Dictionary<Polarity, string> PolarityNames = new Dictionary<Polarity, string>{
             {Polarity.Negative, "negative scan"},
             {Polarity.Positive, "positive scan"}};
-
         #endregion Private Fields
 
         #region Public Methods
@@ -129,9 +130,9 @@ namespace IO.MzML
 
             mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
             {
-                id = title + ".mzML",
-                name = title + ".mzML",
-                location = @"file:///C:\Users\",
+                id = "undefined.mzML",
+                name = "undefined.mzML",
+                location = @"file:///C:\Undefined\"
             };
 
             #endregion MSGF
@@ -140,7 +141,7 @@ namespace IO.MzML
             mzML.fileDescription.fileContent.cvParam[0] = new Generated.CVParamType()
             {
                 accession = "MS:1000579", // MS1 Data
-                name = "MS1 spectrum",
+                name = "MS1 spectrum",  
                 cvRef = "MS",
                 value = ""
             };
@@ -447,6 +448,8 @@ namespace IO.MzML
                 {
                 };
 
+
+
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
                 {
                     mzML.run.spectrumList.spectrum[i - 1].cvParam[0] = new Generated.CVParamType()
@@ -573,6 +576,7 @@ namespace IO.MzML
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = DissociationTypeNames[dissociationType];
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].cvRef = "MS";
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].value = "";
+
                 }
 
                 mzML.run.spectrumList.spectrum[i - 1].cvParam[1] = new Generated.CVParamType()
@@ -669,13 +673,6 @@ namespace IO.MzML
                     cvParam = new Generated.CVParamType[1]
                 };
 
-                mzML.run.spectrumList.spectrum[i - 1].scanList.cvParam[0] = new Generated.CVParamType()
-                {
-                    cvRef = "MS",
-                    accession = "MS:1000570",
-                    name = "spectra combination",
-                    value = ""
-                };
 
                 if (myMsDataFile.GetOneBasedScan(i).MzAnalyzer.Equals(analyzersInThisFile[0]))
                 {
@@ -987,15 +984,12 @@ namespace IO.MzML
                 //compute total offset
                 indexedMzml.mzML = mzML;
 
-
                 indexedSerializer.Serialize(inMemoryTextWriter, indexedMzml);
                 string allmzMLData = Encoding.UTF8.GetString(inMemoryTextWriter.ToArray()).Replace("\r\n", "\n");
 
                 long? indexListOffset = allmzMLData.Length;
-
-
+                
                 //new stream with correct formatting
-
 
                 indexedMzml.indexList = new Generated.IndexListType()
                 {
@@ -1003,21 +997,18 @@ namespace IO.MzML
                     index = new Generated.IndexType[2]
 
                 };
+
+                //starts as spectrum be defualt
                 var indexname = new Generated.IndexTypeName();
 
                 //spectra naming
                 indexedMzml.indexList.index[0] = new Generated.IndexType()
                 {
                     name = indexname,
-
-
                 };
 
+                //switch to chromatogram name
                 indexname = Generated.IndexTypeName.chromatogram;
-                indexedMzml.indexList.index[0].name = new Generated.IndexTypeName()
-                {
-
-                };
 
 
                 //chroma naming
@@ -1028,10 +1019,7 @@ namespace IO.MzML
                 };
 
 
-                indexedMzml.indexList.index[1].name = indexname;
-                {
-
-                };
+ 
 
                 int numScans = myMsDataFile.NumSpectra;
                 int numChromas = Int32.Parse(mzML.run.chromatogramList.count);
@@ -1098,14 +1086,11 @@ namespace IO.MzML
                 writer.NewLine = "\n";
                 indexedSerializer.Serialize(writer, indexedMzml);
                 writer.Close();
-
-
-
-
             }
+
+            #endregion Public Methods
+
         }
-      
-        #endregion Public Methods
-          
     }
+
 }
