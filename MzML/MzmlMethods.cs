@@ -969,7 +969,6 @@ namespace IO.MzML
             {
                 using (TextWriter writer = new StreamWriter(outputFile))
                 {
-
                     mzmlSerializer.Serialize(writer, mzML);
                 }
             }
@@ -1017,9 +1016,6 @@ namespace IO.MzML
                     name = indexname,
 
                 };
-
-
- 
 
                 int numScans = myMsDataFile.NumSpectra;
                 int numChromas = Int32.Parse(mzML.run.chromatogramList.count);
