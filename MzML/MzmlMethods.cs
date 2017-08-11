@@ -229,7 +229,7 @@ namespace IO.MzML
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[0] = new Generated.AnalyzerComponentType()
                 {
-                    order = i + 2,
+                    order = 2,
                     cvParam = new Generated.CVParamType[1]
                 };
 
@@ -377,9 +377,6 @@ namespace IO.MzML
             };
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].encodedLength = (4 * Math.Ceiling(((double)mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
-
-
-            //mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].dataProcessingRef = "mzLibProcessing";
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].cvParam = new Generated.CVParamType[3];
 
