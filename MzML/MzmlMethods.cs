@@ -14,7 +14,7 @@ using System.Xml.Serialization;
 
 namespace IO.MzML
 {
-    public static class MzmlMethodsa
+    public static class MzmlMethods
     {
 
 
