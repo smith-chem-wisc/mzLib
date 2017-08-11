@@ -1034,6 +1034,8 @@ namespace IO.MzML
                 int i = 0;
                 int a = 1;
                 int index;
+                //indexOf search returns location fom beginning of line (3 characters short)
+                int offsetFromBeforeScanTag = 3;
                 //spectra offset loop
                 while (i < numScans)
                 {
@@ -1043,22 +1045,23 @@ namespace IO.MzML
                         a = index;
                         indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType();
                         indexedMzml.indexList.index[0].offset[i].idRef = mzML.run.spectrumList.spectrum[i].id;
-                        indexedMzml.indexList.index[0].offset[i].Value = a + 3;
+                        indexedMzml.indexList.index[0].offset[i].Value = a + offsetFromBeforeScanTag;
                         i++;
                     }
 
                 }
-
+                int offsetFromBeforeChromaTag = 3;
                 index = allmzMLData.IndexOf("id=\"" + mzML.run.chromatogramList.chromatogram[0].id + "\"", (a - 1));
                 if (index != -1)
                 {
                     a = index;
                     indexedMzml.indexList.index[1].offset[0] = new Generated.OffsetType();
                     indexedMzml.indexList.index[1].offset[0].idRef = mzML.run.chromatogramList.chromatogram[0].id;
-                    indexedMzml.indexList.index[1].offset[0].Value = a + 3;
+                    indexedMzml.indexList.index[1].offset[0].Value = a + offsetFromBeforeChromaTag;
                 }
                 //offset
-                indexedMzml.indexListOffset = indexListOffset - 32;
+                int offsetFromNullIndexList = 32;
+                indexedMzml.indexListOffset = indexListOffset - offsetFromNullIndexList;
 
                 //compute checksum
                 string chksum = "Dummy";
