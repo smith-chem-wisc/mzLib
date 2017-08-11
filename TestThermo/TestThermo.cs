@@ -13,6 +13,7 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
+
         #region Public Methods
 
         [OneTimeSetUp]
@@ -187,12 +188,24 @@ namespace TestThermo
             Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX, rawFile.GetOneBasedScan(2).MassSpectrum.LastX), rawFile.GetOneBasedScan(3).MassSpectrum.LastX));
 
             // 5 scans
-
             SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);
 
             Assert.AreEqual(rawFile.NumSpectra - 4, summed5.NumSpectra);
         }
 
+
+        [Test]
+        public void WriteIndexedMzmlFromThermoTest()
+        {
+            var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzml"), true);
+            var smallMzml = Mzml.LoadAllStaticData(@"hi.mzml");
+            Assert.AreEqual(smallMzml.NumSpectra, 48);
+            Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
+            Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
+        }
+
         #endregion Public Methods
+
     }
 }
