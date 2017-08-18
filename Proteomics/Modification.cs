@@ -34,8 +34,8 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             Modification m = o as Modification;
-            return o != null 
-                && m.id == this.id 
+            return o != null
+                && m.id == this.id
                 && m.modificationType == this.modificationType;
         }
 

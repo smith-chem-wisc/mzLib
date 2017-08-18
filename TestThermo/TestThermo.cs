@@ -13,7 +13,6 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-
         #region Public Methods
 
         [OneTimeSetUp]
@@ -193,7 +192,6 @@ namespace TestThermo
             Assert.AreEqual(rawFile.NumSpectra - 4, summed5.NumSpectra);
         }
 
-
         [Test]
         public void WriteIndexedMzmlFromThermoTest()
         {
@@ -206,6 +204,5 @@ namespace TestThermo
         }
 
         #endregion Public Methods
-
     }
 }
