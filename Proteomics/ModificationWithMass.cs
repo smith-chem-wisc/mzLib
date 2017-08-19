@@ -18,12 +18,14 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, TerminusLocalization modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, IEnumerable<double> neutralLosses, IEnumerable<double> diagnosticIons, string modificationType)
-            : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
+        public ModificationWithMass(string id, string modificationType, ModificationMotif motif, TerminusLocalization terminusLocalization, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences = null, List<string> keywords = null, List<double> neutralLosses = null, List<double> diagnosticIons = null)
+            : base(id, modificationType, motif, terminusLocalization, externalDatabaseReferences, keywords)
         {
             this.monoisotopicMass = monoisotopicMass;
-            this.neutralLosses = neutralLosses != null ? neutralLosses.ToList() : new List<double> { 0 };
-            this.diagnosticIons = diagnosticIons != null ? diagnosticIons.ToList() : new List<double>();
+
+            // Optional
+            this.neutralLosses = neutralLosses ?? new List<double> { 0 };
+            this.diagnosticIons = diagnosticIons ?? new List<double>();
         }
 
         #endregion Public Constructors
@@ -47,9 +49,9 @@ namespace Proteomics
             ModificationWithMass m = o as ModificationWithMass;
             return m == null ? false :
                 base.Equals(m)
-                && (this.diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
-                && (this.neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
-                && Math.Abs(this.monoisotopicMass - m.monoisotopicMass) < 1e-9;
+                && (diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
+                && (neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
+                && Math.Abs(monoisotopicMass - m.monoisotopicMass) < 1e-9;
         }
 
         public override int GetHashCode()

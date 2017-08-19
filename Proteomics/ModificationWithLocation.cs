@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -10,8 +9,8 @@ namespace Proteomics
         #region Public Fields
 
         public static readonly Dictionary<string, TerminusLocalization> terminusLocalizationTypeCodes;
-        public readonly Tuple<string, string> accession;
         public readonly IDictionary<string, IList<string>> linksToOtherDbs;
+        public readonly List<string> keywords;
         public readonly TerminusLocalization terminusLocalization;
         public readonly ModificationMotif motif;
 
@@ -32,12 +31,14 @@ namespace Proteomics
             };
         }
 
-        public ModificationWithLocation(string id, Tuple<string, string> accession, ModificationMotif motif, TerminusLocalization terminusLocalization, IDictionary<string, IList<string>> linksToOtherDbs, string modificationType) : base(id, modificationType)
+        public ModificationWithLocation(string id, string modificationType, ModificationMotif motif, TerminusLocalization terminusLocalization, IDictionary<string, IList<string>> linksToOtherDbs = null, List<string> keywords = null) : base(id, modificationType)
         {
-            this.accession = accession;
             this.motif = motif;
             this.terminusLocalization = terminusLocalization;
+
+            // Optional
             this.linksToOtherDbs = linksToOtherDbs ?? new Dictionary<string, IList<string>>();
+            this.keywords = keywords ?? new List<string>();
         }
 
         #endregion Public Constructors
@@ -67,7 +68,6 @@ namespace Proteomics
                || this.motif != null && m.motif != null
                && this.motif.Motif == m.motif.Motif)
 
-               && this.modificationType == m.modificationType
                && this.terminusLocalization == m.terminusLocalization;
         }
 
