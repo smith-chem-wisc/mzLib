@@ -299,6 +299,7 @@ namespace UsefulProteomicsDatabases
                                         theMotif = singleTarget;
                                     if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                     {
+                                        var idToUse = id;
                                         // Augment id if mulitple motifs!
                                         // Add id to keywords
                                         if (motifs.Count != 1)
@@ -307,7 +308,7 @@ namespace UsefulProteomicsDatabases
                                                 keywords = new List<string> { id };
                                             else
                                                 keywords.Add(id);
-                                            id += " on " + motif.Motif;
+                                            idToUse += " on " + motif.Motif;
                                         }
 
                                         // Add the modification!
@@ -315,14 +316,14 @@ namespace UsefulProteomicsDatabases
                                         if (!monoisotopicMass.HasValue)
                                         {
                                             // Return modification
-                                            yield return new ModificationWithLocation(id, modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
+                                            yield return new ModificationWithLocation(idToUse, modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
                                         }
                                         else
                                         {
                                             if (correctionFormula == null)
                                             {
                                                 // Return modification with mass
-                                                yield return new ModificationWithMass(id, modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                yield return new ModificationWithMass(idToUse, modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                     keywords,
                                                     neutralLosses,
                                                     diagnosticIons);
@@ -330,7 +331,7 @@ namespace UsefulProteomicsDatabases
                                             else
                                             {
                                                 // Return modification with complete information!
-                                                yield return new ModificationWithMassAndCf(id, modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
+                                                yield return new ModificationWithMassAndCf(idToUse, modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
                                                     neutralLosses,
                                                     diagnosticIons);
                                             }

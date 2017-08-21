@@ -27,7 +27,7 @@ using UsefulProteomicsDatabases;
 namespace Test
 {
     [TestFixture]
-    public sealed class TestProteinReader
+    public static class TestProteinReader
     {
         #region Public Methods
 
@@ -132,7 +132,7 @@ namespace Test
         }
 
         [Test]
-        public void XmlTest()
+        public static void XmlTest()
         {
             var nice = new List<Modification>
             {
@@ -164,7 +164,7 @@ namespace Test
         }
 
         [Test]
-        public void SeqVarXmlTest()
+        public static void SeqVarXmlTest()
         {
             var nice = new List<Modification>
             {
@@ -196,7 +196,7 @@ namespace Test
         }
 
         [Test]
-        public void DisulfideXmlTest()
+        public static void DisulfideXmlTest()
         {
             var nice = new List<Modification>
             {
@@ -223,7 +223,7 @@ namespace Test
         }
 
         [Test]
-        public void XmlTest_2entry()
+        public static void XmlTest_2entry()
         {
             var nice = new List<Modification>
             {
@@ -248,7 +248,7 @@ namespace Test
         }
 
         [Test]
-        public void XmlGzTest()
+        public static void XmlGzTest()
         {
             var nice = new List<Modification>
             {
@@ -272,7 +272,7 @@ namespace Test
         }
 
         [Test]
-        public void XmlFunkySequenceTest()
+        public static void XmlFunkySequenceTest()
         {
             var nice = new List<Modification>
             {
@@ -286,7 +286,7 @@ namespace Test
         }
 
         [Test]
-        public void XmlModifiedStartTest()
+        public static void XmlModifiedStartTest()
         {
             var nice = new List<Modification>
             {
@@ -301,7 +301,7 @@ namespace Test
         }
 
         [Test]
-        public void FastaTest()
+        public static void FastaTest()
         {
             List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
             Assert.AreEqual("P62805", prots.First().Accession);
@@ -310,13 +310,13 @@ namespace Test
         }
 
         [Test]
-        public void Load_fasta_handle_tooHigh_indices()
+        public static void Load_fasta_handle_tooHigh_indices()
         {
             ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"bad.fasta"), true, true, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
         }
 
         [Test]
-        public void Read_xml_mod_collision()
+        public static void Read_xml_mod_collision()
         {
             var nice = new List<Modification>
             {
@@ -330,7 +330,7 @@ namespace Test
         }
 
         [Test]
-        public void Read_xml_exclude_mods()
+        public static void Read_xml_exclude_mods()
         {
             var nice = new List<Modification>
             {
@@ -342,7 +342,7 @@ namespace Test
         }
 
         [Test]
-        public void CompareOxidationWithAndWithoutCf()
+        public static void CompareOxidationWithAndWithoutCf()
         {
             string aString =
 @"ID   Methionine (R)-sulfoxide
@@ -373,6 +373,25 @@ CF   O1
 
             Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) < 1e-6);
             Assert.IsTrue(Math.Abs((a as ModificationWithMass).monoisotopicMass - (b as ModificationWithMass).monoisotopicMass) > 1e-7);
+        }
+
+        [Test]
+        public static void TestKeywordAugmentation()
+        {
+            string bString =
+@"ID   Oxidation
+TG   M or R
+PP   Anywhere.
+MT   Common Variable
+CF   O1
+//";
+            var a = PtmListLoader.ReadModsFromString(bString).First();
+            var b = PtmListLoader.ReadModsFromString(bString).Last();
+
+            Assert.AreEqual("Oxidation on M", a.id);
+            Assert.AreEqual("Oxidation", (a as ModificationWithMass).keywords.First());
+            Assert.AreEqual("Oxidation on R", b.id);
+            Assert.AreEqual("Oxidation", (b as ModificationWithMass).keywords.First());
         }
 
         #endregion Public Methods
