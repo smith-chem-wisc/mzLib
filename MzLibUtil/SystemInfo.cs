@@ -14,12 +14,9 @@ namespace MzLibUtil
         {
             StringBuilder fullSystemString = new StringBuilder();
 
-            fullSystemString.Append(GetWindowsOs());
-            fullSystemString.Append(GetCpuRegister());
-            fullSystemString.Append(WindowsOperatingSystemVersion());
+            fullSystemString.Append(SystemProse() + "\n");
+
             fullSystemString.Append(DotNet());
-            fullSystemString.Append(InstalledRam());
-            fullSystemString.Append(ProcessorCount());
             fullSystemString.Append(MsFileReader_FileIo());
             fullSystemString.Append(MsFileReader_Fregistry());
             fullSystemString.Append(MsFileReader_XRawfile2());
@@ -27,9 +24,46 @@ namespace MzLibUtil
             return fullSystemString.ToString();
         }
 
+        public static string SystemProse()
+        {
+            StringBuilder fullSystemProse = new StringBuilder();
+
+            fullSystemProse.Append("Data files were processed on a " + GetManufacturer() + " computer ");
+            fullSystemProse.Append("using " + WindowsOperatingSystemVersion());
+            fullSystemProse.Append(" with a " + GetCpuRegister());
+            fullSystemProse.Append(" and " + ProcessorCount() + " cores ");
+            fullSystemProse.Append("operating at "+ GetMaxClockSpeed() + "GHz ");            
+            fullSystemProse.Append("and " + InstalledRam() + "GB installed RAM.");
+
+            return fullSystemProse.ToString();
+        }
+
         #endregion Public Methods
 
         #region Private Methods
+
+        private static string GetManufacturer()
+        {
+            string computerModel = "UNDETERMINED";
+            try
+            {               
+                System.Management.SelectQuery query = new System.Management.SelectQuery(@"Select * from Win32_ComputerSystem");
+
+                using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(query))
+                {
+                    foreach (System.Management.ManagementObject process in searcher.Get())
+                    {
+                        process.Get();
+                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();                        
+                    }
+                }
+                return computerModel;
+            }
+            catch
+            {
+                return computerModel;
+            }
+        }
 
         private static string GetWindowsOs()
         {
@@ -37,11 +71,11 @@ namespace MzLibUtil
             {
                 var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
 
-                return ((string)reg.GetValue("ProductName") + "\n");
+                return ((string)reg.GetValue("ProductName"));
             }
             catch
             {
-                return "Windows operating system could not be determined.\n";
+                return "UNDETERMINED OPERATING SYSTEM";
             }
         }
 
@@ -50,25 +84,45 @@ namespace MzLibUtil
             try
             {
                 if (Environment.Is64BitOperatingSystem)
-                    return "64-Bit\n";
+                    return "64-Bit processor";
                 else
-                    return "32-Bit\n";
+                    return "32-Bit processor";
             }
             catch
             {
-                return "CPU register could not be determined.\n";
+                return "UNDETERMINED-BIT PROCESSOR";
             }
         }
+
+
+        private static string GetMaxClockSpeed()
+        {
+            try
+            {
+                RegistryKey registrykeyHKLM = Registry.LocalMachine;
+                string keyPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
+                RegistryKey registrykeyCPU = registrykeyHKLM.OpenSubKey(keyPath, false);
+                string MHz = registrykeyCPU.GetValue("~MHz").ToString();
+                double numericalMHz = Convert.ToDouble(MHz)/1000d;
+                registrykeyCPU.Close();
+                return numericalMHz.ToString();
+            }
+            catch
+            {
+                return "UNDETERMINED";
+            }
+        }
+
 
         private static string WindowsOperatingSystemVersion()
         {
             try
             {
-                return ("Windows Operating System Version:  " + Environment.OSVersion.Version.ToString() + "\n");
+                return ("Windows version " + Environment.OSVersion.Version.ToString());
             }
             catch
             {
-                return "Windows Operating System Version could not be determined.\n";
+                return "UNDETERMINED OPERATING SYSTEM";
             }
         }
 
@@ -109,11 +163,11 @@ namespace MzLibUtil
                     Capacity += Convert.ToUInt64(WniPART.Properties["Capacity"].Value);
                 }
 
-                return ("Installed RAM:     " + (Capacity / 1073741824).ToString() + "\n");
+                return ((Capacity / 1073741824).ToString());
             }
             catch
             {
-                return "Amount of installed RAM could not be determined.\n";
+                return "UNKNOWN ";
             }
         }
 
@@ -121,11 +175,11 @@ namespace MzLibUtil
         {
             try
             {
-                return ("ProcessorCount:  " + Environment.ProcessorCount.ToString() + "\n");
+                return (Environment.ProcessorCount.ToString());
             }
             catch
             {
-                return "The number of processors could not be determined.\n";
+                return "AN UNKNOWN NUMBER OF ";
             }
         }
 
