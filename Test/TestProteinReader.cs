@@ -119,7 +119,7 @@ namespace Test
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new ModificationWithMass("mod2", "type", motif, TerminusLocalization.Any, 10, null, null, null) } } }
                 );
 
-            List<Protein> merged = ProteinDbLoader.merge_proteins(new List<Protein> { p, p2 }).ToList();
+            List<Protein> merged = ProteinDbLoader.Merge_proteins(new List<Protein> { p, p2 }).ToList();
             Assert.AreEqual(1, merged.Count);
             Assert.AreEqual(1, merged.First().DatabaseReferences.Count());
             Assert.AreEqual(1, merged.First().GeneNames.Count());

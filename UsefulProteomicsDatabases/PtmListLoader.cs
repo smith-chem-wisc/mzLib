@@ -290,6 +290,13 @@ namespace UsefulProteomicsDatabases
                                 yield return new Modification(id, modificationType);
                             else if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out TerminusLocalization terminusLocalization))
                             {
+                                if (motifs.Count != 1)
+                                {
+                                    if (keywords == null)
+                                        keywords = new List<string> { id };
+                                    else
+                                        keywords.Add(id);
+                                }
                                 foreach (var singleTarget in motifs)
                                 {
                                     string theMotif;
