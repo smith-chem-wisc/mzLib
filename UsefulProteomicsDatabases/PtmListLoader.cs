@@ -290,13 +290,6 @@ namespace UsefulProteomicsDatabases
                                 yield return new Modification(id, modificationType);
                             else if (ModificationWithLocation.terminusLocalizationTypeCodes.TryGetValue(terminusLocalizationString, out TerminusLocalization terminusLocalization))
                             {
-                                if (motifs.Count != 1)
-                                {
-                                    if (keywords == null)
-                                        keywords = new List<string> { id };
-                                    else
-                                        keywords.Add(id);
-                                }
                                 foreach (var singleTarget in motifs)
                                 {
                                     string theMotif;
@@ -306,19 +299,30 @@ namespace UsefulProteomicsDatabases
                                         theMotif = singleTarget;
                                     if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                     {
+                                        // Augment id if mulitple motifs!
+                                        // Add id to keywords
+                                        if (motifs.Count != 1)
+                                        {
+                                            if (keywords == null)
+                                                keywords = new List<string> { id };
+                                            else
+                                                keywords.Add(id);
+                                            id += " on " + motif.Motif;
+                                        }
+
                                         // Add the modification!
 
                                         if (!monoisotopicMass.HasValue)
                                         {
                                             // Return modification
-                                            yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
+                                            yield return new ModificationWithLocation(id, modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
                                         }
                                         else
                                         {
                                             if (correctionFormula == null)
                                             {
                                                 // Return modification with mass
-                                                yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                yield return new ModificationWithMass(id, modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                     keywords,
                                                     neutralLosses,
                                                     diagnosticIons);
@@ -326,7 +330,7 @@ namespace UsefulProteomicsDatabases
                                             else
                                             {
                                                 // Return modification with complete information!
-                                                yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
+                                                yield return new ModificationWithMassAndCf(id, modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
                                                     neutralLosses,
                                                     diagnosticIons);
                                             }
