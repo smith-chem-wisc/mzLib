@@ -71,34 +71,12 @@ namespace UsefulProteomicsDatabases
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
+                    modification_specification.Add(line);
+                    if (line.StartsWith("//"))
                     {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "ID":
-                            case "AC":
-                            case "FT": // MOD_RES CROSSLNK LIPID
-                            case "TG": // Which amino acid(s) or motifs is the modification on
-                            case "PP": // Terminus localization
-                            case "CF": // Correction formula
-                            case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            case "DR": // External database links!
-
-                            // NOW CUSTOM FIELDS:
-                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            case "DI": // Masses of diagnostic ions
-                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                                modification_specification.Add(line);
-                                break;
-
-                            case "//":
-                                modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
-                                    yield return mod;
-                                modification_specification = new List<string>();
-                                break;
-                        }
+                        foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
+                            yield return mod;
+                        modification_specification = new List<string>();
                     }
                 }
             }
@@ -118,34 +96,12 @@ namespace UsefulProteomicsDatabases
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
+                    modification_specification.Add(line);
+                    if (line.StartsWith("//"))
                     {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "ID":
-                            case "AC":
-                            case "FT": // MOD_RES CROSSLNK LIPID
-                            case "TG": // Which amino acid(s) or motifs is the modification on
-                            case "PP": // Terminus localization
-                            case "CF": // Correction formula
-                            case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            case "DR": // External database links!
-
-                            // NOW CUSTOM FIELDS:
-                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            case "DI": // Masses of diagnostic ions
-                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                                modification_specification.Add(line);
-                                break;
-
-                            case "//":
-                                modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
-                                    yield return mod;
-                                modification_specification = new List<string>();
-                                break;
-                        }
+                        foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
+                            yield return mod;
+                        modification_specification = new List<string>();
                     }
                 }
             }
@@ -299,19 +255,31 @@ namespace UsefulProteomicsDatabases
                                         theMotif = singleTarget;
                                     if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                     {
+                                        var idToUse = id;
+                                        // Augment id if mulitple motifs!
+                                        // Add id to keywords
+                                        if (motifs.Count != 1)
+                                        {
+                                            if (keywords == null)
+                                                keywords = new List<string> { id };
+                                            else
+                                                keywords.Add(id);
+                                            idToUse += " on " + motif.Motif;
+                                        }
+
                                         // Add the modification!
 
                                         if (!monoisotopicMass.HasValue)
                                         {
                                             // Return modification
-                                            yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
+                                            yield return new ModificationWithLocation(idToUse, modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
                                         }
                                         else
                                         {
                                             if (correctionFormula == null)
                                             {
                                                 // Return modification with mass
-                                                yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                yield return new ModificationWithMass(idToUse, modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
                                                     keywords,
                                                     neutralLosses,
                                                     diagnosticIons);
@@ -319,7 +287,7 @@ namespace UsefulProteomicsDatabases
                                             else
                                             {
                                                 // Return modification with complete information!
-                                                yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
+                                                yield return new ModificationWithMassAndCf(idToUse, modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
                                                     neutralLosses,
                                                     diagnosticIons);
                                             }

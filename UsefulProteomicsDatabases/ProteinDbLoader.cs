@@ -525,7 +525,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="merge_these"></param>
         /// <returns></returns>
-        public static IEnumerable<Protein> merge_proteins(IEnumerable<Protein> merge_these)
+        public static IEnumerable<Protein> Merge_proteins(IEnumerable<Protein> merge_these)
         {
             Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
             foreach (Protein p in merge_these)
