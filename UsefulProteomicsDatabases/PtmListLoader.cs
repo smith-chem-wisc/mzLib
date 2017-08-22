@@ -71,34 +71,12 @@ namespace UsefulProteomicsDatabases
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
+                    modification_specification.Add(line);
+                    if (line.StartsWith("//"))
                     {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "ID":
-                            case "AC":
-                            case "FT": // MOD_RES CROSSLNK LIPID
-                            case "TG": // Which amino acid(s) or motifs is the modification on
-                            case "PP": // Terminus localization
-                            case "CF": // Correction formula
-                            case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            case "DR": // External database links!
-
-                            // NOW CUSTOM FIELDS:
-                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            case "DI": // Masses of diagnostic ions
-                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                                modification_specification.Add(line);
-                                break;
-
-                            case "//":
-                                modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
-                                    yield return mod;
-                                modification_specification = new List<string>();
-                                break;
-                        }
+                        foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
+                            yield return mod;
+                        modification_specification = new List<string>();
                     }
                 }
             }
@@ -118,34 +96,12 @@ namespace UsefulProteomicsDatabases
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
+                    modification_specification.Add(line);
+                    if (line.StartsWith("//"))
                     {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "ID":
-                            case "AC":
-                            case "FT": // MOD_RES CROSSLNK LIPID
-                            case "TG": // Which amino acid(s) or motifs is the modification on
-                            case "PP": // Terminus localization
-                            case "CF": // Correction formula
-                            case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            case "DR": // External database links!
-
-                            // NOW CUSTOM FIELDS:
-                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            case "DI": // Masses of diagnostic ions
-                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                                modification_specification.Add(line);
-                                break;
-
-                            case "//":
-                                modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
-                                    yield return mod;
-                                modification_specification = new List<string>();
-                                break;
-                        }
+                        foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
+                            yield return mod;
+                        modification_specification = new List<string>();
                     }
                 }
             }
