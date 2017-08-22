@@ -31,7 +31,7 @@ namespace Proteomics
             StringBuilder sb = new StringBuilder();
 
             var baseString = base.ToString();
-            if (Math.Abs(monoisotopicMass - chemicalFormula.MonoisotopicMass) < 1e-9)
+            if (Math.Abs(monoisotopicMass - chemicalFormula.MonoisotopicMass) < tolForEquality)
             {
                 baseString = Regex.Replace(baseString, @"MM.*$", "CF   " + chemicalFormula.Formula);
                 sb.Append(baseString);

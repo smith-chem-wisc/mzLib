@@ -125,7 +125,6 @@ namespace Test
             Assert.AreEqual(1, merged.First().GeneNames.Count());
             Assert.AreEqual(1, merged.First().SequenceVariations.Count());
             Assert.AreEqual(1, merged.First().ProteolysisProducts.Count());
-            Assert.AreEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First().GetHashCode(), p2.OneBasedPossibleLocalizedModifications.First().Value.First().GetHashCode());
             Assert.AreNotEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First(), p2.OneBasedPossibleLocalizedModifications.First().Value.First());
             Assert.AreEqual(1, merged.First().OneBasedPossibleLocalizedModifications.Count());
             Assert.AreEqual(2, merged.First().OneBasedPossibleLocalizedModifications.First().Value.Count);
@@ -134,9 +133,10 @@ namespace Test
         [Test]
         public static void XmlTest()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -166,9 +166,10 @@ namespace Test
         [Test]
         public static void SeqVarXmlTest()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -198,9 +199,10 @@ namespace Test
         [Test]
         public static void DisulfideXmlTest()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -225,9 +227,10 @@ namespace Test
         [Test]
         public static void XmlTest_2entry()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -250,9 +253,10 @@ namespace Test
         [Test]
         public static void XmlGzTest()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -274,9 +278,10 @@ namespace Test
         [Test]
         public static void XmlFunkySequenceTest()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -288,9 +293,10 @@ namespace Test
         [Test]
         public static void XmlModifiedStartTest()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk",  null, null,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
@@ -318,10 +324,11 @@ namespace Test
         [Test]
         public static void Read_xml_mod_collision()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", "one",  null, TerminusLocalization.Any, null),
-                new ModificationWithLocation("N-acetylserine", "two",  null, TerminusLocalization.Any, null)
+                new ModificationWithLocation("N-acetylserine", "one",  motif, TerminusLocalization.Any, null),
+                new ModificationWithLocation("N-acetylserine", "two",  motif, TerminusLocalization.Any, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
@@ -332,9 +339,10 @@ namespace Test
         [Test]
         public static void Read_xml_exclude_mods()
         {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("N-acetylserine", "exclude_me",  null, TerminusLocalization.Any, null)
+                new ModificationWithLocation("N-acetylserine", "exclude_me",  motif, TerminusLocalization.Any, null)
             };
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);

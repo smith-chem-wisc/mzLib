@@ -40,7 +40,7 @@ namespace Test
             var mod1 = new ModificationWithMass("mod", "type", motif, TerminusLocalization.Any, 1, null, null, null);
             var mod2 = new ModificationWithMass("mod2", "type", motif, TerminusLocalization.Any, 10, null, null, null);
 
-            Assert.AreEqual(mod1.GetHashCode(), mod2.GetHashCode());
+            Assert.AreNotEqual(mod1.GetHashCode(), mod2.GetHashCode());
             Assert.AreNotEqual(mod1, mod2);
             HashSet<Modification> myHashSet = new HashSet<Modification>
             {
@@ -195,20 +195,11 @@ namespace Test
         }
 
         [Test]
-        public void Test_modificationNull_hash_set()
-        {
-            Modification m1 = new Modification(null, "unknown");
-            Modification m2 = new Modification(null, "unknown");
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
-            Assert.AreEqual(1, mods.Count);
-        }
-
-        [Test]
         public void Test_modification2_hash_set()
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithLocation m1 = new ModificationWithLocation(null, "modificationType", motif, TerminusLocalization.Any, new Dictionary<string, IList<string>>());
-            ModificationWithLocation m2 = new ModificationWithLocation(null, "modificationType", motif, TerminusLocalization.Any, new Dictionary<string, IList<string>>());
+            ModificationWithLocation m1 = new ModificationWithLocation("id1", "modificationType", motif, TerminusLocalization.Any, new Dictionary<string, IList<string>>());
+            ModificationWithLocation m2 = new ModificationWithLocation("id1", "modificationType", motif, TerminusLocalization.Any);
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
             m2.linksToOtherDbs.Add("key", new List<string> { "value" });
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
@@ -220,21 +211,8 @@ namespace Test
         public void Test_modification3_hash_set()
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithMass m1 = new ModificationWithMass(null, "modificationType", motif, TerminusLocalization.Any, 1.11111d, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 }, diagnosticIons: new List<double> { 1.2233 });
-            ModificationWithMass m2 = new ModificationWithMass(null, "modificationType", motif, TerminusLocalization.Any, 1.11111d, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 }, diagnosticIons: new List<double> { 1.2233 });
-            m1.linksToOtherDbs.Add("key", new List<string> { "value" });
-            m2.linksToOtherDbs.Add("key", new List<string> { "value" });
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
-            Assert.AreEqual(1, mods.Count);
-            Assert.True(m1.Equals(m2));
-        }
-
-        [Test]
-        public void Test_modification4_hash_set()
-        {
-            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithMassAndCf m1 = new ModificationWithMassAndCf(null, "modificationType", motif, TerminusLocalization.Any, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 }, diagnosticIons: new List<double> { 5.55555 });
-            ModificationWithMassAndCf m2 = new ModificationWithMassAndCf(null, "modificationType", motif, TerminusLocalization.Any, new ChemicalFormula(), 1.11111d, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 }, diagnosticIons: new List<double> { 5.55555 });
+            ModificationWithMass m1 = new ModificationWithMass("id1", "modificationType", motif, TerminusLocalization.Any, 1.11111d, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 }, diagnosticIons: new List<double> { 1.2233 });
+            ModificationWithMass m2 = new ModificationWithMass("id1", "modificationType", motif, TerminusLocalization.Any, 1.11111d - 1e-10, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 + 1e-10 }, diagnosticIons: new List<double> { 1.2233 });
             m1.linksToOtherDbs.Add("key", new List<string> { "value" });
             m2.linksToOtherDbs.Add("key", new List<string> { "value" });
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });

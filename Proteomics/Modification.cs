@@ -35,13 +35,13 @@ namespace Proteomics
         {
             Modification m = o as Modification;
             return o != null
-                && m.id == this.id
-                && m.modificationType == this.modificationType;
+                && m.id == id
+                && m.modificationType == modificationType;
         }
 
         public override int GetHashCode()
         {
-            return 0;
+            return id.GetHashCode() ^ modificationType.GetHashCode();
         }
 
         #endregion Public Methods

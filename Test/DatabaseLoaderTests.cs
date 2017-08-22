@@ -278,7 +278,7 @@ namespace Test
             HashSet<Tuple<int, Modification>> value = new HashSet<Tuple<int, Modification>>();
 
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            ModificationWithMass newMod = new ModificationWithMass("Palmitoylation of C", null, motif, TerminusLocalization.Any, double.NaN, null, null);
+            ModificationWithMass newMod = new ModificationWithMass("Palmitoylation of C", "mt", motif, TerminusLocalization.Any, double.NaN, null, null);
 
             Assert.AreNotEqual(newMod, sampleModList.First());
 
