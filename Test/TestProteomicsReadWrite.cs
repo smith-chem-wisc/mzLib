@@ -268,7 +268,7 @@ namespace Test
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].id, ok[0].OneBasedPossibleLocalizedModifications[4][0].id);
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].modificationType, ok[0].OneBasedPossibleLocalizedModifications[4][0].modificationType);
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).linksToOtherDbs, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).linksToOtherDbs);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).motif.Motif, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).motif.Motif);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).motif, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).motif);
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).terminusLocalization, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).terminusLocalization);
 
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).diagnosticIons, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).diagnosticIons);

@@ -56,8 +56,8 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             ModificationWithMass m = o as ModificationWithMass;
-            return m == null ? false :
-                base.Equals(m)
+            return m != null
+                && base.Equals(m)
                 && ApproxSequenceEqual(diagnosticIons, m.diagnosticIons, tolForEquality)
                 && ApproxSequenceEqual(neutralLosses, m.neutralLosses, tolForEquality)
                 && Math.Abs(monoisotopicMass - m.monoisotopicMass) < tolForEquality;

@@ -264,7 +264,7 @@ namespace UsefulProteomicsDatabases
                                                 keywords = new List<string> { id };
                                             else
                                                 keywords.Add(id);
-                                            idToUse += " on " + motif.Motif;
+                                            idToUse += " on " + motif;
                                         }
 
                                         // Add the modification!

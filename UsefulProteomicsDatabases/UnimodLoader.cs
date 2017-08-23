@@ -69,7 +69,7 @@ namespace UsefulProteomicsDatabases
                     };
 
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks);
+                        yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks);
                     else
                     {
                         List<double> neutralLosses = new List<double>();
@@ -97,7 +97,7 @@ namespace UsefulProteomicsDatabases
                             neutralLosses.Add(cfnl.MonoisotopicMass);
                         }
 
-                        yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks, neutralLosses: neutralLosses);
+                        yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks, neutralLosses: neutralLosses);
                     }
                 }
             }
