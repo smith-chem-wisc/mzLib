@@ -53,30 +53,22 @@ namespace Proteomics
             foreach (var nice in linksToOtherDbs)
                 foreach (var db in nice.Value)
                     sb.AppendLine("DR   " + nice.Key + "; " + db);
-            sb.Append("TG   " + motif.Motif);
+            sb.Append("TG   " + motif);
             return sb.ToString();
         }
 
         public override bool Equals(object o)
         {
             ModificationWithLocation m = o as ModificationWithLocation;
-            return m == null ? false :
-
-               base.Equals(m)
-
-               && (this.motif == null && m.motif == null
-               || this.motif != null && m.motif != null
-               && this.motif.Motif == m.motif.Motif)
-
-               && this.terminusLocalization == m.terminusLocalization;
+            return m != null
+               && base.Equals(m)
+               && motif.Equals(m.motif)
+               && terminusLocalization == m.terminusLocalization;
         }
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode() ^ terminusLocalization.GetHashCode();
-            hash = hash ^ (modificationType == null ? 0 : modificationType.GetHashCode());
-            hash = hash ^ (motif == null ? 0 : motif.Motif.GetHashCode());
-            return hash;
+            return base.GetHashCode() ^ terminusLocalization.GetHashCode() ^ motif.GetHashCode();
         }
 
         #endregion Public Methods

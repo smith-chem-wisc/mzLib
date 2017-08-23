@@ -31,7 +31,7 @@ namespace Proteomics
             StringBuilder sb = new StringBuilder();
 
             var baseString = base.ToString();
-            if (Math.Abs(monoisotopicMass - chemicalFormula.MonoisotopicMass) < 1e-9)
+            if (Math.Abs(monoisotopicMass - chemicalFormula.MonoisotopicMass) < tolForEquality)
             {
                 baseString = Regex.Replace(baseString, @"MM.*$", "CF   " + chemicalFormula.Formula);
                 sb.Append(baseString);
@@ -47,8 +47,9 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             ModificationWithMassAndCf m = o as ModificationWithMassAndCf;
-            return m == null ? false :
-                base.Equals(m) && chemicalFormula.Equals(m.chemicalFormula);
+            return m != null
+               && base.Equals(m)
+               && chemicalFormula.Equals(m.chemicalFormula);
         }
 
         public override int GetHashCode()
