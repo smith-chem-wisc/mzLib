@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
@@ -159,7 +160,7 @@ namespace Test
             Assert.AreEqual(0, peptide.ReplaceModification(new ObjectWithMass100(), new ObjectWithMass100()));
 
             Assert.That(() => peptide.ReplaceModification(null, new ObjectWithMass100()),
-            Throws.TypeOf<ArgumentException>()
+            Throws.TypeOf<MzLibException>()
             .With.Property("Message")
             .EqualTo("Cannot replace a null modification"));
 
@@ -210,7 +211,7 @@ namespace Test
         public void ParseNamedChemicalModificationInvalidName()
         {
             Assert.That(() => new Peptide("T[TMT 7-plex]HGEAK[Acetyl]K"),
-                        Throws.TypeOf<ArgumentException>());
+                        Throws.TypeOf<MzLibException>());
         }
 
         [Test]
@@ -290,7 +291,7 @@ namespace Test
         public void SetResiduePositionModificationOutOfRangeUpper()
         {
             Assert.That(() => _mockPeptideEveryAminoAcid.SetModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("Fe")), 25),
-                        Throws.TypeOf<ArgumentOutOfRangeException>());
+                        Throws.TypeOf<MzLibException>());
         }
 
         [Test]
@@ -298,7 +299,7 @@ namespace Test
         {
             Assert.That(() =>
             _mockPeptideEveryAminoAcid.SetModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("Fe")), 0),
-                        Throws.TypeOf<ArgumentOutOfRangeException>());
+                        Throws.TypeOf<MzLibException>());
         }
 
         [Test]
@@ -655,7 +656,7 @@ namespace Test
             Peptide A = new Peptide("A");
             OldSchoolModification a = new OldSchoolModification(1, "Modification without chemical formula", ModificationSites.A);
             A.AddModification(a);
-            Assert.Throws<InvalidCastException>(() => { A.GetChemicalFormula(); }, "Modification Modification without chemical formula does not have a chemical formula!");
+            Assert.Throws<MzLibException>(() => { A.GetChemicalFormula(); }, "Modification Modification without chemical formula does not have a chemical formula!");
         }
 
         [Test]
@@ -756,11 +757,11 @@ namespace Test
         [Test]
         public void BadSeqeunce()
         {
-            Assert.That(() => new Peptide("ABC"), Throws.TypeOf<ArgumentException>()
+            Assert.That(() => new Peptide("ABC"), Throws.TypeOf<MzLibException>()
             .With.Property("Message")
             .EqualTo("Amino Acid Letter B does not exist in the Amino Acid Dictionary. B is also not a valid character"));
 
-            Assert.That(() => new Peptide("A["), Throws.TypeOf<ArgumentException>()
+            Assert.That(() => new Peptide("A["), Throws.TypeOf<MzLibException>()
             .With.Property("Message")
             .EqualTo("Couldn't find the closing ] for a modification in this sequence: A["));
         }

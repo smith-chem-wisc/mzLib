@@ -25,10 +25,9 @@ namespace Spectra
     /// Spectrum that has at least an X array and a Y array
     /// </summary>
     /// <typeparam name="TPeak"></typeparam>
-    public interface ISpectrum<out TPeak> : IEnumerable<TPeak>
+    public interface ISpectrum<out TPeak>
         where TPeak : IPeak
     {
-
         #region Public Properties
 
         double[] XArray { get; }
@@ -71,6 +70,5 @@ namespace Spectra
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
         #endregion Public Methods
-
     }
 }

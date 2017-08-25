@@ -16,10 +16,8 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
-using IO.Thermo.Deconvolution;
 using MassSpectrometry;
 using System;
-using System.Collections.Generic;
 
 namespace IO.Thermo
 {
@@ -29,7 +27,6 @@ namespace IO.Thermo
     [Serializable]
     public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
     {
-
         #region Private Fields
 
         private readonly double[] _noises;
@@ -161,13 +158,6 @@ namespace IO.Thermo
             return data;
         }
 
-        public IEnumerable<PossibleProteoform> SpecialThermoDeconvolution(double absoluteMassTolerance)
-        {
-            var isotopicPeakGroups = ThermoDecon.GetIsotopicPeakGroups(this, absoluteMassTolerance);
-
-            return ThermoDecon.GetPossibleProteoforms(isotopicPeakGroups, absoluteMassTolerance);
-        }
-
         #endregion Public Methods
 
         #region Protected Methods
@@ -180,6 +170,5 @@ namespace IO.Thermo
         }
 
         #endregion Protected Methods
-
     }
 }

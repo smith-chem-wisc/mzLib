@@ -19,7 +19,6 @@
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,7 +31,6 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
-
         #region Protected Fields
 
         protected TPeak[] peakList;
@@ -165,17 +163,6 @@ namespace Spectra
             return XArray[GetClosestPeakIndex(x)];
         }
 
-        public IEnumerator<TPeak> GetEnumerator()
-        {
-            for (int i = 0; i < Size; i++)
-                yield return this[i];
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
-        }
-
         public int NumPeaksWithinRange(double minX, double maxX)
         {
             int startingIndex = Array.BinarySearch(XArray, minX);
@@ -258,6 +245,5 @@ namespace Spectra
         }
 
         #endregion Private Methods
-
     }
 }

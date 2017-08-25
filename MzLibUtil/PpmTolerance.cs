@@ -25,7 +25,6 @@ namespace MzLibUtil
     /// </summary>
     public class PpmTolerance : Tolerance
     {
-
         #region Public Constructors
 
         /// <summary>
@@ -68,6 +67,5 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
-
     }
 }

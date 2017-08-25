@@ -8,7 +8,6 @@ namespace Proteomics
 {
     public class ModificationWithMass : ModificationWithLocation
     {
-
         #region Public Fields
 
         public readonly double monoisotopicMass;
@@ -17,14 +16,25 @@ namespace Proteomics
 
         #endregion Public Fields
 
+        #region Protected Fields
+
+        protected const double tolForEquality = 1e-9;
+
+        #endregion Protected Fields
+
         #region Public Constructors
 
-        public ModificationWithMass(string id, Tuple<string, string> accession, ModificationMotif motif, ModificationSites modificationSites, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences, IEnumerable<double> neutralLosses, IEnumerable<double> diagnosticIons, string modificationType)
-            : base(id, accession, motif, modificationSites, externalDatabaseReferences, modificationType)
+        public ModificationWithMass(string id, string modificationType, ModificationMotif motif, TerminusLocalization terminusLocalization, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences = null, List<string> keywords = null, List<double> neutralLosses = null, List<double> diagnosticIons = null)
+            : base(id, modificationType, motif, terminusLocalization, externalDatabaseReferences, keywords)
         {
             this.monoisotopicMass = monoisotopicMass;
-            this.neutralLosses = neutralLosses != null ? neutralLosses.ToList() : new List<double> { 0 };
-            this.diagnosticIons = diagnosticIons != null ? diagnosticIons.ToList() : new List<double>();
+
+            // Optional
+            this.neutralLosses = neutralLosses ?? new List<double> { 0 };
+            this.diagnosticIons = diagnosticIons ?? new List<double>();
+
+            this.neutralLosses = this.neutralLosses.OrderBy(b => b).ToList();
+            this.diagnosticIons = this.diagnosticIons.OrderBy(b => b).ToList();
         }
 
         #endregion Public Constructors
@@ -46,22 +56,30 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             ModificationWithMass m = o as ModificationWithMass;
-            return m == null ? false :
-                base.Equals(m)
-                && (this.diagnosticIons.OrderBy(x => x).SequenceEqual(m.diagnosticIons.OrderBy(x => x)))
-                && (this.neutralLosses.OrderBy(x => x).SequenceEqual(m.neutralLosses.OrderBy(x => x)))
-                && Math.Abs(this.monoisotopicMass - m.monoisotopicMass) < 1e-9;
+            return m != null
+                && base.Equals(m)
+                && ApproxSequenceEqual(diagnosticIons, m.diagnosticIons, tolForEquality)
+                && ApproxSequenceEqual(neutralLosses, m.neutralLosses, tolForEquality)
+                && Math.Abs(monoisotopicMass - m.monoisotopicMass) < tolForEquality;
         }
 
         public override int GetHashCode()
         {
-            int hash = base.GetHashCode();
-            foreach (double x in neutralLosses) hash = hash ^ x.GetHashCode();
-            foreach (double x in diagnosticIons) hash = hash ^ x.GetHashCode();
-            return hash;
+            return base.GetHashCode() ^ diagnosticIons.Count ^ diagnosticIons.Count;
         }
 
         #endregion Public Methods
 
+        #region Private Methods
+
+        private bool ApproxSequenceEqual(List<double> a, List<double> b, double tolForEquality)
+        {
+            for (int i = 0; i < a.Count; i++)
+                if (Math.Abs(a[i] - b[i]) >= tolForEquality)
+                    return false;
+            return true;
+        }
+
+        #endregion Private Methods
     }
 }

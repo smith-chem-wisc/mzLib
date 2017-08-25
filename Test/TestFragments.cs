@@ -17,6 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;
@@ -28,7 +29,6 @@ namespace Test
     [TestFixture]
     public sealed class TestFragments
     {
-
         #region Private Fields
 
         private Peptide _mockPeptideEveryAminoAcid;
@@ -162,7 +162,7 @@ namespace Test
         public void TestGetIonCapFailFail()
         {
             FragmentTypes f = FragmentTypes.All;
-            Assert.That(() => f.GetIonCap(), Throws.TypeOf<ArgumentException>()
+            Assert.That(() => f.GetIonCap(), Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Fragment Type must be a single value to determine the ion cap"));
         }
@@ -171,12 +171,11 @@ namespace Test
         public void TestGetTerminusFail()
         {
             FragmentTypes f = FragmentTypes.a | FragmentTypes.adot;
-            Assert.That(() => f.GetTerminus(), Throws.TypeOf<ArgumentException>()
+            Assert.That(() => f.GetTerminus(), Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Fragment Type must be a single value to determine the terminus"));
         }
 
         #endregion Public Methods
-
     }
 }

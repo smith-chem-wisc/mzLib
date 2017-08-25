@@ -22,13 +22,12 @@ using System.Collections.Generic;
 
 namespace MassSpectrometry
 {
-    public abstract class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
+    public class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
+        #region Public Constructors
 
-        #region Protected Constructors
-
-        protected MsDataScan(int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData)
+        public MsDataScan(TSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -41,9 +40,10 @@ namespace MassSpectrometry
             TotalIonCurrent = totalIonCurrent;
             InjectionTime = injectionTime;
             NoiseData = noiseData;
+            MassSpectrum = massSpectrum;
         }
 
-        #endregion Protected Constructors
+        #endregion Public Constructors
 
         #region Public Properties
 
@@ -125,6 +125,5 @@ namespace MassSpectrometry
         }
 
         #endregion Private Methods
-
     }
 }

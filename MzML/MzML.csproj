@@ -39,17 +39,12 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
     <Reference Include="System.Xml" />
-    <Reference Include="Zlib.Portable, Version=1.11.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Zlib.Portable.1.11.0\lib\portable-net4+sl5+wp8+win8+wpa81+MonoTouch+MonoAndroid\Zlib.Portable.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IMzmlScan.cs" />
     <Compile Include="Mzml.cs" />
     <Compile Include="MzmlMethods.cs" />
-    <Compile Include="MzmlReaderException.cs" />
     <Compile Include="MzmlScanWithPrecursor.cs" />
     <Compile Include="MzmlScan.cs" />
     <Compile Include="MzmlSpectrum.cs" />

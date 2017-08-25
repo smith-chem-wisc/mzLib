@@ -34,18 +34,13 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Deconvolution\IsotopicPeakGroup.cs" />
-    <Compile Include="Deconvolution\PossibleProteoform.cs" />
     <Compile Include="IThermoScan.cs" />
-    <Compile Include="Deconvolution\ThermoDecon.cs" />
     <Compile Include="ThermoDynamicData.cs" />
     <Compile Include="ThermoFile.cs" />
     <Compile Include="ThermoGlobalParams.cs" />
     <Compile Include="ThermoMzPeak.cs" />
-    <Compile Include="ThermoReadException.cs" />
     <Compile Include="ThermoStaticData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
@@ -55,10 +50,6 @@
     <Compile Include="ThermoSpectrum.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
-      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
-      <Name>Chemistry</Name>
-    </ProjectReference>
     <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
       <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
       <Name>ManagedThermoHelperLayer</Name>
@@ -74,10 +65,6 @@
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
       <Name>Spectra</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MzML\MzML.csproj">
-      <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
-      <Name>MzML</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

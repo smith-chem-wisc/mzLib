@@ -25,7 +25,6 @@ namespace MzLibUtil
     /// </summary>
     public class AbsoluteTolerance : Tolerance
     {
-
         #region Public Constructors
 
         /// <summary>
@@ -67,6 +66,5 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
-
     }
 }

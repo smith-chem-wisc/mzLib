@@ -1,9 +1,9 @@
-﻿using Ionic.Zlib;
-using Proteomics;
+﻿using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -13,7 +13,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
-
         #region Public Fields
 
         public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_]+)");
@@ -54,7 +53,8 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="proteinDbLocation"></param>
-        /// <param name="onTheFlyDecoys"></param>
+        /// <param name="generateTargetProteins"></param>
+        /// <param name="generateDecoyProteins"></param>
         /// <param name="allKnownModifications"></param>
         /// <param name="IsContaminant"></param>
         /// <param name="dbRefTypesToKeep"></param>
@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool onTheFlyDecoys, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargetProteins, bool generateDecoyProteins, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
 
@@ -266,11 +266,13 @@ namespace UsefulProteomicsDatabases
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
-                                            var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds);
+                                            if (generateTargetProteins)
+                                            {
+                                                var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds, proteinDbLocation);
+                                                result.Add(protein);
+                                            }
 
-                                            result.Add(protein);
-
-                                            if (onTheFlyDecoys)
+                                            if (generateDecoyProteins)
                                             {
                                                 char[] sequence_array = sequence.ToCharArray();
                                                 Dictionary<int, List<Modification>> decoy_modifications = null;
@@ -333,7 +335,7 @@ namespace UsefulProteomicsDatabases
                                                     Array.Reverse(variation_array);
                                                     decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
                                                 }
-                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP, name, full_name, true, IsContaminant, null, decoy_variations, decoy_disulfides);
+                                                var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP, name, full_name, true, IsContaminant, null, decoy_variations, decoy_disulfides, proteinDbLocation);
 
                                                 result.Add(decoy_protein);
                                             }
@@ -429,7 +431,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="name_expression"></param>
         /// <param name="gene_expression"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -486,8 +488,11 @@ namespace UsefulProteomicsDatabases
                             unique_identifier++;
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant);
-                        result.Add(protein);
+                        if (originalTarget)
+                        {
+                            Protein protein = new Protein(sequence, accession, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            result.Add(protein);
+                        }
 
                         if (onTheFlyDecoys)
                         {
@@ -495,7 +500,7 @@ namespace UsefulProteomicsDatabases
                             int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
                             Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                             var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant);
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                             result.Add(decoy_protein);
                         }
 
@@ -513,6 +518,64 @@ namespace UsefulProteomicsDatabases
                 }
             }
             return result;
+        }
+
+        /// <summary>
+        /// Merge proteins that have the same accession, sequence, and contaminant designation.
+        /// </summary>
+        /// <param name="merge_these"></param>
+        /// <returns></returns>
+        public static IEnumerable<Protein> Merge_proteins(IEnumerable<Protein> merge_these)
+        {
+            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
+            foreach (Protein p in merge_these)
+            {
+                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
+                if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
+                    proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
+                else
+                    bundled.Add(p);
+            }
+
+            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
+            {
+                HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
+                HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
+                HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
+                HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
+                HashSet<ProteolysisProduct> proteolysis = new HashSet<ProteolysisProduct>(proteins.Value.SelectMany(p => p.ProteolysisProducts));
+                HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
+                HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
+                HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
+
+                Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
+                foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
+                {
+                    if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
+                        mod_dict.Add(nice.Key, new HashSet<Modification>(nice.Value));
+                    else
+                        foreach (Modification mod in nice.Value)
+                        {
+                            val.Add(mod);
+                        }
+                }
+                Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
+
+                yield return new Protein(
+                    proteins.Key.Item2,
+                    proteins.Key.Item1,
+                    isContaminant: proteins.Key.Item3,
+                    isDecoy: proteins.Key.Item4,
+                    gene_names: genenames.ToList(),
+                    oneBasedModifications: mod_dict2,
+                    proteolysisProducts: proteolysis.ToList(),
+                    name: names.FirstOrDefault(),
+                    full_name: fullnames.FirstOrDefault(),
+                    databaseReferences: references.ToList(),
+                    disulfideBonds: bonds.ToList(),
+                    sequenceVariations: variants.ToList()
+                    );
+            }
         }
 
         #endregion Public Methods
@@ -533,6 +596,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }

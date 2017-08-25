@@ -14,14 +14,14 @@
     <copyright>Copyright 2017</copyright>
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
-      <dependency id="Zlib.Portable" version="1.11.0"/>
-      <dependency id="MathNet.Numerics" version="3.17.0"/>
+      <dependency id="MathNet.Numerics" version="3.20.0"/>
     </dependencies>
   </metadata>
   <files>
     <file src="Chemistry\bin\x64\Release\Chemistry.dll" target="lib" /> 
     <file src="mzIdentML\bin\x64\Release\mzIdentML.dll" target="lib" /> 
     <file src="MzML\bin\x64\Release\MzML.dll" target="lib" /> 
+    <file src="pepXML\bin\x64\Release\pepXML.dll" target="lib" /> 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib" /> 
     <file src="MassSpectrometry\bin\x64\Release\MassSpectrometry.dll" target="lib" /> 
     <file src="Proteomics\bin\x64\Release\Proteomics.dll" target="lib" /> 

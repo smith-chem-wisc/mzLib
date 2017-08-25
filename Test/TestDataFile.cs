@@ -32,7 +32,6 @@ namespace Test
     [TestFixture]
     public sealed class TestDataFile
     {
-
         #region Private Fields
 
         private MzmlMzSpectrum _mzSpectrumA;
@@ -184,10 +183,11 @@ namespace Test
             List<double> allIntensities = new List<double>();
             foreach (ChemicalFormulaFragment f in fragments)
             {
-                foreach (var p in CreateSpectrum(f.ThisChemicalFormula, v1, v2, 2))
+                var spec = CreateSpectrum(f.ThisChemicalFormula, v1, v2, 2);
+                for (int i = 0; i < spec.Size; i++)
                 {
-                    allMasses.Add(p.Mz);
-                    allIntensities.Add(p.Intensity);
+                    allMasses.Add(spec.XArray[i]);
+                    allIntensities.Add(spec.YArray[i]);
                 }
             }
             var allMassesArray = allMasses.ToArray();
@@ -209,12 +209,12 @@ namespace Test
 
             while (notActuallyMzS.FirstX > lowerBound)
             {
-                foreach (var thisPeak in notActuallyMzS)
+                for (int i = 0; i < notActuallyMzS.Size; i++)
                 {
-                    if (thisPeak.Mz > lowerBound && thisPeak.Mz < upperBound)
+                    if (notActuallyMzS.XArray[i] > lowerBound && notActuallyMzS.XArray[i] < upperBound)
                     {
-                        allMasses.Add(thisPeak.Mz);
-                        allIntensitiess.Add(thisPeak.Intensity);
+                        allMasses.Add(notActuallyMzS.XArray[i]);
+                        allIntensitiess.Add(notActuallyMzS.YArray[i]);
                     }
                 }
                 minCharge += 1;
@@ -231,6 +231,5 @@ namespace Test
         }
 
         #endregion Private Methods
-
     }
 }

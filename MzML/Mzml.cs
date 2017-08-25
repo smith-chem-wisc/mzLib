@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016, 2017 Stefan Solntsev
 //
 // This file (Mzml.cs) is part of MassSpecFiles.
@@ -16,13 +16,13 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
-using Ionic.Zlib;
 using MassSpectrometry;
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -30,7 +30,6 @@ namespace IO.MzML
 {
     public class Mzml : MsDataFile<IMzmlScan>, IMsStaticDataFile<IMzmlScan>
     {
-
         #region Private Fields
 
         private const string _zlibCompression = "MS:1000574";
@@ -63,12 +62,7 @@ namespace IO.MzML
 
         private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
             {
-                { "ITMS", MZAnalyzerType.IonTrap2D},
-                { "TQMS", MZAnalyzerType.Unknown},
-                { "SQMS",MZAnalyzerType.Unknown},
-                { "TOFMS",MZAnalyzerType.TOF},
-                { "FTMS", MZAnalyzerType.Orbitrap},
-                { "Sector", MZAnalyzerType.Sector},
+                { "MS:1000443", MZAnalyzerType.Unknown},
                 { "MS:1000081",MZAnalyzerType.Quadrupole},
                 { "MS:1000291",MZAnalyzerType.IonTrap2D},
                 { "MS:1000082",MZAnalyzerType.IonTrap3D},
@@ -140,6 +134,39 @@ namespace IO.MzML
 
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
+            // Read in the instrument configuration types from connection (in mzml it's at the start)
+
+            Generated.InstrumentConfigurationType[] configs = new Generated.InstrumentConfigurationType[_mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length];
+            for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
+            {
+                configs[i] = _mzMLConnection.instrumentConfigurationList.instrumentConfiguration[i];
+            }
+
+            var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
+
+            // May be null!
+            var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
+
+            MZAnalyzerType analyzer = default(MZAnalyzerType);
+            // use default
+            if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
+            {
+                if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                    analyzer = returnVal;
+            }
+            // use scan-specific
+            else
+            {
+                for (int i = 0; i < _mzMLConnection.instrumentConfigurationList.instrumentConfiguration.Length; i++)
+                {
+                    if (configs[i].id.Equals(scanSpecificInsturmentConfig))
+                    {
+                        analyzerDictionary.TryGetValue(configs[i].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal);
+                        analyzer = returnVal;
+                    }
+                }
+            }
+
             double[] masses = new double[0];
             double[] intensities = new double[0];
 
@@ -183,11 +210,12 @@ namespace IO.MzML
                     isCentroid = false;
                 if (cv.accession.Equals(_totalIonCurrent))
                     tic = double.Parse(cv.value);
-                polarityDictionary.TryGetValue(cv.accession, out polarity);
+                if (polarity.Equals(Polarity.Unknown))
+                    polarityDictionary.TryGetValue(cv.accession, out polarity);
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzmlReaderException("!msOrder.HasValue || !isCentroid.HasValue");
+                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -225,7 +253,7 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, GetMzAnalyzer(_mzMLConnection, scanFilter), tic, injectionTime);
+                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, analyzer, tic, injectionTime);
             }
 
             double selectedIonMz = double.NaN;
@@ -261,7 +289,7 @@ namespace IO.MzML
             }
 
             if (!isolationMz.HasValue)
-                throw new MzmlReaderException("!isolationMz.HasValue");
+                throw new MzLibException("!isolationMz.HasValue");
 
             DissociationType dissociationType = DissociationType.Unknown;
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
@@ -286,7 +314,7 @@ namespace IO.MzML
                 rtInMinutes,
                 new MzRange(low, high),
                 scanFilter,
-                GetMzAnalyzer(_mzMLConnection, scanFilter),
+                analyzer,
                 tic,
                 selectedIonMz,
                 selectedIonCharge,
@@ -308,8 +336,23 @@ namespace IO.MzML
         private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
         {
             // Add capability of compressed data
+
             if (zlibCompressed)
-                bytes = ZlibStream.UncompressBuffer(bytes);
+            {
+                var output = new MemoryStream();
+                using (var compressStream = new MemoryStream(bytes))
+                {
+                    compressStream.ReadByte();
+                    compressStream.ReadByte();
+                    using (var decompressor = new DeflateStream(compressStream, CompressionMode.Decompress))
+                    {
+                        decompressor.CopyTo(output);
+                        decompressor.Close();
+                        output.Position = 0;
+                        bytes = output.ToArray();
+                    }
+                }
+            }
 
             int size = is32bit ? sizeof(float) : sizeof(double);
 
@@ -330,19 +373,6 @@ namespace IO.MzML
             return convertedArray;
         }
 
-        private static MZAnalyzerType GetMzAnalyzer(Generated.mzMLType _mzMLConnection, string filter)
-        {
-            if (filter != null && analyzerDictionary.TryGetValue(MZAnalyzerTypeRegex.Match(filter).Captures[0].Value, out MZAnalyzerType valuee))
-                return valuee;
-
-            // Maybe in the beginning of the file, there is a single analyzer?
-            // Gets the first analyzer used.
-
-            if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration != null)
-                return analyzerDictionary.TryGetValue(_mzMLConnection.instrumentConfigurationList.instrumentConfiguration[0].cvParam[0].accession, out valuee) ? valuee : MZAnalyzerType.Unknown;
-            return MZAnalyzerType.Unknown;
-        }
-
         private static int GetOneBasedPrecursorScanNumber(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
         {
             string precursorID = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef;
@@ -354,6 +384,5 @@ namespace IO.MzML
         }
 
         #endregion Private Methods
-
     }
 }

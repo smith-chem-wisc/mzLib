@@ -18,12 +18,12 @@
 
 using MassSpectrometry;
 using MSFileReaderLib;
+using MzLibUtil;
 
 namespace IO.Thermo
 {
     public class ThermoStaticData : ThermoFile, IMsStaticDataFile<IThermoScan>
     {
-
         #region Private Constructors
 
         private ThermoStaticData(IThermoScan[] scans, ThermoGlobalParams p) : base(scans, p)
@@ -42,7 +42,7 @@ namespace IO.Thermo
             int pbSMData = 0;
             theConnection.IsThereMSData(ref pbSMData);
             if (pbSMData == 0)
-                throw new ThermoReadException("File not found");
+                throw new MzLibException("File not found");
 
             theConnection.SetCurrentController(0, 1);
 
@@ -75,6 +75,5 @@ namespace IO.Thermo
         }
 
         #endregion Public Methods
-
     }
 }
