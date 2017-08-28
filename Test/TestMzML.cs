@@ -47,9 +47,9 @@ namespace Test
 
             FakeMsDataFile f = new FakeMsDataFile(scans);
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzml"), false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
 
-            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzml"));
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
 
             var scanWithPrecursor = ok.Last(b => b is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
 
@@ -74,9 +74,9 @@ namespace Test
 
             FakeMsDataFile f = new FakeMsDataFile(scans);
 
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzml"), false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzML"), false);
 
-            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzml"));
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzML"));
 
             Assert.AreEqual(MZAnalyzerType.Orbitrap, ok.First().MzAnalyzer);
             Assert.AreEqual(MZAnalyzerType.IonTrap3D, ok.Last().MzAnalyzer);

@@ -196,8 +196,8 @@ namespace TestThermo
         public void WriteIndexedMzmlFromThermoTest()
         {
             var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzml"), true);
-            var smallMzml = Mzml.LoadAllStaticData(@"hi.mzml");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzML"), true);
+            var smallMzml = Mzml.LoadAllStaticData(@"hi.mzML");
             Assert.AreEqual(smallMzml.NumSpectra, 48);
             Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
             Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
