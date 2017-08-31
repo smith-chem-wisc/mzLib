@@ -23,6 +23,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -95,7 +96,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath)
+        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double minRatio = 0)
         {
             Generated.mzMLType _mzMLConnection;
 
@@ -118,7 +119,7 @@ namespace IO.MzML
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio);
             });
             return new Mzml(scans);
         }
@@ -132,7 +133,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double minRatio)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -193,7 +194,27 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            var ok = new MzmlMzSpectrum(masses, intensities, false);
+            if (minRatio > 0 || topNpeaks.HasValue)
+            {
+                IComparer<double> c = new ReverseComparer();
+                Array.Sort(intensities, masses, c);
+
+                int numPeaks = intensities.Length;
+                if (minRatio > 0)
+                {
+                    double minIntensity = minRatio * intensities[0];
+                    numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+                }
+
+                if (topNpeaks.HasValue)
+                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+
+                Array.Resize(ref intensities, numPeaks);
+                Array.Resize(ref masses, numPeaks);
+
+                Array.Sort(masses, intensities);
+            }
+            var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
 
             int? msOrder = null;
             bool? isCentroid = null;
@@ -253,7 +274,18 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, analyzer, tic, injectionTime);
+                return new MzmlScan(
+                    oneBasedSpectrumNumber,
+                    mzmlMzSpectrum,
+                    msOrder.Value,
+                    isCentroid.Value,
+                    polarity,
+                    rtInMinutes,
+                    new MzRange(low, high),
+                    scanFilter,
+                    analyzer,
+                    tic,
+                    injectionTime);
             }
 
             double selectedIonMz = double.NaN;
@@ -306,8 +338,9 @@ namespace IO.MzML
                     }
                 }
 
-            return new MzmlScanWithPrecursor(oneBasedSpectrumNumber,
-                ok,
+            return new MzmlScanWithPrecursor(
+                oneBasedSpectrumNumber,
+                mzmlMzSpectrum,
                 msOrder.Value,
                 isCentroid.Value,
                 polarity,
@@ -384,5 +417,21 @@ namespace IO.MzML
         }
 
         #endregion Private Methods
+
+        #region Private Classes
+
+        private class ReverseComparer : IComparer<double>
+        {
+            #region Public Methods
+
+            public int Compare(double x, double y)
+            {
+                return y.CompareTo(x);
+            }
+
+            #endregion Public Methods
+        }
+
+        #endregion Private Classes
     }
 }

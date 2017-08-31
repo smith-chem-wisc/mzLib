@@ -115,17 +115,14 @@ namespace Test
             Mzml a = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML");
 
             Assert.AreEqual(19914, a.First().MassSpectrum.Size);
+            double basePeak = a.First().MassSpectrum.YofPeakWithHighestY;
+            Assert.AreEqual(42, a.First().MassSpectrum.YArray.Count(bb => bb >= 0.1 * basePeak));
 
-            //a = new Mzml(@"small.pwiz.1.1.mzML", 400);
-            //a.Open();
+            Mzml b = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", topNpeaks: 400);
+            Assert.AreEqual(400, b.First().MassSpectrum.Size);
 
-            //Assert.AreEqual(400, a.First().MassSpectrum.Size);
-
-            //var cool = a.GetOneBasedScan(6) as MzmlScanWithPrecursor;
-
-            //Assert.AreEqual(1, cool.IsolationWidth);
-
-            //a.Close();
+            Mzml c = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", minRatio: 0.1);
+            Assert.AreEqual(42, c.First().MassSpectrum.Size);
         }
 
         [Test]
