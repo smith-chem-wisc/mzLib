@@ -96,7 +96,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double minRatio = 0)
+        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double minRatio = 0, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             Generated.mzMLType _mzMLConnection;
 
@@ -119,7 +119,7 @@ namespace IO.MzML
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
             });
             return new Mzml(scans);
         }
@@ -133,7 +133,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double minRatio)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -168,6 +168,28 @@ namespace IO.MzML
                 }
             }
 
+            int? msOrder = null;
+            bool? isCentroid = null;
+            Polarity polarity = Polarity.Unknown;
+            double tic = double.NaN;
+
+            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
+            {
+                if (cv.accession.Equals(_msnOrderAccession))
+                    msOrder = int.Parse(cv.value);
+                if (cv.accession.Equals(_centroidSpectrum))
+                    isCentroid = true;
+                if (cv.accession.Equals(_profileSpectrum))
+                    isCentroid = false;
+                if (cv.accession.Equals(_totalIonCurrent))
+                    tic = double.Parse(cv.value);
+                if (polarity.Equals(Polarity.Unknown))
+                    polarityDictionary.TryGetValue(cv.accession, out polarity);
+            }
+
+            if (!msOrder.HasValue || !isCentroid.HasValue)
+                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+
             double[] masses = new double[0];
             double[] intensities = new double[0];
 
@@ -194,7 +216,8 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if (minRatio > 0 || topNpeaks.HasValue)
+            if ((minRatio > 0 || topNpeaks.HasValue)
+                && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
                 IComparer<double> c = new ReverseComparer();
                 Array.Sort(intensities, masses, c);
@@ -215,28 +238,6 @@ namespace IO.MzML
                 Array.Sort(masses, intensities);
             }
             var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
-
-            int? msOrder = null;
-            bool? isCentroid = null;
-            Polarity polarity = Polarity.Unknown;
-            double tic = double.NaN;
-
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
-            {
-                if (cv.accession.Equals(_msnOrderAccession))
-                    msOrder = int.Parse(cv.value);
-                if (cv.accession.Equals(_centroidSpectrum))
-                    isCentroid = true;
-                if (cv.accession.Equals(_profileSpectrum))
-                    isCentroid = false;
-                if (cv.accession.Equals(_totalIonCurrent))
-                    tic = double.Parse(cv.value);
-                if (polarity.Equals(Polarity.Unknown))
-                    polarityDictionary.TryGetValue(cv.accession, out polarity);
-            }
-
-            if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;

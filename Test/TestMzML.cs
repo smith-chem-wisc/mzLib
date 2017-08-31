@@ -113,16 +113,26 @@ namespace Test
         public void LoadMzmlAnotherTest()
         {
             Mzml a = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML");
-
             Assert.AreEqual(19914, a.First().MassSpectrum.Size);
+            Assert.AreEqual(485, a.First(bb => bb.MsnOrder == 2).MassSpectrum.Size);
             double basePeak = a.First().MassSpectrum.YofPeakWithHighestY;
             Assert.AreEqual(42, a.First().MassSpectrum.YArray.Count(bb => bb >= 0.1 * basePeak));
 
             Mzml b = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", topNpeaks: 400);
             Assert.AreEqual(400, b.First().MassSpectrum.Size);
+            Assert.AreEqual(400, b.First(bb => bb.MsnOrder == 2).MassSpectrum.Size);
 
             Mzml c = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", minRatio: 0.1);
             Assert.AreEqual(42, c.First().MassSpectrum.Size);
+            Assert.AreEqual(6, c.First(bb => bb.MsnOrder == 2).MassSpectrum.Size);
+
+            Mzml d = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", minRatio: 0.1, trimMs1Peaks: false);
+            Assert.AreEqual(19914, d.First().MassSpectrum.Size);
+            Assert.AreEqual(6, d.First(bb => bb.MsnOrder == 2).MassSpectrum.Size);
+
+            Mzml e = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", minRatio: 0.1, trimMsMsPeaks: false);
+            Assert.AreEqual(42, e.First().MassSpectrum.Size);
+            Assert.AreEqual(485, e.First(bb => bb.MsnOrder == 2).MassSpectrum.Size);
         }
 
         [Test]

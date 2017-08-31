@@ -458,14 +458,15 @@ namespace IO.MzML
                         count = 1.ToString(),
                         precursor = new Generated.PrecursorType[1],
                     };
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType();
-
-                    //note: precursod "id" set to string ID of spectrum (not index)
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList = new Generated.SelectedIonListType()
+                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType
                     {
-                        count = 1.ToString(),
-                        selectedIon = new Generated.ParamGroupType[1]
+                        //note: precursod "id" set to string ID of spectrum (not index)
+                        spectrumRef = precursorID,
+                        selectedIonList = new Generated.SelectedIonListType()
+                        {
+                            count = 1.ToString(),
+                            selectedIon = new Generated.ParamGroupType[1]
+                        }
                     };
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0] = new Generated.ParamGroupType()
                     {
@@ -1007,9 +1008,11 @@ namespace IO.MzML
                     if (index != -1)
                     {
                         a = index;
-                        indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType();
-                        indexedMzml.indexList.index[0].offset[i].idRef = mzML.run.spectrumList.spectrum[i].id;
-                        indexedMzml.indexList.index[0].offset[i].Value = a + offsetFromBeforeScanTag;
+                        indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType
+                        {
+                            idRef = mzML.run.spectrumList.spectrum[i].id,
+                            Value = a + offsetFromBeforeScanTag
+                        };
                         i++;
                     }
                 }
@@ -1018,9 +1021,11 @@ namespace IO.MzML
                 if (index != -1)
                 {
                     a = index;
-                    indexedMzml.indexList.index[1].offset[0] = new Generated.OffsetType();
-                    indexedMzml.indexList.index[1].offset[0].idRef = mzML.run.chromatogramList.chromatogram[0].id;
-                    indexedMzml.indexList.index[1].offset[0].Value = a + offsetFromBeforeChromaTag;
+                    indexedMzml.indexList.index[1].offset[0] = new Generated.OffsetType
+                    {
+                        idRef = mzML.run.chromatogramList.chromatogram[0].id,
+                        Value = a + offsetFromBeforeChromaTag
+                    };
                 }
                 //offset
                 int offsetFromNullIndexList = 32;
@@ -1046,8 +1051,10 @@ namespace IO.MzML
                 indexedMzml.fileChecksum = chksum;
 
                 //finally write the indexedmzml
-                TextWriter writer = new StreamWriter(outputFile);
-                writer.NewLine = "\n";
+                TextWriter writer = new StreamWriter(outputFile)
+                {
+                    NewLine = "\n"
+                };
                 indexedSerializer.Serialize(writer, indexedMzml);
                 writer.Close();
             }
