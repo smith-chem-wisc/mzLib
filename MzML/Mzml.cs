@@ -96,7 +96,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double minRatio = 0, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
+        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = 0, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             Generated.mzMLType _mzMLConnection;
 
@@ -133,7 +133,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -216,16 +216,16 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if ((minRatio > 0 || topNpeaks.HasValue)
+            if ((minRatio.HasValue || topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
                 IComparer<double> c = new ReverseComparer();
                 Array.Sort(intensities, masses, c);
 
                 int numPeaks = intensities.Length;
-                if (minRatio > 0)
+                if (minRatio.HasValue)
                 {
-                    double minIntensity = minRatio * intensities[0];
+                    double minIntensity = minRatio.Value * intensities[0];
                     numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
                 }
 
