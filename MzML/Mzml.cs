@@ -23,6 +23,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -95,7 +96,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath)
+        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             Generated.mzMLType _mzMLConnection;
 
@@ -118,7 +119,7 @@ namespace IO.MzML
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
             });
             return new Mzml(scans);
         }
@@ -132,7 +133,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -167,6 +168,28 @@ namespace IO.MzML
                 }
             }
 
+            int? msOrder = null;
+            bool? isCentroid = null;
+            Polarity polarity = Polarity.Unknown;
+            double tic = double.NaN;
+
+            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
+            {
+                if (cv.accession.Equals(_msnOrderAccession))
+                    msOrder = int.Parse(cv.value);
+                if (cv.accession.Equals(_centroidSpectrum))
+                    isCentroid = true;
+                if (cv.accession.Equals(_profileSpectrum))
+                    isCentroid = false;
+                if (cv.accession.Equals(_totalIonCurrent))
+                    tic = double.Parse(cv.value);
+                if (polarity.Equals(Polarity.Unknown))
+                    polarityDictionary.TryGetValue(cv.accession, out polarity);
+            }
+
+            if (!msOrder.HasValue || !isCentroid.HasValue)
+                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+
             double[] masses = new double[0];
             double[] intensities = new double[0];
 
@@ -193,29 +216,28 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            var ok = new MzmlMzSpectrum(masses, intensities, false);
-
-            int? msOrder = null;
-            bool? isCentroid = null;
-            Polarity polarity = Polarity.Unknown;
-            double tic = double.NaN;
-
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
+            if ((minRatio.HasValue || topNpeaks.HasValue)
+                && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
-                if (cv.accession.Equals(_msnOrderAccession))
-                    msOrder = int.Parse(cv.value);
-                if (cv.accession.Equals(_centroidSpectrum))
-                    isCentroid = true;
-                if (cv.accession.Equals(_profileSpectrum))
-                    isCentroid = false;
-                if (cv.accession.Equals(_totalIonCurrent))
-                    tic = double.Parse(cv.value);
-                if (polarity.Equals(Polarity.Unknown))
-                    polarityDictionary.TryGetValue(cv.accession, out polarity);
-            }
+                IComparer<double> c = new ReverseComparer();
+                Array.Sort(intensities, masses, c);
 
-            if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+                int numPeaks = intensities.Length;
+                if (minRatio.HasValue)
+                {
+                    double minIntensity = minRatio.Value * intensities[0];
+                    numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+                }
+
+                if (topNpeaks.HasValue)
+                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+
+                Array.Resize(ref intensities, numPeaks);
+                Array.Resize(ref masses, numPeaks);
+
+                Array.Sort(masses, intensities);
+            }
+            var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -253,7 +275,18 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, analyzer, tic, injectionTime);
+                return new MzmlScan(
+                    oneBasedSpectrumNumber,
+                    mzmlMzSpectrum,
+                    msOrder.Value,
+                    isCentroid.Value,
+                    polarity,
+                    rtInMinutes,
+                    new MzRange(low, high),
+                    scanFilter,
+                    analyzer,
+                    tic,
+                    injectionTime);
             }
 
             double selectedIonMz = double.NaN;
@@ -306,8 +339,9 @@ namespace IO.MzML
                     }
                 }
 
-            return new MzmlScanWithPrecursor(oneBasedSpectrumNumber,
-                ok,
+            return new MzmlScanWithPrecursor(
+                oneBasedSpectrumNumber,
+                mzmlMzSpectrum,
                 msOrder.Value,
                 isCentroid.Value,
                 polarity,
@@ -384,5 +418,21 @@ namespace IO.MzML
         }
 
         #endregion Private Methods
+
+        #region Private Classes
+
+        private class ReverseComparer : IComparer<double>
+        {
+            #region Public Methods
+
+            public int Compare(double x, double y)
+            {
+                return y.CompareTo(x);
+            }
+
+            #endregion Public Methods
+        }
+
+        #endregion Private Classes
     }
 }
