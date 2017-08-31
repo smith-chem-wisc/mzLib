@@ -96,7 +96,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = 0, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
+        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             Generated.mzMLType _mzMLConnection;
 
