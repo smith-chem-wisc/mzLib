@@ -41,8 +41,8 @@ namespace Test
 
             Assert.AreEqual(10, tol.Value);
 
-            Assert.AreEqual(1 + 1e-5 / 2, tol.GetMaximumValue(1));
-            Assert.AreEqual(1 - 1e-5 / 2, tol.GetMinimumValue(1));
+            Assert.AreEqual(1 + 1e-5, tol.GetMaximumValue(1));
+            Assert.AreEqual(1 - 1e-5 , tol.GetMinimumValue(1));
         }
 
         [Test]

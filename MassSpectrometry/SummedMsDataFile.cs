@@ -67,8 +67,8 @@ namespace MassSpectrometry
 
             int[] peaksLeft = spectraToCombine.Select(b => b.Size).ToArray();
             int[] totalPeaks = spectraToCombine.Select(b => b.Size).ToArray();
-            double[] nextPeakMzs = spectraToCombine.Select(b => b[0].Mz).ToArray();
-            double[] nextPeaksIntensites = spectraToCombine.Select(b => b[0].Intensity).ToArray();
+            double[] nextPeakMzs = spectraToCombine.Select(b => b.XArray[0]).ToArray();
+            double[] nextPeaksIntensites = spectraToCombine.Select(b => b.YArray[0]).ToArray();
 
             double nextMz = nextPeakMzs.Min();
             int indexOfNextScanToConsider = Array.IndexOf(nextPeakMzs, nextMz);
@@ -96,8 +96,8 @@ namespace MassSpectrometry
                     nextPeakMzs[indexOfNextScanToConsider] = double.MaxValue;
                 else
                 {
-                    nextPeakMzs[indexOfNextScanToConsider] = spectraToCombine[indexOfNextScanToConsider][totalPeaks[indexOfNextScanToConsider] - peaksLeft[indexOfNextScanToConsider]].Mz;
-                    nextPeaksIntensites[indexOfNextScanToConsider] = spectraToCombine[indexOfNextScanToConsider][totalPeaks[indexOfNextScanToConsider] - peaksLeft[indexOfNextScanToConsider]].Intensity;
+                    nextPeakMzs[indexOfNextScanToConsider] = spectraToCombine[indexOfNextScanToConsider].XArray[totalPeaks[indexOfNextScanToConsider] - peaksLeft[indexOfNextScanToConsider]];
+                    nextPeaksIntensites[indexOfNextScanToConsider] = spectraToCombine[indexOfNextScanToConsider].YArray[totalPeaks[indexOfNextScanToConsider] - peaksLeft[indexOfNextScanToConsider]];
                 }
             } while (peaksLeft.Any(b => b > 0));
 

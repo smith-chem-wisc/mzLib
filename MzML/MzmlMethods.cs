@@ -625,7 +625,7 @@ namespace IO.MzML
                 {
                     name = "base peak m/z",
                     accession = "MS:1000504",
-                    value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.PeakWithHighestY.Mz.ToString(),
+                    value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.XofPeakWithHighestY.ToString(),
                     unitCvRef = "MS",
                     unitName = "m/z",
                     unitAccession = "MS:1000040",
