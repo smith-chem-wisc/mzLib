@@ -31,15 +31,9 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
-        #region Protected Fields
-
-        protected TPeak[] peakList;
-        protected TPeak peakWithHighestY;
-
-        #endregion Protected Fields
-
         #region Private Fields
 
+        private TPeak[] peakList;
         private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
 
@@ -88,7 +82,14 @@ namespace Spectra
 
         public int Size { get { return XArray.Length; } }
 
-        public int IndexOfPeakWithHighesetY
+		public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
+		{
+			for (int i = 0; i < Size; i++)
+				XArray[i] = convertor(GetPeak(i));
+			peakList = new TPeak[Size];
+		}
+
+		public int IndexOfPeakWithHighesetY
         {
             get
             {
@@ -189,7 +190,7 @@ namespace Spectra
 
             for (int i = 0; i < Size; i++)
                 if (YArray[i] >= cutoffYvalue)
-                    yield return GeneratePeak(i);
+                    yield return GetPeak(i);
         }
 
         public IEnumerable<TPeak> Extract(DoubleRange xRange)
@@ -204,7 +205,7 @@ namespace Spectra
                 ind = ~ind;
             while (ind < Size && XArray[ind] <= maxX)
             {
-                yield return GeneratePeak(ind);
+                yield return GetPeak(ind);
                 ind++;
             }
         }
@@ -213,7 +214,7 @@ namespace Spectra
         {
             for (int i = 0; i < Size; i++)
                 if (YArray[i] >= minY && YArray[i] <= maxY)
-                    yield return GeneratePeak(i);
+                    yield return GetPeak(i);
         }
 
         public IEnumerable<TPeak> FilterByY(DoubleRange yRange)
@@ -227,6 +228,13 @@ namespace Spectra
 
         protected abstract TPeak GeneratePeak(int index);
 
-        #endregion Protected Methods
-    }
+        protected TPeak GetPeak(int index)
+        {
+			if (peakList[index] == null)
+			    peakList[index] = GeneratePeak(index);
+			return peakList[index];
+		}
+
+		#endregion Protected Methods
+	}
 }

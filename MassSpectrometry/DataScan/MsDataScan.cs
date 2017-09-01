@@ -82,11 +82,6 @@ namespace MassSpectrometry
             return string.Format("Scan #{0}", OneBasedScanNumber);
         }
 
-        public void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
-        {
-            MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
-        }
-
         public byte[] Get64BitNoiseDataMass()
         {
             return MzSpectrum<IMzPeak>.Get64Bitarray(GetNoiseDataMass(NoiseData));

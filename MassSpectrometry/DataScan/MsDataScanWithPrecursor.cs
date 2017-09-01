@@ -20,6 +20,7 @@ using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Spectra;
 
 namespace MassSpectrometry
 {
@@ -90,7 +91,7 @@ namespace MassSpectrometry
                 yield return haha;
         }
 
-        public void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
+        public void TransformMzs(Func<IPeak, double> convertorForSpectrum, Func<IPeak, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
             this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));

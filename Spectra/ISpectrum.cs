@@ -18,6 +18,7 @@
 
 using MzLibUtil;
 using System.Collections.Generic;
+using System;
 
 namespace Spectra
 {
@@ -62,6 +63,8 @@ namespace Spectra
         IEnumerable<TPeak> FilterByY(double minY, double maxY);
 
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
+
+		void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor);
 
         #endregion Public Methods
     }

@@ -104,14 +104,6 @@ namespace MassSpectrometry
             return Get64Bitarray(XArray);
         }
 
-        public void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor)
-        {
-            for (int i = 0; i < Size; i++)
-                XArray[i] = convertor(GeneratePeak(i));
-            peakWithHighestY = default(TPeak);
-            peakList = new TPeak[Size];
-        }
-
         public override string ToString()
         {
             return string.Format("{0} (Peaks {1})", Range, Size);
@@ -135,7 +127,7 @@ namespace MassSpectrometry
                     {
                         double diffToNextMmPeak = mms[mm - 1];
                         double theorMass = mMass + diffToNextMmPeak;
-                        var closestpeak = GeneratePeak(GetClosestPeakIndex(theorMass.ToMz(chargeState)));
+                        var closestpeak = GetPeak(GetClosestPeakIndex(theorMass.ToMz(chargeState)));
                         if (massTolerance.Within(closestpeak.Mz.ToMass(chargeState), theorMass) && SatisfiesRatios(mMass, mm, peak, closestpeak, intensityRatio))
                         {
                             // Found a match to an isotope peak for this charge state!
