@@ -64,7 +64,7 @@ namespace Spectra
 
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
-		void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor);
+        void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor);
 
         #endregion Public Methods
     }

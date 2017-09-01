@@ -82,7 +82,7 @@ namespace Spectra
 
         public int Size { get { return XArray.Length; } }
 
-		public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
+        public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
 		{
 			for (int i = 0; i < Size; i++)
 				XArray[i] = convertor(GetPeak(i));
