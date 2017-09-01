@@ -20,6 +20,7 @@ using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Spectra;
 
 namespace MassSpectrometry
 {
@@ -90,7 +91,7 @@ namespace MassSpectrometry
                 yield return haha;
         }
 
-        public void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor)
+        public void TransformMzs(Func<IPeak, double> convertorForSpectrum, Func<IPeak, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
             this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));
@@ -104,23 +105,23 @@ namespace MassSpectrometry
 
         public void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeak(IsolationMz);
-            SelectedIonIntensity = thePeak.Intensity;
-            SelectedIonMZ = thePeak.Mz;
+            var thePeak = precursorSpectrum.GetClosestPeakIndex(IsolationMz);
+            SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
+            SelectedIonMZ = precursorSpectrum.XArray[thePeak];
         }
 
         public void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonMZ);
-            SelectedIonIntensity = thePeak.Intensity;
-            SelectedIonMZ = thePeak.Mz;
+            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ);
+            SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
+            SelectedIonMZ = precursorSpectrum.XArray[thePeak];
         }
 
         public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeak(SelectedIonMonoisotopicGuessMz.Value);
-            SelectedIonMonoisotopicGuessIntensity = thePeak.Intensity;
-            SelectedIonMonoisotopicGuessMz = thePeak.Mz;
+            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
+            SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak];
+            SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak];
         }
 
         #endregion Public Methods

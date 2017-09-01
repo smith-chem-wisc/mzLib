@@ -19,6 +19,7 @@
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using Spectra;
 
 namespace MassSpectrometry
 {
@@ -60,7 +61,7 @@ namespace MassSpectrometry
 
         void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
-        void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor);
+        void TransformMzs(Func<IPeak, double> convertorForSpectrum, Func<IPeak, double> convertorForPrecursor);
 
         #endregion Public Methods
     }

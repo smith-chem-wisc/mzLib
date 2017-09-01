@@ -34,8 +34,6 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor);
-
         byte[] Get64BitXarray();
 
         byte[] Get64BitYarray();

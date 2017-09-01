@@ -36,9 +36,9 @@ namespace TestThermo
 
             Assert.AreEqual(a.NumSpectra, b.NumSpectra);
 
-            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Mz, b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Mz, 1e-3);
+            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, 1e-3);
 
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity - b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity) / b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity) < 1e-3);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-3);
         }
 
         [Test]
@@ -52,7 +52,6 @@ namespace TestThermo
             Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.FilterByY(5e6, double.MaxValue).Count());
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
-            Assert.AreEqual("(195.0874,1.021401E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
             Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
@@ -122,7 +121,7 @@ namespace TestThermo
             ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             s1.ReplaceXbyApplyingFunction((a) => 4);
-            Assert.AreEqual(4, s2[0].Mz);
+            Assert.AreEqual(4, s2.XArray[0]);
         }
 
         [Test]
@@ -171,7 +170,7 @@ namespace TestThermo
             Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(2).MassSpectrum.Size);
             Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(3).MassSpectrum.Size);
 
-            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity == rawFile.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity + rawFile.GetOneBasedScan(2).MassSpectrum.PeakWithHighestY.Intensity + rawFile.GetOneBasedScan(3).MassSpectrum.PeakWithHighestY.Intensity);
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY == rawFile.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY + rawFile.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY + rawFile.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY);
 
             // Interval of 893-899 mz
 

@@ -18,6 +18,7 @@
 
 using MzLibUtil;
 using System.Collections.Generic;
+using System;
 
 namespace Spectra
 {
@@ -37,17 +38,11 @@ namespace Spectra
         double LastX { get; }
         int Size { get; }
         double YofPeakWithHighestY { get; }
+        double XofPeakWithHighestY { get; }
         double SumOfAllY { get; }
         DoubleRange Range { get; }
-        TPeak PeakWithHighestY { get; }
 
         #endregion Public Properties
-
-        #region Public Indexers
-
-        TPeak this[int index] { get; }
-
-        #endregion Public Indexers
 
         #region Public Methods
 
@@ -55,7 +50,7 @@ namespace Spectra
 
         int NumPeaksWithinRange(double minX, double maxX);
 
-        TPeak GetClosestPeak(double x);
+        int GetClosestPeakIndex(double x);
 
         double GetClosestPeakXvalue(double x);
 
@@ -68,6 +63,8 @@ namespace Spectra
         IEnumerable<TPeak> FilterByY(double minY, double maxY);
 
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
+
+        void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor);
 
         #endregion Public Methods
     }

@@ -43,8 +43,6 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
-
         byte[] Get64BitNoiseDataMass();
 
         byte[] Get64BitNoiseDataNoise();

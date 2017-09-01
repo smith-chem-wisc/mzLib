@@ -173,7 +173,7 @@ namespace Test
 
             Assert.AreEqual(1, secondScan2.IsolationRange.Maximum - secondScan2.IsolationRange.Minimum);
 
-            secondScan2.TransformByApplyingFunctionToSpectra((a) => 44);
+            secondScan2.MassSpectrum.ReplaceXbyApplyingFunction((a) => 44);
             Assert.AreEqual(44, secondScan2.MassSpectrum.LastX);
         }
 
