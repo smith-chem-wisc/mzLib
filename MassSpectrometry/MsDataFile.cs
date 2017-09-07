@@ -36,19 +36,30 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public MsDataFile(int numSpectra)
+        public MsDataFile(int numSpectra, SourceFile sourceFile) : this(sourceFile)
         {
             Scans = new TScan[numSpectra];
         }
 
-        public MsDataFile(TScan[] scans)
+        public MsDataFile(TScan[] scans, SourceFile sourceFile) : this(sourceFile)
         {
             Scans = scans;
         }
 
         #endregion Public Constructors
 
+        #region Private Constructors
+
+        private MsDataFile(SourceFile sourceFile)
+        {
+            this.SourceFile = sourceFile;
+        }
+
+        #endregion Private Constructors
+
         #region Public Properties
+
+        public SourceFile SourceFile { get; }
 
         public int NumSpectra
         {

@@ -7,8 +7,8 @@ namespace IO.Thermo
     {
         #region Public Constructors
 
-        public ThermoScan(int oneBasedScanNumber, ThermoSpectrum massSpectrum, int msnOrder, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData)
-        : base(massSpectrum, oneBasedScanNumber, msnOrder, true, polarity, retentionTime, scanWindowRange, scanFilter, mzAnalyzer, totalIonCurrent, injectionTime, noiseData)
+        public ThermoScan(int oneBasedScanNumber, ThermoSpectrum massSpectrum, int msnOrder, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId)
+        : base(massSpectrum, oneBasedScanNumber, msnOrder, true, polarity, retentionTime, scanWindowRange, scanFilter, mzAnalyzer, totalIonCurrent, injectionTime, noiseData, nativeId)
 
         {
         }

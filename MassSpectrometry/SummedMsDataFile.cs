@@ -17,7 +17,8 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public SummedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numScansToAverage, double ppmToleranceForPeakCombination) : base(raw.NumSpectra - numScansToAverage + 1)
+        public SummedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numScansToAverage, double ppmToleranceForPeakCombination) :
+            base(raw.NumSpectra - numScansToAverage + 1, new SourceFile())
         {
             this.raw = raw;
             this.numScansToAverage = numScansToAverage;
@@ -52,7 +53,7 @@ namespace MassSpectrometry
                 double injectionTime = double.NaN;
                 double[,] noiseData = null;
 
-                Scans[oneBasedScanNumber - 1] = new MsDataScan<IMzSpectrum<IMzPeak>>(peaks, oneBasedScanNumber, msnOrder, isCentroid, polarity, retentionTime, scanWindowRange, oneBasedScanNumber.ToString(), mzAnalyzer, totalIonCurrent, injectionTime, noiseData);
+                Scans[oneBasedScanNumber - 1] = new MsDataScan<IMzSpectrum<IMzPeak>>(peaks, oneBasedScanNumber, msnOrder, isCentroid, polarity, retentionTime, scanWindowRange, null, mzAnalyzer, totalIonCurrent, injectionTime, noiseData, "scan=" + oneBasedScanNumber);
             }
             return Scans[oneBasedScanNumber - 1];
         }

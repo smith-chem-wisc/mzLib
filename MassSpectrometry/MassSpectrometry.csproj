@@ -42,6 +42,7 @@
     <Compile Include="Chromatogram\ChromatographicPeak.cs" />
     <Compile Include="DataScan\IMsDataScanWithPrecursor.cs" />
     <Compile Include="DataScan\MsDataScanWithPrecursor.cs" />
+    <Compile Include="SourceFile.cs" />
     <Compile Include="SummedMsDataFile.cs" />
     <Compile Include="GeneratedMzSpectrum.cs" />
     <Compile Include="GeneratedPeak.cs" />
