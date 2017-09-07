@@ -148,7 +148,7 @@ namespace IO.MzML
                         checkSumType = "SHA-1";
                     }
                 }
-                
+
                 sourceFile = new SourceFile(
                     nativeIdFormat,
                     fileFormat,

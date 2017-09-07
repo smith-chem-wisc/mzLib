@@ -17,8 +17,8 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MzLibUtil;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
 
 namespace Spectra
 {

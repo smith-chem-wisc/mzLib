@@ -205,7 +205,7 @@ namespace IO.Thermo
                     mzAnalyzerType = MZAnalyzerType.Unknown;
                     break;
             }
-            string nativeId = "controllerType = 0 controllerNumber = 1 scan = " + nScanNumber;
+            string nativeId = "controllerType=0 controllerNumber=1 scan=" + nScanNumber;
 
             if (pnMSOrder > 1)
             {

@@ -165,7 +165,7 @@ namespace IO.MzML
                 accession = FileChecksumAccessions[myMsDataFile.SourceFile.FileChecksumType],
                 name = myMsDataFile.SourceFile.FileChecksumType,
                 cvRef = "MS",
-                value = myMsDataFile.SourceFile.CheckSum
+                value = myMsDataFile.SourceFile.CheckSum ?? "",
             };
 
             #endregion MSGF
