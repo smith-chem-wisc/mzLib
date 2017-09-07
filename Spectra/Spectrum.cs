@@ -82,14 +82,7 @@ namespace Spectra
 
         public int Size { get { return XArray.Length; } }
 
-        public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
-		{
-			for (int i = 0; i < Size; i++)
-				XArray[i] = convertor(GetPeak(i));
-			peakList = new TPeak[Size];
-		}
-
-		public int IndexOfPeakWithHighesetY
+        public int IndexOfPeakWithHighesetY
         {
             get
             {
@@ -136,6 +129,13 @@ namespace Spectra
         #endregion Public Properties
 
         #region Public Methods
+
+        public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
+        {
+            for (int i = 0; i < Size; i++)
+                XArray[i] = convertor(GetPeak(i));
+            peakList = new TPeak[Size];
+        }
 
         public virtual double[,] CopyTo2DArray()
         {
@@ -230,11 +230,11 @@ namespace Spectra
 
         protected TPeak GetPeak(int index)
         {
-			if (peakList[index] == null)
-			    peakList[index] = GeneratePeak(index);
-			return peakList[index];
-		}
+            if (peakList[index] == null)
+                peakList[index] = GeneratePeak(index);
+            return peakList[index];
+        }
 
-		#endregion Protected Methods
-	}
+        #endregion Protected Methods
+    }
 }

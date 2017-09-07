@@ -1,6 +1,8 @@
 ﻿using MassSpectrometry;
 using MSFileReaderLib;
 using System;
+using System.IO;
+using System.Security.Cryptography;
 
 namespace IO.Thermo
 {
@@ -14,7 +16,7 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath) : base(_rawConnection, numSpectra, couldBePrecursor, filePath)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
         {
             this._rawConnection = _rawConnection;
         }
@@ -23,10 +25,10 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoDynamicData InitiateDynamicConnection(string fileName)
+        public static ThermoDynamicData InitiateDynamicConnection(string filePath)
         {
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
-            _rawConnection.Open(fileName);
+            _rawConnection.Open(filePath);
             _rawConnection.SetCurrentController(0, 1);
 
             int lastspectrumNumber = -1;
@@ -36,7 +38,27 @@ namespace IO.Thermo
 
             var precursorInfoArray = new ManagedThermoHelperLayer.PrecursorInfo[lastspectrumNumber - firstspectrumNumber + 1];
 
-            return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, fileName);
+            string sendCheckSum;
+            using (FileStream stream = File.OpenRead(filePath))
+            {
+                using (SHA1Managed sha = new SHA1Managed())
+                {
+                    byte[] checksum = sha.ComputeHash(stream);
+                    sendCheckSum = BitConverter.ToString(checksum)
+                        .Replace("-", string.Empty);
+                }
+            }
+            SourceFile sourceFile = new SourceFile(
+                @"Thermo nativeID format",
+                @"Thermo RAW format",
+                sendCheckSum,
+                @"SHA-1",
+                filePath,
+                Path.GetFileNameWithoutExtension(filePath));
+
+            var thermoGlobalParams = GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
+
+            return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
         }
 
         public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)

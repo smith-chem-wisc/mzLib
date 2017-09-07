@@ -15,20 +15,52 @@ namespace TestThermo
     {
         #region Public Methods
 
-        [OneTimeSetUp]
-        public void Setup()
+        [Test]
+        public static void ReadWriteReadEtc()
         {
-            Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"testFileWMS2.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                Mzml.LoadAllStaticData("aa.mzML");
+            }
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                Mzml.LoadAllStaticData("aa.mzML");
+            }
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                Mzml.LoadAllStaticData("aa.mzML");
+            }
         }
 
         [Test]
-        public void ThermoLoadError()
+        public static void ThermoLoadError()
         {
             Assert.Throws<MzLibException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
         }
 
         [Test]
-        public void LoadCompressedMzml()
+        public static void LoadCompressedMzml()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
@@ -42,7 +74,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void LoadThermoTest2()
+        public static void LoadThermoTest2()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
             Assert.AreEqual(360, a.NumSpectra);
@@ -81,7 +113,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void LoadThermoTest3()
+        public static void LoadThermoTest3()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
@@ -111,7 +143,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void ThermoSpectrumTest()
+        public static void ThermoSpectrumTest()
         {
             double[] resolutions = new double[] { 1 };
             int[] charge = new int[] { 1 };
@@ -125,7 +157,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void ThermoDynamicTest()
+        public static void ThermoDynamicTest()
         {
             ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS2.raw");
             var ms1scan = dynamicThermo.GetOneBasedScan(1);
@@ -144,7 +176,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void TestSummedMsDataFile()
+        public static void TestSummedMsDataFile()
         {
             ThermoStaticData rawFile = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
 
@@ -189,10 +221,18 @@ namespace TestThermo
             SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);
 
             Assert.AreEqual(rawFile.NumSpectra - 4, summed5.NumSpectra);
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(summed5, "testSummed.mzML", false);
+
+            var ok = Mzml.LoadAllStaticData("testSummed.mzML");
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, "testSummed2.mzML", false);
+
+            Mzml.LoadAllStaticData("testSummed2.mzML");
         }
 
         [Test]
-        public void WriteIndexedMzmlFromThermoTest()
+        public static void WriteIndexedMzmlFromThermoTest()
         {
             var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzML"), true);
@@ -200,6 +240,12 @@ namespace TestThermo
             Assert.AreEqual(smallMzml.NumSpectra, 48);
             Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
             Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
+        }
+
+        [OneTimeSetUp]
+        public void Setup()
+        {
+            Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
         }
 
         #endregion Public Methods

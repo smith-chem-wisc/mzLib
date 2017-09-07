@@ -34,21 +34,32 @@ namespace MassSpectrometry
 
         #endregion Protected Fields
 
-        #region Public Constructors
+        #region Protected Constructors
 
-        public MsDataFile(int numSpectra)
+        protected MsDataFile(int numSpectra, SourceFile sourceFile) : this(sourceFile)
         {
             Scans = new TScan[numSpectra];
         }
 
-        public MsDataFile(TScan[] scans)
+        protected MsDataFile(TScan[] scans, SourceFile sourceFile) : this(sourceFile)
         {
             Scans = scans;
         }
 
-        #endregion Public Constructors
+        #endregion Protected Constructors
+
+        #region Private Constructors
+
+        private MsDataFile(SourceFile sourceFile)
+        {
+            this.SourceFile = sourceFile;
+        }
+
+        #endregion Private Constructors
 
         #region Public Properties
+
+        public SourceFile SourceFile { get; }
 
         public int NumSpectra
         {

@@ -17,19 +17,19 @@ namespace IO.Thermo
 
         #endregion Private Fields
 
-        #region Public Constructors
+        #region Protected Constructors
 
-        public ThermoFile(IThermoScan[] scans, ThermoGlobalParams thermoGlobalParams) : base(scans)
+        protected ThermoFile(IThermoScan[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
         {
             this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath) : base(numSpectra)
+        protected ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
         {
-            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor, filePath);
+            this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        #endregion Public Constructors
+        #endregion Protected Constructors
 
         #region Private Enums
 
@@ -205,6 +205,7 @@ namespace IO.Thermo
                     mzAnalyzerType = MZAnalyzerType.Unknown;
                     break;
             }
+            string nativeId = "controllerType=0 controllerNumber=1 scan=" + nScanNumber;
 
             if (pnMSOrder > 1)
             {
@@ -288,7 +289,8 @@ namespace IO.Thermo
                     oneBasedPrecursorScanNumber,
                     selectedIonGuessMonoisotopicMz,
                     injectionTimeFromTrailerExtra,
-                    noiseData);
+                    noiseData,
+                    nativeId);
             }
             else
             {
@@ -302,7 +304,8 @@ namespace IO.Thermo
                     mzAnalyzerType,
                     pdTIC,
                     injectionTimeFromTrailerExtra,
-                    noiseData);
+                    noiseData,
+                    nativeId);
             }
         }
 
