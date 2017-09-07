@@ -16,7 +16,7 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
         {
             this._rawConnection = _rawConnection;
         }
@@ -56,7 +56,9 @@ namespace IO.Thermo
                 filePath,
                 Path.GetFileNameWithoutExtension(filePath));
 
-            return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile);
+            var thermoGlobalParams = GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
+
+            return new ThermoDynamicData(_rawConnection, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
         }
 
         public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)

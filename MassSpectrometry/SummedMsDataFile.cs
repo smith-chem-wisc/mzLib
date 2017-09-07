@@ -18,7 +18,15 @@ namespace MassSpectrometry
         #region Public Constructors
 
         public SummedMsDataFile(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> raw, int numScansToAverage, double ppmToleranceForPeakCombination) :
-            base(raw.NumSpectra - numScansToAverage + 1, new SourceFile())
+            base(raw.NumSpectra - numScansToAverage + 1,
+                new SourceFile(
+                @"scan number only nativeID format",
+                raw.SourceFile.MassSpectrometerFileFormat,
+                raw.SourceFile.CheckSum,
+                raw.SourceFile.FileChecksumType,
+                raw.SourceFile.Uri,
+                raw.SourceFile.Id,
+                raw.SourceFile.FileName))
         {
             this.raw = raw;
             this.numScansToAverage = numScansToAverage;

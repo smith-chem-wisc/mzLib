@@ -227,6 +227,14 @@ namespace TestThermo
             SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);
 
             Assert.AreEqual(rawFile.NumSpectra - 4, summed5.NumSpectra);
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(summed5, "testSummed.mzML", false);
+
+            var ok = Mzml.LoadAllStaticData("testSummed.mzML");
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, "testSummed2.mzML", false);
+
+            Mzml.LoadAllStaticData("testSummed2.mzML");
         }
 
         [Test]

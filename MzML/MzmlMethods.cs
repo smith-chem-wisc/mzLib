@@ -142,7 +142,7 @@ namespace IO.MzML
             {
                 id = myMsDataFile.SourceFile.FileName,
                 name = myMsDataFile.SourceFile.FileName,
-                location = myMsDataFile.SourceFile.FileLocation
+                location = myMsDataFile.SourceFile.Uri.ToString(),
             };
 
             mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];

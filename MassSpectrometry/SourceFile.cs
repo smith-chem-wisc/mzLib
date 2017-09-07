@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using System.IO;
 
 namespace MassSpectrometry
@@ -24,24 +25,28 @@ namespace MassSpectrometry
     {
         #region Public Constructors
 
-        public SourceFile()
+        public SourceFile(string nativeIdFormat, string massSpectrometerFileFormat, string checkSum, string fileChecksumType, string id)
         {
-            this.NativeIdFormat = @"no nativeID format";
-            this.MassSpectrometerFileFormat = @"mzML format";
-            this.CheckSum = @"";
-            this.FileChecksumType = @"SHA-1";
-            this.FilePath = @"C:\undefined.mzML";
-            this.Id = @"undefined.mzML";
+            NativeIdFormat = nativeIdFormat;
+            MassSpectrometerFileFormat = massSpectrometerFileFormat;
+            CheckSum = checkSum;
+            FileChecksumType = fileChecksumType;
+            Id = id;
         }
 
         public SourceFile(string nativeIdFormat, string massSpectrometerFileFormat, string checkSum, string fileChecksumType, string filePath, string id)
+        : this(nativeIdFormat, massSpectrometerFileFormat, checkSum, fileChecksumType, id)
         {
-            this.NativeIdFormat = nativeIdFormat;
-            this.MassSpectrometerFileFormat = massSpectrometerFileFormat;
-            this.CheckSum = checkSum;
-            this.FileChecksumType = fileChecksumType;
-            this.FilePath = filePath;
-            this.Id = id;
+            Uri.TryCreate(Directory.GetParent(filePath).FullName, UriKind.Absolute, out Uri result);
+            this.Uri = result;
+            this.FileName = Path.GetFileName(filePath);
+        }
+
+        public SourceFile(string nativeIdFormat, string massSpectrometerFileFormat, string checkSum, string fileChecksumType, Uri uri, string id, string fileName)
+            : this(nativeIdFormat, massSpectrometerFileFormat, checkSum, fileChecksumType, id)
+        {
+            this.Uri = uri;
+            this.FileName = fileName;
         }
 
         #endregion Public Constructors
@@ -52,9 +57,9 @@ namespace MassSpectrometry
         public string MassSpectrometerFileFormat { get; }
         public string CheckSum { get; }
         public string FileChecksumType { get; }
-        public string FileLocation { get { return Directory.GetParent(FilePath).FullName; } }
-        public string FileName { get { return Path.GetFileName(FilePath); } }
-        public string FilePath { get; }
+        public Uri Uri { get; }
+
+        public string FileName { get; }
         public string Id { get; }
 
         #endregion Public Properties

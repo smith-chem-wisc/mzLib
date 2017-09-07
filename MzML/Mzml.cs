@@ -148,14 +148,15 @@ namespace IO.MzML
                         checkSumType = "SHA-1";
                     }
                 }
-
+                
                 sourceFile = new SourceFile(
                     nativeIdFormat,
                     fileFormat,
                     checkSum,
                     checkSumType,
-                    Path.Combine(simpler.location, simpler.name),
-                    simpler.id);
+                    new Uri(simpler.location),
+                    simpler.id,
+                    simpler.name);
             }
             else
             {
@@ -174,7 +175,7 @@ namespace IO.MzML
                     @"mzML format",
                     sendCheckSum,
                     @"SHA-1",
-                    filePath,
+                    Path.GetFullPath(filePath),
                     Path.GetFileNameWithoutExtension(filePath));
             }
 

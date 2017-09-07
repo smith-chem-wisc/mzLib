@@ -24,9 +24,9 @@ namespace IO.Thermo
             this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        protected ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile) : base(numSpectra, sourceFile)
+        protected ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
         {
-            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor, sourceFile.FilePath);
+            this.ThermoGlobalParams = thermoGlobalParams;
         }
 
         #endregion Protected Constructors
