@@ -42,6 +42,44 @@ namespace TestThermo
         }
 
         [Test]
+        public void ReadWriteReadEtc()
+        {
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"testFileWMS2.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                var aaa = Mzml.LoadAllStaticData("aa.mzML");
+            }
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                var aaa = Mzml.LoadAllStaticData("aa.mzML");
+            }
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                var aaa = Mzml.LoadAllStaticData("aa.mzML");
+            }
+        }
+
+        [Test]
         public void LoadThermoTest2()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");

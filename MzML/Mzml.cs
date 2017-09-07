@@ -125,7 +125,7 @@ namespace IO.MzML
                 string checkSumType = null;
                 foreach (var cv in simpler.cvParam)
                 {
-                    if (cv.accession.Equals(@"MS: 1000563"))
+                    if (cv.accession.Equals(@"MS:1000563"))
                         fileFormat = "Thermo RAW format";
                     if (cv.accession.Equals(@"MS:1000584"))
                         fileFormat = "mzML format";
