@@ -38,7 +38,7 @@ namespace MassSpectrometry
 
         DissociationType DissociationType { get; }
 
-        double IsolationMz { get; }
+        double? IsolationMz { get; }
         MzRange IsolationRange { get; }
 
         #endregion Public Properties

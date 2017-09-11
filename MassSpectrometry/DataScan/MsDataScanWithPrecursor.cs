@@ -35,7 +35,7 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected MsDataScanWithPrecursor(TSpectrum massSpectrum, int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
+        protected MsDataScanWithPrecursor(TSpectrum massSpectrum, int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
                                                         : base(massSpectrum, ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData, nativeId)
         {
             this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
@@ -55,7 +55,7 @@ namespace MassSpectrometry
 
         #region Public Properties
 
-        public double IsolationMz { get; private set; } // May be adjusted by calibration
+        public double? IsolationMz { get; private set; } // May be adjusted by calibration
         public int? SelectedIonChargeStateGuess { get; }
         public double? SelectedIonIntensity { get; private set; } // May be refined
         public double SelectedIonMZ { get; private set; } // May be adjusted by calibration
@@ -72,7 +72,7 @@ namespace MassSpectrometry
                 if (isolationRange != null)
                     return isolationRange;
                 if (IsolationWidth.HasValue)
-                    isolationRange = new MzRange(IsolationMz - IsolationWidth.Value / 2, IsolationMz + IsolationWidth.Value / 2);
+                    isolationRange = new MzRange((double)IsolationMz - IsolationWidth.Value / 2, (double)IsolationMz + IsolationWidth.Value / 2);
                 return isolationRange;
             }
         }
@@ -97,7 +97,7 @@ namespace MassSpectrometry
             this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));
             if (SelectedIonMonoisotopicGuessMz.HasValue)
                 this.SelectedIonMonoisotopicGuessMz = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicGuessMz.Value, SelectedIonMonoisotopicGuessIntensity.Value));
-            this.IsolationMz = convertorForPrecursor(new MzPeak(IsolationMz, SelectedIonIntensity.Value));
+            this.IsolationMz = convertorForPrecursor(new MzPeak((double)IsolationMz, SelectedIonIntensity.Value));
 
             // Will need to recompute this...
             isolationRange = null;
@@ -105,7 +105,7 @@ namespace MassSpectrometry
 
         public void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(IsolationMz);
+            var thePeak = precursorSpectrum.GetClosestPeakIndex((double)IsolationMz);
             SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
             SelectedIonMZ = precursorSpectrum.XArray[thePeak];
         }

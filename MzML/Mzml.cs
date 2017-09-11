@@ -394,11 +394,7 @@ namespace IO.MzML
                     }
                 }
             }
-            else
-                isolationMz = 1000827; //for file foramts (mgf) that don't contain this information
 
-            if (!isolationMz.HasValue)
-                throw new MzLibException("!isolationMz.HasValue");
 
             DissociationType dissociationType = DissociationType.Unknown;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam != null)
@@ -439,7 +435,7 @@ namespace IO.MzML
                 selectedIonMz,
                 selectedIonCharge,
                 selectedIonIntensity,
-                isolationMz.Value,
+                isolationMz,
                 lowIsolation + highIsolation,
                 dissociationType,
                 precursorScanNumber,
