@@ -181,10 +181,7 @@ namespace IO.MzML
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             IMzmlScan[] scans = new IMzmlScan[numSpecta];
-            if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration == null)
-            {
 
-            }
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
@@ -214,9 +211,6 @@ namespace IO.MzML
             }
 
             var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
-            if (configs[0] == null)
-            {
-            }
             // May be null!
             var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
 
@@ -401,7 +395,7 @@ namespace IO.MzML
                 }
             }
             else
-                isolationMz = 10000827; //fir file foramts (mgf) that don't contain this information
+                isolationMz = 1000827; //for file foramts (mgf) that don't contain this information
 
             if (!isolationMz.HasValue)
                 throw new MzLibException("!isolationMz.HasValue");
