@@ -181,11 +181,16 @@ namespace IO.MzML
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             IMzmlScan[] scans = new IMzmlScan[numSpecta];
+            if (_mzMLConnection.instrumentConfigurationList.instrumentConfiguration == null)
+            {
+
+            }
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
                     scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
             });
+
             return new Mzml(scans, sourceFile);
         }
 
@@ -209,7 +214,9 @@ namespace IO.MzML
             }
 
             var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
-
+            if (configs[0] == null)
+            {
+            }
             // May be null!
             var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
 
@@ -217,7 +224,9 @@ namespace IO.MzML
             // use default
             if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
             {
-                if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                if (configs[0].componentList == null)
+                    analyzer = default(MZAnalyzerType);
+                else if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
                     analyzer = returnVal;
             }
             // use scan-specific
@@ -373,29 +382,37 @@ namespace IO.MzML
             double? isolationMz = null;
             double lowIsolation = double.NaN;
             double highIsolation = double.NaN;
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].isolationWindow.cvParam)
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].isolationWindow != null)
             {
-                if (cv.accession.Equals(_isolationWindowTargetMZ))
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].isolationWindow.cvParam)
                 {
-                    isolationMz = double.Parse(cv.value);
-                }
-                if (cv.accession.Equals(_isolationWindowLowerOffset))
-                {
-                    lowIsolation = double.Parse(cv.value);
-                }
-                if (cv.accession.Equals(_isolationWindowUpperOffset))
-                {
-                    highIsolation = double.Parse(cv.value);
+                    if (cv.accession.Equals(_isolationWindowTargetMZ))
+                    {
+                        isolationMz = double.Parse(cv.value);
+                    }
+                    if (cv.accession.Equals(_isolationWindowLowerOffset))
+                    {
+                        lowIsolation = double.Parse(cv.value);
+                    }
+                    if (cv.accession.Equals(_isolationWindowUpperOffset))
+                    {
+                        highIsolation = double.Parse(cv.value);
+                    }
                 }
             }
+            else
+                isolationMz = 10000827; //fir file foramts (mgf) that don't contain this information
 
             if (!isolationMz.HasValue)
                 throw new MzLibException("!isolationMz.HasValue");
 
             DissociationType dissociationType = DissociationType.Unknown;
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam != null)
             {
-                dissociationDictionary.TryGetValue(cv.accession, out dissociationType);
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
+                {
+                    dissociationDictionary.TryGetValue(cv.accession, out dissociationType);
+                }
             }
             double? monoisotopicMz = null;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].userParam != null)
@@ -406,7 +423,14 @@ namespace IO.MzML
                         monoisotopicMz = double.Parse(userParam.value);
                     }
                 }
+            int precursorScanNumber = 0;
 
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
+            {
+                Int32.TryParse(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id, out precursorScanNumber);
+            }
+            else
+                precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
             return new MzmlScanWithPrecursor(
                 oneBasedSpectrumNumber,
                 mzmlMzSpectrum,
@@ -424,7 +448,7 @@ namespace IO.MzML
                 isolationMz.Value,
                 lowIsolation + highIsolation,
                 dissociationType,
-                GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber),
+                precursorScanNumber,
                 monoisotopicMz,
                 injectionTime,
                 nativeId);

@@ -93,9 +93,9 @@ namespace Test
         [Test]
         public void LoadMzmlTest()
         {
-            Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
+            Mzml a = Mzml.LoadAllStaticData(@"tiny.pwiz.1.1.mzML");
 
-            /*var ya = a.GetOneBasedScan(1).MassSpectrum;
+            var ya = a.GetOneBasedScan(1).MassSpectrum;
             Assert.AreEqual(15, ya.Size);
             var ya2 = a.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(10, ya2.Size);
@@ -103,7 +103,7 @@ namespace Test
             Assert.AreEqual(0, ya3.Size);
             var ya4 = a.GetOneBasedScan(4).MassSpectrum;
             Assert.AreEqual(15, ya4.Size);
-            */
+            
             IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> ok = a;
 
             Assert.AreEqual(1, ok.GetClosestOneBasedSpectrumNumber(5));
@@ -133,6 +133,23 @@ namespace Test
             Mzml e = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML", minRatio: 0.1, trimMsMsPeaks: false);
             Assert.AreEqual(42, e.First().MassSpectrum.Size);
             Assert.AreEqual(485, e.First(bb => bb.MsnOrder == 2).MassSpectrum.Size);
+        }
+
+        [Test]
+        public void LoadMzmlFromConvertedMGFTest()
+        {
+            Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
+
+            var ya = a.GetOneBasedScan(1).MassSpectrum;
+            Assert.AreEqual(192, ya.Size);
+            var ya2 = a.GetOneBasedScan(3).MassSpectrum;
+            Assert.AreEqual(165, ya2.Size);
+            var ya3 = a.GetOneBasedScan(5).MassSpectrum;
+            Assert.AreEqual(551, ya3.Size);
+            var ya4 = a.GetOneBasedScan(975).MassSpectrum;
+            Assert.AreEqual(190, ya4.Size);
+
+            
         }
 
         [Test]
