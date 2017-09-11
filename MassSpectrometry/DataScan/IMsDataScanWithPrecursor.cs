@@ -28,7 +28,7 @@ namespace MassSpectrometry
     {
         #region Public Properties
 
-        int OneBasedPrecursorScanNumber { get; }
+        int? OneBasedPrecursorScanNumber { get; }
 
         double SelectedIonMZ { get; }
         double? SelectedIonIntensity { get; }

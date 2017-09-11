@@ -413,14 +413,13 @@ namespace IO.MzML
                         monoisotopicMz = double.Parse(userParam.value);
                     }
                 }
-            int precursorScanNumber = 0;
-
+            int? precursorScanNumber = 0;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
             {
-                Int32.TryParse(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id, out precursorScanNumber);
+                precursorScanNumber = null;
             }
             else
-                precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
+            precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
             return new MzmlScanWithPrecursor(
                 oneBasedSpectrumNumber,
                 mzmlMzSpectrum,

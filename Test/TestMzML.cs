@@ -138,7 +138,7 @@ namespace Test
         [Test]
         public void LoadMzmlFromConvertedMGFTest()
         { 
-            /*Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
+            Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
             Assert.AreEqual(192, ya.Size);
@@ -149,7 +149,7 @@ namespace Test
             var ya4 = a.GetOneBasedScan(975).MassSpectrum;
             Assert.AreEqual(190, ya4.Size);
 
-            */
+            
         }
 
         [Test]
