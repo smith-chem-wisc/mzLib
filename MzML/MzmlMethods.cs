@@ -492,11 +492,9 @@ namespace IO.MzML
                         name = "MSn spectrum",
                         value = ""
                     };
-                    string precursorID = "";
-                    if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
-                    {
-                        precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
-                    }
+
+                    string precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
+
                     // So needs a precursor!
                     mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
                     {

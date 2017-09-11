@@ -413,7 +413,7 @@ namespace IO.MzML
                         monoisotopicMz = double.Parse(userParam.value);
                     }
                 }
-            int? precursorScanNumber = 0;
+            int? precursorScanNumber;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
             {
                 precursorScanNumber = null;

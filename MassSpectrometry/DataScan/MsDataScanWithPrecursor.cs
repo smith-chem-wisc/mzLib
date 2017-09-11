@@ -38,8 +38,8 @@ namespace MassSpectrometry
         protected MsDataScanWithPrecursor(TSpectrum massSpectrum, int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
                                                         : base(massSpectrum, ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData, nativeId)
         {
-            if (OneBasedPrecursorScanNumber.HasValue)
-                this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber.Value;
+
+            this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
 
             this.IsolationMz = isolationMZ;
             this.IsolationWidth = isolationWidth;
