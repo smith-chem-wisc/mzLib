@@ -26,6 +26,7 @@ namespace MassSpectrometry
         #region Public Properties
 
         int NumSpectra { get; }
+        SourceFile SourceFile { get; }
 
         #endregion Public Properties
 

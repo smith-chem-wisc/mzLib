@@ -51,6 +51,25 @@ namespace IO.MzML
                 {MZAnalyzerType.Sector,"MS:1000080"}
             };
 
+        private static readonly Dictionary<string, string> nativeIdFormatAccessions = new Dictionary<string, string>
+            {
+                {"scan number only nativeID format", "MS:1000776"},
+                {"Thermo nativeID format", "MS:1000768"},
+                {"no nativeID format", "MS:1000824" },
+            };
+
+        private static readonly Dictionary<string, string> MassSpectrometerFileFormatAccessions = new Dictionary<string, string>
+            {
+                {"Thermo RAW format", "MS:1000563"},
+                {"mzML format", "MS:1000584"},
+            };
+
+        private static readonly Dictionary<string, string> FileChecksumAccessions = new Dictionary<string, string>
+            {
+                {"MD5", "MS:1000568"},
+                {"SHA-1", "MS:1000569"},
+            };
+
         private static readonly Dictionary<bool, string> CentroidAccessions = new Dictionary<bool, string>{
             {true, "MS:1000127"},
             {false, "MS:1000128"}};
@@ -102,6 +121,7 @@ namespace IO.MzML
                 id = "UO",
                 version = "12:10:2011"
             };
+
             mzML.fileDescription = new Generated.FileDescriptionType()
             {
                 fileContent = new Generated.ParamGroupType(),
@@ -120,9 +140,32 @@ namespace IO.MzML
 
             mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
             {
-                id = "undefined.mzML",
-                name = "undefined.mzML",
-                location = @"file:///C:\Undefined\"
+                id = myMsDataFile.SourceFile.FileName,
+                name = myMsDataFile.SourceFile.FileName,
+                location = myMsDataFile.SourceFile.Uri.ToString(),
+            };
+
+            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
+            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
+            {
+                accession = nativeIdFormatAccessions[myMsDataFile.SourceFile.NativeIdFormat],
+                name = myMsDataFile.SourceFile.NativeIdFormat,
+                cvRef = "MS",
+                value = ""
+            };
+            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[1] = new Generated.CVParamType()
+            {
+                accession = MassSpectrometerFileFormatAccessions[myMsDataFile.SourceFile.MassSpectrometerFileFormat],
+                name = myMsDataFile.SourceFile.MassSpectrometerFileFormat,
+                cvRef = "MS",
+                value = ""
+            };
+            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[2] = new Generated.CVParamType()
+            {
+                accession = FileChecksumAccessions[myMsDataFile.SourceFile.FileChecksumType],
+                name = myMsDataFile.SourceFile.FileChecksumType,
+                cvRef = "MS",
+                value = myMsDataFile.SourceFile.CheckSum ?? "",
             };
 
             #endregion MSGF
@@ -142,6 +185,7 @@ namespace IO.MzML
                 cvRef = "MS",
                 value = ""
             };
+
             mzML.softwareList = new Generated.SoftwareListType()
             {
                 count = "2",
@@ -284,7 +328,6 @@ namespace IO.MzML
                 chromatogram = new Generated.ChromatogramType[1],
                 defaultDataProcessingRef = "mzLibProcessing"
             };
-            // ToDo: Finish the chromatogram writing! (think finished)
 
             //Chromatagram info
             mzML.run.chromatogramList.chromatogram[0] = new Generated.ChromatogramType()
@@ -406,8 +449,7 @@ namespace IO.MzML
                 {
                     defaultArrayLength = myMsDataFile.GetOneBasedScan(i).MassSpectrum.YArray.Length,
                     index = (i - 1).ToString(CultureInfo.InvariantCulture),
-                    id = "scan=" + (myMsDataFile.GetOneBasedScan(i).OneBasedScanNumber).ToString(),
-                    //"controllerType=0 controllerNumber=1
+                    id = myMsDataFile.GetOneBasedScan(i).NativeId,
                     cvParam = new Generated.CVParamType[9],
                     scanList = new Generated.ScanListType()
                 };
@@ -450,7 +492,7 @@ namespace IO.MzML
                         name = "MSn spectrum",
                         value = ""
                     };
-                    string precursorID = "scan=" + scanWithPrecursor.OneBasedPrecursorScanNumber.ToString();
+                    string precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber).NativeId;
 
                     // So needs a precursor!
                     mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
@@ -458,14 +500,15 @@ namespace IO.MzML
                         count = 1.ToString(),
                         precursor = new Generated.PrecursorType[1],
                     };
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType();
-
-                    //note: precursod "id" set to string ID of spectrum (not index)
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList = new Generated.SelectedIonListType()
+                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType
                     {
-                        count = 1.ToString(),
-                        selectedIon = new Generated.ParamGroupType[1]
+                        //note: precursod "id" set to string ID of spectrum (not index)
+                        spectrumRef = precursorID,
+                        selectedIonList = new Generated.SelectedIonListType()
+                        {
+                            count = 1.ToString(),
+                            selectedIon = new Generated.ParamGroupType[1]
+                        }
                     };
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0] = new Generated.ParamGroupType()
                     {
@@ -624,7 +667,7 @@ namespace IO.MzML
                 {
                     name = "base peak m/z",
                     accession = "MS:1000504",
-                    value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.PeakWithHighestY.Mz.ToString(),
+                    value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.XofPeakWithHighestY.ToString(),
                     unitCvRef = "MS",
                     unitName = "m/z",
                     unitAccession = "MS:1000040",
@@ -1007,9 +1050,11 @@ namespace IO.MzML
                     if (index != -1)
                     {
                         a = index;
-                        indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType();
-                        indexedMzml.indexList.index[0].offset[i].idRef = mzML.run.spectrumList.spectrum[i].id;
-                        indexedMzml.indexList.index[0].offset[i].Value = a + offsetFromBeforeScanTag;
+                        indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType
+                        {
+                            idRef = mzML.run.spectrumList.spectrum[i].id,
+                            Value = a + offsetFromBeforeScanTag
+                        };
                         i++;
                     }
                 }
@@ -1018,9 +1063,11 @@ namespace IO.MzML
                 if (index != -1)
                 {
                     a = index;
-                    indexedMzml.indexList.index[1].offset[0] = new Generated.OffsetType();
-                    indexedMzml.indexList.index[1].offset[0].idRef = mzML.run.chromatogramList.chromatogram[0].id;
-                    indexedMzml.indexList.index[1].offset[0].Value = a + offsetFromBeforeChromaTag;
+                    indexedMzml.indexList.index[1].offset[0] = new Generated.OffsetType
+                    {
+                        idRef = mzML.run.chromatogramList.chromatogram[0].id,
+                        Value = a + offsetFromBeforeChromaTag
+                    };
                 }
                 //offset
                 int offsetFromNullIndexList = 32;
@@ -1046,8 +1093,10 @@ namespace IO.MzML
                 indexedMzml.fileChecksum = chksum;
 
                 //finally write the indexedmzml
-                TextWriter writer = new StreamWriter(outputFile);
-                writer.NewLine = "\n";
+                TextWriter writer = new StreamWriter(outputFile)
+                {
+                    NewLine = "\n"
+                };
                 indexedSerializer.Serialize(writer, indexedMzml);
                 writer.Close();
             }
