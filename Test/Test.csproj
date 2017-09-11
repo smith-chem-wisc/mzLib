@@ -109,6 +109,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="tester.mzML" />
     <None Include="test_ensembl.pep.all.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
