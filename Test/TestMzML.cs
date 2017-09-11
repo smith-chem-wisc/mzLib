@@ -149,8 +149,15 @@ namespace Test
             Assert.AreEqual(551, ya3.Size);
             var ya4 = a.GetOneBasedScan(975).MassSpectrum;
             Assert.AreEqual(190, ya4.Size);
-            
-            
+            IMzmlScan[] Scans = new IMzmlScan[10];
+            for(int i = 0; i < Scans.Length; i++)
+            {
+                Scans[i] = a.GetOneBasedScan(i + 1);
+            }
+            var file = new FakeMsDataFile(Scans);
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, "CreateFileFromConvertedMGF.mzML", false);
+
         }
 
         [Test]
