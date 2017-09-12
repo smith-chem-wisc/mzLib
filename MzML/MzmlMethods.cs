@@ -128,10 +128,6 @@ namespace IO.MzML
                 sourceFileList = new Generated.SourceFileListType()
             };
 
-            #region MSGF
-
-            //This is info required only by MS-GF+ for some reason...
-
             mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
             {
                 count = "1",
@@ -145,6 +141,8 @@ namespace IO.MzML
                 location = myMsDataFile.SourceFile.Uri.ToString(),
             };
 
+            if (myMsDataFile.SourceFile.NativeIdFormat!=null && myMsDataFile.SourceFile.MassSpectrometerFileFormat!=null && myMsDataFile.SourceFile.FileChecksumType!=null)
+            {
             mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
             mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
             {
@@ -167,8 +165,8 @@ namespace IO.MzML
                 cvRef = "MS",
                 value = myMsDataFile.SourceFile.CheckSum ?? "",
             };
+            }
 
-            #endregion MSGF
 
             mzML.fileDescription.fileContent.cvParam = new Generated.CVParamType[2];
             mzML.fileDescription.fileContent.cvParam[0] = new Generated.CVParamType()
