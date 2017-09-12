@@ -128,6 +128,8 @@ namespace IO.MzML
                 sourceFileList = new Generated.SourceFileListType()
             };
 
+            if (myMsDataFile.SourceFile.NativeIdFormat!=null && myMsDataFile.SourceFile.MassSpectrometerFileFormat!=null && myMsDataFile.SourceFile.FileChecksumType!=null)
+            {
             mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
             {
                 count = "1",
@@ -141,8 +143,6 @@ namespace IO.MzML
                 location = myMsDataFile.SourceFile.Uri.ToString(),
             };
 
-            if (myMsDataFile.SourceFile.NativeIdFormat!=null && myMsDataFile.SourceFile.MassSpectrometerFileFormat!=null && myMsDataFile.SourceFile.FileChecksumType!=null)
-            {
             mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
             mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
             {
