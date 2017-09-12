@@ -155,7 +155,7 @@ namespace Test
 
             Mzml b = Mzml.LoadAllStaticData(@"CreateFileFromConvertedMGF.mzML");
             
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, "CreateFileFromConvertedMGF2.mzML", false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(b, "CreateFileFromConvertedMGF2.mzML", false);
 
 
         }
