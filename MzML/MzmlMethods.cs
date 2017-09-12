@@ -491,11 +491,6 @@ namespace IO.MzML
                         value = ""
                     };
 
-                    string precursorID = "";
-                    if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
-                    {
-                        precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
-                    }
 
                     // So needs a precursor!
                     mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
@@ -505,14 +500,20 @@ namespace IO.MzML
                     };
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType
                     {
-                        //note: precursod "id" set to string ID of spectrum (not index)
-                        spectrumRef = precursorID,
                         selectedIonList = new Generated.SelectedIonListType()
                         {
                             count = 1.ToString(),
                             selectedIon = new Generated.ParamGroupType[1]
                         }
                     };
+                   
+                    if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
+                    {
+                        var precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
+                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
+                    }
+                    
+                    
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0] = new Generated.ParamGroupType()
                     {
                         cvParam = new Generated.CVParamType[3]
