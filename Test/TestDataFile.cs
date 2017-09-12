@@ -144,7 +144,7 @@ namespace Test
             Assert.AreEqual(1, theScan.OneBasedPrecursorScanNumber);
             Assert.AreEqual(3, theScan.SelectedIonChargeStateGuess.Value);
             //Assert.IsNull(theScan.SelectedIonGuessIntensity);
-            var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber);
+            var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber.Value);
             theScan.RefineSelectedMzAndIntensity(precursorScan.MassSpectrum);
             Assert.AreEqual(.32872, theScan.SelectedIonIntensity, 0.01);
             Assert.AreEqual(693.9892, theScan.SelectedIonMZ, 0.01);

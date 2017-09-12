@@ -125,7 +125,7 @@ namespace TestThermo
 
             var hehe = a.First(b => b.MsnOrder > 1) as ThermoScanWithPrecursor;
 
-            var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber);
+            var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber.Value);
 
             Assert.IsNull(hehe.SelectedIonChargeStateGuess);
 

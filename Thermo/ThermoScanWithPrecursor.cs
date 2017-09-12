@@ -7,7 +7,7 @@ namespace IO.Thermo
     {
         #region Public Constructors
 
-        public ThermoScanWithPrecursor(int ScanNumber, ThermoSpectrum massSpectrum, int MsnOrder, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double? isolationWidth, DissociationType dissociationType, int oneBasedPrecursorScanNumber, double? selectedIonGuessMonoisotopicMZ, double? injectionTime, double[,] noiseData, string nativeId)
+        public ThermoScanWithPrecursor(int ScanNumber, ThermoSpectrum massSpectrum, int MsnOrder, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonGuessMZ, int? selectedIonGuessChargeStateGuess, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonGuessMonoisotopicMZ, double? injectionTime, double[,] noiseData, string nativeId)
             : base(massSpectrum, ScanNumber, MsnOrder, true, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, selectedIonGuessMZ, selectedIonGuessChargeStateGuess, null, selectedIonGuessMZ, isolationWidth, dissociationType, oneBasedPrecursorScanNumber, selectedIonGuessMonoisotopicMZ, injectionTime, noiseData, nativeId)
         {
         }

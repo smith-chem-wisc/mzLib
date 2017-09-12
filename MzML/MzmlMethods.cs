@@ -128,10 +128,8 @@ namespace IO.MzML
                 sourceFileList = new Generated.SourceFileListType()
             };
 
-            #region MSGF
-
-            //This is info required only by MS-GF+ for some reason...
-
+            if (myMsDataFile.SourceFile.NativeIdFormat!=null && myMsDataFile.SourceFile.MassSpectrometerFileFormat!=null && myMsDataFile.SourceFile.FileChecksumType!=null)
+            {
             mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
             {
                 count = "1",
@@ -167,8 +165,8 @@ namespace IO.MzML
                 cvRef = "MS",
                 value = myMsDataFile.SourceFile.CheckSum ?? "",
             };
+            }
 
-            #endregion MSGF
 
             mzML.fileDescription.fileContent.cvParam = new Generated.CVParamType[2];
             mzML.fileDescription.fileContent.cvParam[0] = new Generated.CVParamType()
@@ -492,7 +490,7 @@ namespace IO.MzML
                         name = "MSn spectrum",
                         value = ""
                     };
-                    string precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber).NativeId;
+
 
                     // So needs a precursor!
                     mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
@@ -502,14 +500,20 @@ namespace IO.MzML
                     };
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0] = new Generated.PrecursorType
                     {
-                        //note: precursod "id" set to string ID of spectrum (not index)
-                        spectrumRef = precursorID,
                         selectedIonList = new Generated.SelectedIonListType()
                         {
                             count = 1.ToString(),
                             selectedIon = new Generated.ParamGroupType[1]
                         }
                     };
+                   
+                    if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
+                    {
+                        var precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
+                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
+                    }
+                    
+                    
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0] = new Generated.ParamGroupType()
                     {
                         cvParam = new Generated.CVParamType[3]
@@ -550,42 +554,44 @@ namespace IO.MzML
                             cvRef = "MS"
                         };
                     }
-
-                    MzRange isolationRange = scanWithPrecursor.IsolationRange;
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow = new Generated.ParamGroupType()
+                    if (scanWithPrecursor.IsolationMz.HasValue)
                     {
-                        cvParam = new Generated.CVParamType[3]
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[0] = new Generated.CVParamType()
-                    {
-                        accession = "MS:1000827",
-                        name = "isolation window target m/z",
-                        value = isolationRange.Mean.ToString(CultureInfo.InvariantCulture),
-                        cvRef = "MS",
-                        unitCvRef = "MS",
-                        unitAccession = "MS:1000040",
-                        unitName = "m/z"
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[1] = new Generated.CVParamType()
-                    {
-                        accession = "MS:1000828",
-                        name = "isolation window lower offset",
-                        value = (isolationRange.Width / 2).ToString(CultureInfo.InvariantCulture),
-                        cvRef = "MS",
-                        unitCvRef = "MS",
-                        unitAccession = "MS:1000040",
-                        unitName = "m/z"
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[2] = new Generated.CVParamType()
-                    {
-                        accession = "MS:1000829",
-                        name = "isolation window upper offset",
-                        value = (isolationRange.Width / 2).ToString(CultureInfo.InvariantCulture),
-                        cvRef = "MS",
-                        unitCvRef = "MS",
-                        unitAccession = "MS:1000040",
-                        unitName = "m/z"
-                    };
+                        MzRange isolationRange = scanWithPrecursor.IsolationRange;
+                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow = new Generated.ParamGroupType()
+                        {
+                            cvParam = new Generated.CVParamType[3]
+                        };
+                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[0] = new Generated.CVParamType()
+                        {
+                            accession = "MS:1000827",
+                            name = "isolation window target m/z",
+                            value = isolationRange.Mean.ToString(CultureInfo.InvariantCulture),
+                            cvRef = "MS",
+                            unitCvRef = "MS",
+                            unitAccession = "MS:1000040",
+                            unitName = "m/z"
+                        };
+                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[1] = new Generated.CVParamType()
+                        {
+                            accession = "MS:1000828",
+                            name = "isolation window lower offset",
+                            value = (isolationRange.Width / 2).ToString(CultureInfo.InvariantCulture),
+                            cvRef = "MS",
+                            unitCvRef = "MS",
+                            unitAccession = "MS:1000040",
+                            unitName = "m/z"
+                        };
+                        mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].isolationWindow.cvParam[2] = new Generated.CVParamType()
+                        {
+                            accession = "MS:1000829",
+                            name = "isolation window upper offset",
+                            value = (isolationRange.Width / 2).ToString(CultureInfo.InvariantCulture),
+                            cvRef = "MS",
+                            unitCvRef = "MS",
+                            unitAccession = "MS:1000040",
+                            unitName = "m/z"
+                        };
+                    }
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation = new Generated.ParamGroupType()
                     {
                         cvParam = new Generated.CVParamType[1]
