@@ -28,7 +28,7 @@ namespace MassSpectrometry
     {
         #region Public Properties
 
-        int OneBasedPrecursorScanNumber { get; }
+        int? OneBasedPrecursorScanNumber { get; }
 
         double SelectedIonMZ { get; }
         double? SelectedIonIntensity { get; }
@@ -38,7 +38,7 @@ namespace MassSpectrometry
 
         DissociationType DissociationType { get; }
 
-        double IsolationMz { get; }
+        double? IsolationMz { get; }
         MzRange IsolationRange { get; }
 
         #endregion Public Properties
