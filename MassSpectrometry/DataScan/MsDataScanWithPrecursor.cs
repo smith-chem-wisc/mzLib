@@ -88,7 +88,7 @@ namespace MassSpectrometry
                 yield break;
 
             foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio, peakFilterFunction)
-                                                  .Where(b => b.peaks.Any(cc => isolationRange.Contains(cc.Mz))))
+                                                  .Where(b => b.peaks.Any(cc => isolationRange.Contains(cc.Item1))))
                 yield return haha;
         }
 

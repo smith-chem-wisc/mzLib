@@ -269,7 +269,7 @@ namespace MassSpectrometry
 
             foreach (var candidateForMostIntensePeak in Extract(theRange).Where(b => peakFilter(b)))
             {
-                List<IMzPeak> bestListOfPeaks = new List<IMzPeak>();
+                List<(double, double)> bestListOfPeaks = new List<(double, double)>();
                 int bestChargeState = 1;
                 double bestMonoisotopicMass = 0;
                 double bestTotalIntensity = 0;
@@ -289,7 +289,7 @@ namespace MassSpectrometry
                         if (massIndex == mostIntenseMasses[j].Length)
                             massIndex--;
 
-                        var listOfPeaks = new List<IMzPeak> { candidateForMostIntensePeak };
+                        var listOfPeaks = new List<(double, double)> { (candidateForMostIntensePeak.Mz, candidateForMostIntensePeak.Intensity) };
                         var listOfRatios = new List<double> { allIntensities[j][massIndex][0] / candidateForMostIntensePeak.Intensity };
                         // Assuming the test peak is most intense...
                         // Try to find the rest of the isotopes!
@@ -299,14 +299,16 @@ namespace MassSpectrometry
                         for (int indexToLookAt = 1; indexToLookAt < allIntensities[j][massIndex].Length; indexToLookAt++)
                         {
                             double theorMassThatTryingToFind = allMasses[j][massIndex][indexToLookAt] + differenceBetweenTheorAndActual;
-                            var closestPeakToTheorMass = GetClosestPeak(theorMassThatTryingToFind.ToMz(chargeState));
-                            if (Math.Abs(closestPeakToTheorMass.Mz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
-                                && Peak2satisfiesRatio(allIntensities[j][massIndex][0], allIntensities[j][massIndex][indexToLookAt], candidateForMostIntensePeak, closestPeakToTheorMass, intensityRatioLimit))
+                            var closestPeakToTheorMass = GetClosestPeakIndex(theorMassThatTryingToFind.ToMz(chargeState));
+                            var closestPeakmz = XArray[closestPeakToTheorMass];
+                            var closestPeakIntensity = YArray[closestPeakToTheorMass];
+                            if (Math.Abs(closestPeakmz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
+                                && Peak2satisfiesRatio(allIntensities[j][massIndex][0], allIntensities[j][massIndex][indexToLookAt], candidateForMostIntensePeak.Intensity, closestPeakIntensity, intensityRatioLimit))
                             {
                                 // Found a match to an isotope peak for this charge state!
-                                listOfPeaks.Add(closestPeakToTheorMass);
-                                totalIntensity += closestPeakToTheorMass.Intensity;
-                                listOfRatios.Add(allIntensities[j][massIndex][indexToLookAt] / closestPeakToTheorMass.Intensity);
+                                listOfPeaks.Add((closestPeakmz, closestPeakIntensity));
+                                totalIntensity += closestPeakIntensity;
+                                listOfRatios.Add(allIntensities[j][massIndex][indexToLookAt] / closestPeakIntensity);
                             }
                             else
                                 break;
@@ -332,9 +334,9 @@ namespace MassSpectrometry
             HashSet<double> seen = new HashSet<double>();
             foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.totalIntensity - b.stDev))
             {
-                if (seen.Overlaps(ok.peaks.Select(b => b.Mz)))
+                if (seen.Overlaps(ok.peaks.Select(b => b.Item1)))
                     continue;
-                foreach (var ah in ok.peaks.Select(b => b.Mz))
+                foreach (var ah in ok.peaks.Select(b => b.Item1))
                     seen.Add(ah);
                 yield return ok;
             }
@@ -344,11 +346,11 @@ namespace MassSpectrometry
 
         #region Private Methods
 
-        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, IMzPeak peak1, IMzPeak peak2, double intensityRatio)
+        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
         {
-            var comparedShouldBe = peak1.Intensity / peak1theorIntensity * peak2theorIntensity;
+            var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
 
-            if (peak2.Intensity < comparedShouldBe / intensityRatio || peak2.Intensity > comparedShouldBe * intensityRatio)
+            if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
                 return false;
 
             return true;
