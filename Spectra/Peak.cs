@@ -2,7 +2,6 @@
 {
     public abstract class Peak : IPeak
     {
-
         #region Public Constructors
 
         public Peak(double x, double y)
@@ -19,6 +18,5 @@
         public double Y { get; protected set; }
 
         #endregion Public Properties
-
     }
 }

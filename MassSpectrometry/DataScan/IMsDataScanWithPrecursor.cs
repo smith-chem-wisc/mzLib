@@ -17,6 +17,7 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MzLibUtil;
+using Spectra;
 using System;
 using System.Collections.Generic;
 
@@ -25,10 +26,9 @@ namespace MassSpectrometry
     public interface IMsDataScanWithPrecursor<out TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
-
         #region Public Properties
 
-        int OneBasedPrecursorScanNumber { get; }
+        int? OneBasedPrecursorScanNumber { get; }
 
         double SelectedIonMZ { get; }
         double? SelectedIonIntensity { get; }
@@ -38,7 +38,7 @@ namespace MassSpectrometry
 
         DissociationType DissociationType { get; }
 
-        double IsolationMz { get; }
+        double? IsolationMz { get; }
         MzRange IsolationRange { get; }
 
         #endregion Public Properties
@@ -61,9 +61,8 @@ namespace MassSpectrometry
 
         void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum);
 
-        void TransformMzs(Func<IMzPeak, double> convertorForSpectrum, Func<IMzPeak, double> convertorForPrecursor);
+        void TransformMzs(Func<IPeak, double> convertorForSpectrum, Func<IPeak, double> convertorForPrecursor);
 
         #endregion Public Methods
-
     }
 }

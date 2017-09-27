@@ -25,7 +25,6 @@ namespace MzLibUtil
     /// </summary>
     public class PpmTolerance : Tolerance
     {
-
         #region Public Constructors
 
         /// <summary>
@@ -54,12 +53,12 @@ namespace MzLibUtil
 
         public override double GetMinimumValue(double mean)
         {
-            return mean * (1 - (Value / 2e6));
+            return mean * (1 - (Value / 1e6));
         }
 
         public override double GetMaximumValue(double mean)
         {
-            return mean * (1 + (Value / 2e6));
+            return mean * (1 + (Value / 1e6));
         }
 
         public override bool Within(double experimental, double theoretical)
@@ -68,6 +67,5 @@ namespace MzLibUtil
         }
 
         #endregion Public Methods
-
     }
 }

@@ -1,11 +1,9 @@
 ﻿using System.Text;
-using System;
 
 namespace Proteomics
 {
     public class Modification
     {
-
         #region Public Fields
 
         public readonly string id;
@@ -36,15 +34,16 @@ namespace Proteomics
         public override bool Equals(object o)
         {
             Modification m = o as Modification;
-            return o != null;
+            return o != null
+                && m.id == id
+                && m.modificationType == modificationType;
         }
 
         public override int GetHashCode()
         {
-            return 0;
+            return id.GetHashCode() ^ modificationType.GetHashCode();
         }
 
         #endregion Public Methods
-
     }
 }

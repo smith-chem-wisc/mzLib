@@ -1,9 +1,7 @@
 ﻿using Chemistry;
 using Proteomics;
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
 
@@ -11,7 +9,6 @@ namespace UsefulProteomicsDatabases
 {
     internal static class UnimodLoader
     {
-
         #region Private Fields
 
         private static readonly Dictionary<string, string> DictOfElements = new Dictionary<string, string>
@@ -37,8 +34,8 @@ namespace UsefulProteomicsDatabases
 
         internal static IEnumerable<ModificationWithLocation> ReadMods(string unimodLocation)
         {
-            var unimodSerializer = new XmlSerializer(typeof(Generated.unimod_t));
-            var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as Generated.unimod_t;
+            var unimodSerializer = new XmlSerializer(typeof(unimod_t));
+            var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as unimod_t;
 
             foreach (var cool in deserialized.modifications)
             {
@@ -59,8 +56,6 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                var mm = cool.delta.mono_mass;
-
                 foreach (var nice in cool.specificity)
                 {
                     var tg = nice.site;
@@ -68,15 +63,46 @@ namespace UsefulProteomicsDatabases
                         tg = "X";
                     ModificationMotif.TryGetMotif(tg, out ModificationMotif motif);
                     var pos = nice.position;
+                    IDictionary<string, IList<string>> dblinks = new Dictionary<string, IList<string>>
+                    {
+                        { "Unimod",  new List<string>{ac.ToString() } },
+                    };
+
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], new Tuple<string, string>("Unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, new List<double> { 0 }, null, "Unimod");
+                        yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks);
                     else
-                        yield return new ModificationWithMassAndCf(id + " on " + motif.Motif + " at " + positionDict[pos], new Tuple<string, string>("Unimod", ac.ToString()), motif, positionDict[pos], cf, mm, null, nice.NeutralLoss.Select(b => b.mono_mass).ToList(), null, "Unimod");
+                    {
+                        List<double> neutralLosses = new List<double>();
+                        foreach (var nl in nice.NeutralLoss)
+                        {
+                            ChemicalFormula cfnl = new ChemicalFormula();
+                            if (nl.mono_mass == 0)
+                                neutralLosses.Add(0);
+                            else
+                            {
+                                foreach (var el in nl.element)
+                                {
+                                    try
+                                    {
+                                        cfnl.Add(el.symbol, int.Parse(el.number));
+                                    }
+                                    catch
+                                    {
+                                        var tempCF = ChemicalFormula.ParseFormula(DictOfElements[el.symbol]);
+                                        tempCF.Multiply(int.Parse(el.number));
+                                        cfnl.Add(tempCF);
+                                    }
+                                }
+                            }
+                            neutralLosses.Add(cfnl.MonoisotopicMass);
+                        }
+
+                        yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks, neutralLosses: neutralLosses);
+                    }
                 }
             }
         }
 
         #endregion Internal Methods
-
     }
 }

@@ -17,14 +17,12 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MzLibUtil;
-using System;
 
 namespace MassSpectrometry
 {
     public interface IMsDataScan<out TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
-
         #region Public Properties
 
         TSpectrum MassSpectrum { get; }
@@ -33,6 +31,7 @@ namespace MassSpectrometry
         double RetentionTime { get; }
         MzRange ScanWindowRange { get; }
         string ScanFilter { get; }
+        string NativeId { get; }
         bool IsCentroid { get; }
         double TotalIonCurrent { get; }
         Polarity Polarity { get; }
@@ -44,8 +43,6 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum);
-
         byte[] Get64BitNoiseDataMass();
 
         byte[] Get64BitNoiseDataNoise();
@@ -53,6 +50,5 @@ namespace MassSpectrometry
         byte[] Get64BitNoiseDataBaseline();
 
         #endregion Public Methods
-
     }
 }

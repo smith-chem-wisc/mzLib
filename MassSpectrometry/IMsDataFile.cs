@@ -24,10 +24,10 @@ namespace MassSpectrometry
     public interface IMsDataFile<out TScan> : IEnumerable<TScan>
         where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
     {
-
         #region Public Properties
 
         int NumSpectra { get; }
+        SourceFile SourceFile { get; }
 
         #endregion Public Properties
 
@@ -42,6 +42,5 @@ namespace MassSpectrometry
         int GetClosestOneBasedSpectrumNumber(double retentionTime);
 
         #endregion Public Methods
-
     }
 }

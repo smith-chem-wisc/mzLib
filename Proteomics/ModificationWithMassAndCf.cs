@@ -2,12 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Proteomics
 {
     public class ModificationWithMassAndCf : ModificationWithMass
     {
-
         #region Public Fields
 
         public readonly ChemicalFormula chemicalFormula;
@@ -16,8 +16,8 @@ namespace Proteomics
 
         #region Public Constructors
 
-        public ModificationWithMassAndCf(string id, Tuple<string, string> accession, ModificationMotif motif, TerminusLocalization site, ChemicalFormula chemicalFormula, double mm, IDictionary<string, IList<string>> linksToOtherDbs, IEnumerable<double> neutralLosses, IEnumerable<double> diagnosticIons, string modificationType)
-            : base(id, accession, motif, site, mm, linksToOtherDbs, neutralLosses, diagnosticIons, modificationType)
+        public ModificationWithMassAndCf(string id, string modificationType, ModificationMotif motif, TerminusLocalization terminusLocalization, ChemicalFormula chemicalFormula, double? mm = null, IDictionary<string, IList<string>> linksToOtherDbs = null, List<string> keywords = null, List<double> neutralLosses = null, List<double> diagnosticIons = null)
+            : base(id, modificationType, motif, terminusLocalization, mm ?? chemicalFormula.MonoisotopicMass, linksToOtherDbs, keywords, neutralLosses, diagnosticIons)
         {
             this.chemicalFormula = chemicalFormula;
         }
@@ -29,16 +29,27 @@ namespace Proteomics
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine(base.ToString());
-            sb.Append("CF   " + chemicalFormula.Formula);
+
+            var baseString = base.ToString();
+            if (Math.Abs(monoisotopicMass - chemicalFormula.MonoisotopicMass) < tolForEquality)
+            {
+                baseString = Regex.Replace(baseString, @"MM.*$", "CF   " + chemicalFormula.Formula);
+                sb.Append(baseString);
+            }
+            else
+            {
+                sb.AppendLine(baseString);
+                sb.Append("CF   " + chemicalFormula.Formula);
+            }
             return sb.ToString();
         }
 
         public override bool Equals(object o)
         {
             ModificationWithMassAndCf m = o as ModificationWithMassAndCf;
-            return m == null ? false :
-                base.Equals(m) && this.chemicalFormula.Equals(m.chemicalFormula);
+            return m != null
+               && base.Equals(m)
+               && chemicalFormula.Equals(m.chemicalFormula);
         }
 
         public override int GetHashCode()
@@ -47,6 +58,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

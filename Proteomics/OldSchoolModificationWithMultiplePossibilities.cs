@@ -24,7 +24,6 @@ namespace Proteomics
 {
     public class ModificationWithMultiplePossibilitiesCollection : OldSchoolModification, IEnumerable<OldSchoolModification>
     {
-
         #region Private Fields
 
         private readonly SortedList<double, OldSchoolModification> _modifications;
@@ -85,6 +84,5 @@ namespace Proteomics
         }
 
         #endregion Public Methods
-
     }
 }

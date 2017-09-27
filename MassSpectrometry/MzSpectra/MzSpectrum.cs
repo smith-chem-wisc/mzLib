@@ -29,7 +29,6 @@ namespace MassSpectrometry
     public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
         where TPeak : IMzPeak
     {
-
         #region Private Fields
 
         private const int numJ = 1;
@@ -258,14 +257,6 @@ namespace MassSpectrometry
             return Get64Bitarray(XArray);
         }
 
-        public void ReplaceXbyApplyingFunction(Func<IMzPeak, double> convertor)
-        {
-            for (int i = 0; i < Size; i++)
-                XArray[i] = convertor(this[i]);
-            peakWithHighestY = default(TPeak);
-            peakList = new TPeak[Size];
-        }
-
         public override string ToString()
         {
             return string.Format("{0} (Peaks {1})", Range, Size);
@@ -364,6 +355,5 @@ namespace MassSpectrometry
         }
 
         #endregion Private Methods
-
     }
 }

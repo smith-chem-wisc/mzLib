@@ -5,7 +5,6 @@ namespace MassSpectrometry
 {
     internal class GeneratedPeak : MzPeak
     {
-
         #region Private Fields
 
         private List<double> mzs = new List<double>();
@@ -37,6 +36,5 @@ namespace MassSpectrometry
         }
 
         #endregion Internal Methods
-
     }
 }

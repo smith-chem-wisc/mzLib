@@ -10,7 +10,6 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinDbWriter
     {
-
         #region Public Methods
 
         /// <summary>
@@ -243,7 +242,7 @@ namespace UsefulProteomicsDatabases
                 {
                     string header = protein.FullName != protein.Accession ?
                         protein.Accession + delimeter + protein.FullName :
-                        header = protein.Accession; // we read in full name and accession to be the same string if the format isn't recognized
+                        protein.Accession; // we read in full name and accession to be the same string if the format isn't recognized
                     writer.WriteLine(">" + header);
                     writer.WriteLine(protein.BaseSequence);
                 }
@@ -251,6 +250,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Public Methods
-
     }
 }

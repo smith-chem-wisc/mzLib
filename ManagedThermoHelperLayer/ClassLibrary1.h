@@ -5,7 +5,6 @@
 using namespace System;
 
 namespace ManagedThermoHelperLayer {
-
 	public value struct PrecursorInfo
 	{
 		double dIsolationMass;

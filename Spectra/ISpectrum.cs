@@ -17,6 +17,7 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MzLibUtil;
+using System;
 using System.Collections.Generic;
 
 namespace Spectra
@@ -28,7 +29,6 @@ namespace Spectra
     public interface ISpectrum<out TPeak>
         where TPeak : IPeak
     {
-
         #region Public Properties
 
         double[] XArray { get; }
@@ -38,17 +38,11 @@ namespace Spectra
         double LastX { get; }
         int Size { get; }
         double YofPeakWithHighestY { get; }
+        double XofPeakWithHighestY { get; }
         double SumOfAllY { get; }
         DoubleRange Range { get; }
-        TPeak PeakWithHighestY { get; }
 
         #endregion Public Properties
-
-        #region Public Indexers
-
-        TPeak this[int index] { get; }
-
-        #endregion Public Indexers
 
         #region Public Methods
 
@@ -56,7 +50,7 @@ namespace Spectra
 
         int NumPeaksWithinRange(double minX, double maxX);
 
-        TPeak GetClosestPeak(double x);
+        int GetClosestPeakIndex(double x);
 
         double GetClosestPeakXvalue(double x);
 
@@ -70,7 +64,8 @@ namespace Spectra
 
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
-        #endregion Public Methods
+        void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor);
 
+        #endregion Public Methods
     }
 }

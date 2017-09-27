@@ -19,15 +19,17 @@
 using MassSpectrometry;
 using MSFileReaderLib;
 using MzLibUtil;
+using System;
+using System.IO;
+using System.Security.Cryptography;
 
 namespace IO.Thermo
 {
     public class ThermoStaticData : ThermoFile, IMsStaticDataFile<IThermoScan>
     {
-
         #region Private Constructors
 
-        private ThermoStaticData(IThermoScan[] scans, ThermoGlobalParams p) : base(scans, p)
+        private ThermoStaticData(IThermoScan[] scans, ThermoGlobalParams p, SourceFile sourceFile) : base(scans, p, sourceFile)
         {
         }
 
@@ -67,7 +69,25 @@ namespace IO.Thermo
 
             theConnection.Close();
 
-            return new ThermoStaticData(scans, p);
+            string sendCheckSum;
+            using (FileStream stream = File.OpenRead(filePath))
+            {
+                using (SHA1Managed sha = new SHA1Managed())
+                {
+                    byte[] checksum = sha.ComputeHash(stream);
+                    sendCheckSum = BitConverter.ToString(checksum)
+                        .Replace("-", string.Empty);
+                }
+            }
+            SourceFile sourceFile = new SourceFile(
+                @"Thermo nativeID format",
+                @"Thermo RAW format",
+                sendCheckSum,
+                @"SHA-1",
+                filePath,
+                Path.GetFileNameWithoutExtension(filePath));
+
+            return new ThermoStaticData(scans, p, sourceFile);
         }
 
         public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)
@@ -76,6 +96,5 @@ namespace IO.Thermo
         }
 
         #endregion Public Methods
-
     }
 }

@@ -14,8 +14,7 @@
     <copyright>Copyright 2017</copyright>
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
-      <dependency id="Zlib.Portable" version="1.11.0"/>
-      <dependency id="MathNet.Numerics" version="3.17.0"/>
+      <dependency id="MathNet.Numerics" version="3.20.0"/>
     </dependencies>
   </metadata>
   <files>

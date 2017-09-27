@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "Win32Project8.h"
 #include "ClassLibrary1.h"
-#include < vcclr.h >  
+#include < vcclr.h >
 
 using namespace System::Runtime::InteropServices;
 
@@ -20,19 +20,18 @@ array<ManagedThermoHelperLayer::PrecursorInfo>^ ManagedThermoHelperLayer::Helper
 	long lastScanNumber = 0;
 	m_Raw->GetLastSpectrumNumber(&lastScanNumber);
 
-	//now transform into a .NET object 
-	array<PrecursorInfo>^ infos = gcnew array<PrecursorInfo>(lastScanNumber - firstScanNumber+1);
+	//now transform into a .NET object
+	array<PrecursorInfo>^ infos = gcnew array<PrecursorInfo>(lastScanNumber - firstScanNumber + 1);
 
 	for (int j = firstScanNumber; j <= lastScanNumber; j++) {
-
 		_variant_t vPrecursorInfos;
 		long nPrecursorInfos;
 		m_Raw->GetPrecursorInfoFromScanNum(j, &vPrecursorInfos, &nPrecursorInfos);
-		
+
 		BYTE* pData;
 		SafeArrayAccessData(vPrecursorInfos.parray, (void**)&pData);
 
-		if (nPrecursorInfos>0)
+		if (nPrecursorInfos > 0)
 		{
 			MS_PrecursorInfo precursorInfo;
 
@@ -48,7 +47,6 @@ array<ManagedThermoHelperLayer::PrecursorInfo>^ ManagedThermoHelperLayer::Helper
 	m_Raw->Close();
 
 	return infos;
-
 }
 
 ManagedThermoHelperLayer::PrecursorInfo ManagedThermoHelperLayer::HelperClass::GetSingleScanPrecursorInfo(int oneBasedScanNumber, String^ path)
@@ -69,7 +67,7 @@ ManagedThermoHelperLayer::PrecursorInfo ManagedThermoHelperLayer::HelperClass::G
 	SafeArrayAccessData(vPrecursorInfos.parray, (void**)&pData);
 	PrecursorInfo info;
 
-	if (nPrecursorInfos>0)
+	if (nPrecursorInfos > 0)
 	{
 		MS_PrecursorInfo precursorInfo;
 

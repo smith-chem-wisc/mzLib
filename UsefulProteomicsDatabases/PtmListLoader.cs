@@ -11,7 +11,6 @@ namespace UsefulProteomicsDatabases
 {
     public static class PtmListLoader
     {
-
         #region Private Fields
 
         private static readonly Dictionary<string, char> aminoAcidCodes;
@@ -72,34 +71,12 @@ namespace UsefulProteomicsDatabases
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
+                    modification_specification.Add(line);
+                    if (line.StartsWith("//"))
                     {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "ID":
-                            case "AC":
-                            case "FT": // MOD_RES CROSSLNK LIPID
-                            case "TG": // Which amino acid(s) or motifs is the modification on
-                            case "PP": // Terminus localization
-                            case "CF": // Correction formula
-                            case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            case "DR": // External database links!
-
-                            // NOW CUSTOM FIELDS:
-                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            case "DI": // Masses of diagnostic ions
-                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                                modification_specification.Add(line);
-                                break;
-
-                            case "//":
-                                modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
-                                    yield return mod;
-                                modification_specification = new List<string>();
-                                break;
-                        }
+                        foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
+                            yield return mod;
+                        modification_specification = new List<string>();
                     }
                 }
             }
@@ -119,34 +96,12 @@ namespace UsefulProteomicsDatabases
                 while (uniprot_mods.Peek() != -1)
                 {
                     string line = uniprot_mods.ReadLine();
-                    if (line.Length >= 2)
+                    modification_specification.Add(line);
+                    if (line.StartsWith("//"))
                     {
-                        switch (line.Substring(0, 2))
-                        {
-                            case "ID":
-                            case "AC":
-                            case "FT": // MOD_RES CROSSLNK LIPID
-                            case "TG": // Which amino acid(s) or motifs is the modification on
-                            case "PP": // Terminus localization
-                            case "CF": // Correction formula
-                            case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            case "DR": // External database links!
-
-                            // NOW CUSTOM FIELDS:
-                            case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            case "OM": // What masses are seen in histogram. If field doesn't exist, single equal to MM
-                            case "DI": // Masses of diagnostic ions
-                            case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                                modification_specification.Add(line);
-                                break;
-
-                            case "//":
-                                modification_specification.Add(line);
-                                foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
-                                    yield return mod;
-                                modification_specification = new List<string>();
-                                break;
-                        }
+                        foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
+                            yield return mod;
+                        modification_specification = new List<string>();
                     }
                 }
             }
@@ -163,15 +118,18 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         private static IEnumerable<Modification> ReadMod(List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
-            // UniProt fields
-            string id = null;
-            Tuple<string, string> uniprotAC = null;
+            // UniProt-specific fields
+            string uniprotAC = null;
             string uniprotFT = null;
+
+            // Other fields
+            string id = null;
             List<string> motifs = null;
             string terminusLocalizationString = null;
             ChemicalFormula correctionFormula = null;
             double? monoisotopicMass = null;
             var externalDatabaseLinks = new Dictionary<string, IList<string>>();
+            List<string> keywords = null;
 
             // Custom fields
             List<double> neutralLosses = null;
@@ -184,15 +142,15 @@ namespace UsefulProteomicsDatabases
                 {
                     switch (line.Substring(0, 2))
                     {
-                        case "ID":
+                        case "ID": // Mandatory
                             id = line.Substring(5);
                             break;
 
-                        case "AC": // Might not exist!
-                            uniprotAC = new Tuple<string, string>("Uniprot", line.Substring(5));
+                        case "AC": // Do not use! Only present in UniProt ptmlist
+                            uniprotAC = line.Substring(5);
                             break;
 
-                        case "FT": // MOD_RES CROSSLNK LIPID. Might not exist!
+                        case "FT": // Optional
                             uniprotFT = line.Substring(5);
                             break;
 
@@ -209,31 +167,51 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
-                            double thisMM;
-                            if (!double.TryParse(line.Substring(5), NumberStyles.Any, CultureInfo.InvariantCulture, out thisMM))
-                                throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass");
-                            monoisotopicMass = thisMM;
+                            {
+                                if (!double.TryParse(line.Substring(5), NumberStyles.Any, CultureInfo.InvariantCulture, out double thisMM))
+                                    throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass");
+                                monoisotopicMass = thisMM;
+                            }
                             break;
 
                         case "DR": // External database links!
-                            var splitString = line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
-                            IList<string> val;
-                            if (externalDatabaseLinks.TryGetValue(splitString[0], out val))
-                                val.Add(splitString[1]);
-                            else
-                                externalDatabaseLinks.Add(splitString[0], new List<string> { splitString[1] });
+                            {
+                                var splitString = line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
+                                if (externalDatabaseLinks.TryGetValue(splitString[0], out IList<string> val))
+                                    val.Add(splitString[1]);
+                                else
+                                    externalDatabaseLinks.Add(splitString[0], new List<string> { splitString[1] });
+                            }
+                            break;
+
+                        case "KW": // ; Separated keywords
+                            {
+                                keywords = new List<string>(line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
+                            }
                             break;
 
                         // NOW CUSTOM FIELDS:
 
                         case "NL": // Netural Losses. If field doesn't exist, single equal to 0
-                            neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                            try
+                            {
+                                neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
+                            }
+                            catch (MzLibException)
+                            {
+                                neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                            }
                             break;
 
                         case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
-                            var nice = line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.None);
-                            if (!string.IsNullOrEmpty(nice[0]))
-                                diagnosticIons = new List<double>(nice.Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                            try
+                            {
+                                diagnosticIons = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
+                            }
+                            catch (MzLibException)
+                            {
+                                diagnosticIons = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                            }
                             break;
 
                         case "MT": // Modification Type. If the field doesn't exist, set to the database name
@@ -243,10 +221,13 @@ namespace UsefulProteomicsDatabases
                         case "//":
                             if (id == null)
                                 throw new MzLibException("id is null");
-                            if (uniprotFT != null && uniprotFT.Equals("CROSSLNK"))
+                            if ("CROSSLNK".Equals(uniprotFT)) // Ignore crosslinks
                                 break;
                             if (uniprotAC != null)
-                                modificationType = "Uniprot";
+                            {
+                                modificationType = "UniProt";
+                                externalDatabaseLinks.Add("UniProt", new List<string> { uniprotAC });
+                            }
                             if (modificationType == null)
                                 throw new MzLibException("modificationType of " + id + " is null");
                             if (!monoisotopicMass.HasValue && correctionFormula != null)
@@ -274,30 +255,41 @@ namespace UsefulProteomicsDatabases
                                         theMotif = singleTarget;
                                     if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                     {
+                                        var idToUse = id;
+                                        // Augment id if mulitple motifs!
+                                        // Add id to keywords
+                                        if (motifs.Count != 1)
+                                        {
+                                            if (keywords == null)
+                                                keywords = new List<string> { id };
+                                            else
+                                                keywords.Add(id);
+                                            idToUse += " on " + motif;
+                                        }
+
                                         // Add the modification!
 
                                         if (!monoisotopicMass.HasValue)
                                         {
                                             // Return modification
-                                            yield return new ModificationWithLocation(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, externalDatabaseLinks, modificationType);
+                                            yield return new ModificationWithLocation(idToUse, modificationType, motif, terminusLocalization, externalDatabaseLinks, keywords);
                                         }
                                         else
                                         {
                                             if (correctionFormula == null)
                                             {
                                                 // Return modification with mass
-                                                yield return new ModificationWithMass(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                yield return new ModificationWithMass(idToUse, modificationType, motif, terminusLocalization, monoisotopicMass.Value, externalDatabaseLinks,
+                                                    keywords,
                                                     neutralLosses,
-                                                    diagnosticIons,
-                                                    modificationType);
+                                                    diagnosticIons);
                                             }
                                             else
                                             {
                                                 // Return modification with complete information!
-                                                yield return new ModificationWithMassAndCf(id + (motifs.Count == 1 ? "" : " on " + motif.Motif), uniprotAC, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks,
+                                                yield return new ModificationWithMassAndCf(idToUse, modificationType, motif, terminusLocalization, correctionFormula, monoisotopicMass.Value, externalDatabaseLinks, keywords,
                                                     neutralLosses,
-                                                    diagnosticIons,
-                                                    modificationType);
+                                                    diagnosticIons);
                                             }
                                         }
                                     }
@@ -314,6 +306,5 @@ namespace UsefulProteomicsDatabases
         }
 
         #endregion Private Methods
-
     }
 }

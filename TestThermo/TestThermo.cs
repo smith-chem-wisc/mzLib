@@ -13,23 +13,54 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-
         #region Public Methods
 
-        [OneTimeSetUp]
-        public void Setup()
+        [Test]
+        public static void ReadWriteReadEtc()
         {
-            Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"testFileWMS2.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                Mzml.LoadAllStaticData("aa.mzML");
+            }
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                Mzml.LoadAllStaticData("aa.mzML");
+            }
+            {
+                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+
+                var aa = Mzml.LoadAllStaticData("a.mzML");
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
+
+                Mzml.LoadAllStaticData("aa.mzML");
+            }
         }
 
         [Test]
-        public void ThermoLoadError()
+        public static void ThermoLoadError()
         {
             Assert.Throws<MzLibException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
         }
 
         [Test]
-        public void LoadCompressedMzml()
+        public static void LoadCompressedMzml()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
@@ -37,13 +68,13 @@ namespace TestThermo
 
             Assert.AreEqual(a.NumSpectra, b.NumSpectra);
 
-            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Mz, b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Mz, 1e-3);
+            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, 1e-3);
 
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity - b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity) / b.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity) < 1e-3);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-3);
         }
 
         [Test]
-        public void LoadThermoTest2()
+        public static void LoadThermoTest2()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
             Assert.AreEqual(360, a.NumSpectra);
@@ -53,7 +84,6 @@ namespace TestThermo
             Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.FilterByY(5e6, double.MaxValue).Count());
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(1, ye[4, 1119]);
-            Assert.AreEqual("(195.0874,1.021401E+07) z = +1 SN = 4170.38", a.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.ToString());
             Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
@@ -87,7 +117,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void LoadThermoTest3()
+        public static void LoadThermoTest3()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
@@ -99,7 +129,7 @@ namespace TestThermo
 
             var hehe = a.First(b => b.MsnOrder > 1) as ThermoScanWithPrecursor;
 
-            var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber);
+            var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber.Value);
 
             Assert.IsNull(hehe.SelectedIonChargeStateGuess);
 
@@ -117,7 +147,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void ThermoSpectrumTest()
+        public static void ThermoSpectrumTest()
         {
             double[] resolutions = new double[] { 1 };
             int[] charge = new int[] { 1 };
@@ -127,11 +157,11 @@ namespace TestThermo
             ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
             s1.ReplaceXbyApplyingFunction((a) => 4);
-            Assert.AreEqual(4, s2[0].Mz);
+            Assert.AreEqual(4, s2.XArray[0]);
         }
 
         [Test]
-        public void ThermoDynamicTest()
+        public static void ThermoDynamicTest()
         {
             ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS2.raw");
             var ms1scan = dynamicThermo.GetOneBasedScan(1);
@@ -150,7 +180,7 @@ namespace TestThermo
         }
 
         [Test]
-        public void TestSummedMsDataFile()
+        public static void TestSummedMsDataFile()
         {
             ThermoStaticData rawFile = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
 
@@ -176,7 +206,7 @@ namespace TestThermo
             Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(2).MassSpectrum.Size);
             Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.Size >= rawFile.GetOneBasedScan(3).MassSpectrum.Size);
 
-            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity == rawFile.GetOneBasedScan(1).MassSpectrum.PeakWithHighestY.Intensity + rawFile.GetOneBasedScan(2).MassSpectrum.PeakWithHighestY.Intensity + rawFile.GetOneBasedScan(3).MassSpectrum.PeakWithHighestY.Intensity);
+            Assert.IsTrue(summed3.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY == rawFile.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY + rawFile.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY + rawFile.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY);
 
             // Interval of 893-899 mz
 
@@ -192,13 +222,36 @@ namespace TestThermo
             Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX, rawFile.GetOneBasedScan(2).MassSpectrum.LastX), rawFile.GetOneBasedScan(3).MassSpectrum.LastX));
 
             // 5 scans
-
             SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);
 
             Assert.AreEqual(rawFile.NumSpectra - 4, summed5.NumSpectra);
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(summed5, "testSummed.mzML", false);
+
+            var ok = Mzml.LoadAllStaticData("testSummed.mzML");
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, "testSummed2.mzML", false);
+
+            Mzml.LoadAllStaticData("testSummed2.mzML");
+        }
+
+        [Test]
+        public static void WriteIndexedMzmlFromThermoTest()
+        {
+            var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzML"), true);
+            var smallMzml = Mzml.LoadAllStaticData(@"hi.mzML");
+            Assert.AreEqual(smallMzml.NumSpectra, 48);
+            Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
+            Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
+        }
+
+        [OneTimeSetUp]
+        public void Setup()
+        {
+            Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
         }
 
         #endregion Public Methods
-
     }
 }

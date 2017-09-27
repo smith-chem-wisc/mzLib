@@ -17,7 +17,6 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MzLibUtil;
-using System;
 using System.Collections.Generic;
 
 namespace MassSpectrometry
@@ -25,10 +24,9 @@ namespace MassSpectrometry
     public class MsDataScan<TSpectrum> : IMsDataScan<TSpectrum>
         where TSpectrum : IMzSpectrum<IMzPeak>
     {
-
         #region Public Constructors
 
-        public MsDataScan(TSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData)
+        public MsDataScan(TSpectrum massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -42,6 +40,7 @@ namespace MassSpectrometry
             InjectionTime = injectionTime;
             NoiseData = noiseData;
             MassSpectrum = massSpectrum;
+            NativeId = nativeId;
         }
 
         #endregion Public Constructors
@@ -53,26 +52,28 @@ namespace MassSpectrometry
         /// </summary>
         public TSpectrum MassSpectrum { get; protected set; }
 
-        public int OneBasedScanNumber { get; private set; }
+        public int OneBasedScanNumber { get; }
 
-        public int MsnOrder { get; private set; }
+        public int MsnOrder { get; }
 
-        public double RetentionTime { get; private set; }
+        public double RetentionTime { get; }
 
-        public Polarity Polarity { get; private set; }
+        public Polarity Polarity { get; }
 
-        public MZAnalyzerType MzAnalyzer { get; private set; }
+        public MZAnalyzerType MzAnalyzer { get; }
 
-        public MzRange ScanWindowRange { get; private set; }
+        public MzRange ScanWindowRange { get; }
 
-        public string ScanFilter { get; private set; }
+        public string ScanFilter { get; }
 
-        public bool IsCentroid { get; private set; }
+        public string NativeId { get; }
 
-        public double TotalIonCurrent { get; private set; }
+        public bool IsCentroid { get; }
 
-        public double? InjectionTime { get; private set; }
-        public double[,] NoiseData { get; private set; }
+        public double TotalIonCurrent { get; }
+
+        public double? InjectionTime { get; }
+        public double[,] NoiseData { get; }
 
         #endregion Public Properties
 
@@ -81,11 +82,6 @@ namespace MassSpectrometry
         public override string ToString()
         {
             return string.Format("Scan #{0}", OneBasedScanNumber);
-        }
-
-        public void TransformByApplyingFunctionToSpectra(Func<IMzPeak, double> convertorForSpectrum)
-        {
-            MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
         }
 
         public byte[] Get64BitNoiseDataMass()
@@ -126,6 +122,5 @@ namespace MassSpectrometry
         }
 
         #endregion Private Methods
-
     }
 }

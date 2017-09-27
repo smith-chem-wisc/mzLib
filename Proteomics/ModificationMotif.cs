@@ -5,10 +5,11 @@ namespace Proteomics
 {
     public class ModificationMotif
     {
-
         #region Private Fields
 
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
+
+        private readonly string motifString;
 
         #endregion Private Fields
 
@@ -16,16 +17,10 @@ namespace Proteomics
 
         private ModificationMotif(string motif)
         {
-            Motif = motif;
+            motifString = motif;
         }
 
         #endregion Private Constructors
-
-        #region Public Properties
-
-        public string Motif { get; }
-
-        #endregion Public Properties
 
         #region Public Methods
 
@@ -46,7 +41,23 @@ namespace Proteomics
             return false;
         }
 
-        #endregion Public Methods
+        public override bool Equals(object o)
+        {
+            ModificationMotif m = o as ModificationMotif;
+            return m != null
+                && m.motifString == motifString;
+        }
 
+        public override int GetHashCode()
+        {
+            return motifString.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return motifString;
+        }
+
+        #endregion Public Methods
     }
 }
