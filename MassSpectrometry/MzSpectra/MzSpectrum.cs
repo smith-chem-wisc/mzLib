@@ -365,13 +365,15 @@ namespace MassSpectrometry
             }
 
             HashSet<double> seen = new HashSet<double>();
-            foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.totalIntensity / Math.Pow(b.stDev, 0.02)))
+            foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.totalIntensity / Math.Pow(b.stDev, 0.02) * Math.Pow(b.peaks.Count, 0.4) / Math.Pow(b.charge, 0.2)))
             {
                 Console.WriteLine("peaks: " + string.Join(", ", ok.peaks.Select(b => b.Item1)));
                 Console.WriteLine("int: " + ok.totalIntensity);
                 Console.WriteLine("stDev: " + ok.stDev);
                 Console.WriteLine("Math.Pow(b.stDev, 0.02): " + Math.Pow(ok.stDev, 0.02));
-                Console.WriteLine("formula: " + ok.totalIntensity / Math.Pow(ok.stDev, 0.02));
+                Console.WriteLine("Math.Pow(b.peaks.Count, 0.4): " + Math.Pow(ok.peaks.Count, 0.4));
+                Console.WriteLine("Math.Pow(ok.charge, 0.2): " + Math.Pow(ok.charge, 0.2));
+                Console.WriteLine("formula: " + ok.totalIntensity / Math.Pow(ok.stDev, 0.02) * Math.Pow(ok.peaks.Count, 0.4) / Math.Pow(ok.charge, 0.2));
                 if (seen.Overlaps(ok.peaks.Select(b => b.Item1)))
                     continue;
                 foreach (var ah in ok.peaks.Select(b => b.Item1))
