@@ -38,7 +38,6 @@ namespace MassSpectrometry
         protected MsDataScanWithPrecursor(TSpectrum massSpectrum, int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
                                                         : base(massSpectrum, ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData, nativeId)
         {
-
             this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
 
             this.IsolationMz = isolationMZ;
@@ -82,12 +81,12 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, Func<IMzPeak, bool> peakFilterFunction)
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
         {
             if (IsolationRange == null)
                 yield break;
 
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio, peakFilterFunction)
+            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
                                                   .Where(b => b.peaks.Any(cc => isolationRange.Contains(cc.Item1))))
                 yield return haha;
         }
@@ -127,6 +126,16 @@ namespace MassSpectrometry
             var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
             SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak];
             SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak];
+        }
+
+        public IEnumerable<Tuple<List<IMzPeak>, int>> GetIsolatedMassesAndChargesOld(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
+        {
+            if (IsolationRange == null)
+                yield break;
+
+            foreach (var haha in precursorSpectrum.DeconvoluteOld(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, massTolerance, intensityRatio)
+                                                  .Where(b => b.Item1.Any(cc => isolationRange.Contains(cc.Mz))))
+                yield return haha;
         }
 
         #endregion Public Methods

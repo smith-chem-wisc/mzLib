@@ -35,7 +35,7 @@ namespace MassSpectrometry
 
         TScan GetOneBasedScan(int oneBasedScanNumber);
 
-        IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, Func<IMzPeak, bool> peakFilterFunc, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc);
+        IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc);
 
         IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT);
 

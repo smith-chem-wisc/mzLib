@@ -129,7 +129,7 @@ namespace MassSpectrometry
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, Func<IMzPeak, bool> peakFilter, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc)
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc)
         {
             minScan = minScan ?? 1;
             maxScan = maxScan ?? NumSpectra;
@@ -141,7 +141,7 @@ namespace MassSpectrometry
                 {
                     var theScan = GetOneBasedScan(scanIndex);
                     if (scanFilterFunc(theScan))
-                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit, peakFilter).ToList();
+                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
                 }
             });
 
