@@ -186,7 +186,10 @@ namespace Spectra
 
         public IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks)
         {
-            double cutoffYvalue = YArray.Quantile(1.0 - (double)topNPeaks / Size);
+            var quantile = 1.0 - (double)topNPeaks / Size;
+            quantile = Math.Max(0, quantile);
+            quantile = Math.Min(1, quantile);
+            double cutoffYvalue = YArray.Quantile(quantile);
 
             for (int i = 0; i < Size; i++)
                 if (YArray[i] >= cutoffYvalue)
