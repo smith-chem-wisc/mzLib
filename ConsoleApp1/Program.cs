@@ -2,7 +2,6 @@
 using IO.Thermo;
 using MassSpectrometry;
 using MzLibUtil;
-using System;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
@@ -19,14 +18,22 @@ namespace ConsoleApp1
 
             var sameMassTolerancePpm = new PpmTolerance(10);
 
-            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"C:\Users\stepa\Desktop\Decon\04-29-13_B6_Frac5_4uL.raw");
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(args[0]);
 
-            using (StreamWriter output = new StreamWriter(@"04-29-13_B6_Frac5_4uL.tsv"))
+            using (StreamWriter output = new StreamWriter(@"output.txt"))
+            {
+                foreach (var nice in a.Deconvolute(null, null, 10, 20, 5, 5, b => true).OrderByDescending(b => b.TotalIntensity))
+                {
+                    output.WriteLine(nice.OneLineString());
+                }
+            }
+
+            using (StreamWriter output = new StreamWriter(@"output.tsv"))
             {
                 var intensityRatio = 5;
                 var deconvolutionTolerancePpm = 20;
                 var maxAssumedChargeState = 10;
-                Console.WriteLine("intensityRatio, deconvolutionTolerancePpm, maxAssumedChargeState: " + (intensityRatio, deconvolutionTolerancePpm, maxAssumedChargeState));
+                //Console.WriteLine("intensityRatio, deconvolutionTolerancePpm, maxAssumedChargeState: " + (intensityRatio, deconvolutionTolerancePpm, maxAssumedChargeState));
                 Tolerance deconvolutionTolerance = new PpmTolerance(deconvolutionTolerancePpm);
 
                 //int goodScans = 0;
@@ -45,8 +52,8 @@ namespace ConsoleApp1
 
                 output.WriteLine("Scan\tType");
                 //foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>().Where(b => b.OneBasedScanNumber == 3356))
-                foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>().Where(b => b.OneBasedScanNumber >= 3514))
-                //foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+                //foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>().Where(b => b.OneBasedScanNumber >= 3514))
+                foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
                 {
                     double thermoMz = double.NaN;
                     if (ok.SelectedIonChargeStateGuess.HasValue)
@@ -129,29 +136,29 @@ namespace ConsoleApp1
                             numMatchToOnlyNew++;
                         if (matchToOld && matchToNew)
                             numMatchToBoth++;
-                        if (!matchToOld && !matchToNew && thermoMz > 500)
-                        {
-                            Console.WriteLine(ok.OneBasedScanNumber + "\tThermoMz\t" + thermoMz.ToString("G6"));
-                            Console.WriteLine(ok.OneBasedScanNumber + "\tThermoMass\t" + thermoMz.ToMass(ok.SelectedIonChargeStateGuess.Value).ToString("G6"));
-                            Console.WriteLine(ok.OneBasedScanNumber + "\tOldMonoisotopicMzs\t" + string.Join("\t", oldResults.Select(b => b.Item1.First().Mz.ToString("G6"))));
-                            Console.WriteLine(ok.OneBasedScanNumber + "\tOldMonoisotopicMasses\t" + string.Join("\t", oldResults.Select(b => b.Item1.First().Mz.ToMass(b.Item2).ToString("G6"))));
-                            Console.WriteLine(ok.OneBasedScanNumber + "\tNewLowestObservedMzs\t" + string.Join("\t", newResults.Select(b => b.peaks.OrderBy(c => c.Item1).First().Item1.ToString("G6"))));
-                            Console.WriteLine(ok.OneBasedScanNumber + "\tNewMonoisotopicMasses\t" + string.Join("\t", newResults.Select(b => b.monoisotopicMass.ToString("G6"))));
-                        }
+                        //if (!matchToOld && !matchToNew && thermoMz > 500)
+                        //{
+                        //    Console.WriteLine(ok.OneBasedScanNumber + "\tThermoMz\t" + thermoMz.ToString("G6"));
+                        //    Console.WriteLine(ok.OneBasedScanNumber + "\tThermoMass\t" + thermoMz.ToMass(ok.SelectedIonChargeStateGuess.Value).ToString("G6"));
+                        //    Console.WriteLine(ok.OneBasedScanNumber + "\tOldMonoisotopicMzs\t" + string.Join("\t", oldResults.Select(b => b.Item1.First().Mz.ToString("G6"))));
+                        //    Console.WriteLine(ok.OneBasedScanNumber + "\tOldMonoisotopicMasses\t" + string.Join("\t", oldResults.Select(b => b.Item1.First().Mz.ToMass(b.Item2).ToString("G6"))));
+                        //    Console.WriteLine(ok.OneBasedScanNumber + "\tNewLowestObservedMzs\t" + string.Join("\t", newResults.Select(b => b.peaks.OrderBy(c => c.Item1).First().Item1.ToString("G6"))));
+                        //    Console.WriteLine(ok.OneBasedScanNumber + "\tNewMonoisotopicMasses\t" + string.Join("\t", newResults.Select(b => b.monoisotopicMass.ToString("G6"))));
+                        //}
                     }
                 }
 
-                Console.WriteLine("numMatchToOld: " + numMatchToOld);
-                Console.WriteLine("numMatchToOldPlusMM: " + numMatchToOldPlusMM);
-                Console.WriteLine("numMatchToOldMinusMM: " + numMatchToOldMinusMM);
-                Console.WriteLine("numMatchToNew: " + numMatchToNew);
-                Console.WriteLine("numMatchToNewPlusMM: " + numMatchToNewPlusMM);
-                Console.WriteLine("numMatchToNewMinusMM: " + numMatchToNewMinusMM);
+                //Console.WriteLine("numMatchToOld: " + numMatchToOld);
+                //Console.WriteLine("numMatchToOldPlusMM: " + numMatchToOldPlusMM);
+                //Console.WriteLine("numMatchToOldMinusMM: " + numMatchToOldMinusMM);
+                //Console.WriteLine("numMatchToNew: " + numMatchToNew);
+                //Console.WriteLine("numMatchToNewPlusMM: " + numMatchToNewPlusMM);
+                //Console.WriteLine("numMatchToNewMinusMM: " + numMatchToNewMinusMM);
 
-                Console.WriteLine("numMatchToOnlyOld: " + numMatchToOnlyOld);
-                Console.WriteLine("numMatchToOnlyNew: " + numMatchToOnlyNew);
-                Console.WriteLine("numMatchToBoth: " + numMatchToBoth);
-                Console.WriteLine("numScansWithThermoMasses: " + numScansWithThermoMasses);
+                //Console.WriteLine("numMatchToOnlyOld: " + numMatchToOnlyOld);
+                //Console.WriteLine("numMatchToOnlyNew: " + numMatchToOnlyNew);
+                //Console.WriteLine("numMatchToBoth: " + numMatchToBoth);
+                //Console.WriteLine("numScansWithThermoMasses: " + numScansWithThermoMasses);
             }
         }
 

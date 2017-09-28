@@ -64,7 +64,7 @@ namespace MassSpectrometry
 
         public string OneLineString()
         {
-            return "Mass: " + Mass.ToString("G8") + " NumPeaks: " + NumPeaks + " NumScans: " + (MaxScanIndex - MinScanIndex + 1) + " ScanRange: " + MinScanIndex + " to " + MaxScanIndex + " elutionTime: " + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + " totalIntensity: " + TotalIntensity.ToString("E5");
+            return "Mass: " + Mass.ToString("G8") + "NumPeaks: " + NumPeaks + " NumScans: " + (MaxScanIndex - MinScanIndex + 1) + " ScanRange: " + MinScanIndex + " to " + MaxScanIndex + " elutionTime: " + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + " totalIntensity: " + TotalIntensity.ToString("E5");
         }
 
         #endregion Public Methods
