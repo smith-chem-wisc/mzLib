@@ -32,7 +32,7 @@ namespace MzLibUtil
             fullSystemProse.Append("using " + WindowsOperatingSystemVersion());
             fullSystemProse.Append(" with a " + GetCpuRegister());
             fullSystemProse.Append(" and " + ProcessorCount() + " cores ");
-            fullSystemProse.Append("operating at "+ GetMaxClockSpeed() + "GHz ");            
+            fullSystemProse.Append("operating at " + GetMaxClockSpeed() + "GHz ");
             fullSystemProse.Append("and " + InstalledRam() + "GB installed RAM.");
 
             return fullSystemProse.ToString();
@@ -46,7 +46,7 @@ namespace MzLibUtil
         {
             string computerModel = "UNDETERMINED";
             try
-            {               
+            {
                 System.Management.SelectQuery query = new System.Management.SelectQuery(@"Select * from Win32_ComputerSystem");
 
                 using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(query))
@@ -54,7 +54,7 @@ namespace MzLibUtil
                     foreach (System.Management.ManagementObject process in searcher.Get())
                     {
                         process.Get();
-                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();                        
+                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();
                     }
                 }
                 return computerModel;
@@ -94,7 +94,6 @@ namespace MzLibUtil
             }
         }
 
-
         private static string GetMaxClockSpeed()
         {
             try
@@ -103,7 +102,7 @@ namespace MzLibUtil
                 string keyPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
                 RegistryKey registrykeyCPU = registrykeyHKLM.OpenSubKey(keyPath, false);
                 string MHz = registrykeyCPU.GetValue("~MHz").ToString();
-                double numericalMHz = Convert.ToDouble(MHz)/1000d;
+                double numericalMHz = Convert.ToDouble(MHz) / 1000d;
                 registrykeyCPU.Close();
                 return numericalMHz.ToString();
             }
@@ -112,7 +111,6 @@ namespace MzLibUtil
                 return "UNDETERMINED";
             }
         }
-
 
         private static string WindowsOperatingSystemVersion()
         {

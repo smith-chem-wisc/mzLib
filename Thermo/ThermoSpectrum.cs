@@ -164,7 +164,7 @@ namespace IO.Thermo
 
         protected override ThermoMzPeak GeneratePeak(int index)
         {
-            return peakList[index] = _charges == null ?
+            return _charges == null ?
                 new ThermoMzPeak(XArray[index], YArray[index]) :
                 new ThermoMzPeak(XArray[index], YArray[index], _charges[index], _noises[index], _resolutions[index]);
         }
