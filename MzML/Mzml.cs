@@ -395,7 +395,6 @@ namespace IO.MzML
                 }
             }
 
-
             DissociationType dissociationType = DissociationType.Unknown;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam != null)
             {
@@ -419,7 +418,7 @@ namespace IO.MzML
                 precursorScanNumber = null;
             }
             else
-            precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
+                precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
             return new MzmlScanWithPrecursor(
                 oneBasedSpectrumNumber,
                 mzmlMzSpectrum,

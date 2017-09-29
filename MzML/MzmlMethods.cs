@@ -128,45 +128,44 @@ namespace IO.MzML
                 sourceFileList = new Generated.SourceFileListType()
             };
 
-            if (myMsDataFile.SourceFile.NativeIdFormat!=null && myMsDataFile.SourceFile.MassSpectrometerFileFormat!=null && myMsDataFile.SourceFile.FileChecksumType!=null)
+            if (myMsDataFile.SourceFile.NativeIdFormat != null && myMsDataFile.SourceFile.MassSpectrometerFileFormat != null && myMsDataFile.SourceFile.FileChecksumType != null)
             {
-            mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
-            {
-                count = "1",
-                sourceFile = new Generated.SourceFileType[1]
-            };
+                mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
+                {
+                    count = "1",
+                    sourceFile = new Generated.SourceFileType[1]
+                };
 
-            mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
-            {
-                id = myMsDataFile.SourceFile.FileName,
-                name = myMsDataFile.SourceFile.FileName,
-                location = myMsDataFile.SourceFile.Uri.ToString(),
-            };
+                mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
+                {
+                    id = myMsDataFile.SourceFile.FileName,
+                    name = myMsDataFile.SourceFile.FileName,
+                    location = myMsDataFile.SourceFile.Uri.ToString(),
+                };
 
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
-            {
-                accession = nativeIdFormatAccessions[myMsDataFile.SourceFile.NativeIdFormat],
-                name = myMsDataFile.SourceFile.NativeIdFormat,
-                cvRef = "MS",
-                value = ""
-            };
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[1] = new Generated.CVParamType()
-            {
-                accession = MassSpectrometerFileFormatAccessions[myMsDataFile.SourceFile.MassSpectrometerFileFormat],
-                name = myMsDataFile.SourceFile.MassSpectrometerFileFormat,
-                cvRef = "MS",
-                value = ""
-            };
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[2] = new Generated.CVParamType()
-            {
-                accession = FileChecksumAccessions[myMsDataFile.SourceFile.FileChecksumType],
-                name = myMsDataFile.SourceFile.FileChecksumType,
-                cvRef = "MS",
-                value = myMsDataFile.SourceFile.CheckSum ?? "",
-            };
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
+                {
+                    accession = nativeIdFormatAccessions[myMsDataFile.SourceFile.NativeIdFormat],
+                    name = myMsDataFile.SourceFile.NativeIdFormat,
+                    cvRef = "MS",
+                    value = ""
+                };
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[1] = new Generated.CVParamType()
+                {
+                    accession = MassSpectrometerFileFormatAccessions[myMsDataFile.SourceFile.MassSpectrometerFileFormat],
+                    name = myMsDataFile.SourceFile.MassSpectrometerFileFormat,
+                    cvRef = "MS",
+                    value = ""
+                };
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[2] = new Generated.CVParamType()
+                {
+                    accession = FileChecksumAccessions[myMsDataFile.SourceFile.FileChecksumType],
+                    name = myMsDataFile.SourceFile.FileChecksumType,
+                    cvRef = "MS",
+                    value = myMsDataFile.SourceFile.CheckSum ?? "",
+                };
             }
-
 
             mzML.fileDescription.fileContent.cvParam = new Generated.CVParamType[2];
             mzML.fileDescription.fileContent.cvParam[0] = new Generated.CVParamType()
@@ -491,7 +490,6 @@ namespace IO.MzML
                         value = ""
                     };
 
-
                     // So needs a precursor!
                     mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
                     {
@@ -506,14 +504,13 @@ namespace IO.MzML
                             selectedIon = new Generated.ParamGroupType[1]
                         }
                     };
-                   
+
                     if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
                     {
                         var precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
                         mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
                     }
-                    
-                    
+
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0] = new Generated.ParamGroupType()
                     {
                         cvParam = new Generated.CVParamType[3]
