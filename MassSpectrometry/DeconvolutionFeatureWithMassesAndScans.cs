@@ -66,11 +66,7 @@ namespace MassSpectrometry
             return Mass.ToString("G8") + "\t" + NumPeaks + "\t" + (MaxScanIndex - MinScanIndex + 1) + "\t" + MinScanIndex + "\t" + MaxScanIndex + "\t" + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + "\t" + TotalIntensity.ToString("E5") + "\t" + groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.ToString();
         }
 
-        #endregion Public Methods
-
-        #region Internal Methods
-
-        internal void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
+        public void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
         {
             MinScanIndex = Math.Min(scanIndex, MinScanIndex);
             MaxScanIndex = Math.Max(scanIndex, MaxScanIndex);
@@ -93,6 +89,6 @@ namespace MassSpectrometry
             TotalIntensity += isotopicEnvelope.peaks.Sum(b => b.Item2);
         }
 
-        #endregion Internal Methods
+        #endregion Public Methods
     }
 }
