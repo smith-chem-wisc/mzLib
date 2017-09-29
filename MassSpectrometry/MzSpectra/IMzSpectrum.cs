@@ -38,7 +38,9 @@ namespace MassSpectrometry
 
         byte[] Get64BitYarray();
 
-        IEnumerable<Tuple<List<IMzPeak>, int>> Deconvolute(MzRange range, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio);
+        IEnumerable<IsotopicEnvelope> Deconvolute(MzRange range, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio);
+
+        IEnumerable<Tuple<List<IMzPeak>, int>> DeconvoluteOld(MzRange theRange, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio);
 
         #endregion Public Methods
     }

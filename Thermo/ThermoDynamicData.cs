@@ -25,7 +25,7 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoDynamicData InitiateDynamicConnection(string filePath)
+        public static ThermoDynamicData InitiateDynamicConnection(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(filePath);

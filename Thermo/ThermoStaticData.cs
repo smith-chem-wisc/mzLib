@@ -37,7 +37,7 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoStaticData LoadAllStaticData(string filePath)
+        public static ThermoStaticData LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             var ok = new ManagedThermoHelperLayer.HelperClass();
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();

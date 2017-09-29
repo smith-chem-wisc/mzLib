@@ -33,10 +33,18 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=3.20.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathNet.Numerics.3.20.0\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DeconvolutionFeatureWithMassesAndScans.cs" />
+    <Compile Include="DeconvolutionFeature.cs" />
     <Compile Include="Chromatogram\Chromatogram.cs" />
     <Compile Include="Chromatogram\ChromatographicElutionProfile.cs" />
     <Compile Include="Chromatogram\ChromatographicPeak.cs" />
@@ -52,6 +60,7 @@
     <Compile Include="MsDataFile.cs" />
     <Compile Include="MzSpectra\IMzPeak.cs" />
     <Compile Include="MzSpectra\IMzSpectrum.cs" />
+    <Compile Include="MzSpectra\IsotopicEnvelope.cs" />
     <Compile Include="MzSpectra\MzPeak.cs" />
     <Compile Include="MzSpectra\MzSpectrum.cs" />
     <Compile Include="Enums\DissociationType.cs" />
@@ -78,6 +87,9 @@
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
       <Name>Spectra</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

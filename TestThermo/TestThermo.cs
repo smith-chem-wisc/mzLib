@@ -95,11 +95,15 @@ namespace TestThermo
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, Tolerance.ParseToleranceString("1 PPM"), 4).ToList();
+            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, 1, 4).ToList();
 
-            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.Item1.First().Mz.ToMass(b.Item2) - 523.257) < 0.001));
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Item1.ToMass(b.charge) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
+
+            var sdafaf = a.Deconvolute(null, null, 30, 10, 3, 10, b => true).OrderByDescending(b => b.NumPeaks).First();
+
+            Assert.IsTrue(Math.Abs(262.64 - sdafaf.Mass.ToMz(2)) <= 0.01);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
             {

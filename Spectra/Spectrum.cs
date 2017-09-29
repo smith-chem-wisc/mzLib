@@ -213,6 +213,18 @@ namespace Spectra
             }
         }
 
+        public IEnumerable<int> ExtractIndices(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+                ind = ~ind;
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return ind;
+                ind++;
+            }
+        }
+
         public IEnumerable<TPeak> FilterByY(double minY, double maxY)
         {
             for (int i = 0; i < Size; i++)
