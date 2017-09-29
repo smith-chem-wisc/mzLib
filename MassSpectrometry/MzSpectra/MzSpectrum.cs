@@ -288,6 +288,7 @@ namespace MassSpectrometry
                 IsotopicEnvelope bestIsotopeEnvelopeForThisPeak = null;
 
                 var candidateForMostIntensePeakMz = XArray[candidateForMostIntensePeak];
+                Console.WriteLine("candidateForMostIntensePeakMz: " + candidateForMostIntensePeakMz);
                 //Console.WriteLine("candidateForMostIntensePeakMz: " + candidateForMostIntensePeakMz);
                 var candidateForMostIntensePeakIntensity = YArray[candidateForMostIntensePeak];
 
@@ -343,6 +344,14 @@ namespace MassSpectrometry
 
                         IsotopicEnvelope test = new IsotopicEnvelope(listOfPeaks, monoisotopicMass, chargeState, totalIntensity, MathNet.Numerics.Statistics.Statistics.StandardDeviation(listOfRatios), massIndex, averagineTypeIndex);
 
+                        if (ScoreIsotopeEnvelope(test) > 0 && listOfPeaks.Count > 2 && candidateForMostIntensePeakMz > 661.8 && candidateForMostIntensePeakMz < 661.9)
+                        {\// NNED TO SOLVE SCAN 446 PROBLEM
+                            Console.WriteLine("peaks: " + string.Join(", ", test.peaks.Select(b => b.Item1)));
+                            Console.WriteLine("int: " + test.totalIntensity);
+                            Console.WriteLine("stDev: " + test.stDev);
+                            Console.WriteLine("charge: " + test.charge);
+                            Console.WriteLine("score: " + ScoreIsotopeEnvelope(test));
+                        }
                         if (ScoreIsotopeEnvelope(test) > ScoreIsotopeEnvelope(bestIsotopeEnvelopeForThisPeak))
                             bestIsotopeEnvelopeForThisPeak = test;
                     }
@@ -355,11 +364,11 @@ namespace MassSpectrometry
             HashSet<double> seen = new HashSet<double>();
             foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => ScoreIsotopeEnvelope(b)))
             {
-                //Console.WriteLine("peaks: " + string.Join(", ", ok.peaks.Select(b => b.Item1)));
-                //Console.WriteLine("int: " + ok.totalIntensity);
-                //Console.WriteLine("stDev: " + ok.stDev);
-                //Console.WriteLine("charge: " + ok.charge);
-                //Console.WriteLine("score: " + ScoreIsotopeEnvelope(ok));
+                Console.WriteLine("peaks: " + string.Join(", ", ok.peaks.Select(b => b.Item1)));
+                Console.WriteLine("int: " + ok.totalIntensity);
+                Console.WriteLine("stDev: " + ok.stDev);
+                Console.WriteLine("charge: " + ok.charge);
+                Console.WriteLine("score: " + ScoreIsotopeEnvelope(ok));
                 if (seen.Overlaps(ok.peaks.Select(b => b.Item1)))
                     continue;
                 foreach (var ah in ok.peaks.Select(b => b.Item1))
@@ -424,7 +433,7 @@ namespace MassSpectrometry
         {
             if (b == null)
                 return 0;
-            return b.totalIntensity / Math.Pow(b.stDev, 0.02) * Math.Pow(b.peaks.Count, 0.4) / Math.Pow(b.charge, 0.13);
+            return b.totalIntensity / Math.Pow(b.stDev, 0.13) * Math.Pow(b.peaks.Count, 0.4) / Math.Pow(b.charge, 0.06);
         }
 
         private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
