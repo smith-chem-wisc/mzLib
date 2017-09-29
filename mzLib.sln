@@ -6,6 +6,10 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{D7C69058-1FE4-49BD-B994-B08C1DFB21A4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestThermo", "TestThermo\TestThermo.csproj", "{0FA1E770-6D5E-421B-802C-FDCA44791EAA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8913A108-5D93-4AF7-B273-89A06E817611} = {8913A108-5D93-4AF7-B273-89A06E817611}
+		{CDD56F70-D42F-4E86-A232-65F955CEF6EC} = {CDD56F70-D42F-4E86-A232-65F955CEF6EC}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MzLibUtil", "MzLibUtil\MzLibUtil.csproj", "{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}"
 EndProject
@@ -34,6 +38,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS1decon", "ConsoleApp1\MS1decon.csproj", "{1D54A7B3-E523-418A-92B6-16399358A8F6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS2decon", "MS2decon\MS2decon.csproj", "{8BD4834D-FBF2-4CB3-9496-4E0F697A0D87}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8913A108-5D93-4AF7-B273-89A06E817611} = {8913A108-5D93-4AF7-B273-89A06E817611}
+		{CDD56F70-D42F-4E86-A232-65F955CEF6EC} = {CDD56F70-D42F-4E86-A232-65F955CEF6EC}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -108,5 +116,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B7C26F74-0023-4108-B9D4-EA1E86CA569B}
 	EndGlobalSection
 EndGlobal
