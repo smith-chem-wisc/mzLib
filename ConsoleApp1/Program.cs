@@ -32,12 +32,12 @@ namespace ConsoleApp1
         {
             List<string> files = new List<string>
             {
-                @"C:\Users\stepa\Desktop\Decon\04-29-13_B6_Frac5_4uL.raw",
-                @"C:\Users\stepa\Desktop\Decon\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
+                //@"C:\Users\stepa\Desktop\Decon\04-29-13_B6_Frac5_4uL.raw",
+                //@"C:\Users\stepa\Desktop\Decon\12-10-16_A17A_yeast_BU_fract9_rep1_8uL.raw",
                 @"C:\Users\stepa\Desktop\Decon\120426_Jurkat_highLC_Frac17.raw",
-                @"C:\Users\stepa\Desktop\Decon\07-26-17_YL_150mins_steeper-grad_yeast.raw",
-                @"C:\Users\stepa\Desktop\Decon\07-28-17_19_rep2_mouse.raw",
-                @"C:\Users\stepa\Desktop\Decon\09-01-17_iodo_1-4th_rep1_human.raw",
+                //@"C:\Users\stepa\Desktop\Decon\07-26-17_YL_150mins_steeper-grad_yeast.raw",
+                //@"C:\Users\stepa\Desktop\Decon\07-28-17_19_rep2_mouse.raw",
+                //@"C:\Users\stepa\Desktop\Decon\09-01-17_iodo_1-4th_rep1_human.raw",
             };
 
             var sameMassTolerancePpm = new PpmTolerance(10);
