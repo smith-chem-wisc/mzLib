@@ -4,7 +4,6 @@ namespace MassSpectrometry
 {
     public class IsotopicEnvelope
     {
-
         #region Public Fields
 
         public readonly List<(double, double)> peaks;
@@ -36,10 +35,9 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return "MM: " + monoisotopicMass + " charge: " + charge + " numPeaks: " + peaks.Count + " mostIntensePeak: " + peaks[0].Item1 + " bestJ: " + bestJ;
+            return charge + "\t" + peaks[0].Item1.ToString("G8") + "\t" + peaks.Count;
         }
 
         #endregion Public Methods
-
     }
 }

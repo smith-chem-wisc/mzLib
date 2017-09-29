@@ -6,7 +6,6 @@ namespace MassSpectrometry
 {
     internal class DeconvolutionFeature
     {
-
         #region Private Fields
 
         private List<IsotopicEnvelope> isotopicEnvelopes = new List<IsotopicEnvelope>();
@@ -18,6 +17,8 @@ namespace MassSpectrometry
         public double Mass { get; private set; }
 
         public int NumPeaks { get; private set; }
+
+        public IsotopicEnvelope MostIntenseEnvelope { get { return isotopicEnvelopes.OrderByDescending(b => b.totalIntensity).First(); } }
 
         #endregion Public Properties
 
@@ -47,6 +48,5 @@ namespace MassSpectrometry
         }
 
         #endregion Internal Methods
-
     }
 }

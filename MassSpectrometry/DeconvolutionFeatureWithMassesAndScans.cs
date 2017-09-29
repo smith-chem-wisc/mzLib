@@ -7,7 +7,6 @@ namespace MassSpectrometry
 {
     public class DeconvolutionFeatureWithMassesAndScans
     {
-
         #region Private Fields
 
         private List<DeconvolutionFeature> groups = new List<DeconvolutionFeature>();
@@ -64,7 +63,7 @@ namespace MassSpectrometry
 
         public string OneLineString()
         {
-            return "Mass: " + Mass.ToString("G8") + "NumPeaks: " + NumPeaks + " NumScans: " + (MaxScanIndex - MinScanIndex + 1) + " ScanRange: " + MinScanIndex + " to " + MaxScanIndex + " elutionTime: " + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + " totalIntensity: " + TotalIntensity.ToString("E5");
+            return Mass.ToString("G8") + "\t" + NumPeaks + "\t" + (MaxScanIndex - MinScanIndex + 1) + "\t" + MinScanIndex + "\t" + MaxScanIndex + "\t" + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + "\t" + TotalIntensity.ToString("E5") + "\t" + groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.ToString();
         }
 
         #endregion Public Methods
@@ -95,6 +94,5 @@ namespace MassSpectrometry
         }
 
         #endregion Internal Methods
-
     }
 }
