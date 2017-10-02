@@ -63,7 +63,15 @@ namespace MassSpectrometry
 
         public string OneLineString()
         {
-            return Mass.ToString("G8") + "\t" + NumPeaks + "\t" + (MaxScanIndex - MinScanIndex + 1) + "\t" + MinScanIndex + "\t" + MaxScanIndex + "\t" + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + "\t" + TotalIntensity.ToString("E5") + "\t" + groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.ToString();
+            return Mass.ToString("G8") + "\t"
+                + NumPeaks + "\t"
+                + (MaxScanIndex - MinScanIndex + 1) + "\t"
+                + MinScanIndex + "\t"
+                + MaxScanIndex + "\t"
+                + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + "\t"
+                + TotalIntensity.ToString("E5") + "\t"
+                + string.Join(",", new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)) + "\t"
+                + groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.ToString();
         }
 
         public void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
