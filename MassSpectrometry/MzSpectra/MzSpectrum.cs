@@ -344,15 +344,15 @@ namespace MassSpectrometry
 
                         IsotopicEnvelope test = new IsotopicEnvelope(listOfPeaks, monoisotopicMass, chargeState, totalIntensity, MathNet.Numerics.Statistics.Statistics.StandardDeviation(listOfRatios), massIndex, averagineTypeIndex);
 
-                        if (ScoreIsotopeEnvelope(test) > 0 && listOfPeaks.Count > 2 && candidateForMostIntensePeakMz > 661.8 && candidateForMostIntensePeakMz < 661.9)
-                        {\// NNED TO SOLVE SCAN 446 PROBLEM
-                            Console.WriteLine("peaks: " + string.Join(", ", test.peaks.Select(b => b.Item1)));
-                            Console.WriteLine("int: " + test.totalIntensity);
-                            Console.WriteLine("stDev: " + test.stDev);
-                            Console.WriteLine("charge: " + test.charge);
-                            Console.WriteLine("score: " + ScoreIsotopeEnvelope(test));
-                        }
-                        if (ScoreIsotopeEnvelope(test) > ScoreIsotopeEnvelope(bestIsotopeEnvelopeForThisPeak))
+                        //if (ScoreIsotopeEnvelope(test) > 0 && listOfPeaks.Count > 2 && candidateForMostIntensePeakMz > 661.8 && candidateForMostIntensePeakMz < 661.9)
+                        //{// NNED TO SOLVE SCAN 446 PROBLEM
+                        //    Console.WriteLine("peaks: " + string.Join(", ", test.peaks.Select(b => b.Item1)));
+                        //    Console.WriteLine("int: " + test.totalIntensity);
+                        //    Console.WriteLine("stDev: " + test.stDev);
+                        //    Console.WriteLine("charge: " + test.charge);
+                        //    Console.WriteLine("score: " + ScoreIsotopeEnvelope(test));
+                        //}
+                        if (listOfPeaks.Count >= 2 && ScoreIsotopeEnvelope(test) > ScoreIsotopeEnvelope(bestIsotopeEnvelopeForThisPeak))
                             bestIsotopeEnvelopeForThisPeak = test;
                     }
                 }
