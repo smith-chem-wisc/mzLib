@@ -231,7 +231,7 @@ namespace ConsoleApp1
 
                 using (StreamWriter output = new StreamWriter(@"DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
-                    output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
+                    output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
                     foreach (var nice in a.Deconvolute(p.Object.MinScan, p.Object.MaxScan, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit, p.Object.AggregationTolerancePpm, b => b.MsnOrder == 1).OrderByDescending(b => b.TotalIntensity))
                     {
                         output.WriteLine(nice.OneLineString());
