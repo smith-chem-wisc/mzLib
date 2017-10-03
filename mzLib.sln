@@ -16,7 +16,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestThermo", "TestThermo\Te
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ManagedThermoHelperLayer", "ManagedThermoHelperLayer\ClassLibrary1.vcxproj", "{CDD56F70-D42F-4E86-A232-65F955CEF6EC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassSpectrometry", "MassSpectrometry\MassSpectrometry.csproj", "{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MassSpectrometry", "MassSpectrometry\MassSpectrometry.csproj", "{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mzIdentML", "mzIdentML\mzIdentML.csproj", "{63D869DF-55D8-4043-AD89-F90462403EBB}"
 EndProject
@@ -24,7 +24,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MzML", "MzML\MzML.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Proteomics", "Proteomics\Proteomics.csproj", "{4AB6BA94-B70C-4570-9EA6-165746D5B8E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spectra", "Spectra\Spectra.csproj", "{088E4FCB-D580-4BAD-A811-A1796A7666D2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spectra", "Spectra\Spectra.csproj", "{088E4FCB-D580-4BAD-A811-A1796A7666D2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Thermo", "Thermo\Thermo.csproj", "{24DC85FF-E97B-4140-9614-77DD8FDDD32F}"
 EndProject
@@ -64,10 +64,10 @@ Global
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC}.Debug|x64.Build.0 = Debug|x64
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC}.TestAndRelease|x64.Build.0 = Release|x64
-		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.Debug|x64.ActiveCfg = Debug|x64
-		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.Debug|x64.Build.0 = Debug|x64
-		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.TestAndRelease|x64.Build.0 = Release|x64
+		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.Debug|x64.Build.0 = Debug|Any CPU
+		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.TestAndRelease|x64.ActiveCfg = Release|Any CPU
+		{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}.TestAndRelease|x64.Build.0 = Release|Any CPU
 		{63D869DF-55D8-4043-AD89-F90462403EBB}.Debug|x64.ActiveCfg = Debug|x64
 		{63D869DF-55D8-4043-AD89-F90462403EBB}.Debug|x64.Build.0 = Debug|x64
 		{63D869DF-55D8-4043-AD89-F90462403EBB}.TestAndRelease|x64.ActiveCfg = Release|x64

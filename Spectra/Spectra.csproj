@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
   </ItemGroup>
 
 </Project>

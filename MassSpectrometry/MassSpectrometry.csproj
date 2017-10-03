@@ -1,99 +1,18 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>MassSpectrometry</RootNamespace>
-    <AssemblyName>MassSpectrometry</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x64\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>bin\x64\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="MathNet.Numerics, Version=3.20.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\MathNet.Numerics.3.20.0\lib\net40\MathNet.Numerics.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
+    <PackageReference Include="MathNet.Numerics" Version="3.20.0" />
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="DeconvolutionFeatureWithMassesAndScans.cs" />
-    <Compile Include="DeconvolutionFeature.cs" />
-    <Compile Include="Chromatogram\Chromatogram.cs" />
-    <Compile Include="Chromatogram\ChromatographicElutionProfile.cs" />
-    <Compile Include="Chromatogram\ChromatographicPeak.cs" />
-    <Compile Include="DataScan\IMsDataScanWithPrecursor.cs" />
-    <Compile Include="DataScan\MsDataScanWithPrecursor.cs" />
-    <Compile Include="SourceFile.cs" />
-    <Compile Include="SummedMsDataFile.cs" />
-    <Compile Include="GeneratedMzSpectrum.cs" />
-    <Compile Include="GeneratedPeak.cs" />
-    <Compile Include="IIdentifications.cs" />
-    <Compile Include="IMsDynamicDataFile.cs" />
-    <Compile Include="IMsStaticDataFile.cs" />
-    <Compile Include="MsDataFile.cs" />
-    <Compile Include="MzSpectra\IMzPeak.cs" />
-    <Compile Include="MzSpectra\IMzSpectrum.cs" />
-    <Compile Include="MzSpectra\IsotopicEnvelope.cs" />
-    <Compile Include="MzSpectra\MzPeak.cs" />
-    <Compile Include="MzSpectra\MzSpectrum.cs" />
-    <Compile Include="Enums\DissociationType.cs" />
-    <Compile Include="IMsDataFile.cs" />
-    <Compile Include="DataScan\IMsDataScan.cs" />
-    <Compile Include="DataScan\MsDataScan.cs" />
-    <Compile Include="Enums\MzAnalyzerType.cs" />
-    <Compile Include="Enums\Polarity.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs">
-      <SonarQubeExclude>true</SonarQubeExclude>
-    </Compile>
-    <Compile Include="Enums\SmoothingType.cs" />
+    <ProjectReference Include="..\Spectra\Spectra.csproj" />
+    <ProjectReference Include="..\ZChemistry\ZChemistry.csproj" />
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Spectra\Spectra.csproj">
-      <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
-      <Name>Spectra</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ZChemistry\ZChemistry.csproj">
-      <Project>{5E1B47BE-18D8-41A7-B95F-A553034108F0}</Project>
-      <Name>ZChemistry</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj">
-      <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
-      <Name>ZMzLibUtil</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+
 </Project>
