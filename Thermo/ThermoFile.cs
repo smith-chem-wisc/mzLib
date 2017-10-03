@@ -2,7 +2,9 @@
 using MSFileReaderLib;
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace IO.Thermo
@@ -91,7 +93,9 @@ namespace IO.Thermo
 
         #region Protected Methods
 
-        protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams)
+        protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
+            int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
+            int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             int pnNumPackets = 0;
             double pdLowMass = 0;
@@ -148,9 +152,6 @@ namespace IO.Thermo
             string pbstrFilter = null;
             theConnection.GetFilterForScanNum(nScanNumber, ref pbstrFilter);
 
-            int pbIsCentroidScan = 0;
-            theConnection.IsCentroidScanForScanNum(nScanNumber, ref pbIsCentroidScan);
-
             int pnMSOrder = 0;
             theConnection.GetMSOrderForScanNum(nScanNumber, ref pnMSOrder);
 
@@ -161,22 +162,71 @@ namespace IO.Thermo
             theConnection.GetNoiseData(ref pvarNoisePacket, nScanNumber);
             double[,] noiseData = pvarNoisePacket as double[,];
 
-            double[,] data;
+            ThermoSpectrum thermoSpectrum;
             try
             {
                 object pvarFlags = null;
                 object pvarLabels = null;
                 theConnection.GetLabelData(ref pvarLabels, ref pvarFlags, ref nScanNumber);
-                data = pvarLabels as double[,];
+                var data = pvarLabels as double[,];
                 if (data == null || data.Length == 0)
                     throw new MzLibException("For spectrum number " + nScanNumber + " the data is null!");
+
+                if ((minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+                {
+                    var count = data.GetLength(1);
+
+                    var mzArray = new double[count];
+                    var intensityArray = new double[count];
+                    Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
+                    Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
+
+                    IComparer<double> c = new ReverseComparer();
+                    Array.Sort(intensityArray, mzArray, c);
+
+                    int numPeaks = intensityArray.Length;
+                    if (minRatio.HasValue)
+                    {
+                        double minIntensity = minRatio.Value * intensityArray[0];
+                        numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
+                    }
+
+                    if (topNpeaks.HasValue)
+                        numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+
+                    Array.Resize(ref intensityArray, numPeaks);
+                    Array.Resize(ref mzArray, numPeaks);
+
+                    Array.Sort(mzArray, intensityArray);
+                    thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);
+                }
+                else
+                    thermoSpectrum = new ThermoSpectrum(data);
             }
             catch (MzLibException)
             {
+                // Warning: the masses reported by GetMassListFromScanNum when centroiding are not properly calibrated and thus could be off by 0.3 m/z or more
                 string bstrFilter = null;
-                int nIntensityCutoffType = 0;
-                int nIntensityCutoffValue = 0;
-                int nMaxNumberOfPeaks = 0;
+
+                int nIntensityCutoffType;
+                int nIntensityCutoffValue;
+                if (minRatio.HasValue && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+                {
+                    nIntensityCutoffType = 2;
+                    nIntensityCutoffValue = (int)(pdBasePeakIntensity * minRatio.Value);
+                }
+                else
+                {
+                    nIntensityCutoffType = 0;
+                    nIntensityCutoffValue = 0;
+                }
+
+                int nMaxNumberOfPeaks;
+                if (topNpeaks.HasValue && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+                    nMaxNumberOfPeaks = topNpeaks.Value;
+                else
+                    nMaxNumberOfPeaks = 0;
+
                 int bCentroidResult = 1;
                 double pdCentroidPeakWidth = 0;
                 object pvarnMassList = null;
@@ -191,7 +241,7 @@ namespace IO.Thermo
                                 ref pvarnMassList,
                                 ref pvarPeakFlags,
                                 ref pnArraySize);
-                data = (double[,])pvarnMassList;
+                thermoSpectrum = new ThermoSpectrum((double[,])pvarnMassList);
             }
 
             MZAnalyzerType mzAnalyzerType;
@@ -211,8 +261,6 @@ namespace IO.Thermo
             {
                 int pnActivationType = 0;
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
-
-                // Trust this first
 
                 // INITIALIZE globalParams.couldBePrecursor[nScanNumber - 1] (for dynamic connections that don't have it initialized yet)
                 if (globalParams.couldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
@@ -274,7 +322,7 @@ namespace IO.Thermo
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
-                    new ThermoSpectrum(data),
+                    thermoSpectrum,
                     pnMSOrder,
                     PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
                     pdStartTime,
@@ -295,7 +343,7 @@ namespace IO.Thermo
             else
             {
                 return new ThermoScan(nScanNumber,
-                    new ThermoSpectrum(data),
+                    thermoSpectrum,
                     1,
                     PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
                     pdStartTime,

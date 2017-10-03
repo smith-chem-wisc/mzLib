@@ -61,12 +61,11 @@ namespace Spectra
         protected Spectrum(double[,] xy)
         {
             var count = xy.GetLength(1);
-            int length = xy.GetLength(1);
 
             XArray = new double[count];
             YArray = new double[count];
             Buffer.BlockCopy(xy, 0, XArray, 0, sizeof(double) * count);
-            Buffer.BlockCopy(xy, sizeof(double) * length, YArray, 0, sizeof(double) * count);
+            Buffer.BlockCopy(xy, sizeof(double) * count, YArray, 0, sizeof(double) * count);
             peakList = new TPeak[Size];
         }
 
