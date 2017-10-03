@@ -2,7 +2,7 @@ using Chemistry;
 using IO.MzML;
 using IO.Thermo;
 using MassSpectrometry;
-using ZMzLibUtil;
+using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.IO;

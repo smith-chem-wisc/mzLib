@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace ZMzLibUtil
+namespace MzLibUtil
 {
     public static class SystemInfo
     {

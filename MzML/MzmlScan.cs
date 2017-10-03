@@ -1,5 +1,5 @@
 ﻿using MassSpectrometry;
-using ZMzLibUtil;
+using MzLibUtil;
 
 namespace IO.MzML
 {

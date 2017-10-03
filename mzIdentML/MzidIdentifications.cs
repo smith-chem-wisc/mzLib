@@ -16,7 +16,7 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
-using ZMzLibUtil;
+using MzLibUtil;
 using System;
 using System.IO;
 using System.Linq;

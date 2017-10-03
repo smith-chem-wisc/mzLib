@@ -1,4 +1,4 @@
-﻿using ZMzLibUtil;
+﻿using MzLibUtil;
 
 namespace MassSpectrometry
 {

@@ -17,7 +17,7 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using MathNet.Numerics.Statistics;
-using ZMzLibUtil;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;

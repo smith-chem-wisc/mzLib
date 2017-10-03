@@ -19,7 +19,7 @@
 using Chemistry;
 using IO.MzML;
 using MassSpectrometry;
-using ZMzLibUtil;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;

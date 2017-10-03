@@ -17,7 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using ZMzLibUtil;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 

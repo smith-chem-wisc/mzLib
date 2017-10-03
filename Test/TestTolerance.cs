@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
-using ZMzLibUtil;
+using MzLibUtil;
 using NUnit.Framework;
 
 namespace Test

@@ -19,7 +19,7 @@
 using System;
 using System.Text.RegularExpressions;
 
-namespace ZMzLibUtil
+namespace MzLibUtil
 {
     /// <summary>
     /// The tolerance, or error, of two points

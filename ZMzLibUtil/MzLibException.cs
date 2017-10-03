@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ZMzLibUtil
+namespace MzLibUtil
 {
     public class MzLibException : Exception
     {
