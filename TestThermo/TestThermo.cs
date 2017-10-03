@@ -131,6 +131,36 @@ namespace TestThermo
         }
 
         [Test]
+        public static void LoadThermoFiltered2()
+        {
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"small.raw", topNpeaks: 40, trimMs1Peaks: true, trimMsMsPeaks: true);
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"small.raw", minRatio: 0.1, trimMs1Peaks: true, trimMsMsPeaks: true);
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"small.raw", minRatio: 0.1, topNpeaks: 40, trimMs1Peaks: true, trimMsMsPeaks: true);
+
+            var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
+            var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
+            var cLen = c.GetOneBasedScan(1).MassSpectrum.Size;
+            var dLen = d.GetOneBasedScan(1).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen, cLen), dLen);
+
+            var aLen2 = a.GetOneBasedScan(2).MassSpectrum.Size;
+            var bLen2 = b.GetOneBasedScan(2).MassSpectrum.Size;
+            var cLen2 = c.GetOneBasedScan(2).MassSpectrum.Size;
+            var dLen2 = d.GetOneBasedScan(2).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen2, cLen2), dLen2);
+
+            var aLen3 = a.GetOneBasedScan(3).MassSpectrum.Size;
+            var bLen3 = b.GetOneBasedScan(3).MassSpectrum.Size;
+            var cLen3 = c.GetOneBasedScan(3).MassSpectrum.Size;
+            var dLen3 = d.GetOneBasedScan(3).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen3, cLen3), dLen3);
+        }
+
+        [Test]
         public static void LoadThermoTest3()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");

@@ -162,88 +162,67 @@ namespace IO.Thermo
             theConnection.GetNoiseData(ref pvarNoisePacket, nScanNumber);
             double[,] noiseData = pvarNoisePacket as double[,];
 
-            ThermoSpectrum thermoSpectrum;
+            double[,] data;
             try
             {
                 object pvarFlags = null;
                 object pvarLabels = null;
                 theConnection.GetLabelData(ref pvarLabels, ref pvarFlags, ref nScanNumber);
-                var data = pvarLabels as double[,];
+                data = pvarLabels as double[,];
                 if (data == null || data.Length == 0)
                     throw new MzLibException("For spectrum number " + nScanNumber + " the data is null!");
-
-                if ((minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
-                {
-                    var count = data.GetLength(1);
-
-                    var mzArray = new double[count];
-                    var intensityArray = new double[count];
-                    Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
-                    Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
-
-                    IComparer<double> c = new ReverseComparer();
-                    Array.Sort(intensityArray, mzArray, c);
-
-                    int numPeaks = intensityArray.Length;
-                    if (minRatio.HasValue)
-                    {
-                        double minIntensity = minRatio.Value * intensityArray[0];
-                        numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
-                    }
-
-                    if (topNpeaks.HasValue)
-                        numPeaks = Math.Min(topNpeaks.Value, numPeaks);
-
-                    Array.Resize(ref intensityArray, numPeaks);
-                    Array.Resize(ref mzArray, numPeaks);
-
-                    Array.Sort(mzArray, intensityArray);
-                    thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);
-                }
-                else
-                    thermoSpectrum = new ThermoSpectrum(data);
             }
             catch (MzLibException)
             {
                 // Warning: the masses reported by GetMassListFromScanNum when centroiding are not properly calibrated and thus could be off by 0.3 m/z or more
-                string bstrFilter = null;
 
-                int nIntensityCutoffType;
-                int nIntensityCutoffValue;
-                if (minRatio.HasValue && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
-                {
-                    nIntensityCutoffType = 2;
-                    nIntensityCutoffValue = (int)(pdBasePeakIntensity * minRatio.Value);
-                }
-                else
-                {
-                    nIntensityCutoffType = 0;
-                    nIntensityCutoffValue = 0;
-                }
-
-                int nMaxNumberOfPeaks;
-                if (topNpeaks.HasValue && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
-                    nMaxNumberOfPeaks = topNpeaks.Value;
-                else
-                    nMaxNumberOfPeaks = 0;
-
-                int bCentroidResult = 1;
                 double pdCentroidPeakWidth = 0;
                 object pvarnMassList = null;
                 object pvarPeakFlags = null;
                 theConnection.GetMassListFromScanNum(ref nScanNumber,
-                                bstrFilter,
-                                nIntensityCutoffType,
-                                nIntensityCutoffValue,
-                                nMaxNumberOfPeaks,
-                                bCentroidResult,
+                                null,
+                                0,
+                                0,
+                                0,
+                                1,
                                 ref pdCentroidPeakWidth,
                                 ref pvarnMassList,
                                 ref pvarPeakFlags,
                                 ref pnArraySize);
-                thermoSpectrum = new ThermoSpectrum((double[,])pvarnMassList);
+                data = (double[,])pvarnMassList;
             }
 
+            ThermoSpectrum thermoSpectrum;
+            if ((minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            {
+                var count = data.GetLength(1);
+
+                var mzArray = new double[count];
+                var intensityArray = new double[count];
+                Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
+                Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
+
+                IComparer<double> c = new ReverseComparer();
+                Array.Sort(intensityArray, mzArray, c);
+
+                int numPeaks = intensityArray.Length;
+                if (minRatio.HasValue)
+                {
+                    double minIntensity = minRatio.Value * intensityArray[0];
+                    numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
+                }
+
+                if (topNpeaks.HasValue)
+                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+
+                Array.Resize(ref intensityArray, numPeaks);
+                Array.Resize(ref mzArray, numPeaks);
+
+                Array.Sort(mzArray, intensityArray);
+                thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);
+            }
+            else
+                thermoSpectrum = new ThermoSpectrum(data);
             MZAnalyzerType mzAnalyzerType;
             switch ((ThermoMzAnalyzer)pnMassAnalyzerType)
             {
