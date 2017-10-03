@@ -2,6 +2,7 @@
 
 namespace MzLibUtil
 {
+    [Serializable]
     public class MzLibException : Exception
     {
         #region Public Constructors
