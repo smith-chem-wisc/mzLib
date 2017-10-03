@@ -18,7 +18,7 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="Chemistry\bin\x64\Release\Chemistry.dll" target="lib" /> 
+    <file src="ZChemistry\bin\x64\Release\Chemistry.dll" target="lib" /> 
     <file src="mzIdentML\bin\x64\Release\mzIdentML.dll" target="lib" /> 
     <file src="MzML\bin\x64\Release\MzML.dll" target="lib" /> 
     <file src="pepXML\bin\x64\Release\pepXML.dll" target="lib" /> 
@@ -27,7 +27,7 @@
     <file src="Proteomics\bin\x64\Release\Proteomics.dll" target="lib" /> 
     <file src="Spectra\bin\x64\Release\Spectra.dll" target="lib" /> 
     <file src="UsefulProteomicsDatabases\bin\x64\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
-    <file src="MzLibUtil\bin\x64\Release\MzLibUtil.dll" target="lib" /> 
+    <file src="ZMzLibUtil\bin\x64\Release\MzLibUtil.dll" target="lib" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib" /> 
     <file src="x64\Release\UnmanagedThermoHelperLayer.dll" target="build" /> 
     <file src="mzLib.targets" target="build" />
