@@ -65,7 +65,7 @@ namespace IO.Thermo
 
             IThermoScan[] scans = new IThermoScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)
-                scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(nScanNumber, theConnection, p);
+                scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(nScanNumber, theConnection, p, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
 
             theConnection.Close();
 
