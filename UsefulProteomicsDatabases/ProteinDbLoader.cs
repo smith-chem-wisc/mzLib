@@ -472,12 +472,21 @@ namespace UsefulProteomicsDatabases
             }
             bool positiveDirection = i % 2 == 0;
             int oldIndex = i;
+
+            if (positiveDirection)
+                oldIndex += numShuffles;
+            else
+                oldIndex -= numShuffles;
+
+            if (oldIndex >= 0 && oldIndex < sequenceLength)
+                return methioninePresent ? oldIndex + 1 : oldIndex;
+
             while (true)
             {
                 if (positiveDirection)
-                    oldIndex += numShuffles;
+                    oldIndex = oldIndex * -1;
                 else
-                    oldIndex -= numShuffles;
+                    oldIndex = sequenceLength * 2 - oldIndex;
 
                 if (oldIndex < 0)
                     positiveDirection = true;
