@@ -26,7 +26,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Proteomics", "Proteomics\Pr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spectra", "Spectra\Spectra.csproj", "{088E4FCB-D580-4BAD-A811-A1796A7666D2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Thermo", "Thermo\Thermo.csproj", "{24DC85FF-E97B-4140-9614-77DD8FDDD32F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Thermo", "Thermo\Thermo.csproj", "{24DC85FF-E97B-4140-9614-77DD8FDDD32F}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8913A108-5D93-4AF7-B273-89A06E817611} = {8913A108-5D93-4AF7-B273-89A06E817611}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnmanagedThermoHelperLayer", "UnmanagedThermoHelperLayer\Win32Project8.vcxproj", "{8913A108-5D93-4AF7-B273-89A06E817611}"
 EndProject
@@ -84,10 +87,10 @@ Global
 		{088E4FCB-D580-4BAD-A811-A1796A7666D2}.Debug|x64.Build.0 = Debug|Any CPU
 		{088E4FCB-D580-4BAD-A811-A1796A7666D2}.TestAndRelease|x64.ActiveCfg = Release|Any CPU
 		{088E4FCB-D580-4BAD-A811-A1796A7666D2}.TestAndRelease|x64.Build.0 = Release|Any CPU
-		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.Debug|x64.ActiveCfg = Debug|x64
-		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.Debug|x64.Build.0 = Debug|x64
-		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.TestAndRelease|x64.Build.0 = Release|x64
+		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.Debug|x64.Build.0 = Debug|Any CPU
+		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.TestAndRelease|x64.ActiveCfg = Release|Any CPU
+		{24DC85FF-E97B-4140-9614-77DD8FDDD32F}.TestAndRelease|x64.Build.0 = Release|Any CPU
 		{8913A108-5D93-4AF7-B273-89A06E817611}.Debug|x64.ActiveCfg = Debug|x64
 		{8913A108-5D93-4AF7-B273-89A06E817611}.Debug|x64.Build.0 = Debug|x64
 		{8913A108-5D93-4AF7-B273-89A06E817611}.TestAndRelease|x64.ActiveCfg = Release|x64
