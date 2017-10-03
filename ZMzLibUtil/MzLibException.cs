@@ -1,8 +1,7 @@
 ﻿using System;
 
-namespace MzLibUtil
+namespace ZMzLibUtil
 {
-    [Serializable]
     public class MzLibException : Exception
     {
         #region Public Constructors

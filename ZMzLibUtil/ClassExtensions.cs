@@ -20,7 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MzLibUtil
+namespace ZMzLibUtil
 {
     public static class ClassExtensions
     {

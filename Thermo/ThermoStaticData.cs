@@ -18,7 +18,7 @@
 
 using MassSpectrometry;
 using MSFileReaderLib;
-using MzLibUtil;
+using ZMzLibUtil;
 using System;
 using System.IO;
 using System.Security.Cryptography;

@@ -2,7 +2,7 @@
 using IO.MzML;
 using MassSpectrometry;
 using MzIdentML;
-using MzLibUtil;
+using ZMzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;

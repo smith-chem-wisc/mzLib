@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>IO.MzML</RootNamespace>
     <AssemblyName>MzML</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\</SolutionDir>
     <RestorePackages>true</RestorePackages>
@@ -39,9 +39,6 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-    </Reference>
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
@@ -58,10 +55,6 @@
     <Compile Include="XSD\mzML1_1_1_idx.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
-      <Name>MzLibUtil</Name>
-    </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
@@ -69,6 +62,10 @@
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
       <Name>Spectra</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj">
+      <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
+      <Name>ZMzLibUtil</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Test</RootNamespace>
     <AssemblyName>Test</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <SonarQubeExclude>true</SonarQubeExclude>
@@ -39,9 +39,6 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-    </Reference>
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
@@ -68,10 +65,6 @@
     <Compile Include="TestTolerance.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
-      <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
-      <Name>Chemistry</Name>
-    </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
@@ -79,10 +72,6 @@
     <ProjectReference Include="..\mzIdentML\mzIdentML.csproj">
       <Project>{63d869df-55d8-4043-ad89-f90462403ebb}</Project>
       <Name>mzIdentML</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{b208ff5f-5a33-490d-9ddb-7c76f5600fc4}</Project>
-      <Name>MzLibUtil</Name>
     </ProjectReference>
     <ProjectReference Include="..\MzML\MzML.csproj">
       <Project>{012434fb-88a9-4dec-b887-5f64c0b481d4}</Project>
@@ -99,6 +88,14 @@
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
       <Name>UsefulProteomicsDatabases</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ZChemistry\ZChemistry.csproj">
+      <Project>{5E1B47BE-18D8-41A7-B95F-A553034108F0}</Project>
+      <Name>ZChemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj">
+      <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
+      <Name>ZMzLibUtil</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

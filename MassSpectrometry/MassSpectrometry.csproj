@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MassSpectrometry</RootNamespace>
     <AssemblyName>MassSpectrometry</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -38,9 +38,6 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DeconvolutionFeatureWithMassesAndScans.cs" />
@@ -75,17 +72,17 @@
     <Compile Include="Enums\SmoothingType.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
-      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
-      <Name>Chemistry</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
-      <Name>MzLibUtil</Name>
-    </ProjectReference>
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
       <Name>Spectra</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ZChemistry\ZChemistry.csproj">
+      <Project>{5E1B47BE-18D8-41A7-B95F-A553034108F0}</Project>
+      <Name>ZChemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj">
+      <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
+      <Name>ZMzLibUtil</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

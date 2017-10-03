@@ -17,7 +17,7 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using MzLibUtil;
+using ZMzLibUtil;
 using Spectra;
 using System;
 using System.Collections.Generic;

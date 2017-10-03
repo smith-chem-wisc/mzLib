@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>Chemistry</AssemblyName>
+    <RootNamespace>Chemistry</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
+  </ItemGroup>
+
+</Project>

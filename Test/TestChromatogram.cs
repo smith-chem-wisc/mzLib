@@ -17,7 +17,7 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
-using MzLibUtil;
+using ZMzLibUtil;
 using NUnit.Framework;
 using System.Linq;
 

@@ -39,17 +39,9 @@
     <Reference Include="System.Management" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ClassExtensions.cs" />
-    <Compile Include="DoubleRange.cs" />
-    <Compile Include="MzLibException.cs" />
-    <Compile Include="MzRange.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
-    <Compile Include="PpmTolerance.cs" />
-    <Compile Include="AbsoluteTolerance.cs" />
-    <Compile Include="SystemInfo.cs" />
-    <Compile Include="Tolerance.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

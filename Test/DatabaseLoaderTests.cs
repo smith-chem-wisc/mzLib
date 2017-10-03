@@ -16,7 +16,7 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
 using Chemistry;
-using MzLibUtil;
+using ZMzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using System;

@@ -18,7 +18,7 @@
 
 using System;
 
-namespace MzLibUtil
+namespace ZMzLibUtil
 {
     /// <summary>
     /// The tolerance, or error, of two points

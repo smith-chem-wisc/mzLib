@@ -44,15 +44,6 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ChemicalFormula.cs" />
-    <Compile Include="Constants.cs" />
-    <Compile Include="Interfaces\IHasChemicalFormula.cs" />
-    <Compile Include="Interfaces\IHasMass.cs" />
-    <Compile Include="IsotopicDistribution.cs" />
-    <Compile Include="ClassExtensions.cs" />
-    <Compile Include="PeriodicTable.cs" />
-    <Compile Include="Element.cs" />
-    <Compile Include="Isotope.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
@@ -61,9 +52,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
-      <Name>MzLibUtil</Name>
+    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj">
+      <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
+      <Name>ZMzLibUtil</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
