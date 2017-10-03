@@ -12,7 +12,6 @@
     <ProjectReference Include="..\Spectra\Spectra.csproj" />
     <ProjectReference Include="..\ZChemistry\ZChemistry.csproj" />
     <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
-    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
   </ItemGroup>
 
 </Project>
