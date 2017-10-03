@@ -499,21 +499,5 @@ namespace IO.MzML
         }
 
         #endregion Private Methods
-
-        #region Private Classes
-
-        private class ReverseComparer : IComparer<double>
-        {
-            #region Public Methods
-
-            public int Compare(double x, double y)
-            {
-                return y.CompareTo(x);
-            }
-
-            #endregion Public Methods
-        }
-
-        #endregion Private Classes
     }
 }

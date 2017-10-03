@@ -25,51 +25,17 @@ namespace IO.Thermo
     /// A high resolution spectra from a Thermo raw file
     /// </summary>
     [Serializable]
-    public sealed class ThermoSpectrum : MzSpectrum<ThermoMzPeak>
+    public sealed class ThermoSpectrum : MzSpectrum<MzPeak>
     {
-        #region Private Fields
-
-        private readonly double[] _noises;
-
-        private readonly double[] _resolutions;
-
-        private readonly int[] _charges;
-
-        #endregion Private Fields
-
         #region Public Constructors
 
-        public ThermoSpectrum(double[] mz, double[] intensity, double[] noise, int[] charge, double[] resolutions, bool shouldCopy)
+        public ThermoSpectrum(double[] mz, double[] intensity, bool shouldCopy)
             : base(mz, intensity, shouldCopy)
         {
-            if (!shouldCopy)
-            {
-                _noises = noise;
-                _resolutions = resolutions;
-                _charges = charge;
-            }
-            else
-            {
-                if (noise != null)
-                {
-                    _noises = new double[noise.Length];
-                    Array.Copy(noise, _noises, noise.Length);
-                }
-                if (resolutions != null)
-                {
-                    _resolutions = new double[resolutions.Length];
-                    Array.Copy(resolutions, _resolutions, resolutions.Length);
-                }
-                if (charge != null)
-                {
-                    _charges = new int[charge.Length];
-                    Array.Copy(charge, _charges, charge.Length);
-                }
-            }
         }
 
         public ThermoSpectrum(ThermoSpectrum thermoSpectrum)
-            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, thermoSpectrum._noises, thermoSpectrum._charges, thermoSpectrum._resolutions, true)
+            : this(thermoSpectrum.XArray, thermoSpectrum.YArray, true)
         {
         }
 
@@ -80,93 +46,15 @@ namespace IO.Thermo
         internal ThermoSpectrum(double[,] peakData)
                             : base(peakData)
         {
-            int arrayLength = peakData.GetLength(1);
-            int depthLength = peakData.GetLength(0);
-            if (depthLength <= 2)
-                return;
-            _noises = new double[Size];
-            _resolutions = new double[Size];
-            var charges = new double[Size];
-
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)RawLabelDataColumn.Resolution, _resolutions, 0, sizeof(double) * Size);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)RawLabelDataColumn.NoiseLevel, _noises, 0, sizeof(double) * Size);
-            Buffer.BlockCopy(peakData, sizeof(double) * arrayLength * (int)RawLabelDataColumn.Charge, charges, 0, sizeof(double) * Size);
-
-            _charges = new int[Size];
-            for (int i = 0; i < Size; i++)
-            {
-                _charges[i] = (int)charges[i];
-            }
         }
 
         #endregion Internal Constructors
 
-        #region Private Enums
-
-        private enum RawLabelDataColumn
-        {
-            MZ = 0,
-            Intensity = 1,
-            Resolution = 2,
-            NoiseBaseline = 3,
-            NoiseLevel = 4,
-            Charge = 5
-        }
-
-        #endregion Private Enums
-
-        #region Public Methods
-
-        public double GetSignalToNoise(int index)
-        {
-            if (_noises == null)
-                return double.NaN;
-            double noise = _noises[index];
-            return YArray[index] / noise;
-        }
-
-        public double[] GetNoises()
-        {
-            return _noises;
-        }
-
-        public double[] GetResolutions()
-        {
-            return _resolutions;
-        }
-
-        public int[] GetCharges()
-        {
-            return _charges;
-        }
-
-        public override double[,] CopyTo2DArray()
-        {
-            double[,] data = new double[5, Size];
-            const int size = sizeof(double);
-            int bytesToCopy = size * Size;
-            Buffer.BlockCopy(XArray, 0, data, 0, bytesToCopy);
-            Buffer.BlockCopy(YArray, 0, data, bytesToCopy, bytesToCopy);
-            Buffer.BlockCopy(_resolutions, 0, data, 2 * bytesToCopy, bytesToCopy);
-            Buffer.BlockCopy(_noises, 0, data, 3 * bytesToCopy, bytesToCopy);
-
-            double[] charges = new double[Size];
-            for (int i = 0; i < Size; i++)
-                charges[i] = _charges[i];
-
-            Buffer.BlockCopy(charges, 0, data, 4 * bytesToCopy, bytesToCopy);
-            return data;
-        }
-
-        #endregion Public Methods
-
         #region Protected Methods
 
-        protected override ThermoMzPeak GeneratePeak(int index)
+        protected override MzPeak GeneratePeak(int index)
         {
-            return _charges == null ?
-                new ThermoMzPeak(XArray[index], YArray[index]) :
-                new ThermoMzPeak(XArray[index], YArray[index], _charges[index], _noises[index], _resolutions[index]);
+            return new MzPeak(XArray[index], YArray[index]);
         }
 
         #endregion Protected Methods
