@@ -1,7 +1,7 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Diagnostics;
-using System.Management;
+//using System.Management;
 using System.Text;
 
 namespace MzLibUtil
@@ -45,38 +45,38 @@ namespace MzLibUtil
         private static string GetManufacturer()
         {
             string computerModel = "UNDETERMINED";
-            try
-            {
-                System.Management.SelectQuery query = new System.Management.SelectQuery(@"Select * from Win32_ComputerSystem");
+            //try
+            //{
+            //    System.Management.SelectQuery query = new System.Management.SelectQuery(@"Select * from Win32_ComputerSystem");
 
-                using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(query))
-                {
-                    foreach (System.Management.ManagementObject process in searcher.Get())
-                    {
-                        process.Get();
-                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();
-                    }
-                }
+            //    using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(query))
+            //    {
+            //        foreach (System.Management.ManagementObject process in searcher.Get())
+            //        {
+            //            process.Get();
+            //            computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();
+            //        }
+            //    }
+            //    return computerModel;
+            //}
+            //catch
+            //{
                 return computerModel;
-            }
-            catch
-            {
-                return computerModel;
-            }
+            //}
         }
 
         private static string GetWindowsOs()
         {
-            try
-            {
-                var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+            //try
+            //{
+            //    var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
 
-                return ((string)reg.GetValue("ProductName"));
-            }
-            catch
-            {
+            //    return ((string)reg.GetValue("ProductName"));
+            //}
+            //catch
+            //{
                 return "UNDETERMINED OPERATING SYSTEM";
-            }
+            //}
         }
 
         private static string GetCpuRegister()
@@ -96,20 +96,20 @@ namespace MzLibUtil
 
         private static string GetMaxClockSpeed()
         {
-            try
-            {
-                RegistryKey registrykeyHKLM = Registry.LocalMachine;
-                string keyPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
-                RegistryKey registrykeyCPU = registrykeyHKLM.OpenSubKey(keyPath, false);
-                string MHz = registrykeyCPU.GetValue("~MHz").ToString();
-                double numericalMHz = Convert.ToDouble(MHz) / 1000d;
-                registrykeyCPU.Close();
-                return numericalMHz.ToString();
-            }
-            catch
-            {
+            //try
+            //{
+            //    RegistryKey registrykeyHKLM = Registry.LocalMachine;
+            //    string keyPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
+            //    RegistryKey registrykeyCPU = registrykeyHKLM.OpenSubKey(keyPath, false);
+            //    string MHz = registrykeyCPU.GetValue("~MHz").ToString();
+            //    double numericalMHz = Convert.ToDouble(MHz) / 1000d;
+            //    registrykeyCPU.Close();
+            //    return numericalMHz.ToString();
+            //}
+            //catch
+            //{
                 return "UNDETERMINED";
-            }
+            //}
         }
 
         private static string WindowsOperatingSystemVersion()
@@ -126,47 +126,47 @@ namespace MzLibUtil
 
         private static string DotNet()
         {
-            try
-            {
-                const string subkey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\";
+            //try
+            //{
+            //    const string subkey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\";
 
-                using (RegistryKey ndpKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32).OpenSubKey(subkey))
-                {
-                    if (ndpKey != null && ndpKey.GetValue("Release") != null)
-                    {
-                        return ".NET Framework Version: " + CheckFor45PlusVersion((int)ndpKey.GetValue("Release"));
-                    }
-                    else
-                    {
-                        return ".NET Framework Version 4.5 or later is not detected.";
-                    }
-                }
-            }
-            catch
-            {
+            //    using (RegistryKey ndpKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32).OpenSubKey(subkey))
+            //    {
+            //        if (ndpKey != null && ndpKey.GetValue("Release") != null)
+            //        {
+            //            return ".NET Framework Version: " + CheckFor45PlusVersion((int)ndpKey.GetValue("Release"));
+            //        }
+            //        else
+            //        {
+            //            return ".NET Framework Version 4.5 or later is not detected.";
+            //        }
+            //    }
+            //}
+            //catch
+            //{
                 return "Windows .Net Version could not be determined.\n";
-            }
+            //}
         }
 
         private static string InstalledRam()
         {
-            try
-            {
-                string Query = "SELECT Capacity FROM Win32_PhysicalMemory";
-                ManagementObjectSearcher searcher = new ManagementObjectSearcher(Query);
+            //try
+            //{
+            //    string Query = "SELECT Capacity FROM Win32_PhysicalMemory";
+            //    ManagementObjectSearcher searcher = new ManagementObjectSearcher(Query);
 
-                UInt64 Capacity = 0;
-                foreach (ManagementObject WniPART in searcher.Get())
-                {
-                    Capacity += Convert.ToUInt64(WniPART.Properties["Capacity"].Value);
-                }
+            //    UInt64 Capacity = 0;
+            //    foreach (ManagementObject WniPART in searcher.Get())
+            //    {
+            //        Capacity += Convert.ToUInt64(WniPART.Properties["Capacity"].Value);
+            //    }
 
-                return ((Capacity / 1073741824).ToString());
-            }
-            catch
-            {
+            //    return ((Capacity / 1073741824).ToString());
+            //}
+            //catch
+            //{
                 return "UNKNOWN ";
-            }
+            //}
         }
 
         private static string ProcessorCount()
