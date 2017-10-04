@@ -19,14 +19,14 @@
   </metadata>
   <files>
     <file src="Chemistry\bin\Release\netstandard2.0\Chemistry.dll" target="lib" /> 
-    <file src="mzIdentML\bin\x64\Release\mzIdentML.dll" target="lib" /> 
-    <file src="MzML\bin\x64\Release\MzML.dll" target="lib" /> 
-    <file src="pepXML\bin\x64\Release\pepXML.dll" target="lib" /> 
+    <file src="mzIdentML\bin\Release\netstandard2.0\mzIdentML.dll" target="lib" /> 
+    <file src="MzML\bin\Release\netstandard2.0\MzML.dll" target="lib" /> 
+    <file src="pepXML\bin\Release\netstandard2.0\pepXML.dll" target="lib" /> 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib" /> 
-    <file src="MassSpectrometry\bin\x64\Release\MassSpectrometry.dll" target="lib" /> 
-    <file src="Proteomics\bin\x64\Release\Proteomics.dll" target="lib" /> 
-    <file src="Spectra\bin\x64\Release\Spectra.dll" target="lib" /> 
-    <file src="UsefulProteomicsDatabases\bin\x64\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
+    <file src="MassSpectrometry\bin\Release\netstandard2.0\MassSpectrometry.dll" target="lib" /> 
+    <file src="Proteomics\bin\Release\netstandard2.0\Proteomics.dll" target="lib" /> 
+    <file src="Spectra\bin\Release\netstandard2.0\Spectra.dll" target="lib" /> 
+    <file src="UsefulProteomicsDatabases\bin\Release\netstandard2.0\UsefulProteomicsDatabases.dll" target="lib" /> 
     <file src="MzLibUtil\bin\Release\netstandard2.0\MzLibUtil.dll" target="lib" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib" /> 
     <file src="x64\Release\UnmanagedThermoHelperLayer.dll" target="build" /> 
