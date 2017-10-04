@@ -402,6 +402,52 @@ CF   O1
             Assert.AreEqual("Oxidation", (b as ModificationWithMass).keywords.First());
         }
 
+        [Test]
+        public static void TestReverseDecoy()
+        {
+            var nice = new List<Modification>();
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
+            Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
+            Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
+            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
+            foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+            foreach (DisulfideBond bond in ok2[1].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+        }
+
+        [Test]
+        public static void TestShuffleDecoy()
+        {
+            var nice = new List<Modification>();
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Shuffle, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
+            Assert.AreEqual("MHLLALLAVLFLPELKLTAAWVPQPLQGFHKVHACYPVLGERLFLYCPESGRFVTDKQREELELPGVPQDEQGLSLGVLRTKAGEVAQQCRSICDLCQTEIYSNYCLN", ok2[1].BaseSequence);
+            Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
+            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
+            for (int i = 0; i < ok2[0].ProteolysisProducts.Count(); i++)
+            {
+                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition);
+                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedEndPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedEndPosition);
+            }
+            foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition-1], 'C');
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedEndPosition-1], 'C');
+            }
+            foreach (DisulfideBond bond in ok2[1].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+        }
         #endregion Public Methods
     }
 }

@@ -314,7 +314,7 @@ namespace UsefulProteomicsDatabases
                                                     }
                                                     foreach (DisulfideBond disulfideBond in disulfideBonds)
                                                     {
-                                                        decoy_disulfides.Add(new DisulfideBond(sequence.Length - disulfideBond.OneBasedBeginPosition + 1, sequence.Length - disulfideBond.OneBasedEndPosition + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
+                                                        decoy_disulfides.Add(new DisulfideBond(sequence.Length - disulfideBond.OneBasedBeginPosition + 2, sequence.Length - disulfideBond.OneBasedEndPosition + 2, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
                                                     }
 
                                                     List<SequenceVariation> decoy_variations = new List<SequenceVariation>();
@@ -354,7 +354,7 @@ namespace UsefulProteomicsDatabases
                                                         if (numShuffles % sequence_array_shuffled.Length - 1 == 0)
                                                             numShuffles++;
                                                         for (int i = 1; i < sequence_array_shuffled.Length; i++)
-                                                            sequence_array_shuffled[i] = sequence_array_unshuffled[GetOldShuffleIndex(i, numShuffles, sequence.Length, true)];                             
+                                                            sequence_array_shuffled[i] = sequence_array_unshuffled[GetOldShuffleIndex(i, numShuffles, sequence.Length, true)];
 
                                                         decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
                                                         foreach (var kvp in oneBasedModifications)
@@ -465,6 +465,8 @@ namespace UsefulProteomicsDatabases
 
         private static int GetOldShuffleIndex(int i, int numShuffles, int sequenceLength, bool methioninePresent)
         {
+            if(i==106)
+            { }
             if (methioninePresent)
             {
                 i--;
@@ -478,22 +480,19 @@ namespace UsefulProteomicsDatabases
             else
                 oldIndex -= numShuffles;
 
-            if (oldIndex >= 0 && oldIndex < sequenceLength)
-                return methioninePresent ? oldIndex + 1 : oldIndex;
-
             while (true)
             {
-                if (positiveDirection)
-                    oldIndex = oldIndex * -1;
-                else
-                    oldIndex = sequenceLength * 2 - oldIndex;
-
                 if (oldIndex < 0)
                     positiveDirection = true;
                 else if (oldIndex >= sequenceLength)
                     positiveDirection = false;
                 else
                     return methioninePresent ? oldIndex + 1 : oldIndex;
+
+                if (positiveDirection)
+                    oldIndex = (oldIndex * -1) - 1;
+                else
+                    oldIndex = (sequenceLength * 2) - oldIndex - 1;
             }
         }
 
