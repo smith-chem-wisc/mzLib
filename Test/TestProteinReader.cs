@@ -217,10 +217,10 @@ namespace Test
             Assert.AreEqual(93, ok[0].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
 
             Assert.AreEqual(3, ok[1].DisulfideBonds.Count());
-            Assert.AreEqual(78, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
-            Assert.AreEqual(15, ok[1].DisulfideBonds.First().OneBasedEndPosition);
-            Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
-            Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
+            Assert.AreEqual(79, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
+            Assert.AreEqual(16, ok[1].DisulfideBonds.First().OneBasedEndPosition);
+            Assert.AreEqual(17, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
+            Assert.AreEqual(17, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
             Assert.AreNotEqual(ok[0].DisulfideBonds.First().Description, ok[1].DisulfideBonds.First().Description); //decoys and target disulfide bonds don't have the same desc.
         }
 
