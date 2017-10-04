@@ -634,8 +634,8 @@ namespace UsefulProteomicsDatabases
                                 char[] sequence_array_unslide = sequence.ToCharArray();
                                 char[] sequence_array_slide = sequence.ToCharArray();
                                 bool starts_with_met_slide = sequence.StartsWith("M", StringComparison.InvariantCulture);
-                                    for (int i = starts_with_met_slide ? 1:0; i < sequence.Length; i++)
-                                        sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
+                                for (int i = starts_with_met_slide ? 1 : 0; i < sequence.Length; i++)
+                                    sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
                                 string slide_sequence = new string(sequence_array_slide);
                                 Protein decoy_protein_slide = new Protein(slide_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                                 result.Add(decoy_protein_slide);
