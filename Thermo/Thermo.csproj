@@ -1,97 +1,37 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{24DC85FF-E97B-4140-9614-77DD8FDDD32F}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>IO.Thermo</RootNamespace>
-    <AssemblyName>Thermo</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\..\</SolutionDir>
-    <RestorePackages>true</RestorePackages>
+    <TargetFrameworks>net47</TargetFrameworks>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>bin\x64\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net461|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <OutputPath>bin\x64\Debug\</OutputPath>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net461|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="nunit.framework, Version=3.8.1.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
-      <HintPath>..\packages\NUnit.3.8.1\lib\net45\nunit.framework.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="IThermoScan.cs" />
-    <Compile Include="ThermoDynamicData.cs" />
-    <Compile Include="ThermoFile.cs" />
-    <Compile Include="ThermoGlobalParams.cs" />
-    <Compile Include="ThermoStaticData.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs">
-      <SonarQubeExclude>true</SonarQubeExclude>
-    </Compile>
-    <Compile Include="ThermoScanWithPrecursor.cs" />
-    <Compile Include="ThermoScan.cs" />
-    <Compile Include="ThermoSpectrum.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
-      <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
-      <Name>ManagedThermoHelperLayer</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
-      <Name>MzLibUtil</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
-      <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
-      <Name>MassSpectrometry</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Spectra\Spectra.csproj">
-      <Project>{088e4fcb-d580-4bad-a811-a1796a7666d2}</Project>
-      <Name>Spectra</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <COMReference Include="MSFileReaderLib">
-      <Guid>{F0C5F3E3-4F2A-443E-A74D-0AABE3237494}</Guid>
+    <COMReference Include="MSFileReaderLib.dll">
+      <Guid>f0c5f3e3-4f2a-443e-a74d-0aabe3237494</Guid>
       <VersionMajor>1</VersionMajor>
       <VersionMinor>0</VersionMinor>
-      <Lcid>0</Lcid>
       <WrapperTool>tlbimp</WrapperTool>
-      <Isolated>False</Isolated>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <Lcid>0</Lcid>
+      <Isolated>false</Isolated>
     </COMReference>
   </ItemGroup>
+
   <ItemGroup>
-    <None Include="packages.config" />
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Spectra\Spectra.csproj" />
+    <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PreBuildEvent>xcopy /y /d  "$(SolutionDir)x64\$(Configuration)\*.dll" "$(ProjectDir)$(OutDir)"</PreBuildEvent>
-  </PropertyGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
+
+  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
+    <Exec Command="xcopy /y /d  &quot;$(SolutionDir)x64\$(Configuration)\*.dll&quot; &quot;$(ProjectDir)$(OutDir)&quot;" />
   </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+
 </Project>

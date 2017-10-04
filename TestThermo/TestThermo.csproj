@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>TestThermo</RootNamespace>
     <AssemblyName>TestThermo</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <SonarQubeExclude>true</SonarQubeExclude>
@@ -46,9 +46,6 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SetUpTests.cs" />
@@ -68,17 +65,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
-      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
-      <Name>Chemistry</Name>
-    </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
-      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
-      <Name>MzLibUtil</Name>
     </ProjectReference>
     <ProjectReference Include="..\MzML\MzML.csproj">
       <Project>{012434fb-88a9-4dec-b887-5f64c0b481d4}</Project>
@@ -95,6 +84,14 @@
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
       <Name>UsefulProteomicsDatabases</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{5e1b47be-18d8-41a7-b95f-a553034108f0}</Project>
+      <Name>ZChemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
+      <Name>ZMzLibUtil</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
