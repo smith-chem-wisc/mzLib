@@ -27,7 +27,7 @@
     <file src="Proteomics\bin\x64\Release\Proteomics.dll" target="lib" /> 
     <file src="Spectra\bin\x64\Release\Spectra.dll" target="lib" /> 
     <file src="UsefulProteomicsDatabases\bin\x64\Release\UsefulProteomicsDatabases.dll" target="lib" /> 
-    <file src="MzLibUtil\bin\x64\Release\MzLibUtil.dll" target="lib" /> 
+    <file src="MzLibUtil\bin\Release\netstandard2.0\MzLibUtil.dll" target="lib" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib" /> 
     <file src="x64\Release\UnmanagedThermoHelperLayer.dll" target="build" /> 
     <file src="mzLib.targets" target="build" />
