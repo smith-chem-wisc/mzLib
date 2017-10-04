@@ -139,7 +139,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -172,7 +172,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"seqvartests.xml"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -205,7 +205,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -217,10 +217,10 @@ namespace Test
             Assert.AreEqual(93, ok[0].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
 
             Assert.AreEqual(3, ok[1].DisulfideBonds.Count());
-            Assert.AreEqual(78, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
-            Assert.AreEqual(15, ok[1].DisulfideBonds.First().OneBasedEndPosition);
-            Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
-            Assert.AreEqual(16, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
+            Assert.AreEqual(79, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
+            Assert.AreEqual(16, ok[1].DisulfideBonds.First().OneBasedEndPosition);
+            Assert.AreEqual(17, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
+            Assert.AreEqual(17, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
             Assert.AreNotEqual(ok[0].DisulfideBonds.First().Description, ok[1].DisulfideBonds.First().Description); //decoys and target disulfide bonds don't have the same desc.
         }
 
@@ -233,7 +233,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
 
@@ -259,7 +259,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml.gz"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -284,7 +284,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fake_h4.xml"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -299,7 +299,7 @@ namespace Test
                 new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, true, nice, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start.xml"), true, DecoyType.Reverse, nice, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -331,7 +331,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", "two",  motif, TerminusLocalization.Any, null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, new List<string>(), out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, DecoyType.Reverse, nice, false, new List<string>(), out Dictionary<string, Modification> un);
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
@@ -345,7 +345,7 @@ namespace Test
                 new ModificationWithLocation("N-acetylserine", "exclude_me",  motif, TerminusLocalization.Any, null)
             };
 
-            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, true, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml.xml"), true, DecoyType.Reverse, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
 
@@ -402,6 +402,52 @@ CF   O1
             Assert.AreEqual("Oxidation", (b as ModificationWithMass).keywords.First());
         }
 
+        [Test]
+        public static void TestReverseDecoy()
+        {
+            var nice = new List<Modification>();
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
+            Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
+            Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
+            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
+            foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+            foreach (DisulfideBond bond in ok2[1].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+        }
+
+        [Test]
+        public static void TestShuffleDecoy()
+        {
+            var nice = new List<Modification>();
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Slide, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
+            Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
+            Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
+            Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
+            for (int i = 0; i < ok2[0].ProteolysisProducts.Count(); i++)
+            {
+                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedBeginPosition);
+                Assert.AreEqual(ok2[0].ProteolysisProducts.ToArray()[i].OneBasedEndPosition, ok2[1].ProteolysisProducts.ToArray()[i].OneBasedEndPosition);
+            }
+            foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition-1], 'C');
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedEndPosition-1], 'C');
+            }
+            foreach (DisulfideBond bond in ok2[1].DisulfideBonds)
+            {
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
+            }
+        }
         #endregion Public Methods
     }
 }
