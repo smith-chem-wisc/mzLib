@@ -9,9 +9,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\Spectra\Spectra.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
-    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
   </ItemGroup>
 
 </Project>

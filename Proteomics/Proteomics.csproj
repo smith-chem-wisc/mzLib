@@ -5,8 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
-    <ProjectReference Include="..\ZChemistry\ZChemistry.csproj" />
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
 </Project>

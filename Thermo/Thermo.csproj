@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\Spectra\Spectra.csproj" />
-    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj" />
     <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
