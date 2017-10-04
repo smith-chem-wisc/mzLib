@@ -187,5 +187,21 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
+
+        #region Protected Classes
+
+        protected class ReverseComparer : IComparer<double>
+        {
+            #region Public Methods
+
+            public int Compare(double x, double y)
+            {
+                return y.CompareTo(x);
+            }
+
+            #endregion Public Methods
+        }
+
+        #endregion Protected Classes
     }
 }

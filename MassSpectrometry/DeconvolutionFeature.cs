@@ -20,6 +20,8 @@ namespace MassSpectrometry
 
         public IsotopicEnvelope MostIntenseEnvelope { get { return isotopicEnvelopes.OrderByDescending(b => b.totalIntensity).First(); } }
 
+        public IEnumerable<int> AllCharges { get { return isotopicEnvelopes.Select(b => b.charge).ToList(); } }
+
         #endregion Public Properties
 
         #region Public Methods
