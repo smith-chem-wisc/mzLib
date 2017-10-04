@@ -19,7 +19,7 @@
   </metadata>
   <files>
     <file src="Chemistry\bin\Release\netstandard2.0\Chemistry.dll" target="lib" /> 
-    <file src="mzIdentML\bin\Release\netstandard2.0\mzIdentML.dll" target="lib" /> 
+    <file src="MzIdentML\bin\Release\netstandard2.0\MzIdentML.dll" target="lib" /> 
     <file src="MzML\bin\Release\netstandard2.0\MzML.dll" target="lib" /> 
     <file src="pepXML\bin\Release\netstandard2.0\pepXML.dll" target="lib" /> 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib" /> 

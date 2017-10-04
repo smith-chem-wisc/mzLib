@@ -19,7 +19,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ManagedThermoHelperLayer", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MassSpectrometry", "MassSpectrometry\MassSpectrometry.csproj", "{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzIdentML", "mzIdentML\mzIdentML.csproj", "{63D869DF-55D8-4043-AD89-F90462403EBB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MzIdentML", "MzIdentML\MzIdentML.csproj", "{63D869DF-55D8-4043-AD89-F90462403EBB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MzML", "MzML\MzML.csproj", "{012434FB-88A9-4DEC-B887-5F64C0B481D4}"
 EndProject
