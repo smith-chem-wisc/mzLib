@@ -555,7 +555,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="name_expression"></param>
         /// <param name="gene_expression"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, bool onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -618,14 +618,31 @@ namespace UsefulProteomicsDatabases
                             result.Add(protein);
                         }
 
-                        if (onTheFlyDecoys)
+                        switch (onTheFlyDecoys)
                         {
-                            char[] sequence_array = sequence.ToCharArray();
-                            int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
-                            Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
-                            var reversed_sequence = new string(sequence_array);
-                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
-                            result.Add(decoy_protein);
+                            case DecoyType.Reverse:
+                                char[] sequence_array = sequence.ToCharArray();
+                                int starts_with_met = Convert.ToInt32(sequence.StartsWith("M", StringComparison.InvariantCulture));
+                                Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
+                                var reversed_sequence = new string(sequence_array);
+                                Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                                result.Add(decoy_protein);
+                                break;
+
+                            case DecoyType.Slide:
+                                int numSlides = 20;
+                                char[] sequence_array_unslide = sequence.ToCharArray();
+                                char[] sequence_array_slide = sequence.ToCharArray();
+                                bool starts_with_met_slide = sequence.StartsWith("M", StringComparison.InvariantCulture);
+                                    for (int i = Convert.ToInt32(starts_with_met_slide); i < sequence.Length; i++)
+                                        sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
+                                string slide_sequence = new string(sequence_array_slide);
+                                Protein decoy_protein_slide = new Protein(slide_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                                result.Add(decoy_protein_slide);
+                                break;
+
+                            default:
+                                break;
                         }
 
                         accession = null;
