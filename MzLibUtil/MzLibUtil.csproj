@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <AssemblyName>MzLibUtil</AssemblyName>
-    <RootNamespace>MzLibUtil</RootNamespace>
   </PropertyGroup>
 
 </Project>

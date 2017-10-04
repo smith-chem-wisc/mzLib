@@ -45,9 +45,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS2decon", "MS2decon\MS2dec
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC} = {CDD56F70-D42F-4E86-A232-65F955CEF6EC}
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ZChemistry", "ZChemistry\ZChemistry.csproj", "{5E1B47BE-18D8-41A7-B95F-A553034108F0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chemistry", "Chemistry\Chemistry.csproj", "{5E1B47BE-18D8-41A7-B95F-A553034108F0}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ZMzLibUtil", "ZMzLibUtil\ZMzLibUtil.csproj", "{249C2DA0-6279-430E-AA03-C0F6EB7B9DBE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MzLibUtil", "MzLibUtil\MzLibUtil.csproj", "{249C2DA0-6279-430E-AA03-C0F6EB7B9DBE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

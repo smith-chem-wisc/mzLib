@@ -74,11 +74,11 @@
       <Project>{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}</Project>
       <Name>UsefulProteomicsDatabases</Name>
     </ProjectReference>
-    <ProjectReference Include="..\ZChemistry\ZChemistry.csproj">
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{5e1b47be-18d8-41a7-b95f-a553034108f0}</Project>
       <Name>ZChemistry</Name>
     </ProjectReference>
-    <ProjectReference Include="..\ZMzLibUtil\ZMzLibUtil.csproj">
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
       <Project>{249c2da0-6279-430e-aa03-c0f6eb7b9dbe}</Project>
       <Name>ZMzLibUtil</Name>
     </ProjectReference>
