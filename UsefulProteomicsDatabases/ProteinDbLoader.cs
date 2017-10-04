@@ -342,26 +342,26 @@ namespace UsefulProteomicsDatabases
                                                     result.Add(decoy_protein);
                                                     break;
 
-                                                case DecoyType.Shuffle:
-                                                    int numShuffles = 4;
-                                                    char[] sequence_array_unshuffled = sequence.ToCharArray();
-                                                    char[] sequence_array_shuffled = sequence.ToCharArray();
+                                                case DecoyType.Slide:
+                                                    int numSlides = 20;
+                                                    char[] sequence_array_unslided = sequence.ToCharArray();
+                                                    char[] sequence_array_slided = sequence.ToCharArray();
                                                     decoy_modifications = null;
-                                                    List<DisulfideBond> decoy_disulfides_shuffle = new List<DisulfideBond>();
+                                                    List<DisulfideBond> decoy_disulfides_slide = new List<DisulfideBond>();
                                                     if (sequence.StartsWith("M", StringComparison.InvariantCulture))
                                                     {
                                                         // Do not include the initiator methionine in shuffle!!!
-                                                        if (numShuffles % sequence_array_shuffled.Length - 1 == 0)
-                                                            numShuffles++;
-                                                        for (int i = 1; i < sequence_array_shuffled.Length; i++)
-                                                            sequence_array_shuffled[i] = sequence_array_unshuffled[GetOldShuffleIndex(i, numShuffles, sequence.Length, true)];
+                                                        if (numSlides % sequence_array_slided.Length - 1 == 0)
+                                                            numSlides++;
+                                                        for (int i = 1; i < sequence_array_slided.Length; i++)
+                                                            sequence_array_slided[i] = sequence_array_unslided[GetOldShuffleIndex(i, numSlides, sequence.Length, true)];
 
                                                         decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
                                                         foreach (var kvp in oneBasedModifications)
                                                         {
                                                             if (kvp.Key > 1)
                                                             {
-                                                                decoy_modifications.Add(GetOldShuffleIndex(kvp.Key - 1, numShuffles, sequence.Length, true) + 1, kvp.Value);
+                                                                decoy_modifications.Add(GetOldShuffleIndex(kvp.Key - 1, numSlides, sequence.Length, true) + 1, kvp.Value);
                                                             }
                                                             else if (kvp.Key == 1)
                                                             {
@@ -371,61 +371,61 @@ namespace UsefulProteomicsDatabases
                                                     }
                                                     else
                                                     {
-                                                        if (numShuffles % sequence_array_shuffled.Length == 0)
-                                                            numShuffles++;
-                                                        for (int i = 0; i < sequence_array_shuffled.Length; i++)
-                                                            sequence_array_shuffled[i] = sequence_array_unshuffled[GetOldShuffleIndex(i, numShuffles, sequence.Length, false)];
+                                                        if (numSlides % sequence_array_slided.Length == 0)
+                                                            numSlides++;
+                                                        for (int i = 0; i < sequence_array_slided.Length; i++)
+                                                            sequence_array_slided[i] = sequence_array_unslided[GetOldShuffleIndex(i, numSlides, sequence.Length, false)];
                                                         decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
                                                         foreach (var kvp in oneBasedModifications)
                                                         {
-                                                            decoy_modifications.Add(GetOldShuffleIndex(kvp.Key - 1, numShuffles, sequence.Length, false) + 1, kvp.Value);
+                                                            decoy_modifications.Add(GetOldShuffleIndex(kvp.Key - 1, numSlides, sequence.Length, false) + 1, kvp.Value);
                                                         }
                                                     }
-                                                    var shuffled_sequence = new string(sequence_array_shuffled);
+                                                    var slided_sequence = new string(sequence_array_slided);
 
-                                                    List<ProteolysisProduct> decoyPP_shuffle = new List<ProteolysisProduct>();
+                                                    List<ProteolysisProduct> decoyPP_slide = new List<ProteolysisProduct>();
                                                     foreach (ProteolysisProduct pp in proteolysisProducts)  //can't keep all aa like you can with reverse, just keep it the same length
                                                     {
-                                                        decoyPP_shuffle.Add(pp);
+                                                        decoyPP_slide.Add(pp);
                                                     }
                                                     foreach (DisulfideBond disulfideBond in disulfideBonds) //these actually need the same cysteines...
                                                     {
-                                                        decoy_disulfides_shuffle.Add(new DisulfideBond(GetOldShuffleIndex(disulfideBond.OneBasedBeginPosition - 1, numShuffles, shuffled_sequence.Length, false) + 1, GetOldShuffleIndex(disulfideBond.OneBasedEndPosition - 1, numShuffles, shuffled_sequence.Length, false) + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
+                                                        decoy_disulfides_slide.Add(new DisulfideBond(GetOldShuffleIndex(disulfideBond.OneBasedBeginPosition - 1, numSlides, slided_sequence.Length, false) + 1, GetOldShuffleIndex(disulfideBond.OneBasedEndPosition - 1, numSlides, slided_sequence.Length, false) + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
                                                     }
-                                                    List<SequenceVariation> decoy_variations_shuffle = new List<SequenceVariation>();
+                                                    List<SequenceVariation> decoy_variations_slide = new List<SequenceVariation>();
                                                     foreach (SequenceVariation sv in sequenceVariations) //No idea what's going on here. Review is appreciated.
                                                     {
                                                         char[] original_array_unshuffled = sv.OriginalSequence.ToArray();
-                                                        char[] variation_array_unshuffled = sv.VariantSequence.ToArray();
+                                                        char[] variation_array_unslided = sv.VariantSequence.ToArray();
                                                         if (sv.OneBasedBeginPosition == 1)
                                                         {
                                                             bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
                                                             bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
                                                             if (orig_init_m && !var_init_m)
-                                                                decoy_variations_shuffle.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                                decoy_variations_slide.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
                                                             original_array_unshuffled = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
-                                                            variation_array_unshuffled = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
+                                                            variation_array_unslided = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
                                                         }
-                                                        int decoy_end = sequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == shuffled_sequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
+                                                        int decoy_end = sequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == slided_sequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
                                                         int decoy_begin = decoy_end - original_array_unshuffled.Length + 1;
-                                                        char[] original_array_shuffled = sv.OriginalSequence.ToArray();
-                                                        char[] variation_array_shuffled = sv.VariantSequence.ToArray();
+                                                        char[] original_array_slided = sv.OriginalSequence.ToArray();
+                                                        char[] variation_array_slided = sv.VariantSequence.ToArray();
 
-                                                        if (numShuffles % original_array_shuffled.Length == 0)
-                                                            numShuffles++;
-                                                        for (int i = 0; i < original_array_shuffled.Length; i++)
-                                                            original_array_shuffled[i] = original_array_unshuffled[GetOldShuffleIndex(i, numShuffles, original_array_unshuffled.Length, false)];
+                                                        if (numSlides % original_array_slided.Length == 0)
+                                                            numSlides++;
+                                                        for (int i = 0; i < original_array_slided.Length; i++)
+                                                            original_array_slided[i] = original_array_unshuffled[GetOldShuffleIndex(i, numSlides, original_array_unshuffled.Length, false)];
 
-                                                        if (numShuffles % variation_array_shuffled.Length == 0)
-                                                            numShuffles++;
-                                                        for (int i = 0; i < variation_array_shuffled.Length; i++)
-                                                            variation_array_shuffled[i] = variation_array_unshuffled[GetOldShuffleIndex(i, numShuffles, variation_array_unshuffled.Length, false)];
+                                                        if (numSlides % variation_array_slided.Length == 0)
+                                                            numSlides++;
+                                                        for (int i = 0; i < variation_array_slided.Length; i++)
+                                                            variation_array_slided[i] = variation_array_unslided[GetOldShuffleIndex(i, numSlides, variation_array_unslided.Length, false)];
 
-                                                        decoy_variations_shuffle.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array_shuffled), new string(variation_array_shuffled), "DECOY VARIANT: " + sv.Description));
+                                                        decoy_variations_slide.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array_slided), new string(variation_array_slided), "DECOY VARIANT: " + sv.Description));
                                                     }
-                                                    var decoy_protein_shuffle = new Protein(shuffled_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP_shuffle, name, full_name, true, IsContaminant, null, decoy_variations_shuffle, decoy_disulfides_shuffle, proteinDbLocation);
+                                                    var decoy_protein_slide = new Protein(slided_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP_slide, name, full_name, true, IsContaminant, null, decoy_variations_slide, decoy_disulfides_slide, proteinDbLocation);
 
-                                                    result.Add(decoy_protein_shuffle);
+                                                    result.Add(decoy_protein_slide);
                                                     break;
 
                                                 default:
@@ -463,10 +463,8 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        private static int GetOldShuffleIndex(int i, int numShuffles, int sequenceLength, bool methioninePresent)
+        private static int GetOldShuffleIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
         {
-            if(i==106)
-            { }
             if (methioninePresent)
             {
                 i--;
@@ -476,9 +474,9 @@ namespace UsefulProteomicsDatabases
             int oldIndex = i;
 
             if (positiveDirection)
-                oldIndex += numShuffles;
+                oldIndex += numSlides;
             else
-                oldIndex -= numShuffles;
+                oldIndex -= numSlides;
 
             while (true)
             {

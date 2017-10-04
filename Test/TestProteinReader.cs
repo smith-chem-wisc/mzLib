@@ -427,9 +427,9 @@ CF   O1
         public static void TestShuffleDecoy()
         {
             var nice = new List<Modification>();
-            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Shuffle, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"disulfidetests.xml"), true, DecoyType.Slide, nice, false, new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
-            Assert.AreEqual("MHLLALLAVLFLPELKLTAAWVPQPLQGFHKVHACYPVLGERLFLYCPESGRFVTDKQREELELPGVPQDEQGLSLGVLRTKAGEVAQQCRSICDLCQTEIYSNYCLN", ok2[1].BaseSequence);
+            Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
             Assert.AreEqual(ok2[0].DisulfideBonds.Count(), ok2[1].DisulfideBonds.Count());
             Assert.AreEqual(ok2[0].ProteolysisProducts.Count(), ok2[1].ProteolysisProducts.Count());
             for (int i = 0; i < ok2[0].ProteolysisProducts.Count(); i++)

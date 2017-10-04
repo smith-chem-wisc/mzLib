@@ -10,6 +10,7 @@ namespace UsefulProteomicsDatabases
     {
         None,
         Reverse,
+        Slide,
         Shuffle,
         Random
     }
