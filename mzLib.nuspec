@@ -18,7 +18,7 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="Chemistry\bin\x64\Release\Chemistry.dll" target="lib" /> 
+    <file src="Chemistry\bin\Release\netstandard2.0\Chemistry.dll" target="lib" /> 
     <file src="mzIdentML\bin\x64\Release\mzIdentML.dll" target="lib" /> 
     <file src="MzML\bin\x64\Release\MzML.dll" target="lib" /> 
     <file src="pepXML\bin\x64\Release\pepXML.dll" target="lib" /> 
