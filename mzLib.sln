@@ -35,7 +35,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UsefulProteomicsDatabases",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "pepXML", "pepXML\pepXML.csproj", "{7CD7B0D5-D5D3-4422-9FD3-2919C8CD1121}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS1decon", "ConsoleApp1\MS1decon.csproj", "{1D54A7B3-E523-418A-92B6-16399358A8F6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS1decon", "MS1decon\MS1decon.csproj", "{1D54A7B3-E523-418A-92B6-16399358A8F6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS2decon", "MS2decon\MS2decon.csproj", "{8BD4834D-FBF2-4CB3-9496-4E0F697A0D87}"
 	ProjectSection(ProjectDependencies) = postProject
