@@ -13,7 +13,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestThermo", "TestThermo\Te
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MzLibUtil", "MzLibUtil\MzLibUtil.csproj", "{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chemistry", "Chemistry\Chemistry.csproj", "{CBE368BB-FC84-458D-8099-87A63D17AA3B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chemistry", "Chemistry\Chemistry.csproj", "{CBE368BB-FC84-458D-8099-87A63D17AA3B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ManagedThermoHelperLayer", "ManagedThermoHelperLayer\ClassLibrary1.vcxproj", "{CDD56F70-D42F-4E86-A232-65F955CEF6EC}"
 EndProject
@@ -61,10 +61,10 @@ Global
 		{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}.Debug|x64.Build.0 = Debug|Any CPU
 		{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}.TestAndRelease|x64.ActiveCfg = Release|Any CPU
 		{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}.TestAndRelease|x64.Build.0 = Release|Any CPU
-		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.Debug|x64.ActiveCfg = Debug|x64
-		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.Debug|x64.Build.0 = Debug|x64
-		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.TestAndRelease|x64.Build.0 = Release|x64
+		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.Debug|x64.Build.0 = Debug|Any CPU
+		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.TestAndRelease|x64.ActiveCfg = Release|Any CPU
+		{CBE368BB-FC84-458D-8099-87A63D17AA3B}.TestAndRelease|x64.Build.0 = Release|Any CPU
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC}.Debug|x64.ActiveCfg = Debug|x64
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC}.Debug|x64.Build.0 = Debug|x64
 		{CDD56F70-D42F-4E86-A232-65F955CEF6EC}.TestAndRelease|x64.ActiveCfg = Release|x64
