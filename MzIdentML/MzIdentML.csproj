@@ -5,13 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MathNet.Numerics" Version="3.20.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
-    <ProjectReference Include="..\Spectra\Spectra.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
 
 </Project>
