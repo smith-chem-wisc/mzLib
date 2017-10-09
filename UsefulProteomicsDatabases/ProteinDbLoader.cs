@@ -293,7 +293,6 @@ namespace UsefulProteomicsDatabases
                                                             {
                                                                 decoy_modifications.Add(1, kvp.Value);
                                                             }
-
                                                         }
                                                     }
                                                     else
@@ -431,7 +430,6 @@ namespace UsefulProteomicsDatabases
                                                 default:
                                                     break;
                                             }
-
                                         }
                                         accession = null;
                                         name = null;
@@ -461,37 +459,6 @@ namespace UsefulProteomicsDatabases
                 }
             }
             return result;
-        }
-
-        private static int GetOldShuffleIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
-        {
-            if (methioninePresent)
-            {
-                i--;
-                sequenceLength--;
-            }
-            bool positiveDirection = i % 2 == 0;
-            int oldIndex = i;
-
-            if (positiveDirection)
-                oldIndex += numSlides;
-            else
-                oldIndex -= numSlides;
-
-            while (true)
-            {
-                if (oldIndex < 0)
-                    positiveDirection = true;
-                else if (oldIndex >= sequenceLength)
-                    positiveDirection = false;
-                else
-                    return methioninePresent ? oldIndex + 1 : oldIndex;
-
-                if (positiveDirection)
-                    oldIndex = (oldIndex * -1) - 1;
-                else
-                    oldIndex = (sequenceLength * 2) - oldIndex - 1;
-            }
         }
 
         /// <summary>
@@ -722,6 +689,37 @@ namespace UsefulProteomicsDatabases
         #endregion Public Methods
 
         #region Private Methods
+
+        private static int GetOldShuffleIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
+        {
+            if (methioninePresent)
+            {
+                i--;
+                sequenceLength--;
+            }
+            bool positiveDirection = i % 2 == 0;
+            int oldIndex = i;
+
+            if (positiveDirection)
+                oldIndex += numSlides;
+            else
+                oldIndex -= numSlides;
+
+            while (true)
+            {
+                if (oldIndex < 0)
+                    positiveDirection = true;
+                else if (oldIndex >= sequenceLength)
+                    positiveDirection = false;
+                else
+                    return methioninePresent ? oldIndex + 1 : oldIndex;
+
+                if (positiveDirection)
+                    oldIndex = (oldIndex * -1) - 1;
+                else
+                    oldIndex = (sequenceLength * 2) - oldIndex - 1;
+            }
+        }
 
         private static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
         {
