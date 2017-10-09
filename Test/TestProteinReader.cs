@@ -439,8 +439,8 @@ CF   O1
             }
             foreach (DisulfideBond bond in ok2[0].DisulfideBonds)
             {
-                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition-1], 'C');
-                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedEndPosition-1], 'C');
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
+                Assert.AreEqual(ok2[0].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
             }
             foreach (DisulfideBond bond in ok2[1].DisulfideBonds)
             {
@@ -454,7 +454,7 @@ CF   O1
         {
             List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"fasta.fasta"), true, DecoyType.Reverse, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression);
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
-            Assert.AreEqual("MGGFGYLTRGQRKLAYVVDMATVTKRKAHETYTVADRIVNELFVKLVGRTEEYILGSIRKVGGRRALRRIAPKTIGQINDRLVKRHRKAGGKGLGKGGKGRGS", prots[1].BaseSequence);           
+            Assert.AreEqual("MGGFGYLTRGQRKLAYVVDMATVTKRKAHETYTVADRIVNELFVKLVGRTEEYILGSIRKVGGRRALRRIAPKTIGQINDRLVKRHRKAGGKGLGKGGKGRGS", prots[1].BaseSequence);
         }
 
         [Test]
