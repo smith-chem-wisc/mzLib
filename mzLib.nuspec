@@ -11,7 +11,13 @@
     <description>Library for mass spectrometry projects.</description>
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
-      <dependency id="MathNet.Numerics" version="3.20.0"/>
+      <group targetFramework="netstandard2.0">
+        <dependency id="MathNet.Numerics" version="3.20.0"/>
+      </group>
+      <group targetFramework="net45">
+        <dependency id="MathNet.Numerics" version="3.20.0"/>
+        <dependency id="System.ValueTuple" version="4.4.0"/>
+      </group>
     </dependencies>
   </metadata>
   <files>
