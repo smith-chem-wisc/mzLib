@@ -31,16 +31,10 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
-        #region Protected Fields
-
-        protected TPeak[] peakList;
-        protected TPeak peakWithHighestY;
-
-        #endregion Protected Fields
-
         #region Private Fields
 
-        private double? yofPeakWithHighestY;
+        private TPeak[] peakList;
+        private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
 
         #endregion Private Fields
@@ -67,12 +61,11 @@ namespace Spectra
         protected Spectrum(double[,] xy)
         {
             var count = xy.GetLength(1);
-            int length = xy.GetLength(1);
 
             XArray = new double[count];
             YArray = new double[count];
             Buffer.BlockCopy(xy, 0, XArray, 0, sizeof(double) * count);
-            Buffer.BlockCopy(xy, sizeof(double) * length, YArray, 0, sizeof(double) * count);
+            Buffer.BlockCopy(xy, sizeof(double) * count, YArray, 0, sizeof(double) * count);
             peakList = new TPeak[Size];
         }
 
@@ -88,13 +81,29 @@ namespace Spectra
 
         public int Size { get { return XArray.Length; } }
 
+        public int IndexOfPeakWithHighesetY
+        {
+            get
+            {
+                if (!indexOfpeakWithHighestY.HasValue)
+                    indexOfpeakWithHighestY = Array.IndexOf(YArray, YArray.Max());
+                return indexOfpeakWithHighestY.Value;
+            }
+        }
+
         public double YofPeakWithHighestY
         {
             get
             {
-                if (!yofPeakWithHighestY.HasValue)
-                    yofPeakWithHighestY = YArray.Max();
-                return yofPeakWithHighestY.Value;
+                return YArray[IndexOfPeakWithHighesetY];
+            }
+        }
+
+        public double XofPeakWithHighestY
+        {
+            get
+            {
+                return XArray[IndexOfPeakWithHighesetY];
             }
         }
 
@@ -116,33 +125,16 @@ namespace Spectra
             }
         }
 
-        public TPeak PeakWithHighestY
-        {
-            get
-            {
-                if (EqualityComparer<TPeak>.Default.Equals(peakWithHighestY, default(TPeak)))
-                    peakWithHighestY = this[Array.IndexOf(YArray, YArray.Max())];
-                return peakWithHighestY;
-            }
-        }
-
         #endregion Public Properties
 
-        #region Public Indexers
-
-        public virtual TPeak this[int index]
-        {
-            get
-            {
-                if (peakList[index] == null)
-                    peakList[index] = GeneratePeak(index);
-                return peakList[index];
-            }
-        }
-
-        #endregion Public Indexers
-
         #region Public Methods
+
+        public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
+        {
+            for (int i = 0; i < Size; i++)
+                XArray[i] = convertor(GetPeak(i));
+            peakList = new TPeak[Size];
+        }
 
         public virtual double[,] CopyTo2DArray()
         {
@@ -153,9 +145,21 @@ namespace Spectra
             return data;
         }
 
-        public TPeak GetClosestPeak(double x)
+        public int GetClosestPeakIndex(double x)
         {
-            return this[GetClosestPeakIndex(x)];
+            int index = Array.BinarySearch(XArray, x);
+            if (index >= 0)
+                return index;
+            index = ~index;
+
+            if (index >= Size)
+                return index - 1;
+            if (index == 0)
+                return index;
+
+            if (x - XArray[index - 1] > XArray[index] - x)
+                return index;
+            return index - 1;
         }
 
         public double GetClosestPeakXvalue(double x)
@@ -181,11 +185,14 @@ namespace Spectra
 
         public IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks)
         {
-            double cutoffYvalue = YArray.Quantile(1.0 - (double)topNPeaks / Size);
+            var quantile = 1.0 - (double)topNPeaks / Size;
+            quantile = Math.Max(0, quantile);
+            quantile = Math.Min(1, quantile);
+            double cutoffYvalue = YArray.Quantile(quantile);
 
             for (int i = 0; i < Size; i++)
                 if (YArray[i] >= cutoffYvalue)
-                    yield return this[i];
+                    yield return GetPeak(i);
         }
 
         public IEnumerable<TPeak> Extract(DoubleRange xRange)
@@ -198,9 +205,21 @@ namespace Spectra
             int ind = Array.BinarySearch(XArray, minX);
             if (ind < 0)
                 ind = ~ind;
-            while (ind < Size && this[ind].X <= maxX)
+            while (ind < Size && XArray[ind] <= maxX)
             {
-                yield return this[ind];
+                yield return GetPeak(ind);
+                ind++;
+            }
+        }
+
+        public IEnumerable<int> ExtractIndices(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+                ind = ~ind;
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return ind;
                 ind++;
             }
         }
@@ -209,7 +228,7 @@ namespace Spectra
         {
             for (int i = 0; i < Size; i++)
                 if (YArray[i] >= minY && YArray[i] <= maxY)
-                    yield return this[i];
+                    yield return GetPeak(i);
         }
 
         public IEnumerable<TPeak> FilterByY(DoubleRange yRange)
@@ -223,27 +242,13 @@ namespace Spectra
 
         protected abstract TPeak GeneratePeak(int index);
 
-        #endregion Protected Methods
-
-        #region Private Methods
-
-        private int GetClosestPeakIndex(double targetX)
+        protected TPeak GetPeak(int index)
         {
-            int index = Array.BinarySearch(XArray, targetX);
-            if (index >= 0)
-                return index;
-            index = ~index;
-
-            if (index >= Size)
-                return index - 1;
-            if (index == 0)
-                return index;
-
-            if (targetX - XArray[index - 1] > XArray[index] - targetX)
-                return index;
-            return index - 1;
+            if (peakList[index] == null)
+                peakList[index] = GeneratePeak(index);
+            return peakList[index];
         }
 
-        #endregion Private Methods
+        #endregion Protected Methods
     }
 }

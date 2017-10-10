@@ -82,13 +82,13 @@ namespace Test
         [Test]
         public void SpectrumGetIntensityFirst()
         {
-            Assert.AreEqual(81007096.0, _mzSpectrumA[0].Intensity);
+            Assert.AreEqual(81007096.0, _mzSpectrumA.YArray[0]);
         }
 
         [Test]
         public void SpectrumGetIntensityRandom()
         {
-            Assert.AreEqual(44238040.0, _mzSpectrumA[6].Intensity);
+            Assert.AreEqual(44238040.0, _mzSpectrumA.YArray[6]);
         }
 
         [Test]
@@ -100,7 +100,7 @@ namespace Test
         [Test]
         public void SpectrumGetMassRandom()
         {
-            Assert.AreEqual(482.90393, _mzSpectrumA[6].Mz);
+            Assert.AreEqual(482.90393, _mzSpectrumA.XArray[6]);
         }
 
         [Test]
@@ -163,16 +163,25 @@ namespace Test
         }
 
         [Test]
+        public void FilterByNumberOfMostIntenseRobTest()
+        {
+            double[] x = new double[] { 50, 60, 70, 147.0764, 257.1244, 258.127, 275.135 };
+            double[] y = new double[] { 1, 1, 1, 1, 1, 1, 1 };
+            MzmlMzSpectrum spectrum = new MzmlMzSpectrum(x, y, false);
+            Assert.AreEqual(7, spectrum.FilterByNumberOfMostIntense(200).Count());
+        }
+
+        [Test]
         public void GetBasePeak()
         {
-            Assert.AreEqual(122781408.0, _mzSpectrumA.PeakWithHighestY.Intensity);
+            Assert.AreEqual(122781408.0, _mzSpectrumA.YofPeakWithHighestY);
         }
 
         [Test]
         public void GetClosestPeak()
         {
-            Assert.AreEqual(448.23987, _mzSpectrumA.GetClosestPeak(448).Mz);
-            Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeak(447.9).Mz);
+            Assert.AreEqual(448.23987, _mzSpectrumA.GetClosestPeakXvalue(448));
+            Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447.9));
         }
 
         [Test]
@@ -192,7 +201,7 @@ namespace Test
         public void TestFunctionToX()
         {
             _mzSpectrumA.ReplaceXbyApplyingFunction(b => -1);
-            Assert.AreEqual(-1, _mzSpectrumA[0].X);
+            Assert.AreEqual(-1, _mzSpectrumA.XArray[0]);
         }
 
         [Test]
@@ -202,35 +211,6 @@ namespace Test
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447));
             Assert.Throws<IndexOutOfRangeException>(() => { new MzmlMzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1); }, "No peaks in spectrum!");
         }
-
-        //[Test]
-        //public void IMzSpectrumTpeakTest()
-        //{
-        //    //double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
-        //    //double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
-
-        //    IMzSpectrum<MzmlPeak> ok = _mzSpectrumA;
-
-        //    Assert.Greater(100, ok.ApplyFunctionToX(b => b / 10).LastX);
-
-        //    Assert.AreEqual(1, ok.Extract(new DoubleRange(723, 1000)).Size);
-
-        //    Assert.AreEqual(15, ok.Extract(double.MinValue, double.MaxValue).Size);
-
-        //    Assert.AreEqual(0, ok.FilterByNumberOfMostIntense(0).Size);
-        //    Assert.AreEqual(5, ok.FilterByNumberOfMostIntense(5).Size);
-        //    Assert.AreEqual(15, ok.FilterByNumberOfMostIntense(15).Size);
-
-        //    Assert.AreEqual(15, ok.FilterByY(new DoubleRange(double.MinValue, double.MaxValue)).Size);
-
-        //    Assert.AreEqual(1, ok.FilterByY(39291695, 39291697).Size);
-
-        //    Assert.AreEqual(2, ok.WithRangeRemoved(new DoubleRange(329, 723)).Size);
-
-        //    Assert.AreEqual(15, ok.WithRangeRemoved(0, 1).Size);
-
-        //    Assert.AreEqual(2, ok.WithRangesRemoved(new List<DoubleRange> { new DoubleRange(329, 400), new DoubleRange(400, 723) }).Size);
-        //}
 
         [Test]
         public void TestNumPeaksWithinRange()
@@ -296,13 +276,13 @@ namespace Test
 
             //Assert.AreEqual(2, thisSpectrum.ApplyFunctionToX(b => b * 2).FirstX);
 
-            Assert.AreEqual(1, thisSpectrum.GetClosestPeak(-100).X);
+            Assert.AreEqual(1, thisSpectrum.GetClosestPeakXvalue(-100));
 
-            Assert.AreEqual(7, thisSpectrum.GetClosestPeak(6.6).X);
+            Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(6.6));
 
-            Assert.AreEqual(7, thisSpectrum.GetClosestPeak(7).X);
+            Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(7));
 
-            Assert.AreEqual(7, thisSpectrum.GetClosestPeak(8).X);
+            Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(8));
         }
 
         #endregion Public Methods

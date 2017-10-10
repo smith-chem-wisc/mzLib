@@ -60,9 +60,9 @@ namespace Test
             MzmlMzSpectrum MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             IMzmlScan[] Scans = new IMzmlScan[2];
-            Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1);
+            Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, "scan=1");
 
-            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550, 1);
+            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550, 1, "scan=2");
 
             myMsDataFile = new FakeMsDataFile(Scans);
         }
@@ -88,7 +88,7 @@ namespace Test
         [Test]
         public void DataFileTest()
         {
-            MzmlScan theSpectrum = new MzmlScan(1, _mzSpectrumA, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1);
+            MzmlScan theSpectrum = new MzmlScan(1, _mzSpectrumA, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, "scan=1");
 
             MzmlScan[] theList = new MzmlScan[1];
 
@@ -144,7 +144,7 @@ namespace Test
             Assert.AreEqual(1, theScan.OneBasedPrecursorScanNumber);
             Assert.AreEqual(3, theScan.SelectedIonChargeStateGuess.Value);
             //Assert.IsNull(theScan.SelectedIonGuessIntensity);
-            var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber);
+            var precursorScan = myMsDataFile.GetOneBasedScan(theScan.OneBasedPrecursorScanNumber.Value);
             theScan.RefineSelectedMzAndIntensity(precursorScan.MassSpectrum);
             Assert.AreEqual(.32872, theScan.SelectedIonIntensity, 0.01);
             Assert.AreEqual(693.9892, theScan.SelectedIonMZ, 0.01);

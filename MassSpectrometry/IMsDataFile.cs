@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using System.Collections.Generic;
 
 namespace MassSpectrometry
@@ -26,12 +27,15 @@ namespace MassSpectrometry
         #region Public Properties
 
         int NumSpectra { get; }
+        SourceFile SourceFile { get; }
 
         #endregion Public Properties
 
         #region Public Methods
 
         TScan GetOneBasedScan(int oneBasedScanNumber);
+
+        IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc);
 
         IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT);
 

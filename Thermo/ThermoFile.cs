@@ -2,7 +2,9 @@
 using MSFileReaderLib;
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace IO.Thermo
@@ -17,19 +19,19 @@ namespace IO.Thermo
 
         #endregion Private Fields
 
-        #region Public Constructors
+        #region Protected Constructors
 
-        public ThermoFile(IThermoScan[] scans, ThermoGlobalParams thermoGlobalParams) : base(scans)
+        protected ThermoFile(IThermoScan[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
         {
             this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        public ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath) : base(numSpectra)
+        protected ThermoFile(IXRawfile5 _rawConnection, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
         {
-            this.ThermoGlobalParams = GetAllGlobalStuff(_rawConnection, couldBePrecursor, filePath);
+            this.ThermoGlobalParams = thermoGlobalParams;
         }
 
-        #endregion Public Constructors
+        #endregion Protected Constructors
 
         #region Private Enums
 
@@ -91,7 +93,9 @@ namespace IO.Thermo
 
         #region Protected Methods
 
-        protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams)
+        protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
+            int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
+            int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             int pnNumPackets = 0;
             double pdLowMass = 0;
@@ -148,9 +152,6 @@ namespace IO.Thermo
             string pbstrFilter = null;
             theConnection.GetFilterForScanNum(nScanNumber, ref pbstrFilter);
 
-            int pbIsCentroidScan = 0;
-            theConnection.IsCentroidScanForScanNum(nScanNumber, ref pbIsCentroidScan);
-
             int pnMSOrder = 0;
             theConnection.GetMSOrderForScanNum(nScanNumber, ref pnMSOrder);
 
@@ -173,20 +174,17 @@ namespace IO.Thermo
             }
             catch (MzLibException)
             {
-                string bstrFilter = null;
-                int nIntensityCutoffType = 0;
-                int nIntensityCutoffValue = 0;
-                int nMaxNumberOfPeaks = 0;
-                int bCentroidResult = 1;
+                // Warning: the masses reported by GetMassListFromScanNum when centroiding are not properly calibrated and thus could be off by 0.3 m/z or more
+
                 double pdCentroidPeakWidth = 0;
                 object pvarnMassList = null;
                 object pvarPeakFlags = null;
                 theConnection.GetMassListFromScanNum(ref nScanNumber,
-                                bstrFilter,
-                                nIntensityCutoffType,
-                                nIntensityCutoffValue,
-                                nMaxNumberOfPeaks,
-                                bCentroidResult,
+                                null,
+                                0,
+                                0,
+                                0,
+                                1,
                                 ref pdCentroidPeakWidth,
                                 ref pvarnMassList,
                                 ref pvarPeakFlags,
@@ -194,6 +192,37 @@ namespace IO.Thermo
                 data = (double[,])pvarnMassList;
             }
 
+            ThermoSpectrum thermoSpectrum;
+            if ((minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            {
+                var count = data.GetLength(1);
+
+                var mzArray = new double[count];
+                var intensityArray = new double[count];
+                Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
+                Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
+
+                IComparer<double> c = new ReverseComparer();
+                Array.Sort(intensityArray, mzArray, c);
+
+                int numPeaks = intensityArray.Length;
+                if (minRatio.HasValue)
+                {
+                    double minIntensity = minRatio.Value * intensityArray[0];
+                    numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
+                }
+
+                if (topNpeaks.HasValue)
+                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+
+                Array.Resize(ref intensityArray, numPeaks);
+                Array.Resize(ref mzArray, numPeaks);
+
+                Array.Sort(mzArray, intensityArray);
+                thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);
+            }
+            else
+                thermoSpectrum = new ThermoSpectrum(data);
             MZAnalyzerType mzAnalyzerType;
             switch ((ThermoMzAnalyzer)pnMassAnalyzerType)
             {
@@ -205,13 +234,12 @@ namespace IO.Thermo
                     mzAnalyzerType = MZAnalyzerType.Unknown;
                     break;
             }
+            string nativeId = "controllerType=0 controllerNumber=1 scan=" + nScanNumber;
 
             if (pnMSOrder > 1)
             {
                 int pnActivationType = 0;
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
-
-                // Trust this first
 
                 // INITIALIZE globalParams.couldBePrecursor[nScanNumber - 1] (for dynamic connections that don't have it initialized yet)
                 if (globalParams.couldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
@@ -273,7 +301,7 @@ namespace IO.Thermo
 
                 return new ThermoScanWithPrecursor(
                     nScanNumber,
-                    new ThermoSpectrum(data),
+                    thermoSpectrum,
                     pnMSOrder,
                     PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
                     pdStartTime,
@@ -288,12 +316,13 @@ namespace IO.Thermo
                     oneBasedPrecursorScanNumber,
                     selectedIonGuessMonoisotopicMz,
                     injectionTimeFromTrailerExtra,
-                    noiseData);
+                    noiseData,
+                    nativeId);
             }
             else
             {
                 return new ThermoScan(nScanNumber,
-                    new ThermoSpectrum(data),
+                    thermoSpectrum,
                     1,
                     PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
                     pdStartTime,
@@ -302,7 +331,8 @@ namespace IO.Thermo
                     mzAnalyzerType,
                     pdTIC,
                     injectionTimeFromTrailerExtra,
-                    noiseData);
+                    noiseData,
+                    nativeId);
             }
         }
 

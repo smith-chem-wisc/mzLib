@@ -146,7 +146,7 @@ namespace MassSpectrometry
 
             if (index >= Size)
             {
-                return this[Size - 1];
+                return GetPeak(Size - 1);
             }
 
             double maxvalue = -1; // double.negative infinity?
@@ -161,7 +161,7 @@ namespace MassSpectrometry
                 }
                 index++;
             }
-            return this[apexIndex];
+            return GetPeak(apexIndex);
         }
 
         public virtual ChromatographicElutionProfile<TPeak> GetElutionProfile(DoubleRange timeRange)
@@ -178,7 +178,7 @@ namespace MassSpectrometry
             List<TPeak> peaks = new List<TPeak>();
             while (index < Size && XArray[index] <= maxTime)
             {
-                peaks.Add(this[index]);
+                peaks.Add(GetPeak(index));
                 index++;
             }
             return new ChromatographicElutionProfile<TPeak>(peaks);
@@ -186,7 +186,7 @@ namespace MassSpectrometry
 
         public virtual TPeak GetApex()
         {
-            return PeakWithHighestY;
+            return GetPeak(IndexOfPeakWithHighesetY);
         }
 
         public TPeak FindNearestApex(double rt, int skipablePts)
@@ -239,7 +239,7 @@ namespace MassSpectrometry
                 i++;
             }
 
-            return this[bestApex];
+            return GetPeak(bestApex);
         }
 
         public override string ToString()
