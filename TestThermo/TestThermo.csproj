@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SetUpTests.cs" />
+    <Compile Include="TestDecon.cs" />
     <Compile Include="TestThermo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
