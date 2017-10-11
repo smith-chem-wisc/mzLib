@@ -23,6 +23,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -87,7 +89,7 @@ namespace IO.MzML
 
         #region Private Constructors
 
-        private Mzml(IMzmlScan[] scans) : base(scans)
+        private Mzml(IMzmlScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
@@ -95,7 +97,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath)
+        public static Mzml LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
             Generated.mzMLType _mzMLConnection;
 
@@ -113,14 +115,80 @@ namespace IO.MzML
                     _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
             }
 
+            SourceFile sourceFile;
+            if (_mzMLConnection.fileDescription.sourceFileList != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
+            {
+                var simpler = _mzMLConnection.fileDescription.sourceFileList.sourceFile[0];
+                string nativeIdFormat = null;
+                string fileFormat = null;
+                string checkSum = null;
+                string checkSumType = null;
+                foreach (var cv in simpler.cvParam)
+                {
+                    if (cv.accession.Equals(@"MS:1000563"))
+                        fileFormat = "Thermo RAW format";
+                    if (cv.accession.Equals(@"MS:1000584"))
+                        fileFormat = "mzML format";
+
+                    if (cv.accession.Equals(@"MS:1000768"))
+                        nativeIdFormat = "Thermo nativeID format";
+                    if (cv.accession.Equals(@"MS:1000776"))
+                        nativeIdFormat = "scan number only nativeID format";
+                    if (cv.accession.Equals(@"MS:1000824"))
+                        nativeIdFormat = "no nativeID format";
+
+                    if (cv.accession.Equals(@"MS:1000568"))
+                    {
+                        checkSum = cv.value;
+                        checkSumType = "MD5";
+                    }
+                    if (cv.accession.Equals(@"MS:1000569"))
+                    {
+                        checkSum = cv.value;
+                        checkSumType = "SHA-1";
+                    }
+                }
+
+                sourceFile = new SourceFile(
+                    nativeIdFormat,
+                    fileFormat,
+                    checkSum,
+                    checkSumType,
+                    new Uri(simpler.location),
+                    simpler.id,
+                    simpler.name);
+            }
+            else
+            {
+                string sendCheckSum;
+                using (FileStream stream = File.OpenRead(filePath))
+                {
+                    using (SHA1Managed sha = new SHA1Managed())
+                    {
+                        byte[] checksum = sha.ComputeHash(stream);
+                        sendCheckSum = BitConverter.ToString(checksum)
+                            .Replace("-", string.Empty);
+                    }
+                }
+                sourceFile = new SourceFile(
+                    @"no nativeID format",
+                    @"mzML format",
+                    sendCheckSum,
+                    @"SHA-1",
+                    Path.GetFullPath(filePath),
+                    Path.GetFileNameWithoutExtension(filePath));
+            }
+
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             IMzmlScan[] scans = new IMzmlScan[numSpecta];
+
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
             });
-            return new Mzml(scans);
+
+            return new Mzml(scans, sourceFile);
         }
 
         public override IMzmlScan GetOneBasedScan(int scanNumber)
@@ -132,7 +200,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -143,7 +211,6 @@ namespace IO.MzML
             }
 
             var defaultInstrumentConfig = _mzMLConnection.run.defaultInstrumentConfigurationRef;
-
             // May be null!
             var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].instrumentConfigurationRef;
 
@@ -151,7 +218,9 @@ namespace IO.MzML
             // use default
             if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
             {
-                if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                if (configs[0].componentList == null)
+                    analyzer = default(MZAnalyzerType);
+                else if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
                     analyzer = returnVal;
             }
             // use scan-specific
@@ -166,6 +235,30 @@ namespace IO.MzML
                     }
                 }
             }
+
+            string nativeId = _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id;
+
+            int? msOrder = null;
+            bool? isCentroid = null;
+            Polarity polarity = Polarity.Unknown;
+            double tic = double.NaN;
+
+            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
+            {
+                if (cv.accession.Equals(_msnOrderAccession))
+                    msOrder = int.Parse(cv.value);
+                if (cv.accession.Equals(_centroidSpectrum))
+                    isCentroid = true;
+                if (cv.accession.Equals(_profileSpectrum))
+                    isCentroid = false;
+                if (cv.accession.Equals(_totalIonCurrent))
+                    tic = double.Parse(cv.value);
+                if (polarity.Equals(Polarity.Unknown))
+                    polarityDictionary.TryGetValue(cv.accession, out polarity);
+            }
+
+            if (!msOrder.HasValue || !isCentroid.HasValue)
+                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
@@ -193,29 +286,28 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            var ok = new MzmlMzSpectrum(masses, intensities, false);
-
-            int? msOrder = null;
-            bool? isCentroid = null;
-            Polarity polarity = Polarity.Unknown;
-            double tic = double.NaN;
-
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
+            if ((minRatio.HasValue || topNpeaks.HasValue)
+                && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
-                if (cv.accession.Equals(_msnOrderAccession))
-                    msOrder = int.Parse(cv.value);
-                if (cv.accession.Equals(_centroidSpectrum))
-                    isCentroid = true;
-                if (cv.accession.Equals(_profileSpectrum))
-                    isCentroid = false;
-                if (cv.accession.Equals(_totalIonCurrent))
-                    tic = double.Parse(cv.value);
-                if (polarity.Equals(Polarity.Unknown))
-                    polarityDictionary.TryGetValue(cv.accession, out polarity);
-            }
+                IComparer<double> c = new ReverseComparer();
+                Array.Sort(intensities, masses, c);
 
-            if (!msOrder.HasValue || !isCentroid.HasValue)
-                throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
+                int numPeaks = intensities.Length;
+                if (minRatio.HasValue)
+                {
+                    double minIntensity = minRatio.Value * intensities[0];
+                    numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+                }
+
+                if (topNpeaks.HasValue)
+                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+
+                Array.Resize(ref intensities, numPeaks);
+                Array.Resize(ref masses, numPeaks);
+
+                Array.Sort(masses, intensities);
+            }
+            var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -253,7 +345,19 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(oneBasedSpectrumNumber, ok, msOrder.Value, isCentroid.Value, polarity, rtInMinutes, new MzRange(low, high), scanFilter, analyzer, tic, injectionTime);
+                return new MzmlScan(
+                    oneBasedSpectrumNumber,
+                    mzmlMzSpectrum,
+                    msOrder.Value,
+                    isCentroid.Value,
+                    polarity,
+                    rtInMinutes,
+                    new MzRange(low, high),
+                    scanFilter,
+                    analyzer,
+                    tic,
+                    injectionTime,
+                    nativeId);
             }
 
             double selectedIonMz = double.NaN;
@@ -272,29 +376,32 @@ namespace IO.MzML
             double? isolationMz = null;
             double lowIsolation = double.NaN;
             double highIsolation = double.NaN;
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].isolationWindow.cvParam)
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].isolationWindow != null)
             {
-                if (cv.accession.Equals(_isolationWindowTargetMZ))
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].isolationWindow.cvParam)
                 {
-                    isolationMz = double.Parse(cv.value);
-                }
-                if (cv.accession.Equals(_isolationWindowLowerOffset))
-                {
-                    lowIsolation = double.Parse(cv.value);
-                }
-                if (cv.accession.Equals(_isolationWindowUpperOffset))
-                {
-                    highIsolation = double.Parse(cv.value);
+                    if (cv.accession.Equals(_isolationWindowTargetMZ))
+                    {
+                        isolationMz = double.Parse(cv.value);
+                    }
+                    if (cv.accession.Equals(_isolationWindowLowerOffset))
+                    {
+                        lowIsolation = double.Parse(cv.value);
+                    }
+                    if (cv.accession.Equals(_isolationWindowUpperOffset))
+                    {
+                        highIsolation = double.Parse(cv.value);
+                    }
                 }
             }
 
-            if (!isolationMz.HasValue)
-                throw new MzLibException("!isolationMz.HasValue");
-
             DissociationType dissociationType = DissociationType.Unknown;
-            foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam != null)
             {
-                dissociationDictionary.TryGetValue(cv.accession, out dissociationType);
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].activation.cvParam)
+                {
+                    dissociationDictionary.TryGetValue(cv.accession, out dissociationType);
+                }
             }
             double? monoisotopicMz = null;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].userParam != null)
@@ -305,9 +412,16 @@ namespace IO.MzML
                         monoisotopicMz = double.Parse(userParam.value);
                     }
                 }
-
-            return new MzmlScanWithPrecursor(oneBasedSpectrumNumber,
-                ok,
+            int? precursorScanNumber;
+            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
+            {
+                precursorScanNumber = null;
+            }
+            else
+                precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
+            return new MzmlScanWithPrecursor(
+                oneBasedSpectrumNumber,
+                mzmlMzSpectrum,
                 msOrder.Value,
                 isCentroid.Value,
                 polarity,
@@ -319,12 +433,13 @@ namespace IO.MzML
                 selectedIonMz,
                 selectedIonCharge,
                 selectedIonIntensity,
-                isolationMz.Value,
+                isolationMz,
                 lowIsolation + highIsolation,
                 dissociationType,
-                GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber),
+                precursorScanNumber,
                 monoisotopicMz,
-                injectionTime);
+                injectionTime,
+                nativeId);
         }
 
         /// <summary>

@@ -1,7 +1,14 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Diagnostics;
+
+#if ONLYNETSTANDARD
+#else
+
 using System.Management;
+
+#endif
+
 using System.Text;
 
 namespace MzLibUtil
@@ -32,7 +39,7 @@ namespace MzLibUtil
             fullSystemProse.Append("using " + WindowsOperatingSystemVersion());
             fullSystemProse.Append(" with a " + GetCpuRegister());
             fullSystemProse.Append(" and " + ProcessorCount() + " cores ");
-            fullSystemProse.Append("operating at "+ GetMaxClockSpeed() + "GHz ");            
+            fullSystemProse.Append("operating at " + GetMaxClockSpeed() + "GHz ");
             fullSystemProse.Append("and " + InstalledRam() + "GB installed RAM.");
 
             return fullSystemProse.ToString();
@@ -45,8 +52,11 @@ namespace MzLibUtil
         private static string GetManufacturer()
         {
             string computerModel = "UNDETERMINED";
+#if ONLYNETSTANDARD
+            return computerModel;
+#else
             try
-            {               
+            {
                 System.Management.SelectQuery query = new System.Management.SelectQuery(@"Select * from Win32_ComputerSystem");
 
                 using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(query))
@@ -54,7 +64,7 @@ namespace MzLibUtil
                     foreach (System.Management.ManagementObject process in searcher.Get())
                     {
                         process.Get();
-                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();                        
+                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();
                     }
                 }
                 return computerModel;
@@ -63,10 +73,14 @@ namespace MzLibUtil
             {
                 return computerModel;
             }
+#endif
         }
 
         private static string GetWindowsOs()
         {
+#if ONLYNETSTANDARD
+            return "UNDETERMINED OPERATING SYSTEM";
+#else
             try
             {
                 var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
@@ -77,6 +91,7 @@ namespace MzLibUtil
             {
                 return "UNDETERMINED OPERATING SYSTEM";
             }
+#endif
         }
 
         private static string GetCpuRegister()
@@ -94,16 +109,18 @@ namespace MzLibUtil
             }
         }
 
-
         private static string GetMaxClockSpeed()
         {
+#if ONLYNETSTANDARD
+            return "UNDETERMINED";
+#else
             try
             {
                 RegistryKey registrykeyHKLM = Registry.LocalMachine;
                 string keyPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
                 RegistryKey registrykeyCPU = registrykeyHKLM.OpenSubKey(keyPath, false);
                 string MHz = registrykeyCPU.GetValue("~MHz").ToString();
-                double numericalMHz = Convert.ToDouble(MHz)/1000d;
+                double numericalMHz = Convert.ToDouble(MHz) / 1000d;
                 registrykeyCPU.Close();
                 return numericalMHz.ToString();
             }
@@ -111,8 +128,8 @@ namespace MzLibUtil
             {
                 return "UNDETERMINED";
             }
+#endif
         }
-
 
         private static string WindowsOperatingSystemVersion()
         {
@@ -128,6 +145,9 @@ namespace MzLibUtil
 
         private static string DotNet()
         {
+#if ONLYNETSTANDARD
+            return "Windows .Net Version could not be determined.\n";
+#else
             try
             {
                 const string subkey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\";
@@ -148,10 +168,14 @@ namespace MzLibUtil
             {
                 return "Windows .Net Version could not be determined.\n";
             }
+#endif
         }
 
         private static string InstalledRam()
         {
+#if ONLYNETSTANDARD
+            return "UNKNOWN ";
+#else
             try
             {
                 string Query = "SELECT Capacity FROM Win32_PhysicalMemory";
@@ -169,6 +193,7 @@ namespace MzLibUtil
             {
                 return "UNKNOWN ";
             }
+#endif
         }
 
         private static string ProcessorCount()
