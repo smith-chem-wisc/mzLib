@@ -73,7 +73,7 @@ namespace MzLibUtil
         public static Tolerance ParseToleranceString(string s)
         {
             Match m = StringRegex.Match(s);
-            if (m.Groups[3].Value.Equals("PPM", StringComparison.InvariantCultureIgnoreCase))
+            if (m.Groups[3].Value.Equals("PPM", StringComparison.OrdinalIgnoreCase))
                 return new PpmTolerance(double.Parse(m.Groups[2].Value));
             else
                 return new AbsoluteTolerance(double.Parse(m.Groups[2].Value));

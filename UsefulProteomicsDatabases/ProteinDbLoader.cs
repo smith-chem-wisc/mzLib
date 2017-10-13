@@ -278,7 +278,7 @@ namespace UsefulProteomicsDatabases
                                                     char[] sequence_array = sequence.ToCharArray();
                                                     Dictionary<int, List<Modification>> decoy_modifications = null;
                                                     List<DisulfideBond> decoy_disulfides = new List<DisulfideBond>();
-                                                    if (sequence.StartsWith("M", StringComparison.InvariantCulture))
+                                                    if (sequence.StartsWith("M", StringComparison.Ordinal))
                                                     {
                                                         // Do not include the initiator methionine in reversal!!!
                                                         Array.Reverse(sequence_array, 1, sequence.Length - 1);
@@ -323,8 +323,8 @@ namespace UsefulProteomicsDatabases
                                                         char[] variation_array = sv.VariantSequence.ToArray();
                                                         if (sv.OneBasedBeginPosition == 1)
                                                         {
-                                                            bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
-                                                            bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                            bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
+                                                            bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                                                             if (orig_init_m && !var_init_m)
                                                                 decoy_variations.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
                                                             original_array = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
@@ -347,7 +347,7 @@ namespace UsefulProteomicsDatabases
                                                     char[] sequence_array_slided = sequence.ToCharArray();
                                                     decoy_modifications = null;
                                                     List<DisulfideBond> decoy_disulfides_slide = new List<DisulfideBond>();
-                                                    if (sequence.StartsWith("M", StringComparison.InvariantCulture))
+                                                    if (sequence.StartsWith("M", StringComparison.Ordinal))
                                                     {
                                                         // Do not include the initiator methionine in shuffle!!!
                                                         if (numSlides % sequence_array_slided.Length - 1 == 0)
@@ -398,8 +398,8 @@ namespace UsefulProteomicsDatabases
                                                         char[] variation_array_unslided = sv.VariantSequence.ToArray();
                                                         if (sv.OneBasedBeginPosition == 1)
                                                         {
-                                                            bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.InvariantCulture);
-                                                            bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.InvariantCulture);
+                                                            bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
+                                                            bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                                                             if (orig_init_m && !var_init_m)
                                                                 decoy_variations_slide.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
                                                             original_array_unshuffled = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
@@ -589,7 +589,7 @@ namespace UsefulProteomicsDatabases
                         {
                             case DecoyType.Reverse:
                                 char[] sequence_array = sequence.ToCharArray();
-                                int starts_with_met = sequence.StartsWith("M", StringComparison.InvariantCulture) ? 1 : 0;
+                                int starts_with_met = sequence.StartsWith("M", StringComparison.Ordinal) ? 1 : 0;
                                 Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                                 var reversed_sequence = new string(sequence_array);
                                 Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
@@ -600,7 +600,7 @@ namespace UsefulProteomicsDatabases
                                 int numSlides = 20;
                                 char[] sequence_array_unslide = sequence.ToCharArray();
                                 char[] sequence_array_slide = sequence.ToCharArray();
-                                bool starts_with_met_slide = sequence.StartsWith("M", StringComparison.InvariantCulture);
+                                bool starts_with_met_slide = sequence.StartsWith("M", StringComparison.Ordinal);
                                 for (int i = starts_with_met_slide ? 1 : 0; i < sequence.Length; i++)
                                     sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
                                 string slide_sequence = new string(sequence_array_slide);
