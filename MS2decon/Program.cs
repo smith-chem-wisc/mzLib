@@ -1,4 +1,5 @@
 ﻿using Fclp;
+using IO.MzML;
 using IO.Thermo;
 using MassSpectrometry;
 using System;
@@ -47,13 +48,17 @@ namespace MS2decon
 
             if (result.HasErrors == false)
             {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(p.Object.FilePath);
+                IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile;
+                if (Path.GetExtension(p.Object.FilePath).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
+                    myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
+                else
+                    myMsDataFile = ThermoStaticData.LoadAllStaticData(p.Object.FilePath);
 
                 using (StreamWriter output = new StreamWriter(@"MS2DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
                     output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
 
-                    foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+                    foreach (var ok in myMsDataFile.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
                     {
                         if ((!p.Object.MinScan.HasValue || ok.OneBasedScanNumber >= p.Object.MinScan) && (!p.Object.MaxScan.HasValue || ok.OneBasedScanNumber <= p.Object.MaxScan))
                         {
