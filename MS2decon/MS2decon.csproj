@@ -8,7 +8,7 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>MS2decon</RootNamespace>
     <AssemblyName>MS2decon</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFrameworkProfile />
@@ -40,7 +40,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\net461\System.ValueTuple.dll</HintPath>
     </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -64,6 +64,10 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
       <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
       <Name>MzLibUtil</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MzML\MzML.csproj">
+      <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
+      <Name>MzML</Name>
     </ProjectReference>
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
