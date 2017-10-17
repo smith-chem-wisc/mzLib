@@ -2,6 +2,7 @@
 using IO.MzML;
 using IO.Thermo;
 using MassSpectrometry;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -62,7 +63,7 @@ namespace MS2decon
                     {
                         if ((!p.Object.MinScan.HasValue || ok.OneBasedScanNumber >= p.Object.MinScan) && (!p.Object.MaxScan.HasValue || ok.OneBasedScanNumber <= p.Object.MaxScan))
                         {
-                            var hmm = ok.MassSpectrum.Deconvolute(ok.ScanWindowRange, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit).ToList();
+                            var hmm = ok.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit).ToList();
 
                             List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
 
