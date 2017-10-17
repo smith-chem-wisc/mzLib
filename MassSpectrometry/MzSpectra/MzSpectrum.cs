@@ -322,7 +322,7 @@ namespace MassSpectrometry
                             var closestPeakmz = XArray[closestPeakToTheorMass];
                             //Console.WriteLine("   closestPeakmz: " + closestPeakmz);
                             var closestPeakIntensity = YArray[closestPeakToTheorMass];
-                            if (Math.Abs(closestPeakmz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
+                            if (closestPeakmz != candidateForMostIntensePeakMz && Math.Abs(closestPeakmz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
                                 && Peak2satisfiesRatio(allIntensities[averagineTypeIndex][massIndex][0], allIntensities[averagineTypeIndex][massIndex][indexToLookAt], candidateForMostIntensePeakIntensity, closestPeakIntensity, intensityRatioLimit))
                             {
                                 // Found a match to an isotope peak for this charge state!
