@@ -142,7 +142,7 @@ namespace MassSpectrometry
                 {
                     var theScan = GetOneBasedScan(scanIndex);
                     if (scanFilterFunc(theScan))
-                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).OrderBy(b => b.charge).ToList();
+                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
                 }
             });
 
