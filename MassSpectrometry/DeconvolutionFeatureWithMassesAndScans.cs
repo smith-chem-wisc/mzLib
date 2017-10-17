@@ -80,18 +80,22 @@ namespace MassSpectrometry
             MaxScanIndex = Math.Max(scanIndex, MaxScanIndex);
             MinElutionTime = Math.Min(elutionTime, MinElutionTime);
             MaxElutionTime = Math.Max(elutionTime, MaxElutionTime);
+            bool added = false;
             foreach (var massGroup in groups)
             {
                 if (Math.Abs(massGroup.Mass - isotopicEnvelope.monoisotopicMass) < 0.5)
                 {
                     massGroup.AddEnvelope(isotopicEnvelope);
-                    Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
-                    return;
+                    added = true;
+                    break;
                 }
             }
-            var newMassGroup = new DeconvolutionFeature();
-            newMassGroup.AddEnvelope(isotopicEnvelope);
-            groups.Add(newMassGroup);
+            if (!added)
+            {
+                var newMassGroup = new DeconvolutionFeature();
+                newMassGroup.AddEnvelope(isotopicEnvelope);
+                groups.Add(newMassGroup);
+            }
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
             TotalIntensity += isotopicEnvelope.peaks.Sum(b => b.Item2);

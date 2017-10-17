@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -141,7 +142,7 @@ namespace MassSpectrometry
                 {
                     var theScan = GetOneBasedScan(scanIndex);
                     if (scanFilterFunc(theScan))
-                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(theScan.ScanWindowRange, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).OrderBy(b => b.charge).ToList();
                 }
             });
 
