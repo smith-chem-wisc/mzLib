@@ -136,9 +136,14 @@ namespace IO.MzML
                     sourceFile = new Generated.SourceFileType[1]
                 };
 
+                string idName = "";
+                if (char.IsNumber(myMsDataFile.SourceFile.FileName[0]))
+                    idName = "id:" + myMsDataFile.SourceFile.FileName[0];
+                else
+                    idName = myMsDataFile.SourceFile.FileName;
                 mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
                 {
-                    id = myMsDataFile.SourceFile.FileName,
+                    id = idName,
                     name = myMsDataFile.SourceFile.FileName,
                     location = myMsDataFile.SourceFile.Uri.ToString(),
                 };
@@ -262,12 +267,18 @@ namespace IO.MzML
                     order = 2,
                     cvParam = new Generated.CVParamType[1]
                 };
-
+                string anName = "";
+                if (analyzersInThisFile[i].ToString().ToLower() == "unknown")
+                {
+                    anName = "mass analyzer type";
+                }
+                else
+                    anName = analyzersInThisFile[i].ToString().ToLower();
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[0].cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
                     accession = analyzerDictionary[analyzersInThisFile[i]],
-                    name = analyzersInThisFile[i].ToString().ToLower(),
+                    name = anName,
                     value = ""
                 };
 
@@ -308,15 +319,21 @@ namespace IO.MzML
 
             mzML.dataProcessingList.dataProcessing[0].processingMethod[0].cvParam[0] = new Generated.CVParamType()
             {
-                accession = "MS:1000452",
+                accession = "MS:1000544",
                 cvRef = "MS",
-                name = "data transformation",
+                name = "Conversion to mzML",
                 value = ""
             };
+            string idTitle = "";
+            if (char.IsNumber(title[0]))
+                idTitle = "id:" + title;
+            else
+                idTitle = title;
+
             mzML.run = new Generated.RunType()
             {
                 defaultInstrumentConfigurationRef = analyzersInThisFileDict[analyzersInThisFile[0]],
-                id = title
+                id = idTitle
             };
 
             mzML.run.chromatogramList = new Generated.ChromatogramListType()
@@ -460,13 +477,15 @@ namespace IO.MzML
                 mzML.run.spectrumList.spectrum[i - 1].scanList.cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
-                    accession = "MS:1000570",
-                    name = "spectra combination",
+                    accession = "MS:1000795",
+                    name = "no combination",
                     value = ""
                 };
                 var h = myMsDataFile.GetOneBasedScan(i).MzAnalyzer;
-                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
+
+                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType()
                 {
+
                 };
 
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
