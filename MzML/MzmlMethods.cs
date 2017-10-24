@@ -94,11 +94,17 @@ namespace IO.MzML
         {
             string title = System.IO.Path.GetFileNameWithoutExtension(outputFile);
 
+            string idTitle = "";
+            if (char.IsNumber(title[0]))
+                idTitle = "id:" + title;
+            else
+                idTitle = title;
+
             var mzML = new Generated.mzMLType()
             {
                 version = "1.1.0",
                 cvList = new Generated.CVListType(),
-                id = title,
+                id = idTitle,
             };
 
             mzML.cvList = new Generated.CVListType()
@@ -324,11 +330,7 @@ namespace IO.MzML
                 name = "Conversion to mzML",
                 value = ""
             };
-            string idTitle = "";
-            if (char.IsNumber(title[0]))
-                idTitle = "id:" + title;
-            else
-                idTitle = title;
+        
 
             mzML.run = new Generated.RunType()
             {
