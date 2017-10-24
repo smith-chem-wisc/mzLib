@@ -33,7 +33,7 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return charge + "\t" + peaks[0].Item1.ToString("G8") + "\t" + peaks.Count;
+            return charge + "\t" + peaks[0].Item1.ToString("G8") + "\t" + peaks.Count + "\t" + totalIntensity;
         }
 
         #endregion Public Methods
