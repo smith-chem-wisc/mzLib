@@ -32,6 +32,9 @@ namespace MS2decon
             p.Setup(arg => arg.MaxScan)
              .As("MaxScan");
 
+            p.Setup(arg => arg.MinAssumedChargeState)
+             .As("MinAssumedChargeState");
+
             p.Setup(arg => arg.MaxAssumedChargeState)
              .As("MaxAssumedChargeState");
 
@@ -63,7 +66,7 @@ namespace MS2decon
                     {
                         if ((!p.Object.MinScan.HasValue || ok.OneBasedScanNumber >= p.Object.MinScan) && (!p.Object.MaxScan.HasValue || ok.OneBasedScanNumber <= p.Object.MaxScan))
                         {
-                            var hmm = ok.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit).ToList();
+                            var hmm = ok.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), p.Object.MinAssumedChargeState, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit).ToList();
 
                             List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
 
@@ -117,6 +120,7 @@ namespace MS2decon
 
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
+        public int MinAssumedChargeState { get; set; } = 1;
         public int MaxAssumedChargeState { get; set; } = 10;
         public double DeconvolutionTolerancePpm { get; set; } = 20;
         public double IntensityRatioLimit { get; set; } = 5;
@@ -133,6 +137,7 @@ namespace MS2decon
             sb.AppendLine("FilePath: " + FilePath);
             sb.AppendLine("MinScan: " + MinScan);
             sb.AppendLine("MaxScan: " + MaxScan);
+            sb.AppendLine("MinAssumedChargeState: " + MinAssumedChargeState);
             sb.AppendLine("MaxAssumedChargeState: " + MaxAssumedChargeState);
             sb.AppendLine("DeconvolutionTolerancePpm: " + DeconvolutionTolerancePpm);
             sb.AppendLine("IntensityRatioLimit: " + IntensityRatioLimit);

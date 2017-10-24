@@ -7,11 +7,11 @@ namespace MassSpectrometry
 {
     public class DeconvolutionFeatureWithMassesAndScans
     {
-        #region Private Fields
+        #region Public Fields
 
-        private List<DeconvolutionFeature> groups = new List<DeconvolutionFeature>();
+        public List<DeconvolutionFeature> groups = new List<DeconvolutionFeature>();
 
-        #endregion Private Fields
+        #endregion Public Fields
 
         #region Public Constructors
 
@@ -34,6 +34,19 @@ namespace MassSpectrometry
         public int MaxScanIndex { get; private set; }
 
         public double Mass { get; private set; }
+
+        public double Score
+        {
+            get
+            {
+                return Math.Log(
+                          Math.Pow(TotalIntensity, 0.1)
+                        * Math.Pow(NumPeaks, 0.1)
+                        * Math.Pow(Math.Max((MaxElutionTime - MinElutionTime * 60), 1), 0.1)
+                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 2)
+                        * Math.Pow(groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.peaks.Count, 0.5));
+            }
+        }
 
         public int NumPeaks
         {
@@ -64,6 +77,7 @@ namespace MassSpectrometry
         public string OneLineString()
         {
             return Mass.ToString("G8") + "\t"
+                + Score + "\t"
                 + NumPeaks + "\t"
                 + (MaxScanIndex - MinScanIndex + 1) + "\t"
                 + MinScanIndex + "\t"
