@@ -1,6 +1,8 @@
 ﻿using Fclp;
+using IO.MzML;
 using IO.Thermo;
 using MassSpectrometry;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -30,6 +32,9 @@ namespace MS2decon
             p.Setup(arg => arg.MaxScan)
              .As("MaxScan");
 
+            p.Setup(arg => arg.MinAssumedChargeState)
+             .As("MinAssumedChargeState");
+
             p.Setup(arg => arg.MaxAssumedChargeState)
              .As("MaxAssumedChargeState");
 
@@ -47,17 +52,21 @@ namespace MS2decon
 
             if (result.HasErrors == false)
             {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(p.Object.FilePath);
+                IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile;
+                if (Path.GetExtension(p.Object.FilePath).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
+                    myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
+                else
+                    myMsDataFile = ThermoStaticData.LoadAllStaticData(p.Object.FilePath);
 
                 using (StreamWriter output = new StreamWriter(@"MS2DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
                     output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
 
-                    foreach (var ok in a.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+                    foreach (var ok in myMsDataFile.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
                     {
                         if ((!p.Object.MinScan.HasValue || ok.OneBasedScanNumber >= p.Object.MinScan) && (!p.Object.MaxScan.HasValue || ok.OneBasedScanNumber <= p.Object.MaxScan))
                         {
-                            var hmm = ok.MassSpectrum.Deconvolute(ok.ScanWindowRange, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit).ToList();
+                            var hmm = ok.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), p.Object.MinAssumedChargeState, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit).ToList();
 
                             List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
 
@@ -111,6 +120,7 @@ namespace MS2decon
 
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
+        public int MinAssumedChargeState { get; set; } = 1;
         public int MaxAssumedChargeState { get; set; } = 10;
         public double DeconvolutionTolerancePpm { get; set; } = 20;
         public double IntensityRatioLimit { get; set; } = 5;
@@ -127,6 +137,7 @@ namespace MS2decon
             sb.AppendLine("FilePath: " + FilePath);
             sb.AppendLine("MinScan: " + MinScan);
             sb.AppendLine("MaxScan: " + MaxScan);
+            sb.AppendLine("MinAssumedChargeState: " + MinAssumedChargeState);
             sb.AppendLine("MaxAssumedChargeState: " + MaxAssumedChargeState);
             sb.AppendLine("DeconvolutionTolerancePpm: " + DeconvolutionTolerancePpm);
             sb.AppendLine("IntensityRatioLimit: " + IntensityRatioLimit);

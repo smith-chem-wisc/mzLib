@@ -12,13 +12,12 @@ namespace MassSpectrometry
         public readonly double totalIntensity;
         public readonly double stDev;
         public readonly int massIndex;
-        public readonly int bestJ;
 
         #endregion Public Fields
 
         #region Public Constructors
 
-        public IsotopicEnvelope(List<(double, double)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex, int bestJ)
+        public IsotopicEnvelope(List<(double, double)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
         {
             this.peaks = bestListOfPeaks;
             this.monoisotopicMass = bestMonoisotopicMass;
@@ -26,7 +25,6 @@ namespace MassSpectrometry
             this.totalIntensity = bestTotalIntensity;
             this.stDev = bestStDev;
             this.massIndex = bestMassIndex;
-            this.bestJ = bestJ;
         }
 
         #endregion Public Constructors

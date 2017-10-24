@@ -4,13 +4,13 @@ using System.Text;
 
 namespace MassSpectrometry
 {
-    internal class DeconvolutionFeature
+    public class DeconvolutionFeature
     {
-        #region Private Fields
+        #region Public Fields
 
-        private List<IsotopicEnvelope> isotopicEnvelopes = new List<IsotopicEnvelope>();
+        public List<IsotopicEnvelope> isotopicEnvelopes = new List<IsotopicEnvelope>();
 
-        #endregion Private Fields
+        #endregion Public Fields
 
         #region Public Properties
 
