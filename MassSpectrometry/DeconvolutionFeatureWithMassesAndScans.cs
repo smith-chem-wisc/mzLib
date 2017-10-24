@@ -41,10 +41,8 @@ namespace MassSpectrometry
             {
                 return Math.Log(
                           Math.Pow(TotalIntensity, 0.1)
-                        * Math.Pow(NumPeaks, 0.1)
                         * Math.Pow(Math.Max((MaxElutionTime - MinElutionTime * 60), 1), 0.1)
-                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 2)
-                        * Math.Pow(groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.peaks.Count, 0.5));
+                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 2));
             }
         }
 
@@ -56,6 +54,8 @@ namespace MassSpectrometry
         public double MinElutionTime { get; private set; }
         public double MaxElutionTime { get; private set; }
         public double TotalIntensity { get; private set; }
+        public IsotopicEnvelope MostIntenseEnvelope { get; private set; }
+        public double MostIntenseEnvelopeElutionTime { get; private set; }
 
         #endregion Public Properties
 
@@ -82,9 +82,9 @@ namespace MassSpectrometry
                 + (MaxScanIndex - MinScanIndex + 1) + "\t"
                 + MinScanIndex + "\t"
                 + MaxScanIndex + "\t"
-                + ((MinElutionTime + MaxElutionTime) / 2).ToString("F2") + "\t"
                 + TotalIntensity.ToString("E5") + "\t"
                 + string.Join(",", new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)) + "\t"
+                + (MostIntenseEnvelopeElutionTime).ToString("F2") + "\t"
                 + groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.ToString();
         }
 
@@ -113,6 +113,12 @@ namespace MassSpectrometry
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
             TotalIntensity += isotopicEnvelope.peaks.Sum(b => b.Item2);
+
+            if (MostIntenseEnvelope.totalIntensity < isotopicEnvelope.totalIntensity)
+            {
+                MostIntenseEnvelope = isotopicEnvelope;
+                MostIntenseEnvelopeElutionTime = elutionTime;
+            }
         }
 
         #endregion Public Methods
