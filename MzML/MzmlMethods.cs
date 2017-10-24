@@ -475,24 +475,6 @@ namespace IO.MzML
                     scan = new Generated.ScanType[1],
                     cvParam = new Generated.CVParamType[1]
                 };
-                mzML.run.spectrumList.spectrum[i - 1].scanList.cvParam[0] = new Generated.CVParamType()
-                {
-                    accession = "MS:1000795",
-                    cvRef = "MS",
-                    name = "no combination",
-                    value = ""
-                };
-                var h = myMsDataFile.GetOneBasedScan(i).MzAnalyzer;
-
-                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType()
-                {
-                    cvParam = new Generated.CVParamType[1]
-                };
-
-                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[0] = new Generated.CVParamType()
-                {
-
-                };
 
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
                 {
