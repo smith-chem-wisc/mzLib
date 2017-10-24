@@ -153,7 +153,7 @@ namespace MassSpectrometry
         }
 
         // Mass tolerance must account for different isotope spacing!
-        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
+        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
         {
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
@@ -165,7 +165,7 @@ namespace MassSpectrometry
                 //Console.WriteLine("candidateForMostIntensePeakMz: " + candidateForMostIntensePeakMz);
                 var candidateForMostIntensePeakIntensity = YArray[candidateForMostIntensePeak];
 
-                for (int chargeState = 1; chargeState <= maxAssumedChargeState; chargeState++)
+                for (int chargeState = minAssumedChargeState; chargeState <= maxAssumedChargeState; chargeState++)
                 {
                     //Console.WriteLine(" chargeState: " + chargeState);
                     var testMostIntenseMass = candidateForMostIntensePeakMz.ToMass(chargeState);
