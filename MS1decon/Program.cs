@@ -38,6 +38,9 @@ namespace ConsoleApp1
             p.Setup(arg => arg.MaxScan)
              .As("MaxScan");
 
+            p.Setup(arg => arg.MinAssumedChargeState)
+             .As("MinAssumedChargeState");
+
             p.Setup(arg => arg.MaxAssumedChargeState)
              .As("MaxAssumedChargeState");
 
@@ -63,8 +66,8 @@ namespace ConsoleApp1
 
                 using (StreamWriter output = new StreamWriter(@"DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
-                    output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
-                    foreach (var nice in myMsDataFile.Deconvolute(p.Object.MinScan, p.Object.MaxScan, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit, p.Object.AggregationTolerancePpm, b => b.MsnOrder == 1).OrderByDescending(b => b.TotalIntensity))
+                    output.WriteLine("Mass\tScore\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
+                    foreach (var nice in myMsDataFile.Deconvolute(p.Object.MinScan, p.Object.MaxScan, p.Object.MinAssumedChargeState, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit, p.Object.AggregationTolerancePpm, b => b.MsnOrder == 1).OrderByDescending(b => b.Score))
                     {
                         output.WriteLine(nice.OneLineString());
                     }
@@ -86,6 +89,7 @@ namespace ConsoleApp1
 
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
+        public int MinAssumedChargeState { get; set; } = 1;
         public int MaxAssumedChargeState { get; set; } = 10;
         public double DeconvolutionTolerancePpm { get; set; } = 20;
         public double IntensityRatioLimit { get; set; } = 5;
@@ -102,6 +106,7 @@ namespace ConsoleApp1
             sb.AppendLine("FilePath: " + FilePath);
             sb.AppendLine("MinScan: " + MinScan);
             sb.AppendLine("MaxScan: " + MaxScan);
+            sb.AppendLine("MinAssumedChargeState: " + MinAssumedChargeState);
             sb.AppendLine("MaxAssumedChargeState: " + MaxAssumedChargeState);
             sb.AppendLine("DeconvolutionTolerancePpm: " + DeconvolutionTolerancePpm);
             sb.AppendLine("IntensityRatioLimit: " + IntensityRatioLimit);
