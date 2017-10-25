@@ -6,7 +6,7 @@ namespace MassSpectrometry
     {
         #region Public Fields
 
-        public readonly List<(double, double)> peaks;
+        public readonly List<(double mz, double intensity)> peaks;
         public readonly double monoisotopicMass;
         public readonly int charge;
         public readonly double totalIntensity;
@@ -17,7 +17,7 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public IsotopicEnvelope(List<(double, double)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
+        public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
         {
             this.peaks = bestListOfPeaks;
             this.monoisotopicMass = bestMonoisotopicMass;
@@ -33,7 +33,7 @@ namespace MassSpectrometry
 
         public override string ToString()
         {
-            return charge + "\t" + peaks[0].Item1.ToString("G8") + "\t" + peaks.Count + "\t" + totalIntensity;
+            return charge + "\t" + peaks[0].mz.ToString("G8") + "\t" + peaks.Count + "\t" + totalIntensity;
         }
 
         #endregion Public Methods
