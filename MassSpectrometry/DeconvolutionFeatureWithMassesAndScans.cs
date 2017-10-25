@@ -42,7 +42,7 @@ namespace MassSpectrometry
                 return Math.Log(
                           Math.Pow(TotalIntensity, 0.1)
                         * Math.Pow(Math.Max((MaxElutionTime - MinElutionTime * 60), 1), 0.1)
-                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 2));
+                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 1));
             }
         }
 
@@ -76,6 +76,12 @@ namespace MassSpectrometry
 
         public string OneLineString()
         {
+            List<(double elutionTime, double intensity)> elutionTimeAndIntensity = new List<(double elutionTime, double intensity)>();
+            foreach (var envelope in groups.SelectMany(b => b.isotopicEnvelopes).Where(b => b.isotopicEnvelope.charge == MostIntenseEnvelope.charge))
+                elutionTimeAndIntensity.Add((envelope.elutionTime, envelope.isotopicEnvelope.totalIntensity));
+
+            var elutionOfMostIntenseCharge = string.Join(";", elutionTimeAndIntensity.OrderBy(b => b.elutionTime).Select(b => b.intensity));
+
             return Mass.ToString("G8") + "\t"
                 + Score + "\t"
                 + NumPeaks + "\t"
@@ -85,7 +91,8 @@ namespace MassSpectrometry
                 + TotalIntensity.ToString("E5") + "\t"
                 + string.Join(",", new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)) + "\t"
                 + (MostIntenseEnvelopeElutionTime).ToString("F2") + "\t"
-                + MostIntenseEnvelope.ToString();
+                + MostIntenseEnvelope.ToString() + '\t'
+                + elutionOfMostIntenseCharge;
         }
 
         public void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
@@ -99,7 +106,7 @@ namespace MassSpectrometry
             {
                 if (Math.Abs(massGroup.Mass - isotopicEnvelope.monoisotopicMass) < 0.5)
                 {
-                    massGroup.AddEnvelope(isotopicEnvelope);
+                    massGroup.AddEnvelope(scanIndex, elutionTime, isotopicEnvelope);
                     added = true;
                     break;
                 }
@@ -107,12 +114,12 @@ namespace MassSpectrometry
             if (!added)
             {
                 var newMassGroup = new DeconvolutionFeature();
-                newMassGroup.AddEnvelope(isotopicEnvelope);
+                newMassGroup.AddEnvelope(scanIndex, elutionTime, isotopicEnvelope);
                 groups.Add(newMassGroup);
             }
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
-            TotalIntensity += isotopicEnvelope.peaks.Sum(b => b.Item2);
+            TotalIntensity += isotopicEnvelope.totalIntensity;
 
             if (MostIntenseEnvelope == null || MostIntenseEnvelope.totalIntensity < isotopicEnvelope.totalIntensity)
             {
