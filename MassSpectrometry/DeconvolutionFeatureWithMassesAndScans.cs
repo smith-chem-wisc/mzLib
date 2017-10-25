@@ -85,7 +85,7 @@ namespace MassSpectrometry
                 + TotalIntensity.ToString("E5") + "\t"
                 + string.Join(",", new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)) + "\t"
                 + (MostIntenseEnvelopeElutionTime).ToString("F2") + "\t"
-                + groups.OrderByDescending(b => b.MostIntenseEnvelope.totalIntensity).First().MostIntenseEnvelope.ToString();
+                + MostIntenseEnvelope.ToString();
         }
 
         public void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
