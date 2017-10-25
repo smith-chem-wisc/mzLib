@@ -47,6 +47,9 @@ namespace ConsoleApp1
             p.Setup(arg => arg.IntensityRatioLimit)
              .As("IntensityRatioLimit");
 
+            p.Setup(arg => arg.AverageScans)
+             .As("AverageScans");
+
             p.Setup(arg => arg.FilePath)
              .As("FilePath").
              Required();
@@ -63,6 +66,11 @@ namespace ConsoleApp1
                     myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
                 else
                     myMsDataFile = ThermoStaticData.LoadAllStaticData(p.Object.FilePath);
+
+                if (p.Object.AverageScans > 1)
+                {
+                    myMsDataFile = new SummedMsDataFile(myMsDataFile, p.Object.AverageScans, p.Object.DeconvolutionTolerancePpm);
+                }
 
                 using (StreamWriter output = new StreamWriter(@"DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
@@ -94,6 +102,7 @@ namespace ConsoleApp1
         public double DeconvolutionTolerancePpm { get; set; } = 20;
         public double IntensityRatioLimit { get; set; } = 5;
         public double AggregationTolerancePpm { get; set; } = 5;
+        public int AverageScans { get; set; } = 1;
         public string FilePath { get; set; }
 
         #endregion Public Properties
@@ -111,6 +120,7 @@ namespace ConsoleApp1
             sb.AppendLine("DeconvolutionTolerancePpm: " + DeconvolutionTolerancePpm);
             sb.AppendLine("IntensityRatioLimit: " + IntensityRatioLimit);
             sb.AppendLine("AggregationTolerancePpm: " + AggregationTolerancePpm);
+            sb.AppendLine("AverageScans: " + AverageScans);
             return sb.ToString();
         }
 

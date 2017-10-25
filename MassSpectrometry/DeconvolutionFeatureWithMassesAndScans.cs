@@ -42,7 +42,8 @@ namespace MassSpectrometry
                 return Math.Log(
                           Math.Pow(TotalNormalizedIntensity, 0.1)
                         * Math.Pow(Math.Max((MaxElutionTime - MinElutionTime * 60), 1), 0.1)
-                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 1));
+                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 1)
+                        * Math.Pow((double)groups.Select(b => b.NumPeaks).Sum() / (MaxScanIndex - MinScanIndex + 1), 1));
             }
         }
 
