@@ -114,7 +114,7 @@ namespace MassSpectrometry
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
             TotalIntensity += isotopicEnvelope.peaks.Sum(b => b.Item2);
 
-            if (MostIntenseEnvelope.totalIntensity < isotopicEnvelope.totalIntensity)
+            if (MostIntenseEnvelope == null || MostIntenseEnvelope.totalIntensity < isotopicEnvelope.totalIntensity)
             {
                 MostIntenseEnvelope = isotopicEnvelope;
                 MostIntenseEnvelopeElutionTime = elutionTime;
