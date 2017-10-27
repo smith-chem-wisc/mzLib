@@ -40,9 +40,10 @@ namespace MassSpectrometry
             get
             {
                 return Math.Log(
-                          Math.Pow(TotalIntensity, 0.1)
+                          Math.Pow(TotalNormalizedIntensity, 0.1)
                         * Math.Pow(Math.Max((MaxElutionTime - MinElutionTime * 60), 1), 0.1)
-                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 1));
+                        * Math.Pow((new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)).Count(), 1)
+                        * Math.Pow((double)groups.Select(b => b.NumPeaks).Sum() / (MaxScanIndex - MinScanIndex + 1), 1));
             }
         }
 
@@ -53,7 +54,7 @@ namespace MassSpectrometry
 
         public double MinElutionTime { get; private set; }
         public double MaxElutionTime { get; private set; }
-        public double TotalIntensity { get; private set; }
+        public double TotalNormalizedIntensity { get; private set; }
         public IsotopicEnvelope MostIntenseEnvelope { get; private set; }
         public double MostIntenseEnvelopeElutionTime { get; private set; }
 
@@ -88,7 +89,9 @@ namespace MassSpectrometry
                 + (MaxScanIndex - MinScanIndex + 1) + "\t"
                 + MinScanIndex + "\t"
                 + MaxScanIndex + "\t"
-                + TotalIntensity.ToString("E5") + "\t"
+                + MinElutionTime + "\t"
+                + MaxElutionTime + "\t"
+                + TotalNormalizedIntensity.ToString("E5") + "\t"
                 + string.Join(",", new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)) + "\t"
                 + (MostIntenseEnvelopeElutionTime).ToString("F2") + "\t"
                 + MostIntenseEnvelope.ToString() + '\t'
@@ -119,7 +122,7 @@ namespace MassSpectrometry
             }
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
-            TotalIntensity += isotopicEnvelope.totalIntensity;
+            TotalNormalizedIntensity += isotopicEnvelope.totalIntensity / isotopicEnvelope.charge;
 
             if (MostIntenseEnvelope == null || MostIntenseEnvelope.totalIntensity < isotopicEnvelope.totalIntensity)
             {
