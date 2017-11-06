@@ -50,6 +50,9 @@ namespace ConsoleApp1
             p.Setup(arg => arg.AverageScans)
              .As("AverageScans");
 
+            p.Setup(arg => arg.NumScansRequired)
+             .As("NumScansRequired");
+
             p.Setup(arg => arg.FilePath)
              .As("FilePath").
              Required();
@@ -78,7 +81,8 @@ namespace ConsoleApp1
 
                     foreach (var nice in myMsDataFile.Deconvolute(p.Object.MinScan, p.Object.MaxScan, p.Object.MinAssumedChargeState, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit, p.Object.AggregationTolerancePpm, b => b.MsnOrder == 1).OrderByDescending(b => b.Score))
                     {
-                        output.WriteLine(nice.OneLineString());
+                        if((nice.MaxScanIndex - nice.MinScanIndex + 1) >= p.Object.NumScansRequired)
+                            output.WriteLine(nice.OneLineString());
                     }
                 }
             }
@@ -105,6 +109,7 @@ namespace ConsoleApp1
         public double AggregationTolerancePpm { get; set; } = 5;
         public int AverageScans { get; set; } = 1;
         public string FilePath { get; set; }
+        public int NumScansRequired { get; set; } = 2;
 
         #endregion Public Properties
 
@@ -122,6 +127,7 @@ namespace ConsoleApp1
             sb.AppendLine("IntensityRatioLimit: " + IntensityRatioLimit);
             sb.AppendLine("AggregationTolerancePpm: " + AggregationTolerancePpm);
             sb.AppendLine("AverageScans: " + AverageScans);
+            sb.AppendLine("NumScansRequired: " + NumScansRequired);
             return sb.ToString();
         }
 
