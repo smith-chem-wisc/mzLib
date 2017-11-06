@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace MassSpectrometry
 {
@@ -8,7 +7,7 @@ namespace MassSpectrometry
     {
         #region Public Fields
 
-        public List<IsotopicEnvelope> isotopicEnvelopes = new List<IsotopicEnvelope>();
+        public List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)> isotopicEnvelopes = new List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)>();
 
         #endregion Public Fields
 
@@ -18,35 +17,17 @@ namespace MassSpectrometry
 
         public int NumPeaks { get; private set; }
 
-        public IsotopicEnvelope MostIntenseEnvelope { get { return isotopicEnvelopes.OrderByDescending(b => b.totalIntensity).First(); } }
-
-        public IEnumerable<int> AllCharges { get { return isotopicEnvelopes.Select(b => b.charge).ToList(); } }
+        public IEnumerable<int> AllCharges { get { return isotopicEnvelopes.Select(b => b.isotopicEnvelope.charge).ToList(); } }
 
         #endregion Public Properties
 
-        #region Public Methods
-
-        public override string ToString()
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.Append(" Mass: " + Mass + " NumPeaks: " + NumPeaks);
-            foreach (var heh in isotopicEnvelopes.OrderBy(b => -b.peaks.Count))
-            {
-                sb.AppendLine();
-                sb.Append("     " + heh.ToString());
-            }
-            return sb.ToString();
-        }
-
-        #endregion Public Methods
-
         #region Internal Methods
 
-        internal void AddEnvelope(IsotopicEnvelope isotopicEnvelope)
+        internal void AddEnvelope(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)
         {
-            isotopicEnvelopes.Add(isotopicEnvelope);
-            Mass = isotopicEnvelopes.Select(b => b.monoisotopicMass).Average();
-            NumPeaks = isotopicEnvelopes.Select(b => b.peaks.Count).Sum();
+            isotopicEnvelopes.Add((scanNumber, elutionTime, isotopicEnvelope));
+            Mass = isotopicEnvelopes.Select(b => b.isotopicEnvelope.monoisotopicMass).Average();
+            NumPeaks = isotopicEnvelopes.Select(b => b.isotopicEnvelope.peaks.Count).Sum();
         }
 
         #endregion Internal Methods

@@ -47,6 +47,12 @@ namespace ConsoleApp1
             p.Setup(arg => arg.IntensityRatioLimit)
              .As("IntensityRatioLimit");
 
+            p.Setup(arg => arg.AverageScans)
+             .As("AverageScans");
+
+            p.Setup(arg => arg.NumScansRequired)
+             .As("NumScansRequired");
+
             p.Setup(arg => arg.FilePath)
              .As("FilePath").
              Required();
@@ -64,12 +70,19 @@ namespace ConsoleApp1
                 else
                     myMsDataFile = ThermoStaticData.LoadAllStaticData(p.Object.FilePath);
 
+                if (p.Object.AverageScans > 1)
+                {
+                    myMsDataFile = new SummedMsDataFile(myMsDataFile, p.Object.AverageScans, p.Object.DeconvolutionTolerancePpm);
+                }
+
                 using (StreamWriter output = new StreamWriter(@"DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
-                    output.WriteLine("Mass\tScore\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
+                    output.WriteLine("Mass\tScore\tNumPeaks\tNumScans\tMinScan\tMaxScan\tElutionStart\tElutionEnd\tTotalNormalizedIntensity\tObservedCharges\tMostIntenseElutionTime\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope\tMostIntenseEnvelopeIntensity\tElutionOfMostIntenseCharge");
+
                     foreach (var nice in myMsDataFile.Deconvolute(p.Object.MinScan, p.Object.MaxScan, p.Object.MinAssumedChargeState, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit, p.Object.AggregationTolerancePpm, b => b.MsnOrder == 1).OrderByDescending(b => b.Score))
                     {
-                        output.WriteLine(nice.OneLineString());
+                        if((nice.MaxScanIndex - nice.MinScanIndex + 1) >= p.Object.NumScansRequired)
+                            output.WriteLine(nice.OneLineString());
                     }
                 }
             }
@@ -94,7 +107,9 @@ namespace ConsoleApp1
         public double DeconvolutionTolerancePpm { get; set; } = 20;
         public double IntensityRatioLimit { get; set; } = 5;
         public double AggregationTolerancePpm { get; set; } = 5;
+        public int AverageScans { get; set; } = 1;
         public string FilePath { get; set; }
+        public int NumScansRequired { get; set; } = 2;
 
         #endregion Public Properties
 
@@ -111,6 +126,8 @@ namespace ConsoleApp1
             sb.AppendLine("DeconvolutionTolerancePpm: " + DeconvolutionTolerancePpm);
             sb.AppendLine("IntensityRatioLimit: " + IntensityRatioLimit);
             sb.AppendLine("AggregationTolerancePpm: " + AggregationTolerancePpm);
+            sb.AppendLine("AverageScans: " + AverageScans);
+            sb.AppendLine("NumScansRequired: " + NumScansRequired);
             return sb.ToString();
         }
 
