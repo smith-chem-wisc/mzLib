@@ -330,7 +330,7 @@ namespace IO.MzML
                 name = "Conversion to mzML",
                 value = ""
             };
-        
+
 
             mzML.run = new Generated.RunType()
             {
@@ -468,7 +468,7 @@ namespace IO.MzML
                     id = myMsDataFile.GetOneBasedScan(i).NativeId,
                     cvParam = new Generated.CVParamType[9],
                     scanList = new Generated.ScanListType()
-                    
+
                 };
 
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()
@@ -821,6 +821,14 @@ namespace IO.MzML
                         // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
                         count = 5.ToString(),
                         binaryDataArray = new Generated.BinaryDataArrayType[6]
+                        /*
+                        [0]: M/Z Data
+                        [1]: Intensity Data
+                        [2]: Sampled Noise Intensity
+                        [3]: Sampled Noise M/Z (Mass)
+                        [4]: Sampled Noise Baseline Intensity
+                        [5]: Resolution Data
+                        */
                     };
                 }
 
@@ -887,44 +895,13 @@ namespace IO.MzML
                     cvRef = "MS",
                     value = ""
                 };
-               
+
                 if (myMsDataFile.GetOneBasedScan(i).NoiseData != null)
                 {
-                    // mass
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3] = new Generated.BinaryDataArrayType()
-                    {
-                        binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataMass()
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].arrayLength = (mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 8).ToString();
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].encodedLength = (4 * Math.Ceiling(((double)mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam = new Generated.CVParamType[3];
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[0] = new Generated.CVParamType()
-                    {
-                        accession = "MS:1002743",
-                        name = "sampled noise m/z array",
-                        cvRef = "MS",
-                        unitCvRef = "MS",
-                        value = "",
-                        unitAccession = "MS:1000040",
-                        unitName = "m/z"
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[1] = new Generated.CVParamType()
-                    {
-                        accession = "MS:1000523",
-                        name = "64-bit float",
-                        cvRef = "MS",
-                        value = ""
-                    };
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[2] = new Generated.CVParamType()
-                    {
-                        accession = "MS:1000576",
-                        name = "no compression",
-                        cvRef = "MS",
-                        value = ""
-                    };
-                
 
-                    // intensity
+
+
+                    // Noise Intensity
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2] = new Generated.BinaryDataArrayType()
                     {
                         binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataNoise()
@@ -956,7 +933,40 @@ namespace IO.MzML
                         cvRef = "MS",
                         value = ""
                     };
-              
+
+
+                    // sampled noise m/z
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3] = new Generated.BinaryDataArrayType()
+                    {
+                        binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataMass()
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].arrayLength = (mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 8).ToString();
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].encodedLength = (4 * Math.Ceiling(((double)mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam = new Generated.CVParamType[3];
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[0] = new Generated.CVParamType()
+                    {
+                        accession = "MS:1002743",
+                        name = "sampled noise m/z array",
+                        cvRef = "MS",
+                        unitCvRef = "MS",
+                        value = "",
+                        unitAccession = "MS:1000040",
+                        unitName = "m/z"
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[1] = new Generated.CVParamType()
+                    {
+                        accession = "MS:1000523",
+                        name = "64-bit float",
+                        cvRef = "MS",
+                        value = ""
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[3].cvParam[2] = new Generated.CVParamType()
+                    {
+                        accession = "MS:1000576",
+                        name = "no compression",
+                        cvRef = "MS",
+                        value = ""
+                    };
 
                     // baseline
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[4] = new Generated.BinaryDataArrayType()
