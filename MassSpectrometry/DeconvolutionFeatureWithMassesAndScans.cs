@@ -81,6 +81,22 @@ namespace MassSpectrometry
             foreach (var envelope in groups.SelectMany(b => b.isotopicEnvelopes).Where(b => b.isotopicEnvelope.charge == MostIntenseEnvelope.charge))
                 elutionTimeAndIntensity.Add((envelope.elutionTime, envelope.isotopicEnvelope.totalIntensity));
 
+            int maxCharge = groups.SelectMany(p => p.AllCharges).Max();
+            var t = groups.SelectMany(p => p.isotopicEnvelopes);
+            string elutionString = "";
+            for(int z = 1; z <= maxCharge; z++)
+            {
+                string str = "[" + z + "|";
+                var isotopicEnvelopes = t.Where(p => p.isotopicEnvelope.charge == z);
+                foreach(var envelope in isotopicEnvelopes)
+                {
+                    str += Math.Round(envelope.elutionTime, 2) + ";" + envelope.isotopicEnvelope.totalIntensity + ",";
+                }
+                str += "]";
+
+                elutionString += str;
+            }
+
             var elutionOfMostIntenseCharge = string.Join(";", elutionTimeAndIntensity.OrderBy(b => b.elutionTime).Select(b => b.intensity));
 
             return Mass.ToString("G8") + "\t"
@@ -95,7 +111,8 @@ namespace MassSpectrometry
                 + string.Join(",", new HashSet<int>(groups.SelectMany(b => b.AllCharges)).OrderBy(b => b)) + "\t"
                 + (MostIntenseEnvelopeElutionTime).ToString("F2") + "\t"
                 + MostIntenseEnvelope.ToString() + '\t'
-                + elutionOfMostIntenseCharge;
+                + elutionOfMostIntenseCharge + '\t'
+                + elutionString;
         }
 
         public void AddEnvelope(IsotopicEnvelope isotopicEnvelope, int scanIndex, double elutionTime)
