@@ -819,7 +819,7 @@ namespace IO.MzML
                     {
                         // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
                         // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
-                        count = 5.ToString(),
+                        count = 6.ToString(),
                         binaryDataArray = new Generated.BinaryDataArrayType[6]
                         /*
                         [0]: M/Z Data
