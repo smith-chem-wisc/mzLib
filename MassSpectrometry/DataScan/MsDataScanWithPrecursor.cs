@@ -128,16 +128,6 @@ namespace MassSpectrometry
             SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak];
         }
 
-        public IEnumerable<Tuple<List<IMzPeak>, int>> GetIsolatedMassesAndChargesOld(IMzSpectrum<IMzPeak> precursorSpectrum, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio)
-        {
-            if (IsolationRange == null)
-                yield break;
-
-            foreach (var haha in precursorSpectrum.DeconvoluteOld(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), maxAssumedChargeState, massTolerance, intensityRatio)
-                                                  .Where(b => b.Item1.Any(cc => isolationRange.Contains(cc.Mz))))
-                yield return haha;
-        }
-
         #endregion Public Methods
     }
 }
