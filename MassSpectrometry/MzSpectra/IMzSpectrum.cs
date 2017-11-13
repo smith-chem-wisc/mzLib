@@ -18,7 +18,6 @@
 
 using MzLibUtil;
 using Spectra;
-using System;
 using System.Collections.Generic;
 
 namespace MassSpectrometry
@@ -39,8 +38,6 @@ namespace MassSpectrometry
         byte[] Get64BitYarray();
 
         IEnumerable<IsotopicEnvelope> Deconvolute(MzRange range, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio);
-
-        IEnumerable<Tuple<List<IMzPeak>, int>> DeconvoluteOld(MzRange theRange, int maxAssumedChargeState, Tolerance massTolerance, double intensityRatio);
 
         #endregion Public Methods
     }
