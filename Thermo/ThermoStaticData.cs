@@ -37,7 +37,7 @@ namespace IO.Thermo
         #endregion Private Constructors
 
         #region Public Methods
-        private const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
+        private const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbd123}";
 
         public static ThermoStaticData LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
@@ -45,7 +45,7 @@ namespace IO.Thermo
             //Check if Thermo File Reader Exists
             try
             {
-                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
+                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID), true);
             }
             catch (COMException ex)
             {

@@ -34,7 +34,7 @@ namespace IO.Thermo
         #endregion Private Constructors
 
         #region Public Methods
-        private const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
+        private const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc03}";
 
         public static ThermoDynamicData InitiateDynamicConnection(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
