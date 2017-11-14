@@ -51,9 +51,9 @@ namespace IO.Thermo
                 Console.WriteLine("\n\n\n\n\n\n\n\n\n\n\n Instantiated {0}",
                                   wordObj.GetType().FullName, THERMO_READER_CLSID);
             }
-            catch(COMException ex)
+            catch (COMException ex)
             {
-                if(ex.ErrorCode == -2147287036)
+                if (ex.ErrorCode == -2147287036)
                 {
                     throw new MzLibException("MS File Reader Not Installed");
                 }
