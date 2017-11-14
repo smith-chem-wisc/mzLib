@@ -46,6 +46,7 @@ namespace IO.Thermo
             Sector = 5
         }
 
+        
         #endregion Private Enums
 
         #region Public Properties

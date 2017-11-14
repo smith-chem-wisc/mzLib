@@ -820,7 +820,7 @@ namespace IO.MzML
                         // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
                         // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
                         count = 5.ToString(),
-                        binaryDataArray = new Generated.BinaryDataArrayType[6]
+                        binaryDataArray = new Generated.BinaryDataArrayType[5]
                         /*
                         [0]: M/Z Data
                         [1]: Intensity Data
@@ -898,8 +898,6 @@ namespace IO.MzML
 
                 if (myMsDataFile.GetOneBasedScan(i).NoiseData != null)
                 {
-
-
 
                     // Noise Intensity
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[2] = new Generated.BinaryDataArrayType()
@@ -1000,10 +998,10 @@ namespace IO.MzML
                     };
 
 
-                    // resolution
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[5] = new Generated.BinaryDataArrayType()
+                    // resolution R = (RT1 - RT2) / [0.5 * (W1 + W2)],
+                   /* mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[5] = new Generated.BinaryDataArrayType()
                     {
-                        binary = myMsDataFile.GetOneBasedScan(i).Get64BitNoiseDataMass()
+                       // binary = myMsDataFile.GetOneBasedScan(i).TotalIonCurrent
                     };
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[5].arrayLength = (mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[5].binary.Length / 8).ToString();
                     mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[5].encodedLength = (4 * Math.Ceiling(((double)mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[5].binary.Length / 3))).ToString(CultureInfo.InvariantCulture);
@@ -1029,7 +1027,7 @@ namespace IO.MzML
                         name = "no compression",
                         cvRef = "MS",
                         value = ""
-                    };
+                    };*/
 
                 }
             }
