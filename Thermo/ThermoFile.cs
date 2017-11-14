@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace IO.Thermo
@@ -89,6 +90,26 @@ namespace IO.Thermo
             return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }
 
+
+        public static bool CheckForMsFileReader()
+        {
+
+            const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
+            //Check if Thermo File Reader Exists
+            try
+            {
+                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
+                Object wordObj = Activator.CreateInstance(thermoReader);
+            }
+            catch (COMException ex)
+            {
+                if (ex.ErrorCode == -2147221164)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
         #endregion Public Methods
 
         #region Protected Methods
