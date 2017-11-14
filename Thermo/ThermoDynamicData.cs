@@ -38,15 +38,12 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
-
+            //Check if Thermo File Reader Exists
             try
             {
                 var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
                 Console.WriteLine("Instantiated Type object from CLSID {0}",
                                THERMO_READER_CLSID);
-                Object wordObj = Activator.CreateInstance(thermoReader);
-                Console.WriteLine("\n\n\n\n\n\n\n\n\n\n\n Instantiated {0}",
-                                  wordObj.GetType().FullName, THERMO_READER_CLSID);
             }
             catch (COMException ex)
             {
@@ -55,6 +52,7 @@ namespace IO.Thermo
                     throw new MzLibException("MS File Reader Not Installed");
                 }
             }
+
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(filePath);
             _rawConnection.SetCurrentController(0, 1);
