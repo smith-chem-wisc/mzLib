@@ -21,7 +21,6 @@ using MSFileReaderLib;
 using MzLibUtil;
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace IO.Thermo
