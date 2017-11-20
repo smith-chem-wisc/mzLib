@@ -26,7 +26,7 @@ namespace Test
     {
         #region Public Constructors
 
-        public FakeMsDataFile(IMzmlScan[] FakeScans) : base(FakeScans, new SourceFile(@"no nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
+        public FakeMsDataFile(IMzmlScan[] FakeScans) : base(FakeScans, new SourceFile(@"scan number only", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
         {
             this.Scans = FakeScans;
         }
