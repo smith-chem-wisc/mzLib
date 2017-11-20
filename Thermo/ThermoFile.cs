@@ -99,14 +99,11 @@ namespace IO.Thermo
             try
             {
                 var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
-                Object wordObj = Activator.CreateInstance(thermoReader);
+                Activator.CreateInstance(thermoReader);
             }
             catch (COMException ex)
             {
-                if (ex.ErrorCode == -2147221164)
-                {
-                    return false;
-                }
+                return false;
             }
             return true;
         }
