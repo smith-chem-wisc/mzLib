@@ -21,7 +21,6 @@ using MSFileReaderLib;
 using MzLibUtil;
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace IO.Thermo
@@ -37,28 +36,12 @@ namespace IO.Thermo
         #endregion Private Constructors
 
         #region Public Methods
-        private const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
 
         public static ThermoStaticData LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
 
-            try
-            {
-                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
-                Console.WriteLine("Instantiated Type object from CLSID {0}",
-                               THERMO_READER_CLSID);
-                Object wordObj = Activator.CreateInstance(thermoReader);
-                Console.WriteLine("\n\n\n\n\n\n\n\n\n\n\n Instantiated {0}",
-                                  wordObj.GetType().FullName, THERMO_READER_CLSID);
-            }
-            catch (COMException ex)
-            {
-                if (ex.ErrorCode == -2147287036)
-                {
-                    throw new MzLibException("MS File Reader Not Installed");
-                }
-            }
-
+            if (CheckForMsFileReader() == false)
+                throw new MzLibException("MsFileReader Not Installed");
 
             var ok = new ManagedThermoHelperLayer.HelperClass();
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();

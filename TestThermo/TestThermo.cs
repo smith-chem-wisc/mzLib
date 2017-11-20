@@ -60,6 +60,14 @@ namespace TestThermo
         }
 
         [Test]
+        public static void ThermoReaderNotInstalled()
+        {
+            bool check = ThermoFile.CheckForMsFileReader();
+            Assert.IsTrue(check);
+        }
+
+
+        [Test]
         public static void LoadCompressedMzml()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
