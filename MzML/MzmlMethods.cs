@@ -516,7 +516,7 @@ namespace IO.MzML
 
                     if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
                     {
-                        var precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
+                        string precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
                         mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
                     }
 
