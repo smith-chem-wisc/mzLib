@@ -18,7 +18,7 @@
 using IO.MzML;
 using MassSpectrometry;
 using System;
-using System.Linq; 
+using System.Linq;
 
 namespace Test
 {
