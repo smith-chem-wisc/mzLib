@@ -37,8 +37,12 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoStaticData LoadAllStaticData(string filePath)
+        public static ThermoStaticData LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
+
+            if (CheckForMsFileReader() == false)
+                throw new MzLibException("MsFileReader Not Installed");
+
             var ok = new ManagedThermoHelperLayer.HelperClass();
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();
             theConnection.Open(filePath);
@@ -65,7 +69,7 @@ namespace IO.Thermo
 
             IThermoScan[] scans = new IThermoScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)
-                scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(nScanNumber, theConnection, p);
+                scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(nScanNumber, theConnection, p, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
 
             theConnection.Close();
 

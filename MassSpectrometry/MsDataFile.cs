@@ -16,9 +16,13 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using MzLibUtil;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
@@ -126,6 +130,79 @@ namespace MassSpectrometry
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc)
+        {
+            minScan = minScan ?? 1;
+            maxScan = maxScan ?? NumSpectra;
+
+            var allAggregateGroups = new List<IsotopicEnvelope>[maxScan.Value - minScan.Value + 1];
+            Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), fff =>
+            {
+                for (int scanIndex = fff.Item1; scanIndex < fff.Item2; scanIndex++)
+                {
+                    var theScan = GetOneBasedScan(scanIndex);
+                    if (scanFilterFunc(theScan))
+                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+                }
+            });
+
+            List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
+            for (int scanIndex = minScan.Value; scanIndex <= maxScan.Value; scanIndex++)
+            {
+                if (allAggregateGroups[scanIndex - minScan.Value] == null)
+                    continue;
+                foreach (var isotopicEnvelope in allAggregateGroups[scanIndex - minScan.Value])
+                {
+                    DeconvolutionFeatureWithMassesAndScans matchingGroup = null;
+                    var mass = isotopicEnvelope.monoisotopicMass;
+                    foreach (var possibleGroup in currentListOfGroups)
+                    {
+                        var possibleGroupMass = possibleGroup.Mass;
+                        if (Math.Abs(mass - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass + 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass + 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass + 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass - 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass - 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
+                            Math.Abs(mass - 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm)
+                        {
+                            matchingGroup = possibleGroup;
+                            matchingGroup.AddEnvelope(isotopicEnvelope, scanIndex, GetOneBasedScan(scanIndex).RetentionTime);
+                            break;
+                        }
+                    }
+
+                    if (matchingGroup == null)
+                    {
+                        var newGroupScans = new DeconvolutionFeatureWithMassesAndScans();
+                        newGroupScans.AddEnvelope(isotopicEnvelope, scanIndex, GetOneBasedScan(scanIndex).RetentionTime);
+                        currentListOfGroups.Add(newGroupScans);
+                    }
+                }
+                foreach (var ok in currentListOfGroups.Where(b => b.MaxScanIndex < scanIndex))
+                    yield return ok;
+                currentListOfGroups.RemoveAll(b => b.MaxScanIndex < scanIndex);
+            }
+            foreach (var ok in currentListOfGroups)
+                yield return ok;
+        }
+
         #endregion Public Methods
+
+        #region Protected Classes
+
+        protected class ReverseComparer : IComparer<double>
+        {
+            #region Public Methods
+
+            public int Compare(double x, double y)
+            {
+                return y.CompareTo(x);
+            }
+
+            #endregion Public Methods
+        }
+
+        #endregion Protected Classes
     }
 }

@@ -61,12 +61,11 @@ namespace Spectra
         protected Spectrum(double[,] xy)
         {
             var count = xy.GetLength(1);
-            int length = xy.GetLength(1);
 
             XArray = new double[count];
             YArray = new double[count];
             Buffer.BlockCopy(xy, 0, XArray, 0, sizeof(double) * count);
-            Buffer.BlockCopy(xy, sizeof(double) * length, YArray, 0, sizeof(double) * count);
+            Buffer.BlockCopy(xy, sizeof(double) * count, YArray, 0, sizeof(double) * count);
             peakList = new TPeak[Size];
         }
 
@@ -186,7 +185,10 @@ namespace Spectra
 
         public IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks)
         {
-            double cutoffYvalue = YArray.Quantile(1.0 - (double)topNPeaks / Size);
+            var quantile = 1.0 - (double)topNPeaks / Size;
+            quantile = Math.Max(0, quantile);
+            quantile = Math.Min(1, quantile);
+            double cutoffYvalue = YArray.Quantile(quantile);
 
             for (int i = 0; i < Size; i++)
                 if (YArray[i] >= cutoffYvalue)
@@ -206,6 +208,18 @@ namespace Spectra
             while (ind < Size && XArray[ind] <= maxX)
             {
                 yield return GetPeak(ind);
+                ind++;
+            }
+        }
+
+        public IEnumerable<int> ExtractIndices(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+                ind = ~ind;
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return ind;
                 ind++;
             }
         }

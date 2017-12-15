@@ -163,6 +163,15 @@ namespace Test
         }
 
         [Test]
+        public void FilterByNumberOfMostIntenseRobTest()
+        {
+            double[] x = new double[] { 50, 60, 70, 147.0764, 257.1244, 258.127, 275.135 };
+            double[] y = new double[] { 1, 1, 1, 1, 1, 1, 1 };
+            MzmlMzSpectrum spectrum = new MzmlMzSpectrum(x, y, false);
+            Assert.AreEqual(7, spectrum.FilterByNumberOfMostIntense(200).Count());
+        }
+
+        [Test]
         public void GetBasePeak()
         {
             Assert.AreEqual(122781408.0, _mzSpectrumA.YofPeakWithHighestY);

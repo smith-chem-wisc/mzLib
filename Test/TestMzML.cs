@@ -103,7 +103,7 @@ namespace Test
             Assert.AreEqual(0, ya3.Size);
             var ya4 = a.GetOneBasedScan(4).MassSpectrum;
             Assert.AreEqual(15, ya4.Size);
-            
+
             IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> ok = a;
 
             Assert.AreEqual(1, ok.GetClosestOneBasedSpectrumNumber(5));
@@ -137,8 +137,7 @@ namespace Test
 
         [Test]
         public void LoadMzmlFromConvertedMGFTest()
-        { 
-            
+        {
             Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
@@ -149,15 +148,12 @@ namespace Test
             Assert.AreEqual(551, ya3.Size);
             var ya4 = a.GetOneBasedScan(975).MassSpectrum;
             Assert.AreEqual(190, ya4.Size);
-            
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "CreateFileFromConvertedMGF.mzML", false);
 
             Mzml b = Mzml.LoadAllStaticData(@"CreateFileFromConvertedMGF.mzML");
-            
+
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(b, "CreateFileFromConvertedMGF2.mzML", false);
-
-
         }
 
         [Test]
@@ -172,9 +168,9 @@ namespace Test
             MzmlMzSpectrum MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
             IMzmlScan[] Scans = new IMzmlScan[2];
-            Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), " first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, "1");
+            Scans[0] = new MzmlScan(1, MS1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), " first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, "scan=1");
 
-            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), " second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 1134.26091302033, 1, "2");
+            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), " second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 1134.26091302033, 1, "scan=2");
 
             var myMsDataFile = new FakeMsDataFile(Scans);
 

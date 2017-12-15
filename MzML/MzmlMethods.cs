@@ -94,11 +94,17 @@ namespace IO.MzML
         {
             string title = System.IO.Path.GetFileNameWithoutExtension(outputFile);
 
+            string idTitle = "";
+            if (char.IsNumber(title[0]))
+                idTitle = "id:" + title;
+            else
+                idTitle = title;
+
             var mzML = new Generated.mzMLType()
             {
                 version = "1.1.0",
                 cvList = new Generated.CVListType(),
-                id = title,
+                id = idTitle,
             };
 
             mzML.cvList = new Generated.CVListType()
@@ -128,45 +134,49 @@ namespace IO.MzML
                 sourceFileList = new Generated.SourceFileListType()
             };
 
-            if (myMsDataFile.SourceFile.NativeIdFormat!=null && myMsDataFile.SourceFile.MassSpectrometerFileFormat!=null && myMsDataFile.SourceFile.FileChecksumType!=null)
+            if (myMsDataFile.SourceFile.NativeIdFormat != null && myMsDataFile.SourceFile.MassSpectrometerFileFormat != null && myMsDataFile.SourceFile.FileChecksumType != null)
             {
-            mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
-            {
-                count = "1",
-                sourceFile = new Generated.SourceFileType[1]
-            };
+                mzML.fileDescription.sourceFileList = new Generated.SourceFileListType()
+                {
+                    count = "1",
+                    sourceFile = new Generated.SourceFileType[1]
+                };
 
-            mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
-            {
-                id = myMsDataFile.SourceFile.FileName,
-                name = myMsDataFile.SourceFile.FileName,
-                location = myMsDataFile.SourceFile.Uri.ToString(),
-            };
+                string idName = "";
+                if (char.IsNumber(myMsDataFile.SourceFile.FileName[0]))
+                    idName = "id:" + myMsDataFile.SourceFile.FileName[0];
+                else
+                    idName = myMsDataFile.SourceFile.FileName;
+                mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType()
+                {
+                    id = idName,
+                    name = myMsDataFile.SourceFile.FileName,
+                    location = myMsDataFile.SourceFile.Uri.ToString(),
+                };
 
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
-            {
-                accession = nativeIdFormatAccessions[myMsDataFile.SourceFile.NativeIdFormat],
-                name = myMsDataFile.SourceFile.NativeIdFormat,
-                cvRef = "MS",
-                value = ""
-            };
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[1] = new Generated.CVParamType()
-            {
-                accession = MassSpectrometerFileFormatAccessions[myMsDataFile.SourceFile.MassSpectrometerFileFormat],
-                name = myMsDataFile.SourceFile.MassSpectrometerFileFormat,
-                cvRef = "MS",
-                value = ""
-            };
-            mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[2] = new Generated.CVParamType()
-            {
-                accession = FileChecksumAccessions[myMsDataFile.SourceFile.FileChecksumType],
-                name = myMsDataFile.SourceFile.FileChecksumType,
-                cvRef = "MS",
-                value = myMsDataFile.SourceFile.CheckSum ?? "",
-            };
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[0] = new Generated.CVParamType()
+                {
+                    accession = nativeIdFormatAccessions[myMsDataFile.SourceFile.NativeIdFormat],
+                    name = myMsDataFile.SourceFile.NativeIdFormat,
+                    cvRef = "MS",
+                    value = ""
+                };
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[1] = new Generated.CVParamType()
+                {
+                    accession = MassSpectrometerFileFormatAccessions[myMsDataFile.SourceFile.MassSpectrometerFileFormat],
+                    name = myMsDataFile.SourceFile.MassSpectrometerFileFormat,
+                    cvRef = "MS",
+                    value = ""
+                };
+                mzML.fileDescription.sourceFileList.sourceFile[0].cvParam[2] = new Generated.CVParamType()
+                {
+                    accession = FileChecksumAccessions[myMsDataFile.SourceFile.FileChecksumType],
+                    name = myMsDataFile.SourceFile.FileChecksumType,
+                    cvRef = "MS",
+                    value = myMsDataFile.SourceFile.CheckSum ?? "",
+                };
             }
-
 
             mzML.fileDescription.fileContent.cvParam = new Generated.CVParamType[2];
             mzML.fileDescription.fileContent.cvParam[0] = new Generated.CVParamType()
@@ -263,12 +273,18 @@ namespace IO.MzML
                     order = 2,
                     cvParam = new Generated.CVParamType[1]
                 };
-
+                string anName = "";
+                if (analyzersInThisFile[i].ToString().ToLower() == "unknown")
+                {
+                    anName = "mass analyzer type";
+                }
+                else
+                    anName = analyzersInThisFile[i].ToString().ToLower();
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList.analyzer[0].cvParam[0] = new Generated.CVParamType()
                 {
                     cvRef = "MS",
                     accession = analyzerDictionary[analyzersInThisFile[i]],
-                    name = analyzersInThisFile[i].ToString().ToLower(),
+                    name = anName,
                     value = ""
                 };
 
@@ -309,15 +325,17 @@ namespace IO.MzML
 
             mzML.dataProcessingList.dataProcessing[0].processingMethod[0].cvParam[0] = new Generated.CVParamType()
             {
-                accession = "MS:1000452",
+                accession = "MS:1000544",
                 cvRef = "MS",
-                name = "data transformation",
+                name = "Conversion to mzML",
                 value = ""
             };
+        
+
             mzML.run = new Generated.RunType()
             {
                 defaultInstrumentConfigurationRef = analyzersInThisFileDict[analyzersInThisFile[0]],
-                id = title
+                id = idTitle
             };
 
             mzML.run.chromatogramList = new Generated.ChromatogramListType()
@@ -450,6 +468,7 @@ namespace IO.MzML
                     id = myMsDataFile.GetOneBasedScan(i).NativeId,
                     cvParam = new Generated.CVParamType[9],
                     scanList = new Generated.ScanListType()
+                    
                 };
 
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()
@@ -457,17 +476,6 @@ namespace IO.MzML
                     count = 1.ToString(),
                     scan = new Generated.ScanType[1],
                     cvParam = new Generated.CVParamType[1]
-                };
-                mzML.run.spectrumList.spectrum[i - 1].scanList.cvParam[0] = new Generated.CVParamType()
-                {
-                    cvRef = "MS",
-                    accession = "MS:1000570",
-                    name = "spectra combination",
-                    value = ""
-                };
-                var h = myMsDataFile.GetOneBasedScan(i).MzAnalyzer;
-                mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
-                {
                 };
 
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder == 1)
@@ -491,7 +499,6 @@ namespace IO.MzML
                         value = ""
                     };
 
-
                     // So needs a precursor!
                     mzML.run.spectrumList.spectrum[i - 1].precursorList = new Generated.PrecursorListType()
                     {
@@ -506,14 +513,13 @@ namespace IO.MzML
                             selectedIon = new Generated.ParamGroupType[1]
                         }
                     };
-                   
+
                     if (scanWithPrecursor.OneBasedPrecursorScanNumber.HasValue)
                     {
-                        var precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
+                        string precursorID = myMsDataFile.GetOneBasedScan(scanWithPrecursor.OneBasedPrecursorScanNumber.Value).NativeId;
                         mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].spectrumRef = precursorID;
                     }
-                    
-                    
+
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0] = new Generated.ParamGroupType()
                     {
                         cvParam = new Generated.CVParamType[3]
@@ -698,6 +704,14 @@ namespace IO.MzML
                     count = "1",
                     scan = new Generated.ScanType[1],
                     cvParam = new Generated.CVParamType[1]
+                };
+
+                mzML.run.spectrumList.spectrum[i - 1].scanList.cvParam[0] = new Generated.CVParamType()
+                {
+                    accession = "MS:1000795",
+                    cvRef = "MS",
+                    name = "no combination",
+                    value = ""
                 };
 
                 if (myMsDataFile.GetOneBasedScan(i).MzAnalyzer.Equals(analyzersInThisFile[0]))

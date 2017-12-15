@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
 
 </Project>

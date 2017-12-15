@@ -4,12 +4,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Spectra")]
+[assembly: AssemblyTitle("MS2decon")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Stefan Solntsev")]
-[assembly: AssemblyProduct("Spectra")]
-[assembly: AssemblyCopyright("Copyright 2016 Stefan Solntsev")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("MS2decon")]
+[assembly: AssemblyCopyright("Copyright ©  2017")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -19,7 +19,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("088e4fcb-d580-4bad-a811-a1796a7666d2")]
+[assembly: Guid("8bd4834d-fbf2-4cb3-9496-4e0f697a0d87")]
 
 // Version information for an assembly consists of the following four values:
 //

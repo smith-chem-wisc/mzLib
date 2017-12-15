@@ -60,17 +60,30 @@ namespace TestThermo
         }
 
         [Test]
+        public static void ThermoReaderNotInstalled()
+        {
+            bool check = ThermoFile.CheckForMsFileReader();
+            Assert.IsTrue(check);
+        }
+
+
+        [Test]
         public static void LoadCompressedMzml()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
-            Mzml b = Mzml.LoadAllStaticData(@"small.mzML");
+            Mzml b = Mzml.LoadAllStaticData(@"smallCentroid.mzML");
 
             Assert.AreEqual(a.NumSpectra, b.NumSpectra);
 
-            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, 1e-3);
+            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
 
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-3);
+            Assert.AreEqual(a.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+
+            Assert.AreEqual(a.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
         }
 
         [Test]
@@ -78,28 +91,25 @@ namespace TestThermo
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
             Assert.AreEqual(360, a.NumSpectra);
-            var ok = a.GetOneBasedScan(1).MassSpectrum.GetNoises();
-            Assert.AreEqual(2401.57, ok[0], 0.01);
             Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.Extract(0, 500).Last().X);
             Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.FilterByY(5e6, double.MaxValue).Count());
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
-            Assert.AreEqual(1, ye[4, 1119]);
             Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
             var newSpectrum = new ThermoSpectrum(a.GetOneBasedScan(51).MassSpectrum);
-            Assert.AreEqual(22246 / 5574.8, newSpectrum.GetSignalToNoise(1), 0.01);
-
-            Assert.AreEqual(1, newSpectrum.GetCharges()[1]);
-            Assert.AreEqual(102604, newSpectrum.GetResolutions()[1]);
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
-            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 10, Tolerance.ParseToleranceString("1 PPM"), 4).ToList();
+            var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 1, 10, 1, 4).ToList();
 
-            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.Item1.First().Mz.ToMass(b.Item2) - 523.257) < 0.001));
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Item1.ToMass(b.charge) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
+
+            var sdafaf = a.Deconvolute(null, null, 1, 30, 10, 3, 10, b => true).OrderByDescending(b => b.NumPeaks).First();
+
+            Assert.IsTrue(Math.Abs(262.64 - sdafaf.Mass.ToMz(2)) <= 0.01);
 
             using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
             {
@@ -110,6 +120,52 @@ namespace TestThermo
             Mzml readCovertedMzmlFile = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"));
 
             Assert.AreEqual(a.First().Polarity, readCovertedMzmlFile.First().Polarity);
+        }
+
+        [Test]
+        public static void LoadThermoFiltered()
+        {
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", topNpeaks: 400, trimMs1Peaks: true);
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", minRatio: 0.001, trimMs1Peaks: true);
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", minRatio: 0.001, topNpeaks: 400, trimMs1Peaks: true);
+
+            var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
+            var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
+            var cLen = c.GetOneBasedScan(1).MassSpectrum.Size;
+            var dLen = d.GetOneBasedScan(1).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen, cLen), dLen);
+        }
+
+        [Test]
+        public static void LoadThermoFiltered2()
+        {
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"small.raw", topNpeaks: 40, trimMs1Peaks: true, trimMsMsPeaks: true);
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"small.raw", minRatio: 0.1, trimMs1Peaks: true, trimMsMsPeaks: true);
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"small.raw", minRatio: 0.1, topNpeaks: 40, trimMs1Peaks: true, trimMsMsPeaks: true);
+
+            var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
+            var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
+            var cLen = c.GetOneBasedScan(1).MassSpectrum.Size;
+            var dLen = d.GetOneBasedScan(1).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen, cLen), dLen);
+
+            var aLen2 = a.GetOneBasedScan(2).MassSpectrum.Size;
+            var bLen2 = b.GetOneBasedScan(2).MassSpectrum.Size;
+            var cLen2 = c.GetOneBasedScan(2).MassSpectrum.Size;
+            var dLen2 = d.GetOneBasedScan(2).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen2, cLen2), dLen2);
+
+            var aLen3 = a.GetOneBasedScan(3).MassSpectrum.Size;
+            var bLen3 = b.GetOneBasedScan(3).MassSpectrum.Size;
+            var cLen3 = c.GetOneBasedScan(3).MassSpectrum.Size;
+            var dLen3 = d.GetOneBasedScan(3).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen3, cLen3), dLen3);
         }
 
         [Test]
@@ -145,13 +201,10 @@ namespace TestThermo
         [Test]
         public static void ThermoSpectrumTest()
         {
-            double[] resolutions = new double[] { 1 };
-            int[] charge = new int[] { 1 };
             double[] mz = new double[] { 1 };
             double[] intensity = new double[] { 1 };
-            double[] noise = new double[] { 1 };
-            ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
-            ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, noise, charge, resolutions, false);
+            ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, false);
+            ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, false);
             s1.ReplaceXbyApplyingFunction((a) => 4);
             Assert.AreEqual(4, s2.XArray[0]);
         }
@@ -236,7 +289,7 @@ namespace TestThermo
         {
             var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzML"), true);
-            var smallMzml = Mzml.LoadAllStaticData(@"hi.mzML");
+            var smallMzml = Mzml.LoadAllStaticData(@"Hi.mzML");
             Assert.AreEqual(smallMzml.NumSpectra, 48);
             Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
             Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
