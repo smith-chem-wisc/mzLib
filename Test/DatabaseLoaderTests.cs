@@ -134,8 +134,9 @@ namespace Test
             Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
 
             // N,N,N-trimethylalanine
-            Assert.IsTrue((sampleModList[157] as ModificationWithMass).monoisotopicMass > 42);
-            Assert.IsTrue((sampleModList[157] as ModificationWithMass).monoisotopicMass < 43);
+            var thisMod = sampleModList.First(b => b.id.Equals(@"N,N,N-trimethylalanine")) as ModificationWithMass;
+            Assert.IsTrue(thisMod.monoisotopicMass > 42);
+            Assert.IsTrue(thisMod.monoisotopicMass < 43);
         }
 
         [Test]
