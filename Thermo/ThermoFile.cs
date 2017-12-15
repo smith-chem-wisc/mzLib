@@ -131,6 +131,7 @@ namespace IO.Thermo
             double? injectionTimeFromTrailerExtra = null;
             double? precursorMonoisotopicMZfromTrailierExtra = null;
             int? chargeStatefromTrailierExtra = null;
+            int? masterScanfromTrailierExtra = null;
 
             object pvarValues = null;
             object pvarLables = null;
@@ -162,6 +163,12 @@ namespace IO.Thermo
                 if (labels[i].StartsWith("Charge State", StringComparison.Ordinal))
                 {
                     chargeStatefromTrailierExtra = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                        (int?)null :
+                        int.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("Master Scan Number", StringComparison.Ordinal))
+                {
+                    masterScanfromTrailierExtra = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
@@ -274,6 +281,8 @@ namespace IO.Thermo
                 int oneBasedPrecursorScanNumber;
                 if (precursorInfo.nScanNumber > 0)
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
+                else if(masterScanfromTrailierExtra.HasValue)
+                    oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
                 else
                 {
                     oneBasedPrecursorScanNumber = nScanNumber - 1;
