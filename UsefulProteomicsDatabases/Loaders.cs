@@ -191,7 +191,7 @@ namespace UsefulProteomicsDatabases
         private static void DownloadPsiMod(string psimodLocation)
         {
             using (WebClient Client = new WebClient())
-                Client.DownloadFile(@"http://psidev.cvs.sourceforge.net/viewvc/psidev/psi/mod/data/PSI-MOD.obo.xml", psimodLocation + ".temp");
+                Client.DownloadFile(@"https://raw.githubusercontent.com/HUPO-PSI/psi-mod-CV/master/PSI-MOD.obo.xml", psimodLocation + ".temp");
         }
 
         private static void DownloadUnimod(string unimodLocation)
