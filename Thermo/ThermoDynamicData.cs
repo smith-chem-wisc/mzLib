@@ -1,5 +1,6 @@
 ﻿using MassSpectrometry;
 using MSFileReaderLib;
+using MzLibUtil;
 using System;
 using System.IO;
 using System.Security.Cryptography;
@@ -35,6 +36,10 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
+
+            if (CheckForMsFileReader() == false)
+                throw new MzLibException("MsFileReader Not Installed");
+
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(filePath);
             _rawConnection.SetCurrentController(0, 1);

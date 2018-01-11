@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace IO.Thermo
@@ -89,6 +90,23 @@ namespace IO.Thermo
             return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }
 
+
+        public static bool CheckForMsFileReader()
+        {
+
+            const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
+            //Check if Thermo File Reader Exists
+            try
+            {
+                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
+                Activator.CreateInstance(thermoReader);
+            }
+            catch (COMException ex)
+            {
+                return false;
+            }
+            return true;
+        }
         #endregion Public Methods
 
         #region Protected Methods
@@ -113,6 +131,7 @@ namespace IO.Thermo
             double? injectionTimeFromTrailerExtra = null;
             double? precursorMonoisotopicMZfromTrailierExtra = null;
             int? chargeStatefromTrailierExtra = null;
+            int? masterScanfromTrailierExtra = null;
 
             object pvarValues = null;
             object pvarLables = null;
@@ -144,6 +163,12 @@ namespace IO.Thermo
                 if (labels[i].StartsWith("Charge State", StringComparison.Ordinal))
                 {
                     chargeStatefromTrailierExtra = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
+                        (int?)null :
+                        int.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("Master Scan Number", StringComparison.Ordinal))
+                {
+                    masterScanfromTrailierExtra = int.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
@@ -256,6 +281,8 @@ namespace IO.Thermo
                 int oneBasedPrecursorScanNumber;
                 if (precursorInfo.nScanNumber > 0)
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
+                else if(masterScanfromTrailierExtra.HasValue)
+                    oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
                 else
                 {
                     oneBasedPrecursorScanNumber = nScanNumber - 1;

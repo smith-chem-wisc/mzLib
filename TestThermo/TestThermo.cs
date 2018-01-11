@@ -60,6 +60,14 @@ namespace TestThermo
         }
 
         [Test]
+        public static void ThermoReaderNotInstalled()
+        {
+            bool check = ThermoFile.CheckForMsFileReader();
+            Assert.IsTrue(check);
+        }
+
+
+        [Test]
         public static void LoadCompressedMzml()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
@@ -281,7 +289,7 @@ namespace TestThermo
         {
             var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(smallThermo, Path.Combine(TestContext.CurrentContext.TestDirectory, "Hi.mzML"), true);
-            var smallMzml = Mzml.LoadAllStaticData(@"hi.mzML");
+            var smallMzml = Mzml.LoadAllStaticData(@"Hi.mzML");
             Assert.AreEqual(smallMzml.NumSpectra, 48);
             Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
             Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
