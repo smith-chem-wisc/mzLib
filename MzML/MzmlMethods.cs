@@ -661,6 +661,7 @@ namespace IO.MzML
                         value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.ToString(CultureInfo.InvariantCulture),
                         unitAccession = "MS:1000040",
                         unitName = "m/z",
+                        unitCvRef = "MS",
                         cvRef = "MS"
                     };
                 }
@@ -693,7 +694,7 @@ namespace IO.MzML
                     accession = "MS:1000505",
                     value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.YofPeakWithHighestY.ToString(),
                     unitCvRef = "MS",
-                    unitName = "number of detector",
+                    unitName = "number of detector counts",
                     unitAccession = "MS:1000131",
                     cvRef = "MS"
                 };
