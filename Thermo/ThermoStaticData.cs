@@ -39,7 +39,6 @@ namespace IO.Thermo
 
         public static ThermoStaticData LoadAllStaticData(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
-
             if (CheckForMsFileReader() == false)
                 throw new MzLibException("MsFileReader Not Installed");
 

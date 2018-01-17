@@ -331,7 +331,6 @@ namespace IO.MzML
                 value = ""
             };
 
-
             mzML.run = new Generated.RunType()
             {
                 defaultInstrumentConfigurationRef = analyzersInThisFileDict[analyzersInThisFile[0]],
@@ -468,7 +467,6 @@ namespace IO.MzML
                     id = myMsDataFile.GetOneBasedScan(i).NativeId,
                     cvParam = new Generated.CVParamType[9],
                     scanList = new Generated.ScanListType()
-
                 };
 
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()
