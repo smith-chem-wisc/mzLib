@@ -81,7 +81,7 @@ namespace ConsoleApp1
 
                     foreach (var nice in myMsDataFile.Deconvolute(p.Object.MinScan, p.Object.MaxScan, p.Object.MinAssumedChargeState, p.Object.MaxAssumedChargeState, p.Object.DeconvolutionTolerancePpm, p.Object.IntensityRatioLimit, p.Object.AggregationTolerancePpm, b => b.MsnOrder == 1).OrderByDescending(b => b.Score))
                     {
-                        if((nice.MaxScanIndex - nice.MinScanIndex + 1) >= p.Object.NumScansRequired)
+                        if ((nice.MaxScanIndex - nice.MinScanIndex + 1) >= p.Object.NumScansRequired)
                             output.WriteLine(nice.OneLineString());
                     }
                 }

@@ -66,7 +66,6 @@ namespace TestThermo
             Assert.IsTrue(check);
         }
 
-
         [Test]
         public static void LoadCompressedMzml()
         {

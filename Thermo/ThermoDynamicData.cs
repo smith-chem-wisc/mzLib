@@ -36,7 +36,6 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
         {
-
             if (CheckForMsFileReader() == false)
                 throw new MzLibException("MsFileReader Not Installed");
 
