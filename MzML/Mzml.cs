@@ -33,7 +33,10 @@ namespace IO.MzML
     public class Mzml : MsDataFile<IMzmlScan>, IMsStaticDataFile<IMzmlScan>
     {
         #region Private Fields
-
+        #region test data
+        private static int? windowSize;
+        private static bool windowMode;
+        #endregion
         private const string _zlibCompression = "MS:1000574";
         private const string _64bit = "MS:1000523";
         private const string _32bit = "MS:1000521";
@@ -200,6 +203,23 @@ namespace IO.MzML
 
         #region Private Methods
 
+        private static int TopNpeaksHelper(double[] intensities, double[] masses, double? minRatio, int? topNpeaks)
+        {
+            IComparer<double> c = new ReverseComparer();
+            Array.Sort(intensities, masses, c);
+
+            int numPeaks = intensities.Length;
+            if (minRatio.HasValue)
+            {
+                double minIntensity = minRatio.Value * intensities[0];
+                numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+            }
+
+            if (topNpeaks.HasValue)
+                numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+            return numPeaks;
+        }
+
         private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
@@ -289,23 +309,35 @@ namespace IO.MzML
             if ((minRatio.HasValue || topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
-                IComparer<double> c = new ReverseComparer();
-                Array.Sort(intensities, masses, c);
+                
 
-                int numPeaks = intensities.Length;
-                if (minRatio.HasValue)
+                //Array.Sort(masses, intensities);
+                if (!Mzml.windowMode)
                 {
-                    double minIntensity = minRatio.Value * intensities[0];
-                    numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+                    int numPeaks = TopNpeaksHelper(intensities, masses, minRatio, topNpeaks);
+                    Array.Resize(ref intensities, numPeaks);
+                    Array.Resize(ref masses, numPeaks);
                 }
+                else
+                {
+                    int temp = intensities.Length/windowSize.Value;
+                    var massTemp = new double[temp];
+                    var intensityTemp = new double[temp];
+                    List<double> mzResults = new List<double>();
+                    List<double> intensityResults = new List<double>();
 
-                if (topNpeaks.HasValue)
-                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
+                    for (int i=0; i < windowSize.Value; i++)
+                    {
+                        Buffer.BlockCopy(masses, sizeof(double)*i*temp, massTemp, 0, sizeof(double) * temp);
+                        Buffer.BlockCopy(intensities, sizeof(double)*i*temp, intensityTemp, 0, sizeof(double) * temp);
+                        int numPeak = TopNpeaksHelper(intensityTemp, massTemp, minRatio, topNpeaks);
+                        Array.Resize(ref intensityTemp, numPeak);
+                        Array.Resize(ref massTemp, numPeak);
+                    }
 
-                Array.Resize(ref intensities, numPeaks);
-                Array.Resize(ref masses, numPeaks);
-
-                Array.Sort(masses, intensities);
+                    masses = mzResults.ToArray();
+                    intensities = intensityResults.ToArray();
+                }
             }
             var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
 
