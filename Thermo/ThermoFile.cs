@@ -112,28 +112,11 @@ namespace IO.Thermo
         #endregion Public Methods
 
         #region Protected Methods
-
-        protected static int TopNPeakHelper(double[]intensityArray, double[]mzArray,double? minRatio,int?topNpeaks)
-        {
-            IComparer<double> c = new ReverseComparer();
-            Array.Sort(intensityArray, mzArray, c);
-
-            int numPeaks = intensityArray.Length;
-            if (minRatio.HasValue)
-            {
-                double minIntensity = minRatio.Value * intensityArray[0];
-                numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
-            }
-
-            if (topNpeaks.HasValue)
-                numPeaks = Math.Min(topNpeaks.Value, numPeaks);
-            return numPeaks;
-        }
-
         protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
             int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
-            int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks) //window size added
+            FilteringParams ThermoParams, bool trimMs1Peaks, bool trimMsMsPeaks) 
         {
+            FilteringParams parameters=new FilteringParams(1,2,false,10);
             int pnNumPackets = 0;
             double pdLowMass = 0;
             double pdHighMass = 0;
@@ -238,7 +221,7 @@ namespace IO.Thermo
 
             ThermoSpectrum thermoSpectrum;
             //modification Mark
-            if ((minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            if ((ThermoParams.minRatio.HasValue || ThermoParams.topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
 
@@ -248,7 +231,7 @@ namespace IO.Thermo
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
                 if (!windowMode)
                 {
-                    int numPeaks = TopNPeakHelper(intensityArray, mzArray, minRatio, topNpeaks);
+                    int numPeaks = ThermoParams.TopNpeakHelper(intensityArray, mzArray);
                     //the following arrays are modified after TopN helper
                     Array.Resize(ref intensityArray, numPeaks);
                     Array.Resize(ref mzArray, numPeaks);
@@ -268,7 +251,7 @@ namespace IO.Thermo
                     {
                         Buffer.BlockCopy(mzArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
                         Buffer.BlockCopy(intensityArray, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
-                        int numPeaks = TopNPeakHelper(intensityTemp, mzTemp, minRatio, topNpeaks);
+                        int numPeaks = ThermoParams.TopNpeakHelper(intensityTemp, mzTemp);
                         Array.Resize(ref intensityTemp, numPeaks);
                         Array.Resize(ref mzTemp, numPeaks);
                         mzResults.AddRange(mzTemp);

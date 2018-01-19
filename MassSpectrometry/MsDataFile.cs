@@ -76,6 +76,7 @@ namespace MassSpectrometry
         #endregion Public Properties
 
         #region Public Methods
+        
 
         public abstract TScan GetOneBasedScan(int scanNumber);
 
@@ -204,5 +205,62 @@ namespace MassSpectrometry
         }
 
         #endregion Protected Classes
+
+        #region Public Classes
+        public class FilteringParams
+        {
+            public double? minRatio;
+            public int? topNpeaks;
+            public bool windowMode;
+            public int? windowSize;
+
+            public FilteringParams(int? top, double? ratio, bool mode=false, int? size=200)
+            {
+                this.topNpeaks = top;
+                this.minRatio = ratio;
+                this.windowMode = mode;
+                this.windowSize = size;
+            }
+
+            public int TopNpeakHelper(double[] intensities, double[] mArray)
+            {
+                IComparer<double> c = new ReverseComparer();
+                Array.Sort(intensities, mArray, c);
+
+                int numPeaks = intensities.Length;
+                if (this.minRatio.HasValue)
+                {
+                    double minIntensity = this.minRatio.Value * intensities[0];
+                    numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+                }
+
+                if (this.topNpeaks.HasValue)
+                    numPeaks = Math.Min(this.topNpeaks.Value, numPeaks);
+                return numPeaks;
+            }
+
+            public void WindowModeHelper( ref double[] intensities,ref double[] mArray)
+            {
+                int temp = intensities.Length / this.windowSize.Value;
+                var mzTemp = new double[temp];
+                var intensityTemp = new double[temp];
+                List<double> mzResults = new List<double>();
+                List<double> intensityResults = new List<double>();
+
+                for (int i = 0; i < this.windowSize; i++)
+                {
+                    Buffer.BlockCopy(mArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
+                    Buffer.BlockCopy(intensities, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
+                    int numPeaks = TopNpeakHelper(intensities, mArray);
+                    Array.Resize(ref intensityTemp, numPeaks);
+                    Array.Resize(ref mzTemp, numPeaks);
+                    mzResults.AddRange(mzTemp);
+                    intensityResults.AddRange(intensityTemp);
+                }
+                mArray = mzResults.ToArray();
+                intensities = intensityResults.ToArray();
+            }
+        }
+        #endregion
     }
 }
