@@ -188,7 +188,10 @@ namespace IO.MzML
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
+                {
+                    FilteringParams MzParams = new FilteringParams(topNpeaks, minRatio);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, MzParams, trimMs1Peaks, trimMsMsPeaks);
+                }
             });
 
             return new Mzml(scans, sourceFile);
@@ -203,24 +206,9 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static int TopNpeaksHelper(double[] intensities, double[] masses, double? minRatio, int? topNpeaks)
-        {
-            IComparer<double> c = new ReverseComparer();
-            Array.Sort(intensities, masses, c);
+        
 
-            int numPeaks = intensities.Length;
-            if (minRatio.HasValue)
-            {
-                double minIntensity = minRatio.Value * intensities[0];
-                numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
-            }
-
-            if (topNpeaks.HasValue)
-                numPeaks = Math.Min(topNpeaks.Value, numPeaks);
-            return numPeaks;
-        }
-
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber,FilteringParams MzmlParams, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -306,39 +294,21 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if ((minRatio.HasValue || topNpeaks.HasValue)
+            if ((MzmlParams.minRatio.HasValue || MzmlParams.topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
-                
-
-                //Array.Sort(masses, intensities);
                 if (!Mzml.windowMode)
                 {
-                    int numPeaks = TopNpeaksHelper(intensities, masses, minRatio, topNpeaks);
+                    int numPeaks = MzmlParams.TopNpeakHelper(intensities, masses);
                     Array.Resize(ref intensities, numPeaks);
                     Array.Resize(ref masses, numPeaks);
                 }
                 else
                 {
-                    int temp = intensities.Length/windowSize.Value;
-                    var massTemp = new double[temp];
-                    var intensityTemp = new double[temp];
-                    List<double> mzResults = new List<double>();
-                    List<double> intensityResults = new List<double>();
-
-                    for (int i=0; i < windowSize.Value; i++)
-                    {
-                        Buffer.BlockCopy(masses, sizeof(double)*i*temp, massTemp, 0, sizeof(double) * temp);
-                        Buffer.BlockCopy(intensities, sizeof(double)*i*temp, intensityTemp, 0, sizeof(double) * temp);
-                        int numPeak = TopNpeaksHelper(intensityTemp, massTemp, minRatio, topNpeaks);
-                        Array.Resize(ref intensityTemp, numPeak);
-                        Array.Resize(ref massTemp, numPeak);
-                    }
-
-                    masses = mzResults.ToArray();
-                    intensities = intensityResults.ToArray();
+                    MzmlParams.WindowModeHelper(ref intensities,ref masses);
                 }
             }
+            Array.Sort(masses, intensities);
             var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
 
             double rtInMinutes = double.NaN;
