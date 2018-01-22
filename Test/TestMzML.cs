@@ -110,6 +110,12 @@ namespace Test
         }
 
         [Test]
+        public void FilterClassTest()
+        {
+            
+        }
+
+        [Test]
         public void LoadMzmlAnotherTest()
         {
             Mzml a = Mzml.LoadAllStaticData(@"small.pwiz.1.1.mzML");

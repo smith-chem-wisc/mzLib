@@ -206,9 +206,9 @@ namespace IO.MzML
 
         #region Private Methods
 
-        
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber,FilteringParams MzmlParams, bool trimMs1Peaks, bool trimMsMsPeaks)
+
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, FilteringParams MzmlParams, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -305,7 +305,7 @@ namespace IO.MzML
                 }
                 else
                 {
-                    MzmlParams.WindowModeHelper(ref intensities,ref masses);
+                    MzmlParams.WindowModeHelper(ref intensities, ref masses);
                 }
             }
             Array.Sort(masses, intensities);

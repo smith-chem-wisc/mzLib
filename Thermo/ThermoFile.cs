@@ -114,9 +114,9 @@ namespace IO.Thermo
         #region Protected Methods
         protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
             int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
-            FilteringParams ThermoParams, bool trimMs1Peaks, bool trimMsMsPeaks) 
+            FilteringParams ThermoParams, bool trimMs1Peaks, bool trimMsMsPeaks)
         {
-            FilteringParams parameters=new FilteringParams(1,2,false,10);
+            FilteringParams parameters = new FilteringParams(1, 2, false, 10);
             int pnNumPackets = 0;
             double pdLowMass = 0;
             double pdHighMass = 0;
@@ -236,7 +236,7 @@ namespace IO.Thermo
                     Array.Resize(ref intensityArray, numPeaks);
                     Array.Resize(ref mzArray, numPeaks);
 
-                    
+
                 }
                 //Array reference passed by value, array calues will be modified after calling
                 else
