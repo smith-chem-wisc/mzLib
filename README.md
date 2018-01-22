@@ -43,7 +43,7 @@ The parameters are:
 * ```out Dictionary<string, Modification> unknownModifications``` An auxiliary output of modifications that were in the xml file but are not known.
 
 ## Reading Modification Files
-To load modifications from ptmlist formatted files, use
+To load modifications from ptmlist formatted files use
 ```
 IEnumerable<ModificationWithLocation> ptms = PtmListLoader.ReadMods("ptms.txt")
 ```
