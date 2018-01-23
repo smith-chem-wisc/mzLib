@@ -101,6 +101,7 @@ namespace Test
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
 
+            Assert.AreEqual(2, (unimodMods.First(b => b.id.Equals("HexNAc(2) on N at Any")) as ModificationWithMass).neutralLosses.Count);
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
 
             // N6,N6,N6-trimethyllysine
