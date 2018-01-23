@@ -129,7 +129,14 @@ namespace Chemistry
         /// <param name="atomicNumber"></param>
         public static implicit operator Element(int atomicNumber)
         {
-            return PeriodicTable.GetElement(atomicNumber);
+            try
+            {
+                return PeriodicTable.GetElement(atomicNumber);
+            }
+            catch
+            {
+                throw new MzLibException("Element with atomic number " + atomicNumber + " not found");
+            }
         }
 
         /// <summary>
@@ -137,7 +144,14 @@ namespace Chemistry
         /// </summary>
         public static implicit operator Element(string atomicSymbol)
         {
-            return PeriodicTable.GetElement(atomicSymbol);
+            try
+            {
+                return PeriodicTable.GetElement(atomicSymbol);
+            }
+            catch
+            {
+                throw new MzLibException("Element with atomic symbol " + atomicSymbol + " not found");
+            }
         }
 
         /// <summary>
