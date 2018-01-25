@@ -250,7 +250,7 @@ namespace IO.MzML
                 if (cv.accession.Equals(_centroidSpectrum))
                     isCentroid = true;
                 if (cv.accession.Equals(_profileSpectrum))
-                    isCentroid = false;
+                    throw new MzLibException("Reading profile mode mzmls not supported");
                 if (cv.accession.Equals(_totalIonCurrent))
                     tic = double.Parse(cv.value);
                 if (polarity.Equals(Polarity.Unknown))
