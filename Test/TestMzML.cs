@@ -93,7 +93,7 @@ namespace Test
         [Test]
         public void LoadMzmlTest()
         {
-            Assert.Throws<MzLibException>(() =>
+            Assert.Throws<AggregateException>(() =>
             {
                 Mzml.LoadAllStaticData(@"tiny.pwiz.1.1.mzML");
             }, "Reading profile mode mzmls not supported");
