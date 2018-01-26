@@ -177,7 +177,7 @@ namespace Test
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
-            Assert.Throws<KeyNotFoundException>(() => { formulaA.AddPrincipalIsotopesOf("Faa", 1); });
+            Assert.Throws<MzLibException>(() => { formulaA.AddPrincipalIsotopesOf("Faa", 1); });
         }
 
         [Test]
