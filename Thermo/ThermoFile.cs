@@ -221,7 +221,7 @@ namespace IO.Thermo
 
             ThermoSpectrum thermoSpectrum;
             //modification Mark
-            if ((ThermoParams.minRatio.HasValue || ThermoParams.topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            if (data.GetLength(1) > 0 && (ThermoParams.minRatio.HasValue || ThermoParams.topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
 

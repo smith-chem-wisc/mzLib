@@ -294,7 +294,7 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if ((MzmlParams.minRatio.HasValue || MzmlParams.topNpeaks.HasValue)
+            if (intensities.Length > 0 && (MzmlParams.minRatio.HasValue || MzmlParams.topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
                 if (!Mzml.windowMode)
