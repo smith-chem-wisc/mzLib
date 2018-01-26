@@ -118,9 +118,6 @@
     <None Include="tiny.pwiz.1.1.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="small.pwiz.1.1.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="xml.xml.gz">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
