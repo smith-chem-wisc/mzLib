@@ -286,7 +286,7 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if ((minRatio.HasValue || topNpeaks.HasValue)
+            if (intensities.Length > 0 && (minRatio.HasValue || topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
                 IComparer<double> c = new ReverseComparer();
