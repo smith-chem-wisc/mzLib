@@ -971,7 +971,7 @@ namespace FlashLFQ
 
                 foreach (var chargeState in chargeStates)
                 {
-                    var t = ClassExtensions.ToMz(pepGroup.First().massToLookFor, chargeState);
+                    var t = pepGroup.First().massToLookFor.ToMz(chargeState);
                     double floorMz = Math.Floor(t * 100) / 100;
                     double ceilingMz = Math.Ceiling(t * 100) / 100;
 
@@ -1210,7 +1210,7 @@ namespace FlashLFQ
                                 if (chargeState != identification.chargeState)
                                     continue;
 
-                            double theorMzHere = ClassExtensions.ToMz(identification.massToLookFor, chargeState);
+                            double theorMzHere = identification.massToLookFor.ToMz(chargeState);
                             double mzTolHere = ((peakfindingPpmTolerance / 1e6) * identification.monoisotopicMass) / chargeState;
 
                             double floorMz = Math.Floor(theorMzHere * 100) / 100;
@@ -1326,7 +1326,7 @@ namespace FlashLFQ
 
                             foreach (var chargeState in chargeStates)
                             {
-                                double theorMzHere = ClassExtensions.ToMz(identification.massToLookFor, chargeState);
+                                double theorMzHere = identification.massToLookFor.ToMz(chargeState);
                                 double mzTolHere = ((mbrppmTolerance / 1e6) * identification.monoisotopicMass) / chargeState;
 
                                 double floorMz = Math.Floor(theorMzHere * 100) / 100;
