@@ -39,7 +39,7 @@ namespace MassSpectrometry
 
         public override IEnumerable<IMsDataScan<IMzSpectrum<IMzPeak>>> GetMS1Scans()
         {
-            for (int i = 1; i < NumSpectra; i++)
+            for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
                 if (scan.MsnOrder == 1)

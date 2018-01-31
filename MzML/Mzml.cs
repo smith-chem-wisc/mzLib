@@ -198,7 +198,7 @@ namespace IO.MzML
 
         public override IEnumerable<IMzmlScan> GetMS1Scans()
         {
-            for (int i = 1; i < NumSpectra; i++)
+            for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
                 if (scan.MsnOrder == 1)
