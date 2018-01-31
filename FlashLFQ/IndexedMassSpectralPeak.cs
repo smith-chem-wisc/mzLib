@@ -4,12 +4,17 @@ namespace FlashLFQ
 {
     public class IndexedMassSpectralPeak
     {
+        #region Public Fields
+
         public readonly MassSpectralPeak mainPeak;
-        public IMsDataScan<IMzSpectrum<IMzPeak>> scan { get; private set; }
         public readonly int zeroBasedIndexOfPeakInScan;
         public readonly double massSpectralPeakIntensity;
         public readonly double retentionTime;
         public readonly int oneBasedScanNumber;
+
+        #endregion Public Fields
+
+        #region Public Constructors
 
         public IndexedMassSpectralPeak(MassSpectralPeak peak, IMsDataScan<IMzSpectrum<IMzPeak>> scan, int index)
         {
@@ -20,6 +25,16 @@ namespace FlashLFQ
             oneBasedScanNumber = scan.OneBasedScanNumber;
             retentionTime = scan.RetentionTime;
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        public IMsDataScan<IMzSpectrum<IMzPeak>> scan { get; private set; }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public void Compress()
         {
@@ -33,5 +48,7 @@ namespace FlashLFQ
             else
                 return "--";
         }
+
+        #endregion Public Methods
     }
 }

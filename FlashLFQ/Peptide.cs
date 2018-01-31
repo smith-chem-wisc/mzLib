@@ -4,11 +4,17 @@ namespace FlashLFQ
 {
     public class Peptide
     {
+        #region Public Fields
+
+        public static string[] files;
         public readonly string Sequence;
         public readonly string ProteinGroup;
         public readonly double[] intensitiesByFile;
         public readonly string[] detectionType;
-        public static string[] files;
+
+        #endregion Public Fields
+
+        #region Public Constructors
 
         public Peptide(string baseSeq, string proteinGroup, double[] intensitiesByFile, string[] detectionType)
         {
@@ -17,6 +23,10 @@ namespace FlashLFQ
             this.intensitiesByFile = intensitiesByFile;
             this.detectionType = detectionType;
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
 
         public static string TabSeparatedHeader
         {
@@ -33,10 +43,14 @@ namespace FlashLFQ
             }
         }
 
+        #endregion Public Properties
+
+        #region Public Methods
+
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            
+
             sb.Append("" + Sequence + '\t');
             sb.Append("" + ProteinGroup + '\t');
             for (int i = 0; i < intensitiesByFile.Length; i++)
@@ -56,5 +70,7 @@ namespace FlashLFQ
 
             return sb.ToString();
         }
+
+        #endregion Public Methods
     }
 }

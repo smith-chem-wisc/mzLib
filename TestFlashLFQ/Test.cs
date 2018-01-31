@@ -1,21 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NUnit.Framework;
-using FlashLFQ;
-using IO.Thermo;
-using System.IO;
-using UsefulProteomicsDatabases;
-using MassSpectrometry;
+﻿using FlashLFQ;
 using IO.MzML;
+using IO.Thermo;
+using MassSpectrometry;
+using NUnit.Framework;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
     [TestFixture]
-    class Test
+    internal class Test
     {
+        #region Public Methods
+
         [Test]
         public static void TestEverything()
         {
@@ -23,7 +23,7 @@ namespace Test
             string elements = Path.Combine(TestContext.CurrentContext.TestDirectory, "elements.dat");
             string files = TestContext.CurrentContext.TestDirectory;
             string ident = Path.Combine(TestContext.CurrentContext.TestDirectory, "aggregatePSMs_5ppmAroundZero.psmtsv");
-            
+
             FlashLFQEngine engine = new FlashLFQEngine();
             Console.WriteLine("UNIT TEST - About to load elements");
             Loaders.LoadElements(elements);
@@ -60,9 +60,9 @@ namespace Test
                 {
                     IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFiel;
                     if (Path.GetExtension(engine.filePaths[i]).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
-                        dataFiel= Mzml.LoadAllStaticData(engine.filePaths[i]);
+                        dataFiel = Mzml.LoadAllStaticData(engine.filePaths[i]);
                     else
-                        dataFiel = ThermoDynamicData.InitiateDynamicConnection(engine.filePaths[i]);           
+                        dataFiel = ThermoDynamicData.InitiateDynamicConnection(engine.filePaths[i]);
                     Assert.That(engine.Quantify(dataFiel, engine.filePaths[i]));
                 }
                 catch (AssertionException)
@@ -115,16 +115,16 @@ namespace Test
             Console.WriteLine("UNIT TEST - Done making engine");
             engine.globalStopwatch.Start();
             engine.SetParallelization(1);
-            
+
             Console.WriteLine("UNIT TEST - Adding identifications");
             var ids = File.ReadAllLines(ident);
             int lineCount = 1;
-            foreach(var line in ids)
+            foreach (var line in ids)
             {
-                if(lineCount != 1)
+                if (lineCount != 1)
                 {
                     var splitLine = line.Split('\t');
-                    engine.AddIdentification(Path.GetFileNameWithoutExtension(splitLine[0]), splitLine[20], splitLine[21], double.Parse(splitLine[27]), double.Parse(splitLine[2]), (int) double.Parse(splitLine[6]), new List<string> { splitLine[14] });
+                    engine.AddIdentification(Path.GetFileNameWithoutExtension(splitLine[0]), splitLine[20], splitLine[21], double.Parse(splitLine[27]), double.Parse(splitLine[2]), (int)double.Parse(splitLine[6]), new List<string> { splitLine[14] });
                 }
                 lineCount++;
             }
@@ -246,5 +246,7 @@ namespace Test
             Assert.That(!engine.allFeaturesByFile[0].First().isMbrFeature);
             Console.WriteLine("UNIT TEST - All passed");
         }
+
+        #endregion Public Methods
     }
 }

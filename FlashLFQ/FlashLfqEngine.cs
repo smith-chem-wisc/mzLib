@@ -1,6 +1,5 @@
 ﻿using Chemistry;
 using MassSpectrometry;
-using Proteomics;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,43 +15,28 @@ namespace FlashLFQ
 
     public class FlashLFQEngine
     {
-        // file info stuff
-        public string identificationsFilePath { get; private set; }
-        public string[] filePaths { get; private set; }
-        public string[] analysisSummaryPerFile { get; private set; }
+        #region Public Fields
+
         public string outputFolder;
+
+        public Stopwatch globalStopwatch;
+
+        public Stopwatch fileLocalStopwatch;
+
+        #endregion Public Fields
+
+        #region Private Fields
 
         // structures used in the FlashLFQ program
         private List<Identification> allIdentifications;
-        public List<ChromatographicPeak>[] allFeaturesByFile { get; private set; }
-        public HashSet<double> observedMzsToUseForIndex { get; private set; }
-        public Dictionary<string, List<KeyValuePair<double, double>>> baseSequenceToIsotopicDistribution { get; private set; }
-        private Dictionary<string, ProteinGroup> pgNameToProteinGroup;
-        private string[] header;
-        public Stopwatch globalStopwatch;
-        public Stopwatch fileLocalStopwatch;
 
-        // settings
-        public bool silent { get; private set; }
-        public bool pause { get; private set; }
-        public int maxThreads { get; private set; }
-        public IEnumerable<int> chargeStates { get; private set; }
-        public double peakfindingPpmTolerance { get; private set; }
-        public double ppmTolerance { get; private set; }
-        public double rtTol { get; private set; }
-        public double isotopePpmTolerance { get; private set; }
-        public bool integrate { get; private set; }
-        public int missedScansAllowed { get; private set; }
-        public int numIsotopesRequired { get; private set; }
-        public double mbrRtWindow { get; private set; }
-        public double initialMbrRtWindow { get; private set; }
-        public double mbrppmTolerance { get; private set; }
-        public bool errorCheckAmbiguousMatches { get; private set; }
-        public bool mbr { get; private set; }
-        public bool idSpecificChargeState { get; private set; }
-        public double qValueCutoff { get; private set; }
-        public bool requireMonoisotopicMass { get; private set; }
-        public IdentificationFileType identificationFileType { get; private set; }
+        private Dictionary<string, ProteinGroup> pgNameToProteinGroup;
+
+        private string[] header;
+
+        #endregion Private Fields
+
+        #region Public Constructors
 
         public FlashLFQEngine()
         {
@@ -82,6 +66,46 @@ namespace FlashLFQ
             qValueCutoff = 0.01;
             requireMonoisotopicMass = true;
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
+
+        // file info stuff
+        public string identificationsFilePath { get; private set; }
+
+        public string[] filePaths { get; private set; }
+        public string[] analysisSummaryPerFile { get; private set; }
+        public List<ChromatographicPeak>[] allFeaturesByFile { get; private set; }
+        public HashSet<double> observedMzsToUseForIndex { get; private set; }
+        public Dictionary<string, List<KeyValuePair<double, double>>> baseSequenceToIsotopicDistribution { get; private set; }
+
+        // settings
+        public bool silent { get; private set; }
+
+        public bool pause { get; private set; }
+        public int maxThreads { get; private set; }
+        public IEnumerable<int> chargeStates { get; private set; }
+        public double peakfindingPpmTolerance { get; private set; }
+        public double ppmTolerance { get; private set; }
+        public double rtTol { get; private set; }
+        public double isotopePpmTolerance { get; private set; }
+        public bool integrate { get; private set; }
+        public int missedScansAllowed { get; private set; }
+        public int numIsotopesRequired { get; private set; }
+        public double mbrRtWindow { get; private set; }
+        public double initialMbrRtWindow { get; private set; }
+        public double mbrppmTolerance { get; private set; }
+        public bool errorCheckAmbiguousMatches { get; private set; }
+        public bool mbr { get; private set; }
+        public bool idSpecificChargeState { get; private set; }
+        public double qValueCutoff { get; private set; }
+        public bool requireMonoisotopicMass { get; private set; }
+        public IdentificationFileType identificationFileType { get; private set; }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public bool ParseArgs(string[] args)
         {
@@ -130,6 +154,7 @@ namespace FlashLFQ
                             for (int i = 0; i < filePaths.Length; i++)
                                 filePaths[i] = filePaths[i].Trim();
                             break;
+
                         case ("ppm"): ppmTolerance = double.Parse(arg.Substring(3)); break;
                         case ("iso"): isotopePpmTolerance = double.Parse(arg.Substring(3)); break;
                         case ("sil"): silent = Boolean.Parse(arg.Substring(3)); break;
@@ -625,10 +650,9 @@ namespace FlashLFQ
                         pepToBestFeatureForThisFile.Add(testPeak.identifyingScans.First().FullSequence, testPeak);
                 }
 
-
                 foreach (var otherFile in unambiguousPeaksGroupedByFile)
                 {
-                    // get the other files' best peak for the same peptides (to make an RT calibration curve) 
+                    // get the other files' best peak for the same peptides (to make an RT calibration curve)
                     if (otherFile.Key.Equals(file.Key))
                         continue;
 
@@ -658,7 +682,6 @@ namespace FlashLFQ
                     double sumOfSquaresOfDifferences = someDoubles.Select(val => (val - average) * (val - average)).Sum();
                     double sd = Math.Sqrt(sumOfSquaresOfDifferences / (someDoubles.Count() - 1));
 
-
                     // remove extreme outliers
                     if (sd > 1.0)
                     {
@@ -671,7 +694,6 @@ namespace FlashLFQ
                         sumOfSquaresOfDifferences = someDoubles.Select(val => (val - average) * (val - average)).Sum();
                         sd = Math.Sqrt(sumOfSquaresOfDifferences / (someDoubles.Count() - 1));
                     }
-
 
                     // find rt differences between files
                     List<Tuple<double, double>> rtCalPoints2 = rtCalPoints.Values.OrderBy(p => p.Item1).ToList();
@@ -778,7 +800,6 @@ namespace FlashLFQ
 
                     //File.WriteAllLines(outputFolder + file.Key + otherFile.Key + "RTCal2.tsv", output);
 
-
                     // finished rt calibration for these 2 files; now use rt cal spline to find matched features
                     var allMatchedFeaturesToLookForNow = allMbrFeaturesForThisFile.Where(p => p.identifyingScans.First().fileName.Equals(otherFile.Key)).ToList();
 
@@ -853,9 +874,9 @@ namespace FlashLFQ
             var allUnambiguousFeatures = allFeatures.Except(allAmbiguousFeatures).ToList();
 
             var proteinsWithFeatures = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
-            foreach(var feature in allUnambiguousFeatures)
+            foreach (var feature in allUnambiguousFeatures)
             {
-                foreach(var proteinGroup in feature.identifyingScans.First().proteinGroups)
+                foreach (var proteinGroup in feature.identifyingScans.First().proteinGroups)
                 {
                     List<ChromatographicPeak> featuresForThisProtein;
 
@@ -866,7 +887,7 @@ namespace FlashLFQ
                 }
             }
 
-            foreach(var proteinGroupsFeatures in proteinsWithFeatures)
+            foreach (var proteinGroupsFeatures in proteinsWithFeatures)
             {
                 var peaksForThisProteinPerFile = proteinGroupsFeatures.Value.GroupBy(p => p.fileName);
                 proteinGroupsFeatures.Key.intensitiesByFile = new double[fileNames.Count];
@@ -906,7 +927,7 @@ namespace FlashLFQ
 
             allIdentifications.Add(ident);
         }
-        
+
         public void ConstructIndexTemplateFromIdentifications()
         {
             observedMzsToUseForIndex = new HashSet<double>();
@@ -991,6 +1012,87 @@ namespace FlashLFQ
         {
             this.maxThreads = maxDegreesOfParallelism;
         }
+
+        public List<Peptide> SumFeatures(IEnumerable<ChromatographicPeak> features, bool sumPeptideIntensitiesRegardlessOfModifications)
+        {
+            List<Peptide> returnList = new List<Peptide>();
+
+            string[] fileNames = new string[filePaths.Length];
+            for (int i = 0; i < fileNames.Length; i++)
+                fileNames[i] = Path.GetFileNameWithoutExtension(filePaths[i]);
+            Peptide.files = fileNames;
+
+            var sequenceToPeaksMatch = new Dictionary<string, List<ChromatographicPeak>>();
+            foreach (var feature in features)
+            {
+                IEnumerable<IGrouping<string, Identification>> seqs;
+                if (sumPeptideIntensitiesRegardlessOfModifications)
+                    seqs = feature.identifyingScans.GroupBy(p => p.BaseSequence);
+                else
+                    seqs = feature.identifyingScans.GroupBy(p => p.FullSequence);
+
+                foreach (var seq in seqs)
+                {
+                    List<ChromatographicPeak> featuresForThisBaseSeq;
+                    if (sequenceToPeaksMatch.TryGetValue(seq.Key, out featuresForThisBaseSeq))
+                        featuresForThisBaseSeq.Add(feature);
+                    else
+                        sequenceToPeaksMatch.Add(seq.Key, new List<ChromatographicPeak>() { feature });
+                }
+            }
+
+            foreach (var sequence in sequenceToPeaksMatch)
+            {
+                double[] intensitiesByFile = new double[filePaths.Length];
+                string[] identificationType = new string[filePaths.Length];
+                var thisSeqPerFile = sequence.Value.GroupBy(p => p.fileName);
+
+                for (int i = 0; i < intensitiesByFile.Length; i++)
+                {
+                    string file = Path.GetFileNameWithoutExtension(filePaths[i]);
+                    var featuresForThisSeqAndFile = thisSeqPerFile.Where(p => p.Key.Equals(file)).FirstOrDefault();
+
+                    if (featuresForThisSeqAndFile != null)
+                    {
+                        if (featuresForThisSeqAndFile.First().isMbrFeature)
+                        {
+                            identificationType[i] = "MBR";
+                            intensitiesByFile[i] = featuresForThisSeqAndFile.Select(p => p.intensity).Max();
+                        }
+                        else
+                        {
+                            identificationType[i] = "MSMS";
+                            double summedPeakIntensity = featuresForThisSeqAndFile.Sum(p => p.intensity);
+
+                            if (featuresForThisSeqAndFile.Max(p => p.numIdentificationsByBaseSeq) == 1)
+                                intensitiesByFile[i] = summedPeakIntensity;
+                            else
+                            {
+                                double ambigPeakIntensity = featuresForThisSeqAndFile.Where(p => p.numIdentificationsByBaseSeq > 1).Sum(v => v.intensity);
+
+                                if ((ambigPeakIntensity / summedPeakIntensity) < 0.3)
+                                    intensitiesByFile[i] = featuresForThisSeqAndFile.Select(p => (p.intensity / p.numIdentificationsByBaseSeq)).Sum();
+                                else
+                                    intensitiesByFile[i] = -1;
+                            }
+                        }
+                    }
+                    else
+                        identificationType[i] = "";
+                }
+
+                if (sumPeptideIntensitiesRegardlessOfModifications)
+                    returnList.Add(new Peptide(sequence.Key, string.Join(";", sequence.Value.SelectMany(p => p.identifyingScans).Where(p => p.BaseSequence.Equals(sequence.Key)).First().proteinGroups.Select(p => p.proteinGroupName)), intensitiesByFile, identificationType));
+                else
+                    returnList.Add(new Peptide(sequence.Key, string.Join(";", sequence.Value.SelectMany(p => p.identifyingScans).Where(p => p.FullSequence.Equals(sequence.Key)).First().proteinGroups.Select(p => p.proteinGroupName)), intensitiesByFile, identificationType));
+            }
+
+            return returnList.OrderBy(p => p.Sequence).ToList();
+        }
+
+        #endregion Public Methods
+
+        #region Private Methods
 
         private Dictionary<double, List<IndexedMassSpectralPeak>> ConstructEmptyIndexForFile()
         {
@@ -1372,83 +1474,6 @@ namespace FlashLFQ
             }
         }
 
-        public List<Peptide> SumFeatures(IEnumerable<ChromatographicPeak> features, bool sumPeptideIntensitiesRegardlessOfModifications)
-        {
-            List<Peptide> returnList = new List<Peptide>();
-
-            string[] fileNames = new string[filePaths.Length];
-            for (int i = 0; i < fileNames.Length; i++)
-                fileNames[i] = Path.GetFileNameWithoutExtension(filePaths[i]);
-            Peptide.files = fileNames;
-
-            var sequenceToPeaksMatch = new Dictionary<string, List<ChromatographicPeak>>();
-            foreach (var feature in features)
-            {
-                IEnumerable<IGrouping<string, Identification>> seqs;
-                if (sumPeptideIntensitiesRegardlessOfModifications)
-                    seqs = feature.identifyingScans.GroupBy(p => p.BaseSequence);
-                else
-                    seqs = feature.identifyingScans.GroupBy(p => p.FullSequence);
-
-                foreach (var seq in seqs)
-                {
-                    List<ChromatographicPeak> featuresForThisBaseSeq;
-                    if (sequenceToPeaksMatch.TryGetValue(seq.Key, out featuresForThisBaseSeq))
-                        featuresForThisBaseSeq.Add(feature);
-                    else
-                        sequenceToPeaksMatch.Add(seq.Key, new List<ChromatographicPeak>() { feature });
-                }
-            }
-
-            foreach (var sequence in sequenceToPeaksMatch)
-            {
-                double[] intensitiesByFile = new double[filePaths.Length];
-                string[] identificationType = new string[filePaths.Length];
-                var thisSeqPerFile = sequence.Value.GroupBy(p => p.fileName);
-
-                for (int i = 0; i < intensitiesByFile.Length; i++)
-                {
-                    string file = Path.GetFileNameWithoutExtension(filePaths[i]);
-                    var featuresForThisSeqAndFile = thisSeqPerFile.Where(p => p.Key.Equals(file)).FirstOrDefault();
-
-                    if (featuresForThisSeqAndFile != null)
-                    {
-                        if (featuresForThisSeqAndFile.First().isMbrFeature)
-                        {
-                            identificationType[i] = "MBR";
-                            intensitiesByFile[i] = featuresForThisSeqAndFile.Select(p => p.intensity).Max();
-                        }
-                        else
-                        {
-                            identificationType[i] = "MSMS";
-                            double summedPeakIntensity = featuresForThisSeqAndFile.Sum(p => p.intensity);
-
-                            if (featuresForThisSeqAndFile.Max(p => p.numIdentificationsByBaseSeq) == 1)
-                                intensitiesByFile[i] = summedPeakIntensity;
-                            else
-                            {
-                                double ambigPeakIntensity = featuresForThisSeqAndFile.Where(p => p.numIdentificationsByBaseSeq > 1).Sum(v => v.intensity);
-
-                                if ((ambigPeakIntensity / summedPeakIntensity) < 0.3)
-                                    intensitiesByFile[i] = featuresForThisSeqAndFile.Select(p => (p.intensity / p.numIdentificationsByBaseSeq)).Sum();
-                                else
-                                    intensitiesByFile[i] = -1;
-                            }
-                        }
-                    }
-                    else
-                        identificationType[i] = "";
-                }
-
-                if(sumPeptideIntensitiesRegardlessOfModifications)
-                    returnList.Add(new Peptide(sequence.Key, string.Join(";", sequence.Value.SelectMany(p => p.identifyingScans).Where(p => p.BaseSequence.Equals(sequence.Key)).First().proteinGroups.Select(p => p.proteinGroupName)), intensitiesByFile, identificationType));
-                else
-                    returnList.Add(new Peptide(sequence.Key, string.Join(";", sequence.Value.SelectMany(p => p.identifyingScans).Where(p => p.FullSequence.Equals(sequence.Key)).First().proteinGroups.Select(p => p.proteinGroupName)), intensitiesByFile, identificationType));
-            }
-
-            return returnList.OrderBy(p => p.Sequence).ToList();
-        }
-
         private IEnumerable<IsotopeCluster> FilterPeaksByIsotopicDistribution(IEnumerable<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool lookForBadIsotope)
         {
             var isotopeClusters = new List<IsotopeCluster>();
@@ -1466,7 +1491,7 @@ namespace FlashLFQ
                 int isotopicPeakUnitOfPeakZeroIsMono = Convert.ToInt32(thisPeakWithScan.mainPeak.Mz.ToMass(chargeState) - identification.monoisotopicMass);
                 var mainpeakMz = thisPeakWithScan.mainPeak.Mz;
 
-                // left of main peak 
+                // left of main peak
                 for (int i = 0; i < isotopicPeakUnitOfPeakZeroIsMono; i++)
                     theorIsotopeMzs[i] = mainpeakMz + (isotopeMassShifts[i].Key / chargeState);
 
@@ -1499,7 +1524,7 @@ namespace FlashLFQ
                         break;
                     possibleIsotopePeaks.Add(new MassSpectralPeak(thisPeakWithScan.scan.MassSpectrum.XArray[i], thisPeakWithScan.scan.MassSpectrum.YArray[i]));
                 }
-                
+
                 if (lookForBadIsotope)
                 {
                     bool badPeak = false;
@@ -1545,7 +1570,7 @@ namespace FlashLFQ
 
                 if (isotopePeaks[0] == null && requireMonoisotopicMass)
                     continue;
-                
+
                 if (requireMonoisotopicMass)
                 {
                     bool[] requiredIsotopesSeen = new bool[numIsotopesRequired];
@@ -1755,5 +1780,7 @@ namespace FlashLFQ
                 CutPeak(peak, integrate, ms1ScanNumbers);
             }
         }
+
+        #endregion Private Methods
     }
 }

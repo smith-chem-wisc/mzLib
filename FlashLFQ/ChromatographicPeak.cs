@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,18 +7,21 @@ namespace FlashLFQ
 {
     public class ChromatographicPeak
     {
+        #region Public Fields
+
         public double intensity;
         public IsotopeCluster apexPeak;
         public bool isMbrFeature;
         public string fileName = "";
         public List<Identification> identifyingScans;
         public List<IsotopeCluster> isotopeClusters;
-        public int numIdentificationsByBaseSeq { get; private set; }
-        public int numIdentificationsByFullSeq { get; private set; }
         public double splitRT;
-        public double massError { get; private set; }
         public int numChargeStatesObserved;
-        
+
+        #endregion Public Fields
+
+        #region Public Constructors
+
         public ChromatographicPeak()
         {
             splitRT = 0;
@@ -30,6 +32,10 @@ namespace FlashLFQ
             identifyingScans = new List<Identification>();
             isotopeClusters = new List<IsotopeCluster>();
         }
+
+        #endregion Public Constructors
+
+        #region Public Properties
 
         public static string TabSeparatedHeader
         {
@@ -60,6 +66,14 @@ namespace FlashLFQ
                 return sb.ToString();
             }
         }
+
+        public int numIdentificationsByBaseSeq { get; private set; }
+        public int numIdentificationsByFullSeq { get; private set; }
+        public double massError { get; private set; }
+
+        #endregion Public Properties
+
+        #region Public Methods
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
@@ -158,5 +172,7 @@ namespace FlashLFQ
 
             return sb.ToString();
         }
+
+        #endregion Public Methods
     }
 }

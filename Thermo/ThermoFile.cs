@@ -73,16 +73,16 @@ namespace IO.Thermo
             return true;
         }
 
-        #endregion Public Methods
-        
-        #region Protected Methods
-
         public override IEnumerable<IThermoScan> GetMS1Scans()
         {
             for (int i = 0; i < ThermoGlobalParams.msOrderByScan.Length; i++)
                 if (ThermoGlobalParams.msOrderByScan[i] == 1)
                     yield return GetOneBasedScan(i + 1);
         }
+
+        #endregion Public Methods
+
+        #region Protected Methods
 
         protected static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
         {

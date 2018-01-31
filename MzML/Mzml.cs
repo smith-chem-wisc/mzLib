@@ -196,6 +196,16 @@ namespace IO.MzML
             return Scans[scanNumber - 1];
         }
 
+        public override IEnumerable<IMzmlScan> GetMS1Scans()
+        {
+            for (int i = 1; i < NumSpectra; i++)
+            {
+                var scan = GetOneBasedScan(i);
+                if (scan.MsnOrder == 1)
+                    yield return scan;
+            }
+        }
+
         #endregion Public Methods
 
         #region Private Methods
@@ -496,16 +506,6 @@ namespace IO.MzML
                 oneBasedSpectrumNumber--;
             } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
             return oneBasedSpectrumNumber;
-        }
-
-        public override IEnumerable<IMzmlScan> GetMS1Scans()
-        {
-            for (int i = 1; i < NumSpectra; i++)
-            {
-                var scan = GetOneBasedScan(i);
-                if (scan.MsnOrder == 1)
-                    yield return scan;
-            }
         }
 
         #endregion Private Methods

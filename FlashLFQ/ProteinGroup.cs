@@ -1,21 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 
 namespace FlashLFQ
 {
     public class ProteinGroup
     {
+        #region Public Fields
+
         public readonly string proteinGroupName;
         public double[] intensitiesByFile;
         public string[] peptidesByFile;
+
+        #endregion Public Fields
+
+        #region Public Constructors
 
         public ProteinGroup(string name)
         {
             proteinGroupName = name;
         }
+
+        #endregion Public Constructors
+
+        #region Public Methods
 
         public override string ToString()
         {
@@ -31,5 +37,7 @@ namespace FlashLFQ
 
             return sb.ToString();
         }
+
+        #endregion Public Methods
     }
 }
