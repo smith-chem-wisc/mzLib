@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using MassSpectrometry;
+using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -7,7 +8,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using UsefulProteomicsDatabases;
 
 namespace FlashLFQ
 {
@@ -213,7 +213,7 @@ namespace FlashLFQ
             analysisSummaryPerFile = new string[filePaths.Length];
             allFeaturesByFile = new List<ChromatographicPeak>[filePaths.Length];
         }
-        
+      
         public bool ReadIdentificationsFromTSV()
         {
             int fileNameCol = -1;
@@ -971,7 +971,7 @@ namespace FlashLFQ
 
                 foreach (var chargeState in chargeStates)
                 {
-                    var t = ClassExtensions.ToMz(pepGroup.First().massToLookFor, chargeState);
+                    var t = pepGroup.First().massToLookFor.ToMz(chargeState);
                     double floorMz = Math.Floor(t * 100) / 100;
                     double ceilingMz = Math.Ceiling(t * 100) / 100;
 
@@ -1210,7 +1210,7 @@ namespace FlashLFQ
                                 if (chargeState != identification.chargeState)
                                     continue;
 
-                            double theorMzHere = ClassExtensions.ToMz(identification.massToLookFor, chargeState);
+                            double theorMzHere = identification.massToLookFor.ToMz(chargeState);
                             double mzTolHere = ((peakfindingPpmTolerance / 1e6) * identification.monoisotopicMass) / chargeState;
 
                             double floorMz = Math.Floor(theorMzHere * 100) / 100;
@@ -1244,7 +1244,7 @@ namespace FlashLFQ
                                         break;
                                 }
                                 if (precursorScanNum == 0)
-                                    throw new Exception("Error getting precursor scan number");
+                                    throw new MzLibException("Error getting precursor scan number");
 
                                 // separate peaks by rt into left and right of the identification RT
                                 var rightPeaks = binPeaksHere.Where(p => p.retentionTime >= identification.ms2RetentionTime).OrderBy(p => p.retentionTime);
@@ -1326,7 +1326,7 @@ namespace FlashLFQ
 
                             foreach (var chargeState in chargeStates)
                             {
-                                double theorMzHere = ClassExtensions.ToMz(identification.massToLookFor, chargeState);
+                                double theorMzHere = identification.massToLookFor.ToMz(chargeState);
                                 double mzTolHere = ((mbrppmTolerance / 1e6) * identification.monoisotopicMass) / chargeState;
 
                                 double floorMz = Math.Floor(theorMzHere * 100) / 100;
