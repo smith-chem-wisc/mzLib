@@ -57,7 +57,34 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
+        public static bool CheckForMsFileReader()
+        {
+            const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
+            //Check if Thermo File Reader Exists
+            try
+            {
+                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
+                Activator.CreateInstance(thermoReader);
+            }
+            catch (COMException ex)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        #endregion Public Methods
+        
+        #region Protected Methods
+
+        public override IEnumerable<IThermoScan> GetMS1Scans()
+        {
+            for (int i = 0; i < ThermoGlobalParams.msOrderByScan.Length; i++)
+                if (ThermoGlobalParams.msOrderByScan[i] == 1)
+                    yield return GetOneBasedScan(i + 1);
+        }
+
+        protected static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
         {
             int pnNumInstMethods = 0;
             _rawConnection.GetNumInstMethods(ref pnNumInstMethods);
@@ -89,26 +116,6 @@ namespace IO.Thermo
 
             return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }
-
-        public static bool CheckForMsFileReader()
-        {
-            const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
-            //Check if Thermo File Reader Exists
-            try
-            {
-                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
-                Activator.CreateInstance(thermoReader);
-            }
-            catch (COMException ex)
-            {
-                return false;
-            }
-            return true;
-        }
-
-        #endregion Public Methods
-
-        #region Protected Methods
 
         protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
             int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,

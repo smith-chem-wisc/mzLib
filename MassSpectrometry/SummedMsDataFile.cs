@@ -33,6 +33,16 @@ namespace MassSpectrometry
             this.ppmToleranceForPeakCombination = ppmToleranceForPeakCombination;
         }
 
+        public override IEnumerable<IMsDataScan<IMzSpectrum<IMzPeak>>> GetMS1Scans()
+        {
+            for(int i = 1;i<NumSpectra;i++)
+            {
+                var scan = GetOneBasedScan(i);
+                if(scan.MsnOrder==1)
+                    yield return scan;
+            }
+        }
+
         #endregion Public Constructors
 
         #region Public Methods

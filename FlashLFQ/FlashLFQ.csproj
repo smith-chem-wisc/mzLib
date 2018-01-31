@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+    <ProjectReference Include="..\Spectra\Spectra.csproj" />
+    <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+  </ItemGroup>
+
+</Project>

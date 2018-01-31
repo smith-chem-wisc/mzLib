@@ -498,6 +498,16 @@ namespace IO.MzML
             return oneBasedSpectrumNumber;
         }
 
+        public override IEnumerable<IMzmlScan> GetMS1Scans()
+        {
+            for (int i = 1; i < NumSpectra; i++)
+            {
+                var scan = GetOneBasedScan(i);
+                if (scan.MsnOrder == 1)
+                    yield return scan;
+            }
+        }
+
         #endregion Private Methods
     }
 }
