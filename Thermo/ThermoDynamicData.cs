@@ -75,10 +75,8 @@ namespace IO.Thermo
 
         public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)
         {
-            if (Scans[oneBasedScanNumber - 1] == null) {
-                FilteringParams thermoParams = new FilteringParams(topNpeaks, minRatio);
-                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection, ThermoGlobalParams, thermoParams, trimMs1Peaks, trimMsMsPeaks);
-            }
+            if (Scans[oneBasedScanNumber - 1] == null)
+                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection, ThermoGlobalParams, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
             return Scans[oneBasedScanNumber - 1];
         }
 

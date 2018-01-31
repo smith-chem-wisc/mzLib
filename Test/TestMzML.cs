@@ -91,7 +91,7 @@ namespace Test
         }
 
         [Test]
-        public void LoadMzmlAnotherTest()
+        public void LoadMzmlTest()
         {
             Assert.Throws<AggregateException>(() =>
             {
