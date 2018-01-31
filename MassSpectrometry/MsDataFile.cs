@@ -77,6 +77,8 @@ namespace MassSpectrometry
 
         #region Public Methods
 
+        public abstract IEnumerable<TScan> GetMS1Scans();
+
         public abstract TScan GetOneBasedScan(int scanNumber);
 
         public IEnumerable<TScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
