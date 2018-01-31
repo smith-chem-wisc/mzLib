@@ -18,6 +18,7 @@
 using IO.MzML;
 using MassSpectrometry;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Test
@@ -41,6 +42,11 @@ namespace Test
             if (ok < 0)
                 ok = ~ok;
             return ok + 1;
+        }
+
+        public override IEnumerable<IMzmlScan> GetMS1Scans()
+        {
+            throw new NotImplementedException();
         }
 
         public override IMzmlScan GetOneBasedScan(int scanNumber)

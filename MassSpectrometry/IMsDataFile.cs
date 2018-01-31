@@ -35,6 +35,8 @@ namespace MassSpectrometry
 
         TScan GetOneBasedScan(int oneBasedScanNumber);
 
+        IEnumerable<TScan> GetMS1Scans();
+
         IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc);
 
         IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT);
