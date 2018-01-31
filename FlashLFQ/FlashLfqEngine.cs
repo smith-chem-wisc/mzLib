@@ -213,32 +213,7 @@ namespace FlashLFQ
             analysisSummaryPerFile = new string[filePaths.Length];
             allFeaturesByFile = new List<ChromatographicPeak>[filePaths.Length];
         }
-
-        public bool ReadPeriodicTable(string optionalPeriodicTablePath)
-        {
-            string elementsLocation;
-
-            try
-            {
-                if (optionalPeriodicTablePath == null)
-                    elementsLocation = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
-                else
-                    elementsLocation = optionalPeriodicTablePath;
-                Loaders.LoadElements(elementsLocation);
-            }
-            catch (Exception)
-            {
-                if (!silent)
-                {
-                    Console.WriteLine("\nCan't read periodic table file\n");
-                    Console.WriteLine("Press any key to exit");
-                    Console.ReadKey();
-                }
-                return false;
-            }
-            return true;
-        }
-
+        
         public bool ReadIdentificationsFromTSV()
         {
             int fileNameCol = -1;
