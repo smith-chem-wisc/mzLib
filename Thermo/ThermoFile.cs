@@ -119,10 +119,10 @@ namespace IO.Thermo
 
         protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
             int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
-            bool trimMs1Peaks, bool trimMsMsPeaks, FilteringParams ThermoParams = null)
+            bool trimMs1Peaks, bool trimMsMsPeaks, FilteringParams filterParams = null)
         {
-            if (ThermoParams == null)
-                ThermoParams = new MsDataFile<IThermoScan>.FilteringParams();
+            if (filterParams == null)
+                filterParams = new MsDataFile<IThermoScan>.FilteringParams();
             int pnNumPackets = 0;
             double pdLowMass = 0;
             double pdHighMass = 0;
@@ -226,7 +226,7 @@ namespace IO.Thermo
             }
 
             ThermoSpectrum thermoSpectrum;
-            if ((ThermoParams.minRatio.HasValue || ThermoParams.topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            if (intensities.Length > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
 
@@ -234,9 +234,9 @@ namespace IO.Thermo
                 var intensityArray = new double[count];
                 Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
-                if (!ThermoParams.windowMode)
+                if (filterParams.windowNum==null)
                 {
-                    int numPeaks = ThermoParams.TopNpeakHelper(intensityArray, mzArray);
+                    int numPeaks = filterParams.TopNpeakHelper(intensityArray, mzArray);
                     //the following arrays are modified after TopN helper
                     Array.Resize(ref intensityArray, numPeaks);
                     Array.Resize(ref mzArray, numPeaks);
@@ -244,7 +244,7 @@ namespace IO.Thermo
                 //Array reference passed by value, array calues will be modified after calling
                 else
                 {
-                    ThermoParams.WindowModeHelper(ref intensityArray, ref mzArray);
+                    filterParams.WindowModeHelper(ref intensityArray, ref mzArray);
                 }
                 Array.Sort(mzArray, intensityArray);
                 thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);

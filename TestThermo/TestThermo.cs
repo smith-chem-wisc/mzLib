@@ -126,9 +126,9 @@ namespace TestThermo
         {
             //test window number of 1
             ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
-            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 400, mode: true), trimMs1Peaks: true);
-            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(ratio: 0.001, mode: true), trimMs1Peaks: true);
-            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(ratio: 0.001, top: 400, mode: true), trimMs1Peaks: true);
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 400, num:1), trimMs1Peaks: true);
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(ratio: 0.001, num: 1), trimMs1Peaks: true);
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(ratio: 0.001, top: 400, num: 1), trimMs1Peaks: true);
 
             var aLen = a_w.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b_w.GetOneBasedScan(1).MassSpectrum.Size;
@@ -156,16 +156,16 @@ namespace TestThermo
         public static void MultiWindowFiltering()
         {
             //tests for filtering with window
-            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(mode: true, num: 1), trimMs1Peaks: true);
+            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(num: 1), trimMs1Peaks: true);
             Assert.AreEqual(1120, a_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 2
-            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 200, mode: true, num: 3), trimMs1Peaks: true);
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 200,num: 3), trimMs1Peaks: true);
             Assert.AreEqual(600, b_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 4
-            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 200, mode: true, num: 4), trimMs1Peaks: true);
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 200, num: 4), trimMs1Peaks: true);
             Assert.AreEqual(800, c_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 6, which doesn't divide 1120
-            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 150, mode: true, num: 6), trimMs1Peaks: true);
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", thermoParams: new MsDataFile<IThermoScan>.FilteringParams(top: 150, num: 6), trimMs1Peaks: true);
             Assert.AreEqual(900, d_w.GetOneBasedScan(1).MassSpectrum.Size);
         }
 

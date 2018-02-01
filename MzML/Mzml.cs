@@ -301,7 +301,7 @@ namespace IO.MzML
             if ((MzmlParams.minRatio.HasValue || MzmlParams.topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
-                if (!MzmlParams.windowMode)
+                if (MzmlParams.windowNum==null)
                 {
                     int numPeaks = MzmlParams.TopNpeakHelper(intensities, masses);
                     Array.Resize(ref intensities, numPeaks);
