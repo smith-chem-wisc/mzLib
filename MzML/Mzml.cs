@@ -298,7 +298,7 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if (intensities.Length>0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue)
+            if (intensities.Length > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue)
                 && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
             {
                 if (filterParams.windowNum==null)
