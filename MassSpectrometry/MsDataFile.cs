@@ -213,12 +213,16 @@ namespace MassSpectrometry
             public double? minRatio;
             public int? topNpeaks;
             public int? windowNum;
+            public bool trimMs1Peaks;
+            public bool trimMsMsPeaks;
             //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
-            public FilteringParams(int? top = null, double? ratio = null, int? windowNum = null)
+            public FilteringParams(int? top = null, double? ratio = null, int? windowNum = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
             {
                 this.topNpeaks = top;
                 this.minRatio = ratio;
                 this.windowNum = windowNum;
+                this.trimMs1Peaks = trimMs1Peaks;
+                this.trimMsMsPeaks = trimMsMsPeaks;
             }
 
             public int TopNpeakHelper(double[] intensities, double[] mArray)

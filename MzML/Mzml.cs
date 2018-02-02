@@ -97,7 +97,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
+        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
             if (filterParams == null)
                 filterParams = new FilteringParams();
@@ -187,7 +187,7 @@ namespace IO.MzML
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams, trimMs1Peaks, trimMsMsPeaks);
+                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
             });
 
             return new Mzml(scans, sourceFile);
@@ -212,7 +212,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, FilteringParams filterParams, bool trimMs1Peaks, bool trimMsMsPeaks)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, FilteringParams filterParams)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -299,7 +299,7 @@ namespace IO.MzML
             }
 
             if (intensities.Length > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue)
-                && ((trimMs1Peaks && msOrder.Value == 1) || (trimMsMsPeaks && msOrder.Value > 1)))
+                && ((filterParams.trimMs1Peaks && msOrder.Value == 1) || (filterParams.trimMsMsPeaks && msOrder.Value > 1)))
             {
                 if (filterParams.windowNum==null)
                 {
