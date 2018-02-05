@@ -77,6 +77,47 @@ namespace MassSpectrometry
 
         #region Public Methods
 
+        public static int TopNpeakHelper(double[] intensities, double[] mArray, IFilteringParams filteringParams)
+        {
+            IComparer<double> c = new ReverseComparer();
+            Array.Sort(intensities, mArray, c);
+
+            int numPeaks = intensities.Length;
+            if (filteringParams.minRatio.HasValue)
+            {
+                double minIntensity = filteringParams.minRatio.Value * intensities[0];
+                numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+            }
+
+            if (filteringParams.topNpeaks.HasValue)
+                numPeaks = Math.Min(filteringParams.topNpeaks.Value, numPeaks);
+            return numPeaks;
+        }
+
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
+        {
+            List<double> mzResults = new List<double>();
+            List<double> intensityResults = new List<double>();
+            //windowNum is the number of windows
+            for (int i = 0; i < filteringParams.windowNum; i++)
+            {
+                int temp = (i == filteringParams.windowNum) ? intensities.Length - i * (intensities.Length / filteringParams.windowNum.Value) : intensities.Length / filteringParams.windowNum.Value;
+                var mzTemp = new double[temp];
+                var intensityTemp = new double[temp];
+
+                Buffer.BlockCopy(mArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
+                Buffer.BlockCopy(intensities, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
+
+                int numPeaks = TopNpeakHelper(intensities, mArray, filteringParams);
+                Array.Resize(ref intensityTemp, numPeaks);
+                Array.Resize(ref mzTemp, numPeaks);
+                mzResults.AddRange(mzTemp);
+                intensityResults.AddRange(intensityTemp);
+            }
+            mArray = mzResults.ToArray();
+            intensities = intensityResults.ToArray();
+        }
+
         public abstract IEnumerable<TScan> GetMS1Scans();
 
         public abstract TScan GetOneBasedScan(int scanNumber);
@@ -206,66 +247,5 @@ namespace MassSpectrometry
         }
 
         #endregion Protected Classes
-
-        #region Public Classes
-        public class FilteringParams
-        {
-            public double? minRatio;
-            public int? topNpeaks;
-            public int? windowNum;
-            public bool trimMs1Peaks;
-            public bool trimMsMsPeaks;
-            //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
-            public FilteringParams(int? top = null, double? ratio = null, int? windowNum = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
-            {
-                this.topNpeaks = top;
-                this.minRatio = ratio;
-                this.windowNum = windowNum;
-                this.trimMs1Peaks = trimMs1Peaks;
-                this.trimMsMsPeaks = trimMsMsPeaks;
-            }
-
-            public int TopNpeakHelper(double[] intensities, double[] mArray)
-            {
-                IComparer<double> c = new ReverseComparer();
-                Array.Sort(intensities, mArray, c);
-
-                int numPeaks = intensities.Length;
-                if (this.minRatio.HasValue)
-                {
-                    double minIntensity = this.minRatio.Value * intensities[0];
-                    numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
-                }
-
-                if (this.topNpeaks.HasValue)
-                    numPeaks = Math.Min(this.topNpeaks.Value, numPeaks);
-                return numPeaks;
-            }
-
-            public void WindowModeHelper(ref double[] intensities, ref double[] mArray)
-            {
-                List<double> mzResults = new List<double>();
-                List<double> intensityResults = new List<double>();
-                //windowNum is the number of windows
-                for (int i = 0; i < this.windowNum; i++)
-                {
-                    int temp = (i == this.windowNum) ? intensities.Length - i * (intensities.Length / this.windowNum.Value) : intensities.Length / this.windowNum.Value;
-                    var mzTemp = new double[temp];
-                    var intensityTemp = new double[temp];
-
-                    Buffer.BlockCopy(mArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
-                    Buffer.BlockCopy(intensities, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
-
-                    int numPeaks = TopNpeakHelper(intensities, mArray);
-                    Array.Resize(ref intensityTemp, numPeaks);
-                    Array.Resize(ref mzTemp, numPeaks);
-                    mzResults.AddRange(mzTemp);
-                    intensityResults.AddRange(intensityTemp);
-                }
-                mArray = mzResults.ToArray();
-                intensities = intensityResults.ToArray();
-            }
-        }
-        #endregion
     }
 }

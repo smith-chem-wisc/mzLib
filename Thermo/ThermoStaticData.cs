@@ -37,7 +37,7 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoStaticData LoadAllStaticData(string filePath, FilteringParams filterParams = null)
+        public static ThermoStaticData LoadAllStaticData(string filePath, IFilteringParams filterParams = null)
         {
             if (CheckForMsFileReader() == false)
                 throw new MzLibException("MsFileReader Not Installed");
@@ -68,7 +68,7 @@ namespace IO.Thermo
 
             IThermoScan[] scans = new IThermoScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)
-                scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(nScanNumber, theConnection, p,filterParams);
+                scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(nScanNumber, theConnection, p, filterParams);
 
             theConnection.Close();
 

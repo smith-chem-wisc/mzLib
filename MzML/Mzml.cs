@@ -23,7 +23,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -99,8 +98,6 @@ namespace IO.MzML
 
         public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
-            if (filterParams == null)
-                filterParams = new FilteringParams();
             Generated.mzMLType _mzMLConnection;
 
             try
@@ -212,7 +209,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, FilteringParams filterParams)
+        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, IFilteringParams filterParams)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -298,18 +295,18 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if (intensities.Length > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue)
+            if (filterParams != null && intensities.Length > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue)
                 && ((filterParams.trimMs1Peaks && msOrder.Value == 1) || (filterParams.trimMsMsPeaks && msOrder.Value > 1)))
             {
-                if (filterParams.windowNum==null)
+                if (filterParams.windowNum == null)
                 {
-                    int numPeaks = filterParams.TopNpeakHelper(intensities, masses);
+                    int numPeaks = TopNpeakHelper(intensities, masses, filterParams);
                     Array.Resize(ref intensities, numPeaks);
                     Array.Resize(ref masses, numPeaks);
                 }
                 else
                 {
-                    filterParams.WindowModeHelper(ref intensities, ref masses);
+                    WindowModeHelper(ref intensities, ref masses, filterParams);
                 }
             }
             Array.Sort(masses, intensities);

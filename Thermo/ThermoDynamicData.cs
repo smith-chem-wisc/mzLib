@@ -12,13 +12,13 @@ namespace IO.Thermo
         #region Private Fields
 
         private readonly IXRawfile5 _rawConnection;
-        private readonly FilteringParams filterParams;
+        private readonly IFilteringParams filterParams;
 
         #endregion Private Fields
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, FilteringParams filterParams,  int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
         {
             this._rawConnection = _rawConnection;
             this.filterParams = filterParams;
@@ -28,10 +28,8 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoDynamicData InitiateDynamicConnection(string filePath, FilteringParams filterParams=null)
+        public static ThermoDynamicData InitiateDynamicConnection(string filePath, IFilteringParams filterParams = null)
         {
-            if (filterParams == null)
-                filterParams = new MsDataFile<IThermoScan>.FilteringParams();
             if (CheckForMsFileReader() == false)
                 throw new MzLibException("MsFileReader Not Installed");
 
