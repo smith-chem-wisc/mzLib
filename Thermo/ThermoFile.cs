@@ -4,7 +4,6 @@ using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
@@ -119,8 +118,7 @@ namespace IO.Thermo
         }
 
         protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
-            int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
-            int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
+            int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams, IFilteringParams filterParams = null)
         {
             int pnNumPackets = 0;
             double pdLowMass = 0;
@@ -225,7 +223,7 @@ namespace IO.Thermo
             }
 
             ThermoSpectrum thermoSpectrum;
-            if (data.GetLength(1) > 0 && (minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            if (filterParams != null && data.GetLength(1) > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue) && ((filterParams.ApplyTrimmingToMs1 && pnMSOrder == 1) || (filterParams.ApplyTrimmingToMsMs && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
 
@@ -233,23 +231,18 @@ namespace IO.Thermo
                 var intensityArray = new double[count];
                 Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
-
-                IComparer<double> c = new ReverseComparer();
-                Array.Sort(intensityArray, mzArray, c);
-
-                int numPeaks = intensityArray.Length;
-                if (minRatio.HasValue)
+                if (filterParams.NumberOfWindows == null)
                 {
-                    double minIntensity = minRatio.Value * intensityArray[0];
-                    numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
+                    int numPeaks = TopNpeakHelper(intensityArray, mzArray, filterParams);
+                    //the following arrays are modified after TopN helper
+                    Array.Resize(ref intensityArray, numPeaks);
+                    Array.Resize(ref mzArray, numPeaks);
                 }
-
-                if (topNpeaks.HasValue)
-                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
-
-                Array.Resize(ref intensityArray, numPeaks);
-                Array.Resize(ref mzArray, numPeaks);
-
+                //Array reference passed by value, array calues will be modified after calling
+                else
+                {
+                    WindowModeHelper(ref intensityArray, ref mzArray, filterParams);
+                }
                 Array.Sort(mzArray, intensityArray);
                 thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);
             }
