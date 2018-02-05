@@ -12,29 +12,23 @@ namespace IO.Thermo
         #region Private Fields
 
         private readonly IXRawfile5 _rawConnection;
-        private readonly bool trimMsMsPeaks;
-        private readonly bool trimMs1Peaks;
-        private readonly double? minRatio;
-        private readonly int? topNpeaks;
+        private readonly IFilteringParams filterParams;
 
         #endregion Private Fields
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
         {
             this._rawConnection = _rawConnection;
-            this.trimMsMsPeaks = trimMsMsPeaks;
-            this.trimMs1Peaks = trimMs1Peaks;
-            this.minRatio = minRatio;
-            this.topNpeaks = topNpeaks;
+            this.filterParams = filterParams;
         }
 
         #endregion Private Constructors
 
         #region Public Methods
 
-        public static ThermoDynamicData InitiateDynamicConnection(string filePath, int? topNpeaks = null, double? minRatio = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
+        public static ThermoDynamicData InitiateDynamicConnection(string filePath, IFilteringParams filterParams = null)
         {
             if (CheckForMsFileReader() == false)
                 throw new MzLibException("MsFileReader Not Installed");
@@ -70,13 +64,13 @@ namespace IO.Thermo
 
             var thermoGlobalParams = GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
 
-            return new ThermoDynamicData(_rawConnection, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
+            return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
         }
 
         public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)
-                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection, ThermoGlobalParams, topNpeaks, minRatio, trimMs1Peaks, trimMsMsPeaks);
+                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection, ThermoGlobalParams, filterParams);
             return Scans[oneBasedScanNumber - 1];
         }
 

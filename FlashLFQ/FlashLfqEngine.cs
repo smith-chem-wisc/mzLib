@@ -213,7 +213,7 @@ namespace FlashLFQ
             analysisSummaryPerFile = new string[filePaths.Length];
             allFeaturesByFile = new List<ChromatographicPeak>[filePaths.Length];
         }
-      
+
         public bool ReadIdentificationsFromTSV()
         {
             int fileNameCol = -1;
