@@ -23,24 +23,24 @@ namespace MassSpectrometry
         #region Public Constructors
 
         //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
-        public FilteringParams(int? top = null, double? ratio = null, int? windowNum = null, bool trimMs1Peaks = true, bool trimMsMsPeaks = true)
+        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, int? numberOfWindows = null, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
         {
-            this.topNpeaks = top;
-            this.minRatio = ratio;
-            this.windowNum = windowNum;
-            this.trimMs1Peaks = trimMs1Peaks;
-            this.trimMsMsPeaks = trimMsMsPeaks;
+            NumberOfPeaksToKeepPerWindow = numberOfPeaksToKeepPerWindow;
+            MinimumAllowedIntensityRatioToBasePeakM = minimumAllowedIntensityRatioToBasePeak;
+            NumberOfWindows = numberOfWindows;
+            ApplyTrimmingToMs1 = applyTrimmingToMs1;
+            ApplyTrimmingToMsMs = applyTrimmingToMsMs;
         }
 
         #endregion Public Constructors
 
         #region Public Properties
 
-        public double? minRatio { get; }
-        public int? topNpeaks { get; }
-        public int? windowNum { get; }
-        public bool trimMs1Peaks { get; }
-        public bool trimMsMsPeaks { get; }
+        public double? MinimumAllowedIntensityRatioToBasePeakM { get; }
+        public int? NumberOfPeaksToKeepPerWindow { get; }
+        public int? NumberOfWindows { get; }
+        public bool ApplyTrimmingToMs1 { get; }
+        public bool ApplyTrimmingToMsMs { get; }
 
         #endregion Public Properties
     }

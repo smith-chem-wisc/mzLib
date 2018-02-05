@@ -83,14 +83,14 @@ namespace MassSpectrometry
             Array.Sort(intensities, mArray, c);
 
             int numPeaks = intensities.Length;
-            if (filteringParams.minRatio.HasValue)
+            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
             {
-                double minIntensity = filteringParams.minRatio.Value * intensities[0];
+                double minIntensity = filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value * intensities[0];
                 numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
             }
 
-            if (filteringParams.topNpeaks.HasValue)
-                numPeaks = Math.Min(filteringParams.topNpeaks.Value, numPeaks);
+            if (filteringParams.NumberOfPeaksToKeepPerWindow.HasValue)
+                numPeaks = Math.Min(filteringParams.NumberOfPeaksToKeepPerWindow.Value, numPeaks);
             return numPeaks;
         }
 
@@ -99,9 +99,9 @@ namespace MassSpectrometry
             List<double> mzResults = new List<double>();
             List<double> intensityResults = new List<double>();
             //windowNum is the number of windows
-            for (int i = 0; i < filteringParams.windowNum; i++)
+            for (int i = 0; i < filteringParams.NumberOfWindows; i++)
             {
-                int temp = (i == filteringParams.windowNum) ? intensities.Length - i * (intensities.Length / filteringParams.windowNum.Value) : intensities.Length / filteringParams.windowNum.Value;
+                int temp = (i == filteringParams.NumberOfWindows) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : intensities.Length / filteringParams.NumberOfWindows.Value;
                 var mzTemp = new double[temp];
                 var intensityTemp = new double[temp];
 

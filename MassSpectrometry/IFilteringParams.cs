@@ -22,11 +22,11 @@ namespace MassSpectrometry
     {
         #region Public Properties
 
-        double? minRatio { get; }
-        int? topNpeaks { get; }
-        int? windowNum { get; }
-        bool trimMs1Peaks { get; }
-        bool trimMsMsPeaks { get; }
+        double? MinimumAllowedIntensityRatioToBasePeakM { get; }
+        int? NumberOfPeaksToKeepPerWindow { get; }
+        int? NumberOfWindows { get; }
+        bool ApplyTrimmingToMs1 { get; }
+        bool ApplyTrimmingToMsMs { get; }
 
         #endregion Public Properties
     }

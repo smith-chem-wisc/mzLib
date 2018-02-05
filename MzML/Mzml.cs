@@ -295,10 +295,10 @@ namespace IO.MzML
                     intensities = data;
             }
 
-            if (filterParams != null && intensities.Length > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue)
-                && ((filterParams.trimMs1Peaks && msOrder.Value == 1) || (filterParams.trimMsMsPeaks && msOrder.Value > 1)))
+            if (filterParams != null && intensities.Length > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
+                && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
             {
-                if (filterParams.windowNum == null)
+                if (filterParams.NumberOfWindows == null)
                 {
                     int numPeaks = TopNpeakHelper(intensities, masses, filterParams);
                     Array.Resize(ref intensities, numPeaks);

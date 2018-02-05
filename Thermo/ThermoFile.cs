@@ -222,7 +222,7 @@ namespace IO.Thermo
             }
 
             ThermoSpectrum thermoSpectrum;
-            if (filterParams != null && data.GetLength(1) > 0 && (filterParams.minRatio.HasValue || filterParams.topNpeaks.HasValue) && ((filterParams.trimMs1Peaks && pnMSOrder == 1) || (filterParams.trimMsMsPeaks && pnMSOrder > 1)))
+            if (filterParams != null && data.GetLength(1) > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue) && ((filterParams.ApplyTrimmingToMs1 && pnMSOrder == 1) || (filterParams.ApplyTrimmingToMsMs && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
 
@@ -230,7 +230,7 @@ namespace IO.Thermo
                 var intensityArray = new double[count];
                 Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
-                if (filterParams.windowNum == null)
+                if (filterParams.NumberOfWindows == null)
                 {
                     int numPeaks = TopNpeakHelper(intensityArray, mzArray, filterParams);
                     //the following arrays are modified after TopN helper
