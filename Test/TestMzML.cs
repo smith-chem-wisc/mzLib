@@ -481,27 +481,27 @@ namespace Test
 
 
         [Test]
-        public void Mzid111Test()
+        public static void Mzid111Test()
         {
             XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML111.Generated.MzIdentMLType111));
-            var _mzid = new mzIdentML111.Generated.MzIdentMLType111()
+            var _mzid = new mzIdentML111.Generated.MzIdentMLType111
             {
                 DataCollection = new mzIdentML111.Generated.DataCollectionType()
             };
-            _mzid.DataCollection.AnalysisData = new mzIdentML111.Generated.AnalysisDataType()
+            _mzid.DataCollection.AnalysisData = new mzIdentML111.Generated.AnalysisDataType
             {
                 SpectrumIdentificationList = new mzIdentML111.Generated.SpectrumIdentificationListType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0] = new mzIdentML111.Generated.SpectrumIdentificationListType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0] = new mzIdentML111.Generated.SpectrumIdentificationListType
             {
                 SpectrumIdentificationResult = new mzIdentML111.Generated.SpectrumIdentificationResultType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML111.Generated.SpectrumIdentificationResultType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML111.Generated.SpectrumIdentificationResultType
             {
                 spectrumID = "spectrum 2",
                 SpectrumIdentificationItem = new mzIdentML111.Generated.SpectrumIdentificationItemType[50]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML111.Generated.SpectrumIdentificationItemType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML111.Generated.SpectrumIdentificationItemType
             {
                 experimentalMassToCharge = 1134.2609130203 + 0.000001 * 1134.2609130203 + 0.000001,
                 calculatedMassToCharge = 1134.26091302033,
@@ -509,7 +509,7 @@ namespace Test
                 chargeState = 3,
                 cvParam = new mzIdentML111.Generated.CVParamType[1]
                 {
-                    new mzIdentML111.Generated.CVParamType()
+                    new mzIdentML111.Generated.CVParamType
                     {
                     accession = "MS:1002354",
                     value = "0.05"
@@ -518,11 +518,11 @@ namespace Test
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML111.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML111.Generated.IonTypeType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML111.Generated.IonTypeType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML111.Generated.IonTypeType
             {
                 FragmentArray = new mzIdentML111.Generated.FragmentArrayType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML111.Generated.FragmentArrayType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML111.Generated.FragmentArrayType
             {
                 values = new float[3] { 200, 300, 400 }
             };
@@ -639,7 +639,7 @@ namespace Test
 
 
         [Test]
-        public void Mzid120Test()
+        public static void Mzid120Test()
         {
             XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML120.Generated.MzIdentMLType120));
             var _mzid = new mzIdentML120.Generated.MzIdentMLType120()

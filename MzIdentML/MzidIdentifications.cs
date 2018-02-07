@@ -251,7 +251,8 @@ namespace MzIdentML
             {
                 try
                 {
-                    foreach (mzIdentML111.Generated.PeptideEvidenceRefType pe in dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
+                    foreach (mzIdentML111.Generated.PeptideEvidenceRefType pe 
+                        in dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                     {
                         string peptideEvidenceRef = pe.peptideEvidence_ref;
                         foreach (var ok in dd111.SequenceCollection.PeptideEvidence)
@@ -266,7 +267,8 @@ namespace MzIdentML
                 }
                 catch
                 {
-                    foreach (mzIdentML120.Generated.PeptideEvidenceRefType pe in dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
+                    foreach (mzIdentML120.Generated.PeptideEvidenceRefType pe 
+                        in dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                     {
                         string peptideEvidenceRef = pe.peptideEvidence_ref;
                         foreach (var ok in dd120.SequenceCollection.PeptideEvidence)
@@ -288,19 +290,22 @@ namespace MzIdentML
         {
             try
             {
-                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                    Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
                 return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
             }
             catch
             {
                 try
                 {
-                    var cvParam = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                    var cvParam = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                        Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
                     return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
                 }
                 catch
                 {
-                    var cvParam = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
+                    var cvParam = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                        Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
                     return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
                 }
                 
