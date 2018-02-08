@@ -21,8 +21,4 @@
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
   
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="xcopy /y /d  &quot;$(SolutionDir)x64\$(Configuration)\*.dll&quot; &quot;$(ProjectDir)$(OutDir)&quot;" />
-  </Target>
-  
 </Project>
