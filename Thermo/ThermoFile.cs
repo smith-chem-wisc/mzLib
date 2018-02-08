@@ -4,7 +4,6 @@ using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
@@ -57,7 +56,34 @@ namespace IO.Thermo
 
         #region Public Methods
 
-        public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
+        public static bool CheckForMsFileReader()
+        {
+            const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
+            //Check if Thermo File Reader Exists
+            try
+            {
+                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
+                Activator.CreateInstance(thermoReader);
+            }
+            catch (COMException ex)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        public override IEnumerable<IThermoScan> GetMS1Scans()
+        {
+            for (int i = 0; i < ThermoGlobalParams.msOrderByScan.Length; i++)
+                if (ThermoGlobalParams.msOrderByScan[i] == 1)
+                    yield return GetOneBasedScan(i + 1);
+        }
+
+        #endregion Public Methods
+
+        #region Protected Methods
+
+        protected static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
         {
             int pnNumInstMethods = 0;
             _rawConnection.GetNumInstMethods(ref pnNumInstMethods);
@@ -90,30 +116,8 @@ namespace IO.Thermo
             return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }
 
-
-        public static bool CheckForMsFileReader()
-        {
-
-            const string THERMO_READER_CLSID = "{1d23188d-53fe-4c25-b032-dc70acdbdc02}";
-            //Check if Thermo File Reader Exists
-            try
-            {
-                var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
-                Activator.CreateInstance(thermoReader);
-            }
-            catch (COMException ex)
-            {
-                return false;
-            }
-            return true;
-        }
-        #endregion Public Methods
-
-        #region Protected Methods
-
         protected static IThermoScan GetMsDataOneBasedScanFromThermoFile(
-            int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams,
-            int? topNpeaks, double? minRatio, bool trimMs1Peaks, bool trimMsMsPeaks)
+            int nScanNumber, IXRawfile5 theConnection, ThermoGlobalParams globalParams, IFilteringParams filterParams = null)
         {
             int pnNumPackets = 0;
             double pdLowMass = 0;
@@ -218,7 +222,7 @@ namespace IO.Thermo
             }
 
             ThermoSpectrum thermoSpectrum;
-            if ((minRatio.HasValue || topNpeaks.HasValue) && ((trimMs1Peaks && pnMSOrder == 1) || (trimMsMsPeaks && pnMSOrder > 1)))
+            if (filterParams != null && data.GetLength(1) > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue) && ((filterParams.ApplyTrimmingToMs1 && pnMSOrder == 1) || (filterParams.ApplyTrimmingToMsMs && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
 
@@ -226,23 +230,18 @@ namespace IO.Thermo
                 var intensityArray = new double[count];
                 Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
-
-                IComparer<double> c = new ReverseComparer();
-                Array.Sort(intensityArray, mzArray, c);
-
-                int numPeaks = intensityArray.Length;
-                if (minRatio.HasValue)
+                if (filterParams.NumberOfWindows == null)
                 {
-                    double minIntensity = minRatio.Value * intensityArray[0];
-                    numPeaks = Math.Min(intensityArray.Count(b => b >= minIntensity), numPeaks);
+                    int numPeaks = TopNpeakHelper(intensityArray, mzArray, filterParams);
+                    //the following arrays are modified after TopN helper
+                    Array.Resize(ref intensityArray, numPeaks);
+                    Array.Resize(ref mzArray, numPeaks);
                 }
-
-                if (topNpeaks.HasValue)
-                    numPeaks = Math.Min(topNpeaks.Value, numPeaks);
-
-                Array.Resize(ref intensityArray, numPeaks);
-                Array.Resize(ref mzArray, numPeaks);
-
+                //Array reference passed by value, array calues will be modified after calling
+                else
+                {
+                    WindowModeHelper(ref intensityArray, ref mzArray, filterParams);
+                }
                 Array.Sort(mzArray, intensityArray);
                 thermoSpectrum = new ThermoSpectrum(mzArray, intensityArray, false);
             }
@@ -281,7 +280,7 @@ namespace IO.Thermo
                 int oneBasedPrecursorScanNumber;
                 if (precursorInfo.nScanNumber > 0)
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
-                else if(masterScanfromTrailierExtra.HasValue)
+                else if (masterScanfromTrailierExtra.HasValue)
                     oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
                 else
                 {

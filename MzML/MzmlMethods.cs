@@ -330,7 +330,6 @@ namespace IO.MzML
                 name = "Conversion to mzML",
                 value = ""
             };
-        
 
             mzML.run = new Generated.RunType()
             {
@@ -468,7 +467,6 @@ namespace IO.MzML
                     id = myMsDataFile.GetOneBasedScan(i).NativeId,
                     cvParam = new Generated.CVParamType[9],
                     scanList = new Generated.ScanListType()
-                    
                 };
 
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()

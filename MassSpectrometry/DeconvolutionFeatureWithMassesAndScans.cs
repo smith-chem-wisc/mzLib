@@ -84,11 +84,11 @@ namespace MassSpectrometry
             int maxCharge = groups.SelectMany(p => p.AllCharges).Max();
             var t = groups.SelectMany(p => p.isotopicEnvelopes);
             string elutionString = "";
-            for(int z = 1; z <= maxCharge; z++)
+            for (int z = 1; z <= maxCharge; z++)
             {
                 string str = "[" + z + "|";
                 var isotopicEnvelopes = t.Where(p => p.isotopicEnvelope.charge == z);
-                foreach(var envelope in isotopicEnvelopes)
+                foreach (var envelope in isotopicEnvelopes)
                 {
                     str += Math.Round(envelope.elutionTime, 2) + ";" + envelope.isotopicEnvelope.totalIntensity + ",";
                 }

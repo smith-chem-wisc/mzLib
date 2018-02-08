@@ -30,17 +30,20 @@
     <file src="Spectra\bin\Release\netstandard2.0\Spectra.dll" target="lib\netstandard2.0" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\netstandard2.0\UsefulProteomicsDatabases.dll" target="lib\netstandard2.0" /> 
     <file src="MzLibUtil\bin\Release\netstandard2.0\MzLibUtil.dll" target="lib\netstandard2.0" /> 
+    <file src="FlashLFQ\bin\Release\netstandard2.0\FlashLFQ.dll" target="lib\netstandard2.0" /> 
     
     <file src="Chemistry\bin\Release\net45\Chemistry.dll" target="lib\net45" /> 
     <file src="MzIdentML\bin\Release\net45\MzIdentML.dll" target="lib\net45" /> 
     <file src="MzML\bin\Release\net45\MzML.dll" target="lib\net45" /> 
     <file src="pepXML\bin\Release\net45\pepXML.dll" target="lib\net45" /> 
-    <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib\net45" /> 
     <file src="MassSpectrometry\bin\Release\net45\MassSpectrometry.dll" target="lib\net45" /> 
     <file src="Proteomics\bin\Release\net45\Proteomics.dll" target="lib\net45" /> 
     <file src="Spectra\bin\Release\net45\Spectra.dll" target="lib\net45" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\net45\UsefulProteomicsDatabases.dll" target="lib\net45" /> 
     <file src="MzLibUtil\bin\Release\net45\MzLibUtil.dll" target="lib\net45" /> 
+    <file src="FlashLFQ\bin\Release\net45\FlashLFQ.dll" target="lib\net45" /> 
+
+    <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib\net45" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib\net45" /> 
     <file src="x64\Release\UnmanagedThermoHelperLayer.dll" target="build\net45" /> 
     <file src="mzLib.targets" target="build\net45" />

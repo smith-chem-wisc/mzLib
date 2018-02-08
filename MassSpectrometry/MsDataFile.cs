@@ -77,6 +77,49 @@ namespace MassSpectrometry
 
         #region Public Methods
 
+        public static int TopNpeakHelper(double[] intensities, double[] mArray, IFilteringParams filteringParams)
+        {
+            IComparer<double> c = new ReverseComparer();
+            Array.Sort(intensities, mArray, c);
+
+            int numPeaks = intensities.Length;
+            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
+            {
+                double minIntensity = filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value * intensities[0];
+                numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
+            }
+
+            if (filteringParams.NumberOfPeaksToKeepPerWindow.HasValue)
+                numPeaks = Math.Min(filteringParams.NumberOfPeaksToKeepPerWindow.Value, numPeaks);
+            return numPeaks;
+        }
+
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
+        {
+            List<double> mzResults = new List<double>();
+            List<double> intensityResults = new List<double>();
+            //windowNum is the number of windows
+            for (int i = 0; i < filteringParams.NumberOfWindows; i++)
+            {
+                int temp = (i == filteringParams.NumberOfWindows) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : intensities.Length / filteringParams.NumberOfWindows.Value;
+                var mzTemp = new double[temp];
+                var intensityTemp = new double[temp];
+
+                Buffer.BlockCopy(mArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
+                Buffer.BlockCopy(intensities, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
+
+                int numPeaks = TopNpeakHelper(intensities, mArray, filteringParams);
+                Array.Resize(ref intensityTemp, numPeaks);
+                Array.Resize(ref mzTemp, numPeaks);
+                mzResults.AddRange(mzTemp);
+                intensityResults.AddRange(intensityTemp);
+            }
+            mArray = mzResults.ToArray();
+            intensities = intensityResults.ToArray();
+        }
+
+        public abstract IEnumerable<TScan> GetMS1Scans();
+
         public abstract TScan GetOneBasedScan(int scanNumber);
 
         public IEnumerable<TScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
