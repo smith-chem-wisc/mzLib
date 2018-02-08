@@ -24,7 +24,7 @@ namespace mzIdentML110.Generated
     [System.ComponentModel.DesignerCategoryAttribute("code")]
     [System.Xml.Serialization.XmlTypeAttribute(Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1")]
     [System.Xml.Serialization.XmlRootAttribute("MzIdentML", Namespace = "http://psidev.info/psi/pi/mzIdentML/1.1", IsNullable = false)]
-    public partial class MzIdentMLType : IdentifiableType
+    public partial class MzIdentMLType110 : IdentifiableType
     {
 
         private cvType[] cvListField;
@@ -878,7 +878,7 @@ namespace mzIdentML110.Generated
     [System.Xml.Serialization.XmlIncludeAttribute(typeof(PersonType))]
     [System.Xml.Serialization.XmlIncludeAttribute(typeof(ProviderType))]
     [System.Xml.Serialization.XmlIncludeAttribute(typeof(AnalysisSoftwareType))]
-    [System.Xml.Serialization.XmlIncludeAttribute(typeof(MzIdentMLType))]
+    [System.Xml.Serialization.XmlIncludeAttribute(typeof(MzIdentMLType110))]
     [System.CodeDom.Compiler.GeneratedCodeAttribute("xsd", "4.7.2046.0")]
     [System.SerializableAttribute()]
     [System.Diagnostics.DebuggerStepThroughAttribute()]
