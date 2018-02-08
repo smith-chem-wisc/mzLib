@@ -2,6 +2,7 @@
 {
     public class SequenceVariation
     {
+
         #region Public Constructors
 
         /// <summary>
@@ -38,12 +39,12 @@
         /// <summary>
         /// Beginning position of original sequence to be replaced
         /// </summary>
-        public int OneBasedBeginPosition { get; set; }
+        public long OneBasedBeginPosition { get; set; }
 
         /// <summary>
         /// End position of original sequence to be replaced
         /// </summary>
-        public int OneBasedEndPosition { get; set; }
+        public long OneBasedEndPosition { get; set; }
 
         /// <summary>
         /// Original sequence information (optional)
@@ -85,5 +86,6 @@
         }
 
         #endregion Public Methods
+
     }
 }
