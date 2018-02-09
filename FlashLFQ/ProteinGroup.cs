@@ -10,8 +10,21 @@ namespace FlashLFQ
         public static List<RawFileInfo> rawFiles;
         public readonly string ProteinGroupName;
         public Dictionary<RawFileInfo, double> intensities;
-        
+
         #endregion Public Fields
+
+        #region Public Constructors
+
+        public ProteinGroup(string proteinGroupName)
+        {
+            this.ProteinGroupName = proteinGroupName;
+            this.intensities = new Dictionary<RawFileInfo, double>();
+
+            foreach (var file in rawFiles)
+                intensities.Add(file, 0);
+        }
+
+        #endregion Public Constructors
 
         #region Public Properties
 
@@ -28,19 +41,6 @@ namespace FlashLFQ
         }
 
         #endregion Public Properties
-
-        #region Public Constructors
-
-        public ProteinGroup(string proteinGroupName)
-        {
-            this.ProteinGroupName = proteinGroupName;
-            this.intensities = new Dictionary<RawFileInfo, double>();
-
-            foreach (var file in rawFiles)
-                intensities.Add(file, 0);
-        }
-
-        #endregion Public Constructors
 
         #region Public Methods
 

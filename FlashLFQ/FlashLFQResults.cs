@@ -1,18 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace FlashLFQ
 {
     public class FlashLFQResults
     {
-        public string log;
+        #region Public Fields
+
         public static List<RawFileInfo> rawFiles;
+        public string log;
         public Dictionary<string, Peptide> peptideBaseSequences;
         public Dictionary<string, Peptide> peptideModifiedSequences;
         public Dictionary<string, ProteinGroup> proteinGroups;
         public Dictionary<RawFileInfo, List<ChromatographicPeak>> peaks;
+
+        #endregion Public Fields
+
+        #region Public Constructors
 
         public FlashLFQResults()
         {
@@ -21,6 +25,10 @@ namespace FlashLFQ
             proteinGroups = new Dictionary<string, ProteinGroup>();
             peaks = new Dictionary<RawFileInfo, List<ChromatographicPeak>>();
         }
+
+        #endregion Public Constructors
+
+        #region Public Methods
 
         public void CalculatePeptideResults(bool sumByBaseSequenceNotModifiedSequence)
         {
@@ -31,7 +39,7 @@ namespace FlashLFQ
 
                 foreach (var peak in file.Value)
                 {
-                    foreach(var id in peak.identifyingScans)
+                    foreach (var id in peak.identifyingScans)
                     {
                         string seq = id.BaseSequence;
                         if (!sumByBaseSequenceNotModifiedSequence)
@@ -65,12 +73,12 @@ namespace FlashLFQ
                         if (intensity == 0)
                             detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
 
-                        if (sequence.Value.Max(p => p.numIdentificationsByBaseSeq) > 1)
+                        if (sequence.Value.Max(p => p.NumIdentificationsByBaseSeq) > 1)
                         {
-                            double ambigPeakIntensity = sequence.Value.Where(p => p.numIdentificationsByBaseSeq > 1).Sum(v => v.intensity);
+                            double ambigPeakIntensity = sequence.Value.Where(p => p.NumIdentificationsByBaseSeq > 1).Sum(v => v.intensity);
 
                             if ((ambigPeakIntensity / intensity) < 0.3)
-                                intensity = sequence.Value.Select(p => (p.intensity / p.numIdentificationsByBaseSeq)).Sum();
+                                intensity = sequence.Value.Select(p => (p.intensity / p.NumIdentificationsByBaseSeq)).Sum();
                             else
                             {
                                 detectionType = DetectionType.MSMSAmbiguousPeakfinding;
@@ -80,7 +88,7 @@ namespace FlashLFQ
                     }
 
                     // store intensity and detection type for this peptide and file
-                    if(sumByBaseSequenceNotModifiedSequence)
+                    if (sumByBaseSequenceNotModifiedSequence)
                     {
                         peptideBaseSequences[sequence.Key].intensities[file.Key] = intensity;
                         peptideBaseSequences[sequence.Key].detectionTypes[file.Key] = detectionType;
@@ -100,9 +108,9 @@ namespace FlashLFQ
         {
             // get all peptides without ambiguous peaks
             var allFeatures = peaks.Values.SelectMany(p => p).ToList();
-            var allAmbiguousFeatures = allFeatures.Where(p => p.numIdentificationsByBaseSeq > 1).ToList();
+            var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByBaseSeq > 1).ToList();
             var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.identifyingScans.Select(v => v.BaseSequence)));
-            
+
             foreach (var feature in allFeatures)
                 if (ambiguousFeatureSeqs.Contains(feature.identifyingScans.First().BaseSequence))
                     allAmbiguousFeatures.Add(feature);
@@ -125,12 +133,14 @@ namespace FlashLFQ
             // calculate protein's intensity for this file
             foreach (var proteinGroupsFeatures in proteinsWithFeatures)
             {
-                foreach(var feature in proteinGroupsFeatures.Value)
+                foreach (var feature in proteinGroupsFeatures.Value)
                 {
                     int numProteinGroupsClaimingThisFeature = feature.identifyingScans.SelectMany(p => p.proteinGroups).Distinct().Count();
                     proteinGroupsFeatures.Key.intensities[feature.rawFileInfo] += (feature.intensity / numProteinGroupsClaimingThisFeature);
                 }
             }
         }
+
+        #endregion Public Methods
     }
 }

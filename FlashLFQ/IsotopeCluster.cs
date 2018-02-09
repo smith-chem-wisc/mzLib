@@ -6,8 +6,8 @@
 
         public readonly IndexedMassSpectralPeak indexedPeak;
         public readonly int chargeState;
-        public double isotopeClusterIntensity;
         public readonly double retentionTime;
+        public double isotopeClusterIntensity;
 
         #endregion Public Fields
 

@@ -1,11 +1,9 @@
-﻿using MassSpectrometry;
-
-namespace FlashLFQ
+﻿namespace FlashLFQ
 {
     public class IndexedMassSpectralPeak
     {
         #region Public Fields
-        
+
         public readonly int zeroBasedIndexOfPeakInScan;
         public readonly double intensity;
         public readonly int oneBasedScanNumber;
