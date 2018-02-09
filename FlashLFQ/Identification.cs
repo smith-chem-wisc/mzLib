@@ -10,11 +10,11 @@ namespace FlashLFQ
         public readonly string ModifiedSequence;
         public readonly double ms2RetentionTimeInMinutes;
         public readonly double monoisotopicMass;
-        public int precursorChargeState;
         public readonly List<string> proteinGroupNames;
+        public readonly RawFileInfo fileInfo;
+        public int precursorChargeState;
         public HashSet<ProteinGroup> proteinGroups;
         public double massToLookFor;
-        public readonly RawFileInfo fileInfo;
 
         #endregion Public Fields
 

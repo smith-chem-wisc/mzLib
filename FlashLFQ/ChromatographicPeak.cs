@@ -26,9 +26,9 @@ namespace FlashLFQ
         {
             splitRT = 0;
             numChargeStatesObserved = 0;
-            massError = double.NaN;
-            numIdentificationsByBaseSeq = 1;
-            numIdentificationsByFullSeq = 1;
+            MassError = double.NaN;
+            NumIdentificationsByBaseSeq = 1;
+            NumIdentificationsByFullSeq = 1;
             identifyingScans = new List<Identification>();
             isotopeClusters = new List<IsotopeCluster>();
         }
@@ -67,9 +67,9 @@ namespace FlashLFQ
             }
         }
 
-        public int numIdentificationsByBaseSeq { get; private set; }
-        public int numIdentificationsByFullSeq { get; private set; }
-        public double massError { get; private set; }
+        public int NumIdentificationsByBaseSeq { get; private set; }
+        public int NumIdentificationsByFullSeq { get; private set; }
+        public double MassError { get; private set; }
 
         #endregion Public Properties
 
@@ -86,7 +86,7 @@ namespace FlashLFQ
                 else
                     intensity = apexPeak.isotopeClusterIntensity;
 
-                massError = ((ClassExtensions.ToMass(apexPeak.indexedPeak.mz, apexPeak.chargeState) - identifyingScans.First().massToLookFor) / identifyingScans.First().massToLookFor) * 1e6;
+                MassError = ((ClassExtensions.ToMass(apexPeak.indexedPeak.mz, apexPeak.chargeState) - identifyingScans.First().massToLookFor) / identifyingScans.First().massToLookFor) * 1e6;
                 numChargeStatesObserved = isotopeClusters.Select(p => p.chargeState).Distinct().Count();
             }
             else
@@ -112,8 +112,8 @@ namespace FlashLFQ
 
         public void ResolveIdentifications()
         {
-            this.numIdentificationsByBaseSeq = identifyingScans.Select(v => v.BaseSequence).Distinct().Count();
-            this.numIdentificationsByFullSeq = identifyingScans.Select(v => v.ModifiedSequence).Distinct().Count();
+            this.NumIdentificationsByBaseSeq = identifyingScans.Select(v => v.BaseSequence).Distinct().Count();
+            this.NumIdentificationsByFullSeq = identifyingScans.Select(v => v.ModifiedSequence).Distinct().Count();
         }
 
         override public string ToString()
@@ -165,10 +165,10 @@ namespace FlashLFQ
                 sb.Append("" + "MSMS" + "\t");
 
             sb.Append("" + identifyingScans.Count + "\t");
-            sb.Append("" + numIdentificationsByBaseSeq + "\t");
-            sb.Append("" + numIdentificationsByFullSeq + "\t");
+            sb.Append("" + NumIdentificationsByBaseSeq + "\t");
+            sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + splitRT + "\t");
-            sb.Append("" + massError);
+            sb.Append("" + MassError);
 
             return sb.ToString();
         }

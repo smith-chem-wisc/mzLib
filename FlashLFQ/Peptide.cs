@@ -5,8 +5,7 @@ using System.Text;
 namespace FlashLFQ
 {
     public enum DetectionType { MSMS, MBR, NotDetected, MSMSAmbiguousPeakfinding, MSMSIdentifiedButNotQuantified }
-    
-    
+
     public class Peptide
     {
         #region Public Fields
@@ -18,6 +17,23 @@ namespace FlashLFQ
         public HashSet<ProteinGroup> proteinGroups;
 
         #endregion Public Fields
+
+        #region Public Constructors
+
+        public Peptide(string sequence)
+        {
+            this.Sequence = sequence;
+            intensities = new Dictionary<RawFileInfo, double>();
+            detectionTypes = new Dictionary<RawFileInfo, DetectionType>();
+            proteinGroups = new HashSet<ProteinGroup>();
+
+            foreach (var file in rawFiles)
+                intensities.Add(file, 0);
+            foreach (var file in rawFiles)
+                detectionTypes.Add(file, DetectionType.NotDetected);
+        }
+
+        #endregion Public Constructors
 
         #region Public Properties
 
@@ -38,22 +54,6 @@ namespace FlashLFQ
 
         #endregion Public Properties
 
-        #region Public Constructors
-
-        public Peptide(string sequence)
-        {
-            this.Sequence = sequence;
-            intensities = new Dictionary<RawFileInfo, double>();
-            detectionTypes = new Dictionary<RawFileInfo, DetectionType>();
-            proteinGroups = new HashSet<ProteinGroup>();
-
-            foreach (var file in rawFiles)
-                intensities.Add(file, 0);
-            foreach (var file in rawFiles)
-                detectionTypes.Add(file, DetectionType.NotDetected);
-        }
-        #endregion Public Constructors
-
         #region Public Methods
 
         public override string ToString()
@@ -69,7 +69,7 @@ namespace FlashLFQ
 
             return str.ToString();
         }
-        
+
         public override int GetHashCode()
         {
             return Sequence.GetHashCode();

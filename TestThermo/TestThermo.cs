@@ -102,7 +102,7 @@ namespace TestThermo
 
             var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 1, 10, 1, 4).ToList();
 
-            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Item1.ToMass(b.charge) - 523.257) < 0.001));
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().mz.ToMass(b.charge) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
 

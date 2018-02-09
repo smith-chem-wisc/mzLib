@@ -1,9 +1,7 @@
 ﻿using FlashLFQ;
 using IO.MzML;
 using IO.Thermo;
-using MassSpectrometry;
 using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -22,7 +20,7 @@ namespace Test
             // get the raw file paths
             RawFileInfo raw = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"));
             RawFileInfo mzml = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"));
-            
+
             // create some PSMs
             Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
             Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });

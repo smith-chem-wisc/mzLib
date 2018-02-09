@@ -15,6 +15,30 @@ namespace FlashLFQ
 {
     public class FlashLFQEngine
     {
+        #region Public Fields
+
+        // settings
+        public readonly bool silent;
+
+        public readonly int maxThreads;
+        public readonly double peakfindingPpmTolerance;
+        public readonly double ppmTolerance;
+        public readonly double rtTol;
+        public readonly double isotopePpmTolerance;
+        public readonly bool integrate;
+        public readonly int missedScansAllowed;
+        public readonly int numIsotopesRequired;
+        public readonly double mbrRtWindow;
+        public readonly double initialMbrRtWindow;
+        public readonly double mbrppmTolerance;
+        public readonly bool errorCheckAmbiguousMatches;
+        public readonly bool mbr;
+        public readonly bool idSpecificChargeState;
+        public readonly double qValueCutoff;
+        public readonly bool requireMonoisotopicMass;
+
+        #endregion Public Fields
+
         #region Private Fields
 
         private List<RawFileInfo> rawFileInformation;
@@ -70,41 +94,18 @@ namespace FlashLFQ
 
         #endregion Public Constructors
 
-        #region Public Properties
-        
-        // settings
-        public readonly bool silent;
-        public readonly int maxThreads;
-        public readonly double peakfindingPpmTolerance;
-        public readonly double ppmTolerance;
-        public readonly double rtTol;
-        public readonly double isotopePpmTolerance;
-        public readonly bool integrate;
-        public readonly int missedScansAllowed;
-        public readonly int numIsotopesRequired;
-        public readonly double mbrRtWindow;
-        public readonly double initialMbrRtWindow;
-        public readonly double mbrppmTolerance;
-        public readonly bool errorCheckAmbiguousMatches;
-        public readonly bool mbr;
-        public readonly bool idSpecificChargeState;
-        public readonly double qValueCutoff;
-        public readonly bool requireMonoisotopicMass;
-        
-        #endregion Public Properties
-
         #region Public Methods
 
         public FlashLFQResults Run()
         {
             results = new FlashLFQResults();
-            
+
             globalStopwatch.Start();
-            
+
             // construct protein groups (intensities written later)
             foreach (var pg in allIdentifications.SelectMany(p => p.proteinGroupNames).Distinct())
                 proteinGroupNameToProteinGroup.Add(pg, new ProteinGroup(pg));
-            foreach(var id in allIdentifications)
+            foreach (var id in allIdentifications)
                 foreach (var pg in id.proteinGroupNames)
                     id.proteinGroups.Add(proteinGroupNameToProteinGroup[pg]);
             results.proteinGroups = proteinGroupNameToProteinGroup;
@@ -119,12 +120,12 @@ namespace FlashLFQ
             foreach (var modifiedSeq in allIdentifications.Select(p => p.ModifiedSequence).Distinct())
                 modifiedSequences.Add(modifiedSeq, new Peptide(modifiedSeq));
             results.peptideModifiedSequences = modifiedSequences;
-            
+
             // build m/z index keys
             ConstructIndexKeysFromIdentifications();
 
             // quantify each file
-            foreach(var fileInfo in rawFileInformation)
+            foreach (var fileInfo in rawFileInformation)
             {
                 GC.Collect();
 
@@ -141,7 +142,7 @@ namespace FlashLFQ
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
                 RunErrorChecking(fileInfo);
-                
+
                 if (!silent)
                     Console.WriteLine("Finished " + fileInfo.filenameWithoutExtension);
 
@@ -149,7 +150,7 @@ namespace FlashLFQ
                 if (fileInfo.clearAfterDone)
                     fileInfo.dataFile = null;
                 allMs1Scans = null;
-                
+
                 fileInfo.analysisSummary = "File analysis time = " + fileLocalStopwatch.Elapsed.ToString();
             }
 
@@ -171,7 +172,7 @@ namespace FlashLFQ
                     globalStopwatch.Elapsed.Hours + "h " +
                     globalStopwatch.Elapsed.Minutes + "m " +
                     globalStopwatch.Elapsed.Seconds + "s");
-            
+
             return results;
         }
 
@@ -186,7 +187,7 @@ namespace FlashLFQ
 
             // get all unambiguous peaks for all files
             var allFeatures = results.peaks.SelectMany(p => p.Value).Where(p => !p.isMbrFeature);
-            var allAmbiguousFeatures = allFeatures.Where(p => p.numIdentificationsByFullSeq > 1).ToList();
+            var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
             var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.identifyingScans.Select(v => v.ModifiedSequence)));
 
             foreach (var feature in allFeatures)
@@ -282,7 +283,7 @@ namespace FlashLFQ
                         else
                             rtCalibrationDictionary.Add(intRt, new List<double> { rt.Item1 - rt.Item2 });
                     }
-                    
+
                     // create spline
                     // index is minute of source, double is rt calibration factor (in minutes) for destination file
                     double[] rtCalRunningSpline = new double[maxRt + 1];
@@ -355,7 +356,7 @@ namespace FlashLFQ
                             }
                         }
                     }
-                    
+
                     // finished rt calibration for these 2 files; now use rt cal spline to find matched features
                     var allMatchedFeaturesToLookForNow = allMbrFeaturesForThisFile.Where(p => p.identifyingScans.First().fileInfo.Equals(otherFile.Key)).ToList();
 
@@ -382,17 +383,17 @@ namespace FlashLFQ
                                 mbrFeature.isotopeClusters = new List<IsotopeCluster>();
                         }
                     }
-                    
+
                     foreach (var feature in allMatchedFeaturesToLookForNow)
                         if (feature.isotopeClusters.Any())
                             feature.CalculateIntensityForThisFeature(integrate);
                 }
             }
 
-            foreach(var file in rawFileInformation)
+            foreach (var file in rawFileInformation)
                 RunErrorChecking(file);
         }
-        
+
         private void ConstructIndexKeysFromIdentifications()
         {
             // start making index
@@ -472,7 +473,7 @@ namespace FlashLFQ
                 }
             }
         }
-        
+
         private Dictionary<double, List<IndexedMassSpectralPeak>> IndexMassSpectralPeaks(RawFileInfo fileInfo, out Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>> allMs1Scans)
         {
             // construct bins
@@ -482,7 +483,7 @@ namespace FlashLFQ
 
             // open raw file
             var ext = Path.GetExtension(fileInfo.fullFilePathWithExtension).ToUpperInvariant();
-            if(ext == ".MZML")
+            if (ext == ".MZML")
             {
                 if (fileInfo.dataFile == null)
                 {
@@ -543,7 +544,7 @@ namespace FlashLFQ
                 for (int i = 0; i < msOrders.Length; i++)
                     if (msOrders[i] == 1)
                         ms1ScanList.Add(thermoFile.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
-                
+
 #else
                 if (!silent)
                 {
@@ -557,7 +558,7 @@ namespace FlashLFQ
                 if (!silent)
                     Console.WriteLine("Unsupported file type " + ext);
             }
-            
+
             if (!silent)
                 Console.WriteLine("Assigning MS1 peaks to bins");
 
@@ -639,7 +640,7 @@ namespace FlashLFQ
             for (int i = 0; i < listOfScans.Count; i++)
                 scanNumToIndex.Add(listOfScans[i].OneBasedScanNumber, i);
             List<int> ms1ScanNumbers = listOfScans.Select(p => p.OneBasedScanNumber).OrderBy(p => p).ToList();
-            
+
             Parallel.ForEach(Partitioner.Create(0, identifications.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
                 (range, loopState) =>
@@ -831,7 +832,7 @@ namespace FlashLFQ
             results.peaks[rawFile].RemoveAll(p => p.intensity == -1);
 
             // check for multiple features per peptide within a time window
-            var featuresToMaybeMerge = results.peaks[rawFile].Where(p => p.numIdentificationsByFullSeq == 1 && p.apexPeak != null).GroupBy(p => p.identifyingScans.First().ModifiedSequence).Where(p => p.Count() > 1);
+            var featuresToMaybeMerge = results.peaks[rawFile].Where(p => p.NumIdentificationsByFullSeq == 1 && p.apexPeak != null).GroupBy(p => p.identifyingScans.First().ModifiedSequence).Where(p => p.Count() > 1);
             if (featuresToMaybeMerge.Any())
             {
                 foreach (var group in featuresToMaybeMerge)
@@ -873,8 +874,8 @@ namespace FlashLFQ
             if (errorCheckAmbiguousMatches)
             {
                 // check for multiple peptides per feature
-                var scansWithMultipleDifferentIds = results.peaks[rawFile].Where(p => p.numIdentificationsByFullSeq > 1);
-                var ambiguousFeatures = scansWithMultipleDifferentIds.Where(p => p.numIdentificationsByBaseSeq > 1).ToList();
+                var scansWithMultipleDifferentIds = results.peaks[rawFile].Where(p => p.NumIdentificationsByFullSeq > 1);
+                var ambiguousFeatures = scansWithMultipleDifferentIds.Where(p => p.NumIdentificationsByBaseSeq > 1).ToList();
 
                 // handle ambiguous features
                 foreach (var ambiguousFeature in ambiguousFeatures)
@@ -969,7 +970,7 @@ namespace FlashLFQ
 
                 // isotopic distribution check
                 bool isotopeDistributionCheck = false;
-                (double mz , double intensity)[] isotopePeaks = new (double mz, double intensity)[isotopeMassShifts.Count];
+                (double mz, double intensity)[] isotopePeaks = new(double mz, double intensity)[isotopeMassShifts.Count];
                 int isotopeIndex = 0;
                 double theorIsotopeMz = theorIsotopeMzs[isotopeIndex];
                 foreach (var possibleIsotopePeak in possibleIsotopePeaks)
