@@ -55,7 +55,7 @@ namespace FlashLFQ
 
         #region Public Constructors
 
-        public FlashLFQEngine(List<Identification> allIdentifications, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, bool matchBetweenRuns = false, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null)
+        public FlashLFQEngine(List<Identification> allIdentifications, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, bool matchBetweenRuns = false, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null, double maxMbrWindow = 1.5)
         {
             if (optionalPeriodicTablePath == null)
                 optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
@@ -77,10 +77,10 @@ namespace FlashLFQ
             this.silent = silent;
             this.idSpecificChargeState = idSpecificChargeState;
             this.requireMonoisotopicMass = requireMonoisotopicMass;
-
+            this.mbrRtWindow = maxMbrWindow;
+            
             qValueCutoff = 0.01;
             peakfindingPpmTolerance = 20.0;
-            mbrRtWindow = 1.5;
             initialMbrRtWindow = 10.0;
             missedScansAllowed = 1;
             rtTol = 5.0;
