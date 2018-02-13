@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Collections.Generic;
+using System.Text;
 
 namespace FlashLFQ
 {
@@ -6,36 +7,52 @@ namespace FlashLFQ
     {
         #region Public Fields
 
-        public readonly string proteinGroupName;
-        public double[] intensitiesByFile;
-        public string[] peptidesByFile;
+        public static List<RawFileInfo> rawFiles;
+        public readonly string ProteinGroupName;
+        public Dictionary<RawFileInfo, double> intensities;
 
         #endregion Public Fields
 
         #region Public Constructors
 
-        public ProteinGroup(string name)
+        public ProteinGroup(string proteinGroupName)
         {
-            proteinGroupName = name;
+            this.ProteinGroupName = proteinGroupName;
+            this.intensities = new Dictionary<RawFileInfo, double>();
+
+            foreach (var file in rawFiles)
+                intensities.Add(file, 0);
         }
 
         #endregion Public Constructors
+
+        #region Public Properties
+
+        public static string TabSeparatedHeader
+        {
+            get
+            {
+                var sb = new StringBuilder();
+                sb.Append("Protein Groups" + "\t");
+                foreach (var rawfile in rawFiles)
+                    sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
+                return sb.ToString();
+            }
+        }
+
+        #endregion Public Properties
 
         #region Public Methods
 
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder str = new StringBuilder();
+            str.Append(ProteinGroupName + "\t");
 
-            sb.Append("" + proteinGroupName + '\t');
-            sb.Append(string.Join("\t", intensitiesByFile));
-            if (peptidesByFile != null)
-            {
-                sb.Append("\t");
-                sb.Append(string.Join("\t", peptidesByFile));
-            }
+            foreach (var file in rawFiles)
+                str.Append(intensities[file] + "\t");
 
-            return sb.ToString();
+            return str.ToString();
         }
 
         #endregion Public Methods

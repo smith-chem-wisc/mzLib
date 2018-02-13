@@ -1,27 +1,36 @@
-﻿using System.Text;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace FlashLFQ
 {
+    public enum DetectionType { MSMS, MBR, NotDetected, MSMSAmbiguousPeakfinding, MSMSIdentifiedButNotQuantified }
+
     public class Peptide
     {
         #region Public Fields
 
-        public static string[] files;
+        public static List<RawFileInfo> rawFiles;
         public readonly string Sequence;
-        public readonly string ProteinGroup;
-        public readonly double[] intensitiesByFile;
-        public readonly string[] detectionType;
+        public Dictionary<RawFileInfo, double> intensities;
+        public Dictionary<RawFileInfo, DetectionType> detectionTypes;
+        public HashSet<ProteinGroup> proteinGroups;
 
         #endregion Public Fields
 
         #region Public Constructors
 
-        public Peptide(string baseSeq, string proteinGroup, double[] intensitiesByFile, string[] detectionType)
+        public Peptide(string sequence)
         {
-            Sequence = baseSeq;
-            ProteinGroup = proteinGroup;
-            this.intensitiesByFile = intensitiesByFile;
-            this.detectionType = detectionType;
+            this.Sequence = sequence;
+            intensities = new Dictionary<RawFileInfo, double>();
+            detectionTypes = new Dictionary<RawFileInfo, DetectionType>();
+            proteinGroups = new HashSet<ProteinGroup>();
+
+            foreach (var file in rawFiles)
+                intensities.Add(file, 0);
+            foreach (var file in rawFiles)
+                detectionTypes.Add(file, DetectionType.NotDetected);
         }
 
         #endregion Public Constructors
@@ -34,11 +43,11 @@ namespace FlashLFQ
             {
                 var sb = new StringBuilder();
                 sb.Append("Sequence" + "\t");
-                sb.Append("Protein Group" + "\t");
-                for (int i = 0; i < files.Length; i++)
-                    sb.Append("Intensity_" + files[i] + "\t");
-                for (int i = 0; i < files.Length; i++)
-                    sb.Append("Detection Type_" + files[i] + "\t");
+                sb.Append("Protein Groups" + "\t");
+                foreach (var rawfile in rawFiles)
+                    sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
+                foreach (var rawfile in rawFiles)
+                    sb.Append("Detection Type_" + rawfile.filenameWithoutExtension + "\t");
                 return sb.ToString();
             }
         }
@@ -49,26 +58,21 @@ namespace FlashLFQ
 
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder str = new StringBuilder();
+            str.Append(Sequence + "\t");
+            str.Append(string.Join(";", proteinGroups.Select(p => p.ProteinGroupName)) + "\t");
 
-            sb.Append("" + Sequence + '\t');
-            sb.Append("" + ProteinGroup + '\t');
-            for (int i = 0; i < intensitiesByFile.Length; i++)
-            {
-                if (!(detectionType[i] == "MBR" && intensitiesByFile[i] == 0))
-                    sb.Append(intensitiesByFile[i] + "\t");
-                else
-                    sb.Append("\t");
-            }
-            for (int i = 0; i < intensitiesByFile.Length; i++)
-            {
-                if (!(detectionType[i] == "MBR" && intensitiesByFile[i] == 0))
-                    sb.Append(detectionType[i] + "\t");
-                else
-                    sb.Append("\t");
-            }
+            foreach (var file in rawFiles)
+                str.Append(intensities[file] + "\t");
+            foreach (var file in rawFiles)
+                str.Append(detectionTypes[file] + "\t");
 
-            return sb.ToString();
+            return str.ToString();
+        }
+
+        public override int GetHashCode()
+        {
+            return Sequence.GetHashCode();
         }
 
         #endregion Public Methods

@@ -66,7 +66,7 @@ namespace IO.Thermo
                 var thermoReader = Type.GetTypeFromCLSID(Guid.Parse(THERMO_READER_CLSID));
                 Activator.CreateInstance(thermoReader);
             }
-            catch (COMException ex)
+            catch (COMException)
             {
                 return false;
             }
