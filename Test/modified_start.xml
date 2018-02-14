@@ -1,0 +1,3612 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="1986-07-21" modified="2016-11-30" version="165">
+<accession>P62805</accession>
+<accession>A2VCL0</accession>
+<accession>P02304</accession>
+<accession>P02305</accession>
+<accession>Q6DRA9</accession>
+<accession>Q6FGB8</accession>
+<accession>Q6NWP7</accession>
+<name>H4_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>Histone H4</fullName>
+</recommendedName>
+</protein>
+<gene>
+<name type="primary">HIST1H4A</name>
+<name type="synonym">H4/A</name>
+<name type="synonym">H4FA</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4B</name>
+<name type="synonym">H4/I</name>
+<name type="synonym">H4FI</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4C</name>
+<name type="synonym">H4/G</name>
+<name type="synonym">H4FG</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4D</name>
+<name type="synonym">H4/B</name>
+<name type="synonym">H4FB</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4E</name>
+<name type="synonym">H4/J</name>
+<name type="synonym">H4FJ</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4F</name>
+<name type="synonym">H4/C</name>
+<name type="synonym">H4FC</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4H</name>
+<name type="synonym">H4/H</name>
+<name type="synonym">H4FH</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4I</name>
+<name type="synonym">H4/M</name>
+<name type="synonym">H4FM</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4J</name>
+<name type="synonym">H4/E</name>
+<name type="synonym">H4FE</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4K</name>
+<name type="synonym">H4/D</name>
+<name type="synonym">H4FD</name>
+</gene>
+<gene>
+<name type="primary">HIST1H4L</name>
+<name type="synonym">H4/K</name>
+<name type="synonym">H4FK</name>
+</gene>
+<gene>
+<name type="primary">HIST2H4A</name>
+<name type="synonym">H4/N</name>
+<name type="synonym">H4F2</name>
+<name type="synonym">H4FN</name>
+<name type="synonym">HIST2H4</name>
+</gene>
+<gene>
+<name type="primary">HIST2H4B</name>
+<name type="synonym">H4/O</name>
+<name type="synonym">H4FO</name>
+</gene>
+<gene>
+<name type="primary">HIST4H4</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<name type="common">Human</name>
+<dbReference type="NCBI Taxonomy" id="9606" />
+<lineage>
+<taxon>Eukaryota</taxon>
+<taxon>Metazoa</taxon>
+<taxon>Chordata</taxon>
+<taxon>Craniata</taxon>
+<taxon>Vertebrata</taxon>
+<taxon>Euteleostomi</taxon>
+<taxon>Mammalia</taxon>
+<taxon>Eutheria</taxon>
+<taxon>Euarchontoglires</taxon>
+<taxon>Primates</taxon>
+<taxon>Haplorrhini</taxon>
+<taxon>Catarrhini</taxon>
+<taxon>Hominidae</taxon>
+<taxon>Homo</taxon>
+</lineage>
+</organism>
+<reference key="1">
+<citation type="journal article" date="1983" name="Nucleic Acids Res." volume="11" first="7069" last="7086">
+<title>Structure and in vitro transcription of a human H4 histone gene.</title>
+<authorList>
+<person name="Sierra F." />
+<person name="Stein G." />
+<person name="Stein J." />
+</authorList>
+<dbReference type="PubMed" id="6314274" />
+<dbReference type="DOI" id="10.1093/nar/11.20.7069" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="2">
+<citation type="journal article" date="1987" name="Science" volume="236" first="1308" last="1311">
+<title>Protein-DNA interactions in vivo upstream of a cell cycle-regulated human H4 histone gene.</title>
+<authorList>
+<person name="Pauli U." />
+<person name="Chrysogelos S." />
+<person name="Stein G." />
+<person name="Stein J." />
+<person name="Nick H." />
+</authorList>
+<dbReference type="PubMed" id="3035717" />
+<dbReference type="DOI" id="10.1126/science.3035717" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="3">
+<citation type="journal article" date="1991" name="Genomics" volume="10" first="940" last="948">
+<title>Isolation and characterization of two human H1 histone genes within clusters of core histone genes.</title>
+<authorList>
+<person name="Albig W." />
+<person name="Kardalinou E." />
+<person name="Drabent B." />
+<person name="Zimmer A." />
+<person name="Doenecke D." />
+</authorList>
+<dbReference type="PubMed" id="1916825" />
+<dbReference type="DOI" id="10.1016/0888-7543(91)90183-F" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+<source>
+<tissue>Placenta</tissue>
+</source>
+</reference>
+<reference key="4">
+<citation type="journal article" date="1995" name="DNA Cell Biol." volume="14" first="591" last="597">
+<title>Association of histone H4 genes with the mammalian testis-specific H1t histone gene.</title>
+<authorList>
+<person name="Drabent B." />
+<person name="Kardalinou E." />
+<person name="Bode C." />
+<person name="Doenecke D." />
+</authorList>
+<dbReference type="PubMed" id="7626218" />
+<dbReference type="DOI" id="10.1089/dna.1995.14.591" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="5">
+<citation type="journal article" date="1997" name="Gene" volume="184" first="141" last="148">
+<title>Characterization of the H1.5 gene completes the set of human H1 subtype genes.</title>
+<authorList>
+<person name="Albig W." />
+<person name="Meergans T." />
+<person name="Doenecke D." />
+</authorList>
+<dbReference type="PubMed" id="9031620" />
+<dbReference type="DOI" id="10.1016/S0378-1119(96)00582-3" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="6">
+<citation type="journal article" date="1997" name="Hum. Genet." volume="101" first="284" last="294">
+<title>The human histone gene cluster at the D6S105 locus.</title>
+<authorList>
+<person name="Albig W." />
+<person name="Doenecke D." />
+</authorList>
+<dbReference type="PubMed" id="9439656" />
+<dbReference type="DOI" id="10.1007/s004390050630" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="7">
+<citation type="journal article" date="1997" name="Genomics" volume="40" first="314" last="322">
+<title>Human histone gene organization: nonregular arrangement within a large cluster.</title>
+<authorList>
+<person name="Albig W." />
+<person name="Kioschis P." />
+<person name="Poustka A." />
+<person name="Meergans K." />
+<person name="Doenecke D." />
+</authorList>
+<dbReference type="PubMed" id="9119399" />
+<dbReference type="DOI" id="10.1006/geno.1996.4592" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="8">
+<citation type="journal article" date="2002" name="Genomics" volume="80" first="487" last="498">
+<title>The human and mouse replication-dependent histone genes.</title>
+<authorList>
+<person name="Marzluff W.F." />
+<person name="Gongidi P." />
+<person name="Woods K.R." />
+<person name="Jin J." />
+<person name="Maltais L.J." />
+</authorList>
+<dbReference type="PubMed" id="12408966" />
+<dbReference type="DOI" id="10.1006/geno.2002.6850" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA] (HIST1H4A; HIST1H4B; HIST1H4C; HIST1H4D; HIST1H4E; HIST1H4F; HIST1H4H; HIST1H4I; HIST1H4J; HIST1H4K; HIST1H4L; HIST2H4A AND HIST4H4)</scope>
+</reference>
+<reference key="9">
+<citation type="journal article" date="1997" name="Cancer Res." volume="57" first="7" last="12">
+<title>A recurring translocation, t(3;6)(q27;p21), in non-Hodgkin's lymphoma results in replacement of the 5' regulatory region of BCL6 with a novel H4 histone gene.</title>
+<authorList>
+<person name="Akasaka T." />
+<person name="Miura I." />
+<person name="Takahashi N." />
+<person name="Akasaka H." />
+<person name="Yonetani N." />
+<person name="Ohno H." />
+<person name="Fukuhara S." />
+<person name="Okuma M." />
+</authorList>
+<dbReference type="PubMed" id="8988030" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="10">
+<citation type="journal article" date="2004" name="Gene" volume="342" first="35" last="40">
+<title>Functional characterization of a human histone gene cluster duplication.</title>
+<authorList>
+<person name="Braastad C.D." />
+<person name="Hovhannisyan H." />
+<person name="van Wijnen A.J." />
+<person name="Stein J.L." />
+<person name="Stein G.S." />
+</authorList>
+<dbReference type="PubMed" id="15527963" />
+<dbReference type="DOI" id="10.1016/j.gene.2004.07.036" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+</reference>
+<reference key="11">
+<citation type="submission" date="2004-06" db="EMBL/GenBank/DDBJ databases">
+<title>Cloning of human full open reading frames in Gateway(TM) system entry vector (pDONR201).</title>
+<authorList>
+<person name="Halleck A." />
+<person name="Ebert L." />
+<person name="Mkoundinya M." />
+<person name="Schick M." />
+<person name="Eisenstein S." />
+<person name="Neubert P." />
+<person name="Kstrang K." />
+<person name="Schatten R." />
+<person name="Shen B." />
+<person name="Henze S." />
+<person name="Mar W." />
+<person name="Korn B." />
+<person name="Zuo D." />
+<person name="Hu Y." />
+<person name="LaBaer J." />
+</authorList>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (HIST1H4F; HIST1H4H AND HIST2H4A)</scope>
+</reference>
+<reference key="12">
+<citation type="journal article" date="2003" name="Nature" volume="425" first="805" last="811">
+<title>The DNA sequence and analysis of human chromosome 6.</title>
+<authorList>
+<person name="Mungall A.J." />
+<person name="Palmer S.A." />
+<person name="Sims S.K." />
+<person name="Edwards C.A." />
+<person name="Ashurst J.L." />
+<person name="Wilming L." />
+<person name="Jones M.C." />
+<person name="Horton R." />
+<person name="Hunt S.E." />
+<person name="Scott C.E." />
+<person name="Gilbert J.G.R." />
+<person name="Clamp M.E." />
+<person name="Bethel G." />
+<person name="Milne S." />
+<person name="Ainscough R." />
+<person name="Almeida J.P." />
+<person name="Ambrose K.D." />
+<person name="Andrews T.D." />
+<person name="Ashwell R.I.S." />
+<person name="Babbage A.K." />
+<person name="Bagguley C.L." />
+<person name="Bailey J." />
+<person name="Banerjee R." />
+<person name="Barker D.J." />
+<person name="Barlow K.F." />
+<person name="Bates K." />
+<person name="Beare D.M." />
+<person name="Beasley H." />
+<person name="Beasley O." />
+<person name="Bird C.P." />
+<person name="Blakey S.E." />
+<person name="Bray-Allen S." />
+<person name="Brook J." />
+<person name="Brown A.J." />
+<person name="Brown J.Y." />
+<person name="Burford D.C." />
+<person name="Burrill W." />
+<person name="Burton J." />
+<person name="Carder C." />
+<person name="Carter N.P." />
+<person name="Chapman J.C." />
+<person name="Clark S.Y." />
+<person name="Clark G." />
+<person name="Clee C.M." />
+<person name="Clegg S." />
+<person name="Cobley V." />
+<person name="Collier R.E." />
+<person name="Collins J.E." />
+<person name="Colman L.K." />
+<person name="Corby N.R." />
+<person name="Coville G.J." />
+<person name="Culley K.M." />
+<person name="Dhami P." />
+<person name="Davies J." />
+<person name="Dunn M." />
+<person name="Earthrowl M.E." />
+<person name="Ellington A.E." />
+<person name="Evans K.A." />
+<person name="Faulkner L." />
+<person name="Francis M.D." />
+<person name="Frankish A." />
+<person name="Frankland J." />
+<person name="French L." />
+<person name="Garner P." />
+<person name="Garnett J." />
+<person name="Ghori M.J." />
+<person name="Gilby L.M." />
+<person name="Gillson C.J." />
+<person name="Glithero R.J." />
+<person name="Grafham D.V." />
+<person name="Grant M." />
+<person name="Gribble S." />
+<person name="Griffiths C." />
+<person name="Griffiths M.N.D." />
+<person name="Hall R." />
+<person name="Halls K.S." />
+<person name="Hammond S." />
+<person name="Harley J.L." />
+<person name="Hart E.A." />
+<person name="Heath P.D." />
+<person name="Heathcott R." />
+<person name="Holmes S.J." />
+<person name="Howden P.J." />
+<person name="Howe K.L." />
+<person name="Howell G.R." />
+<person name="Huckle E." />
+<person name="Humphray S.J." />
+<person name="Humphries M.D." />
+<person name="Hunt A.R." />
+<person name="Johnson C.M." />
+<person name="Joy A.A." />
+<person name="Kay M." />
+<person name="Keenan S.J." />
+<person name="Kimberley A.M." />
+<person name="King A." />
+<person name="Laird G.K." />
+<person name="Langford C." />
+<person name="Lawlor S." />
+<person name="Leongamornlert D.A." />
+<person name="Leversha M." />
+<person name="Lloyd C.R." />
+<person name="Lloyd D.M." />
+<person name="Loveland J.E." />
+<person name="Lovell J." />
+<person name="Martin S." />
+<person name="Mashreghi-Mohammadi M." />
+<person name="Maslen G.L." />
+<person name="Matthews L." />
+<person name="McCann O.T." />
+<person name="McLaren S.J." />
+<person name="McLay K." />
+<person name="McMurray A." />
+<person name="Moore M.J.F." />
+<person name="Mullikin J.C." />
+<person name="Niblett D." />
+<person name="Nickerson T." />
+<person name="Novik K.L." />
+<person name="Oliver K." />
+<person name="Overton-Larty E.K." />
+<person name="Parker A." />
+<person name="Patel R." />
+<person name="Pearce A.V." />
+<person name="Peck A.I." />
+<person name="Phillimore B.J.C.T." />
+<person name="Phillips S." />
+<person name="Plumb R.W." />
+<person name="Porter K.M." />
+<person name="Ramsey Y." />
+<person name="Ranby S.A." />
+<person name="Rice C.M." />
+<person name="Ross M.T." />
+<person name="Searle S.M." />
+<person name="Sehra H.K." />
+<person name="Sheridan E." />
+<person name="Skuce C.D." />
+<person name="Smith S." />
+<person name="Smith M." />
+<person name="Spraggon L." />
+<person name="Squares S.L." />
+<person name="Steward C.A." />
+<person name="Sycamore N." />
+<person name="Tamlyn-Hall G." />
+<person name="Tester J." />
+<person name="Theaker A.J." />
+<person name="Thomas D.W." />
+<person name="Thorpe A." />
+<person name="Tracey A." />
+<person name="Tromans A." />
+<person name="Tubby B." />
+<person name="Wall M." />
+<person name="Wallis J.M." />
+<person name="West A.P." />
+<person name="White S.S." />
+<person name="Whitehead S.L." />
+<person name="Whittaker H." />
+<person name="Wild A." />
+<person name="Willey D.J." />
+<person name="Wilmer T.E." />
+<person name="Wood J.M." />
+<person name="Wray P.W." />
+<person name="Wyatt J.C." />
+<person name="Young L." />
+<person name="Younger R.M." />
+<person name="Bentley D.R." />
+<person name="Coulson A." />
+<person name="Durbin R.M." />
+<person name="Hubbard T." />
+<person name="Sulston J.E." />
+<person name="Dunham I." />
+<person name="Rogers J." />
+<person name="Beck S." />
+</authorList>
+<dbReference type="PubMed" id="14574404" />
+<dbReference type="DOI" id="10.1038/nature02055" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA] (HIST1H4A; HIST1H4B; HIST1H4C; HIST1H4D; HIST1H4E; HIST1H4F; HIST1H4H; HIST1H4I; HIST1H4J; HIST1H4K AND HIST1H4L)</scope>
+</reference>
+<reference key="13">
+<citation type="submission" date="2005-07" db="EMBL/GenBank/DDBJ databases">
+<authorList>
+<person name="Mural R.J." />
+<person name="Istrail S." />
+<person name="Sutton G.G." />
+<person name="Florea L." />
+<person name="Halpern A.L." />
+<person name="Mobarry C.M." />
+<person name="Lippert R." />
+<person name="Walenz B." />
+<person name="Shatkay H." />
+<person name="Dew I." />
+<person name="Miller J.R." />
+<person name="Flanigan M.J." />
+<person name="Edwards N.J." />
+<person name="Bolanos R." />
+<person name="Fasulo D." />
+<person name="Halldorsson B.V." />
+<person name="Hannenhalli S." />
+<person name="Turner R." />
+<person name="Yooseph S." />
+<person name="Lu F." />
+<person name="Nusskern D.R." />
+<person name="Shue B.C." />
+<person name="Zheng X.H." />
+<person name="Zhong F." />
+<person name="Delcher A.L." />
+<person name="Huson D.H." />
+<person name="Kravitz S.A." />
+<person name="Mouchard L." />
+<person name="Reinert K." />
+<person name="Remington K.A." />
+<person name="Clark A.G." />
+<person name="Waterman M.S." />
+<person name="Eichler E.E." />
+<person name="Adams M.D." />
+<person name="Hunkapiller M.W." />
+<person name="Myers E.W." />
+<person name="Venter J.C." />
+</authorList>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+</reference>
+<reference key="14">
+<citation type="journal article" date="2004" name="Genome Res." volume="14" first="2121" last="2127">
+<title>The status, quality, and expansion of the NIH full-length cDNA project: the Mammalian Gene Collection (MGC).</title>
+<authorList>
+<consortium name="The MGC Project Team" />
+</authorList>
+<dbReference type="PubMed" id="15489334" />
+<dbReference type="DOI" id="10.1101/gr.2596504" />
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA]</scope>
+<source>
+<tissue>Cerebellum</tissue>
+<tissue>Eye</tissue>
+<tissue>Placenta</tissue>
+</source>
+</reference>
+<reference key="15">
+<citation type="submission" date="2005-03" db="UniProtKB">
+<authorList>
+<person name="Bienvenut W.V." />
+</authorList>
+</citation>
+<scope>PROTEIN SEQUENCE OF 25-36; 47-56; 61-78 AND 81-93</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY</scope>
+<source>
+<tissue>B-cell lymphoma</tissue>
+</source>
+</reference>
+<reference key="16">
+<citation type="journal article" date="1995" name="EMBO J." volume="14" first="3946" last="3957">
+<title>Histone H4 acetylation distinguishes coding regions of the human genome from heterochromatin in a differentiation-dependent but transcription-independent manner.</title>
+<authorList>
+<person name="O'Neill L.P." />
+<person name="Turner B.M." />
+</authorList>
+<dbReference type="PubMed" id="7664735" />
+</citation>
+<scope>ACETYLATION AT LYS-6; LYS-9; LYS-13 AND LYS-17</scope>
+</reference>
+<reference key="17">
+<citation type="journal article" date="1988" name="Nature" volume="331" first="365" last="367">
+<title>A highly basic histone H4 domain bound to the sharply bent region of nucleosomal DNA.</title>
+<authorList>
+<person name="Ebralidse K.K." />
+<person name="Grachev S.A." />
+<person name="Mirzabekov A.D." />
+</authorList>
+<dbReference type="PubMed" id="3340182" />
+<dbReference type="DOI" id="10.1038/331365a0" />
+</citation>
+<scope>DNA-BINDING REGION</scope>
+</reference>
+<reference key="18">
+<citation type="journal article" date="1989" name="FEBS Lett." volume="253" first="141" last="145">
+<title>Histone H4 acetylation in human cells. Frequency of acetylation at different sites defined by immunolabeling with site-specific antibodies.</title>
+<authorList>
+<person name="Turner B.M." />
+<person name="O'Neill L.P." />
+<person name="Allan I.M." />
+</authorList>
+<dbReference type="PubMed" id="2474456" />
+<dbReference type="DOI" id="10.1016/0014-5793(89)80947-0" />
+</citation>
+<scope>ACETYLATION AT LYS-6; LYS-9; LYS-13 AND LYS-17</scope>
+</reference>
+<reference key="19">
+<citation type="journal article" date="2001" name="Curr. Biol." volume="11" first="996" last="1000">
+<title>Methylation of histone H4 at arginine 3 occurs in vivo and is mediated by the nuclear receptor coactivator PRMT1.</title>
+<authorList>
+<person name="Strahl B.D." />
+<person name="Briggs S.D." />
+<person name="Brame C.J." />
+<person name="Caldwell J.A." />
+<person name="Koh S.S." />
+<person name="Ma H." />
+<person name="Cook R.G." />
+<person name="Shabanowitz J." />
+<person name="Hunt D.F." />
+<person name="Stallcup M.R." />
+<person name="Allis C.D." />
+</authorList>
+<dbReference type="PubMed" id="11448779" />
+<dbReference type="DOI" id="10.1016/S0960-9822(01)00294-9" />
+</citation>
+<scope>METHYLATION AT ARG-4</scope>
+</reference>
+<reference key="20">
+<citation type="journal article" date="2001" name="Science" volume="293" first="853" last="857">
+<title>Methylation of histone H4 at arginine 3 facilitating transcriptional activation by nuclear hormone receptor.</title>
+<authorList>
+<person name="Wang H." />
+<person name="Huang Z.-Q." />
+<person name="Xia L." />
+<person name="Feng Q." />
+<person name="Erdjument-Bromage H." />
+<person name="Strahl B.D." />
+<person name="Briggs S.D." />
+<person name="Allis C.D." />
+<person name="Wong J." />
+<person name="Tempst P." />
+<person name="Zhang Y." />
+</authorList>
+<dbReference type="PubMed" id="11387442" />
+<dbReference type="DOI" id="10.1126/science.1060781" />
+</citation>
+<scope>METHYLATION AT ARG-4</scope>
+</reference>
+<reference key="21">
+<citation type="journal article" date="2002" name="Cancer Res." volume="62" first="6224" last="6230">
+<title>Characterization of t(3;6)(q27;p21) breakpoints in B-cell non-Hodgkin's lymphoma and construction of the histone H4/BCL6 fusion gene, leading to altered expression of Bcl-6.</title>
+<authorList>
+<person name="Kurata M." />
+<person name="Maesako Y." />
+<person name="Ueda C." />
+<person name="Nishikori M." />
+<person name="Akasaka T." />
+<person name="Uchiyama T." />
+<person name="Ohno H." />
+</authorList>
+<dbReference type="PubMed" id="12414651" />
+</citation>
+<scope>INVOLVEMENT IN B-CELL NON-HODGKIN LYMPHOMA</scope>
+<scope>CHROMOSOMAL TRANSLOCATION WITH BCL6</scope>
+</reference>
+<reference key="22">
+<citation type="journal article" date="2002" name="Mol. Cell" volume="9" first="1201" last="1213">
+<title>PR-Set7 is a nucleosome-specific methyltransferase that modifies lysine 20 of histone H4 and is associated with silent chromatin.</title>
+<authorList>
+<person name="Nishioka K." />
+<person name="Rice J.C." />
+<person name="Sarma K." />
+<person name="Erdjument-Bromage H." />
+<person name="Werner J." />
+<person name="Wang Y." />
+<person name="Chuikov S." />
+<person name="Valenzuela P." />
+<person name="Tempst P." />
+<person name="Steward R." />
+<person name="Lis J.T." />
+<person name="Allis C.D." />
+<person name="Reinberg D." />
+</authorList>
+<dbReference type="PubMed" id="12086618" />
+<dbReference type="DOI" id="10.1016/S1097-2765(02)00548-8" />
+</citation>
+<scope>METHYLATION AT LYS-21</scope>
+</reference>
+<reference key="23">
+<citation type="journal article" date="2003" name="Proc. Natl. Acad. Sci. U.S.A." volume="100" first="13225" last="13230">
+<title>Histone sumoylation is associated with transcriptional repression.</title>
+<authorList>
+<person name="Shiio Y." />
+<person name="Eisenman R.N." />
+</authorList>
+<dbReference type="PubMed" id="14578449" />
+<dbReference type="DOI" id="10.1073/pnas.1735528100" />
+</citation>
+<scope>SUMOYLATION</scope>
+</reference>
+<reference key="24">
+<citation type="journal article" date="2004" name="Science" volume="306" first="279" last="283">
+<title>Human PAD4 regulates histone arginine methylation levels via demethylimination.</title>
+<authorList>
+<person name="Wang Y." />
+<person name="Wysocka J." />
+<person name="Sayegh J." />
+<person name="Lee Y.-H." />
+<person name="Perlin J.R." />
+<person name="Leonelli L." />
+<person name="Sonbuchner L.S." />
+<person name="McDonald C.H." />
+<person name="Cook R.G." />
+<person name="Dou Y." />
+<person name="Roeder R.G." />
+<person name="Clarke S." />
+<person name="Stallcup M.R." />
+<person name="Allis C.D." />
+<person name="Coonrod S.A." />
+</authorList>
+<dbReference type="PubMed" id="15345777" />
+<dbReference type="DOI" id="10.1126/science.1101400" />
+</citation>
+<scope>CITRULLINATION AT ARG-4</scope>
+<scope>METHYLATION AT ARG-4</scope>
+</reference>
+<reference key="25">
+<citation type="journal article" date="2005" name="J. Biol. Chem." volume="280" first="30025" last="30031">
+<title>SET8 recognizes the sequence RHRK20VLRDN within the N terminus of histone H4 and mono-methylates lysine 20.</title>
+<authorList>
+<person name="Yin Y." />
+<person name="Liu C." />
+<person name="Tsai S.N." />
+<person name="Zhou B." />
+<person name="Ngai S.M." />
+<person name="Zhu G." />
+</authorList>
+<dbReference type="PubMed" id="15964846" />
+<dbReference type="DOI" id="10.1074/jbc.M501691200" />
+</citation>
+<scope>METHYLATION AT LYS-21</scope>
+</reference>
+<reference key="26">
+<citation type="journal article" date="2005" name="Nat. Biotechnol." volume="23" first="94" last="101">
+<title>Immunoaffinity profiling of tyrosine phosphorylation in cancer cells.</title>
+<authorList>
+<person name="Rush J." />
+<person name="Moritz A." />
+<person name="Lee K.A." />
+<person name="Guo A." />
+<person name="Goss V.L." />
+<person name="Spek E.J." />
+<person name="Zhang H." />
+<person name="Zha X.-M." />
+<person name="Polakiewicz R.D." />
+<person name="Comb M.J." />
+</authorList>
+<dbReference type="PubMed" id="15592455" />
+<dbReference type="DOI" id="10.1038/nbt1046" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT TYR-52</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+</reference>
+<reference key="27">
+<citation type="journal article" date="2006" name="Cell" volume="127" first="635" last="648">
+<title>Global, in vivo, and site-specific phosphorylation dynamics in signaling networks.</title>
+<authorList>
+<person name="Olsen J.V." />
+<person name="Blagoev B." />
+<person name="Gnad F." />
+<person name="Macek B." />
+<person name="Kumar C." />
+<person name="Mortensen P." />
+<person name="Mann M." />
+</authorList>
+<dbReference type="PubMed" id="17081983" />
+<dbReference type="DOI" id="10.1016/j.cell.2006.09.026" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+<source>
+<tissue>Cervix carcinoma</tissue>
+</source>
+</reference>
+<reference key="28">
+<citation type="journal article" date="2006" name="Mol. Cell" volume="22" first="383" last="394">
+<title>Histone H3 and H4 ubiquitylation by the CUL4-DDB-ROC1 ubiquitin ligase facilitates cellular response to DNA damage.</title>
+<authorList>
+<person name="Wang H." />
+<person name="Zhai L." />
+<person name="Xu J." />
+<person name="Joo H.-Y." />
+<person name="Jackson S." />
+<person name="Erdjument-Bromage H." />
+<person name="Tempst P." />
+<person name="Xiong Y." />
+<person name="Zhang Y." />
+</authorList>
+<dbReference type="PubMed" id="16678110" />
+<dbReference type="DOI" id="10.1016/j.molcel.2006.03.035" />
+</citation>
+<scope>UBIQUITINATION</scope>
+</reference>
+<reference key="29">
+<citation type="journal article" date="2006" name="Proc. Natl. Acad. Sci. U.S.A." volume="103" first="5291" last="5296">
+<title>Structural basis for histone N-terminal recognition by human peptidylarginine deiminase 4.</title>
+<authorList>
+<person name="Arita K." />
+<person name="Shimizu T." />
+<person name="Hashimoto H." />
+<person name="Hidaka Y." />
+<person name="Yamada M." />
+<person name="Sato M." />
+</authorList>
+<dbReference type="PubMed" id="16567635" />
+<dbReference type="DOI" id="10.1073/pnas.0509639103" />
+</citation>
+<scope>CITRULLINATION AT ARG-4</scope>
+</reference>
+<reference key="30">
+<citation type="journal article" date="2008" name="Mol. Cell. Biol." volume="28" first="468" last="486">
+<title>Certain and progressive methylation of histone H4 at lysine 20 during the cell cycle.</title>
+<authorList>
+<person name="Pesavento J.J." />
+<person name="Yang H." />
+<person name="Kelleher N.L." />
+<person name="Mizzen C.A." />
+</authorList>
+<dbReference type="PubMed" id="17967882" />
+<dbReference type="DOI" id="10.1128/MCB.01517-07" />
+</citation>
+<scope>ACETYLATION AT SER-2; LYS-13 AND LYS-17</scope>
+<scope>PHOSPHORYLATION AT SER-2</scope>
+<scope>METHYLATION AT LYS-21</scope>
+</reference>
+<reference key="31">
+<citation type="journal article" date="2008" name="Proc. Natl. Acad. Sci. U.S.A." volume="105" first="10762" last="10767">
+<title>A quantitative atlas of mitotic phosphorylation.</title>
+<authorList>
+<person name="Dephoure N." />
+<person name="Zhou C." />
+<person name="Villen J." />
+<person name="Beausoleil S.A." />
+<person name="Bakalarski C.E." />
+<person name="Elledge S.J." />
+<person name="Gygi S.P." />
+</authorList>
+<dbReference type="PubMed" id="18669648" />
+<dbReference type="DOI" id="10.1073/pnas.0805139105" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+<source>
+<tissue>Cervix carcinoma</tissue>
+</source>
+</reference>
+<reference key="32">
+<citation type="journal article" date="2009" name="Mol. Cell" volume="36" first="110" last="120">
+<title>BBAP monoubiquitylates histone H4 at lysine 91 and selectively modulates the DNA damage response.</title>
+<authorList>
+<person name="Yan Q." />
+<person name="Dutt S." />
+<person name="Xu R." />
+<person name="Graves K." />
+<person name="Juszczynski P." />
+<person name="Manis J.P." />
+<person name="Shipp M.A." />
+</authorList>
+<dbReference type="PubMed" id="19818714" />
+<dbReference type="DOI" id="10.1016/j.molcel.2009.08.019" />
+</citation>
+<scope>ACETYLATION AT LYS-92</scope>
+<scope>UBIQUITINATION AT LYS-92</scope>
+</reference>
+<reference key="33">
+<citation type="journal article" date="2009" name="Sci. Signal." volume="2" first="RA46" last="RA46">
+<title>Quantitative phosphoproteomic analysis of T cell receptor signaling reveals system-wide modulation of protein-protein interactions.</title>
+<authorList>
+<person name="Mayya V." />
+<person name="Lundgren D.H." />
+<person name="Hwang S.-I." />
+<person name="Rezaul K." />
+<person name="Wu L." />
+<person name="Eng J.K." />
+<person name="Rodionov V." />
+<person name="Han D.K." />
+</authorList>
+<dbReference type="PubMed" id="19690332" />
+<dbReference type="DOI" id="10.1126/scisignal.2000007" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+<source>
+<tissue>Leukemic T-cell</tissue>
+</source>
+</reference>
+<reference key="34">
+<citation type="journal article" date="2009" name="Science" volume="325" first="834" last="840">
+<title>Lysine acetylation targets protein complexes and co-regulates major cellular functions.</title>
+<authorList>
+<person name="Choudhary C." />
+<person name="Kumar C." />
+<person name="Gnad F." />
+<person name="Nielsen M.L." />
+<person name="Rehman M." />
+<person name="Walther T.C." />
+<person name="Olsen J.V." />
+<person name="Mann M." />
+</authorList>
+<dbReference type="PubMed" id="19608861" />
+<dbReference type="DOI" id="10.1126/science.1175371" />
+</citation>
+<scope>ACETYLATION [LARGE SCALE ANALYSIS] AT LYS-6; LYS-9; LYS-13; LYS-17 AND LYS-32</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+</reference>
+<reference key="35">
+<citation type="journal article" date="2010" name="Sci. Signal." volume="3" first="RA3" last="RA3">
+<title>Quantitative phosphoproteomics reveals widespread full phosphorylation site occupancy during mitosis.</title>
+<authorList>
+<person name="Olsen J.V." />
+<person name="Vermeulen M." />
+<person name="Santamaria A." />
+<person name="Kumar C." />
+<person name="Miller M.L." />
+<person name="Jensen L.J." />
+<person name="Gnad F." />
+<person name="Cox J." />
+<person name="Jensen T.S." />
+<person name="Nigg E.A." />
+<person name="Brunak S." />
+<person name="Mann M." />
+</authorList>
+<dbReference type="PubMed" id="20068231" />
+<dbReference type="DOI" id="10.1126/scisignal.2000475" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48 AND TYR-52</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+<source>
+<tissue>Cervix carcinoma</tissue>
+</source>
+</reference>
+<reference key="36">
+<citation type="journal article" date="2011" name="BMC Syst. Biol." volume="5" first="17" last="17">
+<title>Initial characterization of the human central proteome.</title>
+<authorList>
+<person name="Burkard T.R." />
+<person name="Planyavsky M." />
+<person name="Kaupe I." />
+<person name="Breitwieser F.P." />
+<person name="Buerckstuemmer T." />
+<person name="Bennett K.L." />
+<person name="Superti-Furga G." />
+<person name="Colinge J." />
+</authorList>
+<dbReference type="PubMed" id="21269460" />
+<dbReference type="DOI" id="10.1186/1752-0509-5-17" />
+</citation>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+</reference>
+<reference key="37">
+<citation type="journal article" date="2011" name="Cell" volume="146" first="1016" last="1028">
+<title>Identification of 67 histone marks and histone lysine crotonylation as a new type of histone modification.</title>
+<authorList>
+<person name="Tan M." />
+<person name="Luo H." />
+<person name="Lee S." />
+<person name="Jin F." />
+<person name="Yang J.S." />
+<person name="Montellier E." />
+<person name="Buchou T." />
+<person name="Cheng Z." />
+<person name="Rousseaux S." />
+<person name="Rajagopal N." />
+<person name="Lu Z." />
+<person name="Ye Z." />
+<person name="Zhu Q." />
+<person name="Wysocka J." />
+<person name="Ye Y." />
+<person name="Khochbin S." />
+<person name="Ren B." />
+<person name="Zhao Y." />
+</authorList>
+<dbReference type="PubMed" id="21925322" />
+<dbReference type="DOI" id="10.1016/j.cell.2011.08.008" />
+</citation>
+<scope>CROTONYLATION AT LYS-6; LYS-9 AND LYS-13</scope>
+</reference>
+<reference key="38">
+<citation type="journal article" date="2011" name="Genes Dev." volume="25" first="1359" last="1364">
+<title>Phosphorylation of H4 Ser 47 promotes HIRA-mediated nucleosome assembly.</title>
+<authorList>
+<person name="Kang B." />
+<person name="Pu M." />
+<person name="Hu G." />
+<person name="Wen W." />
+<person name="Dong Z." />
+<person name="Zhao K." />
+<person name="Stillman B." />
+<person name="Zhang Z." />
+</authorList>
+<dbReference type="PubMed" id="21724829" />
+<dbReference type="DOI" id="10.1101/gad.2055511" />
+</citation>
+<scope>PHOSPHORYLATION AT SER-48</scope>
+</reference>
+<reference key="39">
+<citation type="journal article" date="2011" name="Sci. Signal." volume="4" first="RS3" last="RS3">
+<title>System-wide temporal characterization of the proteome and phosphoproteome of human embryonic stem cell differentiation.</title>
+<authorList>
+<person name="Rigbolt K.T." />
+<person name="Prokhorova T.A." />
+<person name="Akimov V." />
+<person name="Henningsen J." />
+<person name="Johansen P.T." />
+<person name="Kratchmarova I." />
+<person name="Kassem M." />
+<person name="Mann M." />
+<person name="Olsen J.V." />
+<person name="Blagoev B." />
+</authorList>
+<dbReference type="PubMed" id="21406692" />
+<dbReference type="DOI" id="10.1126/scisignal.2001570" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+</reference>
+<reference key="40">
+<citation type="journal article" date="2013" name="J. Proteome Res." volume="12" first="260" last="271">
+<title>Toward a comprehensive characterization of a human cancer cell phosphoproteome.</title>
+<authorList>
+<person name="Zhou H." />
+<person name="Di Palma S." />
+<person name="Preisinger C." />
+<person name="Peng M." />
+<person name="Polat A.N." />
+<person name="Heck A.J." />
+<person name="Mohammed S." />
+</authorList>
+<dbReference type="PubMed" id="23186163" />
+<dbReference type="DOI" id="10.1021/pr300630k" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+<source>
+<tissue>Cervix carcinoma</tissue>
+<tissue>Erythroleukemia</tissue>
+</source>
+</reference>
+<reference key="41">
+<citation type="journal article" date="2014" name="J. Proteomics" volume="96" first="253" last="262">
+<title>An enzyme assisted RP-RPLC approach for in-depth analysis of human liver phosphoproteome.</title>
+<authorList>
+<person name="Bian Y." />
+<person name="Song C." />
+<person name="Cheng K." />
+<person name="Dong M." />
+<person name="Wang F." />
+<person name="Huang J." />
+<person name="Sun D." />
+<person name="Wang L." />
+<person name="Ye M." />
+<person name="Zou H." />
+</authorList>
+<dbReference type="PubMed" id="24275569" />
+<dbReference type="DOI" id="10.1016/j.jprot.2013.11.014" />
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-48 AND TYR-89</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+<source>
+<tissue>Liver</tissue>
+</source>
+</reference>
+<reference key="42">
+<citation type="journal article" date="2014" name="Nat. Struct. Mol. Biol." volume="21" first="927" last="936">
+<title>Uncovering global SUMOylation signaling networks in a site-specific manner.</title>
+<authorList>
+<person name="Hendriks I.A." />
+<person name="D'Souza R.C." />
+<person name="Yang B." />
+<person name="Verlaan-de Vries M." />
+<person name="Mann M." />
+<person name="Vertegaal A.C." />
+</authorList>
+<dbReference type="PubMed" id="25218447" />
+<dbReference type="DOI" id="10.1038/nsmb.2890" />
+</citation>
+<scope>SUMOYLATION [LARGE SCALE ANALYSIS] AT LYS-13</scope>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+</reference>
+<reference key="43">
+<citation type="journal article" date="2015" name="Proteomics" volume="15" first="2519" last="2524">
+<title>N-terminome analysis of the human mitochondrial proteome.</title>
+<authorList>
+<person name="Vaca Jacome A.S." />
+<person name="Rabilloud T." />
+<person name="Schaeffer-Reiss C." />
+<person name="Rompais M." />
+<person name="Ayoub D." />
+<person name="Lane L." />
+<person name="Bairoch A." />
+<person name="Van Dorsselaer A." />
+<person name="Carapito C." />
+</authorList>
+<dbReference type="PubMed" id="25944712" />
+<dbReference type="DOI" id="10.1002/pmic.201400617" />
+</citation>
+<scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+</reference>
+<reference key="44">
+<citation type="journal article" date="2005" name="Nucleic Acids Res." volume="33" first="3424" last="3434">
+<title>Alteration of the nucleosomal DNA path in the crystal structure of a human nucleosome core particle.</title>
+<authorList>
+<person name="Tsunaka Y." />
+<person name="Kajimura N." />
+<person name="Tate S." />
+<person name="Morikawa K." />
+</authorList>
+<dbReference type="PubMed" id="15951514" />
+<dbReference type="DOI" id="10.1093/nar/gki663" />
+</citation>
+<scope>X-RAY CRYSTALLOGRAPHY (2.5 ANGSTROMS)</scope>
+</reference>
+<reference key="45">
+<citation type="journal article" date="2006" name="Science" volume="314" first="268" last="274">
+<title>The consensus coding sequences of human breast and colorectal cancers.</title>
+<authorList>
+<person name="Sjoeblom T." />
+<person name="Jones S." />
+<person name="Wood L.D." />
+<person name="Parsons D.W." />
+<person name="Lin J." />
+<person name="Barber T.D." />
+<person name="Mandelker D." />
+<person name="Leary R.J." />
+<person name="Ptak J." />
+<person name="Silliman N." />
+<person name="Szabo S." />
+<person name="Buckhaults P." />
+<person name="Farrell C." />
+<person name="Meeh P." />
+<person name="Markowitz S.D." />
+<person name="Willis J." />
+<person name="Dawson D." />
+<person name="Willson J.K.V." />
+<person name="Gazdar A.F." />
+<person name="Hartigan J." />
+<person name="Wu L." />
+<person name="Liu C." />
+<person name="Parmigiani G." />
+<person name="Park B.H." />
+<person name="Bachman K.E." />
+<person name="Papadopoulos N." />
+<person name="Vogelstein B." />
+<person name="Kinzler K.W." />
+<person name="Velculescu V.E." />
+</authorList>
+<dbReference type="PubMed" id="16959974" />
+<dbReference type="DOI" id="10.1126/science.1133427" />
+</citation>
+<scope>VARIANT [LARGE SCALE ANALYSIS] GLN-64</scope>
+</reference>
+<comment type="function">
+<text>Core component of nucleosome. Nucleosomes wrap and compact DNA into chromatin, limiting DNA accessibility to the cellular machineries which require DNA as a template. Histones thereby play a central role in transcription regulation, DNA repair, DNA replication and chromosomal stability. DNA accessibility is regulated via a complex set of post-translational modifications of histones, also called histone code, and nucleosome remodeling.</text>
+</comment>
+<comment type="subunit">
+<text>The nucleosome is a histone octamer containing two molecules each of H2A, H2B, H3 and H4 assembled in one H3-H4 heterotetramer and two H2A-H2B heterodimers. The octamer wraps approximately 147 bp of DNA.</text>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-749553">
+<id>Q9Y294</id>
+<label>ASF1A</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>6</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-1560273">
+<id>Q12830</id>
+<label>BPTF</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-4288838">
+<id>Q12830-4</id>
+<label>BPTF</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>16</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-2874802">
+<id>P25440</id>
+<label>BRD2</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>5</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-9345088">
+<id>O60885-1</id>
+<label>BRD4</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>7</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-2837428">
+<id>P55201</id>
+<label>BRPF1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>8</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-1751979">
+<id>P49450</id>
+<label>CENPA</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>4</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-1642558">
+<id>Q9NQ92</id>
+<label>COPRS</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-296306">
+<id>P45481</id>
+<label>Crebbp</label>
+</interactant>
+<organismsDiffer>true</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-120658">
+<id>P84243</id>
+<label>H3F3B</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-2339359">
+<id>O14929</id>
+<label>HAT1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>4</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-301834">
+<id>Q13547</id>
+<label>HDAC1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-79722">
+<id>P68431</id>
+<label>HIST1H3D</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-2866290">
+<id>Q9H9V9</id>
+<label>JMJD4</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-936709">
+<id>O75164</id>
+<label>KDM4A</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>7</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-1268946">
+<id>Q9NQR1</id>
+<label>KMT5A</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>5</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-1265089">
+<id>Q9Y468</id>
+<label>L3MBTL1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>4</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-374819">
+<id>P49736</id>
+<label>MCM2</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-355153">
+<id>P25205</id>
+<label>MCM3</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-359410">
+<id>P33992</id>
+<label>MCM5</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-2560802">
+<id>Q9BVI0</id>
+<label>PHF20</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-2560834">
+<id>A8MW92</id>
+<label>PHF20L1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-351098">
+<id>O14744</id>
+<label>PRMT5</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-352227">
+<id>Q16576</id>
+<label>RBBP7</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>4</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-117801">
+<id>Q9VK33</id>
+<label>Sfmbt</label>
+</interactant>
+<organismsDiffer>true</organismsDiffer>
+<experiments>10</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-747107">
+<id>Q8IUQ4</id>
+<label>SIAH1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-352588">
+<id>O60264</id>
+<label>SMARCA5</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-711424">
+<id>Q04724</id>
+<label>TLE1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>6</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-396540">
+<id>Q12888</id>
+<label>TP53BP1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>8</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-302023" />
+<interactant intactId="EBI-347088">
+<id>P63104</id>
+<label>YWHAZ</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="subcellular location">
+<subcellularLocation>
+<location>Nucleus</location>
+</subcellularLocation>
+<subcellularLocation>
+<location>Chromosome</location>
+</subcellularLocation>
+</comment>
+<comment type="PTM">
+<text evidence="26 30 31">Acetylation at Lys-6 (H4K5ac), Lys-9 (H4K8ac), Lys-13 (H4K12ac) and Lys-17 (H4K16ac) occurs in coding regions of the genome but not in heterochromatin.</text>
+</comment>
+<comment type="PTM">
+<text evidence="17 18 21 23">Citrullination at Arg-4 (H4R3ci) by PADI4 impairs methylation.</text>
+</comment>
+<comment type="PTM">
+<text evidence="26 30 31">Monomethylation and asymmetric dimethylation at Arg-4 (H4R3me1 and H4R3me2a, respectively) by PRMT1 favors acetylation at Lys-9 (H4K8ac) and Lys-13 (H4K12ac). Demethylation is performed by JMJD6. Symmetric dimethylation on Arg-4 (H4R3me2s) by the PRDM1/PRMT5 complex may play a crucial role in the germ-cell lineage.</text>
+</comment>
+<comment type="PTM">
+<text>Monomethylated, dimethylated or trimethylated at Lys-21 (H4K20me1, H4K20me2, H4K20me3). Monomethylation is performed by SET8. Trimethylation is performed by KMT5B and KMT5C and induces gene silencing.</text>
+</comment>
+<comment type="PTM">
+<text evidence="26 28">Phosphorylated by PAK2 at Ser-48 (H4S47ph). This phosphorylation increases the association of H3.3-H4 with the histone chaperone HIRA, thus promoting nucleosome assembly of H3.3-H4 and inhibiting nucleosome assembly of H3.1-H4.</text>
+</comment>
+<comment type="PTM">
+<text evidence="19 22 24 26 27">Ubiquitinated by the CUL4-DDB-RBX1 complex in response to ultraviolet irradiation. This may weaken the interaction between histones and DNA and facilitate DNA accessibility to repair proteins. Monoubiquitinated at Lys-92 of histone H4 (H4K91ub1) in response to DNA damage. The exact role of H4K91ub1 in DNA damage response is still unclear but it may function as a licensing signal for additional histone H4 post-translational modifications such as H4 Lys-21 methylation (H4K20me).</text>
+</comment>
+<comment type="PTM">
+<text evidence="20">Sumoylated, which is associated with transcriptional repression.</text>
+</comment>
+<comment type="PTM">
+<text evidence="29">Crotonylation (Kcr) is specifically present in male germ cells and marks testis-specific genes in post-meiotic cells, including X-linked genes that escape sex chromosome inactivation in haploid cells. Crotonylation marks active promoters and enhancers and confers resistance to transcriptional repressors. It is also associated with post-meiotically activated genes on autosomes.</text>
+</comment>
+<comment type="disease">
+<text>Chromosomal aberrations involving HISTONE H4 is a cause of B-cell non-Hodgkin lymphomas (B-cell NHL). Translocation t(3;6)(q27;p21), with BCL6.</text>
+</comment>
+<comment type="similarity">
+<text evidence="32">Belongs to the histone H4 family.</text>
+</comment>
+<comment type="sequence caution" evidence="32">
+<conflict type="frameshift">
+<sequence resource="EMBL-CDS" id="AAI28106" version="1" />
+</conflict>
+<location>
+<position position="3" />
+</location>
+</comment>
+<dbReference type="EMBL" id="X00038">
+<property type="protein sequence ID" value="CAA24918.1" />
+<property type="status" value="ALT_SEQ" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="M16707">
+<property type="protein sequence ID" value="AAA52652.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="M60749">
+<property type="protein sequence ID" value="AAA63188.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X60481">
+<property type="protein sequence ID" value="CAA43011.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X60482">
+<property type="protein sequence ID" value="CAA43012.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X60483">
+<property type="protein sequence ID" value="CAA43013.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X60484">
+<property type="protein sequence ID" value="CAA43014.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X60486">
+<property type="protein sequence ID" value="CAA43016.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X60487">
+<property type="protein sequence ID" value="CAA43017.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X67081">
+<property type="protein sequence ID" value="CAA47464.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="Z80787">
+<property type="protein sequence ID" value="CAB02549.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="X83548">
+<property type="protein sequence ID" value="CAA58538.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AF525682">
+<property type="protein sequence ID" value="AAM83108.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128653">
+<property type="protein sequence ID" value="AAN01438.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128654">
+<property type="protein sequence ID" value="AAN01439.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128655">
+<property type="protein sequence ID" value="AAN01440.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128656">
+<property type="protein sequence ID" value="AAN01441.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128657">
+<property type="protein sequence ID" value="AAN01442.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128658">
+<property type="protein sequence ID" value="AAN01443.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128659">
+<property type="protein sequence ID" value="AAN01444.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128661">
+<property type="protein sequence ID" value="AAN01446.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128662">
+<property type="protein sequence ID" value="AAN01447.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128663">
+<property type="protein sequence ID" value="AAN01448.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128664">
+<property type="protein sequence ID" value="AAN01449.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY128665">
+<property type="protein sequence ID" value="AAN01450.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AB000905">
+<property type="protein sequence ID" value="BAA19208.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AY648850">
+<property type="protein sequence ID" value="AAT68253.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CR542169">
+<property type="protein sequence ID" value="CAG46966.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="CR542172">
+<property type="protein sequence ID" value="CAG46969.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="CR542180">
+<property type="protein sequence ID" value="CAG46977.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="CR542187">
+<property type="protein sequence ID" value="CAG46984.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="CR542189">
+<property type="protein sequence ID" value="CAG46986.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL021807">
+<property type="protein sequence ID" value="CAA16946.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL021917">
+<property type="protein sequence ID" value="CAC69642.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL031777">
+<property type="protein sequence ID" value="CAC03414.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL031777">
+<property type="protein sequence ID" value="CAC03418.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL049822">
+<property type="protein sequence ID" value="CAC03426.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL049822">
+<property type="protein sequence ID" value="CAC03427.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL353759">
+<property type="protein sequence ID" value="CAC04128.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="Z98744">
+<property type="protein sequence ID" value="CAD24074.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL591493">
+<property type="protein sequence ID" value="CAI12560.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="AL591493">
+<property type="protein sequence ID" value="CAI12567.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471087">
+<property type="protein sequence ID" value="EAW55509.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471087">
+<property type="protein sequence ID" value="EAW55510.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471087">
+<property type="protein sequence ID" value="EAW55538.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471087">
+<property type="protein sequence ID" value="EAW55549.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471087">
+<property type="protein sequence ID" value="EAW55555.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471094">
+<property type="protein sequence ID" value="EAW96325.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471081">
+<property type="protein sequence ID" value="EAX03086.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471081">
+<property type="protein sequence ID" value="EAX03111.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471081">
+<property type="protein sequence ID" value="EAX03112.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="CH471081">
+<property type="protein sequence ID" value="EAX03121.1" />
+<property type="molecule type" value="Genomic_DNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC017361">
+<property type="protein sequence ID" value="AAH17361.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC054014">
+<property type="protein sequence ID" value="AAH54014.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC066248">
+<property type="protein sequence ID" value="AAH66248.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC066249">
+<property type="protein sequence ID" value="AAH66249.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC066250">
+<property type="protein sequence ID" value="AAH66250.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC067495">
+<property type="protein sequence ID" value="AAH67495.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC067496">
+<property type="protein sequence ID" value="AAH67496.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC067497">
+<property type="protein sequence ID" value="AAH67497.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC069288">
+<property type="protein sequence ID" value="AAH69288.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC069392">
+<property type="protein sequence ID" value="AAH69392.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC069467">
+<property type="protein sequence ID" value="AAH69467.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC069654">
+<property type="protein sequence ID" value="AAH69654.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC093763">
+<property type="protein sequence ID" value="AAH93763.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC093765">
+<property type="protein sequence ID" value="AAH93765.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC093969">
+<property type="protein sequence ID" value="AAH93969.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC111093">
+<property type="protein sequence ID" value="AAI11094.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC111434">
+<property type="protein sequence ID" value="AAI11435.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC112193">
+<property type="protein sequence ID" value="AAI12194.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC120939">
+<property type="protein sequence ID" value="AAI20940.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC128104">
+<property type="protein sequence ID" value="AAI28105.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC128105">
+<property type="protein sequence ID" value="AAI28106.1" />
+<property type="status" value="ALT_FRAME" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC130558">
+<property type="protein sequence ID" value="AAI30559.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC130560">
+<property type="protein sequence ID" value="AAI30561.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="EMBL" id="BC143045">
+<property type="protein sequence ID" value="AAI43046.1" />
+<property type="molecule type" value="mRNA" />
+</dbReference>
+<dbReference type="CCDS" id="CCDS30847.1" />
+<dbReference type="CCDS" id="CCDS30851.1" />
+<dbReference type="CCDS" id="CCDS4571.1" />
+<dbReference type="CCDS" id="CCDS4572.1" />
+<dbReference type="CCDS" id="CCDS4583.1" />
+<dbReference type="CCDS" id="CCDS4589.1" />
+<dbReference type="CCDS" id="CCDS4593.1" />
+<dbReference type="CCDS" id="CCDS4598.1" />
+<dbReference type="CCDS" id="CCDS4604.1" />
+<dbReference type="CCDS" id="CCDS4620.1" />
+<dbReference type="CCDS" id="CCDS4630.1" />
+<dbReference type="CCDS" id="CCDS4631.1" />
+<dbReference type="CCDS" id="CCDS4637.1" />
+<dbReference type="CCDS" id="CCDS8665.1" />
+<dbReference type="PIR" id="D40335">
+<property type="entry name" value="HSHU4" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_001029249.1">
+<property type="nucleotide sequence ID" value="NM_001034077.4" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003486.1">
+<property type="nucleotide sequence ID" value="NM_003495.2" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003529.1">
+<property type="nucleotide sequence ID" value="NM_003538.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003530.1">
+<property type="nucleotide sequence ID" value="NM_003539.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003531.1">
+<property type="nucleotide sequence ID" value="NM_003540.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003532.1">
+<property type="nucleotide sequence ID" value="NM_003541.2" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003533.1">
+<property type="nucleotide sequence ID" value="NM_003542.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003534.1">
+<property type="nucleotide sequence ID" value="NM_003543.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003535.1">
+<property type="nucleotide sequence ID" value="NM_003544.2" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003536.1">
+<property type="nucleotide sequence ID" value="NM_003545.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003537.1">
+<property type="nucleotide sequence ID" value="NM_003546.2" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_003539.1">
+<property type="nucleotide sequence ID" value="NM_003548.2" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_068803.1">
+<property type="nucleotide sequence ID" value="NM_021968.3" />
+</dbReference>
+<dbReference type="RefSeq" id="NP_778224.1">
+<property type="nucleotide sequence ID" value="NM_175054.2" />
+</dbReference>
+<dbReference type="UniGene" id="Hs.143080" />
+<dbReference type="UniGene" id="Hs.247816" />
+<dbReference type="UniGene" id="Hs.248172" />
+<dbReference type="UniGene" id="Hs.248178" />
+<dbReference type="UniGene" id="Hs.248179" />
+<dbReference type="UniGene" id="Hs.278483" />
+<dbReference type="UniGene" id="Hs.46423" />
+<dbReference type="UniGene" id="Hs.528055" />
+<dbReference type="UniGene" id="Hs.533295" />
+<dbReference type="UniGene" id="Hs.55468" />
+<dbReference type="UniGene" id="Hs.591790" />
+<dbReference type="UniGene" id="Hs.655235" />
+<dbReference type="UniGene" id="Hs.662174" />
+<dbReference type="UniGene" id="Hs.706635" />
+<dbReference type="UniGene" id="Hs.745457" />
+<dbReference type="PDB" id="1ZKK">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.45" />
+<property type="chains" value="E/F/G/H=16-25" />
+</dbReference>
+<dbReference type="PDB" id="2BQZ">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.50" />
+<property type="chains" value="B/F=18-26" />
+</dbReference>
+<dbReference type="PDB" id="2CV5">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.50" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="2IG0">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.70" />
+<property type="chains" value="B=17-26" />
+</dbReference>
+<dbReference type="PDB" id="2KWN">
+<property type="method" value="NMR" />
+<property type="chains" value="B=10-24" />
+</dbReference>
+<dbReference type="PDB" id="2KWO">
+<property type="method" value="NMR" />
+<property type="chains" value="B=2-21" />
+</dbReference>
+<dbReference type="PDB" id="2LVM">
+<property type="method" value="NMR" />
+<property type="chains" value="B=15-28" />
+</dbReference>
+<dbReference type="PDB" id="2QQS">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.82" />
+<property type="chains" value="C/D=17-26" />
+</dbReference>
+<dbReference type="PDB" id="2RJE">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.86" />
+<property type="chains" value="P/Q=16-26" />
+</dbReference>
+<dbReference type="PDB" id="2RNY">
+<property type="method" value="NMR" />
+<property type="chains" value="B=14-28" />
+</dbReference>
+<dbReference type="PDB" id="2RS9">
+<property type="method" value="NMR" />
+<property type="chains" value="A=2-11" />
+</dbReference>
+<dbReference type="PDB" id="3A6N">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.70" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AFA">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.50" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AN2">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.60" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AV1">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.50" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AV2">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.80" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AYW">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.90" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZE">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.00" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZF">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.70" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZG">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.40" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZH">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.49" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZI">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.70" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZJ">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.89" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZK">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZL">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.70" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZM">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.89" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3AZN">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.00" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3CFS">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.40" />
+<property type="chains" value="E=28-42" />
+</dbReference>
+<dbReference type="PDB" id="3CFV">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.60" />
+<property type="chains" value="E/F=25-42" />
+</dbReference>
+<dbReference type="PDB" id="3F9W">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.60" />
+<property type="chains" value="E/F/G/H=16-25" />
+</dbReference>
+<dbReference type="PDB" id="3F9X">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.25" />
+<property type="chains" value="E/F/G/H=16-25" />
+</dbReference>
+<dbReference type="PDB" id="3F9Y">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.50" />
+<property type="chains" value="E/F=16-25" />
+</dbReference>
+<dbReference type="PDB" id="3F9Z">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.60" />
+<property type="chains" value="E/F/G/H=16-25" />
+</dbReference>
+<dbReference type="PDB" id="3IJ1">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.10" />
+<property type="chains" value="B=16-26" />
+</dbReference>
+<dbReference type="PDB" id="3JPX">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.05" />
+<property type="chains" value="B=14-28" />
+</dbReference>
+<dbReference type="PDB" id="3NQJ">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.10" />
+<property type="chains" value="B=21-103" />
+</dbReference>
+<dbReference type="PDB" id="3NQU">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.50" />
+<property type="chains" value="B=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3O36">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.70" />
+<property type="chains" value="D/E=15-20" />
+</dbReference>
+<dbReference type="PDB" id="3QBY">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.95" />
+<property type="chains" value="H=16-26" />
+</dbReference>
+<dbReference type="PDB" id="3QZS">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.80" />
+<property type="chains" value="C/D=13-22" />
+</dbReference>
+<dbReference type="PDB" id="3QZT">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.50" />
+<property type="chains" value="B=13-22" />
+</dbReference>
+<dbReference type="PDB" id="3QZV">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.00" />
+<property type="chains" value="C=8-18" />
+</dbReference>
+<dbReference type="PDB" id="3R45">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.60" />
+<property type="chains" value="B=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3UVW">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.37" />
+<property type="chains" value="B=2-12" />
+</dbReference>
+<dbReference type="PDB" id="3UVX">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.91" />
+<property type="chains" value="B=12-22" />
+</dbReference>
+<dbReference type="PDB" id="3UVY">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.02" />
+<property type="chains" value="B=16-26" />
+</dbReference>
+<dbReference type="PDB" id="3UW9">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.30" />
+<property type="chains" value="E/F=8-18" />
+</dbReference>
+<dbReference type="PDB" id="3W96">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.00" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3W97">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3W98">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.42" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3W99">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.00" />
+<property type="chains" value="B/F=17-103" />
+</dbReference>
+<dbReference type="PDB" id="3WA9">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.07" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3WAA">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3WKJ">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.80" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3WTP">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.67" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="3X1S">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.81" />
+<property type="chains" value="B/F=2-103" />
+</dbReference>
+<dbReference type="PDB" id="3X1T">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.81" />
+<property type="chains" value="B/F=2-103" />
+</dbReference>
+<dbReference type="PDB" id="3X1U">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.25" />
+<property type="chains" value="B/F=2-103" />
+</dbReference>
+<dbReference type="PDB" id="3X1V">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.92" />
+<property type="chains" value="B/F=2-103" />
+</dbReference>
+<dbReference type="PDB" id="4GQB">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.06" />
+<property type="chains" value="C=2-22" />
+</dbReference>
+<dbReference type="PDB" id="4H9N">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.95" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="4H9O">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.05" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="4H9P">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="4H9Q">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.95" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="4H9R">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="4H9S">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.60" />
+<property type="chains" value="C/D=21-103" />
+</dbReference>
+<dbReference type="PDB" id="4HGA">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.80" />
+<property type="chains" value="C=1-103" />
+</dbReference>
+<dbReference type="PDB" id="4M38">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="E/F=2-22" />
+</dbReference>
+<dbReference type="PDB" id="4N3W">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.90" />
+<property type="chains" value="C=14-28" />
+</dbReference>
+<dbReference type="PDB" id="4N4F">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.83" />
+<property type="chains" value="C=6-26" />
+</dbReference>
+<dbReference type="PDB" id="4QUT">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.70" />
+<property type="chains" value="B=10-16" />
+</dbReference>
+<dbReference type="PDB" id="4QUU">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.80" />
+<property type="chains" value="B=4-16" />
+</dbReference>
+<dbReference type="PDB" id="4QYD">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.94" />
+<property type="chains" value="B=5-18" />
+</dbReference>
+<dbReference type="PDB" id="4U9W">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.49" />
+<property type="chains" value="E/F/G/H=2-6" />
+</dbReference>
+<dbReference type="PDB" id="4YM5">
+<property type="method" value="X-ray" />
+<property type="resolution" value="4.00" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="4YM6">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.51" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="4YY6">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.45" />
+<property type="chains" value="Z=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYD">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.52" />
+<property type="chains" value="Z=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYG">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.10" />
+<property type="chains" value="B=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYH">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.74" />
+<property type="chains" value="Y/Z=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYI">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.50" />
+<property type="chains" value="C/F=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYJ">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.85" />
+<property type="chains" value="C/F=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYK">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.79" />
+<property type="chains" value="C/F=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYM">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.50" />
+<property type="chains" value="Z=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4YYN">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.85" />
+<property type="chains" value="Z=2-12" />
+</dbReference>
+<dbReference type="PDB" id="4Z2M">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.98" />
+<property type="chains" value="H/J=1-103" />
+</dbReference>
+<dbReference type="PDB" id="4Z5T">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.80" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AV5">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.40" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AV6">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AV8">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AV9">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AVB">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.40" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AVC">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.40" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5AY8">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.80" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B0Y">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.56" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B0Z">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.99" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B24">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.60" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B2I">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.00" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B2J">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.60" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B31">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.20" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B32">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.35" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B33">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.92" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5B40">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.33" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5BNV">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.79" />
+<property type="chains" value="B/E=2-103" />
+</dbReference>
+<dbReference type="PDB" id="5BNX">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.31" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="5BO0">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.91" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="5C3I">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.50" />
+<property type="chains" value="C/G/K/O/S/W=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5CPI">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.90" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5CPJ">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.15" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5CPK">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.63" />
+<property type="chains" value="B/F=1-103" />
+</dbReference>
+<dbReference type="PDB" id="5FA5">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.34" />
+<property type="chains" value="C=2-21" />
+</dbReference>
+<dbReference type="PDB" id="5FFW">
+<property type="method" value="X-ray" />
+<property type="resolution" value="1.50" />
+<property type="chains" value="C=2-11" />
+</dbReference>
+<dbReference type="PDB" id="5FWE">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.05" />
+<property type="chains" value="C/D=2-16" />
+</dbReference>
+<dbReference type="PDB" id="5JA4">
+<property type="method" value="X-ray" />
+<property type="resolution" value="2.42" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDB" id="5KDM">
+<property type="method" value="X-ray" />
+<property type="resolution" value="3.50" />
+<property type="chains" value="B=2-103" />
+</dbReference>
+<dbReference type="PDBsum" id="1ZKK" />
+<dbReference type="PDBsum" id="2BQZ" />
+<dbReference type="PDBsum" id="2CV5" />
+<dbReference type="PDBsum" id="2IG0" />
+<dbReference type="PDBsum" id="2KWN" />
+<dbReference type="PDBsum" id="2KWO" />
+<dbReference type="PDBsum" id="2LVM" />
+<dbReference type="PDBsum" id="2QQS" />
+<dbReference type="PDBsum" id="2RJE" />
+<dbReference type="PDBsum" id="2RNY" />
+<dbReference type="PDBsum" id="2RS9" />
+<dbReference type="PDBsum" id="3A6N" />
+<dbReference type="PDBsum" id="3AFA" />
+<dbReference type="PDBsum" id="3AN2" />
+<dbReference type="PDBsum" id="3AV1" />
+<dbReference type="PDBsum" id="3AV2" />
+<dbReference type="PDBsum" id="3AYW" />
+<dbReference type="PDBsum" id="3AZE" />
+<dbReference type="PDBsum" id="3AZF" />
+<dbReference type="PDBsum" id="3AZG" />
+<dbReference type="PDBsum" id="3AZH" />
+<dbReference type="PDBsum" id="3AZI" />
+<dbReference type="PDBsum" id="3AZJ" />
+<dbReference type="PDBsum" id="3AZK" />
+<dbReference type="PDBsum" id="3AZL" />
+<dbReference type="PDBsum" id="3AZM" />
+<dbReference type="PDBsum" id="3AZN" />
+<dbReference type="PDBsum" id="3CFS" />
+<dbReference type="PDBsum" id="3CFV" />
+<dbReference type="PDBsum" id="3F9W" />
+<dbReference type="PDBsum" id="3F9X" />
+<dbReference type="PDBsum" id="3F9Y" />
+<dbReference type="PDBsum" id="3F9Z" />
+<dbReference type="PDBsum" id="3IJ1" />
+<dbReference type="PDBsum" id="3JPX" />
+<dbReference type="PDBsum" id="3NQJ" />
+<dbReference type="PDBsum" id="3NQU" />
+<dbReference type="PDBsum" id="3O36" />
+<dbReference type="PDBsum" id="3QBY" />
+<dbReference type="PDBsum" id="3QZS" />
+<dbReference type="PDBsum" id="3QZT" />
+<dbReference type="PDBsum" id="3QZV" />
+<dbReference type="PDBsum" id="3R45" />
+<dbReference type="PDBsum" id="3UVW" />
+<dbReference type="PDBsum" id="3UVX" />
+<dbReference type="PDBsum" id="3UVY" />
+<dbReference type="PDBsum" id="3UW9" />
+<dbReference type="PDBsum" id="3W96" />
+<dbReference type="PDBsum" id="3W97" />
+<dbReference type="PDBsum" id="3W98" />
+<dbReference type="PDBsum" id="3W99" />
+<dbReference type="PDBsum" id="3WA9" />
+<dbReference type="PDBsum" id="3WAA" />
+<dbReference type="PDBsum" id="3WKJ" />
+<dbReference type="PDBsum" id="3WTP" />
+<dbReference type="PDBsum" id="3X1S" />
+<dbReference type="PDBsum" id="3X1T" />
+<dbReference type="PDBsum" id="3X1U" />
+<dbReference type="PDBsum" id="3X1V" />
+<dbReference type="PDBsum" id="4GQB" />
+<dbReference type="PDBsum" id="4H9N" />
+<dbReference type="PDBsum" id="4H9O" />
+<dbReference type="PDBsum" id="4H9P" />
+<dbReference type="PDBsum" id="4H9Q" />
+<dbReference type="PDBsum" id="4H9R" />
+<dbReference type="PDBsum" id="4H9S" />
+<dbReference type="PDBsum" id="4HGA" />
+<dbReference type="PDBsum" id="4M38" />
+<dbReference type="PDBsum" id="4N3W" />
+<dbReference type="PDBsum" id="4N4F" />
+<dbReference type="PDBsum" id="4QUT" />
+<dbReference type="PDBsum" id="4QUU" />
+<dbReference type="PDBsum" id="4QYD" />
+<dbReference type="PDBsum" id="4U9W" />
+<dbReference type="PDBsum" id="4YM5" />
+<dbReference type="PDBsum" id="4YM6" />
+<dbReference type="PDBsum" id="4YY6" />
+<dbReference type="PDBsum" id="4YYD" />
+<dbReference type="PDBsum" id="4YYG" />
+<dbReference type="PDBsum" id="4YYH" />
+<dbReference type="PDBsum" id="4YYI" />
+<dbReference type="PDBsum" id="4YYJ" />
+<dbReference type="PDBsum" id="4YYK" />
+<dbReference type="PDBsum" id="4YYM" />
+<dbReference type="PDBsum" id="4YYN" />
+<dbReference type="PDBsum" id="4Z2M" />
+<dbReference type="PDBsum" id="4Z5T" />
+<dbReference type="PDBsum" id="5AV5" />
+<dbReference type="PDBsum" id="5AV6" />
+<dbReference type="PDBsum" id="5AV8" />
+<dbReference type="PDBsum" id="5AV9" />
+<dbReference type="PDBsum" id="5AVB" />
+<dbReference type="PDBsum" id="5AVC" />
+<dbReference type="PDBsum" id="5AY8" />
+<dbReference type="PDBsum" id="5B0Y" />
+<dbReference type="PDBsum" id="5B0Z" />
+<dbReference type="PDBsum" id="5B24" />
+<dbReference type="PDBsum" id="5B2I" />
+<dbReference type="PDBsum" id="5B2J" />
+<dbReference type="PDBsum" id="5B31" />
+<dbReference type="PDBsum" id="5B32" />
+<dbReference type="PDBsum" id="5B33" />
+<dbReference type="PDBsum" id="5B40" />
+<dbReference type="PDBsum" id="5BNV" />
+<dbReference type="PDBsum" id="5BNX" />
+<dbReference type="PDBsum" id="5BO0" />
+<dbReference type="PDBsum" id="5C3I" />
+<dbReference type="PDBsum" id="5CPI" />
+<dbReference type="PDBsum" id="5CPJ" />
+<dbReference type="PDBsum" id="5CPK" />
+<dbReference type="PDBsum" id="5FA5" />
+<dbReference type="PDBsum" id="5FFW" />
+<dbReference type="PDBsum" id="5FWE" />
+<dbReference type="PDBsum" id="5JA4" />
+<dbReference type="PDBsum" id="5KDM" />
+<dbReference type="ProteinModelPortal" id="P62805" />
+<dbReference type="SMR" id="P62805" />
+<dbReference type="BioGrid" id="113899">
+<property type="interactions" value="23" />
+</dbReference>
+<dbReference type="BioGrid" id="113955">
+<property type="interactions" value="172" />
+</dbReference>
+<dbReference type="BioGrid" id="113956">
+<property type="interactions" value="17" />
+</dbReference>
+<dbReference type="BioGrid" id="113957">
+<property type="interactions" value="30" />
+</dbReference>
+<dbReference type="BioGrid" id="113958">
+<property type="interactions" value="16" />
+</dbReference>
+<dbReference type="BioGrid" id="113959">
+<property type="interactions" value="19" />
+</dbReference>
+<dbReference type="BioGrid" id="113960">
+<property type="interactions" value="16" />
+</dbReference>
+<dbReference type="BioGrid" id="113961">
+<property type="interactions" value="20" />
+</dbReference>
+<dbReference type="BioGrid" id="113962">
+<property type="interactions" value="16" />
+</dbReference>
+<dbReference type="BioGrid" id="113963">
+<property type="interactions" value="21" />
+</dbReference>
+<dbReference type="BioGrid" id="113964">
+<property type="interactions" value="18" />
+</dbReference>
+<dbReference type="BioGrid" id="113966">
+<property type="interactions" value="48" />
+</dbReference>
+<dbReference type="BioGrid" id="125732">
+<property type="interactions" value="87" />
+</dbReference>
+<dbReference type="BioGrid" id="299853">
+<property type="interactions" value="18" />
+</dbReference>
+<dbReference type="DIP" id="DIP-33079N" />
+<dbReference type="IntAct" id="P62805">
+<property type="interactions" value="113" />
+</dbReference>
+<dbReference type="MINT" id="MINT-276350" />
+<dbReference type="STRING" id="9606.ENSP00000367034" />
+<dbReference type="BindingDB" id="P62805" />
+<dbReference type="ChEMBL" id="CHEMBL5876" />
+<dbReference type="iPTMnet" id="P62805" />
+<dbReference type="PhosphoSitePlus" id="P62805" />
+<dbReference type="SwissPalm" id="P62805" />
+<dbReference type="BioMuta" id="HIST1H4A" />
+<dbReference type="DMDM" id="51317339" />
+<dbReference type="SWISS-2DPAGE" id="P62805" />
+<dbReference type="EPD" id="P62805" />
+<dbReference type="MaxQB" id="P62805" />
+<dbReference type="PaxDb" id="P62805" />
+<dbReference type="PeptideAtlas" id="P62805" />
+<dbReference type="PRIDE" id="P62805" />
+<dbReference type="TopDownProteomics" id="P62805" />
+<dbReference type="DNASU" id="8294" />
+<dbReference type="DNASU" id="8360" />
+<dbReference type="DNASU" id="8362" />
+<dbReference type="DNASU" id="8363" />
+<dbReference type="DNASU" id="8364" />
+<dbReference type="DNASU" id="8365" />
+<dbReference type="DNASU" id="8366" />
+<dbReference type="DNASU" id="8367" />
+<dbReference type="DNASU" id="8368" />
+<dbReference type="DNASU" id="8370" />
+<dbReference type="Ensembl" id="ENST00000244537">
+<property type="protein sequence ID" value="ENSP00000244537" />
+<property type="gene ID" value="ENSG00000274618" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000355057">
+<property type="protein sequence ID" value="ENSP00000347168" />
+<property type="gene ID" value="ENSG00000197238" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000358064">
+<property type="protein sequence ID" value="ENSP00000350767" />
+<property type="gene ID" value="ENSG00000197837" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000377727">
+<property type="protein sequence ID" value="ENSP00000366956" />
+<property type="gene ID" value="ENSG00000158406" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000377745">
+<property type="protein sequence ID" value="ENSP00000366974" />
+<property type="gene ID" value="ENSG00000278705" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000377803">
+<property type="protein sequence ID" value="ENSP00000367034" />
+<property type="gene ID" value="ENSG00000197061" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000539745">
+<property type="protein sequence ID" value="ENSP00000443017" />
+<property type="gene ID" value="ENSG00000197837" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000578186">
+<property type="protein sequence ID" value="ENSP00000462667" />
+<property type="gene ID" value="ENSG00000270882" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000579512">
+<property type="protein sequence ID" value="ENSP00000462355" />
+<property type="gene ID" value="ENSG00000270276" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000611927">
+<property type="protein sequence ID" value="ENSP00000479794" />
+<property type="gene ID" value="ENSG00000273542" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000612061">
+<property type="protein sequence ID" value="ENSP00000482412" />
+<property type="gene ID" value="ENSG00000270276" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000613412">
+<property type="protein sequence ID" value="ENSP00000481343" />
+<property type="gene ID" value="ENSG00000270882" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000614247">
+<property type="protein sequence ID" value="ENSP00000479461" />
+<property type="gene ID" value="ENSG00000277157" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000614272">
+<property type="protein sequence ID" value="ENSP00000478519" />
+<property type="gene ID" value="ENSG00000270882" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000615164">
+<property type="protein sequence ID" value="ENSP00000484789" />
+<property type="gene ID" value="ENSG00000276966" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000615353">
+<property type="protein sequence ID" value="ENSP00000481486" />
+<property type="gene ID" value="ENSG00000276180" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000617569">
+<property type="protein sequence ID" value="ENSP00000479106" />
+<property type="gene ID" value="ENSG00000278637" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000618193">
+<property type="protein sequence ID" value="ENSP00000478786" />
+<property type="gene ID" value="ENSG00000270882" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000618305">
+<property type="protein sequence ID" value="ENSP00000480960" />
+<property type="gene ID" value="ENSG00000275126" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000621520">
+<property type="protein sequence ID" value="ENSP00000481507" />
+<property type="gene ID" value="ENSG00000270276" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000634560">
+<property type="protein sequence ID" value="ENSP00000489319" />
+<property type="gene ID" value="ENSG00000158406" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000634956">
+<property type="protein sequence ID" value="ENSP00000489567" />
+<property type="gene ID" value="ENSG00000158406" />
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000635491">
+<property type="protein sequence ID" value="ENSP00000489236" />
+<property type="gene ID" value="ENSG00000158406" />
+</dbReference>
+<dbReference type="GeneID" id="121504" />
+<dbReference type="GeneID" id="554313" />
+<dbReference type="GeneID" id="8294" />
+<dbReference type="GeneID" id="8359" />
+<dbReference type="GeneID" id="8360" />
+<dbReference type="GeneID" id="8361" />
+<dbReference type="GeneID" id="8362" />
+<dbReference type="GeneID" id="8363" />
+<dbReference type="GeneID" id="8364" />
+<dbReference type="GeneID" id="8365" />
+<dbReference type="GeneID" id="8366" />
+<dbReference type="GeneID" id="8367" />
+<dbReference type="GeneID" id="8368" />
+<dbReference type="GeneID" id="8370" />
+<dbReference type="KEGG" id="hsa:121504" />
+<dbReference type="KEGG" id="hsa:554313" />
+<dbReference type="KEGG" id="hsa:8294" />
+<dbReference type="KEGG" id="hsa:8359" />
+<dbReference type="KEGG" id="hsa:8360" />
+<dbReference type="KEGG" id="hsa:8361" />
+<dbReference type="KEGG" id="hsa:8362" />
+<dbReference type="KEGG" id="hsa:8363" />
+<dbReference type="KEGG" id="hsa:8364" />
+<dbReference type="KEGG" id="hsa:8365" />
+<dbReference type="KEGG" id="hsa:8366" />
+<dbReference type="KEGG" id="hsa:8367" />
+<dbReference type="KEGG" id="hsa:8368" />
+<dbReference type="KEGG" id="hsa:8370" />
+<dbReference type="UCSC" id="uc001ess.4">
+<property type="organism name" value="human" />
+</dbReference>
+<dbReference type="CTD" id="121504" />
+<dbReference type="CTD" id="554313" />
+<dbReference type="CTD" id="8294" />
+<dbReference type="CTD" id="8359" />
+<dbReference type="CTD" id="8360" />
+<dbReference type="CTD" id="8361" />
+<dbReference type="CTD" id="8362" />
+<dbReference type="CTD" id="8363" />
+<dbReference type="CTD" id="8364" />
+<dbReference type="CTD" id="8365" />
+<dbReference type="CTD" id="8366" />
+<dbReference type="CTD" id="8367" />
+<dbReference type="CTD" id="8368" />
+<dbReference type="CTD" id="8370" />
+<dbReference type="DisGeNET" id="121504" />
+<dbReference type="DisGeNET" id="554313" />
+<dbReference type="DisGeNET" id="8294" />
+<dbReference type="DisGeNET" id="8359" />
+<dbReference type="DisGeNET" id="8360" />
+<dbReference type="DisGeNET" id="8361" />
+<dbReference type="DisGeNET" id="8362" />
+<dbReference type="DisGeNET" id="8363" />
+<dbReference type="DisGeNET" id="8364" />
+<dbReference type="DisGeNET" id="8365" />
+<dbReference type="DisGeNET" id="8366" />
+<dbReference type="DisGeNET" id="8367" />
+<dbReference type="DisGeNET" id="8368" />
+<dbReference type="DisGeNET" id="8370" />
+<dbReference type="GeneCards" id="HIST1H4A" />
+<dbReference type="GeneCards" id="HIST1H4B" />
+<dbReference type="GeneCards" id="HIST1H4C" />
+<dbReference type="GeneCards" id="HIST1H4D" />
+<dbReference type="GeneCards" id="HIST1H4E" />
+<dbReference type="GeneCards" id="HIST1H4F" />
+<dbReference type="GeneCards" id="HIST1H4H" />
+<dbReference type="GeneCards" id="HIST1H4I" />
+<dbReference type="GeneCards" id="HIST1H4J" />
+<dbReference type="GeneCards" id="HIST1H4K" />
+<dbReference type="GeneCards" id="HIST1H4L" />
+<dbReference type="GeneCards" id="HIST2H4A" />
+<dbReference type="GeneCards" id="HIST2H4B" />
+<dbReference type="GeneCards" id="HIST4H4" />
+<dbReference type="HGNC" id="HGNC:4781">
+<property type="gene designation" value="HIST1H4A" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4789">
+<property type="gene designation" value="HIST1H4B" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4787">
+<property type="gene designation" value="HIST1H4C" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4782">
+<property type="gene designation" value="HIST1H4D" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4790">
+<property type="gene designation" value="HIST1H4E" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4783">
+<property type="gene designation" value="HIST1H4F" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4788">
+<property type="gene designation" value="HIST1H4H" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4793">
+<property type="gene designation" value="HIST1H4I" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4785">
+<property type="gene designation" value="HIST1H4J" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4784">
+<property type="gene designation" value="HIST1H4K" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4791">
+<property type="gene designation" value="HIST1H4L" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:4794">
+<property type="gene designation" value="HIST2H4A" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:29607">
+<property type="gene designation" value="HIST2H4B" />
+</dbReference>
+<dbReference type="HGNC" id="HGNC:20510">
+<property type="gene designation" value="HIST4H4" />
+</dbReference>
+<dbReference type="HPA" id="CAB011503" />
+<dbReference type="HPA" id="CAB021887" />
+<dbReference type="HPA" id="CAB037279" />
+<dbReference type="HPA" id="HPA042201" />
+<dbReference type="MIM" id="142750">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602822">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602823">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602824">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602825">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602826">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602827">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602828">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602829">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602830">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602831">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="602833">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="MIM" id="615069">
+<property type="type" value="gene" />
+</dbReference>
+<dbReference type="neXtProt" id="NX_P62805" />
+<dbReference type="OpenTargets" id="ENSG00000158406" />
+<dbReference type="OpenTargets" id="ENSG00000197061" />
+<dbReference type="OpenTargets" id="ENSG00000197238" />
+<dbReference type="OpenTargets" id="ENSG00000197837" />
+<dbReference type="OpenTargets" id="ENSG00000270276" />
+<dbReference type="OpenTargets" id="ENSG00000270882" />
+<dbReference type="OpenTargets" id="ENSG00000273542" />
+<dbReference type="OpenTargets" id="ENSG00000274618" />
+<dbReference type="OpenTargets" id="ENSG00000275126" />
+<dbReference type="OpenTargets" id="ENSG00000276180" />
+<dbReference type="OpenTargets" id="ENSG00000276966" />
+<dbReference type="OpenTargets" id="ENSG00000277157" />
+<dbReference type="OpenTargets" id="ENSG00000278637" />
+<dbReference type="OpenTargets" id="ENSG00000278705" />
+<dbReference type="PharmGKB" id="PA29169" />
+<dbReference type="eggNOG" id="KOG3467">
+<property type="taxonomic scope" value="Eukaryota" />
+</dbReference>
+<dbReference type="eggNOG" id="COG2036">
+<property type="taxonomic scope" value="LUCA" />
+</dbReference>
+<dbReference type="GeneTree" id="ENSGT00760000119019" />
+<dbReference type="HOGENOM" id="HOG000234654" />
+<dbReference type="HOVERGEN" id="HBG051878" />
+<dbReference type="InParanoid" id="P62805" />
+<dbReference type="KO" id="K11254" />
+<dbReference type="OMA" id="STHNERI" />
+<dbReference type="OrthoDB" id="EOG091G0XGD" />
+<dbReference type="PhylomeDB" id="P62805" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000124526-MONOMER" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000124529-MONOMER" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000158340-MONOMER" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000158384-MONOMER" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000158406-MONOMER" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000168169-MONOMER" />
+<dbReference type="BioCyc" id="ZFISH:ENSG00000173554-MONOMER" />
+<dbReference type="Reactome" id="R-HSA-1221632">
+<property type="pathway name" value="Meiotic synapsis" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-171306">
+<property type="pathway name" value="Packaging Of Telomere Ends" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-201722">
+<property type="pathway name" value="Formation of the beta-catenin:TCF transactivating complex" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-212300">
+<property type="pathway name" value="PRC2 methylates histones and DNA" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-2299718">
+<property type="pathway name" value="Condensation of Prophase Chromosomes" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-2559580">
+<property type="pathway name" value="Oxidative Stress Induced Senescence" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-2559582">
+<property type="pathway name" value="Senescence-Associated Secretory Phenotype (SASP)" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-2559586">
+<property type="pathway name" value="DNA Damage/Telomere Stress Induced Senescence" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-3214815">
+<property type="pathway name" value="HDACs deacetylate histones" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-3214841">
+<property type="pathway name" value="PKMTs methylate histone lysines" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-3214842">
+<property type="pathway name" value="HDMs demethylate histones" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-3214847">
+<property type="pathway name" value="HATs acetylate histones" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-3214858">
+<property type="pathway name" value="RMTs methylate histone arginines" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-427359">
+<property type="pathway name" value="SIRT1 negatively regulates rRNA Expression" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-427389">
+<property type="pathway name" value="ERCC6 (CSB) and EHMT2 (G9a) positively regulate rRNA expression" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-427413">
+<property type="pathway name" value="NoRC negatively regulates rRNA expression" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5250924">
+<property type="pathway name" value="B-WICH complex positively regulates rRNA expression" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5334118">
+<property type="pathway name" value="DNA methylation" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5578749">
+<property type="pathway name" value="Transcriptional regulation by small RNAs" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5617472">
+<property type="pathway name" value="Activation of anterior HOX genes in hindbrain development during early embryogenesis" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5625886">
+<property type="pathway name" value="Activated PKN1 stimulates transcription of AR (androgen receptor) regulated genes KLK2 and KLK3" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5693565">
+<property type="pathway name" value="Recruitment and ATM-mediated phosphorylation of repair and signaling proteins at DNA double strand breaks" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5693571">
+<property type="pathway name" value="Nonhomologous End-Joining (NHEJ)" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-5693607">
+<property type="pathway name" value="Processing of DNA double-strand break ends" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-606279">
+<property type="pathway name" value="Deposition of new CENPA-containing nucleosomes at the centromere" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-69473">
+<property type="pathway name" value="G2/M DNA damage checkpoint" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-73728">
+<property type="pathway name" value="RNA Polymerase I Promoter Opening" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-73777">
+<property type="pathway name" value="RNA Polymerase I Chain Elongation" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-912446">
+<property type="pathway name" value="Meiotic recombination" />
+</dbReference>
+<dbReference type="Reactome" id="R-HSA-977225">
+<property type="pathway name" value="Amyloid fiber formation" />
+</dbReference>
+<dbReference type="SIGNOR" id="P62805" />
+<dbReference type="ChiTaRS" id="HIST1H4A">
+<property type="organism name" value="human" />
+</dbReference>
+<dbReference type="EvolutionaryTrace" id="P62805" />
+<dbReference type="GeneWiki" id="HIST1H4A" />
+<dbReference type="GeneWiki" id="HIST1H4B" />
+<dbReference type="GeneWiki" id="HIST1H4C" />
+<dbReference type="GeneWiki" id="HIST1H4D" />
+<dbReference type="GeneWiki" id="HIST1H4E" />
+<dbReference type="GeneWiki" id="HIST1H4F" />
+<dbReference type="GeneWiki" id="HIST1H4H" />
+<dbReference type="GeneWiki" id="HIST1H4I" />
+<dbReference type="GeneWiki" id="HIST1H4J" />
+<dbReference type="GeneWiki" id="HIST1H4K" />
+<dbReference type="GeneWiki" id="HIST1H4L" />
+<dbReference type="GeneWiki" id="HIST2H4A" />
+<dbReference type="GeneWiki" id="HIST4H4" />
+<dbReference type="Proteomes" id="UP000005640">
+<property type="component" value="Chromosome 1" />
+</dbReference>
+<dbReference type="Proteomes" id="UP000005640">
+<property type="component" value="Chromosome 12" />
+</dbReference>
+<dbReference type="Proteomes" id="UP000005640">
+<property type="component" value="Chromosome 6" />
+</dbReference>
+<dbReference type="Bgee" id="ENSG00000124529" />
+<dbReference type="CleanEx" id="HS_HIST1H4A" />
+<dbReference type="CleanEx" id="HS_HIST1H4B" />
+<dbReference type="CleanEx" id="HS_HIST1H4C" />
+<dbReference type="CleanEx" id="HS_HIST1H4D" />
+<dbReference type="CleanEx" id="HS_HIST1H4E" />
+<dbReference type="CleanEx" id="HS_HIST1H4F" />
+<dbReference type="CleanEx" id="HS_HIST1H4H" />
+<dbReference type="CleanEx" id="HS_HIST1H4I" />
+<dbReference type="CleanEx" id="HS_HIST1H4L" />
+<dbReference type="CleanEx" id="HS_HIST2H4A" />
+<dbReference type="CleanEx" id="HS_HIST2H4B" />
+<dbReference type="CleanEx" id="HS_HIST4H4" />
+<dbReference type="ExpressionAtlas" id="P62805">
+<property type="expression patterns" value="baseline and differential" />
+</dbReference>
+<dbReference type="Genevisible" id="P62805">
+<property type="organism ID" value="HS" />
+</dbReference>
+<dbReference type="GO" id="GO:0070062">
+<property type="term" value="C:extracellular exosome" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0031012">
+<property type="term" value="C:extracellular matrix" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="BHF-UCL" />
+</dbReference>
+<dbReference type="GO" id="GO:0005576">
+<property type="term" value="C:extracellular region" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0016020">
+<property type="term" value="C:membrane" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0000228">
+<property type="term" value="C:nuclear chromosome" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0000784">
+<property type="term" value="C:nuclear chromosome, telomeric region" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="BHF-UCL" />
+</dbReference>
+<dbReference type="GO" id="GO:0005654">
+<property type="term" value="C:nucleoplasm" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0000786">
+<property type="term" value="C:nucleosome" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0005634">
+<property type="term" value="C:nucleus" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0043234">
+<property type="term" value="C:protein complex" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0003677">
+<property type="term" value="F:DNA binding" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0042393">
+<property type="term" value="F:histone binding" />
+<property type="evidence" value="ECO:0000353" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0044822">
+<property type="term" value="F:poly(A) RNA binding" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0019904">
+<property type="term" value="F:protein domain specific binding" />
+<property type="evidence" value="ECO:0000353" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:1904837">
+<property type="term" value="P:beta-catenin-TCF complex assembly" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0044267">
+<property type="term" value="P:cellular protein metabolic process" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0034080">
+<property type="term" value="P:CENP-A containing nucleosome assembly" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0000183">
+<property type="term" value="P:chromatin silencing at rDNA" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0006335">
+<property type="term" value="P:DNA replication-dependent nucleosome assembly" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0006336">
+<property type="term" value="P:DNA replication-independent nucleosome assembly" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0006352">
+<property type="term" value="P:DNA-templated transcription, initiation" />
+<property type="evidence" value="ECO:0000501" />
+<property type="project" value="InterPro" />
+</dbReference>
+<dbReference type="GO" id="GO:0006303">
+<property type="term" value="P:double-strand break repair via nonhomologous end joining" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0031047">
+<property type="term" value="P:gene silencing by RNA" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0045814">
+<property type="term" value="P:negative regulation of gene expression, epigenetic" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0045653">
+<property type="term" value="P:negative regulation of megakaryocyte differentiation" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0006334">
+<property type="term" value="P:nucleosome assembly" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0045815">
+<property type="term" value="P:positive regulation of gene expression, epigenetic" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0051290">
+<property type="term" value="P:protein heterotetramerization" />
+<property type="evidence" value="ECO:0000314" />
+<property type="project" value="UniProtKB" />
+</dbReference>
+<dbReference type="GO" id="GO:0016233">
+<property type="term" value="P:telomere capping" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="Reactome" />
+</dbReference>
+<dbReference type="GO" id="GO:0032200">
+<property type="term" value="P:telomere organization" />
+<property type="evidence" value="ECO:0000304" />
+<property type="project" value="BHF-UCL" />
+</dbReference>
+<dbReference type="CDD" id="cd00076">
+<property type="entry name" value="H4" />
+<property type="match status" value="1" />
+</dbReference>
+<dbReference type="Gene3D" id="1.10.20.10">
+<property type="match status" value="1" />
+</dbReference>
+<dbReference type="InterPro" id="IPR009072">
+<property type="entry name" value="Histone-fold" />
+</dbReference>
+<dbReference type="InterPro" id="IPR001951">
+<property type="entry name" value="Histone_H4" />
+</dbReference>
+<dbReference type="InterPro" id="IPR019809">
+<property type="entry name" value="Histone_H4_CS" />
+</dbReference>
+<dbReference type="InterPro" id="IPR004823">
+<property type="entry name" value="TAF_TATA-bd" />
+</dbReference>
+<dbReference type="PRINTS" id="PR00623">
+<property type="entry name" value="HISTONEH4" />
+</dbReference>
+<dbReference type="SMART" id="SM00417">
+<property type="entry name" value="H4" />
+<property type="match status" value="1" />
+</dbReference>
+<dbReference type="SMART" id="SM00803">
+<property type="entry name" value="TAF" />
+<property type="match status" value="1" />
+</dbReference>
+<dbReference type="SUPFAM" id="SSF47113">
+<property type="entry name" value="SSF47113" />
+<property type="match status" value="1" />
+</dbReference>
+<dbReference type="PROSITE" id="PS00047">
+<property type="entry name" value="HISTONE_H4" />
+<property type="match status" value="1" />
+</dbReference>
+<proteinExistence type="evidence at protein level" />
+<keyword id="KW-0002">3D-structure</keyword>
+<keyword id="KW-0007">Acetylation</keyword>
+<keyword id="KW-0160">Chromosomal rearrangement</keyword>
+<keyword id="KW-0158">Chromosome</keyword>
+<keyword id="KW-0164">Citrullination</keyword>
+<keyword id="KW-0181">Complete proteome</keyword>
+<keyword id="KW-0903">Direct protein sequencing</keyword>
+<keyword id="KW-0238">DNA-binding</keyword>
+<keyword id="KW-1017">Isopeptide bond</keyword>
+<keyword id="KW-0488">Methylation</keyword>
+<keyword id="KW-0544">Nucleosome core</keyword>
+<keyword id="KW-0539">Nucleus</keyword>
+<keyword id="KW-0597">Phosphoprotein</keyword>
+<keyword id="KW-0621">Polymorphism</keyword>
+<keyword id="KW-1185">Reference proteome</keyword>
+<keyword id="KW-0832">Ubl conjugation</keyword>
+<feature type="initiator methionine" description="Removed" evidence="26">
+<location>
+<position position="1" />
+</location>
+</feature>
+<feature type="chain" description="Histone H4" id="PRO_0000158320">
+<location>
+<begin position="2" />
+<end position="103" />
+</location>
+</feature>
+<feature type="chain" description="Processed cysteine-rich motor neuron 1 protein" id="PRO_0000296243">
+<location>
+<begin status="unknown" />
+<end position="10" />
+</location>
+</feature>
+<feature type="DNA-binding region">
+<location>
+<begin position="17" />
+<end position="21" />
+</location>
+</feature>
+<feature type="modified residue" description="Methionine amide" evidence="26">
+<location>
+<position position="1" />
+</location>
+</feature>
+<feature type="modified residue" description="N-acetylserine" evidence="26">
+<location>
+<position position="2" />
+</location>
+</feature>
+<feature type="modified residue" description="Phosphoserine" evidence="26">
+<location>
+<position position="2" />
+</location>
+</feature>
+<feature type="modified residue" description="Asymmetric dimethylarginine; by PRMT1; alternate" evidence="17 18 21">
+<location>
+<position position="4" />
+</location>
+</feature>
+<feature type="modified residue" description="Citrulline; alternate" evidence="21 23">
+<location>
+<position position="4" />
+</location>
+</feature>
+<feature type="modified residue" description="Omega-N-methylarginine; by PRMT1; alternate" evidence="17 18 21">
+<location>
+<position position="4" />
+</location>
+</feature>
+<feature type="modified residue" description="Symmetric dimethylarginine; by PRMT5 and PRMT7; alternate" evidence="15">
+<location>
+<position position="4" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-acetyllysine; alternate" evidence="8 30 31">
+<location>
+<position position="6" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-crotonyllysine; alternate" evidence="29">
+<location>
+<position position="6" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-acetyllysine; alternate" evidence="8 30 31">
+<location>
+<position position="9" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-crotonyllysine; alternate" evidence="29">
+<location>
+<position position="9" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-acetyllysine; alternate" evidence="8 26 30 31">
+<location>
+<position position="13" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-crotonyllysine; alternate" evidence="29">
+<location>
+<position position="13" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-acetyllysine; alternate" evidence="8 26 30 31">
+<location>
+<position position="17" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-crotonyllysine; alternate" evidence="15">
+<location>
+<position position="17" />
+</location>
+</feature>
+<feature type="modified residue" description="N6,N6,N6-trimethyllysine; alternate" evidence="19 22 26">
+<location>
+<position position="21" />
+</location>
+</feature>
+<feature type="modified residue" description="N6,N6-dimethyllysine; alternate" evidence="19 22 26">
+<location>
+<position position="21" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-methyllysine; alternate" evidence="19 22 26">
+<location>
+<position position="21" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-acetyllysine" evidence="8">
+<location>
+<position position="32" />
+</location>
+</feature>
+<feature type="modified residue" description="Phosphoserine; by PAK2" evidence="6 7 9 10 11 12 13 28">
+<location>
+<position position="48" />
+</location>
+</feature>
+<feature type="modified residue" description="Phosphotyrosine" evidence="5 10">
+<location>
+<position position="52" />
+</location>
+</feature>
+<feature type="modified residue" description="Phosphothreonine" evidence="16">
+<location>
+<position position="81" />
+</location>
+</feature>
+<feature type="modified residue" description="Phosphotyrosine" evidence="13">
+<location>
+<position position="89" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-acetyllysine; alternate" evidence="27">
+<location>
+<position position="92" />
+</location>
+</feature>
+<feature type="modified residue" description="N6-succinyllysine; alternate" evidence="16">
+<location>
+<position position="92" />
+</location>
+</feature>
+<feature type="cross-link" description="Glycyl lysine isopeptide (Lys-Gly) (interchain with G-Cter in SUMO2); alternate" evidence="14">
+<location>
+<position position="13" />
+</location>
+</feature>
+<feature type="cross-link" description="Glycyl lysine isopeptide (Lys-Gly) (interchain with G-Cter in ubiquitin); alternate" evidence="27">
+<location>
+<position position="92" />
+</location>
+</feature>
+<feature type="sequence variant" description="In a breast cancer sample; somatic mutation; dbSNP:rs747622981." id="VAR_036206" evidence="25">
+<original>E</original>
+<variation>Q</variation>
+<location>
+<position position="64" />
+</location>
+</feature>
+<feature type="sequence conflict" description="In Ref. 14; AAH67496." ref="14" evidence="32">
+<original>V</original>
+<variation>A</variation>
+<location>
+<position position="71" />
+</location>
+</feature>
+<feature type="sequence conflict" description="In Ref. 11; CAG46986." ref="11" evidence="32">
+<original>A</original>
+<variation>P</variation>
+<location>
+<position position="77" />
+</location>
+</feature>
+<feature type="turn" evidence="3">
+<location>
+<begin position="7" />
+<end position="10" />
+</location>
+</feature>
+<feature type="strand" evidence="1">
+<location>
+<begin position="21" />
+<end position="23" />
+</location>
+</feature>
+<feature type="strand" evidence="2">
+<location>
+<begin position="28" />
+<end position="30" />
+</location>
+</feature>
+<feature type="helix" evidence="2">
+<location>
+<begin position="32" />
+<end position="41" />
+</location>
+</feature>
+<feature type="strand" evidence="4">
+<location>
+<begin position="45" />
+<end position="47" />
+</location>
+</feature>
+<feature type="helix" evidence="2">
+<location>
+<begin position="49" />
+<end position="76" />
+</location>
+</feature>
+<feature type="strand" evidence="2">
+<location>
+<begin position="80" />
+<end position="82" />
+</location>
+</feature>
+<feature type="helix" evidence="2">
+<location>
+<begin position="84" />
+<end position="91" />
+</location>
+</feature>
+<feature type="strand" evidence="2">
+<location>
+<begin position="94" />
+<end position="96" />
+</location>
+</feature>
+<feature type="turn" evidence="2">
+<location>
+<begin position="97" />
+<end position="102" />
+</location>
+</feature>
+<evidence key="1" type="ECO:0000244">
+<source>
+<dbReference type="PDB" id="3F9X" />
+</source>
+</evidence>
+<evidence key="2" type="ECO:0000244">
+<source>
+<dbReference type="PDB" id="4H9N" />
+</source>
+</evidence>
+<evidence key="3" type="ECO:0000244">
+<source>
+<dbReference type="PDB" id="4YYM" />
+</source>
+</evidence>
+<evidence key="4" type="ECO:0000244">
+<source>
+<dbReference type="PDB" id="5CPK" />
+</source>
+</evidence>
+<evidence key="5" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="15592455" />
+</source>
+</evidence>
+<evidence key="6" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="17081983" />
+</source>
+</evidence>
+<evidence key="7" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="18669648" />
+</source>
+</evidence>
+<evidence key="8" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="19608861" />
+</source>
+</evidence>
+<evidence key="9" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="19690332" />
+</source>
+</evidence>
+<evidence key="10" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="20068231" />
+</source>
+</evidence>
+<evidence key="11" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="21406692" />
+</source>
+</evidence>
+<evidence key="12" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="23186163" />
+</source>
+</evidence>
+<evidence key="13" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="24275569" />
+</source>
+</evidence>
+<evidence key="14" type="ECO:0000244">
+<source>
+<dbReference type="PubMed" id="25218447" />
+</source>
+</evidence>
+<evidence key="15" type="ECO:0000250" />
+<evidence key="16" type="ECO:0000250">
+<source>
+<dbReference type="UniProtKB" id="P62806" />
+</source>
+</evidence>
+<evidence key="17" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="11387442" />
+</source>
+</evidence>
+<evidence key="18" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="11448779" />
+</source>
+</evidence>
+<evidence key="19" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="12086618" />
+</source>
+</evidence>
+<evidence key="20" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="14578449" />
+</source>
+</evidence>
+<evidence key="21" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="15345777" />
+</source>
+</evidence>
+<evidence key="22" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="15964846" />
+</source>
+</evidence>
+<evidence key="23" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="16567635" />
+</source>
+</evidence>
+<evidence key="24" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="16678110" />
+</source>
+</evidence>
+<evidence key="25" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="16959974" />
+</source>
+</evidence>
+<evidence key="26" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="17967882" />
+</source>
+</evidence>
+<evidence key="27" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="19818714" />
+</source>
+</evidence>
+<evidence key="28" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="21724829" />
+</source>
+</evidence>
+<evidence key="29" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="21925322" />
+</source>
+</evidence>
+<evidence key="30" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="2474456" />
+</source>
+</evidence>
+<evidence key="31" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="7664735" />
+</source>
+</evidence>
+<evidence key="32" type="ECO:0000305" />
+<sequence length="103" mass="11367" checksum="A9E5DFD3F8B97598" modified="2007-01-23" version="2">
+MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLK
+VFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG
+</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see http://www.uniprot.org/terms
+Distributed under the Creative Commons Attribution-NoDerivs License
+</copyright>
+</uniprot>

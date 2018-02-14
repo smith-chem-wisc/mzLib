@@ -1,0 +1,12 @@
+﻿ID   ThisModificationsName
+AC   DO NOT USE THIS, IN UNIPROT FILE ONLY
+FT   DO NOT USE THIS, IN UNIPROT FILE ONLY
+TG   Nxs or Nxt
+PP   Anywhere.
+MM   15.995
+DR   FakeDb1; ac-001
+DR   FakeDb2; num01
+NL   0 or 15.995
+OM   15.995 or 4.995
+DI   50 or 60
+//
