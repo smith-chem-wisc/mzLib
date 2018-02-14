@@ -66,7 +66,7 @@ namespace Test
         [Test]
         public void SpectrumBasePeakIntensity()
         {
-            double basePeakIntensity = _mzSpectrumA.YofPeakWithHighestY;
+            double basePeakIntensity = _mzSpectrumA.YofPeakWithHighestY.Value;
 
             Assert.AreEqual(122781408.0, basePeakIntensity);
         }

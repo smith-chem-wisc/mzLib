@@ -644,7 +644,7 @@ namespace IO.MzML
                     {
                         name = "lowest observed m/z",
                         accession = "MS:1000528",
-                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.FirstX.ToString(CultureInfo.InvariantCulture),
+                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.FirstX.Value.ToString(CultureInfo.InvariantCulture),
                         unitCvRef = "MS",
                         unitAccession = "MS:1000040",
                         unitName = "m/z",
@@ -656,7 +656,7 @@ namespace IO.MzML
                     {
                         name = "highest observed m/z",
                         accession = "MS:1000527",
-                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.ToString(CultureInfo.InvariantCulture),
+                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.Value.ToString(CultureInfo.InvariantCulture),
                         unitAccession = "MS:1000040",
                         unitName = "m/z",
                         cvRef = "MS"

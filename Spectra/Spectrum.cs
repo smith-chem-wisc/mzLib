@@ -75,35 +75,41 @@ namespace Spectra
 
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
-        public double FirstX { get { return XArray[0]; } }
+        public double? FirstX { get { return XArray[0]; } }
 
-        public double LastX { get { return XArray[Size - 1]; } }
+        public double? LastX { get { return XArray[Size - 1]; } }
 
         public int Size { get { return XArray.Length; } }
 
-        public int IndexOfPeakWithHighesetY
+        public int? IndexOfPeakWithHighesetY
         {
             get
             {
+                if (Size == 0)
+                    return null;
                 if (!indexOfpeakWithHighestY.HasValue)
                     indexOfpeakWithHighestY = Array.IndexOf(YArray, YArray.Max());
                 return indexOfpeakWithHighestY.Value;
             }
         }
 
-        public double YofPeakWithHighestY
+        public double? YofPeakWithHighestY
         {
             get
             {
-                return YArray[IndexOfPeakWithHighesetY];
+                if (Size == 0)
+                    return null;
+                return YArray[IndexOfPeakWithHighesetY.Value];
             }
         }
 
-        public double XofPeakWithHighestY
+        public double? XofPeakWithHighestY
         {
             get
             {
-                return XArray[IndexOfPeakWithHighesetY];
+                if (Size == 0)
+                    return null;
+                return XArray[IndexOfPeakWithHighesetY.Value];
             }
         }
 
@@ -121,7 +127,10 @@ namespace Spectra
         {
             get
             {
-                return new DoubleRange(FirstX, LastX);
+                if (Size > 0)
+                    return new DoubleRange(FirstX.Value, LastX.Value);
+                else
+                    return null;
             }
         }
 

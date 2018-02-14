@@ -34,11 +34,11 @@ namespace Spectra
         double[] XArray { get; }
         double[] YArray { get; }
 
-        double FirstX { get; }
-        double LastX { get; }
+        double? FirstX { get; }
+        double? LastX { get; }
         int Size { get; }
-        double YofPeakWithHighestY { get; }
-        double XofPeakWithHighestY { get; }
+        double? YofPeakWithHighestY { get; }
+        double? XofPeakWithHighestY { get; }
         double SumOfAllY { get; }
         DoubleRange Range { get; }
 

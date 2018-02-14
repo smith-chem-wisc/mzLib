@@ -101,7 +101,9 @@ namespace MassSpectrometry
         {
             get
             {
-                return new MzRange(FirstX, LastX);
+                if (Size == 0)
+                    return null;
+                return new MzRange(FirstX.Value, LastX.Value);
             }
         }
 

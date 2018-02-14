@@ -78,7 +78,7 @@ namespace FlashLFQ
             this.idSpecificChargeState = idSpecificChargeState;
             this.requireMonoisotopicMass = requireMonoisotopicMass;
             this.mbrRtWindow = maxMbrWindow;
-            
+
             qValueCutoff = 0.01;
             peakfindingPpmTolerance = 20.0;
             initialMbrRtWindow = 10.0;

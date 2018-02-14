@@ -59,7 +59,6 @@ namespace Test
         [Test]
         public static void WriteEmptyScan()
         {
-
             double[] intensities1 = new double[] { };
             double[] mz1 = new double[] { };
             MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
@@ -68,6 +67,10 @@ namespace Test
             };
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"));
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
         }
 
         [Test]
@@ -487,7 +490,7 @@ namespace Test
             Assert.AreEqual(2, okay.GetClosestOneBasedSpectrumNumber(2));
 
             var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.FirstX;
-            Assert.AreEqual(oldFirstValue, newFirstValue, 1e-9);
+            Assert.AreEqual(oldFirstValue.Value, newFirstValue.Value, 1e-9);
 
             var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
 
