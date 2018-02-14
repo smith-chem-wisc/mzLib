@@ -106,26 +106,32 @@ namespace MassSpectrometry
 
         public void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            if (IsolationMz.HasValue)
+            if (IsolationMz.HasValue && precursorSpectrum.Size > 0)
             {
                 var thePeak = precursorSpectrum.GetClosestPeakIndex(IsolationMz.Value);
-                SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
-                SelectedIonMZ = precursorSpectrum.XArray[thePeak];
+                SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
+                SelectedIonMZ = precursorSpectrum.XArray[thePeak.Value];
             }
         }
 
         public void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ);
-            SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
-            SelectedIonMZ = precursorSpectrum.XArray[thePeak];
+            if (precursorSpectrum.Size > 0)
+            {
+                var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ);
+                SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
+                SelectedIonMZ = precursorSpectrum.XArray[thePeak.Value];
+            }
         }
 
         public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
         {
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
-            SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak];
-            SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak];
+            if (precursorSpectrum.Size > 0)
+            {
+                var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
+                SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak.Value];
+                SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak.Value];
+            }
         }
 
         #endregion Public Methods
