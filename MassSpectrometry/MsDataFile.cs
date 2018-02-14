@@ -101,7 +101,7 @@ namespace MassSpectrometry
             //windowNum is the number of windows
             for (int i = 0; i < filteringParams.NumberOfWindows; i++)
             {
-                int temp = (i == filteringParams.NumberOfWindows) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : intensities.Length / filteringParams.NumberOfWindows.Value;
+                int temp = (i == filteringParams.NumberOfWindows-1) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : intensities.Length / filteringParams.NumberOfWindows.Value;
                 var mzTemp = new double[temp];
                 var intensityTemp = new double[temp];
 
