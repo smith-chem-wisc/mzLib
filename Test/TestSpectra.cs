@@ -19,7 +19,6 @@
 using IO.MzML;
 using MzLibUtil;
 using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -209,7 +208,7 @@ namespace Test
         {
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447.73849));
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447));
-            Assert.Throws<IndexOutOfRangeException>(() => { new MzmlMzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1); }, "No peaks in spectrum!");
+            Assert.IsNull(new MzmlMzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1));
         }
 
         [Test]
