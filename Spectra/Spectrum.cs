@@ -75,9 +75,26 @@ namespace Spectra
 
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
-        public double? FirstX { get { return XArray[0]; } }
 
-        public double? LastX { get { return XArray[Size - 1]; } }
+        public double? FirstX
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                return XArray[0];
+            }
+        }
+
+        public double? LastX
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                return XArray[Size - 1];
+            }
+        }
 
         public int Size { get { return XArray.Length; } }
 
@@ -127,10 +144,9 @@ namespace Spectra
         {
             get
             {
-                if (Size > 0)
-                    return new DoubleRange(FirstX.Value, LastX.Value);
-                else
+                if (Size == 0)
                     return null;
+                return new DoubleRange(FirstX.Value, LastX.Value);
             }
         }
 
@@ -154,8 +170,10 @@ namespace Spectra
             return data;
         }
 
-        public int GetClosestPeakIndex(double x)
+        public int? GetClosestPeakIndex(double x)
         {
+            if (Size == 0)
+                return null;
             int index = Array.BinarySearch(XArray, x);
             if (index >= 0)
                 return index;
@@ -171,9 +189,11 @@ namespace Spectra
             return index - 1;
         }
 
-        public double GetClosestPeakXvalue(double x)
+        public double? GetClosestPeakXvalue(double x)
         {
-            return XArray[GetClosestPeakIndex(x)];
+            if (Size == 0)
+                return null;
+            return XArray[GetClosestPeakIndex(x).Value];
         }
 
         public int NumPeaksWithinRange(double minX, double maxX)

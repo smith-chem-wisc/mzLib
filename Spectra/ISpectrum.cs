@@ -50,9 +50,9 @@ namespace Spectra
 
         int NumPeaksWithinRange(double minX, double maxX);
 
-        int GetClosestPeakIndex(double x);
+        int? GetClosestPeakIndex(double x);
 
-        double GetClosestPeakXvalue(double x);
+        double? GetClosestPeakXvalue(double x);
 
         IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks);
 
