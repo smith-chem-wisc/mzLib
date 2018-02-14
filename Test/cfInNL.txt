@@ -1,8 +1,0 @@
-﻿ID   NiceMod
-TG   M
-MT   test
-PP   Anywhere.
-NL   O2 or O3
-DI   O2 or O3
-CF   O10
-//
