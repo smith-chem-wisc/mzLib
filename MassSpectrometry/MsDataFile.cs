@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016 Stefan Solntsev
 //
 // This file (MsDataFile.cs) is part of MassSpectrometry.
@@ -99,16 +99,25 @@ namespace MassSpectrometry
             List<double> mzResults = new List<double>();
             List<double> intensityResults = new List<double>();
             //windowNum is the number of windows
+
+            if (filteringParams.NumberOfWindows.Value == 1)
+            {
+                int numPeaks = TopNpeakHelper(intensities, mArray, filteringParams);
+                Array.Resize(ref intensities, numPeaks);
+                Array.Resize(ref mArray, numPeaks);
+                return;
+            }
+
             for (int i = 0; i < filteringParams.NumberOfWindows; i++)
             {
-                int temp = (i == filteringParams.NumberOfWindows) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : intensities.Length / filteringParams.NumberOfWindows.Value;
+                int temp = (i == (filteringParams.NumberOfWindows.Value-1)) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : (intensities.Length / filteringParams.NumberOfWindows.Value);
                 var mzTemp = new double[temp];
                 var intensityTemp = new double[temp];
 
-                Buffer.BlockCopy(mArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
-                Buffer.BlockCopy(intensities, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
+                Buffer.BlockCopy(mArray, sizeof(double) * (intensities.Length / filteringParams.NumberOfWindows.Value) * i, mzTemp, 0, sizeof(double) * temp);
+                Buffer.BlockCopy(intensities, sizeof(double) * (intensities.Length / filteringParams.NumberOfWindows.Value) * i, intensityTemp, 0, sizeof(double) * temp);
 
-                int numPeaks = TopNpeakHelper(intensities, mArray, filteringParams);
+                int numPeaks = TopNpeakHelper(intensityTemp, mzTemp, filteringParams);
                 Array.Resize(ref intensityTemp, numPeaks);
                 Array.Resize(ref mzTemp, numPeaks);
                 mzResults.AddRange(mzTemp);
