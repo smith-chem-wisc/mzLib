@@ -21,6 +21,8 @@ namespace UsefulProteomicsDatabases
 
         public static Regex uniprot_gene_expression = new Regex(@"GN=([^ ]+)");
 
+        public static Regex uniprot_organism_expression = new Regex(@"OS=(.*?)\sGN=");
+
         public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_.]+)");
 
         public static Regex ensembl_fullName_expression = new Regex(@"(pep:.*)");
@@ -85,6 +87,7 @@ namespace UsefulProteomicsDatabases
                 string accession = null;
                 string name = null;
                 string full_name = null;
+                string organism = null;
                 string sequence = null;
                 string feature_type = null;
                 string feature_description = null;
@@ -103,6 +106,7 @@ namespace UsefulProteomicsDatabases
                 var oneBasedModifications = new Dictionary<int, List<Modification>>();
                 List<Tuple<string, string>> gene_names = new List<Tuple<string, string>>();
                 bool reading_gene = false;
+                bool reading_organism = false;
                 List<DatabaseReference> databaseReferences = new List<DatabaseReference>();
 
                 using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
@@ -124,15 +128,30 @@ namespace UsefulProteomicsDatabases
                                         break;
 
                                     case "name":
-                                        if (xml.Depth == 2)
+                                        if (xml.Depth == 2 && !reading_gene && !reading_organism)
                                         {
                                             name = xml.ReadElementString();
                                         }
-                                        if (reading_gene) gene_names.Add(new Tuple<string, string>(xml.GetAttribute("type"), xml.ReadElementString()));
+                                        if (reading_gene && !reading_organism)
+                                        {
+                                            gene_names.Add(new Tuple<string, string>(xml.GetAttribute("type"), xml.ReadElementString()));
+                                        }
+                                        if (reading_organism)
+                                        {
+                                            if (xml.GetAttribute("type").Equals("scientific"))
+                                                organism = xml.ReadElementString();
+                                        }
                                         break;
 
                                     case "gene":
                                         reading_gene = true;
+                                        break;
+
+                                    case "organism":
+                                        if(organism == null)
+                                        {
+                                            reading_organism = true;
+                                        }
                                         break;
 
                                     case "fullName":
@@ -263,12 +282,16 @@ namespace UsefulProteomicsDatabases
                                         reading_gene = false;
                                         break;
 
+                                    case "organism":
+                                        reading_organism = false;
+                                        break;
+
                                     case "entry":
                                         if (accession != null && sequence != null)
                                         {
                                             if (generateTargetProteins)
                                             {
-                                                var protein = new Protein(sequence, accession, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds, proteinDbLocation);
+                                                var protein = new Protein(sequence, accession, organism, gene_names, oneBasedModifications, proteolysisProducts, name, full_name, false, IsContaminant, databaseReferences, sequenceVariations, disulfideBonds, proteinDbLocation);
                                                 result.Add(protein);
                                             }
 
@@ -336,7 +359,7 @@ namespace UsefulProteomicsDatabases
                                                         Array.Reverse(variation_array);
                                                         decoy_variations.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array), new string(variation_array), "DECOY VARIANT: " + sv.Description));
                                                     }
-                                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP, name, full_name, true, IsContaminant, null, decoy_variations, decoy_disulfides, proteinDbLocation);
+                                                    var decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, organism, gene_names, decoy_modifications, decoyPP, name, full_name, true, IsContaminant, null, decoy_variations, decoy_disulfides, proteinDbLocation);
 
                                                     result.Add(decoy_protein);
                                                     break;
@@ -422,7 +445,7 @@ namespace UsefulProteomicsDatabases
 
                                                         decoy_variations_slide.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array_slided), new string(variation_array_slided), "DECOY VARIANT: " + sv.Description));
                                                     }
-                                                    var decoy_protein_slide = new Protein(slided_sequence, "DECOY_" + accession, gene_names, decoy_modifications, decoyPP_slide, name, full_name, true, IsContaminant, null, decoy_variations_slide, decoy_disulfides_slide, proteinDbLocation);
+                                                    var decoy_protein_slide = new Protein(slided_sequence, "DECOY_" + accession, organism, gene_names, decoy_modifications, decoyPP_slide, name, full_name, true, IsContaminant, null, decoy_variations_slide, decoy_disulfides_slide, proteinDbLocation);
 
                                                     result.Add(decoy_protein_slide);
                                                     break;
@@ -435,6 +458,7 @@ namespace UsefulProteomicsDatabases
                                         name = null;
                                         full_name = null;
                                         sequence = null;
+                                        organism = null;
                                         feature_type = null;
                                         feature_description = null;
                                         original_value = "";
@@ -451,6 +475,7 @@ namespace UsefulProteomicsDatabases
                                         databaseReferences = new List<DatabaseReference>();
                                         gene_names = new List<Tuple<string, string>>();
                                         reading_gene = false;
+                                        reading_organism = false;
                                         break;
                                 }
                                 break;
@@ -522,13 +547,14 @@ namespace UsefulProteomicsDatabases
         /// <param name="name_expression"></param>
         /// <param name="gene_expression"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression, Regex organism_expression)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
             string accession = null;
             string name = null;
             string full_name = null;
+            string organism = null;
             List<Tuple<string, string>> gene_name = new List<Tuple<string, string>>();
 
             Regex substituteWhitespace = new Regex(@"\s+");
@@ -554,7 +580,12 @@ namespace UsefulProteomicsDatabases
                         var full_name_match = full_name_expression.Match(line);
                         var name_match = name_expression.Match(line);
                         var gene_name_match = gene_expression.Match(line);
-
+                        if (organism_expression != null)
+                        {
+                            var organism_match = organism_expression.Match(line);
+                            if (organism_match.Groups.Count > 1) organism = organism_expression.Match(line).Groups[1].Value;
+                        }
+                        
                         if (accession_match.Groups.Count > 1) accession = accession_expression.Match(line).Groups[1].Value;
                         if (full_name_match.Groups.Count > 1) full_name = full_name_expression.Match(line).Groups[1].Value;
                         if (name_match.Groups.Count > 1) name = name_expression.Match(line).Groups[1].Value;
@@ -581,7 +612,7 @@ namespace UsefulProteomicsDatabases
                         unique_accessions.Add(accession);
                         if (originalTarget)
                         {
-                            Protein protein = new Protein(sequence, accession, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            Protein protein = new Protein(sequence, accession, organism, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                             result.Add(protein);
                         }
 
@@ -592,7 +623,7 @@ namespace UsefulProteomicsDatabases
                                 int starts_with_met = sequence.StartsWith("M", StringComparison.Ordinal) ? 1 : 0;
                                 Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
                                 var reversed_sequence = new string(sequence_array);
-                                Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                                Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, organism, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                                 result.Add(decoy_protein);
                                 break;
 
@@ -604,7 +635,7 @@ namespace UsefulProteomicsDatabases
                                 for (int i = starts_with_met_slide ? 1 : 0; i < sequence.Length; i++)
                                     sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
                                 string slide_sequence = new string(sequence_array_slide);
-                                Protein decoy_protein_slide = new Protein(slide_sequence, "DECOY_" + accession, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                                Protein decoy_protein_slide = new Protein(slide_sequence, "DECOY_" + accession, organism, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                                 result.Add(decoy_protein_slide);
                                 break;
 
