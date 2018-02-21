@@ -458,6 +458,7 @@ namespace UsefulProteomicsDatabases
                                         name = null;
                                         full_name = null;
                                         sequence = null;
+                                        organism = null;
                                         feature_type = null;
                                         feature_description = null;
                                         original_value = "";
