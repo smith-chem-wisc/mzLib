@@ -326,7 +326,7 @@ namespace Test
             Assert.AreEqual(b.Count, 1);
             List<Protein> prots3 = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"blank.fasta"), true, DecoyType.Reverse, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression, ProteinDbLoader.uniprot_organism_expression, out var c);
             Assert.AreEqual(c.Count, 1);
-            CollectionAssert.Contains(c, "Empty DB");
+            CollectionAssert.Contains(c, "Line: <empty>, Empty DB");
         }
 
         [Test]
