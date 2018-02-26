@@ -7,13 +7,14 @@ namespace Proteomics
     {
         #region Public Constructors
 
-        public Protein(string sequence, string accession, List<Tuple<string, string>> gene_names = null, IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null, string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
+        public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> gene_names = null, IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null, string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
         {
             // Mandatory
             BaseSequence = sequence;
             Accession = accession;
 
             Name = name;
+            Organism = organism;
             FullName = full_name;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
@@ -40,6 +41,7 @@ namespace Proteomics
 
         public string Accession { get; }
         public string BaseSequence { get; }
+        public string Organism { get; }
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }

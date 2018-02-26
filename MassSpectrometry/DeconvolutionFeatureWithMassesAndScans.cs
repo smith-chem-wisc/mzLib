@@ -78,19 +78,19 @@ namespace MassSpectrometry
         public string OneLineString()
         {
             List<(double elutionTime, double intensity)> elutionTimeAndIntensity = new List<(double elutionTime, double intensity)>();
-            foreach (var envelope in groups.SelectMany(b => b.isotopicEnvelopes).Where(b => b.isotopicEnvelope.charge == MostIntenseEnvelope.charge))
-                elutionTimeAndIntensity.Add((envelope.elutionTime, envelope.isotopicEnvelope.totalIntensity));
+            foreach (var (scanNumber, elutionTime, isotopicEnvelope) in groups.SelectMany(b => b.isotopicEnvelopes).Where(b => b.isotopicEnvelope.charge == MostIntenseEnvelope.charge))
+                elutionTimeAndIntensity.Add((elutionTime, isotopicEnvelope.totalIntensity));
 
             int maxCharge = groups.SelectMany(p => p.AllCharges).Max();
             var t = groups.SelectMany(p => p.isotopicEnvelopes);
             string elutionString = "";
-            for(int z = 1; z <= maxCharge; z++)
+            for (int z = 1; z <= maxCharge; z++)
             {
                 string str = "[" + z + "|";
                 var isotopicEnvelopes = t.Where(p => p.isotopicEnvelope.charge == z);
-                foreach(var envelope in isotopicEnvelopes)
+                foreach (var (scanNumber, elutionTime, isotopicEnvelope) in isotopicEnvelopes)
                 {
-                    str += Math.Round(envelope.elutionTime, 2) + ";" + envelope.isotopicEnvelope.totalIntensity + ",";
+                    str += Math.Round(elutionTime, 2) + ";" + isotopicEnvelope.totalIntensity + ",";
                 }
                 str += "]";
 

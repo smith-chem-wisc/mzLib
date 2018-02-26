@@ -93,10 +93,9 @@ namespace UsefulProteomicsDatabases
                                         cfnl.Add(tempCF);
                                     }
                                 }
+                                neutralLosses.Add(cfnl.MonoisotopicMass);
                             }
-                            neutralLosses.Add(cfnl.MonoisotopicMass);
                         }
-
                         yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks, neutralLosses: neutralLosses);
                     }
                 }

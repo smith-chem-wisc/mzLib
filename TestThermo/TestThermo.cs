@@ -66,7 +66,6 @@ namespace TestThermo
             Assert.IsTrue(check);
         }
 
-
         [Test]
         public static void LoadCompressedMzml()
         {
@@ -76,14 +75,14 @@ namespace TestThermo
 
             Assert.AreEqual(a.NumSpectra, b.NumSpectra);
 
-            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, 1e-8);
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY.Value, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY.Value, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) < 1e-8);
 
-            Assert.AreEqual(a.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, 1e-8);
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+            Assert.AreEqual(a.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY.Value, b.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY.Value - b.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY.Value) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) < 1e-8);
 
-            Assert.AreEqual(a.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY, 1e-8);
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+            Assert.AreEqual(a.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY.Value, b.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY.Value, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY.Value - b.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY.Value) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) < 1e-8);
         }
 
         [Test]
@@ -103,7 +102,7 @@ namespace TestThermo
 
             var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 1, 10, 1, 4).ToList();
 
-            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Item1.ToMass(b.charge) - 523.257) < 0.001));
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().mz.ToMass(b.charge) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
 
@@ -123,12 +122,60 @@ namespace TestThermo
         }
 
         [Test]
+        public static void WindowFilteringStaticTest()
+        {
+            //test window number of 1
+            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfWindows: 1, applyTrimmingToMs1: true));
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
+
+            var aLen = a_w.GetOneBasedScan(1).MassSpectrum.Size;
+            var bLen = b_w.GetOneBasedScan(1).MassSpectrum.Size;
+            var cLen = c_w.GetOneBasedScan(1).MassSpectrum.Size;
+            var dLen = d_w.GetOneBasedScan(1).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen, cLen), dLen);
+
+            var aLen2 = a_w.GetOneBasedScan(2).MassSpectrum.Size;
+            var bLen2 = b_w.GetOneBasedScan(2).MassSpectrum.Size;
+            var cLen2 = c_w.GetOneBasedScan(2).MassSpectrum.Size;
+            var dLen2 = d_w.GetOneBasedScan(2).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen2, cLen2), dLen2);
+
+            var aLen3 = a_w.GetOneBasedScan(3).MassSpectrum.Size;
+            var bLen3 = b_w.GetOneBasedScan(3).MassSpectrum.Size;
+            var cLen3 = c_w.GetOneBasedScan(3).MassSpectrum.Size;
+            var dLen3 = d_w.GetOneBasedScan(3).MassSpectrum.Size;
+
+            Assert.AreEqual(Math.Min(bLen3, cLen3), dLen3);
+        }
+
+        [Test]
+        public static void MultiWindowFiltering()
+        {
+            //tests for filtering with window
+            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfWindows: 1, applyTrimmingToMs1: true));
+            Assert.AreEqual(1120, a_w.GetOneBasedScan(1).MassSpectrum.Size);
+            //number of 2
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 3, applyTrimmingToMs1: true));
+            Assert.AreEqual(600, b_w.GetOneBasedScan(1).MassSpectrum.Size);
+            //number of 4
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 4, applyTrimmingToMs1: true));
+            Assert.AreEqual(800, c_w.GetOneBasedScan(1).MassSpectrum.Size);
+            //number of 6, which doesn't divide 1120
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, numberOfWindows: 6, applyTrimmingToMs1: true));
+            Assert.AreEqual(900, d_w.GetOneBasedScan(1).MassSpectrum.Size);
+        }
+
+        [Test]
         public static void LoadThermoFiltered()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
-            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", topNpeaks: 400, trimMs1Peaks: true);
-            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", minRatio: 0.001, trimMs1Peaks: true);
-            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", minRatio: 0.001, topNpeaks: 400, trimMs1Peaks: true);
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400, applyTrimmingToMs1: true));
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, applyTrimmingToMs1: true));
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400, applyTrimmingToMs1: true));
 
             var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
@@ -142,9 +189,9 @@ namespace TestThermo
         public static void LoadThermoFiltered2()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
-            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"small.raw", topNpeaks: 40, trimMs1Peaks: true, trimMsMsPeaks: true);
-            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"small.raw", minRatio: 0.1, trimMs1Peaks: true, trimMsMsPeaks: true);
-            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"small.raw", minRatio: 0.1, topNpeaks: 40, trimMs1Peaks: true, trimMsMsPeaks: true);
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 40, applyTrimmingToMs1: true, applyTrimmingToMsMs: true));
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.1, applyTrimmingToMs1: true, applyTrimmingToMsMs: true));
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.1, numberOfPeaksToKeepPerWindow: 40, applyTrimmingToMs1: true, applyTrimmingToMsMs: true));
 
             var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
@@ -266,9 +313,9 @@ namespace TestThermo
             // One peak persists across the three scans! So instead of 5 see three peaks in summed
             Assert.AreEqual(3, summed3.GetOneBasedScan(1).MassSpectrum.NumPeaksWithinRange(893, 899));
 
-            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.FirstX, Math.Min(Math.Min(rawFile.GetOneBasedScan(1).MassSpectrum.FirstX, rawFile.GetOneBasedScan(2).MassSpectrum.FirstX), rawFile.GetOneBasedScan(3).MassSpectrum.FirstX));
+            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.FirstX, Math.Min(Math.Min(rawFile.GetOneBasedScan(1).MassSpectrum.FirstX.Value, rawFile.GetOneBasedScan(2).MassSpectrum.FirstX.Value), rawFile.GetOneBasedScan(3).MassSpectrum.FirstX.Value));
 
-            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX, rawFile.GetOneBasedScan(2).MassSpectrum.LastX), rawFile.GetOneBasedScan(3).MassSpectrum.LastX));
+            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX.Value, rawFile.GetOneBasedScan(2).MassSpectrum.LastX.Value), rawFile.GetOneBasedScan(3).MassSpectrum.LastX.Value));
 
             // 5 scans
             SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);
