@@ -104,9 +104,15 @@
     <None Include="bad.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="bad3.fasta" />
-    <None Include="bad4.fasta" />
-    <None Include="blank.fasta" />
+    <None Include="bad3.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="bad4.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="blank.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="fasta.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
