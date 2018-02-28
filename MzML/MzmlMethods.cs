@@ -659,6 +659,7 @@ namespace IO.MzML
                         value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.Value.ToString(CultureInfo.InvariantCulture),
                         unitAccession = "MS:1000040",
                         unitName = "m/z",
+                        unitCvRef = "MS",
                         cvRef = "MS"
                     };
                 }

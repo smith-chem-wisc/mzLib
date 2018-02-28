@@ -148,7 +148,7 @@ namespace UsefulProteomicsDatabases
                                         break;
 
                                     case "organism":
-                                        if(organism == null)
+                                        if (organism == null)
                                         {
                                             reading_organism = true;
                                         }
@@ -547,7 +547,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="name_expression"></param>
         /// <param name="gene_expression"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression, Regex organism_expression)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression, Regex organism_expression, out List<string> errors)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -556,7 +556,7 @@ namespace UsefulProteomicsDatabases
             string full_name = null;
             string organism = null;
             List<Tuple<string, string>> gene_name = new List<Tuple<string, string>>();
-
+            errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
 
             List<Protein> result = new List<Protein>();
@@ -572,7 +572,17 @@ namespace UsefulProteomicsDatabases
 
                 while (true)
                 {
-                    string line = fasta.ReadLine();
+                    string line = "";
+
+                    line = fasta.ReadLine();
+
+                    if (line == null)
+                    {
+                        break;
+                    }
+
+
+
 
                     if (line.StartsWith(">"))
                     {
@@ -585,7 +595,7 @@ namespace UsefulProteomicsDatabases
                             var organism_match = organism_expression.Match(line);
                             if (organism_match.Groups.Count > 1) organism = organism_expression.Match(line).Groups[1].Value;
                         }
-                        
+
                         if (accession_match.Groups.Count > 1) accession = accession_expression.Match(line).Groups[1].Value;
                         if (full_name_match.Groups.Count > 1) full_name = full_name_expression.Match(line).Groups[1].Value;
                         if (name_match.Groups.Count > 1) name = name_expression.Match(line).Groups[1].Value;
@@ -613,6 +623,8 @@ namespace UsefulProteomicsDatabases
                         if (originalTarget)
                         {
                             Protein protein = new Protein(sequence, accession, organism, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            if (protein.Length == 0)
+                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name);
                             result.Add(protein);
                         }
 
@@ -656,6 +668,8 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
+            if (result.Count() < 1)
+                errors.Add("Line: <empty>, Empty DB");
             return result;
         }
 
