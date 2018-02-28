@@ -64,7 +64,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargetProteins, DecoyType decoyType, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargetProteins, DecoyType decoyType, IEnumerable<Modification> allKnownModifications, bool IsContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, List<string> errors)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
 
@@ -549,7 +549,6 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression, Regex organism_expression, out List<string> errors)
         {
-            //out List<string> errors
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
             string accession = null;
@@ -625,7 +624,7 @@ namespace UsefulProteomicsDatabases
                         {
                             Protein protein = new Protein(sequence, accession, organism, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                             if (protein.Length == 0)
-                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name );
+                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name);
                             result.Add(protein);
                         }
 
