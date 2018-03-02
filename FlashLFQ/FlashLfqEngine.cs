@@ -198,17 +198,6 @@ namespace FlashLFQ
 
             foreach (var file in unambiguousPeaksGroupedByFile)
             {
-                // used later
-                int fileIndex = 0;
-                for (int i = 0; i < rawFileInformation.Count; i++)
-                {
-                    if (rawFileInformation[i].Equals(file.Key))
-                    {
-                        fileIndex = i;
-                        break;
-                    }
-                }
-
                 var allMbrFeaturesForThisFile = results.peaks[file.Key].Where(p => p.isMbrFeature);
 
                 // get the best (most intense) peak for each peptide in the file
@@ -250,22 +239,23 @@ namespace FlashLFQ
                     foreach (var kvp in pepToBestFeatureForOtherFile)
                         rtCalPoints.Add(kvp.Key, new Tuple<double, double>(pepToBestFeatureForThisFile[kvp.Key].apexPeak.retentionTime, kvp.Value.apexPeak.retentionTime));
 
-                    var someDoubles = rtCalPoints.Select(p => (p.Value.Item1 - p.Value.Item2));
-                    double average = someDoubles.Average();
-                    double sumOfSquaresOfDifferences = someDoubles.Select(val => (val - average) * (val - average)).Sum();
-                    double sd = Math.Sqrt(sumOfSquaresOfDifferences / (someDoubles.Count() - 1));
+                    if (!rtCalPoints.Any())
+                        continue;
+
+                    var differencesInRt = rtCalPoints.Select(p => (p.Value.Item1 - p.Value.Item2));
+                    double average = differencesInRt.Average();
+                    double sd = MathNet.Numerics.Statistics.Statistics.StandardDeviation(differencesInRt);
 
                     // remove extreme outliers
                     if (sd > 1.0)
                     {
-                        var pointsToRemove = rtCalPoints.Where(p => p.Value.Item1 - p.Value.Item2 > average + sd || p.Value.Item1 - p.Value.Item2 < average - sd).ToList();
+                        var pointsToRemove = rtCalPoints.Where(p => (p.Value.Item1 - p.Value.Item2) > (average + sd) || (p.Value.Item1 - p.Value.Item2) < (average - sd)).ToList();
                         foreach (var point in pointsToRemove)
                             rtCalPoints.Remove(point.Key);
 
-                        someDoubles = rtCalPoints.Select(p => (p.Value.Item1 - p.Value.Item2));
-                        average = someDoubles.Average();
-                        sumOfSquaresOfDifferences = someDoubles.Select(val => (val - average) * (val - average)).Sum();
-                        sd = Math.Sqrt(sumOfSquaresOfDifferences / (someDoubles.Count() - 1));
+                        differencesInRt = rtCalPoints.Select(p => (p.Value.Item1 - p.Value.Item2));
+                        average = differencesInRt.Average();
+                        sd = MathNet.Numerics.Statistics.Statistics.StandardDeviation(differencesInRt);
                     }
 
                     // find rt differences between files
@@ -273,7 +263,6 @@ namespace FlashLFQ
 
                     int minRt = (int)Math.Floor(rtCalPoints2.First().Item1);
                     int maxRt = (int)Math.Ceiling(rtCalPoints2.Last().Item1);
-                    var roughRts = Enumerable.Range(minRt, (maxRt - minRt) + 1);
                     var rtCalibrationDictionary = new Dictionary<int, List<double>>();
                     foreach (var rt in rtCalPoints2)
                     {
@@ -297,21 +286,21 @@ namespace FlashLFQ
                     // calculate stdev for each element in spline
                     for (int i = 1; i <= maxRt; i++)
                     {
-                        if (rtCalibrationDictionary.TryGetValue(i, out List<double> list))
+                        if (rtCalibrationDictionary.TryGetValue(i, out List<double> rtDifferencesForThisTime))
                         {
-                            if (list.Count > 3)
+                            if (rtDifferencesForThisTime.Count > 3)
                             {
-                                list.Sort();
-                                rtCalRunningSpline[i] = list[list.Count / 2]; // median rt difference for this timepoint
+                                rtDifferencesForThisTime.Sort();
+                                rtCalRunningSpline[i] = rtDifferencesForThisTime[rtDifferencesForThisTime.Count / 2]; // median rt difference for this timepoint
 
-                                average = list.Average();
-                                sumOfSquaresOfDifferences = list.Select(val => (val - average) * (val - average)).Sum();
-                                sd = Math.Sqrt(sumOfSquaresOfDifferences / (list.Count - 1));
+                                average = rtDifferencesForThisTime.Average();
+                                sd = MathNet.Numerics.Statistics.Statistics.StandardDeviation(rtDifferencesForThisTime);
+                                var rtError = 3 * sd;
 
-                                if (3 * sd > (mbrRtWindow / 2.0))
+                                if (rtError > (mbrRtWindow / 2.0))
                                     stdevRunningSpline[i] = mbrRtWindow / 2.0;
                                 else
-                                    stdevRunningSpline[i] = 3 * sd;
+                                    stdevRunningSpline[i] = rtError;
                             }
                         }
                     }
