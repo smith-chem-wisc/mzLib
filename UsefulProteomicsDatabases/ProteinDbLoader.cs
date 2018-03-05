@@ -658,6 +658,7 @@ namespace UsefulProteomicsDatabases
                         accession = null;
                         name = null;
                         full_name = null;
+                        organism = null;
                         gene_name = new List<Tuple<string, string>>();
                     }
 
