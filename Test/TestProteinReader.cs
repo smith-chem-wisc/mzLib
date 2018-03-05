@@ -327,17 +327,28 @@ namespace Test
             ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, @"blank.fasta"), true, DecoyType.Reverse, false, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_fullName_expression, ProteinDbLoader.uniprot_accession_expression, ProteinDbLoader.uniprot_gene_expression, ProteinDbLoader.uniprot_organism_expression, out var c);
             Assert.AreEqual(c.Count, 1);
             CollectionAssert.Contains(c, "Line: <empty>, Empty DB");
+      
+        }
 
+        [Test]
+        public static void BadXmlTest()
+        {
+            
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var modList = new List<Modification>
             {
-                //new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
+                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
             };
 
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"modified_start - Copy.xml"), true, DecoyType.Reverse, modList, false, null, out Dictionary<string, Modification> un, out var errors);
+            ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml_With_Line_Removed.xml"), true, DecoyType.Reverse, modList, false, null, out Dictionary<string, Modification> un, out var errors);
+            Assert.AreEqual(errors.Count, 1);
 
-
+            ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"empty_xml.xml"), true, DecoyType.Reverse, modList, false, null, out Dictionary<string, Modification> un2, out var errors2);
+            Assert.AreEqual(errors2.Count, 1);
         }
+
+
+
 
         [Test]
         public static void Load_fasta_handle_tooHigh_indices()

@@ -76,7 +76,7 @@ namespace UsefulProteomicsDatabases
             }
             catch(Exception E)
             {
-                errors.Add("Unable to Get Ptm List from Protein XML: " + E.InnerException.ToString());
+                errors.Add("Unable to Get Ptm List from Protein XML: " + E.ToString());
                 return null;
             }
             Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
@@ -496,7 +496,7 @@ namespace UsefulProteomicsDatabases
                     }
                     catch(Exception E)
                     {
-                        errors.Add("Error Reading this XML File: " + E.InnerException.ToString());
+                        errors.Add("Error Reading this XML File: " + E.ToString());
                         return null;
                     }
                 }
