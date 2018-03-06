@@ -143,6 +143,12 @@
     <Content Include="disulfidetests.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="empty_xml.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="xml_With_Line_Removed.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="cfInNL.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
