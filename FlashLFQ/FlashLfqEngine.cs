@@ -505,35 +505,49 @@ namespace FlashLFQ
             else if (ext == ".RAW")
             {
 #if NETFRAMEWORK
-                var thermoFile = fileInfo.dataFile as IO.Thermo.ThermoFile;
                 if (fileInfo.dataFile == null)
                 {
-                    try
+                    using (var thermoDynamicConnection = IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.fullFilePathWithExtension))
                     {
-                        thermoFile = IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.fullFilePathWithExtension);
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        if (!silent)
+                        try
                         {
-                            Console.WriteLine("\nCan't find raw file" + fileInfo.fullFilePathWithExtension + "\n");
+                            // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
+                            int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.msOrderByScan;
+                            for (int i = 0; i < msOrders.Length; i++)
+                                if (msOrders[i] == 1)
+                                    ms1ScanList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
                         }
-                        return null;
-                    }
-                    catch (Exception e)
-                    {
-                        if (!silent)
+                        catch (FileNotFoundException)
                         {
-                            throw new MzLibException("FlashLFQ Error: Problem opening raw file " + fileInfo.fullFilePathWithExtension + "; " + e.Message);
+                            thermoDynamicConnection.Dispose();
+
+                            if (!silent)
+                            {
+                                Console.WriteLine("\nCan't find raw file" + fileInfo.fullFilePathWithExtension + "\n");
+                            }
+                            return null;
+                        }
+                        catch (Exception e)
+                        {
+                            thermoDynamicConnection.Dispose();
+
+                            if (!silent)
+                            {
+                                throw new MzLibException("FlashLFQ Error: Problem opening raw file " + fileInfo.fullFilePathWithExtension + "; " + e.Message);
+                            }
                         }
                     }
                 }
+                else
+                {
+                    // thermo file has already been opened and read; just get the ms1 scans out
+                    var thermoFile = fileInfo.dataFile as IO.Thermo.ThermoFile;
 
-                int[] msOrders = thermoFile.ThermoGlobalParams.msOrderByScan;
-                for (int i = 0; i < msOrders.Length; i++)
-                    if (msOrders[i] == 1)
-                        ms1ScanList.Add(thermoFile.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
-
+                    int[] msOrders = thermoFile.ThermoGlobalParams.msOrderByScan;
+                    for (int i = 0; i < msOrders.Length; i++)
+                        if (msOrders[i] == 1)
+                            ms1ScanList.Add(thermoFile.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
+                }
 #else
                 if (!silent)
                 {
