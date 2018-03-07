@@ -621,7 +621,7 @@ namespace UsefulProteomicsDatabases
                         {
                             Protein protein = new Protein(sequence, accession, organism, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                             if (protein.Length == 0)
-                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name);
+                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " from database: " + proteinDbLocation);
                             else
                                 result.Add(protein);
                         }
