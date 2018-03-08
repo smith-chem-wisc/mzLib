@@ -621,8 +621,9 @@ namespace UsefulProteomicsDatabases
                         {
                             Protein protein = new Protein(sequence, accession, organism, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                             if (protein.Length == 0)
-                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name);
-                            result.Add(protein);
+                                errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
+                            else
+                                result.Add(protein);
                         }
 
                         switch (onTheFlyDecoys)
@@ -666,8 +667,8 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-            if (result.Count() < 1)
-                errors.Add("Line: <empty>, Empty DB");
+            if (!result.Any())
+                errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             return result;
         }
 
