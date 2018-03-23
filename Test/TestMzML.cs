@@ -57,6 +57,39 @@ namespace Test
         }
 
         [Test]
+        public static void TestMzmlPeakTrimming()
+        {
+            int numPeaks = 200;
+            double ratio = 0.01;
+
+            IMzmlScan[] scans = new IMzmlScan[1];
+
+            List<(double mz, double intensity)> peaks = new List<(double, double)>();
+            for(int i = 400; i <= 1600; i++)
+                peaks.Add((i, i));
+
+            var myTopPeaks = peaks.OrderByDescending(p => p.intensity).Take(numPeaks);
+            double max = peaks.Max(p => p.intensity);
+            myTopPeaks = myTopPeaks.Where(p => p.intensity >= max * ratio);
+            
+            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(peaks.Select(p => p.mz).ToArray(), peaks.Select(p => p.intensity).ToArray(), false);
+            scans[0] = new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1");
+
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), numPeaks, ratio, true, true);
+
+            var mySpectralPeaks = ok.First().MassSpectrum.XArray;
+            var test1 = myTopPeaks.Select(p => p.mz).Except(mySpectralPeaks);
+            var test2 = mySpectralPeaks.Except(myTopPeaks.Select(p => p.mz));
+
+            Assert.That(!test1.Any());
+            Assert.That(!test2.Any());
+        }
+
+        [Test]
         public static void WriteEmptyScan()
         {
             double[] intensities1 = new double[] { };
