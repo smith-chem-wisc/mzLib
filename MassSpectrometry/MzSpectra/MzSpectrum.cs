@@ -101,7 +101,9 @@ namespace MassSpectrometry
         {
             get
             {
-                return new MzRange(FirstX, LastX);
+                if (Size == 0)
+                    return null;
+                return new MzRange(FirstX.Value, LastX.Value);
             }
         }
 
@@ -139,6 +141,9 @@ namespace MassSpectrometry
         // Mass tolerance must account for different isotope spacing!
         public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
         {
+            if (Size == 0)
+                yield break;
+
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
             foreach (var candidateForMostIntensePeak in ExtractIndices(theRange.Minimum, theRange.Maximum))
@@ -178,9 +183,9 @@ namespace MassSpectrometry
                         //Console.WriteLine("   theorMassThatTryingToFind: " + theorMassThatTryingToFind);
                         //Console.WriteLine("   theorMassThatTryingToFind.ToMz(chargeState): " + theorMassThatTryingToFind.ToMz(chargeState));
                         var closestPeakToTheorMass = GetClosestPeakIndex(theorMassThatTryingToFind.ToMz(chargeState));
-                        var closestPeakmz = XArray[closestPeakToTheorMass];
+                        var closestPeakmz = XArray[closestPeakToTheorMass.Value];
                         //Console.WriteLine("   closestPeakmz: " + closestPeakmz);
-                        var closestPeakIntensity = YArray[closestPeakToTheorMass];
+                        var closestPeakIntensity = YArray[closestPeakToTheorMass.Value];
                         if (Math.Abs(closestPeakmz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
                             && Peak2satisfiesRatio(allIntensities[massIndex][0], allIntensities[massIndex][indexToLookAt], candidateForMostIntensePeakIntensity, closestPeakIntensity, intensityRatioLimit)
                             && !listOfPeaks.Contains((closestPeakmz, closestPeakIntensity)))

@@ -103,8 +103,6 @@ namespace MzIdentML
                                (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
                                new PpmTolerance(Convert.ToDouble(hm[0].value));
                     }
-
-                    
                 }
             }
         }
@@ -136,8 +134,6 @@ namespace MzIdentML
                                (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
                                new PpmTolerance(Convert.ToDouble(hm[0].value));
                     }
-
-                    
                 }
             }
         }
@@ -160,7 +156,6 @@ namespace MzIdentML
                     {
                         return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult.Count();
                     }
-                    
                 }
             }
         }
@@ -185,7 +180,6 @@ namespace MzIdentML
                 {
                     return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].calculatedMassToCharge;
                 }
-                
             }
         }
 
@@ -205,7 +199,6 @@ namespace MzIdentML
                 {
                     return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].chargeState;
                 }
-                
             }
         }
 
@@ -225,7 +218,6 @@ namespace MzIdentML
                 {
                     return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].experimentalMassToCharge;
                 }
-                
             }
         }
 
@@ -251,6 +243,7 @@ namespace MzIdentML
             {
                 try
                 {
+
                     foreach (mzIdentML111.Generated.PeptideEvidenceRefType pe 
                         in dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                     {
@@ -266,8 +259,6 @@ namespace MzIdentML
                             {
                                 return false;
                             }
-
-
                         }
                     }
                     return true;
@@ -294,8 +285,6 @@ namespace MzIdentML
                     }
                     return true;
                 }
-
-                
             }
         }
 
@@ -321,7 +310,7 @@ namespace MzIdentML
                         Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
                     return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
                 }
-                
+
             }
         }
 
@@ -341,7 +330,6 @@ namespace MzIdentML
                 {
                     return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem.Count(i => i != null);
                 }
-                
             }
         }
 
@@ -884,7 +872,6 @@ namespace MzIdentML
                 {
                     return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].Fragmentation[i].FragmentArray[0].values;
                 }
-                
             }
         }
 
@@ -904,7 +891,6 @@ namespace MzIdentML
                 {
                     return dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].Fragmentation[i].FragmentArray[0].values.Length;
                 }
-                
             }
         }
 
@@ -1080,6 +1066,7 @@ namespace MzIdentML
             {
                 try
                 {
+
                     foreach (mzIdentML111.Generated.PeptideEvidenceRefType pe 
                         in dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].PeptideEvidenceRef)
                     {

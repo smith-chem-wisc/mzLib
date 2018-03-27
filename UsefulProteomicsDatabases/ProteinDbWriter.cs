@@ -78,6 +78,16 @@ namespace UsefulProteomicsDatabases
                     }
                     writer.WriteEndElement();
 
+                    if (protein.Organism != null)
+                    {
+                        writer.WriteStartElement("organism");
+                        writer.WriteStartElement("name");
+                        writer.WriteAttributeString("type", "scientific");
+                        writer.WriteString(protein.Organism);
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
+
                     foreach (var dbRef in protein.DatabaseReferences)
                     {
                         writer.WriteStartElement("dbReference");
