@@ -326,24 +326,24 @@ namespace Test
         public void Mzid110Test()
         {
             XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType110));
-            var _mzid = new mzIdentML110.Generated.MzIdentMLType110()
+            var _mzid = new mzIdentML110.Generated.MzIdentMLType110
             {
                 DataCollection = new mzIdentML110.Generated.DataCollectionType()
             };
-            _mzid.DataCollection.AnalysisData = new mzIdentML110.Generated.AnalysisDataType()
+            _mzid.DataCollection.AnalysisData = new mzIdentML110.Generated.AnalysisDataType
             {
                 SpectrumIdentificationList = new mzIdentML110.Generated.SpectrumIdentificationListType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0] = new mzIdentML110.Generated.SpectrumIdentificationListType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0] = new mzIdentML110.Generated.SpectrumIdentificationListType
             {
                 SpectrumIdentificationResult = new mzIdentML110.Generated.SpectrumIdentificationResultType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML110.Generated.SpectrumIdentificationResultType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML110.Generated.SpectrumIdentificationResultType
             {
                 spectrumID = "spectrum 2",
                 SpectrumIdentificationItem = new mzIdentML110.Generated.SpectrumIdentificationItemType[50]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML110.Generated.SpectrumIdentificationItemType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML110.Generated.SpectrumIdentificationItemType
             {
                 experimentalMassToCharge = 1134.2609130203 + 0.000001 * 1134.2609130203 + 0.000001,
                 calculatedMassToCharge = 1134.26091302033,
@@ -360,36 +360,36 @@ namespace Test
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML110.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML110.Generated.IonTypeType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML110.Generated.IonTypeType
             {
                 FragmentArray = new mzIdentML110.Generated.FragmentArrayType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML110.Generated.FragmentArrayType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML110.Generated.FragmentArrayType
             {
                 values = new float[3] { 200, 300, 400 }
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = new mzIdentML110.Generated.PeptideEvidenceRefType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML110.Generated.PeptideEvidenceRefType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML110.Generated.PeptideEvidenceRefType
             {
                 peptideEvidence_ref = "PE_1"
             };
-            _mzid.DataCollection.Inputs = new mzIdentML110.Generated.InputsType()
+            _mzid.DataCollection.Inputs = new mzIdentML110.Generated.InputsType
             {
                 SpectraData = new mzIdentML110.Generated.SpectraDataType[1]
             };
-            _mzid.DataCollection.Inputs.SpectraData[0] = new mzIdentML110.Generated.SpectraDataType()
+            _mzid.DataCollection.Inputs.SpectraData[0] = new mzIdentML110.Generated.SpectraDataType
             {
                 FileFormat = new mzIdentML110.Generated.FileFormatType()
             };
-            _mzid.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam = new mzIdentML110.Generated.CVParamType()
+            _mzid.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam = new mzIdentML110.Generated.CVParamType
             {
                 name = "mzML format"
             };
-            _mzid.SequenceCollection = new mzIdentML110.Generated.SequenceCollectionType()
+            _mzid.SequenceCollection = new mzIdentML110.Generated.SequenceCollectionType
             {
                 PeptideEvidence = new mzIdentML110.Generated.PeptideEvidenceType[1]
             };
-            _mzid.SequenceCollection.PeptideEvidence[0] = new mzIdentML110.Generated.PeptideEvidenceType()
+            _mzid.SequenceCollection.PeptideEvidence[0] = new mzIdentML110.Generated.PeptideEvidenceType
             {
                 endSpecified = true,
                 startSpecified = true,
@@ -401,20 +401,20 @@ namespace Test
                 id = "PE_1",
             };
             _mzid.SequenceCollection.Peptide = new mzIdentML110.Generated.PeptideType[1];
-            _mzid.SequenceCollection.Peptide[0] = new mzIdentML110.Generated.PeptideType()
+            _mzid.SequenceCollection.Peptide[0] = new mzIdentML110.Generated.PeptideType
             {
                 id = "P_1",
                 PeptideSequence = "GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR",
                 Modification = new mzIdentML110.Generated.ModificationType[1]
             };
             _mzid.SequenceCollection.DBSequence = new mzIdentML110.Generated.DBSequenceType[1];
-            _mzid.SequenceCollection.DBSequence[0] = new mzIdentML110.Generated.DBSequenceType()
+            _mzid.SequenceCollection.DBSequence[0] = new mzIdentML110.Generated.DBSequenceType
             {
                 id = "DB_1",
                 name = "Protein name",
                 accession = "ACCESSION",
             };
-            _mzid.SequenceCollection.Peptide[0].Modification[0] = new mzIdentML110.Generated.ModificationType()
+            _mzid.SequenceCollection.Peptide[0].Modification[0] = new mzIdentML110.Generated.ModificationType
             {
                 locationSpecified = true,
                 location = 17,
@@ -422,14 +422,14 @@ namespace Test
                 monoisotopicMassDelta = 57.02146373,
                 cvParam = new mzIdentML110.Generated.CVParamType[1]
             };
-            _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0] = new mzIdentML110.Generated.CVParamType()
+            _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0] = new mzIdentML110.Generated.CVParamType
             {
                 accession = "MS:1001460",
                 name = "unknown modification",
                 value = "Carbamidomethyl",
                 cvRef = "PSI-MS"
             };
-            _mzid.AnalysisProtocolCollection = new mzIdentML110.Generated.AnalysisProtocolCollectionType()
+            _mzid.AnalysisProtocolCollection = new mzIdentML110.Generated.AnalysisProtocolCollectionType
             {
                 SpectrumIdentificationProtocol = new mzIdentML110.Generated.SpectrumIdentificationProtocolType[1]
             };
@@ -437,13 +437,13 @@ namespace Test
             {
                 ParentTolerance = new mzIdentML110.Generated.CVParamType[1]
             };
-            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0] = new mzIdentML110.Generated.CVParamType()
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0] = new mzIdentML110.Generated.CVParamType
             {
                 unitName = "dalton",
                 value = "0.1"
             };
             _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance = new mzIdentML110.Generated.CVParamType[1];
-            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0] = new mzIdentML110.Generated.CVParamType()
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0] = new mzIdentML110.Generated.CVParamType
             {
                 unitName = "dalton",
                 value = "0.01"
@@ -648,24 +648,24 @@ namespace Test
         public static void Mzid120Test()
         {
             XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML120.Generated.MzIdentMLType120));
-            var _mzid = new mzIdentML120.Generated.MzIdentMLType120()
+            var _mzid = new mzIdentML120.Generated.MzIdentMLType120
             {
                 DataCollection = new mzIdentML120.Generated.DataCollectionType()
             };
-            _mzid.DataCollection.AnalysisData = new mzIdentML120.Generated.AnalysisDataType()
+            _mzid.DataCollection.AnalysisData = new mzIdentML120.Generated.AnalysisDataType
             {
                 SpectrumIdentificationList = new mzIdentML120.Generated.SpectrumIdentificationListType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0] = new mzIdentML120.Generated.SpectrumIdentificationListType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0] = new mzIdentML120.Generated.SpectrumIdentificationListType
             {
                 SpectrumIdentificationResult = new mzIdentML120.Generated.SpectrumIdentificationResultType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML120.Generated.SpectrumIdentificationResultType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0] = new mzIdentML120.Generated.SpectrumIdentificationResultType
             {
                 spectrumID = "spectrum 2",
                 SpectrumIdentificationItem = new mzIdentML120.Generated.SpectrumIdentificationItemType[50]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML120.Generated.SpectrumIdentificationItemType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0] = new mzIdentML120.Generated.SpectrumIdentificationItemType
             {
                 experimentalMassToCharge = 1134.2609130203 + 0.000001 * 1134.2609130203 + 0.000001,
                 calculatedMassToCharge = 1134.26091302033,
@@ -682,36 +682,36 @@ namespace Test
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = new mzIdentML120.Generated.SpectrumIdentificationItemType();
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = new mzIdentML120.Generated.IonTypeType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML120.Generated.IonTypeType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = new mzIdentML120.Generated.IonTypeType
             {
                 FragmentArray = new mzIdentML120.Generated.FragmentArrayType[1]
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML120.Generated.FragmentArrayType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = new mzIdentML120.Generated.FragmentArrayType
             {
                 values = new float[3] { 200, 300, 400 }
             };
             _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = new mzIdentML120.Generated.PeptideEvidenceRefType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML120.Generated.PeptideEvidenceRefType()
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = new mzIdentML120.Generated.PeptideEvidenceRefType
             {
                 peptideEvidence_ref = "PE_1"
             };
-            _mzid.DataCollection.Inputs = new mzIdentML120.Generated.InputsType()
+            _mzid.DataCollection.Inputs = new mzIdentML120.Generated.InputsType
             {
                 SpectraData = new mzIdentML120.Generated.SpectraDataType[1]
             };
-            _mzid.DataCollection.Inputs.SpectraData[0] = new mzIdentML120.Generated.SpectraDataType()
+            _mzid.DataCollection.Inputs.SpectraData[0] = new mzIdentML120.Generated.SpectraDataType
             {
                 FileFormat = new mzIdentML120.Generated.FileFormatType()
             };
-            _mzid.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam = new mzIdentML120.Generated.CVParamType()
+            _mzid.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam = new mzIdentML120.Generated.CVParamType
             {
                 name = "mzML format"
             };
-            _mzid.SequenceCollection = new mzIdentML120.Generated.SequenceCollectionType()
+            _mzid.SequenceCollection = new mzIdentML120.Generated.SequenceCollectionType
             {
                 PeptideEvidence = new mzIdentML120.Generated.PeptideEvidenceType[1]
             };
-            _mzid.SequenceCollection.PeptideEvidence[0] = new mzIdentML120.Generated.PeptideEvidenceType()
+            _mzid.SequenceCollection.PeptideEvidence[0] = new mzIdentML120.Generated.PeptideEvidenceType
             {
                 endSpecified = true,
                 startSpecified = true,
@@ -723,20 +723,20 @@ namespace Test
                 id = "PE_1",
             };
             _mzid.SequenceCollection.Peptide = new mzIdentML120.Generated.PeptideType[1];
-            _mzid.SequenceCollection.Peptide[0] = new mzIdentML120.Generated.PeptideType()
+            _mzid.SequenceCollection.Peptide[0] = new mzIdentML120.Generated.PeptideType
             {
                 id = "P_1",
                 PeptideSequence = "GPEAPPPALPAGAPPPCTAVTSDHLNSLLGNILR",
                 Modification = new mzIdentML120.Generated.ModificationType[1]
             };
             _mzid.SequenceCollection.DBSequence = new mzIdentML120.Generated.DBSequenceType[1];
-            _mzid.SequenceCollection.DBSequence[0] = new mzIdentML120.Generated.DBSequenceType()
+            _mzid.SequenceCollection.DBSequence[0] = new mzIdentML120.Generated.DBSequenceType
             {
                 id = "DB_1",
                 name = "Protein name",
                 accession = "ACCESSION",
             };
-            _mzid.SequenceCollection.Peptide[0].Modification[0] = new mzIdentML120.Generated.ModificationType()
+            _mzid.SequenceCollection.Peptide[0].Modification[0] = new mzIdentML120.Generated.ModificationType
             {
                 locationSpecified = true,
                 location = 17,
@@ -744,28 +744,28 @@ namespace Test
                 monoisotopicMassDelta = 57.02146373,
                 cvParam = new mzIdentML120.Generated.CVParamType[1]
             };
-            _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0] = new mzIdentML120.Generated.CVParamType()
+            _mzid.SequenceCollection.Peptide[0].Modification[0].cvParam[0] = new mzIdentML120.Generated.CVParamType
             {
                 accession = "MS:1001460",
                 name = "unknown modification",
                 value = "Carbamidomethyl",
                 cvRef = "PSI-MS"
             };
-            _mzid.AnalysisProtocolCollection = new mzIdentML120.Generated.AnalysisProtocolCollectionType()
+            _mzid.AnalysisProtocolCollection = new mzIdentML120.Generated.AnalysisProtocolCollectionType
             {
                 SpectrumIdentificationProtocol = new mzIdentML120.Generated.SpectrumIdentificationProtocolType[1]
             };
-            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0] = new mzIdentML120.Generated.SpectrumIdentificationProtocolType()
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0] = new mzIdentML120.Generated.SpectrumIdentificationProtocolType
             {
                 ParentTolerance = new mzIdentML120.Generated.CVParamType[1]
             };
-            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0] = new mzIdentML120.Generated.CVParamType()
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance[0] = new mzIdentML120.Generated.CVParamType
             {
                 unitName = "dalton",
                 value = "0.1"
             };
             _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance = new mzIdentML120.Generated.CVParamType[1];
-            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0] = new mzIdentML120.Generated.CVParamType()
+            _mzid.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance[0] = new mzIdentML120.Generated.CVParamType
             {
                 unitName = "dalton",
                 value = "0.01"
