@@ -300,7 +300,7 @@ namespace IO.MzML
             {
                 if (filterParams.NumberOfWindows == null)
                 {
-                    int numPeaks = TopNpeakHelper(intensities, masses, filterParams);
+                    int numPeaks = TopNpeakHelper(ref intensities, ref masses, filterParams);
                     Array.Resize(ref intensities, numPeaks);
                     Array.Resize(ref masses, numPeaks);
                 }

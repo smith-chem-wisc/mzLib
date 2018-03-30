@@ -77,7 +77,7 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public static int TopNpeakHelper(double[] intensities, double[] mArray, IFilteringParams filteringParams)
+        public static int TopNpeakHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
         {
             IComparer<double> c = new ReverseComparer();
             Array.Sort(intensities, mArray, c);
@@ -98,24 +98,34 @@ namespace MassSpectrometry
         {
             List<double> mzResults = new List<double>();
             List<double> intensityResults = new List<double>();
-            //windowNum is the number of windows
+
+            int windowSize = (intensities.Length / filteringParams.NumberOfWindows.Value);
+            int windowPeakIndexMinimum = 0;
+            int windowPeakIndexMaximum = windowSize - 1;
+            
             for (int i = 0; i < filteringParams.NumberOfWindows; i++)
             {
-                int temp = (i == filteringParams.NumberOfWindows) ? intensities.Length - i * (intensities.Length / filteringParams.NumberOfWindows.Value) : intensities.Length / filteringParams.NumberOfWindows.Value;
-                var mzTemp = new double[temp];
-                var intensityTemp = new double[temp];
+                if (i == filteringParams.NumberOfWindows - 1)
+                    windowPeakIndexMaximum = intensities.Length - 1;
 
-                Buffer.BlockCopy(mArray, sizeof(double) * temp * i, mzTemp, 0, sizeof(double) * temp);
-                Buffer.BlockCopy(intensities, sizeof(double) * temp * i, intensityTemp, 0, sizeof(double) * temp);
+                var windowIntensities = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
+                Array.Copy(intensities, windowPeakIndexMinimum, windowIntensities, 0, windowIntensities.Length);
 
-                int numPeaks = TopNpeakHelper(intensities, mArray, filteringParams);
-                Array.Resize(ref intensityTemp, numPeaks);
-                Array.Resize(ref mzTemp, numPeaks);
-                mzResults.AddRange(mzTemp);
-                intensityResults.AddRange(intensityTemp);
+                var windowMzs = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
+                Array.Copy(mArray, windowPeakIndexMinimum, windowMzs, 0, windowMzs.Length);
+
+                int take = TopNpeakHelper(ref windowIntensities, ref windowMzs, filteringParams);
+
+                intensityResults.AddRange(windowIntensities.Take(take));
+                mzResults.AddRange(windowMzs.Take(take));
+
+                windowPeakIndexMinimum = windowPeakIndexMaximum + 1;
+                windowPeakIndexMaximum += windowSize;
             }
             mArray = mzResults.ToArray();
             intensities = intensityResults.ToArray();
+
+            Array.Sort(mArray, intensities);
         }
 
         public abstract IEnumerable<TScan> GetMS1Scans();
