@@ -101,7 +101,7 @@ namespace Test
 
             Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
             Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
-            Assert.That(myPeaksOrderedByIntensity.Count == numPeaks);
+            Assert.That(myPeaksOrderedByIntensity.Count == ok.First().MassSpectrum.XArray.Length);
             Assert.That(expMinRatio >= minRatio);
             Assert.That(!myExpPeaks.Except(myPeaksOrderedByIntensity).Any());
             Assert.That(!myPeaksOrderedByIntensity.Except(myExpPeaks).Any());
@@ -126,11 +126,11 @@ namespace Test
             {
                 peakCounter++;
 
-                int intensity = rand.Next(1000, 1000000);
+                int intensity = rand.Next(1000, 10000);
                 myPeaks.Add((mz, intensity));
                 if (peakCounter <= 399)
                     myPeaksWindow1.Add((mz, intensity));
-                else if (peakCounter <= 798)
+                else if (peakCounter <= 799)
                     myPeaksWindow2.Add((mz, intensity));
                 else if (peakCounter <= 1200)
                     myPeaksWindow3.Add((mz, intensity));
@@ -170,13 +170,46 @@ namespace Test
             double sumOfAllIntensities = allWindowPeaksCombined.Sum(p => p.intensity);
 
             Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
-            Assert.That(allWindowPeaksCombined.Count == numPeaksPerWindow * numWindows && numPeaksPerWindow * numWindows == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(allWindowPeaksCombined.Count == ok.First().MassSpectrum.XArray.Length);
             Assert.That(expMinRatio >= minRatio);
             Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
             Assert.That(!myExpPeaks.Except(allWindowPeaksCombined).Any());
             Assert.That(!allWindowPeaksCombined.Except(myExpPeaks).Any());
         }
-        
+
+        [Test]
+        public static void TestPeakTrimmingWithTooManyWindows()
+        {
+            Random rand = new Random();
+            int numPeaks = 200;
+            double minRatio = 0.01;
+            int numWindows = 10;
+
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
+
+            // only 1 peak but 10 windows
+            myPeaks.Add((400, rand.Next(1000, 1000000)));
+
+            double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
+            double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
+
+            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
+            IMzmlScan[] scans = new IMzmlScan[]{
+                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            };
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
+
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(1 == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(Math.Round(myPeaks[0].mz, 0) == Math.Round(ok.First().MassSpectrum.XArray[0], 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.YArray[0], 0));
+        }
+
         [Test]
         public static void WriteEmptyScan()
         {
@@ -190,8 +223,11 @@ namespace Test
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"));
-
+            
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
+
+            var testFilteringParams = new FilteringParams(200, 0.01, 5, true, true);
+            ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), testFilteringParams);
         }
 
         [Test]

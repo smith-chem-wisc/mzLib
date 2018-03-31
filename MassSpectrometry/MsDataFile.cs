@@ -94,34 +94,60 @@ namespace MassSpectrometry
             return numPeaks;
         }
 
+        /// <summary>
+        /// This method is designed to break a scan up into windows and take the top N peaks (by intensity)
+        /// from each window, then merge the results as the scan's new mass spectrum
+        /// </summary>
+        /// <param name="intensities"></param>
+        /// <param name="mArray"></param>
+        /// <param name="filteringParams"></param>
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
         {
             List<double> mzResults = new List<double>();
             List<double> intensityResults = new List<double>();
+            
+            int windowSize = intensities.Length / filteringParams.NumberOfWindows.Value;
 
-            int windowSize = (intensities.Length / filteringParams.NumberOfWindows.Value);
+            // window must always have at least one peak in it
+            if (windowSize < 1)
+                windowSize = 1;
+
             int windowPeakIndexMinimum = 0;
             int windowPeakIndexMaximum = windowSize - 1;
-            
+
+            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks 
+            // divided into 10 windows would have 10 peaks per window) and takes the top N peaks per window.
+            // the results of each trimmed window are concatenated into mzResults and intensityResults
             for (int i = 0; i < filteringParams.NumberOfWindows; i++)
             {
+                // make the last window end at the end of the spectrum
+                // this is to prevent rounding errors in windowSize from cutting off the end of the spectrum
                 if (i == filteringParams.NumberOfWindows - 1)
                     windowPeakIndexMaximum = intensities.Length - 1;
 
+                // avoid index out of range problems
+                if (windowPeakIndexMinimum >= intensities.Length)
+                    break;
+
+                // determine the valid peaks given filtering conditions for this window
                 var windowIntensities = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
                 Array.Copy(intensities, windowPeakIndexMinimum, windowIntensities, 0, windowIntensities.Length);
 
                 var windowMzs = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
                 Array.Copy(mArray, windowPeakIndexMinimum, windowMzs, 0, windowMzs.Length);
 
-                int take = TopNpeakHelper(ref windowIntensities, ref windowMzs, filteringParams);
+                int numPeaksToTakeInThisWindow = TopNpeakHelper(ref windowIntensities, ref windowMzs, filteringParams);
 
-                intensityResults.AddRange(windowIntensities.Take(take));
-                mzResults.AddRange(windowMzs.Take(take));
+                // merge results of this window into the global results
+                intensityResults.AddRange(windowIntensities.Take(numPeaksToTakeInThisWindow));
+                mzResults.AddRange(windowMzs.Take(numPeaksToTakeInThisWindow));
 
+                // set up for the next window
                 windowPeakIndexMinimum = windowPeakIndexMaximum + 1;
-                windowPeakIndexMaximum += windowSize;
+                windowPeakIndexMaximum = windowPeakIndexMinimum + windowSize;
             }
+
+            // convert merged results to array and sort by m/z
             mArray = mzResults.ToArray();
             intensities = intensityResults.ToArray();
 
