@@ -110,7 +110,9 @@ namespace MassSpectrometry
 
             // window must always have at least one peak in it
             if (windowSize < 1)
+            {
                 windowSize = 1;
+            }
 
             int windowPeakIndexMinimum = 0;
             int windowPeakIndexMaximum = windowSize - 1;
@@ -123,11 +125,15 @@ namespace MassSpectrometry
                 // make the last window end at the end of the spectrum
                 // this is to prevent rounding errors in windowSize from cutting off the end of the spectrum
                 if (i == filteringParams.NumberOfWindows - 1)
+                {
                     windowPeakIndexMaximum = intensities.Length - 1;
+                }
 
                 // avoid index out of range problems
                 if (windowPeakIndexMinimum >= intensities.Length)
+                {
                     break;
+                }
 
                 // determine the valid peaks given filtering conditions for this window
                 var windowIntensities = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
