@@ -30,6 +30,7 @@ namespace Test
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
             Assert.AreEqual(9, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
+            Assert.AreEqual(1, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GeneID"));
             Assert.AreEqual(3, ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
             Assert.AreEqual(3, ok[0].GeneNames.Count());
             Assert.AreEqual("primary", ok[0].GeneNames.First().Item1);
