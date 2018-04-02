@@ -57,6 +57,160 @@ namespace Test
         }
 
         [Test]
+        public static void TestPeakTrimmingWithOneWindow()
+        {
+            Random rand = new Random();
+            int numPeaks = 200;
+            double minRatio = 0.01;
+            int numWindows = 1;
+
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
+
+            for(int mz = 400; mz < 1600; mz++)
+            {
+                myPeaks.Add((mz, rand.Next(1000, 1000000)));
+            }
+
+            double myMaxIntensity = myPeaks.Max(p => p.intensity);
+            var myPeaksOrderedByIntensity = myPeaks.OrderByDescending(p => p.intensity).ToList();
+            myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Take(numPeaks).ToList();
+            myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
+            double sumOfAllIntensities = myPeaksOrderedByIntensity.Sum(p => p.intensity);
+            
+            double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
+            double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
+
+            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
+            IMzmlScan[] scans = new IMzmlScan[]{
+                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            };
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
+
+            int expNumPeaks = ok.First().MassSpectrum.XArray.Length;
+            double expMinRatio = ok.First().MassSpectrum.YArray.Min(p => p / ok.First().MassSpectrum.YofPeakWithHighestY).Value;
+            List<(double mz, double intensity)> myExpPeaks = new List<(double mz, double intensity)>();
+
+            for(int i = 0; i < ok.First().MassSpectrum.YArray.Length; i++)
+            {
+                myExpPeaks.Add((ok.First().MassSpectrum.XArray[i], ok.First().MassSpectrum.YArray[i]));
+            }
+
+            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(myPeaksOrderedByIntensity.Count == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(expMinRatio >= minRatio);
+            Assert.That(!myExpPeaks.Except(myPeaksOrderedByIntensity).Any());
+            Assert.That(!myPeaksOrderedByIntensity.Except(myExpPeaks).Any());
+        }
+
+        [Test]
+        public static void TestPeakTrimmingWithThreeWindows()
+        {
+            Random rand = new Random();
+            int numPeaksPerWindow = 200;
+            double minRatio = 0.01;
+            int numWindows = 3;
+
+            var testFilteringParams = new FilteringParams(numPeaksPerWindow, minRatio, numWindows, true, true);
+            List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
+            List<(double mz, double intensity)> myPeaksWindow1 = new List<(double mz, double intensity)>();
+            List<(double mz, double intensity)> myPeaksWindow2 = new List<(double mz, double intensity)>();
+            List<(double mz, double intensity)> myPeaksWindow3 = new List<(double mz, double intensity)>();
+
+            int peakCounter = 0;
+            for (int mz = 400; mz < 1599; mz++)
+            {
+                peakCounter++;
+
+                int intensity = rand.Next(1000, 10000);
+                myPeaks.Add((mz, intensity));
+                if (peakCounter <= 399)
+                    myPeaksWindow1.Add((mz, intensity));
+                else if (peakCounter <= 799)
+                    myPeaksWindow2.Add((mz, intensity));
+                else if (peakCounter <= 1200)
+                    myPeaksWindow3.Add((mz, intensity));
+            }
+            
+            double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
+            double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
+
+            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
+            IMzmlScan[] scans = new IMzmlScan[]{
+                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            };
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
+
+            int expNumPeaks = ok.First().MassSpectrum.XArray.Length;
+            double expMinRatio = ok.First().MassSpectrum.YArray.Min(p => p / ok.First().MassSpectrum.YofPeakWithHighestY).Value;
+            List<(double mz, double intensity)> myExpPeaks = new List<(double mz, double intensity)>();
+
+            for (int i = 0; i < ok.First().MassSpectrum.YArray.Length; i++)
+            {
+                myExpPeaks.Add((ok.First().MassSpectrum.XArray[i], ok.First().MassSpectrum.YArray[i]));
+            }
+
+            double myMaxIntensity = myPeaks.Max(p => p.intensity);
+
+            myPeaksWindow1 = myPeaksWindow1.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
+            
+            myPeaksWindow2 = myPeaksWindow2.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
+
+            myPeaksWindow3 = myPeaksWindow3.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
+
+            var allWindowPeaksCombined = myPeaksWindow1.Concat(myPeaksWindow2).Concat(myPeaksWindow3).ToList();
+
+            double sumOfAllIntensities = allWindowPeaksCombined.Sum(p => p.intensity);
+
+            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(allWindowPeaksCombined.Count == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(expMinRatio >= minRatio);
+            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(!myExpPeaks.Except(allWindowPeaksCombined).Any());
+            Assert.That(!allWindowPeaksCombined.Except(myExpPeaks).Any());
+        }
+
+        [Test]
+        public static void TestPeakTrimmingWithTooManyWindows()
+        {
+            Random rand = new Random();
+            int numPeaks = 200;
+            double minRatio = 0.01;
+            int numWindows = 10;
+
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
+
+            // only 1 peak but 10 windows
+            myPeaks.Add((400, rand.Next(1000, 1000000)));
+
+            double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
+            double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
+
+            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
+            IMzmlScan[] scans = new IMzmlScan[]{
+                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            };
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
+
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(1 == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(Math.Round(myPeaks[0].mz, 0) == Math.Round(ok.First().MassSpectrum.XArray[0], 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.YArray[0], 0));
+        }
+
+        [Test]
         public static void WriteEmptyScan()
         {
             double[] intensities1 = new double[] { };
@@ -69,8 +223,11 @@ namespace Test
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"));
-
+            
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
+
+            var testFilteringParams = new FilteringParams(200, 0.01, 5, true, true);
+            ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), testFilteringParams);
         }
 
         [Test]

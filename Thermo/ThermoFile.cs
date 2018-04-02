@@ -232,7 +232,7 @@ namespace IO.Thermo
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
                 if (filterParams.NumberOfWindows == null)
                 {
-                    int numPeaks = TopNpeakHelper(intensityArray, mzArray, filterParams);
+                    int numPeaks = TopNpeakHelper(ref intensityArray, ref mzArray, filterParams);
                     //the following arrays are modified after TopN helper
                     Array.Resize(ref intensityArray, numPeaks);
                     Array.Resize(ref mzArray, numPeaks);
