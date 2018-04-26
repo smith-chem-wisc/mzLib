@@ -79,10 +79,14 @@ namespace Proteomics
         {
             // By convention, if the other site is 'Any', they are always equal
             if (otherSites == ModificationSites.Any)
+            {
                 return true;
+            }
 
             if (otherSites == ModificationSites.None)
+            {
                 return sites == ModificationSites.None;
+            }
 
             return (~sites & otherSites) == ModificationSites.None;
         }

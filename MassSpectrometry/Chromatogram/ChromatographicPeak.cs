@@ -24,7 +24,8 @@ namespace MassSpectrometry
     {
         #region Public Constructors
 
-        public ChromatographicPeak(double time, double intensity) : base(time, intensity)
+        public ChromatographicPeak(double time, double intensity)
+            : base(time, intensity)
         {
         }
 
@@ -32,21 +33,9 @@ namespace MassSpectrometry
 
         #region Public Properties
 
-        public double Intensity
-        {
-            get
-            {
-                return Y;
-            }
-        }
+        public double Intensity { get { return Y; } }
 
-        public double Time
-        {
-            get
-            {
-                return X;
-            }
-        }
+        public double Time { get { return X; } }
 
         #endregion Public Properties
 

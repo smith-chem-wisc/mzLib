@@ -91,7 +91,7 @@ namespace Chemistry
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula, double fineResolution, double minProbability, double molecularWeightResolution)
         {
             var a = GetNewFineAndMergeResolutions(fineResolution);
-            fineResolution = a.Item1;
+            var newFineResolution = a.Item1;
             double _mergeFineResolution = a.Item2;
             List<List<Composition>> elementalComposition = new List<List<Composition>>();
 
@@ -125,14 +125,18 @@ namespace Chemistry
                     composition.Power = Math.Floor(composition.MolecularWeight / molecularWeightResolution + 0.5);
                 }
             }
-            IsotopicDistribution dist = CalculateFineGrain(elementalComposition, molecularWeightResolution, _mergeFineResolution, fineResolution, minProbability);
+            IsotopicDistribution dist = CalculateFineGrain(elementalComposition, molecularWeightResolution, _mergeFineResolution, newFineResolution, minProbability);
 
             double additionalMass = 0;
             foreach (var isotopeAndCount in formula.Isotopes)
+            {
                 additionalMass += isotopeAndCount.Key.AtomicMass * isotopeAndCount.Value;
+            }
 
             for (int i = 0; i < dist.masses.Length; i++)
+            {
                 dist.masses[i] += additionalMass;
+            }
 
             return dist;
         }
@@ -186,7 +190,9 @@ namespace Chemistry
                             tPolynomial[j] = new Polynomial { Probablity = double.NaN, Power = double.NaN };
                         }
                         else
+                        {
                             break;
+                        }
                     }
 
                     tPolynomial[i] = new Polynomial { Power = tempPolynomial.Power / tempPolynomial.Probablity, Probablity = tempPolynomial.Probablity };
@@ -286,7 +292,9 @@ namespace Chemistry
             int j = fPolynomial.Count;
 
             if (i == 0 || j == 0)
+            {
                 return;
+            }
 
             double deltaMass = (_fineResolution / _mwResolution);
             double minProbability = _fineMinProb;
@@ -299,7 +307,9 @@ namespace Chemistry
             {
                 j = maxIndex - fgidPolynomial.Count;
                 for (i = 0; i <= j; i++)
+                {
                     fgidPolynomial.Add(new Polynomial { Probablity = double.NaN, Power = double.NaN });
+                }
             }
 
             for (int t = 0; t < tPolynomial.Count; t++)
@@ -308,7 +318,9 @@ namespace Chemistry
                 {
                     double prob = tPolynomial[t].Probablity * fPolynomial[f].Probablity;
                     if (prob <= minProbability)
+                    {
                         continue;
+                    }
 
                     double power = tPolynomial[t].Power + fPolynomial[f].Power;
                     var indext = (int)(Math.Abs(power - minMass) / deltaMass + 0.5);
@@ -318,9 +330,13 @@ namespace Chemistry
                     var poww = tempPolynomial.Power;
                     var probb = tempPolynomial.Probablity;
                     if (double.IsNaN(poww) || double.IsNaN(prob))
+                    {
                         fgidPolynomial[indext] = new Polynomial { Power = power * prob, Probablity = prob };
+                    }
                     else
+                    {
                         fgidPolynomial[indext] = new Polynomial { Power = poww + power * prob, Probablity = probb + prob };
+                    }
                 }
             }
 
@@ -351,7 +367,9 @@ namespace Chemistry
             for (indices[index] = mins[index]; indices[index] <= maxs[index]; indices[index]++)
             {
                 if (index < mins.Length - 1)
+                {
                     MultipleFinePolynomialRecursiveHelper(mins, maxs, indices, index + 1, fPolynomial, elementalComposition, atoms, minProb, maxValue);
+                }
                 else
                 {
                     int l = atoms - indices.Sum();
@@ -382,7 +400,9 @@ namespace Chemistry
         private static double FactorLn(int n)
         {
             if (n <= 1)
+            {
                 return 0;
+            }
             while (_factorLnTop <= n)
             {
                 int j = _factorLnTop++;
@@ -406,7 +426,9 @@ namespace Chemistry
             {
                 totalProbability += polynomial.Probablity;
                 if (polynomial.Probablity > basePeak)
+                {
                     basePeak = polynomial.Probablity;
+                }
                 dist.masses[i] = polynomial.Power * _mwResolution;
                 dist.intensities[i] = polynomial.Probablity;
                 i++;
@@ -420,12 +442,8 @@ namespace Chemistry
 
         private struct Polynomial
         {
-            #region Public Fields
-
             public double Power;
             public double Probablity;
-
-            #endregion Public Fields
         }
 
         #endregion Private Structs
@@ -434,15 +452,11 @@ namespace Chemistry
 
         private class Composition
         {
-            #region Public Fields
-
             public double Power;
             public double Probability;
             public double LogProbability;
             public double MolecularWeight;
             public int Atoms;
-
-            #endregion Public Fields
         }
 
         #endregion Private Classes

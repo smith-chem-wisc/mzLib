@@ -125,16 +125,26 @@ namespace IO.MzML
                 foreach (var cv in simpler.cvParam)
                 {
                     if (cv.accession.Equals(@"MS:1000563"))
+                    {
                         fileFormat = "Thermo RAW format";
+                    }
                     if (cv.accession.Equals(@"MS:1000584"))
+                    {
                         fileFormat = "mzML format";
+                    }
 
                     if (cv.accession.Equals(@"MS:1000768"))
+                    {
                         nativeIdFormat = "Thermo nativeID format";
+                    }
                     if (cv.accession.Equals(@"MS:1000776"))
+                    {
                         nativeIdFormat = "scan number only nativeID format";
+                    }
                     if (cv.accession.Equals(@"MS:1000824"))
+                    {
                         nativeIdFormat = "no nativeID format";
+                    }
 
                     if (cv.accession.Equals(@"MS:1000568"))
                     {
@@ -184,7 +194,9 @@ namespace IO.MzML
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
+                {
                     scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
+                }
             });
 
             return new Mzml(scans, sourceFile);
@@ -201,7 +213,9 @@ namespace IO.MzML
             {
                 var scan = GetOneBasedScan(i);
                 if (scan.MsnOrder == 1)
+                {
                     yield return scan;
+                }
             }
         }
 
@@ -228,9 +242,13 @@ namespace IO.MzML
             if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
             {
                 if (configs[0].componentList == null)
+                {
                     analyzer = default(MZAnalyzerType);
+                }
                 else if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                {
                     analyzer = returnVal;
+                }
             }
             // use scan-specific
             else
@@ -255,15 +273,25 @@ namespace IO.MzML
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].cvParam)
             {
                 if (cv.accession.Equals(_msnOrderAccession))
+                {
                     msOrder = int.Parse(cv.value);
+                }
                 if (cv.accession.Equals(_centroidSpectrum))
+                {
                     isCentroid = true;
+                }
                 if (cv.accession.Equals(_profileSpectrum))
+                {
                     throw new MzLibException("Reading profile mode mzmls not supported");
+                }
                 if (cv.accession.Equals(_totalIonCurrent))
+                {
                     tic = double.Parse(cv.value);
+                }
                 if (polarity.Equals(Polarity.Unknown))
+                {
                     polarityDictionary.TryGetValue(cv.accession, out polarity);
+                }
             }
 
             if (!msOrder.HasValue || !isCentroid.HasValue)
@@ -289,10 +317,14 @@ namespace IO.MzML
 
                 double[] data = ConvertBase64ToDoubles(binaryData.binary, compressed, is32bit);
                 if (mzArray)
+                {
                     masses = data;
+                }
 
                 if (intensityArray)
+                {
                     intensities = data;
+                }
             }
 
             if (filterParams != null && intensities.Length > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
@@ -316,13 +348,16 @@ namespace IO.MzML
             string scanFilter = null;
             double? injectionTime = null;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam != null)
+            {
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].cvParam)
                 {
                     if (cv.accession.Equals(_retentionTime))
                     {
                         rtInMinutes = double.Parse(cv.value);
                         if (cv.unitName == "second")
+                        {
                             rtInMinutes /= 60;
+                        }
                     }
                     if (cv.accession.Equals(_filterString))
                     {
@@ -333,18 +368,25 @@ namespace IO.MzML
                         injectionTime = double.Parse(cv.value);
                     }
                 }
+            }
 
             double high = double.NaN;
             double low = double.NaN;
 
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].scanWindowList != null)
+            {
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam)
                 {
                     if (cv.accession.Equals(_scanWindowLowerLimit))
+                    {
                         low = double.Parse(cv.value);
+                    }
                     if (cv.accession.Equals(_scanWindowUpperLimit))
+                    {
                         high = double.Parse(cv.value);
+                    }
                 }
+            }
 
             if (msOrder.Value == 1)
             {
@@ -369,11 +411,17 @@ namespace IO.MzML
             foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam)
             {
                 if (cv.accession.Equals(_selectedIonMz))
+                {
                     selectedIonMz = double.Parse(cv.value);
+                }
                 if (cv.accession.Equals(_precursorCharge))
+                {
                     selectedIonCharge = int.Parse(cv.value);
+                }
                 if (cv.accession.Equals(_peakIntensity))
+                {
                     selectedIonIntensity = double.Parse(cv.value);
+                }
             }
 
             double? isolationMz = null;
@@ -408,6 +456,7 @@ namespace IO.MzML
             }
             double? monoisotopicMz = null;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].userParam != null)
+            {
                 foreach (var userParam in _mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].scanList.scan[0].userParam)
                 {
                     if (userParam.name.EndsWith("Monoisotopic M/Z:"))
@@ -415,13 +464,16 @@ namespace IO.MzML
                         monoisotopicMz = double.Parse(userParam.value);
                     }
                 }
+            }
             int? precursorScanNumber;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
             {
                 precursorScanNumber = null;
             }
             else
+            {
                 precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
+            }
             return new MzmlScanWithPrecursor(
                 oneBasedSpectrumNumber,
                 mzmlMzSpectrum,

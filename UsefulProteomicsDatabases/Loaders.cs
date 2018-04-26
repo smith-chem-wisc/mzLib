@@ -141,14 +141,18 @@ namespace UsefulProteomicsDatabases
         public static void LoadElements(string elementLocation)
         {
             if (!File.Exists(elementLocation))
+            {
                 UpdateElements(elementLocation);
+            }
             PeriodicTableLoader.Load(elementLocation);
         }
 
         public static IEnumerable<ModificationWithLocation> LoadUnimod(string unimodLocation)
         {
             if (!File.Exists(unimodLocation))
+            {
                 UpdateUnimod(unimodLocation);
+            }
             return UnimodLoader.ReadMods(unimodLocation);
         }
 
@@ -157,14 +161,18 @@ namespace UsefulProteomicsDatabases
             var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
 
             if (!File.Exists(psimodLocation))
+            {
                 UpdatePsiMod(psimodLocation);
+            }
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as Generated.obo;
         }
 
         public static IEnumerable<ModificationWithLocation> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
         {
             if (!File.Exists(uniprotLocation))
+            {
                 UpdateUniprot(uniprotLocation);
+            }
             return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary).OfType<ModificationWithLocation>();
         }
 
@@ -182,7 +190,9 @@ namespace UsefulProteomicsDatabases
                 for (int i = 0; i < firstHash.Length; i++)
                 {
                     if (firstHash[i] != secondHash[i])
+                    {
                         return false;
+                    }
                 }
                 return true;
             }
@@ -191,25 +201,33 @@ namespace UsefulProteomicsDatabases
         private static void DownloadPsiMod(string psimodLocation)
         {
             using (WebClient Client = new WebClient())
+            {
                 Client.DownloadFile(@"https://raw.githubusercontent.com/HUPO-PSI/psi-mod-CV/master/PSI-MOD.obo.xml", psimodLocation + ".temp");
+            }
         }
 
         private static void DownloadUnimod(string unimodLocation)
         {
             using (WebClient Client = new WebClient())
+            {
                 Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
+            }
         }
 
         private static void DownloadElements(string elementLocation)
         {
             using (WebClient Client = new WebClient())
+            {
                 Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
+            }
         }
 
         private static void DownloadUniprot(string uniprotLocation)
         {
             using (WebClient Client = new WebClient())
+            {
                 Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
+            }
         }
 
         #endregion Private Methods

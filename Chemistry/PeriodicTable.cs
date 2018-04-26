@@ -82,7 +82,9 @@ namespace Chemistry
             {
                 double totalAbundance = e.Value.Isotopes.Select(b => b.RelativeAbundance).Sum();
                 if (Math.Abs(totalAbundance - 1) > epsilon)
+                {
                     return false;
+                }
             }
             return true;
         }
@@ -96,7 +98,9 @@ namespace Chemistry
             {
                 double averageMass = e.Value.Isotopes.Select(b => b.RelativeAbundance * b.AtomicMass).Sum();
                 if (Math.Abs(averageMass - e.Value.AverageMass) / e.Value.AverageMass > epsilon)
+                {
                     return false;
+                }
             }
             return true;
         }
