@@ -15,21 +15,21 @@ namespace UsefulProteomicsDatabases
     {
         #region Public Fields
 
-        public static FastaHeaderFieldRegex uniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
 
-        public static FastaHeaderFieldRegex uniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\sOS=", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\sOS=", 0, 1);
 
-        public static FastaHeaderFieldRegex uniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|([^\|][A-Z0-9_]+)", 1, 1);
+        public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|([^\|][A-Z0-9_]+)", 1, 1);
 
-        public static FastaHeaderFieldRegex uniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=([^ ]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=([^ ]+)", 0, 1);
 
-        public static FastaHeaderFieldRegex uniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\sGN=", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\sGN=", 0, 1);
 
-        public static FastaHeaderFieldRegex ensemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
 
-        public static FastaHeaderFieldRegex ensemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
+        public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
 
-        public static FastaHeaderFieldRegex ensemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
 
         #endregion Public Fields
 
@@ -43,7 +43,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Stores the modification list read during LoadProteinXML
         /// </summary>
-        private static List<Modification> protein_xml_modlist;
+        private static List<Modification> ProteinXmlModlist;
 
         #endregion Private Fields
 
@@ -253,16 +253,24 @@ namespace UsefulProteomicsDatabases
                                         && variation_value != "")
                                     {
                                         if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                        {
                                             sequenceVariations.Add(new SequenceVariation((int)oneBasedbeginPosition, (int)oneBasedendPosition, original_value, variation_value, feature_description));
+                                        }
                                         else if (oneBasedfeature_position >= 1)
+                                        {
                                             sequenceVariations.Add(new SequenceVariation(oneBasedfeature_position, original_value, variation_value, feature_description));
+                                        }
                                     }
                                     else if (feature_type == "disulfide bond")
                                     {
                                         if (oneBasedbeginPosition != null && oneBasedendPosition != null)
+                                        {
                                             disulfideBonds.Add(new DisulfideBond((int)oneBasedbeginPosition, (int)oneBasedendPosition, feature_description));
+                                        }
                                         else if (oneBasedfeature_position >= 1)
+                                        {
                                             disulfideBonds.Add(new DisulfideBond(oneBasedfeature_position, feature_description));
+                                        }
                                     }
                                     oneBasedbeginPosition = null;
                                     oneBasedendPosition = null;
@@ -350,7 +358,9 @@ namespace UsefulProteomicsDatabases
                                                         bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
                                                         bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                                                         if (orig_init_m && !var_init_m)
+                                                        {
                                                             decoy_variations.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                        }
                                                         original_array = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
                                                         variation_array = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
                                                     }
@@ -375,9 +385,13 @@ namespace UsefulProteomicsDatabases
                                                 {
                                                     // Do not include the initiator methionine in shuffle!!!
                                                     if (numSlides % sequence_array_slided.Length - 1 == 0)
+                                                    {
                                                         numSlides++;
+                                                    }
                                                     for (int i = 1; i < sequence_array_slided.Length; i++)
+                                                    {
                                                         sequence_array_slided[i] = sequence_array_unslided[GetOldShuffleIndex(i, numSlides, sequence.Length, true)];
+                                                    }
 
                                                     decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
                                                     foreach (var kvp in oneBasedModifications)
@@ -395,9 +409,13 @@ namespace UsefulProteomicsDatabases
                                                 else
                                                 {
                                                     if (numSlides % sequence_array_slided.Length == 0)
+                                                    {
                                                         numSlides++;
+                                                    }
                                                     for (int i = 0; i < sequence_array_slided.Length; i++)
+                                                    {
                                                         sequence_array_slided[i] = sequence_array_unslided[GetOldShuffleIndex(i, numSlides, sequence.Length, false)];
+                                                    }
                                                     decoy_modifications = new Dictionary<int, List<Modification>>(oneBasedModifications.Count);
                                                     foreach (var kvp in oneBasedModifications)
                                                     {
@@ -425,7 +443,9 @@ namespace UsefulProteomicsDatabases
                                                         bool orig_init_m = sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
                                                         bool var_init_m = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                                                         if (orig_init_m && !var_init_m)
+                                                        {
                                                             decoy_variations_slide.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                                                        }
                                                         original_array_unshuffled = sv.OriginalSequence.Substring(Convert.ToInt32(orig_init_m)).ToArray();
                                                         variation_array_unslided = sv.VariantSequence.Substring(Convert.ToInt32(var_init_m)).ToArray();
                                                     }
@@ -435,14 +455,22 @@ namespace UsefulProteomicsDatabases
                                                     char[] variation_array_slided = sv.VariantSequence.ToArray();
 
                                                     if (numSlides % original_array_slided.Length == 0)
+                                                    {
                                                         numSlides++;
+                                                    }
                                                     for (int i = 0; i < original_array_slided.Length; i++)
+                                                    {
                                                         original_array_slided[i] = original_array_unshuffled[GetOldShuffleIndex(i, numSlides, original_array_unshuffled.Length, false)];
+                                                    }
 
                                                     if (numSlides % variation_array_slided.Length == 0)
+                                                    {
                                                         numSlides++;
+                                                    }
                                                     for (int i = 0; i < variation_array_slided.Length; i++)
+                                                    {
                                                         variation_array_slided[i] = variation_array_unslided[GetOldShuffleIndex(i, numSlides, variation_array_unslided.Length, false)];
+                                                    }
 
                                                     decoy_variations_slide.Add(new SequenceVariation(decoy_begin, decoy_end, new string(original_array_slided), new string(variation_array_slided), "DECOY VARIANT: " + sv.Description));
                                                 }
@@ -495,7 +523,9 @@ namespace UsefulProteomicsDatabases
         public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
         {
             if (proteinDbLocation.Equals(last_database_location))
-                return protein_xml_modlist;
+            {
+                return ProteinXmlModlist;
+            }
             last_database_location = proteinDbLocation;
 
             StringBuilder storedKnownModificationsBuilder = new StringBuilder();
@@ -510,30 +540,26 @@ namespace UsefulProteomicsDatabases
                 {
                     while (xml.Read())
                     {
-                        switch (xml.NodeType)
+                        if (xml.NodeType == XmlNodeType.Element)
                         {
-                            case XmlNodeType.Element:
-                                switch (xml.Name)
-                                {
-                                    case "modification":
-                                        string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
-                                        storedKnownModificationsBuilder.AppendLine(modification);
-                                        break;
-
-                                    case "entry":
-                                        if (storedKnownModificationsBuilder.Length <= 0)
-                                            protein_xml_modlist = new List<Modification>();
-                                        else
-                                            protein_xml_modlist = PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList<Modification>();
-                                        return protein_xml_modlist;
-                                }
-                                break;
+                            if (xml.Name == "modification")
+                            {
+                                string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
+                                storedKnownModificationsBuilder.AppendLine(modification);
+                            }
+                            else if (xml.Name == "entry")
+                            {
+                                ProteinXmlModlist = storedKnownModificationsBuilder.Length <= 0 ?
+                                    new List<Modification>() :
+                                    PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList();
+                                return ProteinXmlModlist;
+                            }
                         }
                     }
                 }
             }
-            protein_xml_modlist = new List<Modification>();
-            return protein_xml_modlist;
+            ProteinXmlModlist = new List<Modification>();
+            return ProteinXmlModlist;
         }
 
         /// <summary>
@@ -546,21 +572,21 @@ namespace UsefulProteomicsDatabases
         /// <param name="accessionRegex"></param>
         /// <param name="fullNameRegex"></param>
         /// <param name="nameRegex"></param>
-        /// <param name="geneRegex"></param>
+        /// <param name="geneNameRegex"></param>
         /// <param name="organismRegex"></param>
         /// <param name="errors"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, 
-            FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex, 
-            FastaHeaderFieldRegex geneRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant,
+            FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex,
+            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
             string accession = null;
             string name = null;
-            string full_name = null;
+            string fullName = null;
             string organism = null;
-            List<Tuple<string, string>> gene_name = new List<Tuple<string, string>>();
+            List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
 
@@ -578,30 +604,20 @@ namespace UsefulProteomicsDatabases
                 while (true)
                 {
                     string line = "";
-
                     line = fasta.ReadLine();
-
-                    if (line == null)
-                    {
-                        break;
-                    }
+                    if (line == null) { break; }
 
                     if (line.StartsWith(">"))
                     {
-                        var accession_match = accessionRegex.Regex.Matches(line)[accessionRegex.Match];
-                        var full_name_match = fullNameRegex.Regex.Matches(line)[fullNameRegex.Match];
-                        var name_match = nameRegex.Regex.Matches(line)[nameRegex.Match];
-                        var gene_name_match = geneRegex.Regex.Matches(line)[geneRegex.Match];
-                        if (organismRegex != null)
+                        accession = ApplyRegex(accessionRegex, line);
+                        fullName = ApplyRegex(fullNameRegex, line);
+                        name = ApplyRegex(nameRegex, line);
+                        organism = ApplyRegex(organismRegex, line);
+                        string geneNameString = ApplyRegex(geneNameRegex, line);
+                        if (geneNameString != null)
                         {
-                            var organism_match = organismRegex.Regex.Matches(line)[organismRegex.Match];
-                            if (organism_match.Groups.Count > 1) { organism = organism_match.Groups[organismRegex.Group].Value; }
+                            geneName.Add(new Tuple<string, string>("primary", geneNameString));
                         }
-
-                        if (accession_match.Groups.Count > 1) { accession = accession_match.Groups[accessionRegex.Group].Value; }
-                        if (full_name_match.Groups.Count > 1) { full_name = full_name_match.Groups[fullNameRegex.Group].Value; }
-                        if (name_match.Groups.Count > 1) { name = name_match.Groups[nameRegex.Group].Value; }
-                        if (gene_name_match.Groups.Count > 1) { gene_name.Add(new Tuple<string, string>("primary", gene_name_match.Groups[geneRegex.Group].Value)); }
 
                         if (accession == null || accession == "")
                         {
@@ -626,45 +642,42 @@ namespace UsefulProteomicsDatabases
                         unique_accessions.Add(accession);
                         if (originalTarget)
                         {
-                            Protein protein = new Protein(sequence, accession, organism, gene_name, name: name, full_name: full_name, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            Protein protein = new Protein(sequence, accession, organism, geneName, name: name, full_name: fullName, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
                             if (protein.Length == 0)
                                 errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
                             else
                                 result.Add(protein);
                         }
 
-                        switch (onTheFlyDecoys)
+                        if (onTheFlyDecoys == DecoyType.Reverse)
                         {
-                            case DecoyType.Reverse:
-                                char[] sequence_array = sequence.ToCharArray();
-                                int starts_with_met = sequence.StartsWith("M", StringComparison.Ordinal) ? 1 : 0;
-                                Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
-                                var reversed_sequence = new string(sequence_array);
-                                Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, organism, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
-                                result.Add(decoy_protein);
-                                break;
-
-                            case DecoyType.Slide:
-                                int numSlides = 20;
-                                char[] sequence_array_unslide = sequence.ToCharArray();
-                                char[] sequence_array_slide = sequence.ToCharArray();
-                                bool starts_with_met_slide = sequence.StartsWith("M", StringComparison.Ordinal);
-                                for (int i = starts_with_met_slide ? 1 : 0; i < sequence.Length; i++)
-                                    sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
-                                string slide_sequence = new string(sequence_array_slide);
-                                Protein decoy_protein_slide = new Protein(slide_sequence, "DECOY_" + accession, organism, gene_name, name: name, full_name: full_name, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
-                                result.Add(decoy_protein_slide);
-                                break;
-
-                            default:
-                                break;
+                            char[] sequence_array = sequence.ToCharArray();
+                            int starts_with_met = sequence.StartsWith("M", StringComparison.Ordinal) ? 1 : 0;
+                            Array.Reverse(sequence_array, starts_with_met, sequence.Length - starts_with_met); // Do not include the initiator methionine in reversal!!!
+                            var reversed_sequence = new string(sequence_array);
+                            Protein decoy_protein = new Protein(reversed_sequence, "DECOY_" + accession, organism, geneName, name: name, full_name: fullName, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            result.Add(decoy_protein);
+                        }
+                        else if (onTheFlyDecoys == DecoyType.Slide)
+                        {
+                            int numSlides = 20;
+                            char[] sequence_array_unslide = sequence.ToCharArray();
+                            char[] sequence_array_slide = sequence.ToCharArray();
+                            bool starts_with_met_slide = sequence.StartsWith("M", StringComparison.Ordinal);
+                            for (int i = starts_with_met_slide ? 1 : 0; i < sequence.Length; i++)
+                            {
+                                sequence_array_slide[i] = sequence_array_unslide[GetOldShuffleIndex(i, numSlides, sequence.Length, starts_with_met_slide)];
+                            }
+                            string slide_sequence = new string(sequence_array_slide);
+                            Protein decoy_protein_slide = new Protein(slide_sequence, "DECOY_" + accession, organism, geneName, name: name, full_name: fullName, isDecoy: true, isContaminant: IsContaminant, databaseFilePath: proteinDbLocation);
+                            result.Add(decoy_protein_slide);
                         }
 
                         accession = null;
                         name = null;
-                        full_name = null;
+                        fullName = null;
                         organism = null;
-                        gene_name = new List<Tuple<string, string>>();
+                        geneName = new List<Tuple<string, string>>();
                     }
 
                     // no input left
@@ -675,7 +688,9 @@ namespace UsefulProteomicsDatabases
                 }
             }
             if (!result.Any())
+            {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
+            }
             return result;
         }
 
@@ -741,6 +756,20 @@ namespace UsefulProteomicsDatabases
 
         #region Private Methods
 
+        private static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
+        {
+            string result = null;
+            if (regex != null)
+            {
+                var matches = regex.Regex.Matches(line);
+                if (matches.Count > regex.Match && matches[regex.Match].Groups.Count > regex.Group)
+                {
+                    result = matches[regex.Match].Groups[regex.Group].Value;
+                }
+            }
+            return result;
+        }
+
         private static int GetOldShuffleIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
         {
             if (methioninePresent)
@@ -752,23 +781,37 @@ namespace UsefulProteomicsDatabases
             int oldIndex = i;
 
             if (positiveDirection)
+            {
                 oldIndex += numSlides;
+            }
             else
+            {
                 oldIndex -= numSlides;
+            }
 
             while (true)
             {
                 if (oldIndex < 0)
+                {
                     positiveDirection = true;
+                }
                 else if (oldIndex >= sequenceLength)
+                {
                     positiveDirection = false;
+                }
                 else
+                {
                     return methioninePresent ? oldIndex + 1 : oldIndex;
+                }
 
                 if (positiveDirection)
+                {
                     oldIndex = (oldIndex * -1) - 1;
+                }
                 else
+                {
                     oldIndex = (sequenceLength * 2) - oldIndex - 1;
+                }
             }
         }
 
@@ -778,9 +821,13 @@ namespace UsefulProteomicsDatabases
             foreach (Modification nice in mods)
             {
                 if (mod_dict.TryGetValue(nice.id, out IList<Modification> val))
+                {
                     val.Add(nice);
+                }
                 else
+                {
                     mod_dict.Add(nice.id, new List<Modification> { nice });
+                }
             }
             return mod_dict;
         }
