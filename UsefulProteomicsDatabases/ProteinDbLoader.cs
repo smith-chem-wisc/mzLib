@@ -15,19 +15,21 @@ namespace UsefulProteomicsDatabases
     {
         #region Public Fields
 
-        public static Regex uniprot_accession_expression = new Regex(@"([A-Z0-9_.]+)");
+        public static FastaHeaderFieldRegex uniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
 
-        public static Regex uniprot_fullName_expression = new Regex(@"\|([^\|]+)\sOS=");
+        public static FastaHeaderFieldRegex uniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\sOS=", 0, 1);
 
-        public static Regex uniprot_gene_expression = new Regex(@"GN=([^ ]+)");
+        public static FastaHeaderFieldRegex uniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|([^\|][A-Z0-9_]+)", 1, 1);
 
-        public static Regex uniprot_organism_expression = new Regex(@"OS=(.*?)\sGN=");
+        public static FastaHeaderFieldRegex uniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=([^ ]+)", 0, 1);
 
-        public static Regex ensembl_accession_expression = new Regex(@"([A-Z0-9_.]+)");
+        public static FastaHeaderFieldRegex uniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\sGN=", 0, 1);
 
-        public static Regex ensembl_fullName_expression = new Regex(@"(pep:.*)");
+        public static FastaHeaderFieldRegex ensemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
 
-        public static Regex ensembl_gene_expression = new Regex(@"gene:([^ ]+)");
+        public static FastaHeaderFieldRegex ensemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
+
+        public static FastaHeaderFieldRegex ensemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
 
         #endregion Public Fields
 
@@ -538,14 +540,19 @@ namespace UsefulProteomicsDatabases
         /// Load a protein fasta database, using regular expressions to get various aspects of the headers. The first regex capture group is used as each field.
         /// </summary>
         /// <param name="proteinDbLocation"></param>
+        /// <param name="originalTarget"></param>
         /// <param name="onTheFlyDecoys"></param>
         /// <param name="IsContaminant"></param>
-        /// <param name="accession_expression"></param>
-        /// <param name="full_name_expression"></param>
-        /// <param name="name_expression"></param>
-        /// <param name="gene_expression"></param>
+        /// <param name="accessionRegex"></param>
+        /// <param name="fullNameRegex"></param>
+        /// <param name="nameRegex"></param>
+        /// <param name="geneRegex"></param>
+        /// <param name="organismRegex"></param>
+        /// <param name="errors"></param>
         /// <returns></returns>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, Regex accession_expression, Regex full_name_expression, Regex name_expression, Regex gene_expression, Regex organism_expression, out List<string> errors)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, bool IsContaminant, 
+            FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex, 
+            FastaHeaderFieldRegex geneRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -581,23 +588,25 @@ namespace UsefulProteomicsDatabases
 
                     if (line.StartsWith(">"))
                     {
-                        var accession_match = accession_expression.Match(line);
-                        var full_name_match = full_name_expression.Match(line);
-                        var name_match = name_expression.Match(line);
-                        var gene_name_match = gene_expression.Match(line);
-                        if (organism_expression != null)
+                        var accession_match = accessionRegex.Regex.Matches(line)[accessionRegex.Match];
+                        var full_name_match = fullNameRegex.Regex.Matches(line)[fullNameRegex.Match];
+                        var name_match = nameRegex.Regex.Matches(line)[nameRegex.Match];
+                        var gene_name_match = geneRegex.Regex.Matches(line)[geneRegex.Match];
+                        if (organismRegex != null)
                         {
-                            var organism_match = organism_expression.Match(line);
-                            if (organism_match.Groups.Count > 1) organism = organism_expression.Match(line).Groups[1].Value;
+                            var organism_match = organismRegex.Regex.Matches(line)[organismRegex.Match];
+                            if (organism_match.Groups.Count > 1) { organism = organism_match.Groups[organismRegex.Group].Value; }
                         }
 
-                        if (accession_match.Groups.Count > 1) accession = accession_expression.Match(line).Groups[1].Value;
-                        if (full_name_match.Groups.Count > 1) full_name = full_name_expression.Match(line).Groups[1].Value;
-                        if (name_match.Groups.Count > 1) name = name_expression.Match(line).Groups[1].Value;
-                        if (gene_name_match.Groups.Count > 1) gene_name.Add(new Tuple<string, string>("primary", gene_expression.Match(line).Groups[1].Value));
+                        if (accession_match.Groups.Count > 1) { accession = accession_match.Groups[accessionRegex.Group].Value; }
+                        if (full_name_match.Groups.Count > 1) { full_name = full_name_match.Groups[fullNameRegex.Group].Value; }
+                        if (name_match.Groups.Count > 1) { name = name_match.Groups[nameRegex.Group].Value; }
+                        if (gene_name_match.Groups.Count > 1) { gene_name.Add(new Tuple<string, string>("primary", gene_name_match.Groups[geneRegex.Group].Value)); }
 
                         if (accession == null || accession == "")
+                        {
                             accession = line.Substring(1).TrimEnd();
+                        }
 
                         sb = new StringBuilder();
                     }
