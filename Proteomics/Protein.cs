@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Proteomics
 {
@@ -84,5 +85,30 @@ namespace Proteomics
         }
 
         #endregion Public Indexers
+
+        #region Public Methods
+
+        /// <summary>
+        /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
+        /// Note that the db field isn't very applicable here, so mz is placed in to denote written by mzLib.
+        /// </summary>
+        /// <returns></returns>
+        public string GetUniProtFastaHeader()
+        {
+            var n = GeneNames.FirstOrDefault();
+            string geneName = n == null ? "" : n.Item2;
+            return String.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
+        }
+
+        /// <summary>
+        /// Formats a string for an ensembl header
+        /// </summary>
+        /// <returns></returns>
+        public string GetEnsemblFastaHeader()
+        {
+            return String.Format("{0} {1}", Accession, FullName);
+        }
+
+        #endregion Public Methods
     }
 }
