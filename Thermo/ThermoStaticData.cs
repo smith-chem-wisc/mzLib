@@ -39,16 +39,25 @@ namespace IO.Thermo
 
         public static ThermoStaticData LoadAllStaticData(string filePath, IFilteringParams filterParams = null)
         {
-            if (CheckForMsFileReader() == false)
-                throw new MzLibException("MsFileReader Not Installed");
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException();
+            }
 
+            if (CheckForMsFileReader() == false)
+            {
+                throw new MzLibException("MsFileReader Not Installed");
+            }
+            
             var ok = new ManagedThermoHelperLayer.HelperClass();
             IXRawfile5 theConnection = (IXRawfile5)new MSFileReader_XRawfile();
             theConnection.Open(filePath);
             int pbSMData = 0;
             theConnection.IsThereMSData(ref pbSMData);
             if (pbSMData == 0)
-                throw new MzLibException("File not found");
+            {
+                throw new MzLibException("Could not read data from file " + Path.GetFileName(filePath));
+            }
 
             theConnection.SetCurrentController(0, 1);
 

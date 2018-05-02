@@ -277,33 +277,34 @@ namespace IO.Thermo
                 // THIS METHOD IS BUGGY!!! DO NOT USE
                 //theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
 
-                int oneBasedPrecursorScanNumber;
+                int oneBasedPrecursorScanNumber = -1;
                 if (precursorInfo.nScanNumber > 0)
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
                 else if (masterScanfromTrailierExtra.HasValue)
                     oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
                 else
                 {
-                    oneBasedPrecursorScanNumber = nScanNumber - 1;
-                    // Use info from ScanEvent! Loop back until scan event is equal to 1
-                    while (true)
+                    // we weren't able to get the precursor scan number, so we'll have to guess;
+                    // loop back to find precursor scan 
+                    // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
+                    // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
+                    int scanOrder = globalParams.msOrderByScan[nScanNumber - 1];
+                    int precursorScanOrder = scanOrder - 1;
+
+                    for (int i = nScanNumber - 1; i >= 0; i--)
                     {
-                        if (globalParams.scanEvent[oneBasedPrecursorScanNumber - 1] == 0)
+                        int msOrder = globalParams.msOrderByScan[i];
+
+                        if (msOrder == precursorScanOrder)
                         {
-                            object pvarValuesHere = null;
-                            object pvarLablesHere = null;
-                            int pnArraySizeHere = 0;
-                            theConnection.GetTrailerExtraForScanNum(oneBasedPrecursorScanNumber, ref pvarLablesHere, ref pvarValuesHere, ref pnArraySizeHere);
-                            string[] labelsHere = (string[])pvarLablesHere;
-                            string[] valuesHere = (string[])pvarValuesHere;
-                            for (int i = labelsHere.GetLowerBound(0); i <= labelsHere.GetUpperBound(0); i++)
-                                if (labelsHere[i].StartsWith("Scan Event", StringComparison.Ordinal))
-                                    globalParams.scanEvent[oneBasedPrecursorScanNumber - 1] = int.Parse(valuesHere[i], CultureInfo.InvariantCulture);
-                        }
-                        if (globalParams.scanEvent[oneBasedPrecursorScanNumber - 1] == 1)
+                            oneBasedPrecursorScanNumber = i + 1;
                             break;
-                        oneBasedPrecursorScanNumber--;
+                        }
                     }
+                }
+                if (oneBasedPrecursorScanNumber == -1)
+                {
+                    throw new MzLibException("Could not find precursor info for scan #" + nScanNumber);
                 }
 
                 int? selectedIonGuessChargeStateGuess = null;

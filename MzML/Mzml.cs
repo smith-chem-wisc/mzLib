@@ -98,6 +98,11 @@ namespace IO.MzML
 
         public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException();
+            }
+
             Generated.mzMLType _mzMLConnection;
 
             try
