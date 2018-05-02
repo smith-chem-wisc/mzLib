@@ -56,7 +56,7 @@ namespace TestThermo
         [Test]
         public static void ThermoLoadError()
         {
-            Assert.Throws<MzLibException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
+            Assert.Throws<FileNotFoundException>(() => ThermoStaticData.LoadAllStaticData(@"aaa.RAW"));
         }
 
         [Test]

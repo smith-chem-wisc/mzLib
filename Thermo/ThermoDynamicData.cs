@@ -30,8 +30,15 @@ namespace IO.Thermo
 
         public static ThermoDynamicData InitiateDynamicConnection(string filePath, IFilteringParams filterParams = null)
         {
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException();
+            }
+
             if (CheckForMsFileReader() == false)
+            {
                 throw new MzLibException("MsFileReader Not Installed");
+            }
 
             IXRawfile5 _rawConnection = (IXRawfile5)new MSFileReader_XRawfile();
             _rawConnection.Open(filePath);
@@ -63,6 +70,11 @@ namespace IO.Thermo
                 Path.GetFileNameWithoutExtension(filePath));
 
             var thermoGlobalParams = GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
+
+            if (thermoGlobalParams.msOrderByScan.Length == 1 && thermoGlobalParams.msOrderByScan[0] == 0)
+            {
+                throw new MzLibException("Could not read data from file " + Path.GetFileName(filePath));
+            }
 
             return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
         }
