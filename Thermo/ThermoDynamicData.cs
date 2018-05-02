@@ -71,6 +71,7 @@ namespace IO.Thermo
 
             var thermoGlobalParams = GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
 
+            // if the spectra file only contains 1 scan and its MS order is 0, this indicates an errored read result
             if (thermoGlobalParams.msOrderByScan.Length == 1 && thermoGlobalParams.msOrderByScan[0] == 0)
             {
                 throw new MzLibException("Could not read data from file " + Path.GetFileName(filePath));
