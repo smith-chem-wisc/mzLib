@@ -644,7 +644,7 @@ namespace IO.MzML
                     {
                         name = "lowest observed m/z",
                         accession = "MS:1000528",
-                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.FirstX.ToString(CultureInfo.InvariantCulture),
+                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.FirstX.Value.ToString(CultureInfo.InvariantCulture),
                         unitCvRef = "MS",
                         unitAccession = "MS:1000040",
                         unitName = "m/z",
@@ -656,9 +656,10 @@ namespace IO.MzML
                     {
                         name = "highest observed m/z",
                         accession = "MS:1000527",
-                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.ToString(CultureInfo.InvariantCulture),
+                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.LastX.Value.ToString(CultureInfo.InvariantCulture),
                         unitAccession = "MS:1000040",
                         unitName = "m/z",
+                        unitCvRef = "MS",
                         cvRef = "MS"
                     };
                 }
@@ -672,29 +673,32 @@ namespace IO.MzML
                     cvRef = "MS",
                 };
 
-                //base peak m/z
-                mzML.run.spectrumList.spectrum[i - 1].cvParam[7] = new Generated.CVParamType()
+                if (myMsDataFile.GetOneBasedScan(i).MassSpectrum.Size > 0)
                 {
-                    name = "base peak m/z",
-                    accession = "MS:1000504",
-                    value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.XofPeakWithHighestY.ToString(),
-                    unitCvRef = "MS",
-                    unitName = "m/z",
-                    unitAccession = "MS:1000040",
-                    cvRef = "MS"
-                };
+                    //base peak m/z
+                    mzML.run.spectrumList.spectrum[i - 1].cvParam[7] = new Generated.CVParamType()
+                    {
+                        name = "base peak m/z",
+                        accession = "MS:1000504",
+                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.XofPeakWithHighestY.ToString(),
+                        unitCvRef = "MS",
+                        unitName = "m/z",
+                        unitAccession = "MS:1000040",
+                        cvRef = "MS"
+                    };
 
-                //base peak intensity
-                mzML.run.spectrumList.spectrum[i - 1].cvParam[8] = new Generated.CVParamType()
-                {
-                    name = "base peak intensity",
-                    accession = "MS:1000505",
-                    value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.YofPeakWithHighestY.ToString(),
-                    unitCvRef = "MS",
-                    unitName = "number of detector",
-                    unitAccession = "MS:1000131",
-                    cvRef = "MS"
-                };
+                    //base peak intensity
+                    mzML.run.spectrumList.spectrum[i - 1].cvParam[8] = new Generated.CVParamType()
+                    {
+                        name = "base peak intensity",
+                        accession = "MS:1000505",
+                        value = myMsDataFile.GetOneBasedScan(i).MassSpectrum.YofPeakWithHighestY.ToString(),
+                        unitCvRef = "MS",
+                        unitName = "number of detector counts",
+                        unitAccession = "MS:1000131",
+                        cvRef = "MS"
+                    };
+                }
 
                 // Retention time
                 mzML.run.spectrumList.spectrum[i - 1].scanList = new Generated.ScanListType()

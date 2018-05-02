@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Test</RootNamespace>
     <AssemblyName>Test</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <SonarQubeExclude>true</SonarQubeExclude>
@@ -29,6 +29,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <OutputPath>bin\x64\Debug\</OutputPath>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="nunit.framework, Version=3.9.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
@@ -36,13 +37,12 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.ValueTuple, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.ValueTuple.4.4.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-    </Reference>
+    <Reference Include="System.ValueTuple" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FakeMsDataFile.cs" />
+    <Compile Include="TestCZE.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseLoaderTests.cs" />
     <Compile Include="ElementsAndIsotopesTests.cs" />
@@ -68,6 +68,10 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Chromatography\Chromatography.csproj">
+      <Project>{edf2377d-9fa8-4f85-a3e5-63fe085f956f}</Project>
+      <Name>Chromatography</Name>
     </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
@@ -103,6 +107,15 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="bad.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="bad3.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="bad4.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="blank.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="fasta.fasta">

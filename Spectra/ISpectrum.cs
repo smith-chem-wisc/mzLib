@@ -34,11 +34,11 @@ namespace Spectra
         double[] XArray { get; }
         double[] YArray { get; }
 
-        double FirstX { get; }
-        double LastX { get; }
+        double? FirstX { get; }
+        double? LastX { get; }
         int Size { get; }
-        double YofPeakWithHighestY { get; }
-        double XofPeakWithHighestY { get; }
+        double? YofPeakWithHighestY { get; }
+        double? XofPeakWithHighestY { get; }
         double SumOfAllY { get; }
         DoubleRange Range { get; }
 
@@ -50,9 +50,9 @@ namespace Spectra
 
         int NumPeaksWithinRange(double minX, double maxX);
 
-        int GetClosestPeakIndex(double x);
+        int? GetClosestPeakIndex(double x);
 
-        double GetClosestPeakXvalue(double x);
+        double? GetClosestPeakXvalue(double x);
 
         IEnumerable<TPeak> FilterByNumberOfMostIntense(int topNPeaks);
 

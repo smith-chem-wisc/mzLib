@@ -78,6 +78,16 @@ namespace UsefulProteomicsDatabases
                     }
                     writer.WriteEndElement();
 
+                    if (protein.Organism != null)
+                    {
+                        writer.WriteStartElement("organism");
+                        writer.WriteStartElement("name");
+                        writer.WriteAttributeString("type", "scientific");
+                        writer.WriteString(protein.Organism);
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
+
                     foreach (var dbRef in protein.DatabaseReferences)
                     {
                         writer.WriteStartElement("dbReference");
@@ -240,9 +250,7 @@ namespace UsefulProteomicsDatabases
             {
                 foreach (Protein protein in proteinList)
                 {
-                    string header = protein.FullName != protein.Accession ?
-                        protein.Accession + delimeter + protein.FullName :
-                        protein.Accession; // we read in full name and accession to be the same string if the format isn't recognized
+                    string header = delimeter == " " ? protein.GetEnsemblFastaHeader() : protein.GetUniProtFastaHeader();
                     writer.WriteLine(">" + header);
                     writer.WriteLine(protein.BaseSequence);
                 }

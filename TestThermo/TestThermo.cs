@@ -75,14 +75,14 @@ namespace TestThermo
 
             Assert.AreEqual(a.NumSpectra, b.NumSpectra);
 
-            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY, 1e-8);
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+            Assert.AreEqual(a.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY.Value, b.GetOneBasedScan(1).MassSpectrum.XofPeakWithHighestY.Value, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value - b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) < 1e-8);
 
-            Assert.AreEqual(a.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, 1e-8);
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+            Assert.AreEqual(a.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY.Value, b.GetOneBasedScan(2).MassSpectrum.XofPeakWithHighestY, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY.Value - b.GetOneBasedScan(2).MassSpectrum.YofPeakWithHighestY.Value) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) < 1e-8);
 
-            Assert.AreEqual(a.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY, b.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY, 1e-8);
-            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY - b.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY) < 1e-8);
+            Assert.AreEqual(a.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY.Value, b.GetOneBasedScan(3).MassSpectrum.XofPeakWithHighestY.Value, 1e-8);
+            Assert.IsTrue(Math.Abs((a.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY.Value - b.GetOneBasedScan(3).MassSpectrum.YofPeakWithHighestY.Value) / b.GetOneBasedScan(1).MassSpectrum.YofPeakWithHighestY.Value) < 1e-8);
         }
 
         [Test]
@@ -102,7 +102,7 @@ namespace TestThermo
 
             var newDeconvolution = a.GetOneBasedScan(1).MassSpectrum.Deconvolute(new MzRange(double.MinValue, double.MaxValue), 1, 10, 1, 4).ToList();
 
-            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().Item1.ToMass(b.charge) - 523.257) < 0.001));
+            Assert.IsTrue(newDeconvolution.Any(b => Math.Abs(b.peaks.First().mz.ToMass(b.charge) - 523.257) < 0.001));
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"), false);
 
@@ -313,9 +313,9 @@ namespace TestThermo
             // One peak persists across the three scans! So instead of 5 see three peaks in summed
             Assert.AreEqual(3, summed3.GetOneBasedScan(1).MassSpectrum.NumPeaksWithinRange(893, 899));
 
-            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.FirstX, Math.Min(Math.Min(rawFile.GetOneBasedScan(1).MassSpectrum.FirstX, rawFile.GetOneBasedScan(2).MassSpectrum.FirstX), rawFile.GetOneBasedScan(3).MassSpectrum.FirstX));
+            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.FirstX, Math.Min(Math.Min(rawFile.GetOneBasedScan(1).MassSpectrum.FirstX.Value, rawFile.GetOneBasedScan(2).MassSpectrum.FirstX.Value), rawFile.GetOneBasedScan(3).MassSpectrum.FirstX.Value));
 
-            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX, rawFile.GetOneBasedScan(2).MassSpectrum.LastX), rawFile.GetOneBasedScan(3).MassSpectrum.LastX));
+            Assert.AreEqual(summed3.GetOneBasedScan(1).MassSpectrum.LastX, Math.Max(Math.Max(rawFile.GetOneBasedScan(1).MassSpectrum.LastX.Value, rawFile.GetOneBasedScan(2).MassSpectrum.LastX.Value), rawFile.GetOneBasedScan(3).MassSpectrum.LastX.Value));
 
             // 5 scans
             SummedMsDataFile summed5 = new SummedMsDataFile(rawFile, 5, 10);

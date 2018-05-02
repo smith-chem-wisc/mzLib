@@ -1,9 +1,7 @@
 ﻿using FlashLFQ;
 using IO.MzML;
 using IO.Thermo;
-using MassSpectrometry;
 using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,234 +15,132 @@ namespace Test
         #region Public Methods
 
         [Test]
-        public static void TestEverything()
+        public static void TestFlashLFQ()
         {
-            Console.WriteLine("UNIT TEST - Entering unit test");
-            string elements = Path.Combine(TestContext.CurrentContext.TestDirectory, "elements.dat");
-            string files = TestContext.CurrentContext.TestDirectory;
-            string ident = Path.Combine(TestContext.CurrentContext.TestDirectory, "aggregatePSMs_5ppmAroundZero.psmtsv");
+            // get the raw file paths
+            RawFileInfo raw = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"));
+            RawFileInfo mzml = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"));
 
-            FlashLFQEngine engine = new FlashLFQEngine();
-            Console.WriteLine("UNIT TEST - About to load elements");
-            Loaders.LoadElements(elements);
-            Console.WriteLine("UNIT TEST - Finished loading elements");
+            // create some PSMs
+            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
+            Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
+            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
+            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
 
-            Assert.That(engine.ParseArgs(new string[] {
-                        "--idt " + ident,
-                        "--rep " + files,
-                        "--ppm 5",
-                        "--sil false",
-                        "--pau false",
-                        "--mbr true" }
-                    ));
-            Console.WriteLine("UNIT TEST - Done making engine");
-            engine.globalStopwatch.Start();
-            Assert.That(engine.outputFolder != null);
-            engine.SetParallelization(1);
+            // create the FlashLFQ engine
+            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 });
 
-            //Assert.That(engine.ReadPeriodicTable());
+            // run the engine
+            var results = engine.Run();
 
-            Console.WriteLine("UNIT TEST - About to read TSV file");
-            Assert.That(engine.ReadIdentificationsFromTSV());
-            Console.WriteLine("UNIT TEST - Finished reading TSV");
-            engine.ConstructIndexTemplateFromIdentifications();
-            Console.WriteLine("UNIT TEST - Finished constructing bins");
-            Assert.That(engine.observedMzsToUseForIndex.Count > 0);
-            Assert.That(engine.baseSequenceToIsotopicDistribution.Count > 0);
-            Console.WriteLine("UNIT TEST - Bins are OK");
+            // check raw results
+            Assert.That(results.peaks[raw].Count == 1);
+            Assert.That(results.peaks[raw].First().intensity > 0);
+            Assert.That(!results.peaks[raw].First().isMbrFeature);
+            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[raw] > 0);
+            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[raw] > 0);
+            Assert.That(results.proteinGroups["MyProtein"].intensities[raw] > 0);
 
-            for (int i = 0; i < engine.filePaths.Length; i++)
-            {
-                Console.WriteLine("UNIT TEST - Quantifying file " + (i + 1));
-                try
-                {
-                    IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFiel;
-                    if (Path.GetExtension(engine.filePaths[i]).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
-                        dataFiel = Mzml.LoadAllStaticData(engine.filePaths[i]);
-                    else
-                        dataFiel = ThermoDynamicData.InitiateDynamicConnection(engine.filePaths[i]);
-                    Assert.That(engine.Quantify(dataFiel, engine.filePaths[i]));
-                }
-                catch (AssertionException)
-                {
-                    Console.WriteLine("UNIT TEST - Could not quantify file \"" + engine.filePaths[i] + "\"");
-                }
-            }
+            // check mzml results
+            Assert.That(results.peaks[mzml].Count == 1);
+            Assert.That(results.peaks[mzml].First().intensity > 0);
+            Assert.That(!results.peaks[mzml].First().isMbrFeature);
+            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
+            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
+            Assert.That(results.proteinGroups["MyProtein"].intensities[mzml] > 0);
 
-            //if (engine.mbr)
-            //    engine.RetentionTimeCalibrationAndErrorCheckMatchedFeatures();
+            // test peak output
+            List<string> output = new List<string>() { FlashLFQ.ChromatographicPeak.TabSeparatedHeader };
+            foreach (var peak in results.peaks.SelectMany(p => p.Value))
+                output.Add(peak.ToString());
+            Assert.That(output.Count == 3);
 
-            Console.WriteLine("UNIT TEST - Quantifying proteins ");
-            engine.QuantifyProteins();
+            // test peptide base sequence output
+            output = new List<string>() { Peptide.TabSeparatedHeader };
+            foreach (var pep in results.peptideBaseSequences)
+                output.Add(pep.Value.ToString());
+            Assert.That(output.Count == 2);
 
-            Console.WriteLine("UNIT TEST - Asserting results");
-            Assert.That(engine.SumFeatures(engine.allFeaturesByFile.SelectMany(p => p), true).Any());
-            Assert.That(engine.SumFeatures(engine.allFeaturesByFile.SelectMany(p => p), false).Any());
+            // test peptide mod sequence output
+            output = new List<string>() { Peptide.TabSeparatedHeader };
+            foreach (var pep in results.peptideModifiedSequences)
+                output.Add(pep.Value.ToString());
+            Assert.That(output.Count == 2);
 
-            Assert.That(engine.allFeaturesByFile[0].First().intensity > 0);
-            Assert.That(engine.allFeaturesByFile[1].First().intensity > 0);
-
-            Assert.That(engine.allFeaturesByFile[0].Count == 1);
-            Assert.That(engine.allFeaturesByFile[1].Count == 1);
-
-            Assert.That(!engine.allFeaturesByFile[0].First().isMbrFeature);
-            Assert.That(!engine.allFeaturesByFile[1].First().isMbrFeature);
-            Console.WriteLine("UNIT TEST - All passed");
+            // test protein output
+            output = new List<string>() { ProteinGroup.TabSeparatedHeader };
+            foreach (var protein in results.proteinGroups)
+                output.Add(protein.Value.ToString());
+            Assert.That(output.Count == 2);
         }
 
         [Test]
-        public static void TestExternalNoPassedFile()
+        public static void TestFlashLFQWithPassedFile()
         {
-            Console.WriteLine("UNIT TEST - Entering unit test");
-            string[] filePaths = Directory.GetFiles(TestContext.CurrentContext.TestDirectory).Where(f => f.Substring(f.IndexOf('.')).ToUpper().Equals(".RAW") || f.Substring(f.IndexOf('.')).ToUpper().Equals(".MZML")).ToArray();
-            string elements = Path.Combine(TestContext.CurrentContext.TestDirectory, "elements.dat");
-            string ident = Path.Combine(TestContext.CurrentContext.TestDirectory, "aggregatePSMs_5ppmAroundZero.psmtsv");
+            // read periodic table - needed to open the raw files
+            PeriodicTableLoader.Load(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
 
-            FlashLFQEngine engine = new FlashLFQEngine();
-            Console.WriteLine("UNIT TEST - About to load elements");
-            Loaders.LoadElements(elements);
-            Console.WriteLine("UNIT TEST - Finished loading elements");
+            // get the raw files
+            string rawPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw");
+            string mzmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml");
 
-            engine.PassFilePaths(filePaths);
-            Assert.That(engine.ParseArgs(new string[] {
-                        "--ppm 5",
-                        "--sil false",
-                        "--pau false",
-                        "--mbr true" }
-                    ));
-            Console.WriteLine("UNIT TEST - Done making engine");
-            engine.globalStopwatch.Start();
-            engine.SetParallelization(1);
+            var rawFile = ThermoDynamicData.InitiateDynamicConnection(rawPath);
+            var mzmlFile = Mzml.LoadAllStaticData(mzmlPath);
 
-            Console.WriteLine("UNIT TEST - Adding identifications");
-            var ids = File.ReadAllLines(ident);
-            int lineCount = 1;
-            foreach (var line in ids)
-            {
-                if (lineCount != 1)
-                {
-                    var splitLine = line.Split('\t');
-                    engine.AddIdentification(Path.GetFileNameWithoutExtension(splitLine[0]), splitLine[20], splitLine[21], double.Parse(splitLine[27]), double.Parse(splitLine[2]), (int)double.Parse(splitLine[6]), new List<string> { splitLine[14] });
-                }
-                lineCount++;
-            }
-            Console.WriteLine("UNIT TEST - Finished adding IDs");
+            RawFileInfo raw = new RawFileInfo(rawPath, rawFile);
+            RawFileInfo mzml = new RawFileInfo(mzmlPath, mzmlFile);
 
-            engine.ConstructIndexTemplateFromIdentifications();
-            Console.WriteLine("UNIT TEST - Finished constructing bins");
-            Assert.That(engine.observedMzsToUseForIndex.Count > 0);
-            Assert.That(engine.baseSequenceToIsotopicDistribution.Count > 0);
-            Console.WriteLine("UNIT TEST - Bins are OK");
+            // create some PSMs
+            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
+            Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
+            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
+            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
 
-            for (int i = 0; i < engine.filePaths.Length; i++)
-            {
-                Console.WriteLine("UNIT TEST - Quantifying file " + (i + 1));
-                try
-                {
-                    IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFiel;
-                    if (Path.GetExtension(engine.filePaths[i]).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
-                        dataFiel = Mzml.LoadAllStaticData(engine.filePaths[i]);
-                    else
-                        dataFiel = ThermoDynamicData.InitiateDynamicConnection(engine.filePaths[i]);
-                    Assert.That(engine.Quantify(dataFiel, engine.filePaths[i]));
-                }
-                catch (AssertionException)
-                {
-                    Console.WriteLine("UNIT TEST - Could not quantify file \"" + engine.filePaths[i] + "\"");
-                }
-            }
+            // create the FlashLFQ engine
+            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 });
 
-            //if (engine.mbr)
-            //    engine.RetentionTimeCalibrationAndErrorCheckMatchedFeatures();
+            // run the engine
+            var results = engine.Run();
 
-            Console.WriteLine("UNIT TEST - Quantifying proteins ");
-            engine.QuantifyProteins();
+            // check raw results
+            Assert.That(results.peaks[raw].Count == 1);
+            Assert.That(results.peaks[raw].First().intensity > 0);
+            Assert.That(!results.peaks[raw].First().isMbrFeature);
+            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[raw] > 0);
+            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[raw] > 0);
+            Assert.That(results.proteinGroups["MyProtein"].intensities[raw] > 0);
 
-            Console.WriteLine("UNIT TEST - Asserting results");
-            Assert.That(engine.SumFeatures(engine.allFeaturesByFile.SelectMany(p => p), true).Any());
-            Assert.That(engine.SumFeatures(engine.allFeaturesByFile.SelectMany(p => p), false).Any());
+            // check mzml results
+            Assert.That(results.peaks[mzml].Count == 1);
+            Assert.That(results.peaks[mzml].First().intensity > 0);
+            Assert.That(!results.peaks[mzml].First().isMbrFeature);
+            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
+            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
+            Assert.That(results.proteinGroups["MyProtein"].intensities[mzml] > 0);
 
-            Assert.That(engine.allFeaturesByFile[0].First().intensity > 0);
-            Assert.That(engine.allFeaturesByFile[1].First().intensity > 0);
+            // test peak output
+            List<string> output = new List<string>() { FlashLFQ.ChromatographicPeak.TabSeparatedHeader };
+            foreach (var peak in results.peaks.SelectMany(p => p.Value))
+                output.Add(peak.ToString());
+            Assert.That(output.Count == 3);
 
-            Assert.That(!engine.allFeaturesByFile[0].First().isMbrFeature);
-            Assert.That(!engine.allFeaturesByFile[1].First().isMbrFeature);
-            Console.WriteLine("UNIT TEST - All passed");
-        }
+            // test peptide base sequence output
+            output = new List<string>() { Peptide.TabSeparatedHeader };
+            foreach (var pep in results.peptideBaseSequences)
+                output.Add(pep.Value.ToString());
+            Assert.That(output.Count == 2);
 
-        [Test]
-        public static void TestExternalPassedFile()
-        {
-            Console.WriteLine("UNIT TEST - Entering unit test");
-            string[] filePaths = Directory.GetFiles(TestContext.CurrentContext.TestDirectory).Where(f => f.Substring(f.IndexOf('.')).ToUpper().Equals(".RAW")).ToArray();
-            var thermoFile = ThermoStaticData.LoadAllStaticData(filePaths[0]);
+            // test peptide mod sequence output
+            output = new List<string>() { Peptide.TabSeparatedHeader };
+            foreach (var pep in results.peptideModifiedSequences)
+                output.Add(pep.Value.ToString());
+            Assert.That(output.Count == 2);
 
-            string elements = Path.Combine(TestContext.CurrentContext.TestDirectory, "elements.dat");
-            string ident = Path.Combine(TestContext.CurrentContext.TestDirectory, "aggregatePSMs_5ppmAroundZero.psmtsv");
-
-            FlashLFQEngine engine = new FlashLFQEngine();
-            Console.WriteLine("UNIT TEST - About to load elements");
-            Loaders.LoadElements(elements);
-            Console.WriteLine("UNIT TEST - Finished loading elements");
-
-            engine.PassFilePaths(filePaths);
-            Assert.That(engine.ParseArgs(new string[] {
-                        "--ppm 5",
-                        "--sil false",
-                        "--pau false",
-                        "--mbr true" }
-                    ));
-            Console.WriteLine("UNIT TEST - Done making engine");
-            engine.globalStopwatch.Start();
-            engine.SetParallelization(1);
-
-            Console.WriteLine("UNIT TEST - Adding identifications");
-            var ids = File.ReadAllLines(ident);
-            int lineCount = 1;
-            foreach (var line in ids)
-            {
-                if (lineCount != 1)
-                {
-                    var splitLine = line.Split('\t');
-                    engine.AddIdentification(Path.GetFileNameWithoutExtension(splitLine[0]), splitLine[20], splitLine[21], double.Parse(splitLine[27]), double.Parse(splitLine[2]), (int)double.Parse(splitLine[6]), new List<string> { splitLine[14] });
-                }
-                lineCount++;
-            }
-            Console.WriteLine("UNIT TEST - Finished adding IDs");
-
-            engine.ConstructIndexTemplateFromIdentifications();
-            Console.WriteLine("UNIT TEST - Finished constructing bins");
-            Assert.That(engine.observedMzsToUseForIndex.Count > 0);
-            Assert.That(engine.baseSequenceToIsotopicDistribution.Count > 0);
-            Console.WriteLine("UNIT TEST - Bins are OK");
-
-            for (int i = 0; i < engine.filePaths.Length; i++)
-            {
-                Console.WriteLine("UNIT TEST - Quantifying file " + (i + 1));
-                try
-                {
-                    Assert.That(engine.Quantify(thermoFile, engine.filePaths[i]));
-                }
-                catch (AssertionException)
-                {
-                    Console.WriteLine("UNIT TEST - Could not quantify file \"" + engine.filePaths[i] + "\"");
-                }
-            }
-
-            //if (engine.mbr)
-            //    engine.RetentionTimeCalibrationAndErrorCheckMatchedFeatures();
-
-            Console.WriteLine("UNIT TEST - Quantifying proteins ");
-            engine.QuantifyProteins();
-
-            Console.WriteLine("UNIT TEST - Asserting results");
-            Assert.That(engine.SumFeatures(engine.allFeaturesByFile.SelectMany(p => p), true).Any());
-            Assert.That(engine.SumFeatures(engine.allFeaturesByFile.SelectMany(p => p), false).Any());
-
-            Assert.That(engine.allFeaturesByFile[0].First().intensity > 0);
-
-            Assert.That(!engine.allFeaturesByFile[0].First().isMbrFeature);
-            Console.WriteLine("UNIT TEST - All passed");
+            // test protein output
+            output = new List<string>() { ProteinGroup.TabSeparatedHeader };
+            foreach (var protein in results.proteinGroups)
+                output.Add(protein.Value.ToString());
+            Assert.That(output.Count == 2);
         }
 
         #endregion Public Methods
