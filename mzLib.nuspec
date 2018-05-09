@@ -41,7 +41,7 @@
     <file src="Spectra\bin\Release\net45\Spectra.dll" target="lib\net45" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\net45\UsefulProteomicsDatabases.dll" target="lib\net45" /> 
     <file src="MzLibUtil\bin\Release\net45\MzLibUtil.dll" target="lib\net45" /> 
-    <file src="FlashLFQ\bin\Release\net45\FlashLFQ.dll" target="lib\net45" /> 
+    <file src="FlashLFQ\bin\Release\net461\FlashLFQ.dll" target="lib\net461" /> 
 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib\net45" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib\net45" /> 
