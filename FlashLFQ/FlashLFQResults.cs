@@ -7,7 +7,7 @@ namespace FlashLFQ
     {
         #region Public Fields
 
-        public static List<RawFileInfo> rawFiles;
+        public List<RawFileInfo> rawFiles;
         public string log;
         public Dictionary<string, Peptide> peptideBaseSequences;
         public Dictionary<string, Peptide> peptideModifiedSequences;
@@ -106,6 +106,11 @@ namespace FlashLFQ
 
         public void CalculateProteinResults()
         {
+            foreach(var proteinGroup in proteinGroups)
+            {
+                proteinGroup.Value.InitializeProteinGroup();
+            }
+
             // get all peptides without ambiguous peaks
             var allFeatures = peaks.Values.SelectMany(p => p).ToList();
             var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByBaseSeq > 1).ToList();
@@ -131,12 +136,33 @@ namespace FlashLFQ
             }
 
             // calculate protein's intensity for this file
-            foreach (var proteinGroupsFeatures in proteinsWithFeatures)
+            foreach (var proteinGroup in proteinsWithFeatures)
             {
-                foreach (var feature in proteinGroupsFeatures.Value)
+                int topNFeatures = 3;
+                Dictionary<RawFileInfo, List<double>> fileToPepIntensities = new Dictionary<RawFileInfo, List<double>>();
+
+                foreach (var feature in proteinGroup.Value)
                 {
                     int numProteinGroupsClaimingThisFeature = feature.identifyingScans.SelectMany(p => p.proteinGroups).Distinct().Count();
-                    proteinGroupsFeatures.Key.intensities[feature.rawFileInfo] += (feature.intensity / numProteinGroupsClaimingThisFeature);
+
+                    if (fileToPepIntensities.TryGetValue(feature.rawFileInfo, out var featureIntensitiesForThisProtein))
+                        fileToPepIntensities[feature.rawFileInfo].Add(feature.intensity / numProteinGroupsClaimingThisFeature);
+                    else
+                        fileToPepIntensities.Add(feature.rawFileInfo, new List<double> { feature.intensity / numProteinGroupsClaimingThisFeature });
+                }
+
+                foreach (var file in fileToPepIntensities)
+                {
+                    // need to observe at least one MS2-identified peptide for a protein in a file. if they're all MBR-identified, the protein 
+                    // intensity is zero. this is to prevent false-positives but will reduce the number of quantified proteins
+                    if (proteinGroup.Value.Any(p => !p.isMbrFeature))
+                    {
+                        proteinGroup.Key.intensities[file.Key] = file.Value.OrderByDescending(p => p).Take(topNFeatures).Sum();
+                    }
+                    else
+                    {
+                        proteinGroup.Key.intensities[file.Key] = 0;
+                    }
                 }
             }
         }

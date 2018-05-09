@@ -36,6 +36,7 @@ namespace FlashLFQ
         public readonly bool idSpecificChargeState;
         public readonly double qValueCutoff;
         public readonly bool requireMonoisotopicMass;
+        public readonly bool normalize;
 
         #endregion Public Fields
 
@@ -55,7 +56,7 @@ namespace FlashLFQ
 
         #region Public Constructors
 
-        public FlashLFQEngine(List<Identification> allIdentifications, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, bool matchBetweenRuns = false, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null, double maxMbrWindow = 1.5)
+        public FlashLFQEngine(List<Identification> allIdentifications, bool normalize = true, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, bool matchBetweenRuns = false, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null, double maxMbrWindow = 1.5)
         {
             if (optionalPeriodicTablePath == null)
                 optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
@@ -66,7 +67,12 @@ namespace FlashLFQ
             chargeStates = new List<int>();
             proteinGroupNameToProteinGroup = new Dictionary<string, ProteinGroup>();
 
-            this.rawFileInformation = allIdentifications.Select(p => p.fileInfo).Distinct().ToList();
+            this.rawFileInformation = allIdentifications.Select(p => p.fileInfo).Distinct()
+                .OrderBy(p => p.condition)
+                .ThenBy(p => p.biologicalReplicate)
+                .ThenBy(p => p.fraction)
+                .ThenBy(p => p.technicalReplicate).ToList();
+
             this.allIdentifications = allIdentifications;
             this.ppmTolerance = ppmTolerance;
             this.isotopePpmTolerance = isotopeTolerancePpm;
@@ -78,6 +84,7 @@ namespace FlashLFQ
             this.idSpecificChargeState = idSpecificChargeState;
             this.requireMonoisotopicMass = requireMonoisotopicMass;
             this.mbrRtWindow = maxMbrWindow;
+            this.normalize = normalize;
 
             qValueCutoff = 0.01;
             peakfindingPpmTolerance = 20.0;
@@ -89,7 +96,6 @@ namespace FlashLFQ
 
             ProteinGroup.rawFiles = rawFileInformation;
             Peptide.rawFiles = rawFileInformation;
-            FlashLFQResults.rawFiles = rawFileInformation;
         }
 
         #endregion Public Constructors
@@ -99,18 +105,20 @@ namespace FlashLFQ
         public FlashLFQResults Run()
         {
             results = new FlashLFQResults();
+            results.rawFiles = rawFileInformation;
+            ProteinGroup.rawFiles = rawFileInformation;
+            Peptide.rawFiles = rawFileInformation;
 
             globalStopwatch.Start();
 
-            // construct protein groups (intensities written later)
-            foreach (var pg in allIdentifications.SelectMany(p => p.proteinGroupNames).Distinct())
-                proteinGroupNameToProteinGroup.Add(pg, new ProteinGroup(pg));
-            foreach (var id in allIdentifications)
-                foreach (var pg in id.proteinGroupNames)
-                    id.proteinGroups.Add(proteinGroupNameToProteinGroup[pg]);
+            // construct protein group results (intensities written later)
+            foreach (var pg in allIdentifications.SelectMany(p => p.proteinGroups).Distinct())
+            {
+                proteinGroupNameToProteinGroup.Add(pg.ProteinGroupName, pg);
+            }
             results.proteinGroups = proteinGroupNameToProteinGroup;
 
-            // construct peptides (intensities written later)
+            // construct peptides results (intensities written later)
             Dictionary<string, Peptide> baseSequences = new Dictionary<string, Peptide>();
             foreach (var baseSeq in allIdentifications.Select(p => p.BaseSequence).Distinct())
                 baseSequences.Add(baseSeq, new Peptide(baseSeq));
@@ -157,12 +165,18 @@ namespace FlashLFQ
             // filter initial MBR peaks with retention time calibration
             if (mbr)
                 RetentionTimeCalibrationAndErrorCheckMatchedFeatures();
+            
+            // normalize
+            if (normalize)
+            {
+                new IntensityNormalizationEngine(results, integrate, silent).NormalizeResults();
+            }
 
-            // sum peak intensities for peptides and proteins
+            // calculate intensities for proteins/peptides
             results.CalculatePeptideResults(true);
             results.CalculatePeptideResults(false);
             results.CalculateProteinResults();
-
+            
             // done
             if (!silent)
                 Console.WriteLine("All done");
@@ -172,7 +186,7 @@ namespace FlashLFQ
                     globalStopwatch.Elapsed.Hours + "h " +
                     globalStopwatch.Elapsed.Minutes + "m " +
                     globalStopwatch.Elapsed.Seconds + "s");
-
+            
             return results;
         }
 

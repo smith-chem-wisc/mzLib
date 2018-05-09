@@ -44,6 +44,8 @@ namespace FlashLFQ
                 var sb = new StringBuilder();
                 sb.Append("Sequence" + "\t");
                 sb.Append("Protein Groups" + "\t");
+                sb.Append("Gene Names" + "\t");
+                sb.Append("Organism" + "\t");
                 foreach (var rawfile in rawFiles)
                     sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
                 foreach (var rawfile in rawFiles)
@@ -60,7 +62,9 @@ namespace FlashLFQ
         {
             StringBuilder str = new StringBuilder();
             str.Append(Sequence + "\t");
-            str.Append(string.Join(";", proteinGroups.Select(p => p.ProteinGroupName)) + "\t");
+            str.Append(string.Join(";", proteinGroups.Select(p => p.ProteinGroupName).Distinct()) + "\t");
+            str.Append(string.Join(";", proteinGroups.Select(p => p.GeneName).Distinct()) + "\t");
+            str.Append(string.Join(";", proteinGroups.Select(p => p.Organism).Distinct()) + "\t");
 
             foreach (var file in rawFiles)
                 str.Append(intensities[file] + "\t");
