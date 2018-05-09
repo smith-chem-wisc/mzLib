@@ -156,7 +156,7 @@ namespace Test
         }
 
         [Test]
-        public void TestFlashLFQNormalization()
+        public static void TestFlashLFQNormalization()
         {
             // ********************************* check biorep normalization *********************************
             // get the raw file paths
@@ -189,8 +189,8 @@ namespace Test
 
             int int3 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
             int int4 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
-            Assert.That(int1 > 0);
-            Assert.That(int1 == int2);
+            Assert.That(int3 > 0);
+            Assert.That(int3 == int4);
 
             // ********************************* check techrep normalization *********************************
             raw = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
@@ -204,8 +204,8 @@ namespace Test
 
             int int5 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
             int int6 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
-            Assert.That(int1 > 0);
-            Assert.That(int1 == int2);
+            Assert.That(int5 > 0);
+            Assert.That(int5 == int6);
 
             Assert.That(int1 == int3);
             Assert.That(int1 != int5);

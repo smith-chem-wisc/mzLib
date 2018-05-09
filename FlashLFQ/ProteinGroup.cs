@@ -24,14 +24,16 @@ namespace FlashLFQ
             this.ProteinGroupName = proteinGroupName;
             this.GeneName = GeneName;
             this.Organism = Organism;
-            this.intensities = new Dictionary<RawFileInfo, double>();
         }
 
         public void InitializeProteinGroup()
         {
             intensities = new Dictionary<RawFileInfo, double>();
+
             foreach (var file in rawFiles)
+            {
                 intensities.Add(file, 0);
+            }
         }
 
         #endregion Public Constructors

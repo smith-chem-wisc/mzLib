@@ -12,9 +12,9 @@ namespace FlashLFQ
     {
         private const int numPeptidesDesiredFromEachFraction = 500;
         private const int numPeptidesDesiredInMatrix = 5000;
-        private FlashLFQResults results;
-        private bool integrate;
-        private bool silent;
+        private readonly FlashLFQResults results;
+        private readonly bool integrate;
+        private readonly bool silent;
 
         #region Public Constructors
 
@@ -92,9 +92,13 @@ namespace FlashLFQ
                                 foreach(var peak in results.peaks[rep])
                                 {
                                     if (seqsToPeaksPerFile[i].TryGetValue(peak.identifyingScans.First().ModifiedSequence, out var list))
+                                    {
                                         list.Add(peak);
+                                    }
                                     else
+                                    {
                                         seqsToPeaksPerFile[i].Add(peak.identifyingScans.First().ModifiedSequence, new List<ChromatographicPeak> { peak });
+                                    }
                                 }
                             }
                         }
@@ -122,10 +126,6 @@ namespace FlashLFQ
                                     if (seqsToPeaksPerFile[technicalRep.technicalReplicate].TryGetValue(peptides[p].Sequence, out var peaksForPepAndTechrep))
                                     {
                                         //TODO: set intensity to 0 if very different between technical reps
-                                        if (normFactorForThisTechRepAndPeptide > 10.0 || normFactorForThisTechRepAndPeptide < 0.1)
-                                        {
-
-                                        }
 
                                         foreach (var peak in peaksForPepAndTechrep)
                                         {
@@ -159,7 +159,6 @@ namespace FlashLFQ
                 if (numB > 1)
                 {
                     int numF = rawFilesForThisCondition.Select(p => p.fraction).Distinct().Count();
-                    //int numT = rawFilesForThisCondition.Select(p => p.techrep).Distinct().Count();
 
                     // only normalize on peptides seen in every biorep
                     List<Peptide> seenInAllBiorepsForThisCondition = new List<Peptide>();
@@ -175,7 +174,9 @@ namespace FlashLFQ
                             }
                         }
                         if (numBiorepsQuantifiedIn == bioreps.Count)
+                        {
                             seenInAllBiorepsForThisCondition.Add(peptides[p]);
+                        }
                     }
 
 
@@ -262,11 +263,15 @@ namespace FlashLFQ
                 foreach (var file in filesForConditionOne)
                 {
                     if (peptides[p].intensities[file] > 0)
+                    {
                         biorepIntensities.Add(peptides[p].intensities[file]);
+                    }
                 }
 
                 if (biorepIntensities.Any())
+                {
                     peptideIntensitiesForConditionOne[p] = Statistics.Mean(biorepIntensities);
+                }
             }
 
             // calculate intensities for other conditions and normalize to the first condition
@@ -323,7 +328,6 @@ namespace FlashLFQ
 
         private List<Peptide> SubsetData(List<Peptide> initialList, string condition)
         {
-            int initialListCount = initialList.Count;
             HashSet<Peptide> subsetList = new HashSet<Peptide>();
             List<int> bioreps = results.rawFiles.Where(p => p.condition.Equals(condition)).Select(p => p.biologicalReplicate).Distinct().ToList();
             int maxFractionIndex = results.rawFiles.Where(p => p.condition.Equals(condition)).Max(p => p.fraction);
@@ -453,9 +457,13 @@ namespace FlashLFQ
                             for (int f = 0; f < numF; f++)
                             {
                                 if (b == 0)
+                                {
                                     biorepIntensities[p, b] += proteinIntensities[p, b, f];
+                                }
                                 else
+                                {
                                     biorepIntensities[p, b] += proteinIntensities[p, b, f] * v[f];
+                                }
                             }
                         }
                     }

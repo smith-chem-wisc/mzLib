@@ -146,9 +146,13 @@ namespace FlashLFQ
                     int numProteinGroupsClaimingThisFeature = feature.identifyingScans.SelectMany(p => p.proteinGroups).Distinct().Count();
 
                     if (fileToPepIntensities.TryGetValue(feature.rawFileInfo, out var featureIntensitiesForThisProtein))
+                    {
                         fileToPepIntensities[feature.rawFileInfo].Add(feature.intensity / numProteinGroupsClaimingThisFeature);
+                    }
                     else
+                    {
                         fileToPepIntensities.Add(feature.rawFileInfo, new List<double> { feature.intensity / numProteinGroupsClaimingThisFeature });
+                    }
                 }
 
                 foreach (var file in fileToPepIntensities)
