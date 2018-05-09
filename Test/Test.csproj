@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FakeMsDataFile.cs" />
+    <Compile Include="TestCZE.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseLoaderTests.cs" />
     <Compile Include="ElementsAndIsotopesTests.cs" />
@@ -67,6 +68,10 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Chromatography\Chromatography.csproj">
+      <Project>{edf2377d-9fa8-4f85-a3e5-63fe085f956f}</Project>
+      <Name>Chromatography</Name>
     </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>

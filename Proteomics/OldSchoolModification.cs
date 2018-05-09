@@ -30,22 +30,22 @@ namespace Proteomics
         #region Public Constructors
 
         public OldSchoolModification(OldSchoolModification modification)
-                    : this(modification.MonoisotopicMass, modification.Name, modification.Sites)
+            : this(modification.MonoisotopicMass, modification.Name, modification.Sites)
         {
         }
 
         public OldSchoolModification()
-                    : this(0.0, "", ModificationSites.Any)
+            : this(0.0, "", ModificationSites.Any)
         {
         }
 
         public OldSchoolModification(double monoMass)
-                    : this(monoMass, "", ModificationSites.Any)
+            : this(monoMass, "", ModificationSites.Any)
         {
         }
 
         public OldSchoolModification(double monoMass, string name)
-                    : this(monoMass, name, ModificationSites.Any)
+            : this(monoMass, name, ModificationSites.Any)
         {
         }
 
@@ -106,16 +106,24 @@ namespace Proteomics
         public bool Equals(OldSchoolModification other)
         {
             if (ReferenceEquals(this, other))
+            {
                 return true;
+            }
 
             if (Math.Abs(MonoisotopicMass - other.MonoisotopicMass) > 1e-9)
+            {
                 return false;
+            }
 
             if (!Name.Equals(other.Name))
+            {
                 return false;
+            }
 
             if (!Sites.Equals(other.Sites))
+            {
                 return false;
+            }
 
             return true;
         }
