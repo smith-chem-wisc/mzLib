@@ -19,7 +19,6 @@ namespace FlashLFQ
 
         // settings
         public readonly bool silent;
-
         public readonly int maxThreads;
         public readonly double peakfindingPpmTolerance;
         public readonly double ppmTolerance;
@@ -48,7 +47,6 @@ namespace FlashLFQ
         private List<Identification> allIdentifications;
         private HashSet<double> indexedMzKeys;
         private Dictionary<string, List<KeyValuePair<double, double>>> baseSequenceToIsotopicDistribution;
-        private Dictionary<string, ProteinGroup> proteinGroupNameToProteinGroup;
         private IEnumerable<int> chargeStates;
         private FlashLFQResults results;
 
@@ -65,7 +63,6 @@ namespace FlashLFQ
             globalStopwatch = new Stopwatch();
             fileLocalStopwatch = new Stopwatch();
             chargeStates = new List<int>();
-            proteinGroupNameToProteinGroup = new Dictionary<string, ProteinGroup>();
 
             this.rawFileInformation = allIdentifications.Select(p => p.fileInfo).Distinct()
                 .OrderBy(p => p.condition)
@@ -93,9 +90,6 @@ namespace FlashLFQ
             rtTol = 5.0;
             errorCheckAmbiguousMatches = true;
             maxThreads = -1;
-
-            ProteinGroup.rawFiles = rawFileInformation;
-            Peptide.rawFiles = rawFileInformation;
         }
 
         #endregion Public Constructors
@@ -104,31 +98,10 @@ namespace FlashLFQ
 
         public FlashLFQResults Run()
         {
-            results = new FlashLFQResults();
-            results.rawFiles = rawFileInformation;
-            ProteinGroup.rawFiles = rawFileInformation;
-            Peptide.rawFiles = rawFileInformation;
+            results = new FlashLFQResults(rawFileInformation);
 
             globalStopwatch.Start();
-
-            // construct protein group results (intensities written later)
-            foreach (var pg in allIdentifications.SelectMany(p => p.proteinGroups).Distinct())
-            {
-                proteinGroupNameToProteinGroup.Add(pg.ProteinGroupName, pg);
-            }
-            results.proteinGroups = proteinGroupNameToProteinGroup;
-
-            // construct peptides results (intensities written later)
-            Dictionary<string, Peptide> baseSequences = new Dictionary<string, Peptide>();
-            foreach (var baseSeq in allIdentifications.Select(p => p.BaseSequence).Distinct())
-                baseSequences.Add(baseSeq, new Peptide(baseSeq));
-            results.peptideBaseSequences = baseSequences;
-
-            Dictionary<string, Peptide> modifiedSequences = new Dictionary<string, Peptide>();
-            foreach (var modifiedSeq in allIdentifications.Select(p => p.ModifiedSequence).Distinct())
-                modifiedSequences.Add(modifiedSeq, new Peptide(modifiedSeq));
-            results.peptideModifiedSequences = modifiedSequences;
-
+            
             // build m/z index keys
             ConstructIndexKeysFromIdentifications();
 

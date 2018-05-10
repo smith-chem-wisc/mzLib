@@ -7,12 +7,9 @@ namespace FlashLFQ
     {
         #region Public Fields
 
-        public static List<RawFileInfo> rawFiles;
-
         public readonly string ProteinGroupName;
         public readonly string GeneName;
         public readonly string Organism;
-
         public Dictionary<RawFileInfo, double> intensities;
 
         #endregion Public Fields
@@ -24,43 +21,31 @@ namespace FlashLFQ
             this.ProteinGroupName = proteinGroupName;
             this.GeneName = GeneName;
             this.Organism = Organism;
-        }
-
-        public void InitializeProteinGroup()
-        {
             intensities = new Dictionary<RawFileInfo, double>();
-
-            foreach (var file in rawFiles)
-            {
-                intensities.Add(file, 0);
-            }
         }
 
         #endregion Public Constructors
 
         #region Public Properties
 
-        public static string TabSeparatedHeader
+        public static string TabSeparatedHeader(List<RawFileInfo> rawFiles)
         {
-            get
-            {
-                var sb = new StringBuilder();
-                sb.Append("Protein Groups" + "\t");
-                sb.Append("Gene Name" + "\t");
-                sb.Append("Organism" + "\t");
+            var sb = new StringBuilder();
+            sb.Append("Protein Groups" + "\t");
+            sb.Append("Gene Name" + "\t");
+            sb.Append("Organism" + "\t");
 
-                foreach (var rawfile in rawFiles)
-                    sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
+            foreach (var rawfile in rawFiles)
+                sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
 
-                return sb.ToString();
-            }
+            return sb.ToString();
         }
 
         #endregion Public Properties
 
         #region Public Methods
 
-        public override string ToString()
+        public string ToString(List<RawFileInfo> rawFiles)
         {
             StringBuilder str = new StringBuilder();
             str.Append(ProteinGroupName + "\t");
@@ -68,7 +53,12 @@ namespace FlashLFQ
             str.Append(Organism + "\t");
 
             foreach (var file in rawFiles)
-                str.Append(intensities[file] + "\t");
+            {
+                if (intensities.TryGetValue(file, out double intensity))
+                    str.Append(intensity + "\t");
+                else
+                    str.Append(0 + "\t");
+            }
 
             return str.ToString();
         }
