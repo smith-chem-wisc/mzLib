@@ -79,18 +79,25 @@ namespace FlashLFQ
         {
             if (isotopeClusters.Any())
             {
-                apexPeak = isotopeClusters.Where(p => p.isotopeClusterIntensity == isotopeClusters.Max(v => v.isotopeClusterIntensity)).FirstOrDefault();
+                double maxIntensity = isotopeClusters.Max(p => p.isotopeClusterIntensity);
+                apexPeak = isotopeClusters.Where(p => p.isotopeClusterIntensity == maxIntensity).First();
 
                 if (integrate)
-                    intensity = isotopeClusters.Select(p => p.isotopeClusterIntensity).Sum();
+                {
+                    intensity = isotopeClusters.Sum(p => p.isotopeClusterIntensity);
+                }
                 else
+                {
                     intensity = apexPeak.isotopeClusterIntensity;
+                }
 
-                MassError = ((ClassExtensions.ToMass(apexPeak.indexedPeak.mz, apexPeak.chargeState) - identifyingScans.First().massToLookFor) / identifyingScans.First().massToLookFor) * 1e6;
+                MassError = ((ClassExtensions.ToMass(apexPeak.indexedPeak.mz, apexPeak.chargeState) - identifyingScans.First().monoisotopicMass) / identifyingScans.First().monoisotopicMass) * 1e6;
                 numChargeStatesObserved = isotopeClusters.Select(p => p.chargeState).Distinct().Count();
             }
             else
+            {
                 apexPeak = null;
+            }
         }
 
         public void MergeFeatureWith(IEnumerable<ChromatographicPeak> otherFeatures, bool integrate)
@@ -123,7 +130,7 @@ namespace FlashLFQ
             sb.Append(string.Join("|", identifyingScans.Select(p => p.BaseSequence).Distinct()) + '\t');
             sb.Append(string.Join("|", identifyingScans.Select(p => p.ModifiedSequence).Distinct()) + '\t');
 
-            var t = identifyingScans.SelectMany(p => p.proteinGroupNames).Distinct().OrderBy(p => p);
+            var t = identifyingScans.SelectMany(p => p.proteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
             if (t.Any())
                 sb.Append(string.Join(";", t) + '\t');
             else
