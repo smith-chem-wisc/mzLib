@@ -70,6 +70,8 @@ namespace UsefulProteomicsDatabases
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
+            allKnownModifications = allKnownModifications ?? new List<Modification>();
+            modTypesToExclude = modTypesToExclude ?? new List<string>();
 
             Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
@@ -83,7 +85,7 @@ namespace UsefulProteomicsDatabases
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
 
-                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
+                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
                     stream;
 
@@ -189,7 +191,7 @@ namespace UsefulProteomicsDatabases
 
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                Stream fastaFileStream = proteinDbLocation.EndsWith(".gz") ?
+                Stream fastaFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
                     stream;
 
