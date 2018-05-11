@@ -5,12 +5,8 @@
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
-    <DefineConstants>DEBUG;NETFRAMEWORK;NET461</DefineConstants>
+    <DefineConstants>NETFRAMEWORK</DefineConstants>
     <PlatformTarget>x64</PlatformTarget>
-  </PropertyGroup>
-  
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net461|AnyCPU'">
-    <OutputPath>bin\Debug\net461\</OutputPath>
   </PropertyGroup>
   
   <ItemGroup Condition="'$(TargetFramework)' == 'net461'">
