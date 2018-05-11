@@ -8,7 +8,7 @@
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
-            Type = type;
+            Type = type ?? "";
         }
 
         #endregion Public Constructors

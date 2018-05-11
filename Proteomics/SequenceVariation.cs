@@ -15,9 +15,9 @@
         {
             this.OneBasedBeginPosition = OneBasedBeginPosition;
             this.OneBasedEndPosition = OneBasedEndPosition;
-            this.OriginalSequence = OriginalSequence;
-            this.VariantSequence = VariantSequence;
-            this.Description = Description;
+            this.OriginalSequence = OriginalSequence ?? "";
+            this.VariantSequence = VariantSequence ?? "";
+            this.Description = Description ?? "";
         }
 
         /// <summary>

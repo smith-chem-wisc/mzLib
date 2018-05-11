@@ -16,9 +16,9 @@ namespace Proteomics
         /// <param name="properties"></param>
         public DatabaseReference(string type, string id, IEnumerable<Tuple<string, string>> properties)
         {
-            Type = type;
-            Id = id;
-            Properties = properties;
+            Type = type ?? "";
+            Id = id ?? "";
+            Properties = properties ?? new List<Tuple<string, string>>();
         }
 
         #endregion Public Constructors
