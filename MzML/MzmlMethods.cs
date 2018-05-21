@@ -102,7 +102,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static void CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFileZR myMsDataFile, string outputFile, bool writeIndexed)
+        public static void CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed)
         {
             string title = Path.GetFileNameWithoutExtension(outputFile);
             string idTitle = char.IsNumber(title[0]) ?
@@ -386,7 +386,7 @@ namespace IO.MzML
             //Chromatofram X axis (time)
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType
             {
-                binary = MzSpectrumZR.Get64Bitarray(times)
+                binary = MzSpectrum.Get64Bitarray(times)
             };
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].encodedLength =
@@ -424,7 +424,7 @@ namespace IO.MzML
             //Chromatogram Y axis (total intensity)
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1] = new Generated.BinaryDataArrayType
             {
-                binary = MzSpectrumZR.Get64Bitarray(intensities)
+                binary = MzSpectrum.Get64Bitarray(intensities)
             };
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].encodedLength =

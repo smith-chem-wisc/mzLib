@@ -1,10 +1,10 @@
 ﻿namespace MassSpectrometry
 {
-    public class MzPeakZR
+    public class MzPeak
     {
         #region Public Constructors
 
-        public MzPeakZR(double mz, double intensity)
+        public MzPeak(double mz, double intensity)
         {
             Mz = mz;
             Intensity = intensity;

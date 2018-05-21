@@ -111,7 +111,7 @@ namespace FlashLFQ
                 GC.Collect();
 
                 // fill lookup-table with peaks from the raw file
-                var indexedMassSpectralPeaks = IndexMassSpectralPeaks(fileInfo, out Dictionary<int, MsDataScanZR> allMs1Scans);
+                var indexedMassSpectralPeaks = IndexMassSpectralPeaks(fileInfo, out Dictionary<int, MsDataScan> allMs1Scans);
 
                 // quantify features using this file's IDs first
                 QuantifyMS2IdentifiedPeptides(fileInfo, indexedMassSpectralPeaks, allMs1Scans);
@@ -450,12 +450,12 @@ namespace FlashLFQ
             }
         }
 
-        private Dictionary<double, List<IndexedMassSpectralPeak>> IndexMassSpectralPeaks(RawFileInfo fileInfo, out Dictionary<int, MsDataScanZR> allMs1Scans)
+        private Dictionary<double, List<IndexedMassSpectralPeak>> IndexMassSpectralPeaks(RawFileInfo fileInfo, out Dictionary<int, MsDataScan> allMs1Scans)
         {
             // construct bins
             var indexedMzs = indexedMzKeys.ToDictionary(v => v, v => new List<IndexedMassSpectralPeak>());
-            var ms1ScanList = new List<MsDataScanZR>();
-            allMs1Scans = new Dictionary<int, MsDataScanZR>();
+            var ms1ScanList = new List<MsDataScan>();
+            allMs1Scans = new Dictionary<int, MsDataScan>();
 
             // open raw file
             var ext = Path.GetExtension(fileInfo.fullFilePathWithExtension).ToUpperInvariant();
@@ -611,7 +611,7 @@ namespace FlashLFQ
             return indexedMzs;
         }
 
-        private void QuantifyMS2IdentifiedPeptides(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, MsDataScanZR> allMs1Scans)
+        private void QuantifyMS2IdentifiedPeptides(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, MsDataScan> allMs1Scans)
         {
             if (!silent)
                 Console.WriteLine("Quantifying peptides for " + fileInfo.filenameWithoutExtension);
@@ -729,7 +729,7 @@ namespace FlashLFQ
             results.peaks[fileInfo] = concurrentBagOfFeatures.ToList();
         }
 
-        private void MatchBetweenRunsInitialPeakfinding(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, MsDataScanZR> allMs1Scans)
+        private void MatchBetweenRunsInitialPeakfinding(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, MsDataScan> allMs1Scans)
         {
             if (!silent)
                 Console.WriteLine("Finding possible matched peptides for " + fileInfo.filenameWithoutExtension);
@@ -889,7 +889,7 @@ namespace FlashLFQ
             }
         }
 
-        private IEnumerable<IsotopeCluster> FilterPeaksByIsotopicDistribution(IEnumerable<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool lookForBadIsotope, Dictionary<int, MsDataScanZR> allMs1Scans)
+        private IEnumerable<IsotopeCluster> FilterPeaksByIsotopicDistribution(IEnumerable<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool lookForBadIsotope, Dictionary<int, MsDataScan> allMs1Scans)
         {
             var isotopeClusters = new List<IsotopeCluster>();
             var isotopeMassShifts = baseSequenceToIsotopicDistribution[identification.BaseSequence];

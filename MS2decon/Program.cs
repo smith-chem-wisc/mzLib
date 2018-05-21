@@ -52,7 +52,7 @@ namespace MS2decon
 
             if (result.HasErrors == false)
             {
-                MsDataFileZR myMsDataFile;
+                MsDataFile myMsDataFile;
                 if (Path.GetExtension(p.Object.FilePath).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
                     myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
                 else

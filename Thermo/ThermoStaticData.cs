@@ -42,7 +42,7 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoStaticData(MsDataScanZR[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
+        private ThermoStaticData(MsDataScan[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
         {
             this.ThermoGlobalParams = thermoGlobalParams;
         }
@@ -104,7 +104,7 @@ namespace IO.Thermo
 
             ThermoGlobalParams p = GetAllGlobalStuff(theConnection, precursorInfosArray, filePath);
 
-            MsDataScanZR[] scans = new MsDataScanZR[pnLastSpectrum - pnFirstSpectrum + 1];
+            MsDataScan[] scans = new MsDataScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)
                 scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(theConnection, nScanNumber, p, filterParams);
 
@@ -131,7 +131,7 @@ namespace IO.Thermo
             return new ThermoStaticData(scans, p, sourceFile);
         }
 
-        public static MsDataScanZR GetMsDataOneBasedScanFromThermoFile(IXRawfile5 theConnection, int nScanNumber, ThermoGlobalParams globalParams, IFilteringParams filterParams = null)
+        public static MsDataScan GetMsDataOneBasedScanFromThermoFile(IXRawfile5 theConnection, int nScanNumber, ThermoGlobalParams globalParams, IFilteringParams filterParams = null)
         {
             int pnNumPackets = 0;
             double pdLowMass = 0;
@@ -235,7 +235,7 @@ namespace IO.Thermo
                 data = (double[,])pvarnMassList;
             }
 
-            MzSpectrumZR thermoSpectrum;
+            MzSpectrum thermoSpectrum;
             if (filterParams != null && data.GetLength(1) > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue) && ((filterParams.ApplyTrimmingToMs1 && pnMSOrder == 1) || (filterParams.ApplyTrimmingToMsMs && pnMSOrder > 1)))
             {
                 var count = data.GetLength(1);
@@ -257,10 +257,10 @@ namespace IO.Thermo
                     WindowModeHelper(ref intensityArray, ref mzArray, filterParams);
                 }
                 Array.Sort(mzArray, intensityArray);
-                thermoSpectrum = new MzSpectrumZR(mzArray, intensityArray, false);
+                thermoSpectrum = new MzSpectrum(mzArray, intensityArray, false);
             }
             else
-                thermoSpectrum = new MzSpectrumZR(data);
+                thermoSpectrum = new MzSpectrum(data);
             MZAnalyzerType mzAnalyzerType;
             switch ((ThermoMzAnalyzer)pnMassAnalyzerType)
             {
@@ -342,7 +342,7 @@ namespace IO.Thermo
 
                 //   int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
                 // double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
-                return new MsDataScanZR(
+                return new MsDataScan(
                     thermoSpectrum,
                     nScanNumber,
                     pnMSOrder,
@@ -368,7 +368,7 @@ namespace IO.Thermo
             }
             else
             {
-                return new MsDataScanZR(
+                return new MsDataScan(
                     thermoSpectrum,
                     nScanNumber,
                     1,

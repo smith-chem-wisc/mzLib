@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    internal class GeneratedPeak : MzPeakZR
+    internal class GeneratedPeak : MzPeak
     {
         #region Private Fields
 

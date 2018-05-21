@@ -10,7 +10,7 @@ namespace FlashLFQ
         public readonly string filenameWithoutExtension;
         public readonly bool clearAfterDone;
         public string analysisSummary;
-        public MsDataFileZR dataFile;
+        public MsDataFile dataFile;
 
         // condition/biorep/techrep/fraction info
         public readonly string condition;
@@ -34,7 +34,7 @@ namespace FlashLFQ
             this.fraction = fraction;
         }
 
-        public RawFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction, MsDataFileZR dataFile)
+        public RawFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction, MsDataFile dataFile)
         {
             this.fullFilePathWithExtension = fullFilePathWithExtension;
             this.filenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.fullFilePathWithExtension);

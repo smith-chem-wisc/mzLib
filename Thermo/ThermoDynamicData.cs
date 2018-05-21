@@ -81,7 +81,7 @@ namespace IO.Thermo
             return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
         }
 
-        public new MsDataScanZR GetOneBasedScan(int oneBasedScanNumber)
+        public new MsDataScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)
                 Scans[oneBasedScanNumber - 1] = ThermoStaticData.GetMsDataOneBasedScanFromThermoFile(_rawConnection, oneBasedScanNumber, ThermoGlobalParams, filterParams);

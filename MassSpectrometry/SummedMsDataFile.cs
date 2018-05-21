@@ -5,11 +5,11 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class SummedMsDataFile : MsDataFileZR
+    public class SummedMsDataFile : MsDataFile
     {
         #region Private Fields
 
-        private readonly MsDataFileZR raw;
+        private readonly MsDataFile raw;
         private readonly int numScansToAverage;
         private readonly double ppmToleranceForPeakCombination;
 
@@ -17,7 +17,7 @@ namespace MassSpectrometry
 
         #region Public Constructors
 
-        public SummedMsDataFile(MsDataFileZR raw, int numScansToAverage, double ppmToleranceForPeakCombination) :
+        public SummedMsDataFile(MsDataFile raw, int numScansToAverage, double ppmToleranceForPeakCombination) :
             base(raw.NumSpectra - numScansToAverage + 1,
                 new SourceFile(
                 @"scan number only nativeID format",
@@ -37,7 +37,7 @@ namespace MassSpectrometry
 
         #region Public Methods
 
-        public new MsDataScanZR GetOneBasedScan(int oneBasedScanNumber)
+        public new MsDataScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)
             {
@@ -53,7 +53,7 @@ namespace MassSpectrometry
                 double retentionTime = representative.RetentionTime;
                 MZAnalyzerType mzAnalyzer = representative.MzAnalyzer;
 
-                MzSpectrumZR peaks = CombinePeaks(raw.GetAllScansList().Where(b => b.OneBasedScanNumber >= oneBasedScanNumber && b.OneBasedScanNumber <= oneBasedScanNumber + numScansToAverage - 1).Select(b => b.MassSpectrum).ToList(), ppmToleranceForPeakCombination);
+                MzSpectrum peaks = CombinePeaks(raw.GetAllScansList().Where(b => b.OneBasedScanNumber >= oneBasedScanNumber && b.OneBasedScanNumber <= oneBasedScanNumber + numScansToAverage - 1).Select(b => b.MassSpectrum).ToList(), ppmToleranceForPeakCombination);
 
                 MzRange scanWindowRange = representative.ScanWindowRange;
 
@@ -61,7 +61,7 @@ namespace MassSpectrometry
                 double injectionTime = double.NaN;
                 double[,] noiseData = null;
 
-                Scans[oneBasedScanNumber - 1] = new MsDataScanZR(peaks, oneBasedScanNumber, msnOrder, isCentroid, polarity, retentionTime, scanWindowRange, null, mzAnalyzer, totalIonCurrent, injectionTime, noiseData, "scan=" + oneBasedScanNumber);
+                Scans[oneBasedScanNumber - 1] = new MsDataScan(peaks, oneBasedScanNumber, msnOrder, isCentroid, polarity, retentionTime, scanWindowRange, null, mzAnalyzer, totalIonCurrent, injectionTime, noiseData, "scan=" + oneBasedScanNumber);
             }
             return Scans[oneBasedScanNumber - 1];
         }
@@ -70,9 +70,9 @@ namespace MassSpectrometry
 
         #region Private Methods
 
-        private MzSpectrumZR CombinePeaks(List<MzSpectrumZR> spectraToCombine, double ppmTolerance)
+        private MzSpectrum CombinePeaks(List<MzSpectrum> spectraToCombine, double ppmTolerance)
         {
-            List<MzPeakZR> finalizedPeaks = new List<MzPeakZR>();
+            List<MzPeak> finalizedPeaks = new List<MzPeak>();
 
             int[] peaksLeft = spectraToCombine.Select(b => b.Size).ToArray();
             int[] totalPeaks = spectraToCombine.Select(b => b.Size).ToArray();

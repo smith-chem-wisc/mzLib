@@ -96,7 +96,7 @@ namespace TestThermo
             Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
-            MzSpectrumZR newSpectrum = new MzSpectrumZR(a.GetOneBasedScan(51).MassSpectrum.XArray, a.GetOneBasedScan(51).MassSpectrum.YArray, true);
+            MzSpectrum newSpectrum = new MzSpectrum(a.GetOneBasedScan(51).MassSpectrum.XArray, a.GetOneBasedScan(51).MassSpectrum.YArray, true);
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
@@ -250,8 +250,8 @@ namespace TestThermo
         {
             double[] mz = new double[] { 1 };
             double[] intensity = new double[] { 1 };
-            MzSpectrumZR s1 = new MzSpectrumZR(mz, intensity, false);
-            MzSpectrumZR s2 = new MzSpectrumZR(mz, intensity, false);
+            MzSpectrum s1 = new MzSpectrum(mz, intensity, false);
+            MzSpectrum s2 = new MzSpectrum(mz, intensity, false);
             s1.ReplaceXbyApplyingFunction((a) => 4);
             Assert.AreEqual(4, s2.XArray[0]);
         }
@@ -261,7 +261,7 @@ namespace TestThermo
         {
             ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS2.raw");
             var ms1scan = dynamicThermo.GetOneBasedScan(1);
-            MsDataScanZR ms2scan = dynamicThermo.GetOneBasedScan(651);
+            MsDataScan ms2scan = dynamicThermo.GetOneBasedScan(651);
             Assert.That(ms1scan.OneBasedScanNumber == 1);
             Assert.That(ms2scan.OneBasedScanNumber == 651);
             Assert.That(Math.Round(ms2scan.RetentionTime, 2) == 12.16);

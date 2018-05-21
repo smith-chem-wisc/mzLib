@@ -34,7 +34,7 @@ namespace Test
     {
         #region Private Fields
 
-        private MzSpectrumZR _mzSpectrumA;
+        private MzSpectrum _mzSpectrumA;
 
         private FakeMsDataFile myMsDataFile;
 
@@ -52,17 +52,17 @@ namespace Test
             double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
-            _mzSpectrumA = new MzSpectrumZR(mz, intensities, false);
+            _mzSpectrumA = new MzSpectrum(mz, intensities, false);
 
             var peptide = new Peptide("KQEEQMETEQQNKDEGK");
 
-            MzSpectrumZR MS1 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
-            MzSpectrumZR MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
+            MzSpectrum MS1 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
+            MzSpectrum MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
-            MsDataScanZR[] Scans = new MsDataScanZR[2];
-            Scans[0] = new MsDataScanZR(MS1, 1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, null, "scan=1");
+            MsDataScan[] Scans = new MsDataScan[2];
+            Scans[0] = new MsDataScan(MS1, 1, 1, false, Polarity.Positive, 1.0, new MzRange(300, 2000), "first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, null, "scan=1");
 
-            Scans[1] = new MsDataScanZR(MS2, 2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1, null, "scan=2", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550);
+            Scans[1] = new MsDataScan(MS2, 2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1, null, "scan=2", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550);
 
             myMsDataFile = new FakeMsDataFile(Scans);
         }
@@ -88,9 +88,9 @@ namespace Test
         [Test]
         public void DataFileTest()
         {
-            MsDataScanZR theSpectrum = new MsDataScanZR(_mzSpectrumA, 1, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, null, "scan=1");
+            MsDataScan theSpectrum = new MsDataScan(_mzSpectrumA, 1, 1, true, Polarity.Positive, 1, new MzRange(300, 1000), "fake scan filter", MZAnalyzerType.Unknown, _mzSpectrumA.SumOfAllY, 1, null, "scan=1");
 
-            MsDataScanZR[] theList = new MsDataScanZR[1];
+            MsDataScan[] theList = new MsDataScan[1];
 
             theList[0] = theSpectrum;
 
@@ -166,7 +166,7 @@ namespace Test
             Assert.AreEqual(0, myMsDataFile.GetOneBasedScan(2).MassSpectrum.LastX);
             Assert.AreEqual(0, theScan.SelectedIonMZ);
 
-            List<MsDataScanZR> a = myMsDataFile.GetAllScansList();
+            List<MsDataScan> a = myMsDataFile.GetAllScansList();
             foreach (var b in a)
                 Assert.IsFalse(b.IsCentroid);
             foreach (var b in myMsDataFile)
@@ -177,7 +177,7 @@ namespace Test
 
         #region Private Methods
 
-        private MzSpectrumZR CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+        private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
             List<double> allIntensities = new List<double>();
@@ -194,13 +194,13 @@ namespace Test
             var allIntensitiessArray = allIntensities.ToArray();
 
             Array.Sort(allMassesArray, allIntensitiessArray);
-            return new MzSpectrumZR(allMassesArray, allIntensitiessArray, false);
+            return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
-        private MzSpectrumZR CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
+        private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1, 0.001);
-            MzSpectrumZR notActuallyMzS = new MzSpectrumZR(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+            MzSpectrum notActuallyMzS = new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
 
             notActuallyMzS.ReplaceXbyApplyingFunction(b => b.Mz.ToMz(1));
 
@@ -218,7 +218,7 @@ namespace Test
                     }
                 }
                 minCharge += 1;
-                notActuallyMzS = new MzSpectrumZR(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+                notActuallyMzS = new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
                 notActuallyMzS.ReplaceXbyApplyingFunction(s => s.Mz.ToMz(minCharge));
             }
 
@@ -227,7 +227,7 @@ namespace Test
 
             Array.Sort(allMassesArray, allIntensitiessArray);
 
-            return new MzSpectrumZR(allMassesArray, allIntensitiessArray, false);
+            return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
         #endregion Private Methods

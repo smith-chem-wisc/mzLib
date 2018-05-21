@@ -29,7 +29,7 @@ using System.Threading.Tasks;
 
 namespace IO.MzML
 {
-    public class Mzml : MsDataFileZR
+    public class Mzml : MsDataFile
     {
         #region Private Fields
 
@@ -88,7 +88,7 @@ namespace IO.MzML
 
         #region Private Constructors
 
-        private Mzml(MsDataScanZR[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
@@ -194,7 +194,7 @@ namespace IO.MzML
             }
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
-            MsDataScanZR[] scans = new MsDataScanZR[numSpecta];
+            MsDataScan[] scans = new MsDataScan[numSpecta];
 
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
@@ -211,7 +211,7 @@ namespace IO.MzML
 
         #region Private Methods
 
-        private static MsDataScanZR GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, IFilteringParams filterParams)
+        private static MsDataScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, IFilteringParams filterParams)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -330,7 +330,7 @@ namespace IO.MzML
                 }
             }
             Array.Sort(masses, intensities);
-            var mzmlMzSpectrum = new MzSpectrumZR(masses, intensities, false);
+            var mzmlMzSpectrum = new MzSpectrum(masses, intensities, false);
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -378,7 +378,7 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MsDataScanZR(
+                return new MsDataScan(
                     mzmlMzSpectrum,
                     oneBasedSpectrumNumber,
                     msOrder.Value,
@@ -463,7 +463,7 @@ namespace IO.MzML
             {
                 precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
             }
-            return new MsDataScanZR(
+            return new MsDataScan(
                 mzmlMzSpectrum,
                 oneBasedSpectrumNumber,
                 msOrder.Value,

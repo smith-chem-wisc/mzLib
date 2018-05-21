@@ -30,22 +30,22 @@ namespace MassSpectrometry
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public class MsDataFileZR
+    public class MsDataFile
     {
         #region Protected Fields
 
-        protected MsDataScanZR[] Scans;
+        protected MsDataScan[] Scans;
 
         #endregion Protected Fields
 
         #region Protected Constructors
 
-        public MsDataFileZR(int numSpectra, SourceFile sourceFile) : this(sourceFile)
+        public MsDataFile(int numSpectra, SourceFile sourceFile) : this(sourceFile)
         {
-            Scans = new MsDataScanZR[numSpectra];
+            Scans = new MsDataScan[numSpectra];
         }
 
-        public MsDataFileZR(MsDataScanZR[] scans, SourceFile sourceFile) : this(sourceFile)
+        public MsDataFile(MsDataScan[] scans, SourceFile sourceFile) : this(sourceFile)
         {
             Scans = scans;
         }
@@ -54,7 +54,7 @@ namespace MassSpectrometry
 
         #region Private Constructors
 
-        private MsDataFileZR(SourceFile sourceFile)
+        private MsDataFile(SourceFile sourceFile)
         {
             this.SourceFile = sourceFile;
         }
@@ -73,7 +73,7 @@ namespace MassSpectrometry
             }
         }
 
-        public List<MsDataScanZR> GetAllScansList()
+        public List<MsDataScan> GetAllScansList()
         {
             return Scans.ToList();
         }
@@ -165,7 +165,7 @@ namespace MassSpectrometry
             Array.Sort(mArray, intensities);
         }
 
-        public IEnumerable<MsDataScanZR> GetMS1Scans()
+        public IEnumerable<MsDataScan> GetMS1Scans()
         {
             for (int i = 1; i <= NumSpectra; i++)
             {
@@ -177,12 +177,12 @@ namespace MassSpectrometry
             }
         }
 
-        public MsDataScanZR GetOneBasedScan(int scanNumber)
+        public MsDataScan GetOneBasedScan(int scanNumber)
         {
             return Scans[scanNumber - 1];
         }
 
-        public IEnumerable<MsDataScanZR> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
+        public IEnumerable<MsDataScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
             for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
             {
@@ -190,12 +190,12 @@ namespace MassSpectrometry
             }
         }
 
-        public IEnumerable<MsDataScanZR> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
-                MsDataScanZR scan = GetOneBasedScan(oneBasedSpectrumNumber);
+                MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
                 if (rt < firstRT)
                 {
@@ -223,12 +223,12 @@ namespace MassSpectrometry
             return NumSpectra;
         }
 
-        public IEnumerator<MsDataScanZR> GetEnumerator()
+        public IEnumerator<MsDataScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScanZR, bool> scanFilterFunc)
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScan, bool> scanFilterFunc)
         {
             minScan = minScan ?? 1;
             maxScan = maxScan ?? NumSpectra;

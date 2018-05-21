@@ -8,7 +8,7 @@ using MassSpectrometry;
 namespace IO.Thermo
 {
     //This file exists to deal with the configuration differences of netStandard and Net Framework, of which Thermo is only available for Net framework
-    public class ThermoDataFile : MsDataFileZR
+    public class ThermoDataFile : MsDataFile
     {
         public ThermoGlobalParams ThermoGlobalParams { get; protected set; }
 
@@ -16,7 +16,7 @@ namespace IO.Thermo
         {
 
         }
-        public ThermoDataFile(MsDataScanZR[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        public ThermoDataFile(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
 
         }
