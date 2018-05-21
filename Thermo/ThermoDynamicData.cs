@@ -18,7 +18,7 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
         {
             this._rawConnection = _rawConnection;
             this.filterParams = filterParams;
@@ -36,7 +36,7 @@ namespace IO.Thermo
                 throw new FileNotFoundException();
             }
 
-            if (ThermoStaticData.CheckForMsFileReader() == false)
+            if (!ThermoStaticData.CheckForMsFileReader())
             {
                 throw new MzLibException("MsFileReader Not Installed");
             }
@@ -78,7 +78,7 @@ namespace IO.Thermo
                 throw new MzLibException("Could not read data from file " + Path.GetFileName(filePath));
             }
 
-            return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
+            return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, sourceFile, thermoGlobalParams);
         }
 
         public new MsDataScan GetOneBasedScan(int oneBasedScanNumber)
@@ -113,8 +113,12 @@ namespace IO.Thermo
         protected virtual void Dispose(bool disposing)
         {
             if (disposing)
+            {
                 if (_rawConnection != null)
+                {
                     _rawConnection.Close();
+                }
+            }
         }
 
         #endregion Protected Methods

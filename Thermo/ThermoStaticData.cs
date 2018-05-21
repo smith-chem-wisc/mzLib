@@ -213,7 +213,9 @@ namespace IO.Thermo
                 theConnection.GetLabelData(ref pvarLabels, ref pvarFlags, ref nScanNumber);
                 data = pvarLabels as double[,];
                 if (data == null || data.Length == 0)
+                {
                     throw new MzLibException("For spectrum number " + nScanNumber + " the data is null!");
+                }
             }
             catch (MzLibException)
             {
@@ -222,16 +224,7 @@ namespace IO.Thermo
                 double pdCentroidPeakWidth = 0;
                 object pvarnMassList = null;
                 object pvarPeakFlags = null;
-                theConnection.GetMassListFromScanNum(ref nScanNumber,
-                                null,
-                                0,
-                                0,
-                                0,
-                                1,
-                                ref pdCentroidPeakWidth,
-                                ref pvarnMassList,
-                                ref pvarPeakFlags,
-                                ref pnArraySize);
+                theConnection.GetMassListFromScanNum(ref nScanNumber, null, 0, 0, 0, 1, ref pdCentroidPeakWidth, ref pvarnMassList, ref pvarPeakFlags, ref pnArraySize);
                 data = (double[,])pvarnMassList;
             }
 
@@ -262,15 +255,13 @@ namespace IO.Thermo
             else
                 thermoSpectrum = new MzSpectrum(data);
             MZAnalyzerType mzAnalyzerType;
-            switch ((ThermoMzAnalyzer)pnMassAnalyzerType)
+            if ((ThermoMzAnalyzer)pnMassAnalyzerType == ThermoMzAnalyzer.FTMS)
             {
-                case ThermoMzAnalyzer.FTMS:
-                    mzAnalyzerType = MZAnalyzerType.Orbitrap;
-                    break;
-
-                default:
-                    mzAnalyzerType = MZAnalyzerType.Unknown;
-                    break;
+                mzAnalyzerType = MZAnalyzerType.Orbitrap;
+            }
+            else
+            {
+                mzAnalyzerType = MZAnalyzerType.Unknown;
             }
             string nativeId = "controllerType=0 controllerNumber=1 scan=" + nScanNumber;
 
@@ -293,9 +284,13 @@ namespace IO.Thermo
 
                 int oneBasedPrecursorScanNumber = -1;
                 if (precursorInfo.nScanNumber > 0)
+                {
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
+                }
                 else if (masterScanfromTrailierExtra.HasValue)
+                {
                     oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
+                }
                 else
                 {
                     // we weren't able to get the precursor scan number, so we'll have to guess;
@@ -323,21 +318,33 @@ namespace IO.Thermo
 
                 int? selectedIonGuessChargeStateGuess = null;
                 if (precursorInfo.nChargeState > 0)
+                {
                     selectedIonGuessChargeStateGuess = precursorInfo.nChargeState;
+                }
                 else if (chargeStatefromTrailierExtra.HasValue)
+                {
                     selectedIonGuessChargeStateGuess = chargeStatefromTrailierExtra;
+                }
 
                 double? selectedIonGuessMonoisotopicMz = null;
                 if (precursorMonoisotopicMZfromTrailierExtra.HasValue && precursorMonoisotopicMZfromTrailierExtra.Value > 0)
+                {
                     selectedIonGuessMonoisotopicMz = precursorMonoisotopicMZfromTrailierExtra;
+                }
                 if (precursorInfo.dMonoIsoMass > 0 && !selectedIonGuessMonoisotopicMz.HasValue)
+                {
                     selectedIonGuessMonoisotopicMz = precursorInfo.dMonoIsoMass;
+                }
 
                 Regex matcher;
                 if (pbstrFilter.ToLower().Contains("msx"))
+                {
                     matcher = mFindParentIonOnlyMsx;
+                }
                 else
+                {
                     matcher = mFindParentIonOnlyNonMsx;
+                }
                 double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value);
 
                 //   int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
@@ -373,9 +380,9 @@ namespace IO.Thermo
                     nScanNumber,
                     1,
                     true,
-PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
+                    PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
                     pdStartTime,
-                                                            new MzRange(pdLowMass, pdHighMass),
+                    new MzRange(pdLowMass, pdHighMass),
                     pbstrFilter,
                     mzAnalyzerType,
                     pdTIC,
@@ -413,7 +420,9 @@ PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
 
             int[] msOrderByScan = new int[couldBePrecursor.Length];
             for (int i = 0; i < couldBePrecursor.Length; i++)
+            {
                 _rawConnection.GetMSOrderForScanNum((i + 1), ref msOrderByScan[i]);
+            }
 
             return new ThermoGlobalParams(pnNumInstMethods, instrumentMethods, pbstrInstSoftwareVersion, pbstrInstName, pbstrInstModel, pnControllerType, pnControllerNumber, couldBePrecursor, filePath, msOrderByScan);
         }

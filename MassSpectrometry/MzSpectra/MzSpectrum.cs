@@ -18,7 +18,6 @@
 
 using Chemistry;
 using MzLibUtil;
-using Spectra;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -133,7 +132,9 @@ namespace MassSpectrometry
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 return new MzRange(FirstX.Value, LastX.Value);
             }
         }
@@ -143,7 +144,9 @@ namespace MassSpectrometry
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 return XArray[0];
             }
         }
@@ -153,7 +156,9 @@ namespace MassSpectrometry
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 return XArray[Size - 1];
             }
         }
@@ -165,9 +170,13 @@ namespace MassSpectrometry
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 if (!indexOfpeakWithHighestY.HasValue)
+                {
                     indexOfpeakWithHighestY = Array.IndexOf(YArray, YArray.Max());
+                }
                 return indexOfpeakWithHighestY.Value;
             }
         }
@@ -177,7 +186,9 @@ namespace MassSpectrometry
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 return YArray[IndexOfPeakWithHighesetY.Value];
             }
         }
@@ -187,7 +198,9 @@ namespace MassSpectrometry
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 return XArray[IndexOfPeakWithHighesetY.Value];
             }
         }
@@ -197,7 +210,9 @@ namespace MassSpectrometry
             get
             {
                 if (!sumOfAllY.HasValue)
+                {
                     sumOfAllY = YArray.Sum();
+                }
                 return sumOfAllY.Value;
             }
         }
@@ -237,7 +252,9 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
         {
             if (Size == 0)
+            {
                 yield break;
+            }
 
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
@@ -294,7 +311,9 @@ namespace MassSpectrometry
                             listOfRatios.Add(allIntensities[massIndex][indexToLookAt] / closestPeakIntensity);
                         }
                         else
+                        {
                             break;
+                        }
                     }
 
                     var extrapolatedMonoisotopicMass = testMostIntenseMass - diffToMonoisotopic[massIndex]; // Optimized for proteoforms!!
@@ -312,16 +331,22 @@ namespace MassSpectrometry
                 }
 
                 if (bestIsotopeEnvelopeForThisPeak != null && bestIsotopeEnvelopeForThisPeak.peaks.Count >= 2)
+                {
                     isolatedMassesAndCharges.Add(bestIsotopeEnvelopeForThisPeak);
+                }
             }
 
             HashSet<double> seen = new HashSet<double>();
             foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => ScoreIsotopeEnvelope(b)))
             {
                 if (seen.Overlaps(ok.peaks.Select(b => b.mz)))
+                {
                     continue;
+                }
                 foreach (var ah in ok.peaks.Select(b => b.mz))
+                {
                     seen.Add(ah);
+                }
                 yield return ok;
             }
         }
@@ -330,7 +355,9 @@ namespace MassSpectrometry
         {
             int ind = Array.BinarySearch(XArray, minX);
             if (ind < 0)
+            {
                 ind = ~ind;
+            }
             while (ind < Size && XArray[ind] <= maxX)
             {
                 yield return ind;
@@ -341,26 +368,38 @@ namespace MassSpectrometry
         public int? GetClosestPeakIndex(double x)
         {
             if (Size == 0)
+            {
                 return null;
+            }
             int index = Array.BinarySearch(XArray, x);
             if (index >= 0)
+            {
                 return index;
+            }
             index = ~index;
 
             if (index >= Size)
+            {
                 return index - 1;
+            }
             if (index == 0)
+            {
                 return index;
+            }
 
             if (x - XArray[index - 1] > XArray[index] - x)
+            {
                 return index;
+            }
             return index - 1;
         }
 
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
         {
             for (int i = 0; i < Size; i++)
+            {
                 XArray[i] = convertor(GetPeak(i));
+            }
             peakList = new MzPeak[Size];
         }
 
@@ -376,7 +415,9 @@ namespace MassSpectrometry
         public double? GetClosestPeakXvalue(double x)
         {
             if (Size == 0)
+            {
                 return null;
+            }
             return XArray[GetClosestPeakIndex(x).Value];
         }
 
@@ -384,14 +425,22 @@ namespace MassSpectrometry
         {
             int startingIndex = Array.BinarySearch(XArray, minX);
             if (startingIndex < 0)
+            {
                 startingIndex = ~startingIndex;
+            }
             if (startingIndex >= Size)
+            {
                 return 0;
+            }
             int endIndex = Array.BinarySearch(XArray, maxX);
             if (endIndex < 0)
+            {
                 endIndex = ~endIndex;
+            }
             if (endIndex == 0)
+            {
                 return 0;
+            }
 
             return endIndex - startingIndex;
         }
@@ -404,8 +453,12 @@ namespace MassSpectrometry
             double cutoffYvalue = YArray.Quantile(quantile);
 
             for (int i = 0; i < Size; i++)
+            {
                 if (YArray[i] >= cutoffYvalue)
+                {
                     yield return GetPeak(i);
+                }
+            }
         }
 
         public IEnumerable<MzPeak> Extract(DoubleRange xRange)
@@ -417,7 +470,9 @@ namespace MassSpectrometry
         {
             int ind = Array.BinarySearch(XArray, minX);
             if (ind < 0)
+            {
                 ind = ~ind;
+            }
             while (ind < Size && XArray[ind] <= maxX)
             {
                 yield return GetPeak(ind);
@@ -428,8 +483,12 @@ namespace MassSpectrometry
         public IEnumerable<MzPeak> FilterByY(double minY, double maxY)
         {
             for (int i = 0; i < Size; i++)
+            {
                 if (YArray[i] >= minY && YArray[i] <= maxY)
+                {
                     yield return GetPeak(i);
+                }
+            }
         }
 
         public IEnumerable<MzPeak> FilterByY(DoubleRange yRange)
@@ -444,7 +503,9 @@ namespace MassSpectrometry
         private double ScoreIsotopeEnvelope(IsotopicEnvelope b)
         {
             if (b == null)
+            {
                 return 0;
+            }
             return b.totalIntensity / Math.Pow(b.stDev, 0.13) * Math.Pow(b.peaks.Count, 0.4) / Math.Pow(b.charge, 0.06);
         }
 
@@ -453,15 +514,18 @@ namespace MassSpectrometry
             var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
 
             if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
+            {
                 return false;
-
+            }
             return true;
         }
 
         private MzPeak GetPeak(int index)
         {
             if (peakList[index] == null)
+            {
                 peakList[index] = GeneratePeak(index);
+            }
             return peakList[index];
         }
 

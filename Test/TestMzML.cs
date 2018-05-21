@@ -1137,7 +1137,6 @@ namespace Test
             Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
-
         [Test]
         public void Mzid120Test_()
         {

@@ -70,7 +70,7 @@ namespace MassSpectrometry
 
         #region Private Methods
 
-        private MzSpectrum CombinePeaks(List<MzSpectrum> spectraToCombine, double ppmTolerance)
+        private static MzSpectrum CombinePeaks(List<MzSpectrum> spectraToCombine, double ppmTolerance)
         {
             List<MzPeak> finalizedPeaks = new List<MzPeak>();
 
