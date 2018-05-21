@@ -64,31 +64,20 @@ namespace MassSpectrometry
         /// The mass spectrum associated with the scan
         /// </summary>
         public MzSpectrum MassSpectrum { get; protected set; }
-
         public int OneBasedScanNumber { get; }
-
         public int MsnOrder { get; }
-
         public double RetentionTime { get; }
-
         public Polarity Polarity { get; }
-
         public MZAnalyzerType MzAnalyzer { get; }
-
         public MzRange ScanWindowRange { get; }
-
         public string ScanFilter { get; }
-
         public string NativeId { get; }
-
         public bool IsCentroid { get; }
-
         public double TotalIonCurrent { get; }
-
         public double? InjectionTime { get; }
         public double[,] NoiseData { get; }
 
-        //MSn properties
+        //MSn properties, all are nullable for MS1s, but MS1s are checked by evaluating if MsnOrder==1
         public double? IsolationMz { get; private set; } // May be adjusted by calibration
         public int? SelectedIonChargeStateGuess { get; }
         public double? SelectedIonIntensity { get; private set; } // May be refined
@@ -101,7 +90,13 @@ namespace MassSpectrometry
 
         #endregion Public Properties
 
+        #region Private Properties
+
         private MzRange isolationRange;
+
+        #endregion Private Properties
+
+        #region Public Methods
 
         public MzRange IsolationRange
         {
@@ -114,8 +109,6 @@ namespace MassSpectrometry
                 return isolationRange;
             }
         }
-
-        #region Public Methods
 
         public override string ToString()
         {

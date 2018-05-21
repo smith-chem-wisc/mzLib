@@ -38,7 +38,7 @@ namespace MassSpectrometry
 
         #endregion Protected Fields
 
-        #region Protected Constructors
+        #region Public Constructors
 
         public MsDataFile(int numSpectra, SourceFile sourceFile) : this(sourceFile)
         {
@@ -50,7 +50,7 @@ namespace MassSpectrometry
             Scans = scans;
         }
 
-        #endregion Protected Constructors
+        #endregion Public Constructors
 
         #region Private Constructors
 
@@ -61,7 +61,7 @@ namespace MassSpectrometry
 
         #endregion Private Constructors
 
-        #region Public Properties
+        #region Public Fields
 
         public SourceFile SourceFile { get; }
 

@@ -385,7 +385,6 @@ PolarityRegex.IsMatch(pbstrFilter) ? Polarity.Positive : Polarity.Negative,
             }
         }
 
-
         public static ThermoGlobalParams GetAllGlobalStuff(IXRawfile5 _rawConnection, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath)
         {
             int pnNumInstMethods = 0;

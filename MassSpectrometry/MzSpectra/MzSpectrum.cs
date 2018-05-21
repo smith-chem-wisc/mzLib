@@ -43,7 +43,14 @@ namespace MassSpectrometry
 
         #endregion Private Fields
 
-        #region Public Constructors
+        #region Public Fields
+
+        public double[] XArray { get; private set; }
+        public double[] YArray { get; private set; }
+
+        #endregion Public Fields
+
+        #region Static Constructors
 
         static MzSpectrum()
         {
@@ -85,9 +92,9 @@ namespace MassSpectrometry
             }
         }
 
-        #endregion Public Constructors
+        #endregion Static Constructors
 
-        #region Protected Constructors
+        #region Public Constructors
 
         public MzSpectrum(double[,] mzintensities)
         {
@@ -117,7 +124,7 @@ namespace MassSpectrometry
             peakList = new MzPeak[Size];
         }
 
-        #endregion Protected Constructors
+        #endregion Public Constructors
 
         #region Public Properties
 
@@ -130,9 +137,6 @@ namespace MassSpectrometry
                 return new MzRange(FirstX.Value, LastX.Value);
             }
         }
-
-        public double[] XArray { get; private set; }
-        public double[] YArray { get; private set; }
 
         public double? FirstX
         {
@@ -465,6 +469,7 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
+
         #endregion Private Methods
     }
 }

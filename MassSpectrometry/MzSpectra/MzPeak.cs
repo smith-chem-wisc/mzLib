@@ -2,6 +2,14 @@
 {
     public class MzPeak
     {
+
+        #region Public Properties
+
+        public double Mz { get; protected set; }
+        public double Intensity { get; protected set; }
+
+        #endregion Public Properties
+
         #region Public Constructors
 
         public MzPeak(double mz, double intensity)
@@ -11,13 +19,6 @@
         }
 
         #endregion Public Constructors
-
-        #region Public Properties
-
-        public double Mz { get; protected set; }
-        public double Intensity { get; protected set; }
-
-        #endregion Public Properties
 
         #region Public Methods
 
