@@ -62,7 +62,7 @@ namespace TestThermo
         [Test]
         public static void ThermoReaderNotInstalled()
         {
-            bool check = ThermoFile.CheckForMsFileReader();
+            bool check = ThermoStaticData.CheckForMsFileReader();
             Assert.IsTrue(check);
         }
 
@@ -90,13 +90,13 @@ namespace TestThermo
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
             Assert.AreEqual(360, a.NumSpectra);
-            Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.Extract(0, 500).Last().X);
+            Assert.GreaterOrEqual(1000, a.GetOneBasedScan(1).MassSpectrum.Extract(0, 500).Last().Mz);
             Assert.AreEqual(2, a.GetOneBasedScan(1).MassSpectrum.FilterByY(5e6, double.MaxValue).Count());
             var ye = a.GetOneBasedScan(1).MassSpectrum.CopyTo2DArray();
             Assert.AreEqual(77561752, a.GetOneBasedScan(1).TotalIonCurrent);
             Assert.AreEqual(144, a.GetClosestOneBasedSpectrumNumber(2));
 
-            var newSpectrum = new ThermoSpectrum(a.GetOneBasedScan(51).MassSpectrum);
+            MzSpectrumZR newSpectrum = new MzSpectrumZR(a.GetOneBasedScan(51).MassSpectrum.XArray, a.GetOneBasedScan(51).MassSpectrum.YArray, true);
 
             Assert.AreEqual(1120, a.GetOneBasedScan(1).MassSpectrum.Size);
 
@@ -118,7 +118,7 @@ namespace TestThermo
 
             Mzml readCovertedMzmlFile = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"));
 
-            Assert.AreEqual(a.First().Polarity, readCovertedMzmlFile.First().Polarity);
+            Assert.AreEqual(a.GetAllScansList().First().Polarity, readCovertedMzmlFile.GetAllScansList().First().Polarity);
         }
 
         [Test]
@@ -220,13 +220,13 @@ namespace TestThermo
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
 
-            Assert.IsTrue(a.Where(eb => eb.MsnOrder > 1).Count() > 0);
+            Assert.IsTrue(a.GetAllScansList().Where(eb => eb.MsnOrder > 1).Count() > 0);
 
-            Assert.IsTrue(a.Where(eb => eb.MsnOrder == 1).Count() > 0);
+            Assert.IsTrue(a.GetAllScansList().Where(eb => eb.MsnOrder == 1).Count() > 0);
 
             Assert.IsFalse(a.ThermoGlobalParams.MonoisotopicselectionEnabled);
 
-            var hehe = a.First(b => b.MsnOrder > 1) as ThermoScanWithPrecursor;
+            var hehe = a.GetAllScansList().First(b => b.MsnOrder > 1);
 
             var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber.Value);
 
@@ -250,8 +250,8 @@ namespace TestThermo
         {
             double[] mz = new double[] { 1 };
             double[] intensity = new double[] { 1 };
-            ThermoSpectrum s1 = new ThermoSpectrum(mz, intensity, false);
-            ThermoSpectrum s2 = new ThermoSpectrum(mz, intensity, false);
+            MzSpectrumZR s1 = new MzSpectrumZR(mz, intensity, false);
+            MzSpectrumZR s2 = new MzSpectrumZR(mz, intensity, false);
             s1.ReplaceXbyApplyingFunction((a) => 4);
             Assert.AreEqual(4, s2.XArray[0]);
         }
@@ -261,7 +261,7 @@ namespace TestThermo
         {
             ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS2.raw");
             var ms1scan = dynamicThermo.GetOneBasedScan(1);
-            ThermoScanWithPrecursor ms2scan = dynamicThermo.GetOneBasedScan(651) as ThermoScanWithPrecursor;
+            MsDataScanZR ms2scan = dynamicThermo.GetOneBasedScan(651);
             Assert.That(ms1scan.OneBasedScanNumber == 1);
             Assert.That(ms2scan.OneBasedScanNumber == 651);
             Assert.That(Math.Round(ms2scan.RetentionTime, 2) == 12.16);

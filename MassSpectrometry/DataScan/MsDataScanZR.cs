@@ -24,20 +24,25 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public abstract class MsDataScanWithPrecursor<TSpectrum> : MsDataScan<TSpectrum>, IMsDataScanWithPrecursor<TSpectrum>
-        where TSpectrum : IMzSpectrum<IMzPeak>
+    public class MsDataScanZR
     {
-        #region Private Fields
+        #region Public Constructors
 
-        private MzRange isolationRange;
-
-        #endregion Private Fields
-
-        #region Protected Constructors
-
-        protected MsDataScanWithPrecursor(TSpectrum massSpectrum, int ScanNumber, int MsnOrder, bool isCentroid, Polarity Polarity, double RetentionTime, MzRange MzRange, string ScanFilter, MZAnalyzerType MzAnalyzer, double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
-                                                        : base(massSpectrum, ScanNumber, MsnOrder, isCentroid, Polarity, RetentionTime, MzRange, ScanFilter, MzAnalyzer, TotalIonCurrent, injectionTime, noiseData, nativeId)
+        public MsDataScanZR(MzSpectrumZR massSpectrum, int oneBasedScanNumber, int msnOrder, bool isCentroid, Polarity polarity, double retentionTime, MzRange scanWindowRange, string scanFilter, MZAnalyzerType mzAnalyzer, double totalIonCurrent, double? injectionTime, double[,] noiseData, string nativeId, double? selectedIonMz = null, int? selectedIonChargeStateGuess = null, double? selectedIonIntensity = null, double? isolationMZ = null, double? isolationWidth = null, DissociationType? dissociationType = null, int? oneBasedPrecursorScanNumber = null, double? selectedIonMonoisotopicGuessMz = null)
         {
+            OneBasedScanNumber = oneBasedScanNumber;
+            MsnOrder = msnOrder;
+            IsCentroid = isCentroid;
+            Polarity = polarity;
+            RetentionTime = retentionTime;
+            ScanWindowRange = scanWindowRange;
+            ScanFilter = scanFilter;
+            MzAnalyzer = mzAnalyzer;
+            TotalIonCurrent = totalIonCurrent;
+            InjectionTime = injectionTime;
+            NoiseData = noiseData;
+            MassSpectrum = massSpectrum;
+            NativeId = nativeId;
             this.OneBasedPrecursorScanNumber = oneBasedPrecursorScanNumber;
 
             this.IsolationMz = isolationMZ;
@@ -45,25 +50,58 @@ namespace MassSpectrometry
 
             this.DissociationType = dissociationType;
 
-            this.SelectedIonMZ = selectedIonMZ;
+            this.SelectedIonMZ = selectedIonMz;
             this.SelectedIonIntensity = selectedIonIntensity;
             this.SelectedIonChargeStateGuess = selectedIonChargeStateGuess;
             this.SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
         }
 
-        #endregion Protected Constructors
+        #endregion Public Constructors
 
         #region Public Properties
 
+        /// <summary>
+        /// The mass spectrum associated with the scan
+        /// </summary>
+        public MzSpectrumZR MassSpectrum { get; protected set; }
+
+        public int OneBasedScanNumber { get; }
+
+        public int MsnOrder { get; }
+
+        public double RetentionTime { get; }
+
+        public Polarity Polarity { get; }
+
+        public MZAnalyzerType MzAnalyzer { get; }
+
+        public MzRange ScanWindowRange { get; }
+
+        public string ScanFilter { get; }
+
+        public string NativeId { get; }
+
+        public bool IsCentroid { get; }
+
+        public double TotalIonCurrent { get; }
+
+        public double? InjectionTime { get; }
+        public double[,] NoiseData { get; }
+
+        //MSn properties
         public double? IsolationMz { get; private set; } // May be adjusted by calibration
         public int? SelectedIonChargeStateGuess { get; }
         public double? SelectedIonIntensity { get; private set; } // May be refined
-        public double SelectedIonMZ { get; private set; } // May be adjusted by calibration
-        public DissociationType DissociationType { get; }
+        public double? SelectedIonMZ { get; private set; } // May be adjusted by calibration
+        public DissociationType? DissociationType { get; }
         public double? IsolationWidth { get; }
         public int? OneBasedPrecursorScanNumber { get; }
         public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
         public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
+
+        #endregion Public Properties
+
+        private MzRange isolationRange;
 
         public MzRange IsolationRange
         {
@@ -77,11 +115,29 @@ namespace MassSpectrometry
             }
         }
 
-        #endregion Public Properties
-
         #region Public Methods
 
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(IMzSpectrum<IMzPeak> precursorSpectrum, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
+        public override string ToString()
+        {
+            return string.Format("Scan #{0}", OneBasedScanNumber);
+        }
+
+        public byte[] Get64BitNoiseDataMass()
+        {
+            return MzSpectrumZR.Get64Bitarray(GetNoiseDataMass(NoiseData));
+        }
+
+        public byte[] Get64BitNoiseDataNoise()
+        {
+            return MzSpectrumZR.Get64Bitarray(GetNoiseDataNoise(NoiseData));
+        }
+
+        public byte[] Get64BitNoiseDataBaseline()
+        {
+            return MzSpectrumZR.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
+        }
+
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrumZR precursorSpectrum, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
         {
             if (IsolationRange == null)
                 yield break;
@@ -91,20 +147,20 @@ namespace MassSpectrometry
                 yield return haha;
         }
 
-        public void TransformMzs(Func<IPeak, double> convertorForSpectrum, Func<IPeak, double> convertorForPrecursor)
+        public void TransformMzs(Func<MzPeakZR, double> convertorForSpectrum, Func<MzPeakZR, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
-            this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ, SelectedIonIntensity.Value));
+            this.SelectedIonMZ = convertorForPrecursor(new MzPeakZR(SelectedIonMZ.Value, SelectedIonIntensity.Value));
             if (SelectedIonMonoisotopicGuessMz.HasValue)
-                this.SelectedIonMonoisotopicGuessMz = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicGuessMz.Value, SelectedIonMonoisotopicGuessIntensity.Value));
+                this.SelectedIonMonoisotopicGuessMz = convertorForPrecursor(new MzPeakZR(SelectedIonMonoisotopicGuessMz.Value, SelectedIonMonoisotopicGuessIntensity.Value));
             if (IsolationMz.HasValue)
-                this.IsolationMz = convertorForPrecursor(new MzPeak(IsolationMz.Value, SelectedIonIntensity.Value));
+                this.IsolationMz = convertorForPrecursor(new MzPeakZR(IsolationMz.Value, SelectedIonIntensity.Value));
 
             // Will need to recompute this...
             isolationRange = null;
         }
 
-        public void RefineSelectedMzAndIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
+        public void RefineSelectedMzAndIntensity(MzSpectrumZR precursorSpectrum)
         {
             if (!IsolationMz.HasValue)
                 throw new MzLibException("Could not refine selected m/z and intensity because !IsolationMz.HasValue");
@@ -115,16 +171,16 @@ namespace MassSpectrometry
             SelectedIonMZ = precursorSpectrum.XArray[thePeak.Value];
         }
 
-        public void ComputeSelectedPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
+        public void ComputeSelectedPeakIntensity(MzSpectrumZR precursorSpectrum)
         {
             if (precursorSpectrum.Size == 0)
                 throw new MzLibException("Could not compute selected peak intensity because precursorSpectrum.Size == 0");
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ);
+            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ.Value);
             SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
             SelectedIonMZ = precursorSpectrum.XArray[thePeak.Value];
         }
 
-        public void ComputeMonoisotopicPeakIntensity(IMzSpectrum<IMzPeak> precursorSpectrum)
+        public void ComputeMonoisotopicPeakIntensity(MzSpectrumZR precursorSpectrum)
         {
             if (precursorSpectrum.Size == 0)
                 throw new MzLibException("Could not compute monoisotopic peak intensity because precursorSpectrum.Size == 0");
@@ -134,5 +190,27 @@ namespace MassSpectrometry
         }
 
         #endregion Public Methods
+
+        #region Private Methods
+
+        private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)
+        {
+            for (int i = 0; i < noiseData.Length / 3; i++)
+                yield return noiseData[0, i];
+        }
+
+        private IEnumerable<double> GetNoiseDataNoise(double[,] noiseData)
+        {
+            for (int i = 0; i < noiseData.Length / 3; i++)
+                yield return noiseData[1, i];
+        }
+
+        private IEnumerable<double> GetNoiseDataBaseline(double[,] noiseData)
+        {
+            for (int i = 0; i < noiseData.Length / 3; i++)
+                yield return noiseData[2, i];
+        }
+
+        #endregion Private Methods
     }
 }

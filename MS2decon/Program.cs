@@ -52,7 +52,7 @@ namespace MS2decon
 
             if (result.HasErrors == false)
             {
-                IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile;
+                MsDataFileZR myMsDataFile;
                 if (Path.GetExtension(p.Object.FilePath).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
                     myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
                 else
@@ -61,8 +61,7 @@ namespace MS2decon
                 using (StreamWriter output = new StreamWriter(@"MS2DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
                     output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
-
-                    foreach (var ok in myMsDataFile.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+                    foreach (var ok in myMsDataFile.GetAllScansList().Where(x => x.MsnOrder != 1))
                     {
                         if ((!p.Object.MinScan.HasValue || ok.OneBasedScanNumber >= p.Object.MinScan) && (!p.Object.MaxScan.HasValue || ok.OneBasedScanNumber <= p.Object.MaxScan))
                         {

@@ -24,28 +24,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
+
 namespace MassSpectrometry
 {
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile<TScan> : IMsDataFile<TScan>
-        where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
+    public class MsDataFileZR
     {
         #region Protected Fields
 
-        protected TScan[] Scans;
+        protected MsDataScanZR[] Scans;
 
         #endregion Protected Fields
 
         #region Protected Constructors
 
-        protected MsDataFile(int numSpectra, SourceFile sourceFile) : this(sourceFile)
+        public MsDataFileZR(int numSpectra, SourceFile sourceFile) : this(sourceFile)
         {
-            Scans = new TScan[numSpectra];
+            Scans = new MsDataScanZR[numSpectra];
         }
 
-        protected MsDataFile(TScan[] scans, SourceFile sourceFile) : this(sourceFile)
+        public MsDataFileZR(MsDataScanZR[] scans, SourceFile sourceFile) : this(sourceFile)
         {
             Scans = scans;
         }
@@ -54,7 +54,7 @@ namespace MassSpectrometry
 
         #region Private Constructors
 
-        private MsDataFile(SourceFile sourceFile)
+        private MsDataFileZR(SourceFile sourceFile)
         {
             this.SourceFile = sourceFile;
         }
@@ -71,6 +71,11 @@ namespace MassSpectrometry
             {
                 return Scans.Length;
             }
+        }
+
+        public List<MsDataScanZR> GetAllScansList()
+        {
+            return Scans.ToList();
         }
 
         #endregion Public Properties
@@ -105,7 +110,7 @@ namespace MassSpectrometry
         {
             List<double> mzResults = new List<double>();
             List<double> intensityResults = new List<double>();
-            
+
             int windowSize = intensities.Length / filteringParams.NumberOfWindows.Value;
 
             // window must always have at least one peak in it
@@ -160,11 +165,24 @@ namespace MassSpectrometry
             Array.Sort(mArray, intensities);
         }
 
-        public abstract IEnumerable<TScan> GetMS1Scans();
+        public IEnumerable<MsDataScanZR> GetMS1Scans()
+        {
+            for (int i = 1; i <= NumSpectra; i++)
+            {
+                var scan = GetOneBasedScan(i);
+                if (scan.MsnOrder == 1)
+                {
+                    yield return scan;
+                }
+            }
+        }
 
-        public abstract TScan GetOneBasedScan(int scanNumber);
+        public MsDataScanZR GetOneBasedScan(int scanNumber)
+        {
+            return Scans[scanNumber - 1];
+        }
 
-        public IEnumerable<TScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
+        public IEnumerable<MsDataScanZR> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
             for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
             {
@@ -172,12 +190,12 @@ namespace MassSpectrometry
             }
         }
 
-        public IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public IEnumerable<MsDataScanZR> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
-                TScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
+                MsDataScanZR scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
                 if (rt < firstRT)
                 {
@@ -205,17 +223,12 @@ namespace MassSpectrometry
             return NumSpectra;
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        public IEnumerator<MsDataScanZR> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
-        public IEnumerator<TScan> GetEnumerator()
-        {
-            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
-        }
-
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc)
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScanZR, bool> scanFilterFunc)
         {
             minScan = minScan ?? 1;
             maxScan = maxScan ?? NumSpectra;

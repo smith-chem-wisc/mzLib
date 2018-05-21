@@ -1,6 +1,6 @@
 ﻿namespace MassSpectrometry
 {
-    internal class GeneratedMzSpectrum : MzSpectrum<IMzPeak>
+    internal class GeneratedMzSpectrum : MzSpectrumZR
     {
         #region Public Constructors
 
@@ -12,9 +12,9 @@
 
         #region Protected Methods
 
-        protected override IMzPeak GeneratePeak(int index)
+        protected MzPeakZR GeneratePeak(int index)
         {
-            return new MzPeak(XArray[index], YArray[index]);
+            return new MzPeakZR(XArray[index], YArray[index]);
         }
 
         #endregion Protected Methods

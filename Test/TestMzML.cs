@@ -21,29 +21,29 @@ namespace Test
         [Test]
         public static void AnotherMzMLtest()
         {
-            IMzmlScan[] scans = new IMzmlScan[4];
+            MsDataScanZR[] scans = new MsDataScanZR[4];
 
             double[] intensities1 = new double[] { 1 };
             double[] mz1 = new double[] { 50 };
-            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
-            scans[0] = new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1");
+            MzSpectrumZR massSpec1 = new MzSpectrumZR(mz1, intensities1, false);
+            scans[0] = new MsDataScanZR(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1");
 
+            //ms2
             double[] intensities2 = new double[] { 1 };
             double[] mz2 = new double[] { 30 };
-            MzmlMzSpectrum massSpec2 = new MzmlMzSpectrum(mz2, intensities2, false);
-            scans[1] = new MzmlScanWithPrecursor(2, massSpec2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY,
-                50, null, null, 50, 1, DissociationType.CID, 1, null, null, "2");
+            MzSpectrumZR massSpec2 = new MzSpectrumZR(mz2, intensities2, false);
+            scans[1] = new MsDataScanZR(massSpec2, 2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 1, null);
 
             double[] intensities3 = new double[] { 1 };
             double[] mz3 = new double[] { 50 };
-            MzmlMzSpectrum massSpec3 = new MzmlMzSpectrum(mz3, intensities3, false);
-            scans[2] = new MzmlScan(3, massSpec3, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "3");
+            MzSpectrumZR massSpec3 = new MzSpectrumZR(mz3, intensities3, false);
+            scans[2] = new MsDataScanZR(massSpec3, 3, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "3");
 
+            //ms2
             double[] intensities4 = new double[] { 1 };
             double[] mz4 = new double[] { 30 };
-            MzmlMzSpectrum massSpec4 = new MzmlMzSpectrum(mz4, intensities4, false);
-            scans[3] = new MzmlScanWithPrecursor(4, massSpec4, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY,
-                50, null, null, 50, 1, DissociationType.CID, 3, null, null, "4");
+            MzSpectrumZR massSpec4 = new MzSpectrumZR(mz4, intensities4, false);
+            scans[3] = new MsDataScanZR(massSpec4, 4, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY, null, null, "4", 50, null, null, 50, 1, DissociationType.CID, 3, null);
 
             FakeMsDataFile f = new FakeMsDataFile(scans);
 
@@ -51,7 +51,7 @@ namespace Test
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
 
-            var scanWithPrecursor = ok.Last(b => b is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+            var scanWithPrecursor = ok.GetAllScansList().Last(b => b.MsnOrder != 1);
 
             Assert.AreEqual(3, scanWithPrecursor.OneBasedPrecursorScanNumber);
         }
@@ -67,7 +67,7 @@ namespace Test
             var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
             List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
 
-            for(int mz = 400; mz < 1600; mz++)
+            for (int mz = 400; mz < 1600; mz++)
             {
                 myPeaks.Add((mz, rand.Next(1000, 1000000)));
             }
@@ -77,31 +77,31 @@ namespace Test
             myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Take(numPeaks).ToList();
             myPeaksOrderedByIntensity = myPeaksOrderedByIntensity.Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
             double sumOfAllIntensities = myPeaksOrderedByIntensity.Sum(p => p.intensity);
-            
+
             double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
             double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
 
-            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
-            IMzmlScan[] scans = new IMzmlScan[]{
-                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            MzSpectrumZR massSpec1 = new MzSpectrumZR(mz1, intensities1, false);
+            MsDataScanZR[] scans = new MsDataScanZR[]{
+                new MsDataScanZR(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
             };
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
 
-            int expNumPeaks = ok.First().MassSpectrum.XArray.Length;
-            double expMinRatio = ok.First().MassSpectrum.YArray.Min(p => p / ok.First().MassSpectrum.YofPeakWithHighestY).Value;
+            int expNumPeaks = ok.GetAllScansList().First().MassSpectrum.XArray.Length;
+            double expMinRatio = ok.GetAllScansList().First().MassSpectrum.YArray.Min(p => p / ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY).Value;
             List<(double mz, double intensity)> myExpPeaks = new List<(double mz, double intensity)>();
 
-            for(int i = 0; i < ok.First().MassSpectrum.YArray.Length; i++)
+            for (int i = 0; i < ok.GetAllScansList().First().MassSpectrum.YArray.Length; i++)
             {
-                myExpPeaks.Add((ok.First().MassSpectrum.XArray[i], ok.First().MassSpectrum.YArray[i]));
+                myExpPeaks.Add((ok.GetAllScansList().First().MassSpectrum.XArray[i], ok.GetAllScansList().First().MassSpectrum.YArray[i]));
             }
 
-            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
-            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
-            Assert.That(myPeaksOrderedByIntensity.Count == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(myPeaksOrderedByIntensity.Count == ok.GetAllScansList().First().MassSpectrum.XArray.Length);
             Assert.That(expMinRatio >= minRatio);
             Assert.That(!myExpPeaks.Except(myPeaksOrderedByIntensity).Any());
             Assert.That(!myPeaksOrderedByIntensity.Except(myExpPeaks).Any());
@@ -135,32 +135,32 @@ namespace Test
                 else if (peakCounter <= 1200)
                     myPeaksWindow3.Add((mz, intensity));
             }
-            
+
             double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
             double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
 
-            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
-            IMzmlScan[] scans = new IMzmlScan[]{
-                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            MzSpectrumZR massSpec1 = new MzSpectrumZR(mz1, intensities1, false);
+            MsDataScanZR[] scans = new MsDataScanZR[]{
+                new MsDataScanZR(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
             };
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
 
-            int expNumPeaks = ok.First().MassSpectrum.XArray.Length;
-            double expMinRatio = ok.First().MassSpectrum.YArray.Min(p => p / ok.First().MassSpectrum.YofPeakWithHighestY).Value;
+            int expNumPeaks = ok.GetAllScansList().First().MassSpectrum.XArray.Length;
+            double expMinRatio = ok.GetAllScansList().First().MassSpectrum.YArray.Min(p => p / ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY).Value;
             List<(double mz, double intensity)> myExpPeaks = new List<(double mz, double intensity)>();
 
-            for (int i = 0; i < ok.First().MassSpectrum.YArray.Length; i++)
+            for (int i = 0; i < ok.GetAllScansList().First().MassSpectrum.YArray.Length; i++)
             {
-                myExpPeaks.Add((ok.First().MassSpectrum.XArray[i], ok.First().MassSpectrum.YArray[i]));
+                myExpPeaks.Add((ok.GetAllScansList().First().MassSpectrum.XArray[i], ok.GetAllScansList().First().MassSpectrum.YArray[i]));
             }
 
             double myMaxIntensity = myPeaks.Max(p => p.intensity);
 
             myPeaksWindow1 = myPeaksWindow1.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
-            
+
             myPeaksWindow2 = myPeaksWindow2.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
 
             myPeaksWindow3 = myPeaksWindow3.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
@@ -169,10 +169,10 @@ namespace Test
 
             double sumOfAllIntensities = allWindowPeaksCombined.Sum(p => p.intensity);
 
-            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
-            Assert.That(allWindowPeaksCombined.Count == ok.First().MassSpectrum.XArray.Length);
+            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(allWindowPeaksCombined.Count == ok.GetAllScansList().First().MassSpectrum.XArray.Length);
             Assert.That(expMinRatio >= minRatio);
-            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.SumOfAllY, 0));
             Assert.That(!myExpPeaks.Except(allWindowPeaksCombined).Any());
             Assert.That(!allWindowPeaksCombined.Except(myExpPeaks).Any());
         }
@@ -194,20 +194,20 @@ namespace Test
             double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
             double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
 
-            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
-            IMzmlScan[] scans = new IMzmlScan[]{
-                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            MzSpectrumZR massSpec1 = new MzSpectrumZR(mz1, intensities1, false);
+            MsDataScanZR[] scans = new MsDataScanZR[]{
+                new MsDataScanZR(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
             };
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
 
-            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.YofPeakWithHighestY.Value, 0));
-            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.SumOfAllY, 0));
-            Assert.That(1 == ok.First().MassSpectrum.XArray.Length);
-            Assert.That(Math.Round(myPeaks[0].mz, 0) == Math.Round(ok.First().MassSpectrum.XArray[0], 0));
-            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.First().MassSpectrum.YArray[0], 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.SumOfAllY, 0));
+            Assert.That(1 == ok.GetAllScansList().First().MassSpectrum.XArray.Length);
+            Assert.That(Math.Round(myPeaks[0].mz, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.XArray[0], 0));
+            Assert.That(Math.Round(myPeaks[0].intensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.YArray[0], 0));
         }
 
         [Test]
@@ -215,15 +215,15 @@ namespace Test
         {
             double[] intensities1 = new double[] { };
             double[] mz1 = new double[] { };
-            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
-            IMzmlScan[] scans = new IMzmlScan[]{
-                new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1")
+            MzSpectrumZR massSpec1 = new MzSpectrumZR(mz1, intensities1, false);
+            MsDataScanZR[] scans = new MsDataScanZR[]{
+                new MsDataScanZR(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
             };
             FakeMsDataFile f = new FakeMsDataFile(scans);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"), false);
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan.mzML"));
-            
+
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
 
             var testFilteringParams = new FilteringParams(200, 0.01, 5, true, true);
@@ -233,18 +233,17 @@ namespace Test
         [Test]
         public static void DifferentAnalyzersTest()
         {
-            IMzmlScan[] scans = new IMzmlScan[2];
+            MsDataScanZR[] scans = new MsDataScanZR[2];
 
             double[] intensities1 = new double[] { 1 };
             double[] mz1 = new double[] { 50 };
-            MzmlMzSpectrum massSpec1 = new MzmlMzSpectrum(mz1, intensities1, false);
-            scans[0] = new MzmlScan(1, massSpec1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, "1");
+            MzSpectrumZR massSpec1 = new MzSpectrumZR(mz1, intensities1, false);
+            scans[0] = new MsDataScanZR(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1");
 
             double[] intensities2 = new double[] { 1 };
             double[] mz2 = new double[] { 30 };
-            MzmlMzSpectrum massSpec2 = new MzmlMzSpectrum(mz2, intensities2, false);
-            scans[1] = new MzmlScanWithPrecursor(2, massSpec2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.IonTrap3D, massSpec2.SumOfAllY,
-                50, null, null, 50, 1, DissociationType.CID, 1, null, null, "2");
+            MzSpectrumZR massSpec2 = new MzSpectrumZR(mz2, intensities2, false);
+            scans[1] = new MsDataScanZR(massSpec2, 2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.IonTrap3D, massSpec2.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 1, null);
 
             FakeMsDataFile f = new FakeMsDataFile(scans);
 
@@ -252,8 +251,8 @@ namespace Test
 
             Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfefsf.mzML"));
 
-            Assert.AreEqual(MZAnalyzerType.Orbitrap, ok.First().MzAnalyzer);
-            Assert.AreEqual(MZAnalyzerType.IonTrap3D, ok.Last().MzAnalyzer);
+            Assert.AreEqual(MZAnalyzerType.Orbitrap, ok.GetAllScansList().First().MzAnalyzer);
+            Assert.AreEqual(MZAnalyzerType.IonTrap3D, ok.GetAllScansList().Last().MzAnalyzer);
         }
 
         [Test]
@@ -621,21 +620,22 @@ namespace Test
             OldSchoolChemicalFormulaModification carbamidomethylationOfCMod = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("H3C2NO"), "carbamidomethylation of C", ModificationSites.C);
             peptide.AddModification(carbamidomethylationOfCMod);
 
-            MzmlMzSpectrum MS1 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
+            MzSpectrumZR MS1 = CreateSpectrum(peptide.GetChemicalFormula(), 300, 2000, 1);
 
-            MzmlMzSpectrum MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
+            MzSpectrumZR MS2 = CreateMS2spectrum(peptide.Fragment(FragmentTypes.b | FragmentTypes.y, true), 100, 1500);
 
-            IMzmlScan[] Scans = new IMzmlScan[2];
+            MsDataScanZR[] Scans = new MsDataScanZR[2];
 
-            Scans[0] = new MzmlScan(1, MS1, 1, true, Polarity.Positive, 1.0, new MzRange(300, 2000), " first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, "scan=1");
+            Scans[0] = new MsDataScanZR(MS1, 1, 1, true, Polarity.Positive, 1.0, new MzRange(300, 2000), " first spectrum", MZAnalyzerType.Unknown, MS1.SumOfAllY, 1, null, "scan=1");
+            //            scans[1] = new MsDataScanZR(massSpec2, 2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.IonTrap3D, massSpec2.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 1, null);
 
-            Scans[1] = new MzmlScanWithPrecursor(2, MS2, 2, true, Polarity.Positive, 2.0, new MzRange(100, 1500), " second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 1134.26091302033, 1, "scan=2");
+            Scans[1] = new MsDataScanZR(MS2, 2, 2, true, Polarity.Positive, 2.0, new MzRange(100, 1500), " second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1, null, "scan=2", 1134.26091302033, 3, 0.141146966879759, 1134.3, 1, DissociationType.Unknown, 1, 1134.26091302033);
 
             var myMsDataFile = new FakeMsDataFile(Scans);
 
             var oldFirstValue = myMsDataFile.GetOneBasedScan(1).MassSpectrum.FirstX;
 
-            var secondScan = myMsDataFile.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
+            var secondScan = myMsDataFile.GetOneBasedScan(2);
             Assert.AreEqual(1, secondScan.IsolationRange.Maximum - secondScan.IsolationRange.Minimum);
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(myMsDataFile, "argh.mzML", false);
@@ -649,7 +649,7 @@ namespace Test
             var newFirstValue = okay.GetOneBasedScan(1).MassSpectrum.FirstX;
             Assert.AreEqual(oldFirstValue.Value, newFirstValue.Value, 1e-9);
 
-            var secondScan2 = okay.GetOneBasedScan(2) as IMsDataScanWithPrecursor<MzmlMzSpectrum>;
+            var secondScan2 = okay.GetOneBasedScan(2);
 
             Assert.AreEqual(1, secondScan2.IsolationRange.Maximum - secondScan2.IsolationRange.Minimum);
 
@@ -1010,27 +1010,27 @@ namespace Test
                     }
                 }
             };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] = 
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[1] =
                 new mzIdentML111.Generated.SpectrumIdentificationItemType();
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation = 
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation =
                 new mzIdentML111.Generated.IonTypeType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] = 
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0] =
                 new mzIdentML111.Generated.IonTypeType
-            {
-                FragmentArray = new mzIdentML111.Generated.FragmentArrayType[1]
-            };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] = 
+                {
+                    FragmentArray = new mzIdentML111.Generated.FragmentArrayType[1]
+                };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].Fragmentation[0].FragmentArray[0] =
                 new mzIdentML111.Generated.FragmentArrayType
-            {
-                values = new float[3] { 200, 300, 400 }
-            };
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef = 
+                {
+                    values = new float[3] { 200, 300, 400 }
+                };
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef =
                 new mzIdentML111.Generated.PeptideEvidenceRefType[1];
-            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] = 
+            _mzid.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[0].SpectrumIdentificationItem[0].PeptideEvidenceRef[0] =
                 new mzIdentML111.Generated.PeptideEvidenceRefType
-            {
-                peptideEvidence_ref = "PE_1"
-            };
+                {
+                    peptideEvidence_ref = "PE_1"
+                };
             _mzid.DataCollection.Inputs = new mzIdentML111.Generated.InputsType
             {
                 SpectraData = new mzIdentML111.Generated.SpectraDataType[1]
@@ -1299,7 +1299,7 @@ namespace Test
 
         #region Private Methods
 
-        private MzmlMzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+        private MzSpectrumZR CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
             List<double> allIntensities = new List<double>();
@@ -1316,14 +1316,14 @@ namespace Test
             var allIntensitiessArray = allIntensities.ToArray();
 
             Array.Sort(allMassesArray, allIntensitiessArray);
-            return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
+            return new MzSpectrumZR(allMassesArray, allIntensitiessArray, false);
         }
 
-        private MzmlMzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
+        private MzSpectrumZR CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1);
 
-            return new MzmlMzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
+            return new MzSpectrumZR(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
             //massSpectrum1 = massSpectrum1.FilterByNumberOfMostIntense(5);
 
             //var chargeToLookAt = minCharge;

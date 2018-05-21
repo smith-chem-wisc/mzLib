@@ -101,7 +101,7 @@ namespace FlashLFQ
             results = new FlashLFQResults(rawFileInformation);
 
             globalStopwatch.Start();
-            
+
             // build m/z index keys
             ConstructIndexKeysFromIdentifications();
 
@@ -111,7 +111,7 @@ namespace FlashLFQ
                 GC.Collect();
 
                 // fill lookup-table with peaks from the raw file
-                var indexedMassSpectralPeaks = IndexMassSpectralPeaks(fileInfo, out Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>> allMs1Scans);
+                var indexedMassSpectralPeaks = IndexMassSpectralPeaks(fileInfo, out Dictionary<int, MsDataScanZR> allMs1Scans);
 
                 // quantify features using this file's IDs first
                 QuantifyMS2IdentifiedPeptides(fileInfo, indexedMassSpectralPeaks, allMs1Scans);
@@ -138,7 +138,7 @@ namespace FlashLFQ
             // filter initial MBR peaks with retention time calibration
             if (mbr)
                 RetentionTimeCalibrationAndErrorCheckMatchedFeatures();
-            
+
             // normalize
             if (normalize)
             {
@@ -149,7 +149,7 @@ namespace FlashLFQ
             results.CalculatePeptideResults(true);
             results.CalculatePeptideResults(false);
             results.CalculateProteinResults();
-            
+
             // done
             if (!silent)
                 Console.WriteLine("All done");
@@ -159,7 +159,7 @@ namespace FlashLFQ
                     globalStopwatch.Elapsed.Hours + "h " +
                     globalStopwatch.Elapsed.Minutes + "m " +
                     globalStopwatch.Elapsed.Seconds + "s");
-            
+
             return results;
         }
 
@@ -450,12 +450,12 @@ namespace FlashLFQ
             }
         }
 
-        private Dictionary<double, List<IndexedMassSpectralPeak>> IndexMassSpectralPeaks(RawFileInfo fileInfo, out Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>> allMs1Scans)
+        private Dictionary<double, List<IndexedMassSpectralPeak>> IndexMassSpectralPeaks(RawFileInfo fileInfo, out Dictionary<int, MsDataScanZR> allMs1Scans)
         {
             // construct bins
             var indexedMzs = indexedMzKeys.ToDictionary(v => v, v => new List<IndexedMassSpectralPeak>());
-            var ms1ScanList = new List<IMsDataScan<IMzSpectrum<IMzPeak>>>();
-            allMs1Scans = new Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>>();
+            var ms1ScanList = new List<MsDataScanZR>();
+            allMs1Scans = new Dictionary<int, MsDataScanZR>();
 
             // open raw file
             var ext = Path.GetExtension(fileInfo.fullFilePathWithExtension).ToUpperInvariant();
@@ -465,7 +465,7 @@ namespace FlashLFQ
                 {
                     try
                     {
-                        ms1ScanList = Mzml.LoadAllStaticData(fileInfo.fullFilePathWithExtension).Where(p => p.MsnOrder == 1).Select(v => v as IMsDataScan<IMzSpectrum<IMzPeak>>).ToList();
+                        ms1ScanList = Mzml.LoadAllStaticData(fileInfo.fullFilePathWithExtension).GetAllScansList().Where(p => p.MsnOrder == 1).ToList();
                     }
                     catch (FileNotFoundException)
                     {
@@ -486,7 +486,7 @@ namespace FlashLFQ
                 }
                 else
                 {
-                    ms1ScanList = fileInfo.dataFile.Where(p => p.MsnOrder == 1).Select(v => v as IMsDataScan<IMzSpectrum<IMzPeak>>).ToList();
+                    ms1ScanList = fileInfo.dataFile.GetAllScansList().Where(p => p.MsnOrder == 1).ToList();
                 }
             }
             else if (ext == ".RAW")
@@ -502,7 +502,7 @@ namespace FlashLFQ
                             int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.msOrderByScan;
                             for (int i = 0; i < msOrders.Length; i++)
                                 if (msOrders[i] == 1)
-                                    ms1ScanList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
+                                    ms1ScanList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1));
                         }
                         catch (FileNotFoundException)
                         {
@@ -528,12 +528,12 @@ namespace FlashLFQ
                 else
                 {
                     // thermo file has already been opened and read; just get the ms1 scans out
-                    var thermoFile = fileInfo.dataFile as IO.Thermo.ThermoFile;
+                    var thermoFile = fileInfo.dataFile as IO.Thermo.ThermoDataFile;
 
                     int[] msOrders = thermoFile.ThermoGlobalParams.msOrderByScan;
                     for (int i = 0; i < msOrders.Length; i++)
                         if (msOrders[i] == 1)
-                            ms1ScanList.Add(thermoFile.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
+                            ms1ScanList.Add(thermoFile.GetOneBasedScan(i + 1));
                 }
 #else
                 if (!silent)
@@ -611,7 +611,7 @@ namespace FlashLFQ
             return indexedMzs;
         }
 
-        private void QuantifyMS2IdentifiedPeptides(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>> allMs1Scans)
+        private void QuantifyMS2IdentifiedPeptides(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, MsDataScanZR> allMs1Scans)
         {
             if (!silent)
                 Console.WriteLine("Quantifying peptides for " + fileInfo.filenameWithoutExtension);
@@ -729,7 +729,7 @@ namespace FlashLFQ
             results.peaks[fileInfo] = concurrentBagOfFeatures.ToList();
         }
 
-        private void MatchBetweenRunsInitialPeakfinding(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>> allMs1Scans)
+        private void MatchBetweenRunsInitialPeakfinding(RawFileInfo fileInfo, Dictionary<double, List<IndexedMassSpectralPeak>> mzBins, Dictionary<int, MsDataScanZR> allMs1Scans)
         {
             if (!silent)
                 Console.WriteLine("Finding possible matched peptides for " + fileInfo.filenameWithoutExtension);
@@ -889,7 +889,7 @@ namespace FlashLFQ
             }
         }
 
-        private IEnumerable<IsotopeCluster> FilterPeaksByIsotopicDistribution(IEnumerable<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool lookForBadIsotope, Dictionary<int, IMsDataScan<IMzSpectrum<IMzPeak>>> allMs1Scans)
+        private IEnumerable<IsotopeCluster> FilterPeaksByIsotopicDistribution(IEnumerable<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool lookForBadIsotope, Dictionary<int, MsDataScanZR> allMs1Scans)
         {
             var isotopeClusters = new List<IsotopeCluster>();
             var isotopeMassShifts = baseSequenceToIsotopicDistribution[identification.BaseSequence];

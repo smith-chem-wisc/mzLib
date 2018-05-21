@@ -23,11 +23,11 @@ using System.Linq;
 
 namespace Test
 {
-    public class FakeMsDataFile : MsDataFile<IMzmlScan>, IMsStaticDataFile<IMzmlScan>
+    public class FakeMsDataFile : MsDataFileZR
     {
         #region Public Constructors
 
-        public FakeMsDataFile(IMzmlScan[] FakeScans) : base(FakeScans, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
+        public FakeMsDataFile(MsDataScanZR[] FakeScans) : base(FakeScans, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
         {
             this.Scans = FakeScans;
         }
@@ -44,12 +44,12 @@ namespace Test
             return ok + 1;
         }
 
-        public override IEnumerable<IMzmlScan> GetMS1Scans()
+        public new IEnumerable<MsDataScanZR> GetMS1Scans()
         {
             throw new NotImplementedException();
         }
 
-        public override IMzmlScan GetOneBasedScan(int scanNumber)
+        public new MsDataScanZR GetOneBasedScan(int scanNumber)
         {
             return Scans[scanNumber - 1];
         }

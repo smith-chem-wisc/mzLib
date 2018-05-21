@@ -23,11 +23,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MathNet.Numerics.Statistics;
 
 namespace MassSpectrometry
 {
-    public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
-        where TPeak : IMzPeak
+    public class MzSpectrumZR
     {
         #region Private Fields
 
@@ -37,11 +37,15 @@ namespace MassSpectrometry
         private static readonly double[] mostIntenseMasses = new double[numAveraginesToGenerate];
         private static readonly double[] diffToMonoisotopic = new double[numAveraginesToGenerate];
 
+        private MzPeakZR[] peakList;
+        private int? indexOfpeakWithHighestY;
+        private double? sumOfAllY;
+
         #endregion Private Fields
 
         #region Public Constructors
 
-        static MzSpectrum()
+        static MzSpectrumZR()
         {
             // AVERAGINE
             const double averageC = 4.9384;
@@ -85,25 +89,112 @@ namespace MassSpectrometry
 
         #region Protected Constructors
 
-        protected MzSpectrum(double[,] mzintensities) : base(mzintensities)
+        public MzSpectrumZR(double[,] mzintensities)
         {
+            var count = mzintensities.GetLength(1);
+
+            XArray = new double[count];
+            YArray = new double[count];
+            Buffer.BlockCopy(mzintensities, 0, XArray, 0, sizeof(double) * count);
+            Buffer.BlockCopy(mzintensities, sizeof(double) * count, YArray, 0, sizeof(double) * count);
+            peakList = new MzPeakZR[Size];
         }
 
-        protected MzSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
+        public MzSpectrumZR(double[] mz, double[] intensities, bool shouldCopy)
         {
+            if (shouldCopy)
+            {
+                XArray = new double[mz.Length];
+                YArray = new double[intensities.Length];
+                Array.Copy(mz, XArray, mz.Length);
+                Array.Copy(intensities, YArray, intensities.Length);
+            }
+            else
+            {
+                XArray = mz;
+                YArray = intensities;
+            }
+            peakList = new MzPeakZR[Size];
         }
 
         #endregion Protected Constructors
 
         #region Public Properties
 
-        new public MzRange Range
+        public MzRange Range
         {
             get
             {
                 if (Size == 0)
                     return null;
                 return new MzRange(FirstX.Value, LastX.Value);
+            }
+        }
+
+        public double[] XArray { get; private set; }
+        public double[] YArray { get; private set; }
+
+        public double? FirstX
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                return XArray[0];
+            }
+        }
+
+        public double? LastX
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                return XArray[Size - 1];
+            }
+        }
+
+        public int Size { get { return XArray.Length; } }
+
+        public int? IndexOfPeakWithHighesetY
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                if (!indexOfpeakWithHighestY.HasValue)
+                    indexOfpeakWithHighestY = Array.IndexOf(YArray, YArray.Max());
+                return indexOfpeakWithHighestY.Value;
+            }
+        }
+
+        public double? YofPeakWithHighestY
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                return YArray[IndexOfPeakWithHighesetY.Value];
+            }
+        }
+
+        public double? XofPeakWithHighestY
+        {
+            get
+            {
+                if (Size == 0)
+                    return null;
+                return XArray[IndexOfPeakWithHighesetY.Value];
+            }
+        }
+
+        public double SumOfAllY
+        {
+            get
+            {
+                if (!sumOfAllY.HasValue)
+                    sumOfAllY = YArray.Sum();
+                return sumOfAllY.Value;
             }
         }
 
@@ -231,6 +322,117 @@ namespace MassSpectrometry
             }
         }
 
+        public IEnumerable<int> ExtractIndices(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+                ind = ~ind;
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return ind;
+                ind++;
+            }
+        }
+
+        public int? GetClosestPeakIndex(double x)
+        {
+            if (Size == 0)
+                return null;
+            int index = Array.BinarySearch(XArray, x);
+            if (index >= 0)
+                return index;
+            index = ~index;
+
+            if (index >= Size)
+                return index - 1;
+            if (index == 0)
+                return index;
+
+            if (x - XArray[index - 1] > XArray[index] - x)
+                return index;
+            return index - 1;
+        }
+
+        public void ReplaceXbyApplyingFunction(Func<MzPeakZR, double> convertor)
+        {
+            for (int i = 0; i < Size; i++)
+                XArray[i] = convertor(GetPeak(i));
+            peakList = new MzPeakZR[Size];
+        }
+
+        public virtual double[,] CopyTo2DArray()
+        {
+            double[,] data = new double[2, Size];
+            const int size = sizeof(double);
+            Buffer.BlockCopy(XArray, 0, data, 0, size * Size);
+            Buffer.BlockCopy(YArray, 0, data, size * Size, size * Size);
+            return data;
+        }
+
+        public double? GetClosestPeakXvalue(double x)
+        {
+            if (Size == 0)
+                return null;
+            return XArray[GetClosestPeakIndex(x).Value];
+        }
+
+        public int NumPeaksWithinRange(double minX, double maxX)
+        {
+            int startingIndex = Array.BinarySearch(XArray, minX);
+            if (startingIndex < 0)
+                startingIndex = ~startingIndex;
+            if (startingIndex >= Size)
+                return 0;
+            int endIndex = Array.BinarySearch(XArray, maxX);
+            if (endIndex < 0)
+                endIndex = ~endIndex;
+            if (endIndex == 0)
+                return 0;
+
+            return endIndex - startingIndex;
+        }
+
+        public IEnumerable<MzPeakZR> FilterByNumberOfMostIntense(int topNPeaks)
+        {
+            var quantile = 1.0 - (double)topNPeaks / Size;
+            quantile = Math.Max(0, quantile);
+            quantile = Math.Min(1, quantile);
+            double cutoffYvalue = YArray.Quantile(quantile);
+
+            for (int i = 0; i < Size; i++)
+                if (YArray[i] >= cutoffYvalue)
+                    yield return GetPeak(i);
+        }
+
+        public IEnumerable<MzPeakZR> Extract(DoubleRange xRange)
+        {
+            return Extract(xRange.Minimum, xRange.Maximum);
+        }
+
+        public IEnumerable<MzPeakZR> Extract(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+                ind = ~ind;
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return GetPeak(ind);
+                ind++;
+            }
+        }
+
+        public IEnumerable<MzPeakZR> FilterByY(double minY, double maxY)
+        {
+            for (int i = 0; i < Size; i++)
+                if (YArray[i] >= minY && YArray[i] <= maxY)
+                    yield return GetPeak(i);
+        }
+
+        public IEnumerable<MzPeakZR> FilterByY(DoubleRange yRange)
+        {
+            return FilterByY(yRange.Minimum, yRange.Maximum);
+        }
+
         #endregion Public Methods
 
         #region Private Methods
@@ -252,6 +454,17 @@ namespace MassSpectrometry
             return true;
         }
 
+        private MzPeakZR GetPeak(int index)
+        {
+            if (peakList[index] == null)
+                peakList[index] = GeneratePeak(index);
+            return peakList[index];
+        }
+
+        private MzPeakZR GeneratePeak(int index)
+        {
+            return new MzPeakZR(XArray[index], YArray[index]);
+        }
         #endregion Private Methods
     }
 }

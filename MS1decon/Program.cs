@@ -64,7 +64,7 @@ namespace ConsoleApp1
 
             if (result.HasErrors == false)
             {
-                IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile;
+                MsDataFileZR myMsDataFile;
                 if (Path.GetExtension(p.Object.FilePath).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
                     myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
                 else
