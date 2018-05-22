@@ -146,11 +146,15 @@ namespace MassSpectrometry
         public void TransformMzs(Func<MzPeak, double> convertorForSpectrum, Func<MzPeak, double> convertorForPrecursor)
         {
             MassSpectrum.ReplaceXbyApplyingFunction(convertorForSpectrum);
-            this.SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ.Value, SelectedIonIntensity.Value));
+            SelectedIonMZ = convertorForPrecursor(new MzPeak(SelectedIonMZ.Value, SelectedIonIntensity.Value));
             if (SelectedIonMonoisotopicGuessMz.HasValue)
-                this.SelectedIonMonoisotopicGuessMz = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicGuessMz.Value, SelectedIonMonoisotopicGuessIntensity.Value));
+            {
+                SelectedIonMonoisotopicGuessMz = convertorForPrecursor(new MzPeak(SelectedIonMonoisotopicGuessMz.Value, SelectedIonMonoisotopicGuessIntensity.Value));
+            }
             if (IsolationMz.HasValue)
-                this.IsolationMz = convertorForPrecursor(new MzPeak(IsolationMz.Value, SelectedIonIntensity.Value));
+            {
+                IsolationMz = convertorForPrecursor(new MzPeak(IsolationMz.Value, SelectedIonIntensity.Value));
+            }
 
             // Will need to recompute this...
             isolationRange = null;

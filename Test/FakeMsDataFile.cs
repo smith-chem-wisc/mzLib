@@ -44,12 +44,12 @@ namespace Test
             return ok + 1;
         }
 
-        public new IEnumerable<MsDataScan> GetMS1Scans()
+        public override IEnumerable<MsDataScan> GetMS1Scans()
         {
             throw new NotImplementedException();
         }
 
-        public new MsDataScan GetOneBasedScan(int scanNumber)
+        public override MsDataScan GetOneBasedScan(int scanNumber)
         {
             return Scans[scanNumber - 1];
         }

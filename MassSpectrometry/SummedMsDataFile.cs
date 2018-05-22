@@ -47,7 +47,7 @@ namespace MassSpectrometry
             return allScans;
         }
 
-        public new MsDataScan GetOneBasedScan(int oneBasedScanNumber)
+        public override MsDataScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)
             {

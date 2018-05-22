@@ -157,7 +157,7 @@ namespace MassSpectrometry
             Array.Sort(mArray, intensities);
         }
 
-        public IEnumerable<MsDataScan> GetMS1Scans()
+        public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
             for (int i = 1; i <= NumSpectra; i++)
             {
@@ -169,7 +169,7 @@ namespace MassSpectrometry
             }
         }
 
-        public MsDataScan GetOneBasedScan(int scanNumber)
+        public virtual MsDataScan GetOneBasedScan(int scanNumber)
         {
             return Scans[scanNumber - 1];
         }
