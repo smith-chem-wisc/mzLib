@@ -222,7 +222,6 @@ namespace IO.MzML
                 name = "custom unreleased software tool",
                 cvRef = "MS"
             };
-
             List<MZAnalyzerType> analyzersInThisFile = (new HashSet<MZAnalyzerType>(myMsDataFile.GetAllScansList().Select(b => b.MzAnalyzer))).ToList();
             Dictionary<MZAnalyzerType, string> analyzersInThisFileDict = new Dictionary<MZAnalyzerType, string>();
 

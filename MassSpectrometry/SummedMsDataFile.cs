@@ -37,6 +37,16 @@ namespace MassSpectrometry
 
         #region Public Methods
 
+        public override List<MsDataScan> GetAllScansList()
+        {
+            List<MsDataScan> allScans = new List<MsDataScan>();
+            for (int scanNumber = 1; scanNumber <= Scans.Length; scanNumber++)
+            {
+                allScans.Add(GetOneBasedScan(scanNumber));
+            }
+            return allScans;
+        }
+
         public new MsDataScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)

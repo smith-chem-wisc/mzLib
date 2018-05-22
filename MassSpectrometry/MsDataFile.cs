@@ -65,7 +65,7 @@ namespace MassSpectrometry
             }
         }
 
-        public List<MsDataScan> GetAllScansList()
+        public virtual List<MsDataScan> GetAllScansList()
         {
             return Scans.ToList();
         }
