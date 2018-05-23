@@ -48,6 +48,7 @@ namespace IO.Mgf
                         double precursorMass = 0;
                         int charge = 0;
                         int scanNumber = 0;
+                        int oldScanNumber = 0;
                         double rtInMinutes = 0;
 
                         while ((s = sr.ReadLine()) != null)
@@ -56,13 +57,16 @@ namespace IO.Mgf
                             {
                                 readingPeaks = false;
                                 MzSpectrum spectrum = new MzSpectrum(mzs.ToArray(), intensities.ToArray(), false);
-                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count]), null, MZAnalyzerType.Unknown, 0, null, null, null));
+                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count-1]), null, MZAnalyzerType.Unknown, 0, null, null, null));
                                 mzs = new List<double>();
                                 intensities = new List<double>();
+                                oldScanNumber = scanNumber;
 
                                 //skip the next two lines which are "" and "BEGIN IONS"
-                                sr.ReadLine();
-                                sr.ReadLine();
+                                while ((s = sr.ReadLine()) != null && !s.Equals("BEGIN IONS"))
+                                {
+                                    //do nothing
+                                }
                             }
                             else
                             {
@@ -75,13 +79,21 @@ namespace IO.Mgf
                                 else
                                 {
                                     string[] sArray = s.Split('=');
-                                    if(sArray.Length==1)
+                                    if (sArray.Length == 1)
                                     {
                                         readingPeaks = true;
+                                        sArray = s.Split(' ');
+                                        mzs.Add(Convert.ToDouble(sArray[0]));
+                                        intensities.Add(Convert.ToDouble(sArray[1]));
+
+                                        if (oldScanNumber == scanNumber) //if there's no recorded scan number, simply index them.
+                                        {
+                                            scanNumber++;
+                                        }
                                     }
                                     else
                                     {
-                                        switch(sArray[0])
+                                        switch (sArray[0])
                                         {
                                             case "PEPMASS":
                                                 sArray = sArray[1].Split(' ');
@@ -90,7 +102,7 @@ namespace IO.Mgf
                                             case "CHARGE":
                                                 string entry = sArray[1];
                                                 charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
-                                                if(entry[entry.Length-1].Equals("-"))
+                                                if (entry[entry.Length - 1].Equals("-"))
                                                 {
                                                     charge *= -1;
                                                 }
