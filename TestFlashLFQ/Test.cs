@@ -1,11 +1,8 @@
 ﻿using FlashLFQ;
-using IO.MzML;
-using IO.Thermo;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -18,14 +15,15 @@ namespace Test
         public static void TestFlashLFQ()
         {
             // get the raw file paths
-            RawFileInfo raw = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"));
-            RawFileInfo mzml = new RawFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"));
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
-            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
-            Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
-            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
-            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 });
@@ -37,110 +35,83 @@ namespace Test
             Assert.That(results.peaks[raw].Count == 1);
             Assert.That(results.peaks[raw].First().intensity > 0);
             Assert.That(!results.peaks[raw].First().isMbrFeature);
-            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[raw] > 0);
-            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[raw] > 0);
+            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
+            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.proteinGroups["MyProtein"].intensities[raw] > 0);
 
             // check mzml results
             Assert.That(results.peaks[mzml].Count == 1);
             Assert.That(results.peaks[mzml].First().intensity > 0);
             Assert.That(!results.peaks[mzml].First().isMbrFeature);
-            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
-            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
+            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.proteinGroups["MyProtein"].intensities[mzml] > 0);
 
+            // check that condition normalization worked
+            int int1 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
+            int int2 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            Assert.That(int1 == int2);
+
             // test peak output
-            List<string> output = new List<string>() { FlashLFQ.ChromatographicPeak.TabSeparatedHeader };
-            foreach (var peak in results.peaks.SelectMany(p => p.Value))
-                output.Add(peak.ToString());
-            Assert.That(output.Count == 3);
-
-            // test peptide base sequence output
-            output = new List<string>() { Peptide.TabSeparatedHeader };
-            foreach (var pep in results.peptideBaseSequences)
-                output.Add(pep.Value.ToString());
-            Assert.That(output.Count == 2);
-
-            // test peptide mod sequence output
-            output = new List<string>() { Peptide.TabSeparatedHeader };
-            foreach (var pep in results.peptideModifiedSequences)
-                output.Add(pep.Value.ToString());
-            Assert.That(output.Count == 2);
-
-            // test protein output
-            output = new List<string>() { ProteinGroup.TabSeparatedHeader };
-            foreach (var protein in results.proteinGroups)
-                output.Add(protein.Value.ToString());
-            Assert.That(output.Count == 2);
+            results.WriteResults(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"baseSeq.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
         }
 
         [Test]
-        public static void TestFlashLFQWithPassedFile()
+        public static void TestFlashLFQNormalization()
         {
-            // read periodic table - needed to open the raw files
-            PeriodicTableLoader.Load(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
-
-            // get the raw files
-            string rawPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw");
-            string mzmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml");
-
-            var rawFile = ThermoDynamicData.InitiateDynamicConnection(rawPath);
-            var mzmlFile = Mzml.LoadAllStaticData(mzmlPath);
-
-            RawFileInfo raw = new RawFileInfo(rawPath, rawFile);
-            RawFileInfo mzml = new RawFileInfo(mzmlPath, mzmlFile);
+            // ********************************* check biorep normalization *********************************
+            // get the raw file paths
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 0);
 
             // create some PSMs
-            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
-            Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
-            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<string> { "MyProtein" });
-            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<string> { "MyProtein" });
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 });
+            var results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
-            // run the engine
-            var results = engine.Run();
+            // check that biorep normalization worked
+            int int1 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
+            int int2 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            Assert.That(int1 > 0);
+            Assert.That(int1 == int2);
 
-            // check raw results
-            Assert.That(results.peaks[raw].Count == 1);
-            Assert.That(results.peaks[raw].First().intensity > 0);
-            Assert.That(!results.peaks[raw].First().isMbrFeature);
-            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[raw] > 0);
-            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[raw] > 0);
-            Assert.That(results.proteinGroups["MyProtein"].intensities[raw] > 0);
+            // ********************************* check condition normalization *********************************
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "b", 0, 0, 0);
 
-            // check mzml results
-            Assert.That(results.peaks[mzml].Count == 1);
-            Assert.That(results.peaks[mzml].First().intensity > 0);
-            Assert.That(!results.peaks[mzml].First().isMbrFeature);
-            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
-            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].intensities[mzml] > 0);
-            Assert.That(results.proteinGroups["MyProtein"].intensities[mzml] > 0);
+            id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            // test peak output
-            List<string> output = new List<string>() { FlashLFQ.ChromatographicPeak.TabSeparatedHeader };
-            foreach (var peak in results.peaks.SelectMany(p => p.Value))
-                output.Add(peak.ToString());
-            Assert.That(output.Count == 3);
+            results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
-            // test peptide base sequence output
-            output = new List<string>() { Peptide.TabSeparatedHeader };
-            foreach (var pep in results.peptideBaseSequences)
-                output.Add(pep.Value.ToString());
-            Assert.That(output.Count == 2);
+            int int3 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
+            int int4 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            Assert.That(int3 > 0);
+            Assert.That(int3 == int4);
 
-            // test peptide mod sequence output
-            output = new List<string>() { Peptide.TabSeparatedHeader };
-            foreach (var pep in results.peptideModifiedSequences)
-                output.Add(pep.Value.ToString());
-            Assert.That(output.Count == 2);
+            // ********************************* check techrep normalization *********************************
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
-            // test protein output
-            output = new List<string>() { ProteinGroup.TabSeparatedHeader };
-            foreach (var protein in results.proteinGroups)
-                output.Add(protein.Value.ToString());
-            Assert.That(output.Count == 2);
+            id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+
+            results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
+
+            int int5 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
+            int int6 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            Assert.That(int5 > 0);
+            Assert.That(int5 == int6);
+
+            Assert.That(int1 == int3);
+            //Assert.That(int1 == int5);
         }
 
         #endregion Public Methods
