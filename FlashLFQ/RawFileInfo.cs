@@ -12,24 +12,38 @@ namespace FlashLFQ
         public string analysisSummary;
         public IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFile;
 
+        // condition/biorep/techrep/fraction info
+        public readonly string condition;
+        public readonly int biologicalReplicate;
+        public readonly int fraction;
+        public readonly int technicalReplicate;
+        
         #endregion Public Fields
 
         #region Public Constructors
 
-        public RawFileInfo(string fullFilePathWithExtension)
+        public RawFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
             this.fullFilePathWithExtension = fullFilePathWithExtension;
             this.filenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.fullFilePathWithExtension);
             this.dataFile = null;
             clearAfterDone = true;
+            this.condition = condition;
+            this.biologicalReplicate = biorep;
+            this.technicalReplicate = techrep;
+            this.fraction = fraction;
         }
 
-        public RawFileInfo(string fullFilePathWithExtension, IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFile)
+        public RawFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction, IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFile)
         {
             this.fullFilePathWithExtension = fullFilePathWithExtension;
             this.filenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.fullFilePathWithExtension);
             this.dataFile = dataFile;
             clearAfterDone = false;
+            this.condition = condition;
+            this.biologicalReplicate = biorep;
+            this.technicalReplicate = techrep;
+            this.fraction = fraction;
         }
 
         #endregion Public Constructors

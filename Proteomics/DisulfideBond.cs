@@ -8,7 +8,7 @@
         {
             this.OneBasedBeginPosition = OneBasedBeginPosition;
             this.OneBasedEndPosition = OneBasedEndPosition;
-            this.Description = Description;
+            this.Description = Description ?? "";
         }
 
         /// For interchain disulfide bonds, sets begin and end to the same position.
