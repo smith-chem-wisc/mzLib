@@ -1,16 +1,11 @@
-﻿using MassSpectrometry;
-
-namespace FlashLFQ
+﻿namespace FlashLFQ
 {
-    public class RawFileInfo
+    public class SpectraFileInfo
     {
         #region Public Fields
 
         public readonly string fullFilePathWithExtension;
         public readonly string filenameWithoutExtension;
-        public readonly bool clearAfterDone;
-        public string analysisSummary;
-        public IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFile;
 
         // condition/biorep/techrep/fraction info
         public readonly string condition;
@@ -22,24 +17,10 @@ namespace FlashLFQ
 
         #region Public Constructors
 
-        public RawFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
+        public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
             this.fullFilePathWithExtension = fullFilePathWithExtension;
             this.filenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.fullFilePathWithExtension);
-            this.dataFile = null;
-            clearAfterDone = true;
-            this.condition = condition;
-            this.biologicalReplicate = biorep;
-            this.technicalReplicate = techrep;
-            this.fraction = fraction;
-        }
-
-        public RawFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction, IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> dataFile)
-        {
-            this.fullFilePathWithExtension = fullFilePathWithExtension;
-            this.filenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.fullFilePathWithExtension);
-            this.dataFile = dataFile;
-            clearAfterDone = false;
             this.condition = condition;
             this.biologicalReplicate = biorep;
             this.technicalReplicate = techrep;
@@ -53,7 +34,7 @@ namespace FlashLFQ
         // files are considered the same if the absolute file path is the same
         public override bool Equals(object obj)
         {
-            return base.Equals(obj) && ((RawFileInfo)obj).fullFilePathWithExtension.Equals(this.fullFilePathWithExtension);
+            return base.Equals(obj) && ((SpectraFileInfo)obj).fullFilePathWithExtension.Equals(this.fullFilePathWithExtension);
         }
 
         public override int GetHashCode()
