@@ -15,7 +15,7 @@ namespace IO.Mgf
     {
         #region Private Constructors
 
-        private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
@@ -23,115 +23,98 @@ namespace IO.Mgf
 
         #region Public Methods
 
-        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
+        public static Mgf LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
             if (!File.Exists(filePath))
             {
                 throw new FileNotFoundException();
             }
 
-            Generated.mzMLType _mzMLConnection;
-
-            try
+            List<MsDataScan> scans = new List<MsDataScan>();
+            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (BufferedStream bs = new BufferedStream(fs))
                 {
-                    var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
-                    _mzMLConnection = _indexedmzMLConnection.mzML;
+                    using (StreamReader sr = new StreamReader(bs))
+                    {
+                        string s;
+                        while ((s = sr.ReadLine()) != null && !s.Equals("BEGIN IONS"))
+                        {
+                            //do nothing with the first few scans
+                        }
+                        bool readingPeaks = false;
+                        List<double> mzs = new List<double>();
+                        List<double> intensities = new List<double>();
+                        double precursorMass = 0;
+                        int charge = 0;
+                        int scanNumber = 0;
+                        double rtInMinutes = 0;
+
+                        while ((s = sr.ReadLine()) != null)
+                        {
+                            if (s.Equals("END IONS"))
+                            {
+                                readingPeaks = false;
+                                MzSpectrum spectrum = new MzSpectrum(mzs.ToArray(), intensities.ToArray(), false);
+                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count]), null, MZAnalyzerType.Unknown, 0, null, null, null));
+                                mzs = new List<double>();
+                                intensities = new List<double>();
+
+                                //skip the next two lines which are "" and "BEGIN IONS"
+                                sr.ReadLine();
+                                sr.ReadLine();
+                            }
+                            else
+                            {
+                                if (readingPeaks)
+                                {
+                                    string[] sArray = s.Split(' ');
+                                    mzs.Add(Convert.ToDouble(sArray[0]));
+                                    intensities.Add(Convert.ToDouble(sArray[1]));
+                                }
+                                else
+                                {
+                                    string[] sArray = s.Split('=');
+                                    if(sArray.Length==1)
+                                    {
+                                        readingPeaks = true;
+                                    }
+                                    else
+                                    {
+                                        switch(sArray[0])
+                                        {
+                                            case "PEPMASS":
+                                                sArray = sArray[1].Split(' ');
+                                                precursorMass = Convert.ToDouble(sArray[sArray.Length - 1]);
+                                                break;
+                                            case "CHARGE":
+                                                string entry = sArray[1];
+                                                charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
+                                                if(entry[entry.Length-1].Equals("-"))
+                                                {
+                                                    charge *= -1;
+                                                }
+                                                break;
+                                            case "SCANS":
+                                                scanNumber = Convert.ToInt32(sArray[1]);
+                                                break;
+                                            case "RTINSECONDS":
+                                                rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1]) / 60.0;
+                                                break;
+                                            default:
+                                                break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            catch
-            {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
-            }
 
-            SourceFile sourceFile;
-            if (_mzMLConnection.fileDescription.sourceFileList != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0] != null && _mzMLConnection.fileDescription.sourceFileList.sourceFile[0].cvParam != null)
-            {
-                var simpler = _mzMLConnection.fileDescription.sourceFileList.sourceFile[0];
-                string nativeIdFormat = null;
-                string fileFormat = null;
-                string checkSum = null;
-                string checkSumType = null;
-                foreach (var cv in simpler.cvParam)
-                {
-                    if (cv.accession.Equals(@"MS:1000563"))
-                    {
-                        fileFormat = "Thermo RAW format";
-                    }
-                    if (cv.accession.Equals(@"MS:1000584"))
-                    {
-                        fileFormat = "mzML format";
-                    }
+            SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);          
 
-                    if (cv.accession.Equals(@"MS:1000768"))
-                    {
-                        nativeIdFormat = "Thermo nativeID format";
-                    }
-                    if (cv.accession.Equals(@"MS:1000776"))
-                    {
-                        nativeIdFormat = "scan number only nativeID format";
-                    }
-                    if (cv.accession.Equals(@"MS:1000824"))
-                    {
-                        nativeIdFormat = "no nativeID format";
-                    }
-
-                    if (cv.accession.Equals(@"MS:1000568"))
-                    {
-                        checkSum = cv.value;
-                        checkSumType = "MD5";
-                    }
-                    if (cv.accession.Equals(@"MS:1000569"))
-                    {
-                        checkSum = cv.value;
-                        checkSumType = "SHA-1";
-                    }
-                }
-
-                sourceFile = new SourceFile(
-                    nativeIdFormat,
-                    fileFormat,
-                    checkSum,
-                    checkSumType,
-                    new Uri(simpler.location),
-                    simpler.id,
-                    simpler.name);
-            }
-            else
-            {
-                string sendCheckSum;
-                using (FileStream stream = File.OpenRead(filePath))
-                {
-                    using (SHA1Managed sha = new SHA1Managed())
-                    {
-                        byte[] checksum = sha.ComputeHash(stream);
-                        sendCheckSum = BitConverter.ToString(checksum)
-                            .Replace("-", string.Empty);
-                    }
-                }
-                sourceFile = new SourceFile(
-                    @"no nativeID format",
-                    @"mzML format",
-                    sendCheckSum,
-                    @"SHA-1",
-                    Path.GetFullPath(filePath),
-                    Path.GetFileNameWithoutExtension(filePath));
-            }
-
-            var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
-            MsDataScan[] scans = new MsDataScan[numSpecta];
-
-            Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
-            {
-                for (int i = fff.Item1; i < fff.Item2; i++)
-                {
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
-                }
-            });
-
-            return new Mzml(scans, sourceFile);
+            return new Mgf(scans.ToArray(), sourceFile);
         }
 
         #endregion Public Methods
