@@ -149,7 +149,7 @@ namespace Test
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            
+
             results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
             int int3 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
@@ -163,7 +163,7 @@ namespace Test
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            
+
             results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
             int int5 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);

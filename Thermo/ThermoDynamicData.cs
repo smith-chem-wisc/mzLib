@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 
 namespace IO.Thermo
 {
-    public class ThermoDynamicData : ThermoFile, IMsDynamicDataFile<IThermoScan>
+    public class ThermoDynamicData : ThermoDataFile, IDisposable
     {
         #region Private Fields
 
@@ -18,10 +18,11 @@ namespace IO.Thermo
 
         #region Private Constructors
 
-        private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(_rawConnection, numSpectra, couldBePrecursor, sourceFile, thermoGlobalParams)
+        private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
         {
             this._rawConnection = _rawConnection;
             this.filterParams = filterParams;
+            ThermoGlobalParams = thermoGlobalParams;
         }
 
         #endregion Private Constructors
@@ -35,7 +36,7 @@ namespace IO.Thermo
                 throw new FileNotFoundException();
             }
 
-            if (CheckForMsFileReader() == false)
+            if (!ThermoStaticData.CheckForMsFileReader())
             {
                 throw new MzLibException("MsFileReader Not Installed");
             }
@@ -69,7 +70,7 @@ namespace IO.Thermo
                 filePath,
                 Path.GetFileNameWithoutExtension(filePath));
 
-            var thermoGlobalParams = GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
+            var thermoGlobalParams = ThermoStaticData.GetAllGlobalStuff(_rawConnection, precursorInfoArray, filePath);
 
             // if the spectra file only contains 1 scan and its MS order is 0, this indicates an errored read result
             if (thermoGlobalParams.msOrderByScan.Length == 1 && thermoGlobalParams.msOrderByScan[0] == 0)
@@ -77,13 +78,13 @@ namespace IO.Thermo
                 throw new MzLibException("Could not read data from file " + Path.GetFileName(filePath));
             }
 
-            return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, precursorInfoArray, sourceFile, thermoGlobalParams);
+            return new ThermoDynamicData(_rawConnection, filterParams, lastspectrumNumber - firstspectrumNumber + 1, sourceFile, thermoGlobalParams);
         }
 
-        public override IThermoScan GetOneBasedScan(int oneBasedScanNumber)
+        public override MsDataScan GetOneBasedScan(int oneBasedScanNumber)
         {
             if (Scans[oneBasedScanNumber - 1] == null)
-                Scans[oneBasedScanNumber - 1] = GetMsDataOneBasedScanFromThermoFile(oneBasedScanNumber, _rawConnection, ThermoGlobalParams, filterParams);
+                Scans[oneBasedScanNumber - 1] = ThermoStaticData.GetMsDataOneBasedScanFromThermoFile(_rawConnection, oneBasedScanNumber, ThermoGlobalParams, filterParams);
             return Scans[oneBasedScanNumber - 1];
         }
 
@@ -112,8 +113,12 @@ namespace IO.Thermo
         protected virtual void Dispose(bool disposing)
         {
             if (disposing)
+            {
                 if (_rawConnection != null)
+                {
                     _rawConnection.Close();
+                }
+            }
         }
 
         #endregion Protected Methods
