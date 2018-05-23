@@ -28,8 +28,6 @@ namespace Test
             Assert.AreEqual(165, ya2.Size);
             var ya3 = a.GetOneBasedScan(5).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
-            var ya4 = a.GetOneBasedScan(975).MassSpectrum;
-            Assert.AreEqual(190, ya4.Size);
         }
     }
 }
