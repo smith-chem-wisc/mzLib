@@ -10,7 +10,7 @@ namespace FlashLFQ
         public readonly string ModifiedSequence;
         public readonly double ms2RetentionTimeInMinutes;
         public readonly double monoisotopicMass;
-        public readonly RawFileInfo fileInfo;
+        public readonly SpectraFileInfo fileInfo;
         public readonly int precursorChargeState;
         public readonly HashSet<ProteinGroup> proteinGroups;
         public double massToLookFor;
@@ -19,7 +19,7 @@ namespace FlashLFQ
 
         #region Public Constructors
 
-        public Identification(RawFileInfo fileInfo, string BaseSequence, string ModifiedSequence, double monoisotopicMass, double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups)
+        public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence, double monoisotopicMass, double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups)
         {
             this.fileInfo = fileInfo;
             this.BaseSequence = BaseSequence;
