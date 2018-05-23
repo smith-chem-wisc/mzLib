@@ -14,6 +14,12 @@ namespace Test
         #region Public Methods
 
         [Test]
+        public void ReadXmlNulls()
+        {
+            ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, @"xml2.xml"), true, DecoyType.None, null, false, null, out Dictionary<string, Modification> un);
+        }
+
+        [Test]
         public void Test_read_write_read_xml()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);

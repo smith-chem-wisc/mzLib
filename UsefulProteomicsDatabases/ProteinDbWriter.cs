@@ -15,12 +15,14 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
-        /// <param name="AdditionalModsToAddToProteins"></param>
+        /// <param name="additionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> AdditionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
         {
+            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+
             var xmlWriterSettings = new XmlWriterSettings
             {
                 Indent = true,
@@ -35,7 +37,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("mzLibProteinDb");
 
                 HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
-                    .Concat(AdditionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                    .Concat(additionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
                 {
@@ -130,8 +132,8 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
-                    if (AdditionalModsToAddToProteins.ContainsKey(protein.Accession))
-                        foreach (var ye in AdditionalModsToAddToProteins[protein.Accession])
+                    if (additionalModsToAddToProteins.ContainsKey(protein.Accession))
+                        foreach (var ye in additionalModsToAddToProteins[protein.Accession])
                         {
                             int additionalModResidueIndex = ye.Item1;
                             string additionalModId = ye.Item2.id;
@@ -238,7 +240,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement(); // entry
                 }
 
-                writer.WriteEndElement();
+                writer.WriteEndElement(); // mzLibProteinDb
                 writer.WriteEndDocument();
             }
             return newModResEntries;
