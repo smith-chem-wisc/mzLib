@@ -13,14 +13,23 @@
 
         #region Public Constructors
 
-        public IndexedMassSpectralPeak(double mz, double intensity, int indexInScan, int oneBasedScanIndex)
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedIndexOfPeakInScan, int oneBasedScanNumber)
         {
             this.mz = mz;
-            zeroBasedIndexOfPeakInScan = indexInScan;
             this.intensity = intensity;
-            oneBasedScanNumber = oneBasedScanIndex;
+            this.zeroBasedIndexOfPeakInScan = zeroBasedIndexOfPeakInScan;
+            this.oneBasedScanNumber = oneBasedScanNumber;
         }
 
         #endregion Public Constructors
+
+        #region Public Methods
+
+        public override string ToString()
+        {
+            return mz.ToString("F3") + "; " + oneBasedScanNumber + "; " + zeroBasedIndexOfPeakInScan;
+        }
+
+        #endregion Public Methods
     }
 }

@@ -31,27 +31,29 @@ namespace FlashLFQ
 
         public void NormalizeResults()
         {
+            results.CalculatePeptideResults(false);
+            
             // run normalization functions, recalculating intensity between each function
             if (!silent)
             {
                 Console.WriteLine("Normalizing techreps");
             }
-            results.CalculatePeptideResults(false);
             NormalizeTechreps();
+            results.CalculatePeptideResults(false);
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing bioreps and fractions");
             }
-            results.CalculatePeptideResults(false);
             NormalizeBiorepsAndFractions();
+            results.CalculatePeptideResults(false);
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing conditions");
             }
-            results.CalculatePeptideResults(false);
             NormalizeConditions();
+            results.CalculatePeptideResults(false);
         }
 
         #endregion Public Methods
@@ -63,41 +65,38 @@ namespace FlashLFQ
             List<double> nonZeroIntensities = new List<double>();
 
             var peptides = results.peptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.rawFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
+            var conditions = results.spectraFiles.GroupBy(p => p.condition);
 
-            foreach (string condition in conditions)
+            foreach (var condition in conditions)
             {
-                var filesForThisCondition = results.rawFiles.Where(p => p.condition == condition);
-                var biorepsForThisCondition = filesForThisCondition.Select(p => p.biologicalReplicate).Distinct();
+                var bioreps = condition.GroupBy(p => p.biologicalReplicate);
 
-                foreach (var biorep in biorepsForThisCondition)
+                foreach (var biorep in bioreps)
                 {
-                    var filesForThisBiorep = filesForThisCondition.Where(p => p.biologicalReplicate == biorep);
-                    var fractionsForThisBiorep = filesForThisCondition.Select(p => p.fraction).Distinct();
+                    var fractions = biorep.GroupBy(p => p.fraction);
 
-                    foreach (var fraction in fractionsForThisBiorep)
+                    foreach (var fraction in fractions)
                     {
-                        var replicatesForThisFraction = filesForThisBiorep.Where(p => p.fraction == fraction);
-                        int numReplicates = replicatesForThisFraction.Max(p => p.technicalReplicate);
-
+                        int numReplicates = fraction.Max(p => p.technicalReplicate);
                         var seqsToPeaksPerFile = new Dictionary<string, List<ChromatographicPeak>>[numReplicates + 1];
-                        for(int i = 0; i < seqsToPeaksPerFile.Length; i++)
+
+                        for (int i = 0; i < seqsToPeaksPerFile.Length; i++)
                         {
-                            var rep = replicatesForThisFraction.Where(p => p.technicalReplicate == i).FirstOrDefault();
+                            var rep = fraction.Where(p => p.technicalReplicate == i).FirstOrDefault();
 
                             if (rep != null)
                             {
                                 seqsToPeaksPerFile[i] = new Dictionary<string, List<ChromatographicPeak>>();
 
-                                foreach(var peak in results.peaks[rep])
+                                foreach (var peak in results.peaks[rep])
                                 {
-                                    if (seqsToPeaksPerFile[i].TryGetValue(peak.identifyingScans.First().ModifiedSequence, out var list))
+                                    if (seqsToPeaksPerFile[i].TryGetValue(peak.identifications.First().ModifiedSequence, out var list))
                                     {
                                         list.Add(peak);
                                     }
                                     else
                                     {
-                                        seqsToPeaksPerFile[i].Add(peak.identifyingScans.First().ModifiedSequence, new List<ChromatographicPeak> { peak });
+                                        seqsToPeaksPerFile[i].Add(peak.identifications.First().ModifiedSequence, new List<ChromatographicPeak> { peak });
                                     }
                                 }
                             }
@@ -108,20 +107,20 @@ namespace FlashLFQ
                             double avgIntensity = 0;
                             nonZeroIntensities.Clear();
 
-                            foreach (var technicalRep in replicatesForThisFraction)
+                            foreach (var technicalRep in fraction)
                             {
-                                if (peptides[p].intensities[technicalRep] > 0)
+                                if (peptides[p].GetIntensity(technicalRep) > 0)
                                 {
-                                    nonZeroIntensities.Add(peptides[p].intensities[technicalRep]);
+                                    nonZeroIntensities.Add(peptides[p].GetIntensity(technicalRep));
                                 }
                             }
                             if (nonZeroIntensities.Any())
                             {
                                 avgIntensity = nonZeroIntensities.Average();
 
-                                foreach (var technicalRep in replicatesForThisFraction)
+                                foreach (var technicalRep in fraction)
                                 {
-                                    double normFactorForThisTechRepAndPeptide = avgIntensity / peptides[p].intensities[technicalRep];
+                                    double normFactorForThisTechRepAndPeptide = avgIntensity / peptides[p].GetIntensity(technicalRep);
 
                                     if (seqsToPeaksPerFile[technicalRep.technicalReplicate].TryGetValue(peptides[p].Sequence, out var peaksForPepAndTechrep))
                                     {
@@ -129,9 +128,9 @@ namespace FlashLFQ
 
                                         foreach (var peak in peaksForPepAndTechrep)
                                         {
-                                            foreach (var isotopeEnvelope in peak.isotopeClusters)
+                                            foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
                                             {
-                                                isotopeEnvelope.isotopeClusterIntensity *= normFactorForThisTechRepAndPeptide;
+                                                isotopeEnvelope.Normalize(normFactorForThisTechRepAndPeptide);
                                             }
 
                                             // recalculate intensity after normalization
@@ -149,111 +148,114 @@ namespace FlashLFQ
         private void NormalizeBiorepsAndFractions()
         {
             var peptides = results.peptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.rawFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
+            var conditions = results.spectraFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
+            var filesForCond1Biorep1 = results.spectraFiles.Where(p => p.condition == conditions[0] && p.biologicalReplicate == 0).ToList();
 
-            Parallel.ForEach(conditions, condition =>
+            foreach (var condition in conditions)
             {
-                var rawFilesForThisCondition = results.rawFiles.Where(p => p.condition.Equals(condition)).ToList();
-                int numB = rawFilesForThisCondition.Select(p => p.biologicalReplicate).Distinct().Count();
+                var filesForThisCondition = results.spectraFiles.Where(p => p.condition.Equals(condition)).ToList();
 
-                if (numB > 1)
+                int numB = filesForThisCondition.Select(p => p.biologicalReplicate).Distinct().Count();
+
+                for (int b = 0; b < numB; b++)
                 {
-                    int numF = rawFilesForThisCondition.Select(p => p.fraction).Distinct().Count();
+                    // condition 1 biorep 1 is the reference, don't normalize it
+                    if (b == 0 && conditions.IndexOf(condition) == 0)
+                        continue;
 
-                    // only normalize on peptides seen in every biorep
-                    List<Peptide> seenInAllBiorepsForThisCondition = new List<Peptide>();
-                    HashSet<int> bioreps = new HashSet<int>(rawFilesForThisCondition.Select(p => p.biologicalReplicate));
+                    // run the normalization function
+                    if (!silent)
+                    {
+                        Console.WriteLine("Normalizing condition \"" + condition + "\" biorep " + (b + 1));
+                    }
+
+                    var filesForThisBiorep = filesForThisCondition.Where(p => p.biologicalReplicate == b);
+
+                    int numF = Math.Max(filesForCond1Biorep1.Max(p => p.fraction), filesForThisBiorep.Max(p => p.fraction)) + 1;
+
+                    // only normalize on peptides seen in both bioreps
+                    List<Peptide> seenInBothBioreps = new List<Peptide>();
                     for (int p = 0; p < peptides.Count; p++)
                     {
-                        int numBiorepsQuantifiedIn = 0;
-                        foreach (var file in rawFilesForThisCondition)
+                        bool seenInBiorep1 = false;
+                        bool seenInBiorep2 = false;
+
+                        foreach (var file in filesForCond1Biorep1)
                         {
-                            if (peptides[p].intensities[file] > 0)
+                            if (peptides[p].GetIntensity(file) > 0)
                             {
-                                numBiorepsQuantifiedIn++;
+                                seenInBiorep1 = true;
                             }
                         }
-                        if (numBiorepsQuantifiedIn == bioreps.Count)
+
+                        foreach (var file in filesForThisBiorep)
                         {
-                            seenInAllBiorepsForThisCondition.Add(peptides[p]);
+                            if (peptides[p].GetIntensity(file) > 0)
+                            {
+                                seenInBiorep2 = true;
+                            }
+                        }
+
+                        if (seenInBiorep1 && seenInBiorep2)
+                        {
+                            seenInBothBioreps.Add(peptides[p]);
                         }
                     }
 
-
                     // we're only normalizing on a subset of data here because it might take too long to do the whole set
-                    seenInAllBiorepsForThisCondition = SubsetData(seenInAllBiorepsForThisCondition, condition);
+                    seenInBothBioreps = SubsetData(seenInBothBioreps, filesForThisBiorep.Concat(filesForCond1Biorep1).ToList());
 
                     // add the data to the array to set up for the normalization function
-                    int numP = seenInAllBiorepsForThisCondition.Count;
-                    double[,,] myIntensityArray = new double[numP, numB, numF];
+                    int numP = seenInBothBioreps.Count;
+                    double[,,] myIntensityArray = new double[numP, 2, numF];
 
                     for (int p = 0; p < numP; p++)
                     {
-                        var peptide = seenInAllBiorepsForThisCondition[p];
+                        var peptide = seenInBothBioreps[p];
 
-                        foreach (var file in rawFilesForThisCondition)
+                        foreach (var file in filesForCond1Biorep1)
                         {
-                            myIntensityArray[p, file.biologicalReplicate, file.fraction] = peptide.intensities[file];
+                            myIntensityArray[p, 0, file.fraction] = peptide.GetIntensity(file);
+                        }
+
+                        foreach (var file in filesForThisBiorep)
+                        {
+                            myIntensityArray[p, 1, file.fraction] = peptide.GetIntensity(file);
                         }
                     }
 
-                    // run the normalization function (one biorep at a time, referenced to biorep 0)
-                    Parallel.For(1, numB, b =>
+                    // solve for normalization factors
+                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, 2, numF, b, condition);
+                    if (normFactors.All(p => p == 1.0) && !silent)
                     {
-                        var spectraFilesForThisBiorep = rawFilesForThisCondition.Where(p => p.biologicalReplicate == b);
+                        Console.WriteLine("Warning: Could not solve for optimal normalization factors for condition \"" + condition + "\" biorep " + (b + 1));
+                    }
 
-                        double[,,] intensityArrayForTheseTwoBioreps = new double[numP, 2, numF];
-                        for (int p = 0; p < numP; p++)
+                    // multiply each peak's isotope envelopes by its file's normalization factor
+                    foreach (var spectraFile in filesForThisBiorep)
+                    {
+                        foreach (var peak in results.peaks[spectraFile])
                         {
-                            for (int f = 0; f < numF; f++)
+                            foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
                             {
-                                intensityArrayForTheseTwoBioreps[p, 0, f] = myIntensityArray[p, 0, f];
-                                intensityArrayForTheseTwoBioreps[p, 1, f] = myIntensityArray[p, b, f];
-                            }
-                        }
-
-                        // solve the array to generate normalization factors
-                        var normFactors = OptimizeNormalizationFactorsWithSharplearning(intensityArrayForTheseTwoBioreps, numP, 2, numF);
-                        if (normFactors.All(p => p == 1.0) && !silent)
-                        {
-                            Console.WriteLine("Warning: Could not solve for optimal normalization factors for condition \"" + condition + "\" biorep " + b);
-                        }
-
-                        // multiply each peak's isotope envelopes by its file's normalization factor
-                        foreach (var biorepFile in spectraFilesForThisBiorep)
-                        {
-                            if (biorepFile.biologicalReplicate == 0)
-                            {
-                                // since we're only normalizing one biorep at a time to the reference biorep,
-                                // don't need to normalize for biorep 0, this is the reference biorep (what we're normalizing to)
-                                continue;
+                                isotopeEnvelope.Normalize(normFactors[spectraFile.fraction]);
                             }
 
-                            double normFactorForThisFraction = normFactors[0 * numF + biorepFile.fraction];
-
-                            foreach (var peak in results.peaks[biorepFile])
-                            {
-                                foreach (var isotopeEnvelope in peak.isotopeClusters)
-                                {
-                                    isotopeEnvelope.isotopeClusterIntensity *= normFactorForThisFraction;
-                                }
-
-                                // recalculate intensity after normalization
-                                peak.CalculateIntensityForThisFeature(integrate);
-                            }
+                            // recalculate intensity after normalization
+                            peak.CalculateIntensityForThisFeature(integrate);
                         }
-                    });
+                    }
                 }
-            });
+            }
         }
 
         private void NormalizeConditions()
         {
             var peptides = results.peptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.rawFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
+            var conditions = results.spectraFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
 
             // calculate intensities for the first condition (all other conditions are normalized to this condition)
-            var filesForConditionOne = results.rawFiles.Where(p => p.condition.Equals(conditions[0])).ToList();
+            var filesForConditionOne = results.spectraFiles.Where(p => p.condition.Equals(conditions[0])).ToList();
 
             double[] peptideIntensitiesForConditionOne = new double[peptides.Count];
             for (int p = 0; p < peptides.Count; p++)
@@ -262,15 +264,15 @@ namespace FlashLFQ
 
                 foreach (var file in filesForConditionOne)
                 {
-                    if (peptides[p].intensities[file] > 0)
+                    if (peptides[p].GetIntensity(file) > 0)
                     {
-                        biorepIntensities.Add(peptides[p].intensities[file]);
+                        biorepIntensities.Add(peptides[p].GetIntensity(file));
                     }
                 }
 
                 if (biorepIntensities.Any())
                 {
-                    peptideIntensitiesForConditionOne[p] = Statistics.Mean(biorepIntensities);
+                    peptideIntensitiesForConditionOne[p] = biorepIntensities.Average();
                 }
             }
 
@@ -278,7 +280,7 @@ namespace FlashLFQ
             for (int c = 1; c < conditions.Count; c++)
             {
                 // calculate intensities for this condition
-                var filesForThisCondition = results.rawFiles.Where(p => p.condition.Equals(conditions[c])).ToList();
+                var filesForThisCondition = results.spectraFiles.Where(p => p.condition.Equals(conditions[c])).ToList();
                 double[] peptideIntensitiesForThisCondition = new double[peptides.Count];
 
                 for (int p = 0; p < peptides.Count; p++)
@@ -287,12 +289,12 @@ namespace FlashLFQ
 
                     foreach (var file in filesForThisCondition)
                     {
-                        if (peptides[p].intensities[file] > 0)
-                            biorepIntensities.Add(peptides[p].intensities[file]);
+                        if (peptides[p].GetIntensity(file) > 0)
+                            biorepIntensities.Add(peptides[p].GetIntensity(file));
                     }
 
                     if (biorepIntensities.Any())
-                        peptideIntensitiesForThisCondition[p] = Statistics.Mean(biorepIntensities);
+                        peptideIntensitiesForThisCondition[p] = biorepIntensities.Average();
                 }
 
                 // calculate fold-changes between this condition and the first condition
@@ -314,9 +316,9 @@ namespace FlashLFQ
                 {
                     foreach (var peak in results.peaks[file])
                     {
-                        foreach (var isotopeEnvelope in peak.isotopeClusters)
+                        foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
                         {
-                            isotopeEnvelope.isotopeClusterIntensity *= conditionNormalizationFactor;
+                            isotopeEnvelope.Normalize(conditionNormalizationFactor);
                         }
 
                         // recalculate intensity after normalization
@@ -326,24 +328,30 @@ namespace FlashLFQ
             }
         }
 
-        private List<Peptide> SubsetData(List<Peptide> initialList, string condition)
+        private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
         {
-            HashSet<Peptide> subsetList = new HashSet<Peptide>();
-            List<int> bioreps = results.rawFiles.Where(p => p.condition.Equals(condition)).Select(p => p.biologicalReplicate).Distinct().ToList();
-            int maxFractionIndex = results.rawFiles.Where(p => p.condition.Equals(condition)).Max(p => p.fraction);
-
-            RawFileInfo[,] files = new RawFileInfo[bioreps.Count, maxFractionIndex + 1];
-            foreach (var file in results.rawFiles)
+            List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
+            var temp1 = spectraFiles.GroupBy(p => p.condition).ToList();
+            if (temp1.Count() == 1)
             {
-                if (file.condition.Equals(condition))
-                {
-                    files[file.biologicalReplicate, file.fraction] = file;
-                }
+                // normalizing bioreps within a condition
+                var temp2 = spectraFiles.GroupBy(p => p.biologicalReplicate).ToList();
+                bothBioreps[0] = temp2[0].ToList();
+                bothBioreps[1] = temp2[1].ToList();
+            }
+            else
+            {
+                // normalizing bioreps between conditions
+                bothBioreps[0] = temp1[0].ToList();
+                bothBioreps[1] = temp1[1].ToList();
             }
 
-            foreach (var biorep in bioreps)
+            HashSet<Peptide> subsetList = new HashSet<Peptide>();
+            int maxFractionIndex = bothBioreps.SelectMany(p => p).Max(v => v.fraction);
+
+            foreach (var biorep in bothBioreps)
             {
-                List<int> fractions = results.rawFiles.Where(p => p.biologicalReplicate.Equals(biorep)).Select(p => p.fraction).Distinct().ToList();
+                List<int> fractions = biorep.Select(p => p.fraction).Distinct().ToList();
 
                 int numToAddPerFraction = numPeptidesDesiredInMatrix / fractions.Count;
                 if (numToAddPerFraction < numPeptidesDesiredFromEachFraction)
@@ -354,10 +362,13 @@ namespace FlashLFQ
                 int[] peptidesAddedPerFraction = new int[fractions.Count];
                 Queue<Peptide>[] peptidesObservedInEachFraction = new Queue<Peptide>[fractions.Count];
 
-                foreach (var fraction in fractions)
+                foreach (var file in biorep)
                 {
-                    peptidesObservedInEachFraction[fraction] = new Queue<Peptide>(initialList.Where(p => p.intensities[files[biorep, fraction]] > 0)
-                        .OrderByDescending(p => p.intensities[files[biorep, fraction]]));
+                    if (peptidesObservedInEachFraction[file.fraction] == null)
+                    {
+                        peptidesObservedInEachFraction[file.fraction] = new Queue<Peptide>(initialList.Where(p => p.GetIntensity(file) > 0)
+                            .OrderByDescending(p => p.GetIntensity(file)));
+                    }
                 }
 
                 foreach (var fraction in fractions)
@@ -379,7 +390,7 @@ namespace FlashLFQ
             return subsetList.ToList();
         }
 
-        private static double[] OptimizeNormalizationFactorsWithSharplearning(double[,,] proteinIntensities, int numP, int numB, int numF)
+        private static double[] GetNormalizationFactors(double[,,] proteinIntensities, int numP, int numB, int numF, int bb, string cond)
         {
             double step = 0.01;
             object locker = new object();
@@ -419,17 +430,15 @@ namespace FlashLFQ
 
                 for (int p = 0; p < numP; p++)
                 {
-                    double b1Intensity = originalBiorepIntensities[p, 0];
-
                     for (int b2 = 1; b2 < numB; b2++)
                     {
-                        double b2Intensity = originalBiorepIntensities[p, b2];
-                        temp[0] = b1Intensity;
-                        temp[1] = b2Intensity;
+                        temp[0] = originalBiorepIntensities[p, 0];
+                        temp[1] = originalBiorepIntensities[p, b2];
 
                         // calculate initial error (error if all norm factors are 1)
-                        // add square error for this peptide/biorep
-                        bestError += Math.Pow(Statistics.StandardDeviation(temp) / temp.Average(), 2);
+                        // error metric is sum square error of coefficient of variation of each peptide
+                        double coefficientOfVariation = Statistics.StandardDeviation(temp) / temp.Average();
+                        bestError += Math.Pow(coefficientOfVariation, 2);
                     }
                 }
             }
@@ -472,16 +481,14 @@ namespace FlashLFQ
                     double candidateError = 0;
                     for (int p = 0; p < numP; p++)
                     {
-                        double b1Intensity = biorepIntensities[p, 0];
-
                         for (int b2 = 1; b2 < numB; b2++)
                         {
-                            double b2Intensity = biorepIntensities[p, b2];
-                            Array.Clear(temp, 0, temp.Length);
-                            temp[0] = b1Intensity;
-                            temp[1] = b2Intensity;
-                            double e = Math.Pow(Statistics.StandardDeviation(temp) / temp.Average(), 2);
-                            candidateError += e;
+                            temp[0] = biorepIntensities[p, 0];
+                            temp[1] = biorepIntensities[p, b2];
+
+                            // error metric is sum square error of coefficient of variation of each peptide
+                            double coefficientOfVariation = Statistics.StandardDeviation(temp) / temp.Average();
+                            candidateError += Math.Pow(coefficientOfVariation, 2);
                         }
                     }
 
@@ -489,7 +496,12 @@ namespace FlashLFQ
                 };
 
                 // create optimizer
-                var result = new NelderMeadWithStartPoints(parameterArray, 8, 0.0001, 5, 0, 0, 1, 2, -0.5, 0.5, startPosition).OptimizeBest(minimize);
+                OptimizerResult result = new NelderMeadWithStartPoints(
+                    parameters: parameterArray,
+                    startingValue: startPosition,
+                    maxIterationsWithoutImprovement: 10
+                ).OptimizeBest(minimize);
+
                 double error = result.Error;
                 double[] normFactors = result.ParameterSet;
 
@@ -505,7 +517,7 @@ namespace FlashLFQ
                     }
                 }
             });
-
+            
             return bestNormFactors;
         }
 

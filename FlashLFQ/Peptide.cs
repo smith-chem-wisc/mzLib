@@ -11,8 +11,8 @@ namespace FlashLFQ
         #region Public Fields
 
         public readonly string Sequence;
-        public Dictionary<RawFileInfo, double> intensities;
-        public Dictionary<RawFileInfo, DetectionType> detectionTypes;
+        private Dictionary<SpectraFileInfo, double> intensities;
+        private Dictionary<SpectraFileInfo, DetectionType> detectionTypes;
         public HashSet<ProteinGroup> proteinGroups;
 
         #endregion Public Fields
@@ -22,8 +22,8 @@ namespace FlashLFQ
         public Peptide(string sequence)
         {
             this.Sequence = sequence;
-            intensities = new Dictionary<RawFileInfo, double>();
-            detectionTypes = new Dictionary<RawFileInfo, DetectionType>();
+            intensities = new Dictionary<SpectraFileInfo, double>();
+            detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             proteinGroups = new HashSet<ProteinGroup>();
         }
 
@@ -31,7 +31,7 @@ namespace FlashLFQ
 
         #region Public Properties
 
-        public static string TabSeparatedHeader(List<RawFileInfo> rawFiles)
+        public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
         {
             var sb = new StringBuilder();
             sb.Append("Sequence" + "\t");
@@ -49,7 +49,39 @@ namespace FlashLFQ
 
         #region Public Methods
 
-        public string ToString(List<RawFileInfo> rawFiles)
+        public double GetIntensity(SpectraFileInfo fileInfo)
+        {
+            if (intensities.TryGetValue(fileInfo, out double intensity))
+                return intensity;
+            else
+                return 0;
+        }
+
+        public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
+        {
+            if (intensities.ContainsKey(fileInfo))
+                intensities[fileInfo] = intensity;
+            else
+                intensities.Add(fileInfo, intensity);
+        }
+
+        public DetectionType GetDetectionType(SpectraFileInfo fileInfo)
+        {
+            if (detectionTypes.TryGetValue(fileInfo, out DetectionType detectionType))
+                return detectionType;
+            else
+                return DetectionType.NotDetected;
+        }
+
+        public void SetDetectionType(SpectraFileInfo fileInfo, DetectionType detectionType)
+        {
+            if (detectionTypes.ContainsKey(fileInfo))
+                detectionTypes[fileInfo] = detectionType;
+            else
+                detectionTypes.Add(fileInfo, detectionType);
+        }
+
+        public string ToString(List<SpectraFileInfo> rawFiles)
         {
             StringBuilder str = new StringBuilder();
             str.Append(Sequence + "\t");
@@ -59,17 +91,11 @@ namespace FlashLFQ
 
             foreach (var file in rawFiles)
             {
-                if (intensities.TryGetValue(file, out double intensity))
-                    str.Append(intensity + "\t");
-                else
-                    str.Append(0 + "\t");
+                str.Append(GetIntensity(file) + "\t");
             }
             foreach (var file in rawFiles)
             {
-                if (detectionTypes.TryGetValue(file, out var detectionType))
-                    str.Append(detectionType + "\t");
-                else
-                    str.Append(DetectionType.NotDetected + "\t");
+                str.Append(GetDetectionType(file) + "\t");
             }
 
             return str.ToString();
