@@ -51,7 +51,7 @@ namespace FlashLFQ
         private int binsPerDalton = 100;
 
         // these two fields will be overwritten as each file is analyzed
-        private IMsDataScan<IMzSpectrum<IMzPeak>>[] ms1Scans;
+        private MsDataScan[] ms1Scans;
         private List<IndexedMassSpectralPeak>[] indexedPeaks;
 
         #endregion Private Fields
@@ -134,7 +134,7 @@ namespace FlashLFQ
                 }
 
                 // some memory-saving stuff
-                ms1Scans = new IMsDataScan<IMzSpectrum<IMzPeak>>[0];
+                ms1Scans = new MsDataScan[0];
                 GC.Collect();
             }
 
@@ -443,7 +443,7 @@ namespace FlashLFQ
                 Console.WriteLine("Reading spectra file");
             }
 
-            ms1Scans = new IMsDataScan<IMzSpectrum<IMzPeak>>[0];
+            ms1Scans = new MsDataScan[0];
 
             if(indexedPeaks != null)
             {
@@ -462,7 +462,7 @@ namespace FlashLFQ
             {
                 try
                 {
-                    ms1Scans = Mzml.LoadAllStaticData(fileInfo.fullFilePathWithExtension).Select(v => v as IMsDataScan<IMzSpectrum<IMzPeak>>).OrderBy(p => p.OneBasedScanNumber).ToArray();
+                    ms1Scans = Mzml.LoadAllStaticData(fileInfo.fullFilePathWithExtension).GetAllScansList().OrderBy(p => p.OneBasedScanNumber).ToArray();
                 }
                 catch (FileNotFoundException)
                 {
@@ -494,7 +494,7 @@ namespace FlashLFQ
 #if NETFRAMEWORK
                 using (var thermoDynamicConnection = IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.fullFilePathWithExtension))
                 {
-                    var tempList = new List<IMsDataScan<IMzSpectrum<IMzPeak>>>();
+                    var tempList = new List<MsDataScan>();
 
                     try
                     {
@@ -504,7 +504,7 @@ namespace FlashLFQ
                         {
                             if (msOrders[i] == 1)
                             {
-                                tempList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1) as IMsDataScan<IMzSpectrum<IMzPeak>>);
+                                tempList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1));
                             }
                             else
                             {
