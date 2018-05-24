@@ -46,7 +46,7 @@
 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib\net471" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib\net471" /> 
-    <file src="x64\Release\UnmanagedThermoHelperLayer.dll" target="lib\net471" /> 
-    <file src="mzLib.targets" target="lib\net471" />
+    <file src="x64\Release\UnmanagedThermoHelperLayer.dll" target="build\net471" /> 
+    <file src="mzLib.targets" target="build\net471" />
   </files>
 </package>

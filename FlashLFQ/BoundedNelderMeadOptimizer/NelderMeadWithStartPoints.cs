@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using SharpLearning.Containers.Arithmetic;
 using SharpLearning.Optimization;
 using SharpLearning.Optimization.ParameterSamplers;
@@ -156,7 +155,9 @@ namespace FlashLFQ.BoundedNelderMeadOptimizer
 
                     iterations++;
 
-                    if (best.Error < (prevBest.Error - m_noImprovementThreshold))
+                    double percentImprovement = -((best.Error - prevBest.Error) / prevBest.Error);
+
+                    if (percentImprovement > m_noImprovementThreshold)
                     {
                         iterationsWithoutImprovement = 0;
                         prevBest = best;
