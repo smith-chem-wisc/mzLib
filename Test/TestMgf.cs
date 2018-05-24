@@ -21,7 +21,7 @@ namespace Test
             {
                 //woohoo, there was an exception!
             }
-            Mgf a = Mgf.LoadAllStaticData(Path.Combine(Directory.GetCurrentDirectory(),"Test","tester.mgf"));
+            Mgf a = Mgf.LoadAllStaticData(Path.Combine(Directory.GetCurrentDirectory(), "Test", "tester.mgf"));
             var ya = a.GetOneBasedScan(1);
             Assert.AreEqual(192, ya.MassSpectrum.Size);
             Assert.AreEqual(2, ya.MsnOrder);
