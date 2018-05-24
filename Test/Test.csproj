@@ -128,6 +128,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="tester.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="tester.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
