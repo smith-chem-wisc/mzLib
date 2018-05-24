@@ -33,17 +33,13 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IThermoScan.cs" />
+    <Compile Include="ThermoDataFile.cs" />
     <Compile Include="ThermoDynamicData.cs" />
-    <Compile Include="ThermoFile.cs" />
     <Compile Include="ThermoGlobalParams.cs" />
     <Compile Include="ThermoStaticData.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SonarQubeExclude>true</SonarQubeExclude>
     </Compile>
-    <Compile Include="ThermoScanWithPrecursor.cs" />
-    <Compile Include="ThermoScan.cs" />
-    <Compile Include="ThermoSpectrum.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">

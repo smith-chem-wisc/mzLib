@@ -102,7 +102,7 @@ namespace IO.MzML
 
         #region Public Methods
 
-        public static void CreateAndWriteMyMzmlWithCalibratedSpectra(IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile, string outputFile, bool writeIndexed)
+        public static void CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed)
         {
             string title = Path.GetFileNameWithoutExtension(outputFile);
             string idTitle = char.IsNumber(title[0]) ?
@@ -222,8 +222,7 @@ namespace IO.MzML
                 name = "custom unreleased software tool",
                 cvRef = "MS"
             };
-
-            List<MZAnalyzerType> analyzersInThisFile = (new HashSet<MZAnalyzerType>(myMsDataFile.Select(b => b.MzAnalyzer))).ToList();
+            List<MZAnalyzerType> analyzersInThisFile = (new HashSet<MZAnalyzerType>(myMsDataFile.GetAllScansList().Select(b => b.MzAnalyzer))).ToList();
             Dictionary<MZAnalyzerType, string> analyzersInThisFileDict = new Dictionary<MZAnalyzerType, string>();
 
             // Leaving empty. Can't figure out the configurations.
@@ -386,7 +385,7 @@ namespace IO.MzML
             //Chromatofram X axis (time)
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType
             {
-                binary = MzSpectrum<MzPeak>.Get64Bitarray(times)
+                binary = MzSpectrum.Get64Bitarray(times)
             };
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[0].encodedLength =
@@ -424,7 +423,7 @@ namespace IO.MzML
             //Chromatogram Y axis (total intensity)
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1] = new Generated.BinaryDataArrayType
             {
-                binary = MzSpectrum<MzPeak>.Get64Bitarray(intensities)
+                binary = MzSpectrum.Get64Bitarray(intensities)
             };
 
             mzML.run.chromatogramList.chromatogram[0].binaryDataArrayList.binaryDataArray[1].encodedLength =
@@ -495,9 +494,9 @@ namespace IO.MzML
                         value = ""
                     };
                 }
-                else if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>)
+                else if (myMsDataFile.GetOneBasedScan(i).MsnOrder != 1)
                 {
-                    var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+                    var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i);
                     mzML.run.spectrumList.spectrum[i - 1].cvParam[0] = new Generated.CVParamType
                     {
                         accession = "MS:1000580",
@@ -536,7 +535,7 @@ namespace IO.MzML
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].selectedIonList.selectedIon[0].cvParam[0] = new Generated.CVParamType
                     {
                         name = "selected ion m/z",
-                        value = scanWithPrecursor.SelectedIonMZ.ToString(CultureInfo.InvariantCulture),
+                        value = scanWithPrecursor.SelectedIonMZ.Value.ToString(CultureInfo.InvariantCulture),
                         accession = "MS:1000744",
                         cvRef = "MS",
                         unitCvRef = "MS",
@@ -611,7 +610,7 @@ namespace IO.MzML
                     };
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0] = new Generated.CVParamType();
 
-                    DissociationType dissociationType = scanWithPrecursor.DissociationType;
+                    DissociationType dissociationType = scanWithPrecursor.DissociationType.Value;
 
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].accession = DissociationTypeAccessions[dissociationType];
                     mzML.run.spectrumList.spectrum[i - 1].precursorList.precursor[0].activation.cvParam[0].name = DissociationTypeNames[dissociationType];
@@ -770,9 +769,9 @@ namespace IO.MzML
                         unitCvRef = "UO"
                     };
                 }
-                if (myMsDataFile.GetOneBasedScan(i) is IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>)
+                if (myMsDataFile.GetOneBasedScan(i).MsnOrder != 1)
                 {
-                    var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i) as IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>;
+                    var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i);
                     if (scanWithPrecursor.SelectedIonMonoisotopicGuessMz.HasValue)
                     {
                         mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].userParam = new Generated.UserParamType[1];

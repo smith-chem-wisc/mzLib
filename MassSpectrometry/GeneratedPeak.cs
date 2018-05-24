@@ -28,11 +28,11 @@ namespace MassSpectrometry
         {
             mzs.Add(anotherMz);
             intensities.Add(anotherIntensity);
-            Y = intensities.Sum();
+            Intensity = intensities.Sum();
             double weightedSumMz = 0;
             for (int i = 0; i < mzs.Count; i++)
                 weightedSumMz += mzs[i] * intensities[i];
-            X = weightedSumMz / Y;
+            Mz = weightedSumMz / Intensity;
         }
 
         #endregion Internal Methods
