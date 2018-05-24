@@ -1,13 +1,10 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
 using System;
-using System.Collections.Concurrent;
+using Chemistry;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
-using System.Security.Cryptography;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Linq;
 
 namespace IO.Mgf
 {
@@ -46,7 +43,7 @@ namespace IO.Mgf
                         List<double> mzs = new List<double>();
                         List<double> intensities = new List<double>();
                         double precursorMass = 0;
-                        int charge = 0;
+                        int charge = 2;
                         int scanNumber = 0;
                         int oldScanNumber = 0;
                         double rtInMinutes = 0;
@@ -57,10 +54,12 @@ namespace IO.Mgf
                             {
                                 readingPeaks = false;
                                 MzSpectrum spectrum = new MzSpectrum(mzs.ToArray(), intensities.ToArray(), false);
-                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count-1]), null, MZAnalyzerType.Unknown, 0, null, null, null));
+                                double mz = precursorMass.ToMz(charge);
+                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count-1]), null, MZAnalyzerType.Unknown, intensities.Sum(), 0, null, null, mz, charge, null, mz, null, DissociationType.Unknown, null, mz ));
                                 mzs = new List<double>();
                                 intensities = new List<double>();
                                 oldScanNumber = scanNumber;
+                                charge = 2; //default when unknown
 
                                 //skip the next two lines which are "" and "BEGIN IONS"
                                 while ((s = sr.ReadLine()) != null && !s.Equals("BEGIN IONS"))
