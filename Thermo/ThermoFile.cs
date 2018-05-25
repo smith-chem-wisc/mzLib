@@ -280,7 +280,7 @@ namespace IO.Thermo
                 int oneBasedPrecursorScanNumber = -1;
                 if (precursorInfo.nScanNumber > 0)
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
-                else if (masterScanfromTrailierExtra.HasValue)
+                else if (masterScanfromTrailierExtra.HasValue && masterScanfromTrailierExtra > 0)
                     oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
                 else
                 {
