@@ -38,8 +38,7 @@ namespace IO.Thermo
         private static readonly Regex mFindParentIonOnlyMsx = new Regex(@"[Mm][Ss]\d* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*[^\[\r\n]*(\[[^\]\r\n]+\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         #endregion Private Fields
-
-
+        
         #region Private Constructors
 
         private ThermoStaticData(MsDataScan[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
@@ -287,7 +286,7 @@ namespace IO.Thermo
                 {
                     oneBasedPrecursorScanNumber = precursorInfo.nScanNumber;
                 }
-                else if (masterScanfromTrailierExtra.HasValue)
+                else if (masterScanfromTrailierExtra.HasValue && masterScanfromTrailierExtra > 0)
                 {
                     oneBasedPrecursorScanNumber = masterScanfromTrailierExtra.Value;
                 }
