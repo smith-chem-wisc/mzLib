@@ -44,6 +44,7 @@
   <ItemGroup>
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="TestCZE.cs" />
+    <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseLoaderTests.cs" />
     <Compile Include="ElementsAndIsotopesTests.cs" />
@@ -77,6 +78,10 @@
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Mgf\Mgf.csproj">
+      <Project>{d8bcae00-e826-4771-a423-8b47d8d86ef4}</Project>
+      <Name>Mgf</Name>
     </ProjectReference>
     <ProjectReference Include="..\mzIdentML\mzIdentML.csproj">
       <Project>{63d869df-55d8-4043-ad89-f90462403ebb}</Project>
@@ -123,6 +128,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="tester.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="tester.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
