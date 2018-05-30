@@ -10,10 +10,22 @@ namespace IO.Mgf
 {
     public class Mgf : MsDataFile
     {
+
+        #region Private Fields
+
+        MsDataScan[] indexedScans;
+
+        #endregion Private Fields
+
         #region Private Constructors
 
         private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
+            indexedScans = new MsDataScan[scans[scans.Length - 1].OneBasedScanNumber];
+            foreach (MsDataScan scan in scans)
+            {
+                indexedScans[scan.OneBasedScanNumber - 1] = scan;
+            }
         }
 
         #endregion Private Constructors
@@ -126,6 +138,11 @@ namespace IO.Mgf
             SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);          
 
             return new Mgf(scans.ToArray(), sourceFile);
+        }
+
+        public override MsDataScan GetOneBasedScan(int scanNumber)
+        {
+            return indexedScans[scanNumber - 1];
         }
 
         #endregion Public Methods
