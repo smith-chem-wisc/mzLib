@@ -28,10 +28,10 @@ namespace Test
             Assert.AreEqual(14, ya.OneBasedScanNumber);
             Assert.AreEqual(MassSpectrometry.Polarity.Positive, ya.Polarity);
             Assert.AreEqual(0.26666666666666666, ya.RetentionTime);
-            Assert.AreEqual(286.910734466879, ya.IsolationMz);
-            Assert.AreEqual(286.910734466879, ya.SelectedIonMZ);
+            Assert.AreEqual(571.806916, ya.IsolationMz);
+            Assert.AreEqual(571.806916, ya.SelectedIonMZ);
             Assert.AreEqual(2, ya.SelectedIonChargeStateGuess);
-            Assert.AreEqual(286.910734466879, ya.SelectedIonMonoisotopicGuessMz);
+            Assert.AreEqual(571.806916, ya.SelectedIonMonoisotopicGuessMz);
             Assert.AreEqual(1294963.5999999996, ya.TotalIonCurrent);
             Assert.AreEqual(110.0719, ya.ScanWindowRange.Minimum);
             Assert.AreEqual(1038.8018, ya.ScanWindowRange.Maximum);

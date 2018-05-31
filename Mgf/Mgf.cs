@@ -13,7 +13,7 @@ namespace IO.Mgf
 
         #region Private Fields
 
-        MsDataScan[] indexedScans;
+        private MsDataScan[] indexedScans;
 
         #endregion Private Fields
 
@@ -54,7 +54,7 @@ namespace IO.Mgf
                         bool readingPeaks = false;
                         List<double> mzs = new List<double>();
                         List<double> intensities = new List<double>();
-                        double precursorMass = 0;
+                        double precursorMz = 0;
                         int charge = 2;
                         int scanNumber = 0;
                         int oldScanNumber = 0;
@@ -66,8 +66,7 @@ namespace IO.Mgf
                             {
                                 readingPeaks = false;
                                 MzSpectrum spectrum = new MzSpectrum(mzs.ToArray(), intensities.ToArray(), false);
-                                double mz = precursorMass.ToMz(charge);
-                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count-1]), null, MZAnalyzerType.Unknown, intensities.Sum(), 0, null, null, mz, charge, null, mz, null, DissociationType.Unknown, null, mz ));
+                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count-1]), null, MZAnalyzerType.Unknown, intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null, DissociationType.Unknown, null, precursorMz ));
                                 mzs = new List<double>();
                                 intensities = new List<double>();
                                 oldScanNumber = scanNumber;
@@ -108,7 +107,7 @@ namespace IO.Mgf
                                         {
                                             case "PEPMASS":
                                                 sArray = sArray[1].Split(' ');
-                                                precursorMass = Convert.ToDouble(sArray[sArray.Length - 1]);
+                                                precursorMz = Convert.ToDouble(sArray[0]);
                                                 break;
                                             case "CHARGE":
                                                 string entry = sArray[1];
