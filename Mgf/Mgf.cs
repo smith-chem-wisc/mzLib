@@ -13,7 +13,7 @@ namespace IO.Mgf
 
         #region Private Fields
 
-        MsDataScan[] indexedScans;
+        private MsDataScan[] indexedScans;
 
         #endregion Private Fields
 
