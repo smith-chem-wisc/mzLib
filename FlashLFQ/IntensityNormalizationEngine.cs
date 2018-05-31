@@ -137,6 +137,10 @@ namespace FlashLFQ
                                             peak.CalculateIntensityForThisFeature(integrate);
                                         }
                                     }
+                                    else
+                                    {
+                                        peptides[p].SetIntensity(technicalRep, avgIntensity);
+                                    }
                                 }
                             }
                         }
