@@ -10,6 +10,7 @@ namespace IO.Mgf
 {
     public class Mgf : MsDataFile
     {
+
         #region Private Fields
 
         MsDataScan[] indexedScans;
