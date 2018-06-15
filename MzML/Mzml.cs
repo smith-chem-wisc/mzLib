@@ -196,13 +196,14 @@ namespace IO.MzML
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             MsDataScan[] scans = new MsDataScan[numSpecta];
 
-            Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
+            //Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
+            //{
+            //for (int i = fff.Item1; i < fff.Item2; i++)
+            for (int i = 0; i < numSpecta; i++)
             {
-                for (int i = fff.Item1; i < fff.Item2; i++)
-                {
-                    scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
-                }
-            });
+                scans[i] = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i + 1, filterParams);
+            }
+            //});
 
             return new Mzml(scans, sourceFile);
         }
@@ -454,10 +455,29 @@ namespace IO.MzML
                     }
                 }
             }
-            int? precursorScanNumber;
+            int? precursorScanNumber = null;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
             {
-                precursorScanNumber = null;
+                // precursorScanNumber = null;
+                //make reference pervious ms1 scan
+                // we weren't able to get the precursor scan number, so we'll have to guess;
+                // loop back to find precursor scan 
+                // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
+                // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
+                int scanOrder = msOrder.Value;
+                int precursorScanOrder = scanOrder - 1;
+
+                for (int i = oneBasedSpectrumNumber - 1; i >= 0; i--)
+                {
+                    var previousScan = GetMsDataOneBasedScanFromConnection(_mzMLConnection, i, filterParams);
+                    int msOrderPreviousScan = previousScan.MsnOrder;
+
+                    if (precursorScanOrder == msOrderPreviousScan)
+                    {
+                        precursorScanNumber = i;
+                        break;
+                    }
+                }
             }
             else
             {
