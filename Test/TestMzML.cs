@@ -586,7 +586,7 @@ namespace Test
         [Test]
         public void LoadMzmlTest()
         {
-            Assert.Throws<AggregateException>(() =>
+            Assert.Throws<MzLibException>(() =>
             {
                 Mzml.LoadAllStaticData(@"tiny.pwiz.1.1.mzML");
             }, "Reading profile mode mzmls not supported");
@@ -1292,6 +1292,65 @@ namespace Test
             Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
+        [Test]
+        public void MzmlFindPrecursorReferenceScan()
+        {
+            //some ms2 scans dont have properly assigned precursor scans
+            //this unit test is intended to test the fallback option in MzML\Mzml.cs @ lines 459-47
+            //constructs three ms1 scans and three ms2 scans
+            //if ms2 scan precusor reference is null, assumes most recent ms1 scan is correct reference
+
+            MsDataScan[] scans = new MsDataScan[6];
+            MsDataScan[] scans1 = new MsDataScan[4];
+
+            double[] intensities0 = new double[] { 1 };
+            double[] mz0 = new double[] { 50 };
+            MzSpectrum massSpec0 = new MzSpectrum(mz0, intensities0, false);
+            scans[0] = new MsDataScan(massSpec0, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec0.SumOfAllY, null, null, "1");
+            scans1[0] = scans[0];
+
+            double[] intensities1 = new double[] { 1 };
+            double[] mz1 = new double[] { 50 };
+            MzSpectrum massSpec1 = new MzSpectrum(mz1, intensities1, false);
+            scans[1] = new MsDataScan(massSpec0, 2, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1");
+
+            double[] intensities2 = new double[] { 1 };
+            double[] mz2 = new double[] { 50 };
+            MzSpectrum massSpec2 = new MzSpectrum(mz2, intensities2, false);
+            scans[2] = new MsDataScan(massSpec2, 3, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec2.SumOfAllY, null, null, "1");
+
+            //ms2
+            double[] intensities3 = new double[] { 1 };
+            double[] mz3 = new double[] { 30 };
+            MzSpectrum massSpec3 = new MzSpectrum(mz3, intensities3, false);
+            scans[3] = new MsDataScan(massSpec3, 4, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec3.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 3, null);
+            scans1[1] = new MsDataScan(massSpec3, 2, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec3.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 1, null);
+
+            //ms2
+            double[] intensities4 = new double[] { 1 };
+            double[] mz4 = new double[] { 30 };
+            MzSpectrum massSpec4 = new MzSpectrum(mz4, intensities4, false);
+            scans[4] = new MsDataScan(massSpec4, 5, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec4.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 3, null);
+            scans1[2] = new MsDataScan(massSpec4, 3, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec4.SumOfAllY, null, null, "2", 50, null, null, 50, 1, DissociationType.CID, 1, null);
+
+            //ms2
+            double[] intensities5 = new double[] { 1 };
+            double[] mz5 = new double[] { 30 };
+            MzSpectrum massSpec5 = new MzSpectrum(mz5, intensities5, false);
+            scans[5] = new MsDataScan(massSpec5, 6, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec5.SumOfAllY, null, null, "4", 50, null, null, 50, 1, DissociationType.CID, null, null);
+            scans1[3] = new MsDataScan(massSpec5, 4, 2, true, Polarity.Positive, 2, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, massSpec5.SumOfAllY, null, null, "4", 50, null, null, 50, 1, DissociationType.CID, null, null);
+
+            FakeMsDataFile fakeFile = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(fakeFile, Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"), false);
+            Mzml fakeMzml = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what.mzML"));
+
+            FakeMsDataFile fakeFile1 = new FakeMsDataFile(scans1);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(fakeFile1, Path.Combine(TestContext.CurrentContext.TestDirectory, "what1.mzML"), false);
+            Mzml fakeMzml1 = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "what1.mzML"));
+
+            Assert.AreEqual(3, fakeMzml.GetAllScansList().ElementAt(5).OneBasedPrecursorScanNumber);
+            Assert.AreEqual(1, fakeMzml1.GetAllScansList().ElementAt(3).OneBasedPrecursorScanNumber);
+        }
         #endregion Public Methods
 
         #region Private Methods
