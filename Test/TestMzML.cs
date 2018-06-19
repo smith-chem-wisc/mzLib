@@ -1351,7 +1351,7 @@ namespace Test
             Assert.AreEqual(3, fakeMzml.GetAllScansList().ElementAt(5).OneBasedPrecursorScanNumber);
             Assert.AreEqual(1, fakeMzml1.GetAllScansList().ElementAt(3).OneBasedPrecursorScanNumber);
         }
-            #endregion Public Methods
+        #endregion Public Methods
 
             #region Private Methods
 
