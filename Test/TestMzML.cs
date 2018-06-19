@@ -1353,9 +1353,9 @@ namespace Test
         }
         #endregion Public Methods
 
-        #region Private Methods
+            #region Private Methods
 
-        private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+            private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
             List<double> allIntensities = new List<double>();

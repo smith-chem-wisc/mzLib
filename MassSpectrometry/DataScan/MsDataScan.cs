@@ -80,7 +80,7 @@ namespace MassSpectrometry
         public double? SelectedIonMZ { get; private set; } // May be adjusted by calibration
         public DissociationType? DissociationType { get; }
         public double? IsolationWidth { get; }
-        public int? OneBasedPrecursorScanNumber { get; }
+        public int? OneBasedPrecursorScanNumber { get; private set; }
         public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
         public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
 
@@ -195,6 +195,11 @@ namespace MassSpectrometry
             var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
             SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak.Value];
             SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak.Value];
+        }
+
+        public void setOneBasedPrecursorScanNumber(int value)
+        {
+            this.OneBasedPrecursorScanNumber = value;
         }
 
         #endregion Public Methods
