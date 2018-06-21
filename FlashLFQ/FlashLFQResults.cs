@@ -182,38 +182,56 @@ namespace FlashLFQ
 
         public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string baseSeqPeptideOutputPath, string proteinOutputPath)
         {
-            List<string> output;
-
             if (peaksOutputPath != null)
             {
-                output = new List<string> { ChromatographicPeak.TabSeparatedHeader };
-                foreach (var peak in peaks.SelectMany(p => p.Value))
-                    output.Add(peak.ToString());
-                File.WriteAllLines(peaksOutputPath, output);
+                using (StreamWriter output = new StreamWriter(peaksOutputPath))
+                {
+                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var peak in peaks.SelectMany(p => p.Value))
+                    {
+                        output.WriteLine(peak.ToString());
+                    }
+                }
             }
 
             if (modPeptideOutputPath != null)
             {
-                output = new List<string>() { Peptide.TabSeparatedHeader(spectraFiles) };
-                foreach (var pep in peptideModifiedSequences.OrderBy(p => p.Key))
-                    output.Add(pep.Value.ToString(spectraFiles));
-                File.WriteAllLines(modPeptideOutputPath, output);
+                using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
+                {
+                    output.WriteLine(Peptide.TabSeparatedHeader(spectraFiles));
+
+                    foreach (var peptide in peptideModifiedSequences.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(peptide.Value.ToString(spectraFiles));
+                    }
+                }
             }
 
             if (baseSeqPeptideOutputPath != null)
             {
-                output = new List<string>() { Peptide.TabSeparatedHeader(spectraFiles) };
-                foreach (var pep in peptideBaseSequences.OrderBy(p => p.Key))
-                    output.Add(pep.Value.ToString(spectraFiles));
-                File.WriteAllLines(baseSeqPeptideOutputPath, output);
+                using (StreamWriter output = new StreamWriter(baseSeqPeptideOutputPath))
+                {
+                    output.WriteLine(Peptide.TabSeparatedHeader(spectraFiles));
+
+                    foreach (var peptide in peptideBaseSequences.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(peptide.Value.ToString(spectraFiles));
+                    }
+                }
             }
 
-            if(proteinOutputPath != null)
+            if (proteinOutputPath != null)
             {
-                output = new List<string>() { ProteinGroup.TabSeparatedHeader(spectraFiles) };
-                foreach (var protein in proteinGroups.OrderBy(p => p.Key))
-                    output.Add(protein.Value.ToString(spectraFiles));
-                File.WriteAllLines(proteinOutputPath, output);
+                using (StreamWriter output = new StreamWriter(proteinOutputPath))
+                {
+                    output.WriteLine(ProteinGroup.TabSeparatedHeader(spectraFiles));
+
+                    foreach (var protein in proteinGroups.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(protein.Value.ToString(spectraFiles));
+                    }
+                }
             }
         }
 

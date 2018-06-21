@@ -29,30 +29,33 @@ namespace FlashLFQ
 
         #region Public Methods
 
+        /// <summary>
+        /// Runs the normalization functions.
+        /// </summary>
         public void NormalizeResults()
         {
             results.CalculatePeptideResults(false);
-            
+
             // run normalization functions, recalculating intensity between each function
+            if (!silent)
+            {
+                Console.WriteLine("Normalizing fractions");
+            }
+            NormalizeFractions();
+            results.CalculatePeptideResults(false);
+
+            if (!silent)
+            {
+                Console.WriteLine("Normalizing bioreps and conditions");
+            }
+            NormalizeBioreps();
+            results.CalculatePeptideResults(false);
+
             if (!silent)
             {
                 Console.WriteLine("Normalizing techreps");
             }
             NormalizeTechreps();
-            results.CalculatePeptideResults(false);
-
-            if (!silent)
-            {
-                Console.WriteLine("Normalizing bioreps and fractions");
-            }
-            NormalizeBiorepsAndFractions();
-            results.CalculatePeptideResults(false);
-
-            if (!silent)
-            {
-                Console.WriteLine("Normalizing conditions");
-            }
-            NormalizeConditions();
             results.CalculatePeptideResults(false);
         }
 
@@ -60,88 +63,62 @@ namespace FlashLFQ
 
         #region Private Methods
 
+        /// <summary>
+        /// This method normalizes peptide intensities so that the median fold-change between technical replicates
+        /// is zero. The median is used instead of the average because it is more robust to outliers (i.e., if there are
+        /// many changing peptides, the median will perform better than using the average).
+        /// </summary>
         private void NormalizeTechreps()
         {
-            List<double> nonZeroIntensities = new List<double>();
-
             var peptides = results.peptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.spectraFiles.GroupBy(p => p.condition);
+            var conditions = results.spectraFiles.GroupBy(v => v.condition);
 
             foreach (var condition in conditions)
             {
-                var bioreps = condition.GroupBy(p => p.biologicalReplicate);
+                var bioreps = condition.GroupBy(v => v.biologicalReplicate);
 
                 foreach (var biorep in bioreps)
                 {
-                    var fractions = biorep.GroupBy(p => p.fraction);
+                    var fractions = biorep.GroupBy(v => v.fraction);
 
                     foreach (var fraction in fractions)
                     {
-                        int numReplicates = fraction.Max(p => p.technicalReplicate);
-                        var seqsToPeaksPerFile = new Dictionary<string, List<ChromatographicPeak>>[numReplicates + 1];
+                        var techreps = fraction.ToList();
 
-                        for (int i = 0; i < seqsToPeaksPerFile.Length; i++)
+                        for (int t = 1; t < techreps.Count; t++)
                         {
-                            var rep = fraction.Where(p => p.technicalReplicate == i).FirstOrDefault();
+                            List<double> foldChanges = new List<double>();
 
-                            if (rep != null)
+                            for (int p = 0; p < peptides.Count; p++)
                             {
-                                seqsToPeaksPerFile[i] = new Dictionary<string, List<ChromatographicPeak>>();
+                                double techrep1Intensity = peptides[p].GetIntensity(techreps[0]);
+                                double techrepTIntensity = peptides[p].GetIntensity(techreps[t]);
 
-                                foreach (var peak in results.peaks[rep])
+                                if (techrep1Intensity > 0 && techrepTIntensity > 0)
                                 {
-                                    if (seqsToPeaksPerFile[i].TryGetValue(peak.identifications.First().ModifiedSequence, out var list))
-                                    {
-                                        list.Add(peak);
-                                    }
-                                    else
-                                    {
-                                        seqsToPeaksPerFile[i].Add(peak.identifications.First().ModifiedSequence, new List<ChromatographicPeak> { peak });
-                                    }
+                                    foldChanges.Add(techrepTIntensity / techrep1Intensity);
                                 }
                             }
-                        }
 
-                        for (int p = 0; p < peptides.Count; p++)
-                        {
-                            double avgIntensity = 0;
-                            nonZeroIntensities.Clear();
-
-                            foreach (var technicalRep in fraction)
+                            if (!foldChanges.Any())
                             {
-                                if (peptides[p].GetIntensity(technicalRep) > 0)
-                                {
-                                    nonZeroIntensities.Add(peptides[p].GetIntensity(technicalRep));
-                                }
+                                // TODO: throw an exception?
+                                return;
                             }
-                            if (nonZeroIntensities.Any())
+
+                            double medianFoldChange = foldChanges.Median();
+                            double normalizationFactor = 1.0 / medianFoldChange;
+
+                            // normalize to median fold-change
+                            foreach (var peak in results.peaks[techreps[t]])
                             {
-                                avgIntensity = nonZeroIntensities.Average();
-
-                                foreach (var technicalRep in fraction)
+                                foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
                                 {
-                                    double normFactorForThisTechRepAndPeptide = avgIntensity / peptides[p].GetIntensity(technicalRep);
-
-                                    if (seqsToPeaksPerFile[technicalRep.technicalReplicate].TryGetValue(peptides[p].Sequence, out var peaksForPepAndTechrep))
-                                    {
-                                        //TODO: set intensity to 0 if very different between technical reps
-
-                                        foreach (var peak in peaksForPepAndTechrep)
-                                        {
-                                            foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
-                                            {
-                                                isotopeEnvelope.Normalize(normFactorForThisTechRepAndPeptide);
-                                            }
-
-                                            // recalculate intensity after normalization
-                                            peak.CalculateIntensityForThisFeature(integrate);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        peptides[p].SetIntensity(technicalRep, avgIntensity);
-                                    }
+                                    isotopeEnvelope.Normalize(normalizationFactor);
                                 }
+
+                                // recalculate intensity after normalization
+                                peak.CalculateIntensityForThisFeature(integrate);
                             }
                         }
                     }
@@ -149,11 +126,21 @@ namespace FlashLFQ
             }
         }
 
-        private void NormalizeBiorepsAndFractions()
+        /// <summary>
+        /// This method uses a bounded Nelder-Mead optimization algorithm to find linear normalization factors
+        /// so that coefficient of variation of peptide intensity between two biological replicates will be minimized.
+        /// Calls "GetNormalizationFactors" to calculate the normalization factors.
+        /// </summary>
+        private void NormalizeFractions()
         {
+            if (results.spectraFiles.Max(p => p.fraction) == 0)
+            {
+                return;
+            }
+
             var peptides = results.peptideModifiedSequences.Select(v => v.Value).ToList();
             var conditions = results.spectraFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
-            var filesForCond1Biorep1 = results.spectraFiles.Where(p => p.condition == conditions[0] && p.biologicalReplicate == 0).ToList();
+            var filesForCond1Biorep1 = results.spectraFiles.Where(p => p.condition == conditions[0] && p.biologicalReplicate == 0 && p.technicalReplicate == 0).ToList();
 
             foreach (var condition in conditions)
             {
@@ -173,7 +160,7 @@ namespace FlashLFQ
                         Console.WriteLine("Normalizing condition \"" + condition + "\" biorep " + (b + 1));
                     }
 
-                    var filesForThisBiorep = filesForThisCondition.Where(p => p.biologicalReplicate == b);
+                    var filesForThisBiorep = filesForThisCondition.Where(p => p.biologicalReplicate == b && p.technicalReplicate == 0);
 
                     int numF = Math.Max(filesForCond1Biorep1.Max(p => p.fraction), filesForThisBiorep.Max(p => p.fraction)) + 1;
 
@@ -229,7 +216,7 @@ namespace FlashLFQ
                     }
 
                     // solve for normalization factors
-                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, 2, numF, b, condition);
+                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, 2, numF);
                     if (normFactors.All(p => p == 1.0) && !silent)
                     {
                         Console.WriteLine("Warning: Could not solve for optimal normalization factors for condition \"" + condition + "\" biorep " + (b + 1));
@@ -253,85 +240,93 @@ namespace FlashLFQ
             }
         }
 
-        private void NormalizeConditions()
+        /// <summary>
+        /// This method normalizes peptide intensities so that the median fold-change between any two biological replicates
+        /// (regardless of condition) is ~zero. The median is used instead of the average because it is more robust to outliers.
+        /// The assumption in this method is that the median fold-change between bioreps of different conditions
+        /// is zero (i.e., that most peptides do not change in abundance between conditions).
+        /// </summary>
+        private void NormalizeBioreps()
         {
             var peptides = results.peptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.spectraFiles.Select(p => p.condition).Distinct().OrderBy(p => p).ToList();
+            var conditions = results.spectraFiles.GroupBy(v => v.condition).ToList();
 
-            // calculate intensities for the first condition (all other conditions are normalized to this condition)
-            var filesForConditionOne = results.spectraFiles.Where(p => p.condition.Equals(conditions[0])).ToList();
+            double[,] biorepIntensityPair = new double[peptides.Count, 2];
 
-            double[] peptideIntensitiesForConditionOne = new double[peptides.Count];
-            for (int p = 0; p < peptides.Count; p++)
+            var firstConditionFirstBiorep = conditions.First().Where(v => v.biologicalReplicate == 0 && v.technicalReplicate == 0);
+
+            foreach(var file in firstConditionFirstBiorep)
             {
-                List<double> biorepIntensities = new List<double>();
-
-                foreach (var file in filesForConditionOne)
+                for (int p = 0; p < peptides.Count; p++)
                 {
-                    if (peptides[p].GetIntensity(file) > 0)
-                    {
-                        biorepIntensities.Add(peptides[p].GetIntensity(file));
-                    }
-                }
-
-                if (biorepIntensities.Any())
-                {
-                    peptideIntensitiesForConditionOne[p] = biorepIntensities.Average();
+                    biorepIntensityPair[p, 0] += peptides[p].GetIntensity(file);
                 }
             }
 
-            // calculate intensities for other conditions and normalize to the first condition
-            for (int c = 1; c < conditions.Count; c++)
+            foreach (var condition in conditions)
             {
-                // calculate intensities for this condition
-                var filesForThisCondition = results.spectraFiles.Where(p => p.condition.Equals(conditions[c])).ToList();
-                double[] peptideIntensitiesForThisCondition = new double[peptides.Count];
+                var bioreps = condition.GroupBy(v => v.biologicalReplicate);
 
-                for (int p = 0; p < peptides.Count; p++)
+                foreach (var biorep in bioreps)
                 {
-                    List<double> biorepIntensities = new List<double>();
-
-                    foreach (var file in filesForThisCondition)
+                    for (int p = 0; p < peptides.Count; p++)
                     {
-                        if (peptides[p].GetIntensity(file) > 0)
-                            biorepIntensities.Add(peptides[p].GetIntensity(file));
+                        biorepIntensityPair[p, 1] = 0;
                     }
 
-                    if (biorepIntensities.Any())
-                        peptideIntensitiesForThisCondition[p] = biorepIntensities.Average();
-                }
+                    var fractions = biorep.GroupBy(v => v.fraction);
 
-                // calculate fold-changes between this condition and the first condition
-                List<double> logFoldChanges = new List<double>();
-                for (int p = 0; p < peptides.Count; p++)
-                {
-                    if (peptideIntensitiesForConditionOne[p] > 0 && peptideIntensitiesForThisCondition[p] > 0)
+                    foreach (var fraction in fractions)
                     {
-                        logFoldChanges.Add(Math.Log(peptideIntensitiesForThisCondition[p], 2) - Math.Log(peptideIntensitiesForConditionOne[p], 2));
-                    }
-                }
+                        var firstTechrep = fraction.Where(v => v.technicalReplicate == 0).First();
 
-                double medianLogFoldChangeBetweenConditions = Statistics.Median(logFoldChanges);
-                double unloggedMedianLogFoldChange = Math.Pow(2, medianLogFoldChangeBetweenConditions);
-                double conditionNormalizationFactor = 1.0 / unloggedMedianLogFoldChange;
-
-                // normalize to median fold-change
-                foreach (var file in filesForThisCondition)
-                {
-                    foreach (var peak in results.peaks[file])
-                    {
-                        foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
+                        for (int p = 0; p < peptides.Count; p++)
                         {
-                            isotopeEnvelope.Normalize(conditionNormalizationFactor);
+                            biorepIntensityPair[p, 1] += peptides[p].GetIntensity(firstTechrep);
                         }
+                    }
 
-                        // recalculate intensity after normalization
-                        peak.CalculateIntensityForThisFeature(integrate);
+                    List<double> foldChanges = new List<double>();
+
+                    for (int p = 0; p < peptides.Count; p++)
+                    {
+                        if (biorepIntensityPair[p, 0] > 0 && biorepIntensityPair[p, 1] > 0)
+                        {
+                            foldChanges.Add(biorepIntensityPair[p, 1] / biorepIntensityPair[p, 0]);
+                        }
+                    }
+
+                    if (!foldChanges.Any())
+                    {
+                        // TODO: throw an exception?
+                        return;
+                    }
+
+                    double medianFoldChange = foldChanges.Median();
+                    double normalizationFactor = 1.0 / medianFoldChange;
+
+                    // normalize to median fold-change
+                    foreach (var file in biorep)
+                    {
+                        foreach (var peak in results.peaks[file])
+                        {
+                            foreach (var isotopeEnvelope in peak.isotopicEnvelopes)
+                            {
+                                isotopeEnvelope.Normalize(normalizationFactor);
+                            }
+
+                            // recalculate intensity after normalization
+                            peak.CalculateIntensityForThisFeature(integrate);
+                        }
                     }
                 }
             }
         }
 
+        /// <summary>
+        /// This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
+        /// excessive computation time in normalization functions.
+        /// </summary>
         private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
         {
             List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
@@ -394,7 +389,11 @@ namespace FlashLFQ
             return subsetList.ToList();
         }
 
-        private static double[] GetNormalizationFactors(double[,,] proteinIntensities, int numP, int numB, int numF, int bb, string cond)
+        /// <summary>
+        /// Calculates normalization factors for fractionated data using a bounded Nelder-Mead optimization algorithm.
+        /// Called by NormalizeFractions().
+        /// </summary>
+        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numB, int numF)
         {
             double step = 0.01;
             object locker = new object();
@@ -427,7 +426,7 @@ namespace FlashLFQ
                     {
                         for (int f = 0; f < numF; f++)
                         {
-                            originalBiorepIntensities[p, b] += proteinIntensities[p, b, f];
+                            originalBiorepIntensities[p, b] += peptideIntensities[p, b, f];
                         }
                     }
                 }
@@ -471,11 +470,11 @@ namespace FlashLFQ
                             {
                                 if (b == 0)
                                 {
-                                    biorepIntensities[p, b] += proteinIntensities[p, b, f];
+                                    biorepIntensities[p, b] += peptideIntensities[p, b, f];
                                 }
                                 else
                                 {
-                                    biorepIntensities[p, b] += proteinIntensities[p, b, f] * v[f];
+                                    biorepIntensities[p, b] += peptideIntensities[p, b, f] * v[f];
                                 }
                             }
                         }
@@ -521,7 +520,7 @@ namespace FlashLFQ
                     }
                 }
             });
-            
+
             return bestNormFactors;
         }
 
