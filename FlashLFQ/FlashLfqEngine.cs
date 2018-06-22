@@ -115,6 +115,12 @@ namespace FlashLFQ
                 // fill lookup-table with peaks from the raw file
                 IndexMassSpectralPeaks(spectraFile);
 
+                if(indexedPeaks.Length == 0)
+                {
+                    // no MS1 peaks found
+                    return results;
+                }
+
                 // quantify features using this file's IDs first
                 QuantifyMS2IdentifiedPeptides(spectraFile);
 
@@ -147,8 +153,14 @@ namespace FlashLFQ
             // normalize
             if (normalize)
             {
-                new IntensityNormalizationEngine(results, integrate, silent).NormalizeResults();
-                
+                try
+                {
+                    new IntensityNormalizationEngine(results, integrate, silent).NormalizeResults();
+                }
+                catch (Exception e)
+                {
+                    throw new MzLibException("A crash occured in FlashLFQ during the intensity normalization process:\n" + e.Message);
+                }
                 //new StatisticalAnalysisEngine(results, 0.05, 0.1).PerformStatisticalAnalysis();
             }
 
@@ -159,13 +171,17 @@ namespace FlashLFQ
 
             // done
             if (!silent)
+            {
                 Console.WriteLine("All done");
+            }
 
             if (!silent)
+            {
                 Console.WriteLine("Analysis time: " +
                     globalStopwatch.Elapsed.Hours + "h " +
                     globalStopwatch.Elapsed.Minutes + "m " +
                     globalStopwatch.Elapsed.Seconds + "s");
+            }
 
             return results;
         }
@@ -556,7 +572,13 @@ namespace FlashLFQ
                 Console.WriteLine("Indexing MS1 peaks");
             }
 
-            indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(ms1Scans.Where(p => p != null).Max(p => p.MassSpectrum.LastX.Value) * binsPerDalton) + 1];
+            if (!ms1Scans.Where(p => p != null).Any())
+            {
+                indexedPeaks = new List<IndexedMassSpectralPeak>[0];
+                return;
+            }
+
+            indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(ms1Scans.Where(p => p != null && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * binsPerDalton) + 1];
 
             for (int i = 0; i < ms1Scans.Length; i++)
             {
@@ -760,6 +782,17 @@ namespace FlashLFQ
 
         private void RunErrorChecking(SpectraFileInfo rawFile)
         {
+            // remove all MBR features with intensities lower than the least-intense MS/MS-identified peak in this file
+            // this is to remove MBR peaks that matched to noise
+            double minMsmsIdentifiedPeakIntensity = results.peaks[rawFile].Min(v => v.intensity);
+            foreach(var peak in results.peaks[rawFile])
+            {
+                if (peak.isMbrFeature && peak.intensity < minMsmsIdentifiedPeakIntensity)
+                {
+                    peak.isotopicEnvelopes = new List<IsotopicEnvelope>();
+                }
+            }
+
             results.peaks[rawFile].RemoveAll(p => p.isMbrFeature && !p.isotopicEnvelopes.Any());
 
             if (!silent)

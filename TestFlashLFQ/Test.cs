@@ -111,7 +111,7 @@ namespace Test
             Assert.That(int5 == int6);
 
             Assert.That(int1 == int3);
-            //Assert.That(int1 == int5);
+            Assert.That(int1 == int5);
         }
 
         #endregion Public Methods
