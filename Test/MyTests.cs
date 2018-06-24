@@ -1,13 +1,11 @@
 ﻿using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 
 namespace Test
 {
     [TestFixture]
     public sealed class MyTests
     {
-        #region Public Methods
-
         [Test]
         public void ModificationCollectionTest()
         {
@@ -20,7 +18,5 @@ namespace Test
             ModificationCollection c = new ModificationCollection(mod1);
             Assert.IsFalse(c.Equals(b));
         }
-
-        #endregion Public Methods
     }
 }

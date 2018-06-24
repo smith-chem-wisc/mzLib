@@ -4,7 +4,7 @@ using MassSpectrometry;
 using MzIdentML;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;

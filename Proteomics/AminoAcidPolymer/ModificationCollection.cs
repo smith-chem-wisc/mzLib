@@ -24,7 +24,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     public class ModificationCollection : ICollection<IHasMass>, IEquatable<ModificationCollection>, IHasChemicalFormula
     {

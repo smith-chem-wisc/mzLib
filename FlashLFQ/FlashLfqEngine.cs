@@ -405,7 +405,7 @@ namespace FlashLFQ
 
                 var isotopicMassesAndNormalizedAbundances = new List<KeyValuePair<double, double>>();
 
-                Proteomics.Peptide p = new Proteomics.Peptide(id.BaseSequence);
+                Proteomics.AminoAcidPolymer.Peptide p = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
                 int numCarbonsInThisPeptide = p.ElementCountWithIsotopes("C");
 
                 var isotopicDistribution = IsotopicDistribution.GetDistribution(p.GetChemicalFormula(), 0.125, 1e-8);

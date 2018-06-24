@@ -18,36 +18,36 @@
 
 using Chemistry;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     public class OldSchoolChemicalFormulaModification : OldSchoolModification, IHasChemicalFormula
     {
         #region Public Constructors
 
         public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula)
-                    : this(chemicalFormula, ModificationSites.Any)
+            : this(chemicalFormula, ModificationSites.Any)
         {
         }
 
         public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula, ModificationSites sites)
-                    : this(chemicalFormula, "", sites)
+            : this(chemicalFormula, "", sites)
         {
             Name = ThisChemicalFormula.Formula;
         }
 
         public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula, string name)
-                    : this(chemicalFormula, name, ModificationSites.Any)
+            : this(chemicalFormula, name, ModificationSites.Any)
         {
         }
 
         public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula, string name, ModificationSites sites)
-                    : base(chemicalFormula.MonoisotopicMass, name, sites)
+            : base(chemicalFormula.MonoisotopicMass, name, sites)
         {
             ThisChemicalFormula = chemicalFormula;
         }
 
         public OldSchoolChemicalFormulaModification(OldSchoolChemicalFormulaModification other)
-                    : this(ChemicalFormula.ParseFormula(other.ThisChemicalFormula.Formula), other.Name, other.Sites)
+            : this(ChemicalFormula.ParseFormula(other.ThisChemicalFormula.Formula), other.Name, other.Sites)
         {
         }
 

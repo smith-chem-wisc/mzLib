@@ -18,7 +18,7 @@
 
 using System.Collections.Generic;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     /// <summary>
     /// A proteolyic enzyme that cuts amino acids at specific residues.

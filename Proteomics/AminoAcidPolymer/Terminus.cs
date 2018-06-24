@@ -18,7 +18,7 @@
 
 using System;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     /// <summary>
     /// The terminus of an amino acid polymer N-[Amino Acids]-C

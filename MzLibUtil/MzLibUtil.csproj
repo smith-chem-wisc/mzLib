@@ -4,12 +4,21 @@
     <TargetFrameworks>netstandard2.0;net471</TargetFrameworks>
   </PropertyGroup>
 
-    <PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
-      <DefineConstants>ONLYNETSTANDARD</DefineConstants>
-    </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net471'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)'=='net471'">
-      <Reference Include="System.Management" />
-    </ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
+    <DefineConstants>ONLYNETSTANDARD</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net471|AnyCPU'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)'=='net471'">
+    <Reference Include="System.Management" />
+  </ItemGroup>
 
 </Project>

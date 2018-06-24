@@ -17,7 +17,7 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 
 namespace Test
 {

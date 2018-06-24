@@ -25,7 +25,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     /// <summary>
     /// A linear polymer of amino acids

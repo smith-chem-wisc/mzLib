@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,9 +7,10 @@ namespace Proteomics
 {
     public class Protein
     {
-        #region Public Constructors
-
-        public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> gene_names = null, IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null, string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
+        public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> gene_names = null,
+            IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
+            string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, 
+            List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -28,10 +30,6 @@ namespace Proteomics
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; }
 
@@ -72,10 +70,6 @@ namespace Proteomics
 
         public bool IsContaminant { get; }
 
-        #endregion Public Properties
-
-        #region Public Indexers
-
         public char this[int zeroBasedIndex]
         {
             get
@@ -83,10 +77,6 @@ namespace Proteomics
                 return BaseSequence[zeroBasedIndex];
             }
         }
-
-        #endregion Public Indexers
-
-        #region Public Methods
 
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
@@ -109,6 +99,19 @@ namespace Proteomics
             return String.Format("{0} {1}", Accession, FullName);
         }
 
-        #endregion Public Methods
+        /// <summary>
+        /// Gets peptides for digestion of a protein
+        /// </summary>
+        /// <param name="protein"></param>
+        /// <param name="digestionParams"></param>
+        /// <param name="allKnownFixedModifications"></param>
+        /// <param name="variableModifications"></param>
+        /// <returns></returns>
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<ModificationWithMass> allKnownFixedModifications,
+            List<ModificationWithMass> variableModifications)
+        {
+            ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
+            return digestionParams.SemiProteaseDigestion ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);
+        }
     }
 }

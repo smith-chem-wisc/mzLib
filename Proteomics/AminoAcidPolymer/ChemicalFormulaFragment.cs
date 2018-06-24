@@ -1,6 +1,7 @@
-﻿// Copyright 2016 Stefan Solntsev
+﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Modified work copyright 2016 Stefan Solntsev
 //
-// This file (ChemicalFormulaTerminus.cs) is part of Proteomics.
+// This file (ChemicalFormulaFragment.cs) is part of Proteomics.
 //
 // Proteomics is free software: you can redistribute it and/or modify it
 // under the terms of the GNU Lesser General Public License as published
@@ -17,33 +18,23 @@
 
 using Chemistry;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
-    public class ChemicalFormulaTerminus : IHasChemicalFormula
+    public class ChemicalFormulaFragment : Fragment, IHasChemicalFormula
     {
         #region Public Constructors
 
-        public ChemicalFormulaTerminus(ChemicalFormula chemicalFormula)
+        public ChemicalFormulaFragment(FragmentTypes type, int number, ChemicalFormula formula, AminoAcidPolymer parent)
+            : base(type, number, formula.MonoisotopicMass, parent)
         {
-            ThisChemicalFormula = chemicalFormula;
+            ThisChemicalFormula = ChemicalFormula.ParseFormula(formula.Formula);
         }
 
         #endregion Public Constructors
 
         #region Public Properties
 
-        public double MonoisotopicMass
-        {
-            get
-            {
-                return ThisChemicalFormula.MonoisotopicMass;
-            }
-        }
-
-        public ChemicalFormula ThisChemicalFormula
-        {
-            get; private set;
-        }
+        public ChemicalFormula ThisChemicalFormula { get; private set; }
 
         #endregion Public Properties
     }

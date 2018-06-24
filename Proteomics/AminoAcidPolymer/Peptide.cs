@@ -19,7 +19,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     public class Peptide : AminoAcidPolymer
     {

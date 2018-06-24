@@ -21,7 +21,7 @@ using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections;
 using System.Collections.Generic;

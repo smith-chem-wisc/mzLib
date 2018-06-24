@@ -20,7 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Proteomics
+namespace Proteomics.AminoAcidPolymer
 {
     public static class AminoAcidPolymerExtensions
     {
