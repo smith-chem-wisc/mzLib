@@ -29,8 +29,6 @@ namespace Test
     [TestFixture]
     public static class TestProteinReader
     {
-        #region Public Methods
-
         [Test]
         public static void Compare_protein_properties()
         {
@@ -503,7 +501,5 @@ CF   O1
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MVRRRNAQGIGKGAGRKLRRSGGVGRGSKLLYKEGRKVHKKFLEDVIRGATTPTIHRKAKRVGAKDIVGAIKEQTRGLLGVGLGNFIYDTVGYRELAYRVTMT", prots[1].BaseSequence);
         }
-
-        #endregion Public Methods
     }
 }

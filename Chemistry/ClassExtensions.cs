@@ -22,7 +22,6 @@ namespace Chemistry
 {
     public static class ClassExtensions
     {
-        #region Public Methods
 
         /// <summary>
         /// Calculates m/z value for a given mass assuming charge comes from losing or gaining protons
@@ -48,6 +47,5 @@ namespace Chemistry
             return Math.Abs(charge) * massToChargeRatio - charge * Constants.protonMass;
         }
 
-        #endregion Public Methods
     }
 }

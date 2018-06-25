@@ -27,7 +27,6 @@ namespace Chemistry
     /// </summary>
     public static class Constants
     {
-        #region Public Fields
 
         /// <summary>
         /// The mass of the subatomic particle with a single elementary charge in atomic
@@ -40,9 +39,7 @@ namespace Chemistry
         /// </summary>
         public const double electronMass = 5.48579909070e-4;
 
-        #endregion Public Fields
 
-        #region Internal Fields
 
         /// <summary>
         /// The largest number of elements to consider
@@ -57,7 +54,5 @@ namespace Chemistry
         internal const int CarbonAtomicNumber = 6;
 
         internal const int HydrogenAtomicNumber = 1;
-
-        #endregion Internal Fields
     }
 }

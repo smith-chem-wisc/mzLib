@@ -32,8 +32,6 @@ namespace Proteomics.AminoAcidPolymer
     /// </summary>
     public abstract class AminoAcidPolymer : IEquatable<AminoAcidPolymer>, IHasMass
     {
-        #region Private Fields
-
         /// <summary>
         /// The C-terminus chemical formula cap. This is different from the C-Terminus modification.
         /// </summary>
@@ -54,10 +52,6 @@ namespace Proteomics.AminoAcidPolymer
         /// All of the amino acid residues indexed by position from N to C.
         /// </summary>
         private Residue[] residues;
-
-        #endregion Private Fields
-
-        #region Protected Constructors
 
         protected AminoAcidPolymer()
             : this(string.Empty, new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("H")), new ChemicalFormulaTerminus(ChemicalFormula.ParseFormula("OH")))
@@ -138,10 +132,6 @@ namespace Proteomics.AminoAcidPolymer
             }
         }
 
-        #endregion Protected Constructors
-
-        #region Public Properties
-
         public ReadOnlyCollection<IHasMass> Modifications
         {
             get
@@ -218,10 +208,6 @@ namespace Proteomics.AminoAcidPolymer
             get { return GetModification(0); }
             set { ReplaceMod(0, value); }
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         /// <summary>
         /// Returns all fragments that are present in either fragmentation of A or B, but not in both
@@ -1049,10 +1035,6 @@ namespace Proteomics.AminoAcidPolymer
             return true;
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private void ReplaceTerminus(ref IHasChemicalFormula terminus, IHasChemicalFormula value)
         {
             if (terminus != null)
@@ -1189,31 +1171,19 @@ namespace Proteomics.AminoAcidPolymer
             MonoisotopicMass += monoMass;
             Array.Resize(ref residues, Length);
             if (_modifications != null)
+            {
                 Array.Resize(ref _modifications, Length + 2);
+            }
         }
-
-        #endregion Private Methods
-
-        #region Private Classes
 
         private class ModWithOnlyMass : IHasMass
         {
-            #region Private Fields
-
             private readonly double mass;
-
-            #endregion Private Fields
-
-            #region Public Constructors
 
             public ModWithOnlyMass(double mass)
             {
                 this.mass = mass;
             }
-
-            #endregion Public Constructors
-
-            #region Public Properties
 
             public double MonoisotopicMass
             {
@@ -1223,18 +1193,10 @@ namespace Proteomics.AminoAcidPolymer
                 }
             }
 
-            #endregion Public Properties
-
-            #region Public Methods
-
             public override string ToString()
             {
                 return mass.ToString(CultureInfo.InvariantCulture);
             }
-
-            #endregion Public Methods
         }
-
-        #endregion Private Classes
     }
 }

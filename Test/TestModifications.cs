@@ -32,8 +32,6 @@ namespace Test
     [TestFixture]
     public sealed class TestModifications
     {
-        #region Public Methods
-
         [Test]
         public static void Test_modificationsHashCode()
         {
@@ -220,7 +218,5 @@ namespace Test
             Assert.AreEqual(1, mods.Count);
             Assert.True(m1.Equals(m2));
         }
-
-        #endregion Public Methods
     }
 }

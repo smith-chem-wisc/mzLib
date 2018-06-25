@@ -12,14 +12,8 @@ namespace IO.MzML
 {
     public static class MzmlMethods
     {
-        #region Internal Fields
-
         internal static readonly XmlSerializer indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
         internal static readonly XmlSerializer mzmlSerializer = new XmlSerializer(typeof(Generated.mzMLType));
-
-        #endregion Internal Fields
-
-        #region Private Fields
 
         private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = new Dictionary<DissociationType, string>
         {
@@ -97,10 +91,6 @@ namespace IO.MzML
             {Polarity.Negative, "negative scan"},
             {Polarity.Positive, "positive scan"}
         };
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         public static void CreateAndWriteMyMzmlWithCalibratedSpectra(MsDataFile myMsDataFile, string outputFile, bool writeIndexed)
         {
@@ -1131,7 +1121,5 @@ namespace IO.MzML
                 writer.Close();
             }
         }
-
-        #endregion Public Methods
     }
 }

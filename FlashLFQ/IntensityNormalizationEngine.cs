@@ -16,18 +16,12 @@ namespace FlashLFQ
         private readonly bool integrate;
         private readonly bool silent;
 
-        #region Public Constructors
-
         public IntensityNormalizationEngine(FlashLFQResults results, bool integrate, bool silent)
         {
             this.results = results;
             this.integrate = integrate;
             this.silent = silent;
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         /// <summary>
         /// Runs the normalization functions.
@@ -58,10 +52,6 @@ namespace FlashLFQ
             NormalizeTechreps();
             results.CalculatePeptideResults(false);
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         /// <summary>
         /// This method normalizes peptide intensities so that the median fold-change between technical replicates
@@ -255,7 +245,7 @@ namespace FlashLFQ
 
             var firstConditionFirstBiorep = conditions.First().Where(v => v.biologicalReplicate == 0 && v.technicalReplicate == 0);
 
-            foreach(var file in firstConditionFirstBiorep)
+            foreach (var file in firstConditionFirstBiorep)
             {
                 for (int p = 0; p < peptides.Count; p++)
                 {
@@ -523,7 +513,5 @@ namespace FlashLFQ
 
             return bestNormFactors;
         }
-
-        #endregion Private Methods
     }
 }

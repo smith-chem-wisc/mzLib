@@ -96,7 +96,5 @@ namespace UsefulProteomicsDatabases
                 } while (line.Contains("Atomic Number"));
             }
         }
-
-        #endregion Public Methods
     }
 }

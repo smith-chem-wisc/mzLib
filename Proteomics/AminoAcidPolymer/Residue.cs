@@ -23,20 +23,10 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class Residue : IHasChemicalFormula
     {
-        #region Public Fields
-
         public static readonly double[] ResidueMonoisotopicMass;
-
-        #endregion Public Fields
-
-        #region Private Fields
 
         private static readonly Dictionary<string, Residue> ResiduesDictionary;
         private static readonly Residue[] ResiduesByLetter;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         static Residue()
         {
@@ -141,10 +131,6 @@ namespace Proteomics.AminoAcidPolymer
         };
         }
 
-        #endregion Public Constructors
-
-        #region Internal Constructors
-
         internal Residue(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, ChemicalFormula chemicalFormula, ModificationSites site)
         {
             Name = name;
@@ -155,25 +141,12 @@ namespace Proteomics.AminoAcidPolymer
             Site = site;
         }
 
-        #endregion Internal Constructors
-
-        #region Public Properties
-
         public ChemicalFormula ThisChemicalFormula { get; private set; }
-
         public char Letter { get; private set; }
-
         public ModificationSites Site { get; private set; }
-
         public double MonoisotopicMass { get; private set; }
-
         public string Name { get; private set; }
-
         public string Symbol { get; private set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         /// <summary>
         /// Get the residue based on the residues's symbol
@@ -205,7 +178,5 @@ namespace Proteomics.AminoAcidPolymer
         {
             return ResiduesDictionary.TryGetValue(name, out residue);
         }
-
-        #endregion Public Methods
     }
 }

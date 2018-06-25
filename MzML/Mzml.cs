@@ -84,17 +84,9 @@ namespace IO.MzML
                     { "MS:1000044",DissociationType.Unknown}
                 };
 
-        #endregion Private Fields
-
-        #region Private Constructors
-
         private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
-
-        #endregion Private Constructors
-
-        #region Public Methods
 
         public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
@@ -206,16 +198,16 @@ namespace IO.MzML
 
             //make reference pervious ms1 scan
             // we weren't able to get the precursor scan number, so we'll have to guess;
-            // loop back to find precursor scan 
+            // loop back to find precursor scan
             // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
             // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
-            for (int i=0; i<scans.Length; i++)
+            for (int i = 0; i < scans.Length; i++)
             {
-                if (scans[i].MsnOrder>1 && scans[i].OneBasedPrecursorScanNumber == null)
+                if (scans[i].MsnOrder > 1 && scans[i].OneBasedPrecursorScanNumber == null)
                 {
-                    for(int j=i; j>=0; j--)
+                    for (int j = i; j >= 0; j--)
                     {
-                        if (scans[i].MsnOrder-scans[j].MsnOrder == 1)
+                        if (scans[i].MsnOrder - scans[j].MsnOrder == 1)
                         {
                             scans[i].setOneBasedPrecursorScanNumber(scans[j].OneBasedScanNumber);
                             break;
@@ -226,10 +218,6 @@ namespace IO.MzML
 
             return new Mzml(scans, sourceFile);
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         private static MsDataScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, IFilteringParams filterParams)
         {
@@ -565,7 +553,5 @@ namespace IO.MzML
             } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
             return oneBasedSpectrumNumber;
         }
-
-        #endregion Private Methods
     }
 }

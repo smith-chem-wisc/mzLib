@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Proteomics.ProteolyticDigestion
 {
-    public static class ProductTypeMethod
+    public static class ProductTypeMethods
     {
         public static TerminusType IdentifyTerminusType(List<ProductType> lp)
         {

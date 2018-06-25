@@ -20,35 +20,24 @@ using MassSpectrometry;
 using MSFileReaderLib;
 using MzLibUtil;
 using System;
-using System.IO;
-using System.Security.Cryptography;
-using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace IO.Thermo
 {
     public class ThermoStaticData : ThermoDataFile
     {
-        #region Private Fields
-
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
         private static readonly Regex mFindParentIonOnlyNonMsx = new Regex(@"[Mm][Ss]\d*[^\[\r\n]* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*(\[[^\]\r\n]\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex mFindParentIonOnlyMsx = new Regex(@"[Mm][Ss]\d* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*[^\[\r\n]*(\[[^\]\r\n]+\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        #endregion Private Fields
-        
-        #region Private Constructors
 
         private ThermoStaticData(MsDataScan[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
         {
             this.ThermoGlobalParams = thermoGlobalParams;
         }
-
-        #endregion Private Constructors
-
-        #region Private Enums
 
         private enum ThermoMzAnalyzer
         {
@@ -60,10 +49,6 @@ namespace IO.Thermo
             FTMS = 4,
             Sector = 5
         }
-
-        #endregion Private Enums
-
-        #region Public Methods
 
         public static ThermoStaticData LoadAllStaticData(string filePath, IFilteringParams filterParams = null)
         {
@@ -293,7 +278,7 @@ namespace IO.Thermo
                 else
                 {
                     // we weren't able to get the precursor scan number, so we'll have to guess;
-                    // loop back to find precursor scan 
+                    // loop back to find precursor scan
                     // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
                     // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
                     int scanOrder = globalParams.msOrderByScan[nScanNumber - 1];
@@ -441,7 +426,5 @@ namespace IO.Thermo
             }
             return true;
         }
-
-        #endregion Public Methods
     }
 }

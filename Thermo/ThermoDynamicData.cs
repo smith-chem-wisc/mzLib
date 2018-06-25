@@ -9,14 +9,8 @@ namespace IO.Thermo
 {
     public class ThermoDynamicData : ThermoDataFile, IDisposable
     {
-        #region Private Fields
-
         private readonly IXRawfile5 _rawConnection;
         private readonly IFilteringParams filterParams;
-
-        #endregion Private Fields
-
-        #region Private Constructors
 
         private ThermoDynamicData(IXRawfile5 _rawConnection, IFilteringParams filterParams, int numSpectra, SourceFile sourceFile, ThermoGlobalParams thermoGlobalParams) : base(numSpectra, sourceFile)
         {
@@ -24,10 +18,6 @@ namespace IO.Thermo
             this.filterParams = filterParams;
             ThermoGlobalParams = thermoGlobalParams;
         }
-
-        #endregion Private Constructors
-
-        #region Public Methods
 
         public static ThermoDynamicData InitiateDynamicConnection(string filePath, IFilteringParams filterParams = null)
         {
@@ -106,10 +96,6 @@ namespace IO.Thermo
             GC.SuppressFinalize(this);
         }
 
-        #endregion Public Methods
-
-        #region Protected Methods
-
         protected virtual void Dispose(bool disposing)
         {
             if (disposing)
@@ -120,7 +106,5 @@ namespace IO.Thermo
                 }
             }
         }
-
-        #endregion Protected Methods
     }
 }

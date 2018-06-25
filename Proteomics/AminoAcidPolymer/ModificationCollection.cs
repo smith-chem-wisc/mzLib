@@ -28,23 +28,13 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class ModificationCollection : ICollection<IHasMass>, IEquatable<ModificationCollection>, IHasChemicalFormula
     {
-        #region Private Fields
-
         private readonly List<IHasMass> _modifications;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public ModificationCollection(params IHasMass[] mods)
         {
             _modifications = mods.ToList();
             MonoisotopicMass = _modifications.Sum(m => m.MonoisotopicMass);
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public double MonoisotopicMass { get; private set; }
 
@@ -68,10 +58,6 @@ namespace Proteomics.AminoAcidPolymer
                 return chemicalFormula;
             }
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -132,7 +118,5 @@ namespace Proteomics.AminoAcidPolymer
         {
             return _modifications.GetEnumerator();
         }
-
-        #endregion Public Methods
     }
 }

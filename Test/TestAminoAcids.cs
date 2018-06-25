@@ -24,8 +24,6 @@ namespace Test
     [TestFixture]
     public sealed class TestAminoAcids
     {
-        #region Public Methods
-
         [Test]
         public void GetResidueByCharacter()
         {
@@ -62,7 +60,5 @@ namespace Test
         {
             Assert.AreEqual(Residue.ResidueMonoisotopicMass['A'], Residue.GetResidue('A').MonoisotopicMass, 1e-9);
         }
-
-        #endregion Public Methods
     }
 }

@@ -8,21 +8,11 @@ namespace Proteomics
 {
     public class ModificationWithMass : ModificationWithLocation
     {
-        #region Public Fields
-
         public readonly double monoisotopicMass;
         public readonly List<double> diagnosticIons;
         public readonly List<double> neutralLosses;
 
-        #endregion Public Fields
-
-        #region Protected Fields
-
         protected const double tolForEquality = 1e-9;
-
-        #endregion Protected Fields
-
-        #region Public Constructors
 
         public ModificationWithMass(string id, string modificationType, ModificationMotif motif, TerminusLocalization terminusLocalization, double monoisotopicMass, IDictionary<string, IList<string>> externalDatabaseReferences = null, List<string> keywords = null, List<double> neutralLosses = null, List<double> diagnosticIons = null)
             : base(id, modificationType, motif, terminusLocalization, externalDatabaseReferences, keywords)
@@ -36,10 +26,6 @@ namespace Proteomics
             this.neutralLosses = this.neutralLosses.OrderBy(b => b).ToList();
             this.diagnosticIons = this.diagnosticIons.OrderBy(b => b).ToList();
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -72,10 +58,6 @@ namespace Proteomics
             return base.GetHashCode() ^ diagnosticIons.Count ^ diagnosticIons.Count;
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private bool ApproxSequenceEqual(List<double> a, List<double> b, double tolForEquality)
         {
             for (int i = 0; i < a.Count; i++)
@@ -87,7 +69,5 @@ namespace Proteomics
             }
             return true;
         }
-
-        #endregion Private Methods
     }
 }

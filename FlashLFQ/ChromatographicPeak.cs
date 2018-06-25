@@ -7,20 +7,11 @@ namespace FlashLFQ
 {
     public class ChromatographicPeak
     {
-        #region Public Fields
-
         public double intensity;
-        public IsotopicEnvelope apex { get; private set; }
         public readonly bool isMbrFeature;
         public readonly SpectraFileInfo rawFileInfo;
-        public List<Identification> identifications { get; private set; }
         public List<IsotopicEnvelope> isotopicEnvelopes;
         public double splitRT;
-        public int numChargeStatesObserved { get; private set; }
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public ChromatographicPeak(Identification id, bool isMbrFeature, SpectraFileInfo fileInfo)
         {
@@ -35,9 +26,12 @@ namespace FlashLFQ
             this.rawFileInfo = fileInfo;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
+        public IsotopicEnvelope apex { get; private set; }
+        public List<Identification> identifications { get; private set; }
+        public int numChargeStatesObserved { get; private set; }
+        public int NumIdentificationsByBaseSeq { get; private set; }
+        public int NumIdentificationsByFullSeq { get; private set; }
+        public double MassError { get; private set; }
 
         public static string TabSeparatedHeader
         {
@@ -68,14 +62,6 @@ namespace FlashLFQ
                 return sb.ToString();
             }
         }
-
-        public int NumIdentificationsByBaseSeq { get; private set; }
-        public int NumIdentificationsByFullSeq { get; private set; }
-        public double MassError { get; private set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public void CalculateIntensityForThisFeature(bool integrate)
         {
@@ -184,7 +170,5 @@ namespace FlashLFQ
 
             return sb.ToString();
         }
-
-        #endregion Public Methods
     }
 }

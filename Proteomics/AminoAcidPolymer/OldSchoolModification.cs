@@ -27,8 +27,6 @@ namespace Proteomics.AminoAcidPolymer
     /// </summary>
     public class OldSchoolModification : IHasMass, IEquatable<OldSchoolModification>
     {
-        #region Public Constructors
-
         public OldSchoolModification(OldSchoolModification modification)
             : this(modification.MonoisotopicMass, modification.Name, modification.Sites)
         {
@@ -56,10 +54,6 @@ namespace Proteomics.AminoAcidPolymer
             Sites = sites;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         /// <summary>
         /// The name of the modification
         /// </summary>
@@ -82,10 +76,6 @@ namespace Proteomics.AminoAcidPolymer
         {
             get { return string.Format(CultureInfo.InvariantCulture, "{0} ({1})", Name, Sites); }
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -127,7 +117,5 @@ namespace Proteomics.AminoAcidPolymer
 
             return true;
         }
-
-        #endregion Public Methods
     }
 }

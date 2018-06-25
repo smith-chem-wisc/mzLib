@@ -2,8 +2,6 @@
 {
     public class SequenceVariation
     {
-        #region Public Constructors
-
         /// <summary>
         /// For longer sequence variations, where a range of sequence is replaced. Point mutations should be specified with the same begin and end positions.
         /// </summary>
@@ -31,10 +29,6 @@
             : this(OneBasedPosition, OneBasedPosition, OriginalSequence, VariantSequence, Description)
         { }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         /// <summary>
         /// Beginning position of original sequence to be replaced
         /// </summary>
@@ -60,10 +54,6 @@
         /// </summary>
         public string Description { get; set; }
 
-        #endregion Public Properties
-
-        #region Public Methods
-
         public override bool Equals(object obj)
         {
             SequenceVariation s = obj as SequenceVariation;
@@ -83,7 +73,5 @@
                 ^ VariantSequence.GetHashCode()
                 ^ Description.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

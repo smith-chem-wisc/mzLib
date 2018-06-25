@@ -24,7 +24,6 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
-        #region Public Methods
 
         public static double[] BoxCarSmooth(this double[] data, int points)
         {
@@ -81,6 +80,5 @@ namespace MzLibUtil
             return cnt.Values.All(c => c == 0);
         }
 
-        #endregion Public Methods
     }
 }

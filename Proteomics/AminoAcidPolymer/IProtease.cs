@@ -25,8 +25,6 @@ namespace Proteomics.AminoAcidPolymer
     /// </summary>
     public interface IProtease
     {
-        #region Public Methods
-
         /// <summary>
         /// Finds the indicies of where this protease would cut in
         /// the given amino acid sequence
@@ -40,7 +38,5 @@ namespace Proteomics.AminoAcidPolymer
         int MissedCleavages(string sequence);
 
         int MissedCleavages(AminoAcidPolymer aminoAcidSequence);
-
-        #endregion Public Methods
     }
 }

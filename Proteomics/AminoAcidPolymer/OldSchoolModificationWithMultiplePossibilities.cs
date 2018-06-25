@@ -24,13 +24,7 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class ModificationWithMultiplePossibilitiesCollection : OldSchoolModification, IEnumerable<OldSchoolModification>
     {
-        #region Private Fields
-
         private readonly SortedList<double, OldSchoolModification> _modifications;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public ModificationWithMultiplePossibilitiesCollection(string name, ModificationSites sites)
             : base(0, name, sites)
@@ -38,27 +32,15 @@ namespace Proteomics.AminoAcidPolymer
             _modifications = new SortedList<double, OldSchoolModification>();
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public int Count
         {
             get { return _modifications.Count; }
         }
 
-        #endregion Public Properties
-
-        #region Public Indexers
-
         public OldSchoolModification this[int index]
         {
             get { return _modifications.Values[index]; }
         }
-
-        #endregion Public Indexers
-
-        #region Public Methods
 
         public void AddModification(OldSchoolModification modification)
         {
@@ -82,7 +64,5 @@ namespace Proteomics.AminoAcidPolymer
         {
             return _modifications.Values.GetEnumerator();
         }
-
-        #endregion Public Methods
     }
 }

@@ -15,7 +15,6 @@ namespace MzLibUtil
 {
     public static class SystemInfo
     {
-        #region Public Methods
 
         public static string CompleteSystemInfo()
         {
@@ -45,9 +44,7 @@ namespace MzLibUtil
             return fullSystemProse.ToString();
         }
 
-        #endregion Public Methods
 
-        #region Private Methods
 
         private static string GetManufacturer()
         {
@@ -281,6 +278,5 @@ namespace MzLibUtil
             return "No 4.5 or later version detected";
         }
 
-        #endregion Private Methods
     }
 }

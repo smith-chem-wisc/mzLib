@@ -15,10 +15,9 @@ namespace FlashLFQ
 {
     public class FlashLFQEngine
     {
-        #region Public Fields
-
         // settings
         public readonly bool silent;
+
         public readonly int maxThreads;
         public readonly double peakfindingPpmTolerance;
         public readonly double ppmTolerance;
@@ -38,10 +37,6 @@ namespace FlashLFQ
         public readonly bool normalize;
         public readonly double minDiscFactorToCutAt;
 
-        #endregion Public Fields
-
-        #region Private Fields
-
         private List<SpectraFileInfo> spectraFileInfo;
         private Stopwatch globalStopwatch;
         private List<Identification> allIdentifications;
@@ -52,11 +47,8 @@ namespace FlashLFQ
 
         // these two fields will be overwritten as each file is analyzed
         private MsDataScan[] ms1Scans;
+
         private List<IndexedMassSpectralPeak>[] indexedPeaks;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public FlashLFQEngine(List<Identification> allIdentifications, bool normalize = true, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, bool matchBetweenRuns = false, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null, double maxMbrWindow = 1.5)
         {
@@ -96,10 +88,6 @@ namespace FlashLFQ
             minDiscFactorToCutAt = 0.6;
         }
 
-        #endregion Public Constructors
-
-        #region Public Methods
-
         public FlashLFQResults Run()
         {
             globalStopwatch.Start();
@@ -115,7 +103,7 @@ namespace FlashLFQ
                 // fill lookup-table with peaks from the raw file
                 IndexMassSpectralPeaks(spectraFile);
 
-                if(indexedPeaks.Length == 0)
+                if (indexedPeaks.Length == 0)
                 {
                     // no MS1 peaks found
                     return results;
@@ -185,10 +173,6 @@ namespace FlashLFQ
 
             return results;
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         private void RetentionTimeCalibrationAndErrorCheckMatchedFeatures()
         {
@@ -461,9 +445,9 @@ namespace FlashLFQ
 
             ms1Scans = new MsDataScan[0];
 
-            if(indexedPeaks != null)
+            if (indexedPeaks != null)
             {
-                for(int i = 0; i < indexedPeaks.Length; i++)
+                for (int i = 0; i < indexedPeaks.Length; i++)
                 {
                     if (indexedPeaks[i] == null)
                         continue;
@@ -645,7 +629,7 @@ namespace FlashLFQ
                         double theoreticalMz = identification.massToLookFor.ToMz(chargeState);
                         int ceilingMz = (int)Math.Ceiling(peakfindingTol.GetMaximumValue(identification.massToLookFor).ToMz(chargeState) * binsPerDalton);
                         int floorMz = (int)Math.Floor(peakfindingTol.GetMinimumValue(identification.massToLookFor).ToMz(chargeState) * binsPerDalton);
-                        
+
                         for (int j = floorMz; j <= ceilingMz; j++)
                         {
                             if (j < indexedPeaks.Length && indexedPeaks[j] != null)
@@ -785,7 +769,7 @@ namespace FlashLFQ
             // remove all MBR features with intensities lower than the least-intense MS/MS-identified peak in this file
             // this is to remove MBR peaks that matched to noise
             double minMsmsIdentifiedPeakIntensity = results.peaks[rawFile].Min(v => v.intensity);
-            foreach(var peak in results.peaks[rawFile])
+            foreach (var peak in results.peaks[rawFile])
             {
                 if (peak.isMbrFeature && peak.intensity < minMsmsIdentifiedPeakIntensity)
                 {
@@ -1148,7 +1132,7 @@ namespace FlashLFQ
                 for (int i = apexIndex + iter; i < timePointsForApexZ.Count && i >= 0; i += iter)
                 {
                     IsotopicEnvelope timepoint = timePointsForApexZ[i];
-                    
+
                     if (valleyTimePoint == null || timepoint.intensity < valleyTimePoint.intensity)
                     {
                         valleyTimePoint = timepoint;
@@ -1215,7 +1199,5 @@ namespace FlashLFQ
                 CutPeak(peak);
             }
         }
-
-        #endregion Private Methods
     }
 }

@@ -23,7 +23,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-
 namespace MassSpectrometry
 {
     /// <summary>
@@ -31,13 +30,7 @@ namespace MassSpectrometry
     /// </summary>
     public class MsDataFile
     {
-        #region Protected Fields
-
         protected MsDataScan[] Scans;
-
-        #endregion Protected Fields
-
-        #region Public Constructors
 
         public MsDataFile(int numSpectra, SourceFile sourceFile)
         {
@@ -50,10 +43,6 @@ namespace MassSpectrometry
             Scans = scans;
             SourceFile = sourceFile;
         }
-
-        #endregion Public Constructors
-
-        #region Public Fields
 
         public SourceFile SourceFile { get; }
 
@@ -69,10 +58,6 @@ namespace MassSpectrometry
         {
             return Scans.ToList();
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public static int TopNpeakHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
         {
@@ -114,7 +99,7 @@ namespace MassSpectrometry
             int windowPeakIndexMinimum = 0;
             int windowPeakIndexMaximum = windowSize - 1;
 
-            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks 
+            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks
             // divided into 10 windows would have 10 peaks per window) and takes the top N peaks per window.
             // the results of each trimmed window are concatenated into mzResults and intensityResults
             for (int i = 0; i < filteringParams.NumberOfWindows; i++)
@@ -277,22 +262,12 @@ namespace MassSpectrometry
                 yield return ok;
         }
 
-        #endregion Public Methods
-
-        #region Protected Classes
-
         protected class ReverseComparer : IComparer<double>
         {
-            #region Public Methods
-
             public int Compare(double x, double y)
             {
                 return y.CompareTo(x);
             }
-
-            #endregion Public Methods
         }
-
-        #endregion Protected Classes
     }
 }

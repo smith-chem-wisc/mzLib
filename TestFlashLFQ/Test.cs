@@ -9,8 +9,6 @@ namespace Test
     [TestFixture]
     internal class Test
     {
-        #region Public Methods
-
         [Test]
         public static void TestFlashLFQ()
         {
@@ -113,7 +111,5 @@ namespace Test
             Assert.That(int1 == int3);
             Assert.That(int1 == int5);
         }
-
-        #endregion Public Methods
     }
 }

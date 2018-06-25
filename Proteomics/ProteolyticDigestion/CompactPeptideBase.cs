@@ -9,35 +9,17 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public abstract class CompactPeptideBase : IEquatable<CompactPeptideBase>
     {
-        #region Protected Fields
-
         protected static readonly double nitrogenAtomMonoisotopicMass = PeriodicTable.GetElement("N").PrincipalIsotope.AtomicMass;
-
         protected static readonly double oxygenAtomMonoisotopicMass = PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-
         protected static readonly double hydrogenAtomMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
-
         protected static readonly double waterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
 
-        #endregion Protected Fields
-
-        #region Private Fields
-
         private const int digitsForRoundingMasses = 7;
-
         private const double massTolForPeptideEquality = 1e-7;
-
-        #endregion Private Fields
-
-        #region Public Properties
 
         public double[] CTerminalMasses { get; protected set; }
         public double[] NTerminalMasses { get; protected set; }
         public double MonoisotopicMassIncludingFixedMods { get; protected set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public double[] ProductMassesMightHaveDuplicatesAndNaNs(List<ProductType> productTypes)
         {
@@ -162,8 +144,8 @@ namespace Proteomics.ProteolyticDigestion
                 if (NTerminalMasses != null && cp.NTerminalMasses != null) //neither series is nulll
                 {
                     return (
-                        ((double.IsNaN(MonoisotopicMassIncludingFixedMods) 
-                            && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods)) 
+                        ((double.IsNaN(MonoisotopicMassIncludingFixedMods)
+                            && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods))
                             || (Math.Abs(MonoisotopicMassIncludingFixedMods - cp.MonoisotopicMassIncludingFixedMods) < massTolForPeptideEquality))
                         && CTerminalMasses.SequenceEqual(cp.CTerminalMasses)
                         && NTerminalMasses.SequenceEqual(cp.NTerminalMasses)
@@ -172,8 +154,8 @@ namespace Proteomics.ProteolyticDigestion
                 else //No N-terminal ions
                 {
                     return (
-                        ((double.IsNaN(MonoisotopicMassIncludingFixedMods) 
-                            && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods)) 
+                        ((double.IsNaN(MonoisotopicMassIncludingFixedMods)
+                            && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods))
                             || (Math.Abs(MonoisotopicMassIncludingFixedMods - cp.MonoisotopicMassIncludingFixedMods) < massTolForPeptideEquality))
                         && CTerminalMasses.SequenceEqual(cp.CTerminalMasses)
                         );
@@ -182,8 +164,8 @@ namespace Proteomics.ProteolyticDigestion
             else if (NTerminalMasses != null && cp.NTerminalMasses != null) //No C-terminal ions
             {
                 return (
-                    ((double.IsNaN(MonoisotopicMassIncludingFixedMods) 
-                        && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods)) 
+                    ((double.IsNaN(MonoisotopicMassIncludingFixedMods)
+                        && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods))
                         || (Math.Abs(MonoisotopicMassIncludingFixedMods - cp.MonoisotopicMassIncludingFixedMods) < massTolForPeptideEquality))
                     && NTerminalMasses.SequenceEqual(cp.NTerminalMasses)
                     );
@@ -193,10 +175,6 @@ namespace Proteomics.ProteolyticDigestion
                 return false;
             }
         }
-
-        #endregion Public Methods
-
-        #region Protected Methods
 
         protected static IEnumerable<double> ComputeFollowingFragmentMasses(PeptideWithSetModifications yyy, double prevMass, int oneBasedIndexToLookAt, int direction)
         {
@@ -244,7 +222,5 @@ namespace Proteomics.ProteolyticDigestion
                 oneBasedIndexToLookAt += direction;
             } while ((oneBasedIndexToLookAt > 1 && direction == -1) || (oneBasedIndexToLookAt < yyy.Length && direction == 1));
         }
-
-        #endregion Protected Methods
     }
 }

@@ -28,8 +28,6 @@ namespace Test
     [TestFixture]
     public static class ChemicalFormulaTestFixture
     {
-        #region Public Methods
-
         [Test]
         public static void AddIsotopeWithExistingMassNumber()
         {
@@ -1016,22 +1014,12 @@ namespace Test
             Assert.AreEqual(17, d.Intensities.Count());
         }
 
-        #endregion Public Methods
-
-        #region Private Classes
-
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
-            #region Public Constructors
-
             public PhysicalObjectWithChemicalFormula(string v)
             {
                 ThisChemicalFormula = ChemicalFormula.ParseFormula(v);
             }
-
-            #endregion Public Constructors
-
-            #region Public Properties
 
             public double MonoisotopicMass
             {
@@ -1045,10 +1033,6 @@ namespace Test
             {
                 get; private set;
             }
-
-            #endregion Public Properties
         }
-
-        #endregion Private Classes
     }
 }

@@ -6,17 +6,11 @@ namespace FlashLFQ
 {
     public class FlashLFQResults
     {
-        #region Public Fields
-
         public readonly List<SpectraFileInfo> spectraFiles;
         public readonly Dictionary<string, Peptide> peptideBaseSequences;
         public readonly Dictionary<string, Peptide> peptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> proteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> peaks;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public FlashLFQResults(List<SpectraFileInfo> rawFiles)
         {
@@ -26,10 +20,6 @@ namespace FlashLFQ
             proteinGroups = new Dictionary<string, ProteinGroup>();
             peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public void CalculatePeptideResults(bool sumByBaseSequenceNotModifiedSequence)
         {
@@ -166,7 +156,7 @@ namespace FlashLFQ
 
                 foreach (var file in fileToPepIntensities)
                 {
-                    // need to observe at least one MS2-identified peptide for a protein in a file. if they're all MBR-identified, the protein 
+                    // need to observe at least one MS2-identified peptide for a protein in a file. if they're all MBR-identified, the protein
                     // intensity is zero. this is to prevent false-positives but will reduce the number of quantified proteins
                     if (proteinGroup.Value.Any(p => !p.isMbrFeature))
                     {
@@ -234,7 +224,5 @@ namespace FlashLFQ
                 }
             }
         }
-
-        #endregion Public Methods
     }
 }

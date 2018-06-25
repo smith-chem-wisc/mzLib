@@ -25,8 +25,6 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class Fragment : IHasMass, IEquatable<Fragment>
     {
-        #region Public Constructors
-
         public Fragment(FragmentTypes type, int number, double monoisotopicMass, AminoAcidPolymer parent)
         {
             FragmentType = type;
@@ -34,10 +32,6 @@ namespace Proteomics.AminoAcidPolymer
             Parent = parent;
             MonoisotopicMass = monoisotopicMass;
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public double MonoisotopicMass { get; private set; }
 
@@ -86,10 +80,6 @@ namespace Proteomics.AminoAcidPolymer
             }
         }
 
-        #endregion Public Properties
-
-        #region Public Methods
-
         public override string ToString()
         {
             return string.Format(CultureInfo.InvariantCulture, "{0}{1}", Enum.GetName(typeof(FragmentTypes), FragmentType), Number);
@@ -104,7 +94,5 @@ namespace Proteomics.AminoAcidPolymer
         {
             return FragmentType.Equals(other.FragmentType) && Number.Equals(other.Number) && Math.Abs(MonoisotopicMass - other.MonoisotopicMass) < 1e-9;
         }
-
-        #endregion Public Methods
     }
 }

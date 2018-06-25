@@ -6,13 +6,7 @@ namespace Proteomics.ProteolyticDigestion
 {
     public class Peptide
     {
-        #region Private Fields
-
         private string baseSequence;
-
-        #endregion Private Fields
-
-        #region Protected Constructors
 
         internal Peptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
         {
@@ -23,10 +17,6 @@ namespace Proteomics.ProteolyticDigestion
             MissedCleavages = missedCleavages;
             PeptideDescription = peptideDescription;
         }
-
-        #endregion Protected Constructors
-
-        #region Public Properties
 
         public Protein Protein { get; }// protein from which this peptide came
         public int OneBasedStartResidueInProtein { get; }// if the first residue in a protein is 1 this is the number of the residue at which the peptide begins
@@ -61,10 +51,6 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        #endregion Public Properties
-
-        #region Public Indexers
-
         public char this[int zeroBasedIndex]
         {
             get
@@ -72,8 +58,6 @@ namespace Proteomics.ProteolyticDigestion
                 return Protein.BaseSequence[zeroBasedIndex + OneBasedStartResidueInProtein - 1];
             }
         }
-
-        #endregion Public Indexers
 
         #region Modified Peptide Combinatorics
 

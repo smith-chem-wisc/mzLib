@@ -16,8 +16,6 @@ namespace Test
     [TestFixture]
     public sealed class TestMzML
     {
-        #region Public Methods
-
         [Test]
         public static void AnotherMzMLtest()
         {
@@ -1357,10 +1355,6 @@ namespace Test
             Assert.AreEqual(1, fakeMzml1.GetAllScansList().ElementAt(3).OneBasedPrecursorScanNumber);
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
@@ -1415,7 +1409,5 @@ namespace Test
 
             //return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
-
-        #endregion Private Methods
     }
 }

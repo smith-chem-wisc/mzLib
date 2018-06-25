@@ -8,23 +8,13 @@ namespace Proteomics
 {
     public class ModificationWithMassAndCf : ModificationWithMass
     {
-        #region Public Fields
-
         public readonly ChemicalFormula chemicalFormula;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public ModificationWithMassAndCf(string id, string modificationType, ModificationMotif motif, TerminusLocalization terminusLocalization, ChemicalFormula chemicalFormula, double? mm = null, IDictionary<string, IList<string>> linksToOtherDbs = null, List<string> keywords = null, List<double> neutralLosses = null, List<double> diagnosticIons = null)
             : base(id, modificationType, motif, terminusLocalization, mm ?? chemicalFormula.MonoisotopicMass, linksToOtherDbs, keywords, neutralLosses, diagnosticIons)
         {
             this.chemicalFormula = chemicalFormula;
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -56,7 +46,5 @@ namespace Proteomics
         {
             return base.GetHashCode() ^ chemicalFormula.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

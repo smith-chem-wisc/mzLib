@@ -23,8 +23,6 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class Peptide : AminoAcidPolymer
     {
-        #region Public Constructors
-
         public Peptide()
         {
         }
@@ -66,10 +64,6 @@ namespace Proteomics.AminoAcidPolymer
             NextResidue = aminoAcidPolymer.GetResidue(EndResidue + 1);
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         /// <summary>
         /// The amino acid number this peptide is located in its parent
         /// </summary>
@@ -94,10 +88,6 @@ namespace Proteomics.AminoAcidPolymer
         /// The next amino acid in its parent
         /// </summary>
         public Residue NextResidue { get; set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public IEnumerable<Peptide> GenerateAllModificationCombinations()
         {
@@ -143,7 +133,5 @@ namespace Proteomics.AminoAcidPolymer
         {
             return new Peptide(this, firstResidue, length);
         }
-
-        #endregion Public Methods
     }
 }

@@ -2,20 +2,15 @@
 {
     public class SpectraFileInfo
     {
-        #region Public Fields
-
         public readonly string fullFilePathWithExtension;
         public readonly string filenameWithoutExtension;
 
         // condition/biorep/techrep/fraction info
         public readonly string condition;
+
         public readonly int biologicalReplicate;
         public readonly int fraction;
         public readonly int technicalReplicate;
-        
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
@@ -27,10 +22,6 @@
             this.fraction = fraction;
         }
 
-        #endregion Public Constructors
-
-        #region Public Methods
-
         // files are considered the same if the absolute file path is the same
         public override bool Equals(object obj)
         {
@@ -41,7 +32,5 @@
         {
             return fullFilePathWithExtension.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

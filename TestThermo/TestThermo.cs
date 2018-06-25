@@ -13,8 +13,6 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-        #region Public Methods
-
         [Test]
         public static void ReadWriteReadEtc()
         {
@@ -347,7 +345,5 @@ namespace TestThermo
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
         }
-
-        #endregion Public Methods
     }
 }

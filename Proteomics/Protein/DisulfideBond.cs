@@ -2,8 +2,6 @@
 {
     public class DisulfideBond
     {
-        #region Public Constructors
-
         public DisulfideBond(int OneBasedBeginPosition, int OneBasedEndPosition, string Description)
         {
             this.OneBasedBeginPosition = OneBasedBeginPosition;
@@ -15,10 +13,6 @@
         public DisulfideBond(int OneBasedPosition, string Description)
             : this(OneBasedPosition, OneBasedPosition, Description)
         { }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         /// <summary>
         /// Beginning position of disulfide bond
@@ -35,10 +29,6 @@
         /// </summary>
         public string Description { get; set; }
 
-        #endregion Public Properties
-
-        #region Public Methods
-
         public override bool Equals(object obj)
         {
             DisulfideBond bond = obj as DisulfideBond;
@@ -52,7 +42,5 @@
         {
             return OneBasedBeginPosition ^ OneBasedEndPosition ^ Description.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

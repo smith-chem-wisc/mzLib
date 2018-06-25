@@ -29,14 +29,8 @@ namespace Test
     [TestFixture]
     public sealed class TestPeptides
     {
-        #region Private Fields
-
         private Peptide _mockPeptideEveryAminoAcid;
         private Peptide _mockTrypticPeptide;
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         [SetUp]
         public void SetUp()
@@ -766,14 +760,8 @@ namespace Test
             .EqualTo("Couldn't find the closing ] for a modification in this sequence: A["));
         }
 
-        #endregion Public Methods
-
-        #region Private Classes
-
         private class OkComparer : IEqualityComparer<DigestionPointAndLength>
         {
-            #region Public Methods
-
             public bool Equals(DigestionPointAndLength x, DigestionPointAndLength y)
             {
                 return x.Index.Equals(y.Index) && x.Length.Equals(y.Length);
@@ -783,17 +771,11 @@ namespace Test
             {
                 return obj.Length + obj.Index * 256;
             }
-
-            #endregion Public Methods
         }
-
-        #endregion Private Classes
     }
 
     internal class TestProtease : IProtease
     {
-        #region Public Methods
-
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)
         {
             return GetDigestionSites(aminoAcidSequence.BaseSequence);
@@ -814,7 +796,5 @@ namespace Test
         {
             throw new NotImplementedException();
         }
-
-        #endregion Public Methods
     }
 }

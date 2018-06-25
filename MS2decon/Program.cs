@@ -110,12 +110,10 @@ namespace MS2decon
             }
         }
 
-        #endregion Private Methods
     }
 
     internal class ApplicationArguments
     {
-        #region Public Properties
 
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
@@ -126,9 +124,7 @@ namespace MS2decon
         public double AggregationTolerancePpm { get; set; } = 5;
         public string FilePath { get; set; }
 
-        #endregion Public Properties
 
-        #region Public Methods
 
         public override string ToString()
         {
@@ -144,6 +140,5 @@ namespace MS2decon
             return sb.ToString();
         }
 
-        #endregion Public Methods
     }
 }

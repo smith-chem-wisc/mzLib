@@ -6,17 +6,11 @@ namespace Proteomics
 {
     public class ModificationWithLocation : Modification
     {
-        #region Public Fields
-
         public static readonly Dictionary<string, TerminusLocalization> terminusLocalizationTypeCodes;
         public readonly IDictionary<string, IList<string>> linksToOtherDbs;
         public readonly List<string> keywords;
         public readonly TerminusLocalization terminusLocalization;
         public readonly ModificationMotif motif;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         static ModificationWithLocation()
         {
@@ -40,10 +34,6 @@ namespace Proteomics
             this.linksToOtherDbs = linksToOtherDbs ?? new Dictionary<string, IList<string>>();
             this.keywords = keywords ?? new List<string>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -70,7 +60,5 @@ namespace Proteomics
         {
             return base.GetHashCode() ^ terminusLocalization.GetHashCode() ^ motif.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

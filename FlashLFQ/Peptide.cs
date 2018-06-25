@@ -8,16 +8,10 @@ namespace FlashLFQ
 
     public class Peptide
     {
-        #region Public Fields
-
         public readonly string Sequence;
         private Dictionary<SpectraFileInfo, double> intensities;
         private Dictionary<SpectraFileInfo, DetectionType> detectionTypes;
         public HashSet<ProteinGroup> proteinGroups;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public Peptide(string sequence)
         {
@@ -26,10 +20,6 @@ namespace FlashLFQ
             detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             proteinGroups = new HashSet<ProteinGroup>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
         {
@@ -44,10 +34,6 @@ namespace FlashLFQ
                 sb.Append("Detection Type_" + rawfile.filenameWithoutExtension + "\t");
             return sb.ToString();
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public double GetIntensity(SpectraFileInfo fileInfo)
         {
@@ -110,7 +96,5 @@ namespace FlashLFQ
         {
             return Sequence.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

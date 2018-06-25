@@ -11,8 +11,6 @@ namespace Test
     [TestFixture]
     internal class TestProteomicsReadWrite
     {
-        #region Public Methods
-
         [Test]
         public void ReadXmlNulls()
         {
@@ -388,7 +386,5 @@ namespace Test
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
-
-        #endregion Public Methods
     }
 }

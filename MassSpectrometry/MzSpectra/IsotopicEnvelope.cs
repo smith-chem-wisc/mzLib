@@ -4,18 +4,12 @@ namespace MassSpectrometry
 {
     public class IsotopicEnvelope
     {
-        #region Public Fields
-
         public readonly List<(double mz, double intensity)> peaks;
         public readonly double monoisotopicMass;
         public readonly int charge;
         public readonly double totalIntensity;
         public readonly double stDev;
         public readonly int massIndex;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
         {
@@ -27,15 +21,9 @@ namespace MassSpectrometry
             this.massIndex = bestMassIndex;
         }
 
-        #endregion Public Constructors
-
-        #region Public Methods
-
         public override string ToString()
         {
             return charge + "\t" + peaks[0].mz.ToString("G8") + "\t" + peaks.Count + "\t" + totalIntensity;
         }
-
-        #endregion Public Methods
     }
 }

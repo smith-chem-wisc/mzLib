@@ -26,7 +26,6 @@ namespace MzLibUtil
     /// </summary>
     public abstract class Tolerance
     {
-        #region Private Fields
 
         /// <summary>
         /// A regex for parsing a string representation of a tolerance
@@ -36,9 +35,7 @@ namespace MzLibUtil
         /// </summary>
         private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|Absolute)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        #endregion Private Fields
 
-        #region Protected Constructors
 
         /// <summary>
         /// Creates a new tolerance given a unit, value, and whether the tolerance is ±
@@ -50,18 +47,14 @@ namespace MzLibUtil
             Value = Math.Abs(value);
         }
 
-        #endregion Protected Constructors
 
-        #region Public Properties
 
         /// <summary>
         /// The value of the tolerance
         /// </summary>
         public double Value { get; }
 
-        #endregion Public Properties
 
-        #region Public Methods
 
         /// <summary>
         /// Calculates a tolerance from the string representation
@@ -108,6 +101,5 @@ namespace MzLibUtil
         /// <returns>Returns true if the value is within this tolerance  </returns>
         public abstract bool Within(double experimental, double theoretical);
 
-        #endregion Public Methods
     }
 }

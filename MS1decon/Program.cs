@@ -93,12 +93,10 @@ namespace ConsoleApp1
             }
         }
 
-        #endregion Private Methods
     }
 
     internal class ApplicationArguments
     {
-        #region Public Properties
 
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
@@ -111,9 +109,7 @@ namespace ConsoleApp1
         public string FilePath { get; set; }
         public int NumScansRequired { get; set; } = 2;
 
-        #endregion Public Properties
 
-        #region Public Methods
 
         public override string ToString()
         {
@@ -131,6 +127,5 @@ namespace ConsoleApp1
             return sb.ToString();
         }
 
-        #endregion Public Methods
     }
 }

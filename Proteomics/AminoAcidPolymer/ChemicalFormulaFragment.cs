@@ -22,20 +22,12 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class ChemicalFormulaFragment : Fragment, IHasChemicalFormula
     {
-        #region Public Constructors
-
         public ChemicalFormulaFragment(FragmentTypes type, int number, ChemicalFormula formula, AminoAcidPolymer parent)
             : base(type, number, formula.MonoisotopicMass, parent)
         {
             ThisChemicalFormula = ChemicalFormula.ParseFormula(formula.Formula);
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public ChemicalFormula ThisChemicalFormula { get; private set; }
-
-        #endregion Public Properties
     }
 }

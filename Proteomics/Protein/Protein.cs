@@ -9,7 +9,7 @@ namespace Proteomics
     {
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> gene_names = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
-            string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null, 
+            string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
         {
             // Mandatory
@@ -112,6 +112,14 @@ namespace Proteomics
         {
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
             return digestionParams.SemiProteaseDigestion ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);
+        }
+
+        /// <summary>
+        /// Gets proteins with applied variants from this protein
+        /// </summary>
+        public List<ProteinWithAppliedVariants> GetVariantProteins()
+        {
+            return null;
         }
     }
 }

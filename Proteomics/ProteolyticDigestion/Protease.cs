@@ -6,8 +6,6 @@ namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        #region Public Constructors
-
         public Protease(string name, IEnumerable<string> sequencesInducingCleavage, IEnumerable<string> sequencesPreventingCleavage, TerminusType cleavageTerminus, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
         {
             Name = name;
@@ -20,10 +18,6 @@ namespace Proteomics.ProteolyticDigestion
             SiteRegexp = siteRegexp;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public string Name { get; }
         public TerminusType CleavageTerminus { get; }
         public IEnumerable<string> SequencesInducingCleavage { get; }
@@ -32,10 +26,6 @@ namespace Proteomics.ProteolyticDigestion
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
         public string SiteRegexp { get; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -53,10 +43,6 @@ namespace Proteomics.ProteolyticDigestion
         {
             return Name.GetHashCode();
         }
-
-        #endregion Public Methods
-
-        #region Digestion Methods
 
         /// <summary>
         /// Gets the indices after which this protease will cleave a given protein sequence
@@ -265,6 +251,8 @@ namespace Proteomics.ProteolyticDigestion
 
         /// <summary>
         /// Gets the protein intervals based on nonspecific digestion rules
+        ///
+        /// semi-trypsin enters here
         /// </summary>
         /// <param name="protein"></param>
         /// <param name="initiatorMethionineBehavior"></param>
@@ -474,7 +462,5 @@ namespace Proteomics.ProteolyticDigestion
         {
             return !maxPeptidesLength.HasValue || peptideLength <= maxPeptidesLength;
         }
-
-        #endregion Digestion Methods
     }
 }

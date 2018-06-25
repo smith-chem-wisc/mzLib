@@ -30,8 +30,6 @@ namespace Test
     [TestFixture]
     public class DatabaseLoaderTests
     {
-        #region Public Methods
-
         [Test]
         public static void LoadModWithNl()
         {
@@ -295,7 +293,5 @@ namespace Test
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(2, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
         }
-
-        #endregion Public Methods
     }
 }

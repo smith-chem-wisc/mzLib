@@ -5,16 +5,10 @@ namespace FlashLFQ
 {
     public class ProteinGroup
     {
-        #region Public Fields
-
         public readonly string ProteinGroupName;
         public readonly string GeneName;
         public readonly string Organism;
         public readonly Dictionary<SpectraFileInfo, double> intensities;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public ProteinGroup(string proteinGroupName, string GeneName, string Organism)
         {
@@ -23,10 +17,6 @@ namespace FlashLFQ
             this.Organism = Organism;
             intensities = new Dictionary<SpectraFileInfo, double>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
         {
@@ -40,10 +30,6 @@ namespace FlashLFQ
 
             return sb.ToString();
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public string ToString(List<SpectraFileInfo> rawFiles)
         {
@@ -72,7 +58,5 @@ namespace FlashLFQ
         {
             return ProteinGroupName.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

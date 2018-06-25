@@ -10,8 +10,6 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinDbWriter
     {
-        #region Public Methods
-
         /// <summary>
         /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
@@ -267,7 +265,5 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
-        #endregion Public Methods
     }
 }

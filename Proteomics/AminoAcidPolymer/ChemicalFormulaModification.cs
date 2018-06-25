@@ -22,8 +22,6 @@ namespace Proteomics.AminoAcidPolymer
 {
     public class OldSchoolChemicalFormulaModification : OldSchoolModification, IHasChemicalFormula
     {
-        #region Public Constructors
-
         public OldSchoolChemicalFormulaModification(ChemicalFormula chemicalFormula)
             : this(chemicalFormula, ModificationSites.Any)
         {
@@ -51,15 +49,9 @@ namespace Proteomics.AminoAcidPolymer
         {
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         /// <summary>
         /// The Chemical Formula of this modifications
         /// </summary>
         public ChemicalFormula ThisChemicalFormula { get; private set; }
-
-        #endregion Public Properties
     }
 }

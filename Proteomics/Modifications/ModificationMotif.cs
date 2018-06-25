@@ -5,24 +5,13 @@ namespace Proteomics
 {
     public class ModificationMotif
     {
-        #region Private Fields
-
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
-
         private readonly string motifString;
-
-        #endregion Private Fields
-
-        #region Private Constructors
 
         private ModificationMotif(string motif)
         {
             motifString = motif;
         }
-
-        #endregion Private Constructors
-
-        #region Public Methods
 
         /// <summary>
         /// Only upper and lower case letters allowed, must have a single upper case letter
@@ -57,7 +46,5 @@ namespace Proteomics
         {
             return motifString;
         }
-
-        #endregion Public Methods
     }
 }

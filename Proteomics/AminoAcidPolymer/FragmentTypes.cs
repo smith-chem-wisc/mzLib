@@ -45,8 +45,6 @@ namespace Proteomics.AminoAcidPolymer
 
     public static class FragmentTypesExtension
     {
-        #region Private Fields
-
         private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
         {
             {FragmentTypes.a, ChemicalFormula.ParseFormula("C-1H-1O-1")},
@@ -62,10 +60,6 @@ namespace Proteomics.AminoAcidPolymer
             {FragmentTypes.z, ChemicalFormula.ParseFormula("N-1H-2")},
             {FragmentTypes.zdot, ChemicalFormula.ParseFormula("N-1H-1")}
         };
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         public static IEnumerable<FragmentTypes> GetIndividualFragmentTypes(this FragmentTypes fragmentTypes)
         {
@@ -100,7 +94,5 @@ namespace Proteomics.AminoAcidPolymer
             }
             return FragmentIonCaps[fragmentType];
         }
-
-        #endregion Public Methods
     }
 }

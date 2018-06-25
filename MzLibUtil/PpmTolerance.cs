@@ -25,7 +25,6 @@ namespace MzLibUtil
     /// </summary>
     public class PpmTolerance : Tolerance
     {
-        #region Public Constructors
 
         /// <summary>
         /// Creates a new tolerance given a unit, value, and whether the tolerance is ±
@@ -36,9 +35,7 @@ namespace MzLibUtil
         {
         }
 
-        #endregion Public Constructors
 
-        #region Public Methods
 
         public override string ToString()
         {
@@ -66,6 +63,5 @@ namespace MzLibUtil
             return Math.Abs((experimental - theoretical) / theoretical * 1e6) <= Value;
         }
 
-        #endregion Public Methods
     }
 }

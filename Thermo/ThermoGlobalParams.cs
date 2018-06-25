@@ -4,8 +4,6 @@ namespace IO.Thermo
 {
     public class ThermoGlobalParams
     {
-        #region Public Fields
-
         public readonly string[] instrumentMethods;
         public readonly string pbstrInstModel;
         public readonly string pbstrInstName;
@@ -18,10 +16,6 @@ namespace IO.Thermo
         public readonly ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor;
         public readonly int[] scanEvent;
         public readonly int[] msOrderByScan;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public ThermoGlobalParams(int pnNumInstMethods, string[] instrumentMethods, string pbstrInstSoftwareVersion, string pbstrInstName, string pbstrInstModel, int pnControllerType, int pnControllerNumber, ManagedThermoHelperLayer.PrecursorInfo[] couldBePrecursor, string filePath, int[] msOrderByScan)
         {
@@ -38,10 +32,6 @@ namespace IO.Thermo
             this.msOrderByScan = msOrderByScan;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public bool MonoisotopicselectionEnabled
         {
             get
@@ -54,7 +44,5 @@ namespace IO.Thermo
                 return false;
             }
         }
-
-        #endregion Public Properties
     }
 }

@@ -1,22 +1,16 @@
 ﻿using Chemistry;
+using Proteomics.AminoAcidPolymer;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Proteomics.AminoAcidPolymer;
 
 namespace Proteomics.ProteolyticDigestion
 {
     public class PeptideWithSetModifications : Peptide
     {
-        #region Public Fields
-
         public readonly int numFixedMods;
         public readonly Dictionary<int, ModificationWithMass> allModsOneIsNterminus;//dictionary of modifications on a peptide the N terminus is index 1
         // key indicates which residue modification is on (with 1 being N terminus)
-
-        #endregion Public Fields
-
-        #region Private Fields
 
         private static readonly double waterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly Dictionary<TerminusType, CompactPeptide> compactPeptides = new Dictionary<TerminusType, CompactPeptide>();
@@ -25,10 +19,6 @@ namespace Proteomics.ProteolyticDigestion
         private string sequenceWithChemicalFormulas;
         private object lockObj = new object();
         private double? monoisotopicMass;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public PeptideWithSetModifications(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
             Dictionary<int, ModificationWithMass> allModsOneIsNterminus, int numFixedMods)
@@ -60,10 +50,6 @@ namespace Proteomics.ProteolyticDigestion
             this.numFixedMods = numFixedMods;
             this.allModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, ModificationWithMass>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public double MonoisotopicMass
         {
@@ -178,10 +164,6 @@ namespace Proteomics.ProteolyticDigestion
 
         public int NumVariableMods { get { return this.NumMods - this.numFixedMods; } }
 
-        #endregion Public Properties
-
-        #region Public Methods
-
         public virtual string EssentialSequence(IReadOnlyDictionary<string, int> ModstoWritePruned)
         {
             string essentialSequence = BaseSequence;
@@ -255,7 +237,5 @@ namespace Proteomics.ProteolyticDigestion
         {
             return Sequence.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

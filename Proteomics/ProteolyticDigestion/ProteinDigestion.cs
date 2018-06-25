@@ -5,15 +5,6 @@ namespace Proteomics.ProteolyticDigestion
 {
     public class ProteinDigestion
     {
-        public Protease Protease { get; set; }
-        public int MaximumMissedCleavages { get; set; }
-        public DigestionParams DigestionParams { get; set; }
-        public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; set; }
-        public int MinPeptidesLength { get; set; }
-        public int MaxPeptidesLength { get; set; }
-        public IEnumerable<ModificationWithMass> AllKnownFixedModifications { get; set; }
-        public List<ModificationWithMass> VariableModifications { get; set; }
-
         /// <summary>
         /// Initializes digestion object
         /// </summary>
@@ -32,8 +23,19 @@ namespace Proteomics.ProteolyticDigestion
             VariableModifications = variableModifications;
         }
 
+        public Protease Protease { get; set; }
+        public int MaximumMissedCleavages { get; set; }
+        public DigestionParams DigestionParams { get; set; }
+        public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; set; }
+        public int MinPeptidesLength { get; set; }
+        public int MaxPeptidesLength { get; set; }
+        public IEnumerable<ModificationWithMass> AllKnownFixedModifications { get; set; }
+        public List<ModificationWithMass> VariableModifications { get; set; }
+
         /// <summary>
         /// Gets peptides for semispecific digestion of a protein
+        ///
+        /// semi-specific search enters here...
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>

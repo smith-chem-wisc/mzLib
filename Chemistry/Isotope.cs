@@ -26,7 +26,6 @@ namespace Chemistry
     /// </summary>
     public sealed class Isotope
     {
-        #region Internal Constructors
 
         /// <summary>
         /// Create a new isotope
@@ -43,9 +42,7 @@ namespace Chemistry
             RelativeAbundance = abundance;
         }
 
-        #endregion Internal Constructors
 
-        #region Public Properties
 
         /// <summary>
         /// The atomic number of the isotope's parent element (also the number of protons)
@@ -91,9 +88,7 @@ namespace Chemistry
         /// </summary>
         public double RelativeAbundance { get; }
 
-        #endregion Public Properties
 
-        #region Public Methods
 
         /// <summary>
         /// Returns a textual representation of this isotope in the following format: H{1} He{4} O{16}
@@ -104,6 +99,5 @@ namespace Chemistry
             return string.Format(CultureInfo.InvariantCulture, "{0}{{{1}}}", Element.AtomicSymbol, MassNumber);
         }
 
-        #endregion Public Methods
     }
 }
