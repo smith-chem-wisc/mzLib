@@ -13,7 +13,7 @@ namespace Proteomics.ProteolyticDigestion
                     && !AppDomain.CurrentDomain.BaseDirectory.Contains("Jenkins") ?
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MetaMorpheus") :
                 AppDomain.CurrentDomain.BaseDirectory;
-            Dictionary = LoadProteaseDictionary(Path.Combine(dataDirectory, "ProteinDigestion", "proteases.tsv"));
+            Dictionary = LoadProteaseDictionary(Path.Combine(dataDirectory, "ProteolyticDigestion", "proteases.tsv"));
         }
 
         public static Dictionary<string, Protease> Dictionary { get; private set; }

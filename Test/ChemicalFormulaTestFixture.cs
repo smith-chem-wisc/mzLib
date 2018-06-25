@@ -809,7 +809,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaIsNotSubSet()
+        public static void ChemicalFormulaIsNotSubSet()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H2NO");
@@ -818,7 +818,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaIsSuperSet()
+        public static void ChemicalFormulaIsSuperSet()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
@@ -827,7 +827,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaIsNotSuperSet()
+        public static void ChemicalFormulaIsNotSuperSet()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO2");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
@@ -836,7 +836,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaMyTest()
+        public static void ChemicalFormulaMyTest()
         {
             ChemicalFormula formula = new ChemicalFormula();
             formula.Add(ChemicalFormula.ParseFormula("C3H5NO"));
