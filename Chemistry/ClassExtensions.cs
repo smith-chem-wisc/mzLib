@@ -22,7 +22,6 @@ namespace Chemistry
 {
     public static class ClassExtensions
     {
-
         /// <summary>
         /// Calculates m/z value for a given mass assuming charge comes from losing or gaining protons
         /// </summary>
@@ -36,7 +35,7 @@ namespace Chemistry
         /// </summary>
         public static double ToMz(this double mass, int charge)
         {
-            return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.protonMass;
+            return mass / Math.Abs(charge) + Math.Sign(charge) * Constants.ProtonMass;
         }
 
         /// <summary>
@@ -44,8 +43,7 @@ namespace Chemistry
         /// </summary>
         public static double ToMass(this double massToChargeRatio, int charge)
         {
-            return Math.Abs(charge) * massToChargeRatio - charge * Constants.protonMass;
+            return Math.Abs(charge) * massToChargeRatio - charge * Constants.ProtonMass;
         }
-
     }
 }

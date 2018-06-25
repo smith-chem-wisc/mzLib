@@ -23,11 +23,9 @@ namespace Chemistry
     /// </summary>
     public interface IHasChemicalFormula : IHasMass
     {
-
         /// <summary>
         /// The chemical formula of this object
         /// </summary>
         ChemicalFormula ThisChemicalFormula { get; }
-
     }
 }

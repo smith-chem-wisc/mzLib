@@ -2,22 +2,23 @@
 {
     public class IsotopicEnvelope
     {
-        public readonly IndexedMassSpectralPeak indexedPeak;
-        public readonly int chargeState;
-        public readonly double retentionTime;
-        public double intensity { get; private set; }
+        public readonly IndexedMassSpectralPeak IndexedPeak;
+        public readonly int ChargeState;
+        public readonly double RetentionTime;
 
         public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double retentionTime)
         {
-            this.indexedPeak = monoisotopicPeak;
-            this.chargeState = chargeState;
-            this.intensity = intensity / chargeState;
-            this.retentionTime = retentionTime;
+            IndexedPeak = monoisotopicPeak;
+            ChargeState = chargeState;
+            Intensity = intensity / chargeState;
+            RetentionTime = retentionTime;
         }
+
+        public double Intensity { get; private set; }
 
         public void Normalize(double normalizationFactor)
         {
-            intensity *= normalizationFactor;
+            Intensity *= normalizationFactor;
         }
     }
 }

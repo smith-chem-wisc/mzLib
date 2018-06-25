@@ -30,7 +30,6 @@ namespace Chemistry
     {
         // Two data stores for isotopes! An array for fast access and a list for enumeration!
 
-
         /// <summary>
         /// The element's isotopes stored based on their mass number
         /// </summary>
@@ -40,8 +39,6 @@ namespace Chemistry
         /// The element's isotopes stored in order they were added
         /// </summary>
         private readonly Isotope[] IsotopesInOrderTheyWereAdded = new Isotope[Constants.MaximumMassNumberPossible + 1];
-
-
 
         /// <summary>
         /// Create a new element
@@ -55,8 +52,6 @@ namespace Chemistry
             AtomicNumber = atomicNumber;
             AverageMass = averageMass;
         }
-
-
 
         /// <summary>
         /// Gets all isotopes of an element
@@ -102,8 +97,6 @@ namespace Chemistry
             }
         }
 
-
-
         /// <summary>
         /// Gets an isotope of this element based on its mass number
         /// </summary>
@@ -111,8 +104,6 @@ namespace Chemistry
         {
             get { return IsotopesByMassNumber[massNumber]; }
         }
-
-
 
         /// <summary>
         /// Can use an integer instead of an element anytime you like
@@ -174,6 +165,5 @@ namespace Chemistry
             if (PrincipalIsotope == null || (abundance > PrincipalIsotope.RelativeAbundance))
                 PrincipalIsotope = isotope;
         }
-
     }
 }

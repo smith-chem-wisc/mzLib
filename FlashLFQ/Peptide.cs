@@ -4,8 +4,6 @@ using System.Text;
 
 namespace FlashLFQ
 {
-    public enum DetectionType { MSMS, MBR, NotDetected, MSMSAmbiguousPeakfinding, MSMSIdentifiedButNotQuantified }
-
     public class Peptide
     {
         public readonly string Sequence;
@@ -15,7 +13,7 @@ namespace FlashLFQ
 
         public Peptide(string sequence)
         {
-            this.Sequence = sequence;
+            Sequence = sequence;
             intensities = new Dictionary<SpectraFileInfo, double>();
             detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             proteinGroups = new HashSet<ProteinGroup>();
@@ -29,18 +27,26 @@ namespace FlashLFQ
             sb.Append("Gene Names" + "\t");
             sb.Append("Organism" + "\t");
             foreach (var rawfile in rawFiles)
-                sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
+            {
+                sb.Append("Intensity_" + rawfile.FilenameWithoutExtension + "\t");
+            }
             foreach (var rawfile in rawFiles)
-                sb.Append("Detection Type_" + rawfile.filenameWithoutExtension + "\t");
+            {
+                sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
+            }
             return sb.ToString();
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)
         {
             if (intensities.TryGetValue(fileInfo, out double intensity))
+            {
                 return intensity;
+            }
             else
+            {
                 return 0;
+            }
         }
 
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
@@ -54,17 +60,25 @@ namespace FlashLFQ
         public DetectionType GetDetectionType(SpectraFileInfo fileInfo)
         {
             if (detectionTypes.TryGetValue(fileInfo, out DetectionType detectionType))
+            {
                 return detectionType;
+            }
             else
+            {
                 return DetectionType.NotDetected;
+            }
         }
 
         public void SetDetectionType(SpectraFileInfo fileInfo, DetectionType detectionType)
         {
             if (detectionTypes.ContainsKey(fileInfo))
+            {
                 detectionTypes[fileInfo] = detectionType;
+            }
             else
+            {
                 detectionTypes.Add(fileInfo, detectionType);
+            }
         }
 
         public string ToString(List<SpectraFileInfo> rawFiles)

@@ -29,7 +29,6 @@ namespace Chemistry
     {
         // Two datastores storing same elements! Need both for efficient access by both symbol and atomic number
 
-
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic symbol
         /// </summary>
@@ -39,8 +38,6 @@ namespace Chemistry
         /// The internal dictionary housing elements, keyed by their unique atomic number
         /// </summary>
         private static readonly Element[] _elementsArray = new Element[Constants.MaximumNumberOfElementsAllowed];
-
-
 
         /// <summary>
         /// Populate the periodic table by calling this method
@@ -101,6 +98,5 @@ namespace Chemistry
             }
             return true;
         }
-
     }
 }

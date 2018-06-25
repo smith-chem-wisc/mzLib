@@ -4,6 +4,10 @@ using System.Linq;
 
 namespace Proteomics.ProteolyticDigestion
 {
+    /// <summary>
+    /// Product of digesting a protein
+    /// Contains methods for modified peptide combinitorics
+    /// </summary>
     public class Peptide
     {
         private string baseSequence;
@@ -59,7 +63,6 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        #region Modified Peptide Combinatorics
 
         /// <summary>
         /// Gets the peptides for a specific protein interval
@@ -333,6 +336,5 @@ namespace Proteomics.ProteolyticDigestion
             return fixedModsOneIsNterminus;
         }
 
-        #endregion Modified Peptide Combinatorics
     }
 }

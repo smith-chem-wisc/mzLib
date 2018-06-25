@@ -35,7 +35,6 @@ namespace Chemistry
     {
         // Main data stores, the isotopes and elements
 
-
         /// <summary>
         /// A regular expression for matching chemical formulas such as: C2C{13}3H5NO5
         /// \s* (at end as well) allows for optional spacing among the elements, i.e. C2 C{13}3 H5 N O5
@@ -54,8 +53,6 @@ namespace Chemistry
 
         private string formulaString;
 
-
-
         public ChemicalFormula()
         {
             Isotopes = new Dictionary<Isotope, int>();
@@ -67,8 +64,6 @@ namespace Chemistry
             Isotopes = new Dictionary<Isotope, int>(capFormula.Isotopes);
             Elements = new Dictionary<Element, int>(capFormula.Elements);
         }
-
-
 
         /// <summary>
         /// Gets the average mass of this chemical formula
@@ -165,12 +160,8 @@ namespace Chemistry
             }
         }
 
-
-
         internal Dictionary<Isotope, int> Isotopes { get; private set; }
         internal Dictionary<Element, int> Elements { get; private set; }
-
-
 
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)
         {
@@ -491,8 +482,6 @@ namespace Chemistry
             return true;
         }
 
-
-
         /// <summary>
         /// Produces the Hill Notation of the chemical formula
         /// </summary>
@@ -533,6 +522,5 @@ namespace Chemistry
             otherParts.Sort();
             return s + string.Join("", otherParts);
         }
-
     }
 }

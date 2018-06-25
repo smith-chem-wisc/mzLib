@@ -85,9 +85,9 @@
       <Project>{d8bcae00-e826-4771-a423-8b47d8d86ef4}</Project>
       <Name>Mgf</Name>
     </ProjectReference>
-    <ProjectReference Include="..\mzIdentML\mzIdentML.csproj">
+    <ProjectReference Include="..\MzIdentML\MzIdentML.csproj">
       <Project>{63d869df-55d8-4043-ad89-f90462403ebb}</Project>
-      <Name>mzIdentML</Name>
+      <Name>MzIdentML</Name>
     </ProjectReference>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
       <Project>{b208ff5f-5a33-490d-9ddb-7c76f5600fc4}</Project>

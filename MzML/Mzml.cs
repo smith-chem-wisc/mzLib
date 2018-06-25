@@ -31,7 +31,6 @@ namespace IO.MzML
 {
     public class Mzml : MsDataFile
     {
-        #region Private Fields
 
         private const string _zlibCompression = "MS:1000574";
         private const string _64bit = "MS:1000523";

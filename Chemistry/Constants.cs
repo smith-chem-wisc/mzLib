@@ -27,19 +27,16 @@ namespace Chemistry
     /// </summary>
     public static class Constants
     {
-
         /// <summary>
         /// The mass of the subatomic particle with a single elementary charge in atomic
         /// units (u)
         /// </summary>
-        public const double protonMass = 1.007276466879;
+        public const double ProtonMass = 1.007276466879;
 
         /// <summary>
         /// The electron mass in atomic units (u)
         /// </summary>
-        public const double electronMass = 5.48579909070e-4;
-
-
+        public const double ElectronMass = 5.48579909070e-4;
 
         /// <summary>
         /// The largest number of elements to consider

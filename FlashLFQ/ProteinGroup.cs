@@ -10,11 +10,11 @@ namespace FlashLFQ
         public readonly string Organism;
         public readonly Dictionary<SpectraFileInfo, double> intensities;
 
-        public ProteinGroup(string proteinGroupName, string GeneName, string Organism)
+        public ProteinGroup(string proteinGroupName, string geneName, string organism)
         {
-            this.ProteinGroupName = proteinGroupName;
-            this.GeneName = GeneName;
-            this.Organism = Organism;
+            ProteinGroupName = proteinGroupName;
+            GeneName = geneName;
+            Organism = organism;
             intensities = new Dictionary<SpectraFileInfo, double>();
         }
 
@@ -26,7 +26,9 @@ namespace FlashLFQ
             sb.Append("Organism" + "\t");
 
             foreach (var rawfile in rawFiles)
-                sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
+            {
+                sb.Append("Intensity_" + rawfile.FilenameWithoutExtension + "\t");
+            }
 
             return sb.ToString();
         }
@@ -41,9 +43,13 @@ namespace FlashLFQ
             foreach (var file in rawFiles)
             {
                 if (intensities.TryGetValue(file, out double intensity))
+                {
                     str.Append(intensity + "\t");
+                }
                 else
+                {
                     str.Append(0 + "\t");
+                }
             }
 
             return str.ToString();

@@ -223,7 +223,7 @@ namespace UsefulProteomicsDatabases
                                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
                                 {
                                     if (monoisotopicMass.HasValue)
-                                        monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.protonMass;
+                                        monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
                                     if (correctionFormula != null)
                                         correctionFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
                                     break;
