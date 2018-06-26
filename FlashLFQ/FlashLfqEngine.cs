@@ -499,7 +499,7 @@ namespace FlashLFQ
                     try
                     {
                         // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.msOrderByScan;
+                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.MsOrderByScan;
                         for (int i = 0; i < msOrders.Length; i++)
                         {
                             if (msOrders[i] == 1)

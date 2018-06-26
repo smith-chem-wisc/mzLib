@@ -78,7 +78,9 @@ namespace IO.Thermo
             for (int i = 0; i < precursorInfosArray.Length; i++)
             {
                 if (precursorInfosArray[i].nScanNumber == 0)
+                {
                     precursorInfosArray[i].nScanNumber = -1;
+                }
             }
 
             int pnFirstSpectrum = 0;
@@ -90,7 +92,9 @@ namespace IO.Thermo
 
             MsDataScan[] scans = new MsDataScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)
+            {
                 scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(theConnection, nScanNumber, p, filterParams);
+            }
 
             theConnection.Close();
 
@@ -237,7 +241,9 @@ namespace IO.Thermo
                 thermoSpectrum = new MzSpectrum(mzArray, intensityArray, false);
             }
             else
+            {
                 thermoSpectrum = new MzSpectrum(data);
+            }
             MZAnalyzerType mzAnalyzerType;
             if ((ThermoMzAnalyzer)pnMassAnalyzerType == ThermoMzAnalyzer.FTMS)
             {
@@ -255,13 +261,13 @@ namespace IO.Thermo
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
 
                 // INITIALIZE globalParams.couldBePrecursor[nScanNumber - 1] (for dynamic connections that don't have it initialized yet)
-                if (globalParams.couldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
+                if (globalParams.CouldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
                 {
                     var ok = new ManagedThermoHelperLayer.HelperClass();
-                    globalParams.couldBePrecursor[nScanNumber - 1] = ok.GetSingleScanPrecursorInfo(nScanNumber, globalParams.filePath);
+                    globalParams.CouldBePrecursor[nScanNumber - 1] = ok.GetSingleScanPrecursorInfo(nScanNumber, globalParams.FilePath);
                 }
 
-                var precursorInfo = globalParams.couldBePrecursor[nScanNumber - 1];
+                var precursorInfo = globalParams.CouldBePrecursor[nScanNumber - 1];
 
                 // THIS METHOD IS BUGGY!!! DO NOT USE
                 //theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
@@ -281,12 +287,12 @@ namespace IO.Thermo
                     // loop back to find precursor scan
                     // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
                     // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
-                    int scanOrder = globalParams.msOrderByScan[nScanNumber - 1];
+                    int scanOrder = globalParams.MsOrderByScan[nScanNumber - 1];
                     int precursorScanOrder = scanOrder - 1;
 
                     for (int i = nScanNumber - 1; i >= 0; i--)
                     {
-                        int msOrder = globalParams.msOrderByScan[i];
+                        int msOrder = globalParams.MsOrderByScan[i];
 
                         if (msOrder == precursorScanOrder)
                         {
