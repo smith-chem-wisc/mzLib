@@ -55,33 +55,33 @@ namespace IO.MzML
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
 
         private static readonly Dictionary<string, Polarity> polarityDictionary = new Dictionary<string, Polarity>
-                {
-                    {"MS:1000129",Polarity.Negative},
-                    {"MS:1000130",Polarity.Positive}
-                };
+        {
+            {"MS:1000129",Polarity.Negative},
+            {"MS:1000130",Polarity.Positive}
+        };
 
         private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
-            {
-                { "MS:1000443", MZAnalyzerType.Unknown},
-                { "MS:1000081",MZAnalyzerType.Quadrupole},
-                { "MS:1000291",MZAnalyzerType.IonTrap2D},
-                { "MS:1000082",MZAnalyzerType.IonTrap3D},
-                { "MS:1000484",MZAnalyzerType.Orbitrap},
-                { "MS:1000084",MZAnalyzerType.TOF},
-                { "MS:1000079",MZAnalyzerType.FTICR},
-                { "MS:1000080",MZAnalyzerType.Sector}
-            };
+        {
+            { "MS:1000443", MZAnalyzerType.Unknown},
+            { "MS:1000081",MZAnalyzerType.Quadrupole},
+            { "MS:1000291",MZAnalyzerType.IonTrap2D},
+            { "MS:1000082",MZAnalyzerType.IonTrap3D},
+            { "MS:1000484",MZAnalyzerType.Orbitrap},
+            { "MS:1000084",MZAnalyzerType.TOF},
+            { "MS:1000079",MZAnalyzerType.FTICR},
+            { "MS:1000080",MZAnalyzerType.Sector}
+        };
 
         private static readonly Dictionary<string, DissociationType> dissociationDictionary = new Dictionary<string, DissociationType>
-                {
-                    { "MS:1000133",DissociationType.CID},
-                    { "MS:1001880",DissociationType.ISCID},
-                    { "MS:1000422",DissociationType.HCD},
-                    { "MS:1000598",DissociationType.ETD},
-                    { "MS:1000435",DissociationType.MPD},
-                    { "MS:1000599",DissociationType.PQD},
-                    { "MS:1000044",DissociationType.Unknown}
-                };
+        {
+            { "MS:1000133",DissociationType.CID},
+            { "MS:1001880",DissociationType.ISCID},
+            { "MS:1000422",DissociationType.HCD},
+            { "MS:1000598",DissociationType.ETD},
+            { "MS:1000435",DissociationType.MPD},
+            { "MS:1000599",DissociationType.PQD},
+            { "MS:1000044",DissociationType.Unknown}
+        };
 
         private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {

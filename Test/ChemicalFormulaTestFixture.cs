@@ -179,6 +179,14 @@ namespace Test
         }
 
         [Test]
+        public static void AddNonExistentAtomicNumberToFormula()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+
+            Assert.Throws<MzLibException>(() => { formulaA.AddPrincipalIsotopesOf(1000000, 1); });
+        }
+
+        [Test]
         public static void InexistingElement()
         {
             Assert.Throws<KeyNotFoundException>(() => { ChemicalFormula.ParseFormula("Q"); });

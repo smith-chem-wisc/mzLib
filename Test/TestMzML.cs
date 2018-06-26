@@ -55,6 +55,13 @@ namespace Test
         }
 
         [Test]
+        public void LoadBadMzml()
+        {
+            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")); // just to be sure
+            Assert.Throws<FileNotFoundException>(() => Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")));
+        }
+
+        [Test]
         public static void TestPeakTrimmingWithOneWindow()
         {
             Random rand = new Random();

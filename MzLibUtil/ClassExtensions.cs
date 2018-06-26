@@ -24,7 +24,6 @@ namespace MzLibUtil
 {
     public static class ClassExtensions
     {
-
         public static double[] BoxCarSmooth(this double[] data, int points)
         {
             // Force to be odd
@@ -79,6 +78,5 @@ namespace MzLibUtil
             }
             return cnt.Values.All(c => c == 0);
         }
-
     }
 }

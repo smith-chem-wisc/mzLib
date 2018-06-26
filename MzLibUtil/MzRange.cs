@@ -20,18 +20,14 @@ namespace MzLibUtil
 {
     public class MzRange : DoubleRange
     {
-
         public MzRange(double minMZ, double maxMZ)
             : base(minMZ, maxMZ)
         {
         }
 
-
-
         public override string ToString(string format)
         {
             return $"[{Minimum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)} to {Maximum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}] m/z";
         }
-
     }
 }

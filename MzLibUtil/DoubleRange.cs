@@ -20,7 +20,6 @@ namespace MzLibUtil
 {
     public class DoubleRange
     {
-
         /// <summary>
         /// Creates a range from the minimum to maximum values
         /// </summary>
@@ -41,8 +40,6 @@ namespace MzLibUtil
             : this(range.Minimum, range.Maximum)
         {
         }
-
-
 
         /// <summary>
         /// The maximum value of the range
@@ -71,8 +68,6 @@ namespace MzLibUtil
         {
             get { return Maximum - Minimum; }
         }
-
-
 
         public override string ToString()
         {
@@ -132,6 +127,5 @@ namespace MzLibUtil
         {
             return CompareTo(item).Equals(0);
         }
-
     }
 }

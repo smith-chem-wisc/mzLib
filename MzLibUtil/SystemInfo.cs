@@ -15,7 +15,6 @@ namespace MzLibUtil
 {
     public static class SystemInfo
     {
-
         public static string CompleteSystemInfo()
         {
             StringBuilder fullSystemString = new StringBuilder();
@@ -43,8 +42,6 @@ namespace MzLibUtil
 
             return fullSystemProse.ToString();
         }
-
-
 
         private static string GetManufacturer()
         {
@@ -250,9 +247,13 @@ namespace MzLibUtil
         private static string CheckFor45PlusVersion(int releaseKey)
         {
             if (releaseKey >= 460798)
+            {
                 return "4.7 or later";
+            }
             if (releaseKey >= 394802)
+            {
                 return "4.6.2";
+            }
             if (releaseKey >= 394254)
             {
                 return "4.6.1";
@@ -277,6 +278,5 @@ namespace MzLibUtil
             // that 4.5 or later is installed.
             return "No 4.5 or later version detected";
         }
-
     }
 }

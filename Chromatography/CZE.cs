@@ -26,9 +26,13 @@ namespace Chromatography
         public double ExperimentalElectrophoreticMobility(double length, double timeMin, double voltsPerMeter)
         {
             if (length >= 0 && timeMin >= 0)
-                return (length / (60 * timeMin * voltsPerMeter) * 1e9);
+            {
+                return length / (60 * timeMin * voltsPerMeter) * 1e9;
+            }
             else
-                return (-1);
+            {
+                return -1;
+            }
         }
 
         /// <summary>

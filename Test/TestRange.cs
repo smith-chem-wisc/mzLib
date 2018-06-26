@@ -187,6 +187,24 @@ namespace Test
         }
 
         [Test]
+        public void ToleranceParseAndWithin()
+        {
+            string tol = "4 Absolute";
+            var range1 = new AbsoluteTolerance(4);
+            var range2 = Tolerance.ParseToleranceString(tol);
+            Assert.AreEqual(range1.Value, range2.Value);
+            Assert.AreEqual(range1.Value, Tolerance.ParseToleranceString(range2.ToString()).Value);
+
+            Assert.IsTrue(range1.Within(3.9, 0));
+            Assert.IsTrue(range1.Within(4, 0));
+            Assert.IsFalse(range1.Within(4.1, 0));
+
+            Assert.IsTrue(range1.Within(0, 3.9));
+            Assert.IsTrue(range1.Within(0, 4));
+            Assert.IsFalse(range1.Within(0, 4.1));
+        }
+
+        [Test]
         public void MassRangeFromDAWidth()
         {
             var range1 = new AbsoluteTolerance(4).GetRange(10);
