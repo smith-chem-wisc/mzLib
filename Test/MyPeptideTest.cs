@@ -31,11 +31,15 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
             foreach (var huh in pep1.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            {
                 Assert.IsTrue(huh > 0);
+            }
             var pep2 = ye[1];
             Assert.IsTrue(pep2.MonoisotopicMass > 0);
             foreach (var huh in pep2.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            {
                 Assert.IsTrue(huh > 0);
+            }
         }
 
         [Test]
@@ -68,7 +72,9 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
             foreach (var huh in pep1.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            {
                 Assert.IsTrue(huh > 0);
+            }
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);

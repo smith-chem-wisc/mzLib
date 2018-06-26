@@ -119,7 +119,13 @@ namespace Proteomics
         /// </summary>
         public List<ProteinWithAppliedVariants> GetVariantProteins()
         {
-            return null;
+            List<SequenceVariation> uniqueEffects = SequenceVariations
+                .GroupBy(v => v.OriginalSequence + v.OneBasedBeginPosition.ToString() + v.VariantSequence).Select(x => x.First())
+                .Where(v => v.Description.Split('\t').Length >= 10) // likely a VCF line (should probably do more rigorous testing, eventually)
+                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
+                .ToList();
+            ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, null);
+            return variantProtein.ApplyVariants(variantProtein, uniqueEffects);
         }
     }
 }

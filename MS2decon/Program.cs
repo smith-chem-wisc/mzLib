@@ -15,8 +15,6 @@ namespace MS2decon
 {
     internal class Program
     {
-        #region Private Methods
-
         private static void Main(string[] args)
         {
             Loaders.LoadElements("elements.dat");
@@ -109,12 +107,10 @@ namespace MS2decon
                 Console.WriteLine(result.ErrorText);
             }
         }
-
     }
 
     internal class ApplicationArguments
     {
-
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
         public int MinAssumedChargeState { get; set; } = 1;
@@ -123,8 +119,6 @@ namespace MS2decon
         public double IntensityRatioLimit { get; set; } = 5;
         public double AggregationTolerancePpm { get; set; } = 5;
         public string FilePath { get; set; }
-
-
 
         public override string ToString()
         {
@@ -139,6 +133,5 @@ namespace MS2decon
             sb.AppendLine("AggregationTolerancePpm: " + AggregationTolerancePpm);
             return sb.ToString();
         }
-
     }
 }

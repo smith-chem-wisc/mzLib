@@ -10,7 +10,7 @@ namespace Proteomics.ProteolyticDigestion
     /// </summary>
     public class Peptide
     {
-        private string baseSequence;
+        private string _baseSequence;
 
         internal Peptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
         {
@@ -49,9 +49,11 @@ namespace Proteomics.ProteolyticDigestion
         {
             get
             {
-                if (baseSequence == null)
-                    baseSequence = Protein.BaseSequence.Substring(OneBasedStartResidueInProtein - 1, Length);
-                return baseSequence;
+                if (_baseSequence == null)
+                {
+                    _baseSequence = Protein.BaseSequence.Substring(OneBasedStartResidueInProtein - 1, Length);
+                }
+                return _baseSequence;
             }
         }
 

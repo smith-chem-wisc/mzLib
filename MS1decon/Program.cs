@@ -13,8 +13,6 @@ namespace ConsoleApp1
 {
     internal class Program
     {
-        #region Private Methods
-
         private static void Main(string[] args)
         {
             Loaders.LoadElements("elements.dat");
@@ -92,12 +90,10 @@ namespace ConsoleApp1
                 Console.WriteLine(result.ErrorText);
             }
         }
-
     }
 
     internal class ApplicationArguments
     {
-
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
         public int MinAssumedChargeState { get; set; } = 1;
@@ -108,8 +104,6 @@ namespace ConsoleApp1
         public int AverageScans { get; set; } = 1;
         public string FilePath { get; set; }
         public int NumScansRequired { get; set; } = 2;
-
-
 
         public override string ToString()
         {
@@ -126,6 +120,5 @@ namespace ConsoleApp1
             sb.AppendLine("NumScansRequired: " + NumScansRequired);
             return sb.ToString();
         }
-
     }
 }

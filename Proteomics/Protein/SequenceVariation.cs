@@ -19,14 +19,15 @@
         }
 
         /// <summary>
-        /// For point mutations. Sets begin and end to the same position.
+        /// For variations with only position information (not begin and end).
+        /// Sets the end to the end of the original protein sequence to which this variation applies.
         /// </summary>
         /// <param name="OneBasedPosition"></param>
         /// <param name="OriginalSequence"></param>
         /// <param name="VariantSequence"></param>
         /// <param name="Description"></param>
         public SequenceVariation(int OneBasedPosition, string OriginalSequence, string VariantSequence, string Description)
-            : this(OneBasedPosition, OneBasedPosition, OriginalSequence, VariantSequence, Description)
+            : this(OneBasedPosition, OneBasedPosition + OriginalSequence.Length - 1, OriginalSequence, VariantSequence, Description)
         { }
 
         /// <summary>
@@ -72,6 +73,26 @@
                 ^ OriginalSequence.GetHashCode()
                 ^ VariantSequence.GetHashCode()
                 ^ Description.GetHashCode();
+        }
+
+        /// <summary>
+        /// Determines whether this interval overlaps the queried interval
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <returns></returns>
+        internal bool Intersects(SequenceVariation segment)
+        {
+            return segment.OneBasedEndPosition >= OneBasedBeginPosition && segment.OneBasedBeginPosition <= OneBasedEndPosition;
+        }
+
+        /// <summary>
+        /// Determines whether this interval includes the queried interval
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <returns></returns>
+        internal bool Includes(SequenceVariation segment)
+        {
+            return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
         }
     }
 }
