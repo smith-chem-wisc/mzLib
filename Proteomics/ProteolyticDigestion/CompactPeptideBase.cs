@@ -187,7 +187,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // If modification exists
-                if (yyy.allModsOneIsNterminus.TryGetValue(oneBasedIndexToLookAt + 1, out currentModification))
+                if (yyy.AllModsOneIsNterminus.TryGetValue(oneBasedIndexToLookAt + 1, out currentModification))
                 {
                     if (currentModification.neutralLosses.Count == 1 && oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
                     {

@@ -149,9 +149,9 @@ namespace Test
             var ok2 = digestList[3];
 
             Assert.AreEqual(1, ok1.NumMods);
-            Assert.IsTrue(ok1.allModsOneIsNterminus.ContainsKey(3));
+            Assert.IsTrue(ok1.AllModsOneIsNterminus.ContainsKey(3));
             Assert.AreEqual(1, ok2.NumMods);
-            Assert.IsTrue(ok2.allModsOneIsNterminus.ContainsKey(3));
+            Assert.IsTrue(ok2.AllModsOneIsNterminus.ContainsKey(3));
         }
 
         [Test]
@@ -176,18 +176,18 @@ namespace Test
             var ok2 = digestedList[3];
 
             Assert.AreEqual(1, ok1.NumMods);
-            Assert.IsTrue(ok1.allModsOneIsNterminus.ContainsKey(3));
+            Assert.IsTrue(ok1.AllModsOneIsNterminus.ContainsKey(3));
             Assert.AreEqual(1, ok2.NumMods);
-            Assert.IsTrue(ok2.allModsOneIsNterminus.ContainsKey(3));
+            Assert.IsTrue(ok2.AllModsOneIsNterminus.ContainsKey(3));
 
             prot = new Protein("MNNNNKRRRRR", null, null, null, modDict);
             ok1 = prot.Digest(digestionParams, new List<ModificationWithMass>(), new List<ModificationWithMass>()).First();
             ok2 = prot.Digest(digestionParams, new List<ModificationWithMass>(), new List<ModificationWithMass>()).Last();
 
             Assert.AreEqual(0, ok1.NumMods);
-            Assert.IsFalse(ok1.allModsOneIsNterminus.Any());
+            Assert.IsFalse(ok1.AllModsOneIsNterminus.Any());
             Assert.AreEqual(0, ok2.NumMods);
-            Assert.IsFalse(ok2.allModsOneIsNterminus.Any());
+            Assert.IsFalse(ok2.AllModsOneIsNterminus.Any());
         }
 
         [Test]
