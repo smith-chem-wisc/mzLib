@@ -140,12 +140,12 @@ namespace UsefulProteomicsDatabases
         /// <param name="modTypesToExclude"></param>
         /// <param name="unknownModifications"></param>
         /// <param name="generateTargetProteins"></param>
-        /// <param name="decoyType"></param>
+        /// <param name="decoySetting"></param>
         /// <param name="isContaminant"></param>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
         public List<Protein> ParseEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications, bool generateTargetProteins, DecoyType decoyType, bool isContaminant, string proteinDbLocation)
+            Dictionary<string, Modification> unknownModifications, bool isContaminant, string proteinDbLocation)
         {
             List<Protein> result = new List<Protein>();
             if (xml.Name == "feature")
@@ -166,7 +166,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result.AddRange(ParseEntryEndElement(xml, generateTargetProteins, decoyType, isContaminant, proteinDbLocation));
+                result.AddRange(ParseEntryEndElement(xml, isContaminant, proteinDbLocation));
             }
             return result;
         }
@@ -180,28 +180,14 @@ namespace UsefulProteomicsDatabases
         /// <param name="isContaminant"></param>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
-        public List<Protein> ParseEntryEndElement(XmlReader xml, bool generateTargetProteins, DecoyType decoyType, bool isContaminant, string proteinDbLocation)
+        public List<Protein> ParseEntryEndElement(XmlReader xml,  bool isContaminant, string proteinDbLocation)
         {
             List<Protein> result = new List<Protein>();
             if (Accession != null && Sequence != null)
             {
-                if (generateTargetProteins)
-                {
-                    var protein = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                        false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, proteinDbLocation);
-                    result.Add(protein);
-                }
-
-                if (decoyType == DecoyType.Reverse)
-                {
-                    var decoyProtein = DecoyProteinGenerator.GenerateReverseDecoy(this, isContaminant, proteinDbLocation);
-                    result.Add(decoyProtein);
-                }
-                else if (decoyType == DecoyType.Slide)
-                {
-                    var decoyProtein = DecoyProteinGenerator.GenerateSlideDecoy(this, isContaminant, proteinDbLocation);
-                    result.Add(decoyProtein);
-                }
+                var protein = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
+                    false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, proteinDbLocation);
+                result.Add(protein);
             }
             Clear();
             return result;
@@ -214,7 +200,8 @@ namespace UsefulProteomicsDatabases
         /// <param name="mod_dict"></param>
         /// <param name="modTypesToExclude"></param>
         /// <param name="unknownModifications"></param>
-        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude, 
+            Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
             {
