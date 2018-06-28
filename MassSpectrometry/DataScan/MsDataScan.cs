@@ -152,11 +152,11 @@ namespace MassSpectrometry
         {
             if (!IsolationMz.HasValue)
             {
-                throw new MzLibException("Could not refine selected m/z and intensity because !IsolationMz.HasValue");
+                throw new MzLibException("Could not define precursor ion because the isolation m/z window is undefined in the spectra file");
             }
             if (precursorSpectrum.Size == 0)
             {
-                throw new MzLibException("Could not refine selected m/z and intensity because precursorSpectrum.Size == 0");
+                throw new MzLibException("Could not define precursor ion because the precursor scan contains no peaks");
             }
             var thePeak = precursorSpectrum.GetClosestPeakIndex(IsolationMz.Value);
             SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
@@ -167,7 +167,7 @@ namespace MassSpectrometry
         {
             if (precursorSpectrum.Size == 0)
             {
-                throw new MzLibException("Could not compute selected peak intensity because precursorSpectrum.Size == 0");
+                throw new MzLibException("Could not compute selected peak intensity because the precursor scan contains no peaks");
             }
             var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ.Value);
             SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
@@ -178,7 +178,7 @@ namespace MassSpectrometry
         {
             if (precursorSpectrum.Size == 0)
             {
-                throw new MzLibException("Could not compute monoisotopic peak intensity because precursorSpectrum.Size == 0");
+                throw new MzLibException("Could not compute monoisotopic peak intensity because the precursor scan contains no peaks");
             }
             var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
             SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak.Value];
