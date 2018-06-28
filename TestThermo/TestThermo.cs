@@ -13,8 +13,6 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
-        #region Public Methods
-
         [Test]
         public static void ReadWriteReadEtc()
         {
@@ -267,7 +265,7 @@ namespace TestThermo
             Assert.That(Math.Round(ms2scan.RetentionTime, 2) == 12.16);
             Assert.That(ms2scan.OneBasedPrecursorScanNumber == 650);
             Assert.That(ms2scan.SelectedIonMZ == 442.67);
-            var t = dynamicThermo.ThermoGlobalParams.msOrderByScan;
+            var t = dynamicThermo.ThermoGlobalParams.MsOrderByScan;
             Assert.That(t[0] == 1);
             Assert.That(t[5] == 1);
             Assert.That(t[649] == 1);
@@ -347,7 +345,5 @@ namespace TestThermo
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
         }
-
-        #endregion Public Methods
     }
 }

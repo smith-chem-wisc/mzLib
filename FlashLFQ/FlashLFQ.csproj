@@ -9,6 +9,11 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net471|AnyCPU'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  
   <ItemGroup Condition="'$(TargetFramework)' == 'net471'">
     <ProjectReference Include="..\Thermo\Thermo.csproj" />
   </ItemGroup>

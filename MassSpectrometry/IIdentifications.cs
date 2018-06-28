@@ -4,17 +4,9 @@ namespace MassSpectrometry
 {
     public interface IIdentifications
     {
-        #region Public Properties
-
         int Count { get; }
-
         Tolerance ParentTolerance { get; }
-
         Tolerance FragmentTolerance { get; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         string Ms2SpectrumID(int matchIndex);
 
@@ -55,7 +47,5 @@ namespace MassSpectrometry
         double ModificationMass(int matchIndex, int siiIndex, int i);
 
         string ModificationValue(int matchIndex, int siiIndex, int i);
-
-        #endregion Public Methods
     }
 }

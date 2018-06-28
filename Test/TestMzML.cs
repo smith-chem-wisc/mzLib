@@ -4,7 +4,7 @@ using MassSpectrometry;
 using MzIdentML;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,8 +16,6 @@ namespace Test
     [TestFixture]
     public sealed class TestMzML
     {
-        #region Public Methods
-
         [Test]
         public static void AnotherMzMLtest()
         {
@@ -54,6 +52,13 @@ namespace Test
             var scanWithPrecursor = ok.GetAllScansList().Last(b => b.MsnOrder != 1);
 
             Assert.AreEqual(3, scanWithPrecursor.OneBasedPrecursorScanNumber);
+        }
+
+        [Test]
+        public void LoadBadMzml()
+        {
+            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")); // just to be sure
+            Assert.Throws<FileNotFoundException>(() => Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")));
         }
 
         [Test]
@@ -129,11 +134,17 @@ namespace Test
                 int intensity = rand.Next(1000, 10000);
                 myPeaks.Add((mz, intensity));
                 if (peakCounter <= 399)
+                {
                     myPeaksWindow1.Add((mz, intensity));
+                }
                 else if (peakCounter <= 799)
+                {
                     myPeaksWindow2.Add((mz, intensity));
+                }
                 else if (peakCounter <= 1200)
+                {
                     myPeaksWindow3.Add((mz, intensity));
+                }
             }
 
             double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
@@ -971,7 +982,6 @@ namespace Test
             Assert.AreEqual(2, identifications.NumPSMsFromScan(0));
         }
 
-
         [Test]
         public void Mzid111Test_()
         {
@@ -1351,11 +1361,8 @@ namespace Test
             Assert.AreEqual(3, fakeMzml.GetAllScansList().ElementAt(5).OneBasedPrecursorScanNumber);
             Assert.AreEqual(1, fakeMzml1.GetAllScansList().ElementAt(3).OneBasedPrecursorScanNumber);
         }
-        #endregion Public Methods
 
-            #region Private Methods
-
-            private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
+        private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
             List<double> allIntensities = new List<double>();
@@ -1409,7 +1416,5 @@ namespace Test
 
             //return new MzmlMzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
-
-        #endregion Private Methods
     }
 }

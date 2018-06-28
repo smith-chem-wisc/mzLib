@@ -3,50 +3,48 @@ using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
-    class StatisticalAnalysisEngine
+    internal class StatisticalAnalysisEngine
     {
-        FlashLFQResults results;
-        private readonly double pValueForCallingSignificance;
-        private readonly double minimumFoldChange;
+        private FlashLFQResults Results;
+        private readonly double PValueForCallingSignificance;
+        private readonly double MinimumFoldChange;
 
         public StatisticalAnalysisEngine(FlashLFQResults results, double pValueForCallingSignificance, double minimumFoldChange)
         {
-            this.results = results;
-            this.pValueForCallingSignificance = pValueForCallingSignificance;
-            this.minimumFoldChange = minimumFoldChange;
+            Results = results;
+            PValueForCallingSignificance = pValueForCallingSignificance;
+            MinimumFoldChange = minimumFoldChange;
         }
 
         public void PerformStatisticalAnalysis()
         {
             // calculate intensities for proteins/peptides
-            results.CalculatePeptideResults(true);
-            results.CalculatePeptideResults(false);
-            results.CalculateProteinResults();
+            Results.CalculatePeptideResults(true);
+            Results.CalculatePeptideResults(false);
+            Results.CalculateProteinResults();
 
             List<string> output = new List<string>();
             Dictionary<string, List<double[]>> conditionToSamples = new Dictionary<string, List<double[]>>();
-            List<Peptide> peptides = results.peptideModifiedSequences.Values.ToList();
+            List<Peptide> peptides = Results.peptideModifiedSequences.Values.ToList();
             int samples = 0;
 
             // sum intensities by biorep (bioreps are the samples for t-testing)
-            var conditions = results.spectraFiles.GroupBy(p => p.condition);
+            var conditions = Results.spectraFiles.GroupBy(p => p.Condition);
 
             foreach (var condition in conditions)
             {
                 List<double[]> samplesForThisCondition = new List<double[]>();
-                var bioreps = condition.GroupBy(p => p.biologicalReplicate);
+                var bioreps = condition.GroupBy(p => p.BiologicalReplicate);
 
                 foreach (var biorep in bioreps)
                 {
                     samples++;
                     double[] biorepIntensities = new double[peptides.Count];
 
-                    var fractions = biorep.GroupBy(p => p.fraction);
+                    var fractions = biorep.GroupBy(p => p.Fraction);
 
                     foreach (var fraction in fractions)
                     {
@@ -114,7 +112,7 @@ namespace FlashLFQ
                     }
 
                     // TODO: this cuts off at log fold change, not fold change
-                    bool isSignificantChanger = (pValue <= pValueForCallingSignificance) && (Math.Abs(avgCondition1 - avgCondition2) >= minimumFoldChange);
+                    bool isSignificantChanger = (pValue <= PValueForCallingSignificance) && (Math.Abs(avgCondition1 - avgCondition2) >= MinimumFoldChange);
 
                     output.Add(peptides[p].Sequence + "\t" +
                         string.Join("\t", cond1Samples.Select(v => Math.Pow(2, v))) + "\t" +

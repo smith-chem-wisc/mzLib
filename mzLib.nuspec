@@ -27,7 +27,7 @@
     <file src="MzLibUtil\bin\Release\netstandard2.0\MzLibUtil.dll" target="lib\netstandard2.0" />
     <file src="MzML\bin\Release\netstandard2.0\MzML.dll" target="lib\netstandard2.0" />
     <file src="Mgf\bin\Release\netstandard2.0\Mgf.dll" target="lib\netstandard2.0" />
-    <file src="pepXML\bin\Release\netstandard2.0\pepXML.dll" target="lib\netstandard2.0" /> 
+    <file src="PepXML\bin\Release\netstandard2.0\PepXML.dll" target="lib\netstandard2.0" /> 
     <file src="MassSpectrometry\bin\Release\netstandard2.0\MassSpectrometry.dll" target="lib\netstandard2.0" /> 
     <file src="Proteomics\bin\Release\netstandard2.0\Proteomics.dll" target="lib\netstandard2.0" /> 
     <file src="Spectra\bin\Release\netstandard2.0\Spectra.dll" target="lib\netstandard2.0" /> 
@@ -40,7 +40,7 @@
     <file src="MzLibUtil\bin\Release\net471\MzLibUtil.dll" target="lib\net471" />
     <file src="MzML\bin\Release\net471\MzML.dll" target="lib\net471" /> 
     <file src="Mgf\bin\Release\net471\Mgf.dll" target="lib\net471" /> 
-    <file src="pepXML\bin\Release\net471\pepXML.dll" target="lib\net471" /> 
+    <file src="PepXML\bin\Release\net471\PepXML.dll" target="lib\net471" /> 
     <file src="MassSpectrometry\bin\Release\net471\MassSpectrometry.dll" target="lib\net471" /> 
     <file src="Proteomics\bin\Release\net471\Proteomics.dll" target="lib\net471" /> 
     <file src="Spectra\bin\Release\net471\Spectra.dll" target="lib\net471" /> 

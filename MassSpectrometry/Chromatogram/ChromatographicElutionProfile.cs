@@ -25,13 +25,7 @@ namespace MassSpectrometry
 {
     public class ChromatographicElutionProfile<T> where T : IPeak
     {
-        #region Private Fields
-
         private readonly T[] _peaks;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public ChromatographicElutionProfile(ICollection<T> peaks)
         {
@@ -45,10 +39,6 @@ namespace MassSpectrometry
             SummedArea = _peaks.Sum(p => p.Y);
             TimeRange = new DoubleRange(_peaks[0].X, _peaks[Count - 1].X);
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public T StartPeak
         {
@@ -66,10 +56,6 @@ namespace MassSpectrometry
 
         public double SummedArea { get; private set; }
 
-        #endregion Public Properties
-
-        #region Public Methods
-
         public double TrapezoidalArea()
         {
             double area = 0;
@@ -81,7 +67,5 @@ namespace MassSpectrometry
             }
             return area / 2.0;
         }
-
-        #endregion Public Methods
     }
 }

@@ -15,10 +15,9 @@ namespace FlashLFQ
 {
     public class FlashLFQEngine
     {
-        #region Public Fields
-
         // settings
         public readonly bool silent;
+
         public readonly int maxThreads;
         public readonly double peakfindingPpmTolerance;
         public readonly double ppmTolerance;
@@ -38,10 +37,6 @@ namespace FlashLFQ
         public readonly bool normalize;
         public readonly double minDiscFactorToCutAt;
 
-        #endregion Public Fields
-
-        #region Private Fields
-
         private List<SpectraFileInfo> spectraFileInfo;
         private Stopwatch globalStopwatch;
         private List<Identification> allIdentifications;
@@ -52,11 +47,8 @@ namespace FlashLFQ
 
         // these two fields will be overwritten as each file is analyzed
         private MsDataScan[] ms1Scans;
+
         private List<IndexedMassSpectralPeak>[] indexedPeaks;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public FlashLFQEngine(List<Identification> allIdentifications, bool normalize = true, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, bool matchBetweenRuns = false, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null, double maxMbrWindow = 1.5)
         {
@@ -68,10 +60,10 @@ namespace FlashLFQ
             chargeStates = new List<int>();
 
             this.spectraFileInfo = allIdentifications.Select(p => p.fileInfo).Distinct()
-                .OrderBy(p => p.condition)
-                .ThenBy(p => p.biologicalReplicate)
-                .ThenBy(p => p.fraction)
-                .ThenBy(p => p.technicalReplicate).ToList();
+                .OrderBy(p => p.Condition)
+                .ThenBy(p => p.BiologicalReplicate)
+                .ThenBy(p => p.Fraction)
+                .ThenBy(p => p.TechnicalReplicate).ToList();
 
             this.allIdentifications = allIdentifications;
             this.ppmTolerance = ppmTolerance;
@@ -96,10 +88,6 @@ namespace FlashLFQ
             minDiscFactorToCutAt = 0.6;
         }
 
-        #endregion Public Constructors
-
-        #region Public Methods
-
         public FlashLFQResults Run()
         {
             globalStopwatch.Start();
@@ -115,7 +103,7 @@ namespace FlashLFQ
                 // fill lookup-table with peaks from the raw file
                 IndexMassSpectralPeaks(spectraFile);
 
-                if(indexedPeaks.Length == 0)
+                if (indexedPeaks.Length == 0)
                 {
                     // no MS1 peaks found
                     return results;
@@ -136,7 +124,7 @@ namespace FlashLFQ
 
                 if (!silent)
                 {
-                    Console.WriteLine("Finished " + spectraFile.filenameWithoutExtension);
+                    Console.WriteLine("Finished " + spectraFile.FilenameWithoutExtension);
                 }
 
                 // some memory-saving stuff
@@ -186,41 +174,37 @@ namespace FlashLFQ
             return results;
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private void RetentionTimeCalibrationAndErrorCheckMatchedFeatures()
         {
             if (!silent)
                 Console.WriteLine("Running retention time calibration");
 
             // get all unambiguous peaks for all files
-            var allFeatures = results.peaks.SelectMany(p => p.Value).Where(p => !p.isMbrFeature);
+            var allFeatures = results.peaks.SelectMany(p => p.Value).Where(p => !p.IsMbrFeature);
             var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
-            var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.identifications.Select(v => v.ModifiedSequence)));
+            var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.Identifications.Select(v => v.ModifiedSequence)));
 
             foreach (var feature in allFeatures)
-                if (ambiguousFeatureSeqs.Contains(feature.identifications.First().ModifiedSequence))
+                if (ambiguousFeatureSeqs.Contains(feature.Identifications.First().ModifiedSequence))
                     allAmbiguousFeatures.Add(feature);
 
-            var unambiguousPeaksGroupedByFile = allFeatures.Except(allAmbiguousFeatures).Where(v => v.apex != null).GroupBy(p => p.rawFileInfo);
+            var unambiguousPeaksGroupedByFile = allFeatures.Except(allAmbiguousFeatures).Where(v => v.Apex != null).GroupBy(p => p.RawFileInfo);
 
             foreach (var file in unambiguousPeaksGroupedByFile)
             {
-                var allMbrFeaturesForThisFile = results.peaks[file.Key].Where(p => p.isMbrFeature);
+                var allMbrFeaturesForThisFile = results.peaks[file.Key].Where(p => p.IsMbrFeature);
 
                 // get the best (most intense) peak for each peptide in the file
                 Dictionary<string, ChromatographicPeak> pepToBestFeatureForThisFile = new Dictionary<string, ChromatographicPeak>();
                 foreach (var testPeak in file)
                 {
-                    if (pepToBestFeatureForThisFile.TryGetValue(testPeak.identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
+                    if (pepToBestFeatureForThisFile.TryGetValue(testPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
                     {
-                        if (currentBestPeak.intensity > testPeak.intensity)
-                            pepToBestFeatureForThisFile[testPeak.identifications.First().ModifiedSequence] = testPeak;
+                        if (currentBestPeak.Intensity > testPeak.Intensity)
+                            pepToBestFeatureForThisFile[testPeak.Identifications.First().ModifiedSequence] = testPeak;
                     }
                     else
-                        pepToBestFeatureForThisFile.Add(testPeak.identifications.First().ModifiedSequence, testPeak);
+                        pepToBestFeatureForThisFile.Add(testPeak.Identifications.First().ModifiedSequence, testPeak);
                 }
 
                 foreach (var otherFile in unambiguousPeaksGroupedByFile)
@@ -229,25 +213,25 @@ namespace FlashLFQ
                     if (otherFile.Key.Equals(file.Key))
                         continue;
 
-                    var featuresInCommon = otherFile.Where(p => pepToBestFeatureForThisFile.ContainsKey(p.identifications.First().ModifiedSequence));
+                    var featuresInCommon = otherFile.Where(p => pepToBestFeatureForThisFile.ContainsKey(p.Identifications.First().ModifiedSequence));
 
                     Dictionary<string, ChromatographicPeak> pepToBestFeatureForOtherFile = new Dictionary<string, ChromatographicPeak>();
                     foreach (var testPeak in featuresInCommon)
                     {
-                        if (pepToBestFeatureForOtherFile.TryGetValue(testPeak.identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
+                        if (pepToBestFeatureForOtherFile.TryGetValue(testPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
                         {
-                            if (currentBestPeak.intensity > testPeak.intensity)
-                                pepToBestFeatureForOtherFile[testPeak.identifications.First().ModifiedSequence] = testPeak;
+                            if (currentBestPeak.Intensity > testPeak.Intensity)
+                                pepToBestFeatureForOtherFile[testPeak.Identifications.First().ModifiedSequence] = testPeak;
                         }
                         else
-                            pepToBestFeatureForOtherFile.Add(testPeak.identifications.First().ModifiedSequence, testPeak);
+                            pepToBestFeatureForOtherFile.Add(testPeak.Identifications.First().ModifiedSequence, testPeak);
                     }
 
                     // create a rt-to-rt correlation for the two files' peptides
                     Dictionary<string, Tuple<double, double>> rtCalPoints = new Dictionary<string, Tuple<double, double>>();
 
                     foreach (var kvp in pepToBestFeatureForOtherFile)
-                        rtCalPoints.Add(kvp.Key, new Tuple<double, double>(pepToBestFeatureForThisFile[kvp.Key].apex.retentionTime, kvp.Value.apex.retentionTime));
+                        rtCalPoints.Add(kvp.Key, new Tuple<double, double>(pepToBestFeatureForThisFile[kvp.Key].Apex.RetentionTime, kvp.Value.Apex.RetentionTime));
 
                     if (!rtCalPoints.Any())
                         continue;
@@ -357,34 +341,34 @@ namespace FlashLFQ
                     }
 
                     // finished rt calibration for these 2 files; now use rt cal spline to find matched features
-                    var allMatchedFeaturesToLookForNow = allMbrFeaturesForThisFile.Where(p => p.identifications.First().fileInfo.Equals(otherFile.Key)).ToList();
+                    var allMatchedFeaturesToLookForNow = allMbrFeaturesForThisFile.Where(p => p.Identifications.First().fileInfo.Equals(otherFile.Key)).ToList();
 
                     // filter peak candidates with rt cal to get apex peak
                     foreach (var mbrFeature in allMatchedFeaturesToLookForNow)
                     {
-                        if (mbrFeature.isotopicEnvelopes.Any())
+                        if (mbrFeature.IsotopicEnvelopes.Any())
                         {
                             // shift = thisFileRt - otherFileRt
-                            int rtSplineLookupTime = (int)Math.Round(mbrFeature.identifications.First().ms2RetentionTimeInMinutes);
+                            int rtSplineLookupTime = (int)Math.Round(mbrFeature.Identifications.First().ms2RetentionTimeInMinutes);
 
                             if (rtSplineLookupTime < rtCalRunningSpline.Length)
                             {
                                 double rtShift = rtCalRunningSpline[rtSplineLookupTime];
                                 double rtToleranceHere = stdevRunningSpline[rtSplineLookupTime];
-                                double theoreticalRt = mbrFeature.identifications.First().ms2RetentionTimeInMinutes + rtShift;
+                                double theoreticalRt = mbrFeature.Identifications.First().ms2RetentionTimeInMinutes + rtShift;
 
                                 if (!double.IsNaN(rtShift))
-                                    mbrFeature.isotopicEnvelopes = mbrFeature.isotopicEnvelopes.Where(p => Math.Abs(p.retentionTime - theoreticalRt) < rtToleranceHere).ToList();
+                                    mbrFeature.IsotopicEnvelopes = mbrFeature.IsotopicEnvelopes.Where(p => Math.Abs(p.RetentionTime - theoreticalRt) < rtToleranceHere).ToList();
                                 else
-                                    mbrFeature.isotopicEnvelopes = new List<IsotopicEnvelope>();
+                                    mbrFeature.IsotopicEnvelopes = new List<IsotopicEnvelope>();
                             }
                             else
-                                mbrFeature.isotopicEnvelopes = new List<IsotopicEnvelope>();
+                                mbrFeature.IsotopicEnvelopes = new List<IsotopicEnvelope>();
                         }
                     }
 
                     foreach (var feature in allMatchedFeaturesToLookForNow)
-                        if (feature.isotopicEnvelopes.Any())
+                        if (feature.IsotopicEnvelopes.Any())
                             feature.CalculateIntensityForThisFeature(integrate);
                 }
             }
@@ -405,7 +389,7 @@ namespace FlashLFQ
 
                 var isotopicMassesAndNormalizedAbundances = new List<KeyValuePair<double, double>>();
 
-                Proteomics.Peptide p = new Proteomics.Peptide(id.BaseSequence);
+                Proteomics.AminoAcidPolymer.Peptide p = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
                 int numCarbonsInThisPeptide = p.ElementCountWithIsotopes("C");
 
                 var isotopicDistribution = IsotopicDistribution.GetDistribution(p.GetChemicalFormula(), 0.125, 1e-8);
@@ -461,9 +445,9 @@ namespace FlashLFQ
 
             ms1Scans = new MsDataScan[0];
 
-            if(indexedPeaks != null)
+            if (indexedPeaks != null)
             {
-                for(int i = 0; i < indexedPeaks.Length; i++)
+                for (int i = 0; i < indexedPeaks.Length; i++)
                 {
                     if (indexedPeaks[i] == null)
                         continue;
@@ -473,18 +457,18 @@ namespace FlashLFQ
             }
 
             // read spectra file
-            var ext = Path.GetExtension(fileInfo.fullFilePathWithExtension).ToUpperInvariant();
+            var ext = Path.GetExtension(fileInfo.FullFilePathWithExtension).ToUpperInvariant();
             if (ext == ".MZML")
             {
                 try
                 {
-                    ms1Scans = Mzml.LoadAllStaticData(fileInfo.fullFilePathWithExtension).GetAllScansList().OrderBy(p => p.OneBasedScanNumber).ToArray();
+                    ms1Scans = Mzml.LoadAllStaticData(fileInfo.FullFilePathWithExtension).GetAllScansList().OrderBy(p => p.OneBasedScanNumber).ToArray();
                 }
                 catch (FileNotFoundException)
                 {
                     if (!silent)
                     {
-                        Console.WriteLine("\nCan't find mzml file" + fileInfo.fullFilePathWithExtension + "\n");
+                        Console.WriteLine("\nCan't find mzml file" + fileInfo.FullFilePathWithExtension + "\n");
                     }
                     return;
                 }
@@ -492,7 +476,7 @@ namespace FlashLFQ
                 {
                     if (!silent)
                     {
-                        Console.WriteLine("Problem opening mzml file " + fileInfo.fullFilePathWithExtension + "; " + e.Message);
+                        Console.WriteLine("Problem opening mzml file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
                     }
                     return;
                 }
@@ -508,14 +492,14 @@ namespace FlashLFQ
             else if (ext == ".RAW")
             {
 #if NETFRAMEWORK
-                using (var thermoDynamicConnection = IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.fullFilePathWithExtension))
+                using (var thermoDynamicConnection = IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.FullFilePathWithExtension))
                 {
                     var tempList = new List<MsDataScan>();
 
                     try
                     {
                         // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.msOrderByScan;
+                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.MsOrderByScan;
                         for (int i = 0; i < msOrders.Length; i++)
                         {
                             if (msOrders[i] == 1)
@@ -534,7 +518,7 @@ namespace FlashLFQ
 
                         if (!silent)
                         {
-                            Console.WriteLine("\nCan't find raw file" + fileInfo.fullFilePathWithExtension + "\n");
+                            Console.WriteLine("\nCan't find raw file" + fileInfo.FullFilePathWithExtension + "\n");
                         }
                         return;
                     }
@@ -544,7 +528,7 @@ namespace FlashLFQ
 
                         if (!silent)
                         {
-                            throw new MzLibException("FlashLFQ Error: Problem opening raw file " + fileInfo.fullFilePathWithExtension + "; " + e.Message);
+                            throw new MzLibException("FlashLFQ Error: Problem opening raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
                         }
                     }
 
@@ -553,7 +537,7 @@ namespace FlashLFQ
 #else
                 if (!silent)
                 {
-                    Console.WriteLine("Cannot open RAW with .NETStandard code - are you on Linux? " + fileInfo.fullFilePathWithExtension);
+                    Console.WriteLine("Cannot open RAW with .NETStandard code - are you on Linux? " + fileInfo.FullFilePathWithExtension);
                 }
                 return;
 #endif
@@ -604,7 +588,7 @@ namespace FlashLFQ
         {
             if (!silent)
             {
-                Console.WriteLine("Quantifying peptides for " + fileInfo.filenameWithoutExtension);
+                Console.WriteLine("Quantifying peptides for " + fileInfo.FilenameWithoutExtension);
             }
 
             var identifications = allIdentifications.Where(p => p.fileInfo.Equals(fileInfo)).ToList();
@@ -645,15 +629,15 @@ namespace FlashLFQ
                         double theoreticalMz = identification.massToLookFor.ToMz(chargeState);
                         int ceilingMz = (int)Math.Ceiling(peakfindingTol.GetMaximumValue(identification.massToLookFor).ToMz(chargeState) * binsPerDalton);
                         int floorMz = (int)Math.Floor(peakfindingTol.GetMinimumValue(identification.massToLookFor).ToMz(chargeState) * binsPerDalton);
-                        
+
                         for (int j = floorMz; j <= ceilingMz; j++)
                         {
                             if (j < indexedPeaks.Length && indexedPeaks[j] != null)
                             {
                                 foreach (var peak in indexedPeaks[j])
                                 {
-                                    if (peakfindingTol.Within(peak.mz.ToMass(chargeState), identification.massToLookFor) &&
-                                      Math.Abs(ms1Scans[peak.oneBasedScanNumber - 1].RetentionTime - identification.ms2RetentionTimeInMinutes) < rtTol)
+                                    if (peakfindingTol.Within(peak.Mz.ToMass(chargeState), identification.massToLookFor) &&
+                                      Math.Abs(ms1Scans[peak.OneBasedScanNumber - 1].RetentionTime - identification.ms2RetentionTimeInMinutes) < rtTol)
                                     {
                                         binPeaks.Add(peak);
                                     }
@@ -668,26 +652,26 @@ namespace FlashLFQ
                             Peakfind(binPeaks, identification, chargeState);
 
                             // filter again by smaller mz tolerance
-                            binPeaks.RemoveAll(p => !tol.Within(p.mz.ToMass(chargeState), identification.massToLookFor));
+                            binPeaks.RemoveAll(p => !tol.Within(p.Mz.ToMass(chargeState), identification.massToLookFor));
 
                             // filter by isotopic distribution
                             isotopicEnvelopes = GetIsotopicEnvelopes(binPeaks, identification, chargeState, true);
 
                             // if multiple mass spectral peaks in the same scan are valid, pick the one with the smallest mass error
-                            var peaksInSameScan = isotopicEnvelopes.GroupBy(p => p.indexedPeak.oneBasedScanNumber).Where(v => v.Count() > 1);
+                            var peaksInSameScan = isotopicEnvelopes.GroupBy(p => p.IndexedPeak.OneBasedScanNumber).Where(v => v.Count() > 1);
                             if (peaksInSameScan.Any())
                             {
                                 foreach (var group in peaksInSameScan)
                                 {
-                                    var smallestMzError = group.Min(p => Math.Abs(p.indexedPeak.mz - theoreticalMz));
-                                    var peakToUse = group.Where(p => Math.Abs(p.indexedPeak.mz - theoreticalMz) == smallestMzError).First();
+                                    var smallestMzError = group.Min(p => Math.Abs(p.IndexedPeak.Mz - theoreticalMz));
+                                    var peakToUse = group.Where(p => Math.Abs(p.IndexedPeak.Mz - theoreticalMz) == smallestMzError).First();
                                     isotopicEnvelopes.RemoveAll(p => group.Contains(p) && p != peakToUse);
                                 }
                             }
 
                             // sort isotope envelopes by scan number (sets up for peak cutting)
-                            msmsFeature.isotopicEnvelopes.AddRange(isotopicEnvelopes);
-                            msmsFeature.isotopicEnvelopes.Sort((x, y) => x.indexedPeak.oneBasedScanNumber.CompareTo(y.indexedPeak.oneBasedScanNumber));
+                            msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+                            msmsFeature.IsotopicEnvelopes.Sort((x, y) => x.IndexedPeak.OneBasedScanNumber.CompareTo(y.IndexedPeak.OneBasedScanNumber));
                         }
                     }
 
@@ -702,7 +686,7 @@ namespace FlashLFQ
         private void MatchBetweenRunsInitialPeakfinding(SpectraFileInfo fileInfo)
         {
             if (!silent)
-                Console.WriteLine("Finding possible matched peptides for " + fileInfo.filenameWithoutExtension);
+                Console.WriteLine("Finding possible matched peptides for " + fileInfo.FilenameWithoutExtension);
 
             if (!results.peaks.ContainsKey(fileInfo) || results.peaks[fileInfo].Count == 0)
                 return;
@@ -750,8 +734,8 @@ namespace FlashLFQ
                                     {
                                         foreach (var peak in indexedPeaks[j])
                                         {
-                                            if (mbrTol.Within(peak.mz.ToMass(chargeState), identification.massToLookFor) &&
-                                              Math.Abs(ms1Scans[peak.oneBasedScanNumber - 1].RetentionTime - identification.ms2RetentionTimeInMinutes) < initialMbrRtWindow)
+                                            if (mbrTol.Within(peak.Mz.ToMass(chargeState), identification.massToLookFor) &&
+                                              Math.Abs(ms1Scans[peak.OneBasedScanNumber - 1].RetentionTime - identification.ms2RetentionTimeInMinutes) < initialMbrRtWindow)
                                             {
                                                 binPeaks.Add(peak);
                                             }
@@ -764,11 +748,11 @@ namespace FlashLFQ
 
                                 if (validIsotopeClusters.Any())
                                 {
-                                    mbrFeature.isotopicEnvelopes.AddRange(validIsotopeClusters);
+                                    mbrFeature.IsotopicEnvelopes.AddRange(validIsotopeClusters);
                                 }
                             }
 
-                            if (mbrFeature.isotopicEnvelopes.Any())
+                            if (mbrFeature.IsotopicEnvelopes.Any())
                             {
                                 concurrentBagOfMatchedFeatures.Add(mbrFeature);
                             }
@@ -784,20 +768,20 @@ namespace FlashLFQ
         {
             // remove all MBR features with intensities lower than the least-intense MS/MS-identified peak in this file
             // this is to remove MBR peaks that matched to noise
-            double minMsmsIdentifiedPeakIntensity = results.peaks[rawFile].Min(v => v.intensity);
-            foreach(var peak in results.peaks[rawFile])
+            double minMsmsIdentifiedPeakIntensity = results.peaks[rawFile].Min(v => v.Intensity);
+            foreach (var peak in results.peaks[rawFile])
             {
-                if (peak.isMbrFeature && peak.intensity < minMsmsIdentifiedPeakIntensity)
+                if (peak.IsMbrFeature && peak.Intensity < minMsmsIdentifiedPeakIntensity)
                 {
-                    peak.isotopicEnvelopes = new List<IsotopicEnvelope>();
+                    peak.IsotopicEnvelopes = new List<IsotopicEnvelope>();
                 }
             }
 
-            results.peaks[rawFile].RemoveAll(p => p.isMbrFeature && !p.isotopicEnvelopes.Any());
+            results.peaks[rawFile].RemoveAll(p => p.IsMbrFeature && !p.IsotopicEnvelopes.Any());
 
             if (!silent)
                 Console.WriteLine("Checking errors");
-            var featuresWithSamePeak = results.peaks[rawFile].Where(v => v.apex != null).GroupBy(p => p.apex.indexedPeak);
+            var featuresWithSamePeak = results.peaks[rawFile].Where(v => v.Apex != null).GroupBy(p => p.Apex.IndexedPeak);
             featuresWithSamePeak = featuresWithSamePeak.Where(p => p.Count() > 1);
 
             // condense duplicate features (features with same sequence and apex peak)
@@ -805,25 +789,25 @@ namespace FlashLFQ
             {
                 duplicateFeature.First().MergeFeatureWith(duplicateFeature, integrate);
             }
-            results.peaks[rawFile].RemoveAll(p => p.intensity == -1);
+            results.peaks[rawFile].RemoveAll(p => p.Intensity == -1);
 
             // check for multiple features per peptide within a time window
-            var featuresToMaybeMerge = results.peaks[rawFile].Where(p => p.NumIdentificationsByFullSeq == 1 && p.apex != null).GroupBy(p => p.identifications.First().ModifiedSequence).Where(p => p.Count() > 1);
+            var featuresToMaybeMerge = results.peaks[rawFile].Where(p => p.NumIdentificationsByFullSeq == 1 && p.Apex != null).GroupBy(p => p.Identifications.First().ModifiedSequence).Where(p => p.Count() > 1);
             if (featuresToMaybeMerge.Any())
             {
                 foreach (var group in featuresToMaybeMerge)
                 {
                     if (idSpecificChargeState)
                     {
-                        var group2 = group.ToList().GroupBy(p => p.apex.chargeState).Where(v => v.Count() > 1);
+                        var group2 = group.ToList().GroupBy(p => p.Apex.ChargeState).Where(v => v.Count() > 1);
 
                         foreach (var group3 in group2)
                         {
                             foreach (var feature in group3)
                             {
-                                if (feature.intensity != -1)
+                                if (feature.Intensity != -1)
                                 {
-                                    var featuresToMerge = group3.Where(p => Math.Abs(p.apex.retentionTime - feature.apex.retentionTime) < rtTol && p.intensity != -1);
+                                    var featuresToMerge = group3.Where(p => Math.Abs(p.Apex.RetentionTime - feature.Apex.RetentionTime) < rtTol && p.Intensity != -1);
                                     if (featuresToMerge.Any())
                                         feature.MergeFeatureWith(featuresToMerge, integrate);
                                 }
@@ -834,9 +818,9 @@ namespace FlashLFQ
                     {
                         foreach (var feature in group)
                         {
-                            if (feature.intensity != -1)
+                            if (feature.Intensity != -1)
                             {
-                                var featuresToMerge = group.Where(p => Math.Abs(p.apex.retentionTime - feature.apex.retentionTime) < rtTol && p.intensity != -1);
+                                var featuresToMerge = group.Where(p => Math.Abs(p.Apex.RetentionTime - feature.Apex.RetentionTime) < rtTol && p.Intensity != -1);
                                 if (featuresToMerge.Any())
                                     feature.MergeFeatureWith(featuresToMerge, integrate);
                             }
@@ -844,7 +828,7 @@ namespace FlashLFQ
                     }
                 }
 
-                results.peaks[rawFile].RemoveAll(p => p.intensity == -1);
+                results.peaks[rawFile].RemoveAll(p => p.Intensity == -1);
             }
 
             if (errorCheckAmbiguousMatches)
@@ -856,22 +840,22 @@ namespace FlashLFQ
                 // handle ambiguous features
                 foreach (var ambiguousFeature in ambiguousFeatures)
                 {
-                    var msmsIdentsForThisFile = ambiguousFeature.identifications.Where(p => p.fileInfo.Equals(ambiguousFeature.rawFileInfo));
+                    var msmsIdentsForThisFile = ambiguousFeature.Identifications.Where(p => p.fileInfo.Equals(ambiguousFeature.RawFileInfo));
 
                     if (!msmsIdentsForThisFile.Any())
                     {
                         // mbr matched more than one identification to this peak - cannot resolve
-                        ambiguousFeature.intensity = -1;
+                        ambiguousFeature.Intensity = -1;
                     }
                     else
                     {
                         // msms identifications take precident over mbr features
-                        ambiguousFeature.identifications.RemoveAll(p => p.fileInfo != ambiguousFeature.rawFileInfo);
+                        ambiguousFeature.Identifications.RemoveAll(p => p.fileInfo != ambiguousFeature.RawFileInfo);
                         ambiguousFeature.ResolveIdentifications();
                     }
                 }
 
-                results.peaks[rawFile].RemoveAll(p => p.intensity == -1);
+                results.peaks[rawFile].RemoveAll(p => p.Intensity == -1);
             }
         }
 
@@ -891,8 +875,8 @@ namespace FlashLFQ
             {
                 // calculate theoretical isotopes relative to observed peak
                 var theorIsotopeMzs = new double[isotopeMassShifts.Count];
-                int isotopicPeakUnitOfPeakZeroIsMono = Convert.ToInt32(peak.mz.ToMass(chargeState) - identification.monoisotopicMass);
-                var mainpeakMz = peak.mz;
+                int isotopicPeakUnitOfPeakZeroIsMono = Convert.ToInt32(peak.Mz.ToMass(chargeState) - identification.monoisotopicMass);
+                var mainpeakMz = peak.Mz;
 
                 // left of main peak
                 for (int i = 0; i < isotopicPeakUnitOfPeakZeroIsMono; i++)
@@ -912,8 +896,8 @@ namespace FlashLFQ
                 List<Tuple<double, double>> possibleIsotopePeaks = new List<Tuple<double, double>>();
 
                 // go backwards from the peak to find the lowest-mass isotope possible
-                int earliestIsotopicPeakIndexPossible = peak.zeroBasedIndexOfPeakInScan;
-                var massSpectrum = ms1Scans[peak.oneBasedScanNumber - 1].MassSpectrum;
+                int earliestIsotopicPeakIndexPossible = peak.ZeroBasedIndexOfPeakInScan;
+                var massSpectrum = ms1Scans[peak.OneBasedScanNumber - 1].MassSpectrum;
                 for (int i = earliestIsotopicPeakIndexPossible; i >= 0; i--)
                 {
                     if (massSpectrum.XArray[i] < lowestMzIsotopePossible)
@@ -937,7 +921,7 @@ namespace FlashLFQ
                     for (int i = earliestIsotopicPeakIndexPossible; i > 0; i--)
                     {
                         if (Math.Abs(massSpectrum.XArray[i] - prevIsotopePeakMz) < isotopeMzTol)
-                            if (massSpectrum.YArray[i] / peak.intensity > 1.0)
+                            if (massSpectrum.YArray[i] / peak.Intensity > 1.0)
                                 badPeak = true;
                         if (massSpectrum.XArray[i] < (prevIsotopePeakMz - isotopeMzTol))
                             break;
@@ -1026,7 +1010,7 @@ namespace FlashLFQ
                         isotopeClusterIntensity = isotopePeaks.Where(p => p != null).Sum(p => p.Item2);
                     }
 
-                    isotopeClusters.Add(new IsotopicEnvelope(peak, chargeState, isotopeClusterIntensity, ms1Scans[peak.oneBasedScanNumber - 1].RetentionTime));
+                    isotopeClusters.Add(new IsotopicEnvelope(peak, chargeState, isotopeClusterIntensity, ms1Scans[peak.OneBasedScanNumber - 1].RetentionTime));
                 }
             }
 
@@ -1037,7 +1021,7 @@ namespace FlashLFQ
         {
             // sort peaks by scan number
             double theorMz = identification.massToLookFor.ToMz(chargeState);
-            HashSet<int> scanNumbers = new HashSet<int>(possibleMonoisotopicPeaks.Select(p => p.oneBasedScanNumber));
+            HashSet<int> scanNumbers = new HashSet<int>(possibleMonoisotopicPeaks.Select(p => p.OneBasedScanNumber));
 
             // get precursor scan to start at
             int precursorScanNumber = 0;
@@ -1082,7 +1066,7 @@ namespace FlashLFQ
 
                         if (missedScans > missedScansAllowed)
                         {
-                            possibleMonoisotopicPeaks.RemoveAll(p => p.oneBasedScanNumber >= ms1Scans[i].OneBasedScanNumber);
+                            possibleMonoisotopicPeaks.RemoveAll(p => p.OneBasedScanNumber >= ms1Scans[i].OneBasedScanNumber);
                             break;
                         }
                     }
@@ -1113,7 +1097,7 @@ namespace FlashLFQ
 
                         if (missedScans > missedScansAllowed)
                         {
-                            possibleMonoisotopicPeaks.RemoveAll(p => p.oneBasedScanNumber <= ms1Scans[i].OneBasedScanNumber);
+                            possibleMonoisotopicPeaks.RemoveAll(p => p.OneBasedScanNumber <= ms1Scans[i].OneBasedScanNumber);
                             break;
                         }
                     }
@@ -1127,14 +1111,14 @@ namespace FlashLFQ
             // this method assumes that the isotope envelopes in a chromatographic peak are already sorted by MS1 scan number
             bool cutThisPeak = false;
 
-            if (peak.isotopicEnvelopes.Count < 5)
+            if (peak.IsotopicEnvelopes.Count < 5)
             {
                 return;
             }
 
-            var timePointsForApexZ = peak.isotopicEnvelopes.Where(p => p.chargeState == peak.apex.chargeState).ToList();
-            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.indexedPeak.oneBasedScanNumber));
-            int apexIndex = timePointsForApexZ.IndexOf(peak.apex);
+            var timePointsForApexZ = peak.IsotopicEnvelopes.Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
+            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.OneBasedScanNumber));
+            int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
             IsotopicEnvelope valleyTimePoint = null;
 
             // -1 checks the left side, +1 checks the right side
@@ -1148,20 +1132,20 @@ namespace FlashLFQ
                 for (int i = apexIndex + iter; i < timePointsForApexZ.Count && i >= 0; i += iter)
                 {
                     IsotopicEnvelope timepoint = timePointsForApexZ[i];
-                    
-                    if (valleyTimePoint == null || timepoint.intensity < valleyTimePoint.intensity)
+
+                    if (valleyTimePoint == null || timepoint.Intensity < valleyTimePoint.Intensity)
                     {
                         valleyTimePoint = timepoint;
                         indexOfValley = timePointsForApexZ.IndexOf(valleyTimePoint);
                     }
 
-                    double discriminationFactor = (timepoint.intensity - valleyTimePoint.intensity) / timepoint.intensity;
+                    double discriminationFactor = (timepoint.Intensity - valleyTimePoint.Intensity) / timepoint.Intensity;
 
                     if (discriminationFactor > minDiscFactorToCutAt && (indexOfValley + iter < timePointsForApexZ.Count && indexOfValley + iter >= 0))
                     {
                         IsotopicEnvelope secondValleyTimepoint = timePointsForApexZ[indexOfValley + iter];
 
-                        discriminationFactor = (timepoint.intensity - secondValleyTimepoint.intensity) / timepoint.intensity;
+                        discriminationFactor = (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
 
                         if (discriminationFactor > minDiscFactorToCutAt)
                         {
@@ -1170,9 +1154,9 @@ namespace FlashLFQ
                         }
 
                         int nextMs1ScanNum = -1;
-                        for (int j = valleyTimePoint.indexedPeak.oneBasedScanNumber - 1; j < ms1Scans.Length && j >= 0; j += iter)
+                        for (int j = valleyTimePoint.IndexedPeak.OneBasedScanNumber - 1; j < ms1Scans.Length && j >= 0; j += iter)
                         {
-                            if (ms1Scans[j] != null && ms1Scans[j].OneBasedScanNumber != valleyTimePoint.indexedPeak.oneBasedScanNumber)
+                            if (ms1Scans[j] != null && ms1Scans[j].OneBasedScanNumber != valleyTimePoint.IndexedPeak.OneBasedScanNumber)
                             {
                                 nextMs1ScanNum = j + 1;
                                 break;
@@ -1196,26 +1180,24 @@ namespace FlashLFQ
             // cut
             if (cutThisPeak)
             {
-                if (peak.identifications.First().ms2RetentionTimeInMinutes > valleyTimePoint.retentionTime)
+                if (peak.Identifications.First().ms2RetentionTimeInMinutes > valleyTimePoint.RetentionTime)
                 {
                     // MS2 identification is to the right of the valley; remove all peaks left of the valley
-                    peak.isotopicEnvelopes.RemoveAll(p => p.retentionTime <= valleyTimePoint.retentionTime);
+                    peak.IsotopicEnvelopes.RemoveAll(p => p.RetentionTime <= valleyTimePoint.RetentionTime);
                 }
                 else
                 {
                     // MS2 identification is to the left of the valley; remove all peaks right of the valley
-                    peak.isotopicEnvelopes.RemoveAll(p => p.retentionTime >= valleyTimePoint.retentionTime);
+                    peak.IsotopicEnvelopes.RemoveAll(p => p.RetentionTime >= valleyTimePoint.RetentionTime);
                 }
 
                 // recalculate intensity for the peak
                 peak.CalculateIntensityForThisFeature(integrate);
-                peak.splitRT = valleyTimePoint.retentionTime;
+                peak.SplitRT = valleyTimePoint.RetentionTime;
 
                 // recursively cut
                 CutPeak(peak);
             }
         }
-
-        #endregion Private Methods
     }
 }

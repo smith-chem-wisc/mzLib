@@ -11,13 +11,7 @@ namespace UsefulProteomicsDatabases
 {
     public static class PtmListLoader
     {
-        #region Private Fields
-
         private static readonly Dictionary<string, char> aminoAcidCodes;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         static PtmListLoader()
         {
@@ -47,10 +41,6 @@ namespace UsefulProteomicsDatabases
                 { "Valine", 'V' }
             };
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
@@ -106,10 +96,6 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         /// <summary>
         /// Get a ModificationWithLocation from string representations of a modification specification. Returns null if the string representation is not recognized.
@@ -237,7 +223,7 @@ namespace UsefulProteomicsDatabases
                                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
                                 {
                                     if (monoisotopicMass.HasValue)
-                                        monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.protonMass;
+                                        monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
                                     if (correctionFormula != null)
                                         correctionFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
                                     break;
@@ -304,7 +290,5 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
-        #endregion Private Methods
     }
 }

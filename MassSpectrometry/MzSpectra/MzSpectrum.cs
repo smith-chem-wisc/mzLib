@@ -17,19 +17,17 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using MathNet.Numerics.Statistics;
 
 namespace MassSpectrometry
 {
     public class MzSpectrum
     {
-        #region Private Fields
-
         private const int numAveraginesToGenerate = 1500;
         private static readonly double[][] allMasses = new double[numAveraginesToGenerate][];
         private static readonly double[][] allIntensities = new double[numAveraginesToGenerate][];
@@ -40,16 +38,8 @@ namespace MassSpectrometry
         private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
 
-        #endregion Private Fields
-
-        #region Public Fields
-
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
-
-        #endregion Public Fields
-
-        #region Static Constructors
 
         static MzSpectrum()
         {
@@ -91,10 +81,6 @@ namespace MassSpectrometry
             }
         }
 
-        #endregion Static Constructors
-
-        #region Public Constructors
-
         public MzSpectrum(double[,] mzintensities)
         {
             var count = mzintensities.GetLength(1);
@@ -122,10 +108,6 @@ namespace MassSpectrometry
             }
             peakList = new MzPeak[Size];
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
 
         public MzRange Range
         {
@@ -216,10 +198,6 @@ namespace MassSpectrometry
                 return sumOfAllY.Value;
             }
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public static byte[] Get64Bitarray(IEnumerable<double> array)
         {
@@ -496,10 +474,6 @@ namespace MassSpectrometry
             return FilterByY(yRange.Minimum, yRange.Maximum);
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private double ScoreIsotopeEnvelope(IsotopicEnvelope b)
         {
             if (b == null)
@@ -533,7 +507,5 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
-
-        #endregion Private Methods
     }
 }

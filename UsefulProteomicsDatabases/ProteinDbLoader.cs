@@ -13,27 +13,15 @@ namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
-        #region Public Fields
-
         public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
-
         public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\sOS=", 0, 1);
-
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|([^\|][A-Z0-9_]+)", 1, 1);
-
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=([^ ]+)", 0, 1);
-
         public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\sGN=", 0, 1);
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
-
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
-
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
-
-        #endregion Public Fields
-
-        #region Private Fields
 
         /// <summary>
         /// Stores the last database file path.
@@ -44,10 +32,6 @@ namespace UsefulProteomicsDatabases
         /// Stores the modification list read during LoadProteinXML
         /// </summary>
         private static List<Modification> protein_xml_modlist;
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         /// <summary>
         /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
@@ -364,10 +348,6 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
@@ -398,7 +378,5 @@ namespace UsefulProteomicsDatabases
             }
             return mod_dict;
         }
-
-        #endregion Private Methods
     }
 }

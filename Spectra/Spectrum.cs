@@ -31,15 +31,9 @@ namespace Spectra
     public abstract class Spectrum<TPeak> : ISpectrum<TPeak>
         where TPeak : IPeak
     {
-        #region Private Fields
-
         private TPeak[] peakList;
         private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
-
-        #endregion Private Fields
-
-        #region Protected Constructors
 
         protected Spectrum(double[] x, double[] y, bool shouldCopy)
         {
@@ -68,10 +62,6 @@ namespace Spectra
             Buffer.BlockCopy(xy, sizeof(double) * count, YArray, 0, sizeof(double) * count);
             peakList = new TPeak[Size];
         }
-
-        #endregion Protected Constructors
-
-        #region Public Properties
 
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
@@ -149,10 +139,6 @@ namespace Spectra
                 return new DoubleRange(FirstX.Value, LastX.Value);
             }
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor)
         {
@@ -265,10 +251,6 @@ namespace Spectra
             return FilterByY(yRange.Minimum, yRange.Maximum);
         }
 
-        #endregion Public Methods
-
-        #region Protected Methods
-
         protected abstract TPeak GeneratePeak(int index);
 
         protected TPeak GetPeak(int index)
@@ -277,7 +259,5 @@ namespace Spectra
                 peakList[index] = GeneratePeak(index);
             return peakList[index];
         }
-
-        #endregion Protected Methods
     }
 }
