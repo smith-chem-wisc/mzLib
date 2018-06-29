@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
 
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
-            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>());
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b=>b.id);
         }
 
         /// <summary>
@@ -69,6 +69,7 @@ namespace UsefulProteomicsDatabases
                         modification_specification = new List<string>();
                     }
                 }
+
             }
         }
 
