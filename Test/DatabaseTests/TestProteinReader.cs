@@ -141,7 +141,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -177,7 +177,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            var decoys = DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null)).ToList();
+            var decoys = DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0).ToList();
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', decoys[0][0]);
@@ -212,7 +212,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -242,7 +242,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             // proteolysis products check
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
@@ -271,7 +271,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -298,7 +298,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -315,7 +315,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"), nice, false, null,
                 out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -328,7 +328,7 @@ namespace Test
             List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), false,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex, out var a);
-            prots = prots.Concat(DecoyProteinGenerator.GenerateDecoys(prots, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            prots = prots.Concat(DecoyProteinGenerator.GenerateDecoys(prots, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual("P62805", prots.First().Accession);
             Assert.AreEqual("H4_HUMAN", prots.First().Name);
@@ -360,7 +360,7 @@ namespace Test
             var p = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"), false,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex, out var a);
-            p = p.Concat(DecoyProteinGenerator.GenerateDecoys(p, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            p = p.Concat(DecoyProteinGenerator.GenerateDecoys(p, DecoyType.Reverse, null, 0)).ToList();
         }
 
         [Test]
@@ -375,7 +375,7 @@ namespace Test
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), nice, false,
                 new List<string>(), out Dictionary<string, Modification> un);
-            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok = ok.Concat(DecoyProteinGenerator.GenerateDecoys(ok, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
@@ -392,7 +392,7 @@ namespace Test
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), nice, false,
                 new[] { "exclude_me" }, out Dictionary<string, Modification> un);
-            ok2 = ok2.Concat(DecoyProteinGenerator.GenerateDecoys(ok2, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok2 = ok2.Concat(DecoyProteinGenerator.GenerateDecoys(ok2, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.id).Contains("N-acetylserine"));
         }
@@ -456,7 +456,7 @@ CF   O1
             var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), nice, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
-            ok2 = ok2.Concat(DecoyProteinGenerator.GenerateDecoys(ok2, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            ok2 = ok2.Concat(DecoyProteinGenerator.GenerateDecoys(ok2, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
@@ -480,7 +480,7 @@ CF   O1
             var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), nice, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
-            ok2 = ok2.Concat(DecoyProteinGenerator.GenerateDecoys(ok2, new DecoySetting(DecoyType.Slide, null))).ToList();
+            ok2 = ok2.Concat(DecoyProteinGenerator.GenerateDecoys(ok2, DecoyType.Slide, null, 0)).ToList();
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
@@ -509,7 +509,7 @@ CF   O1
             List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), false,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex, out var a);
-            prots = prots.Concat(DecoyProteinGenerator.GenerateDecoys(prots, new DecoySetting(DecoyType.Reverse, null))).ToList();
+            prots = prots.Concat(DecoyProteinGenerator.GenerateDecoys(prots, DecoyType.Reverse, null, 0)).ToList();
 
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MGGFGYLTRGQRKLAYVVDMATVTKRKAHETYTVADRIVNELFVKLVGRTEEYILGSIRKVGGRRALRRIAPKTIGQINDRLVKRHRKAGGKGLGKGGKGRGS", prots[1].BaseSequence);
@@ -521,7 +521,7 @@ CF   O1
             List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), false,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex, out var a);
-            prots = prots.Concat(DecoyProteinGenerator.GenerateDecoys(prots, new DecoySetting(DecoyType.Slide, null))).ToList();
+            prots = prots.Concat(DecoyProteinGenerator.GenerateDecoys(prots, DecoyType.Slide, null, 0)).ToList();
 
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MVRRRNAQGIGKGAGRKLRRSGGVGRGSKLLYKEGRKVHKKFLEDVIRGATTPTIHRKAKRVGAKDIVGAIKEQTRGLLGVGLGNFIYDTVGYRELAYRVTMT", prots[1].BaseSequence);

@@ -45,6 +45,7 @@
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="ModFitsTest.cs" />
     <Compile Include="MyPeptideTest.cs" />
+    <Compile Include="SeqCoverageTests.cs" />
     <Compile Include="TestCZE.cs" />
     <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
