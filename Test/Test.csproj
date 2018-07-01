@@ -130,6 +130,9 @@
     <None Include="DatabaseTests\fasta.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="DoubleProtease.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
     <None Include="tester.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

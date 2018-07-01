@@ -64,7 +64,7 @@ namespace Test
         public static void ReadCustomFile()
         {
             Protein ParentProtein = new Protein("OKAREDY", "accession1");
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestData\DoubleProtease.tsv");
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
             Assert.That(File.Exists(path));
 
             var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path);

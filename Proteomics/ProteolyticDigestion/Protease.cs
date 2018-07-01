@@ -418,7 +418,8 @@ namespace Proteomics.ProteolyticDigestion
                     && proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1 >= 0
                     && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1, sequenceInducingCleavage.Item1.Length)
                         .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (CleavageTerminus == TerminusType.N && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
+                || (sequenceInducingCleavage.Item2 == TerminusType.N 
+                    && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
                     && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Item1.Length)
                         .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
         }
@@ -436,7 +437,7 @@ namespace Proteomics.ProteolyticDigestion
                     && proteinSequenceIndex + 1 + sequencePreventingCleavage.Item1.Length <= proteinSequence.Length
                     && proteinSequence.Substring(proteinSequenceIndex + 1, sequencePreventingCleavage.Item1.Length)
                         .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (CleavageTerminus == TerminusType.N
+                || (SequencesInducingCleavage.First().Item2 == TerminusType.N
                     && proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1 >= 0
                     && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1, sequencePreventingCleavage.Item1.Length)
                         .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
