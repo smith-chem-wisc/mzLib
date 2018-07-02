@@ -50,7 +50,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool originalTarget, DecoyType onTheFlyDecoys, IEnumerable<Modification> allKnownModifications,
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
@@ -92,8 +92,8 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-
-            return targets;
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType);
+            return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
         }
 
         /// <summary>
@@ -251,8 +251,8 @@ namespace UsefulProteomicsDatabases
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            if (!)
-            return targets;
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType);
+            return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
         }
 
         /// <summary>

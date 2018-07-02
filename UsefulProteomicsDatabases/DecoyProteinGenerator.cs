@@ -18,7 +18,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="digestionParams"></param>
         /// <param name="randomSeed">Used when decoy type is shuffle for shuffling the peptides</param>
         /// <returns></returns>
-        public static List<Protein> GenerateDecoys(List<Protein> proteins, DecoyType decoyType, DigestionParams digestionParams, int randomSeed)
+        public static List<Protein> GenerateDecoys(List<Protein> proteins, DecoyType decoyType)
         {
             if (decoyType == DecoyType.None)
             {
@@ -31,10 +31,6 @@ namespace UsefulProteomicsDatabases
             else if (decoyType == DecoyType.Slide)
             {
                 return GenerateSlideDecoys(proteins);
-            }
-            else if (decoyType == DecoyType.Shuffle)
-            {
-                return GenerateShuffledDecoys(proteins, digestionParams, randomSeed);
             }
             else
             {
@@ -235,98 +231,6 @@ namespace UsefulProteomicsDatabases
                 var decoyProteinSlide = new Protein(slided_sequence, "DECOY_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
                     protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, decoy_disulfides_slide, protein.DatabaseFilePath);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
-            });
-            return decoyProteins;
-        }
-
-        /// <summary>
-        /// Generates a reverse decoy sequence
-        /// </summary>
-        /// <param name="protein"></param>
-        /// <returns></returns>
-        private static List<Protein> GenerateShuffledDecoys(List<Protein> proteins, DigestionParams digestionParams, int randomSeed)
-        {
-            List<Protein> decoyProteins = new List<Protein>();
-
-            // Digest the proteins without considering fixed/variable mods
-            List<PeptideWithSetModifications> targetPeptides = proteins.SelectMany(p => p.Digest(digestionParams, null, null)).ToList();
-            HashSet<string> targetPeptideSequences = new HashSet<string>(targetPeptides.Select(p => p.BaseSequence));
-
-            // Shuffle and concatenate decoy sequences
-            var random = new Random(randomSeed);
-            Parallel.ForEach(proteins, protein =>
-            {
-                List<PeptideWithSetModifications> peptides = protein.Digest(digestionParams, null, null).ToList();
-                StringBuilder decoyProteinSeq = new StringBuilder();
-                Dictionary<int, List<Modification>> decoyOneBasedModifications = new Dictionary<int, List<Modification>>();
-                List<DisulfideBond> decoyDisulfides = protein.DisulfideBonds.Select(d =>
-                    new DisulfideBond(d.OneBasedBeginPosition, d.OneBasedEndPosition, "DECOY DISULFIDE BOND: " + d.Description)).ToList();
-                for (int i = 0; i < peptides.Count; i++)
-                {
-                    bool decoyPeptideAlreadyATarget = true;
-                    while (decoyPeptideAlreadyATarget)
-                    {
-                        // Shuffle the one based indices and correct the start / end bases if important
-                        string seq = peptides[i].BaseSequence;
-                        bool keepFirstBase = i == 0 && seq[0] == 'M' || digestionParams.Protease.SequencesInducingCleavage.Any(x => x.Item2 == TerminusType.C && seq.StartsWith(x.Item1));
-                        bool keepLastBase = i != peptides.Count - 1 && digestionParams.Protease.SequencesInducingCleavage.Any(x => x.Item2 == TerminusType.N && seq.EndsWith(x.Item1));
-                        List<int> unshuffledOneBasedIndices = Enumerable.Range(peptides[i].OneBasedStartResidueInProtein, seq.Length).ToList();
-                        List<int> shuffledOneBasedProteinIndices = unshuffledOneBasedIndices.OrderBy(x => random.Next()).ToList();
-                        Dictionary<int, int> oneBasedIdxLookup = Enumerable.Range(0, seq.Length).ToDictionary(x => unshuffledOneBasedIndices[x], x => shuffledOneBasedProteinIndices[x]);
-                        if (keepFirstBase)
-                        {
-                            shuffledOneBasedProteinIndices[shuffledOneBasedProteinIndices.IndexOf(peptides[i].OneBasedStartResidueInProtein)] = shuffledOneBasedProteinIndices[0];
-                            shuffledOneBasedProteinIndices[0] = peptides[i].OneBasedStartResidueInProtein;
-                        }
-                        if (keepLastBase)
-                        {
-                            shuffledOneBasedProteinIndices[shuffledOneBasedProteinIndices.IndexOf(peptides[i].OneBasedEndResidueInProtein)] = shuffledOneBasedProteinIndices[seq.Length - 1];
-                            shuffledOneBasedProteinIndices[seq.Length - 1] = peptides[i].OneBasedEndResidueInProtein;
-                        }
-
-                        // Construct the decoy sequence and modification set
-                        // Append the decoy peptide if already in the database (and a valid length by digestion parameters)
-                        string decoyPeptideSeq = new string(Enumerable.Range(0, seq.Length)
-                            .Select(x => seq[shuffledOneBasedProteinIndices[x] - peptides[i].OneBasedStartResidueInProtein]).ToArray());
-                        bool validTargetLength = decoyPeptideSeq.Length >= digestionParams.MinPeptideLength && digestionParams.MaxPeptideLength <= decoyPeptideSeq.Length;
-                        if (validTargetLength && !targetPeptideSequences.Contains(decoyPeptideSeq.ToString()) || !validTargetLength)
-                        {
-                            decoyPeptideAlreadyATarget = false; // exit the while loop that keeps shuffling if in target database
-                            decoyProteinSeq.Append(decoyPeptideSeq.ToString());
-                            for (int j = 0; j < seq.Length; j++)
-                            {
-                                if (peptides[i].AllModsOneIsNterminus.TryGetValue(shuffledOneBasedProteinIndices[j], out var mod))
-                                {
-                                    if (decoyOneBasedModifications.TryGetValue(shuffledOneBasedProteinIndices[j], out var mods)) { mods.Add(mod); }
-                                    else { decoyOneBasedModifications.Add(shuffledOneBasedProteinIndices[j], new List<Modification> { mod }); }
-                                }
-                            }
-                            foreach (var d in decoyDisulfides)
-                            {
-                                if (oneBasedIdxLookup.TryGetValue(d.OneBasedBeginPosition, out int toNewBeginningsCheers)) { d.OneBasedBeginPosition = toNewBeginningsCheers; }
-                                if (oneBasedIdxLookup.TryGetValue(d.OneBasedEndPosition, out int outWithTheEndInWithTheNew)) { d.OneBasedEndPosition = outWithTheEndInWithTheNew; }
-                            }
-                        }
-                    }
-                }
-
-                var decoyProtein = new Protein(
-                    decoyProteinSeq.ToString(),
-                    "DECOY_" + protein.Accession,
-                    protein.Organism,
-                    protein.GeneNames.ToList(),
-                    decoyOneBasedModifications,
-                    protein.ProteolysisProducts.ToList(),
-                    protein.Name,
-                    protein.FullName,
-                    true,
-                    protein.IsContaminant,
-                    null,
-                    null, // sequence variants should be taken care of beforehand, since indels will be hard to recover in this decoy method
-                    decoyDisulfides,
-                    protein.DatabaseFilePath);
-
-                lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });
             return decoyProteins;
         }
