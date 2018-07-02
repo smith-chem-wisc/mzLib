@@ -1,18 +1,19 @@
-﻿using System;
+﻿using MassSpectrometry;
+using System;
 using System.Collections.Generic;
 
 namespace Proteomics.ProteolyticDigestion
 {
     public static class ProductTypeMethods
     {
-        public static TerminusType IdentifyTerminusType(List<ProductType> lp)
+        public static TerminusType IdentifyTerminusType(List<ProductType> productTypes)
         {
-            if ((lp.Contains(ProductType.B) || lp.Contains(ProductType.BnoB1ions) || lp.Contains(ProductType.C) || lp.Contains(ProductType.Adot))
-                && (lp.Contains(ProductType.Y) || lp.Contains(ProductType.Zdot) || lp.Contains(ProductType.X)))
+            if ((productTypes.Contains(ProductType.B) || productTypes.Contains(ProductType.BnoB1ions) || productTypes.Contains(ProductType.C) || productTypes.Contains(ProductType.Adot))
+                && (productTypes.Contains(ProductType.Y) || productTypes.Contains(ProductType.Zdot) || productTypes.Contains(ProductType.X)))
             {
                 return TerminusType.None;
             }
-            else if (lp.Contains(ProductType.Y) || lp.Contains(ProductType.Zdot) || lp.Contains(ProductType.X))
+            else if (productTypes.Contains(ProductType.Y) || productTypes.Contains(ProductType.Zdot) || productTypes.Contains(ProductType.X))
             {
                 return TerminusType.C;
             }

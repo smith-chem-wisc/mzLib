@@ -21,7 +21,7 @@ namespace Test
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<ModificationWithMass>(), new List<ModificationWithMass>()).ToList();
             var sequences = digestedList.Select(p => p.BaseSequence).ToList();
-            Assert.AreEqual(3, sequences.Count);
+            Assert.That(sequences.Count == 3);
             Assert.That(sequences.Contains("MO"));
             Assert.That(sequences.Contains("A"));
             Assert.That(sequences.Contains("T"));
@@ -37,7 +37,7 @@ namespace Test
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 1, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<ModificationWithMass>(), new List<ModificationWithMass>()).ToList();
             var sequences = digestedList.Select(p => p.BaseSequence).ToList();
-            Assert.AreEqual(5, sequences.Count);
+            Assert.That(sequences.Count == 5);
             Assert.That(sequences.Contains("MOA"));
             Assert.That(sequences.Contains("AT"));
             Assert.That(sequences.Contains("MO"));
@@ -55,7 +55,7 @@ namespace Test
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<ModificationWithMass>(), new List<ModificationWithMass>()).ToList();
             var sequences = digestedList.Select(p => p.BaseSequence).ToList();
-            Assert.AreEqual(2, sequences.Count);
+            Assert.That(sequences.Count == 2);
             Assert.That(sequences.Contains("MOA"));
             Assert.That(sequences.Contains("T"));
         }
@@ -78,7 +78,7 @@ namespace Test
             ProteaseDictionary.Dictionary.Remove("Test1");
 
             var sequences = digestedList1.Select(p => p.BaseSequence).ToList();
-            Assert.AreEqual(3, sequences.Count);
+            Assert.That(sequences.Count == 3);
             Assert.That(sequences.Contains("OK"));
             Assert.That(sequences.Contains("A"));
             Assert.That(sequences.Contains("REDY"));
@@ -88,7 +88,7 @@ namespace Test
             var digestedList2 = ParentProtein.Digest(multiProtease2, new List<ModificationWithMass>(), new List<ModificationWithMass>()).ToList();
             ProteaseDictionary.Dictionary.Remove("Test2");
             var sequences2 = digestedList2.Select(p => p.BaseSequence).ToList();
-            Assert.AreEqual(3, sequences2.Count);
+            Assert.That(sequences2.Count == 3);
             Assert.That(sequences2.Contains("OK"));
             Assert.That(sequences2.Contains("ARED"));
             Assert.That(sequences2.Contains("Y"));
@@ -98,7 +98,7 @@ namespace Test
             var digestedList3 = ParentProtein.Digest(multiProtease3, new List<ModificationWithMass>(), new List<ModificationWithMass>()).ToList();
             ProteaseDictionary.Dictionary.Remove("Test3");
             var sequences3 = digestedList3.Select(p => p.BaseSequence).ToList();
-            Assert.AreEqual(2, sequences3.Count);
+            Assert.That(sequences3.Count == 2);
             Assert.That(sequences3.Contains("OK"));
             Assert.That(sequences3.Contains("AREDY"));
         }
