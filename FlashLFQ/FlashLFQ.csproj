@@ -19,7 +19,6 @@
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzML\MzML.csproj" />
     <ProjectReference Include="..\Spectra\Spectra.csproj" />
@@ -28,10 +27,10 @@
   
   <ItemGroup>
     <PackageReference Include="SharpLearning.Containers">
-      <Version>0.28.0</Version>
+      <Version>0.26.9</Version>
     </PackageReference>
     <PackageReference Include="SharpLearning.Optimization">
-      <Version>0.28.0</Version>
+      <Version>0.26.9</Version>
     </PackageReference>
   </ItemGroup>
   

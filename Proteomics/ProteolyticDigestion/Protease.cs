@@ -78,13 +78,15 @@ namespace Proteomics.ProteolyticDigestion
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
                 // retain methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M') && OkayLength(protein.Length, minPeptidesLength, maxPeptidesLength))
+                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M') 
+                    && OkayLength(protein.Length, minPeptidesLength, maxPeptidesLength))
                 {
                     peptides.Add(new Peptide(protein, 1, protein.Length, 0, "full"));
                 }
 
                 // cleave methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M') && OkayLength(protein.Length - 1, minPeptidesLength, maxPeptidesLength))
+                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M')
+                    && OkayLength(protein.Length - 1, minPeptidesLength, maxPeptidesLength))
                 {
                     peptides.Add(new Peptide(protein, 2, protein.Length, 0, "full:M cleaved"));
                 }
@@ -195,21 +197,21 @@ namespace Proteomics.ProteolyticDigestion
             int maximumMissedCleavages, int minPeptidesLength, int maxPeptidesLength)
         {
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
-            for (int missed_cleavages = 0; missed_cleavages <= maximumMissedCleavages; missed_cleavages++)
+            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
             {
-                for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missed_cleavages - 1; i++)
+                for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {
                     if (Retain(i, initiatorMethionineBehavior, protein[0])
-                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptidesLength, maxPeptidesLength))
+                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptidesLength, maxPeptidesLength))
                     {
-                        yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1],
-                            missed_cleavages, "full");
+                        yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
+                            missedCleavages, "full");
                     }
                     if (Cleave(i, initiatorMethionineBehavior, protein[0])
-                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1] - 1, minPeptidesLength, maxPeptidesLength))
+                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - 1, minPeptidesLength, maxPeptidesLength))
                     {
-                        yield return new Peptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1],
-                            missed_cleavages, "full:M cleaved");
+                        yield return new Peptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
+                            missedCleavages, "full:M cleaved");
                     }
                 }
 
@@ -224,14 +226,14 @@ namespace Proteomics.ProteolyticDigestion
                             i++;
                         }
 
-                        bool startPeptide = i + missed_cleavages < oneBasedIndicesToCleaveAfter.Count
-                            && oneBasedIndicesToCleaveAfter[i + missed_cleavages] <= proteolysisProduct.OneBasedEndPosition
+                        bool startPeptide = i + missedCleavages < oneBasedIndicesToCleaveAfter.Count
+                            && oneBasedIndicesToCleaveAfter[i + missedCleavages] <= proteolysisProduct.OneBasedEndPosition
                             && proteolysisProduct.OneBasedBeginPosition.HasValue
-                            && OkayLength(oneBasedIndicesToCleaveAfter[i + missed_cleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptidesLength, maxPeptidesLength);
+                            && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptidesLength, maxPeptidesLength);
                         if (startPeptide)
                         {
-                            yield return new Peptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[i + missed_cleavages],
-                                missed_cleavages, proteolysisProduct.Type + " start");
+                            yield return new Peptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[i + missedCleavages],
+                                missedCleavages, proteolysisProduct.Type + " start");
                         }
 
                         while (oneBasedIndicesToCleaveAfter[i] < proteolysisProduct.OneBasedEndPosition)
@@ -239,14 +241,14 @@ namespace Proteomics.ProteolyticDigestion
                             i++;
                         }
 
-                        bool end = i - missed_cleavages - 1 >= 0
-                            && oneBasedIndicesToCleaveAfter[i - missed_cleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition
+                        bool end = i - missedCleavages - 1 >= 0
+                            && oneBasedIndicesToCleaveAfter[i - missedCleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition
                             && proteolysisProduct.OneBasedEndPosition.HasValue
-                            && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[i - missed_cleavages - 1] + 1 - 1, minPeptidesLength, maxPeptidesLength);
+                            && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[i - missedCleavages - 1] + 1 - 1, minPeptidesLength, maxPeptidesLength);
                         if (end)
                         {
-                            yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i - missed_cleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
-                                missed_cleavages, proteolysisProduct.Type + " end");
+                            yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i - missedCleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
+                                missedCleavages, proteolysisProduct.Type + " end");
                         }
                     }
                 }

@@ -248,6 +248,10 @@ namespace Proteomics.ProteolyticDigestion
             return hm;
         }
 
+        public override string ToString()
+        {
+            return Sequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
+        }
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
