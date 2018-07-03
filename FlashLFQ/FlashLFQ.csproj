@@ -26,12 +26,8 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="SharpLearning.Containers">
-      <Version>0.26.9</Version>
-    </PackageReference>
-    <PackageReference Include="SharpLearning.Optimization">
-      <Version>0.26.9</Version>
-    </PackageReference>
+    <PackageReference Include="SharpLearning.Containers" Version="[0.28.0]" />
+    <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
   </ItemGroup>
   
 </Project>
