@@ -39,8 +39,8 @@ CF   H6 C3
 ID   HexNAc
 TG   Nxs or Nxt or S or T
 PP   Anywhere.
-NL   C8H13NO5
-CF   C8H13NO5
+NL   C8 H13 N O5
+CF   C8 H13 N O5
 MT   Biological
 //
 ID   PyroGlu from Gln
