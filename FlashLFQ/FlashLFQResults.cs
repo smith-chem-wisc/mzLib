@@ -86,7 +86,7 @@ namespace FlashLFQ
                     var mergeToPeak = p;
                     foreach (var chromPeak in mergeFromPeak)
                     {
-                        p.Add(chromPeak);
+                        mergeToPeak.Add(chromPeak);
                     }
                 }
                 else
