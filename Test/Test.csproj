@@ -64,6 +64,7 @@
     <Compile Include="TestPeptides.cs" />
     <Compile Include="DatabaseTests\TestProteinReader.cs" />
     <Compile Include="DatabaseTests\TestProteomicsReadWrite.cs" />
+    <Compile Include="TestPtmListLoader.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestIsolation.cs" />
     <Compile Include="TestSpectra.cs" />
@@ -151,6 +152,12 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="ModificationTests\CommonArtifacts.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ModificationTests\CommonBiological.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="DatabaseTests\sampleModFileFail6.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -206,6 +213,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
