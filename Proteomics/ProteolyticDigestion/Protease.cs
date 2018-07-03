@@ -6,12 +6,11 @@ namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        public Protease(string name, IEnumerable<string> sequencesInducingCleavage, IEnumerable<string> sequencesPreventingCleavage, TerminusType cleavageTerminus, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
+        public Protease(string name, IEnumerable<Tuple<string, TerminusType>> sequencesInducingCleavage, IEnumerable<Tuple<string, TerminusType>> sequencesPreventingCleavage, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
         {
             Name = name;
             SequencesInducingCleavage = sequencesInducingCleavage;
             SequencesPreventingCleavage = sequencesPreventingCleavage;
-            CleavageTerminus = cleavageTerminus;
             CleavageSpecificity = cleavageSpecificity;
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
@@ -20,8 +19,8 @@ namespace Proteomics.ProteolyticDigestion
 
         public string Name { get; }
         public TerminusType CleavageTerminus { get; }
-        public IEnumerable<string> SequencesInducingCleavage { get; }
-        public IEnumerable<string> SequencesPreventingCleavage { get; }
+        public IEnumerable<Tuple<string, TerminusType>> SequencesInducingCleavage { get; }
+        public IEnumerable<Tuple<string, TerminusType>> SequencesPreventingCleavage { get; }
         public CleavageSpecificity CleavageSpecificity { get; }
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
@@ -79,13 +78,15 @@ namespace Proteomics.ProteolyticDigestion
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
                 // retain methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M') && OkayLength(protein.Length, minPeptidesLength, maxPeptidesLength))
+                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M') 
+                    && OkayLength(protein.Length, minPeptidesLength, maxPeptidesLength))
                 {
                     peptides.Add(new Peptide(protein, 1, protein.Length, 0, "full"));
                 }
 
                 // cleave methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M') && OkayLength(protein.Length - 1, minPeptidesLength, maxPeptidesLength))
+                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M')
+                    && OkayLength(protein.Length - 1, minPeptidesLength, maxPeptidesLength))
                 {
                     peptides.Add(new Peptide(protein, 2, protein.Length, 0, "full:M cleaved"));
                 }
@@ -128,12 +129,13 @@ namespace Proteomics.ProteolyticDigestion
             var indices = new List<int>();
             for (int i = 0; i < proteinSequence.Length - 1; i++)
             {
-                foreach (string c in SequencesInducingCleavage)
+                foreach (var c in SequencesInducingCleavage)
                 {
                     if (SequenceInducesCleavage(proteinSequence, i, c)
                         && !SequencesPreventingCleavage.Any(nc => SequencePreventsCleavage(proteinSequence, i, nc)))
                     {
                         indices.Add(i + 1);
+                        break;
                     }
                 }
             }
@@ -195,21 +197,21 @@ namespace Proteomics.ProteolyticDigestion
             int maximumMissedCleavages, int minPeptidesLength, int maxPeptidesLength)
         {
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
-            for (int missed_cleavages = 0; missed_cleavages <= maximumMissedCleavages; missed_cleavages++)
+            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
             {
-                for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missed_cleavages - 1; i++)
+                for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {
                     if (Retain(i, initiatorMethionineBehavior, protein[0])
-                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptidesLength, maxPeptidesLength))
+                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptidesLength, maxPeptidesLength))
                     {
-                        yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1],
-                            missed_cleavages, "full");
+                        yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
+                            missedCleavages, "full");
                     }
                     if (Cleave(i, initiatorMethionineBehavior, protein[0])
-                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1] - 1, minPeptidesLength, maxPeptidesLength))
+                        && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - 1, minPeptidesLength, maxPeptidesLength))
                     {
-                        yield return new Peptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missed_cleavages + 1],
-                            missed_cleavages, "full:M cleaved");
+                        yield return new Peptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
+                            missedCleavages, "full:M cleaved");
                     }
                 }
 
@@ -224,14 +226,14 @@ namespace Proteomics.ProteolyticDigestion
                             i++;
                         }
 
-                        bool startPeptide = i + missed_cleavages < oneBasedIndicesToCleaveAfter.Count
-                            && oneBasedIndicesToCleaveAfter[i + missed_cleavages] <= proteolysisProduct.OneBasedEndPosition
+                        bool startPeptide = i + missedCleavages < oneBasedIndicesToCleaveAfter.Count
+                            && oneBasedIndicesToCleaveAfter[i + missedCleavages] <= proteolysisProduct.OneBasedEndPosition
                             && proteolysisProduct.OneBasedBeginPosition.HasValue
-                            && OkayLength(oneBasedIndicesToCleaveAfter[i + missed_cleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptidesLength, maxPeptidesLength);
+                            && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptidesLength, maxPeptidesLength);
                         if (startPeptide)
                         {
-                            yield return new Peptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[i + missed_cleavages],
-                                missed_cleavages, proteolysisProduct.Type + " start");
+                            yield return new Peptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[i + missedCleavages],
+                                missedCleavages, proteolysisProduct.Type + " start");
                         }
 
                         while (oneBasedIndicesToCleaveAfter[i] < proteolysisProduct.OneBasedEndPosition)
@@ -239,14 +241,14 @@ namespace Proteomics.ProteolyticDigestion
                             i++;
                         }
 
-                        bool end = i - missed_cleavages - 1 >= 0
-                            && oneBasedIndicesToCleaveAfter[i - missed_cleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition
+                        bool end = i - missedCleavages - 1 >= 0
+                            && oneBasedIndicesToCleaveAfter[i - missedCleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition
                             && proteolysisProduct.OneBasedEndPosition.HasValue
-                            && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[i - missed_cleavages - 1] + 1 - 1, minPeptidesLength, maxPeptidesLength);
+                            && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[i - missedCleavages - 1] + 1 - 1, minPeptidesLength, maxPeptidesLength);
                         if (end)
                         {
-                            yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i - missed_cleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
-                                missed_cleavages, proteolysisProduct.Type + " end");
+                            yield return new Peptide(protein, oneBasedIndicesToCleaveAfter[i - missedCleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
+                                missedCleavages, proteolysisProduct.Type + " end");
                         }
                     }
                 }
@@ -412,15 +414,16 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="proteinSequenceIndex"></param>
         /// <param name="sequenceInducingCleavage"></param>
         /// <returns></returns>
-        private bool SequenceInducesCleavage(string proteinSequence, int proteinSequenceIndex, string sequenceInducingCleavage)
+        private bool SequenceInducesCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, TerminusType> sequenceInducingCleavage)
         {
-            return (CleavageTerminus != TerminusType.N
-                    && proteinSequenceIndex - sequenceInducingCleavage.Length + 1 >= 0
-                    && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Length + 1, sequenceInducingCleavage.Length)
-                        .Equals(sequenceInducingCleavage, StringComparison.OrdinalIgnoreCase))
-                || (CleavageTerminus == TerminusType.N && proteinSequenceIndex + 1 + sequenceInducingCleavage.Length <= proteinSequence.Length
-                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Length)
-                        .Equals(sequenceInducingCleavage, StringComparison.OrdinalIgnoreCase));
+            return (sequenceInducingCleavage.Item2 != TerminusType.N
+                    && proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1 >= 0
+                    && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1, sequenceInducingCleavage.Item1.Length)
+                        .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
+                || (sequenceInducingCleavage.Item2 == TerminusType.N 
+                    && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
+                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Item1.Length)
+                        .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -430,16 +433,16 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="proteinSequenceIndex"></param>
         /// <param name="sequencePreventingCleavage"></param>
         /// <returns></returns>
-        private bool SequencePreventsCleavage(string proteinSequence, int proteinSequenceIndex, string sequencePreventingCleavage)
+        private bool SequencePreventsCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, TerminusType> sequencePreventingCleavage)
         {
-            return (CleavageTerminus != TerminusType.N
-                    && proteinSequenceIndex + 1 + sequencePreventingCleavage.Length <= proteinSequence.Length
-                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequencePreventingCleavage.Length)
-                        .Equals(sequencePreventingCleavage, StringComparison.OrdinalIgnoreCase))
-                || (CleavageTerminus == TerminusType.N
-                    && proteinSequenceIndex - sequencePreventingCleavage.Length + 1 >= 0
-                    && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Length + 1, sequencePreventingCleavage.Length)
-                        .Equals(sequencePreventingCleavage, StringComparison.OrdinalIgnoreCase));
+            return (sequencePreventingCleavage.Item2 != TerminusType.N
+                    && proteinSequenceIndex + 1 + sequencePreventingCleavage.Item1.Length <= proteinSequence.Length
+                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequencePreventingCleavage.Item1.Length)
+                        .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
+                || (SequencesInducingCleavage.First().Item2 == TerminusType.N
+                    && proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1 >= 0
+                    && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1, sequencePreventingCleavage.Item1.Length)
+                        .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
         }
 
 

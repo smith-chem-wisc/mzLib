@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -18,7 +19,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public static Dictionary<string, Protease> Dictionary { get; private set; }
 
-        private static Dictionary<string, Protease> LoadProteaseDictionary(string proteasesLocation)
+        public static Dictionary<string, Protease> LoadProteaseDictionary(string proteasesLocation)
         {
             Dictionary<string, Protease> dict = new Dictionary<string, Protease>();
             using (StreamReader proteases = new StreamReader(proteasesLocation))
@@ -28,17 +29,31 @@ namespace Proteomics.ProteolyticDigestion
                 while (proteases.Peek() != -1)
                 {
                     string line = proteases.ReadLine();
-                    string[] fields = line.Split('\t');
-
-                    string name = fields[0];
-                    string[] sequences_inducing_cleavage = fields[1].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    string[] sequences_preventing_cleavage = fields[2].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
-                    var cleavage_terminus = (TerminusType)Enum.Parse(typeof(TerminusType), fields[3], true);
-                    var cleavage_specificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4], true);
-                    string psi_ms_accession_number = fields[5];
-                    string psi_ms_name = fields[6];
-                    string site_regexp = fields[7];
-                    var protease = new Protease(name, sequences_inducing_cleavage, sequences_preventing_cleavage, cleavage_terminus, cleavage_specificity, psi_ms_accession_number, psi_ms_name, site_regexp);
+                    string[][] fields = line.Split('\t').Select(x => x.Split('|')).ToArray();
+                    string name = fields[0][0];
+                    string[] preventing;
+                    List<Tuple<string, TerminusType>> sequencesInducingCleavage = new List<Tuple<string, TerminusType>>();
+                    List<Tuple<string, TerminusType>> sequencePreventingCleavage = new List<Tuple<string, TerminusType>>();
+                    for (int i = 0; i < fields[1].Length; i++)
+                    {
+                        if (!fields[1][i].Equals(""))
+                        {
+                            sequencesInducingCleavage.Add(new Tuple<string, TerminusType>(fields[1][i], ((TerminusType)Enum.Parse(typeof(TerminusType), fields[3][i], true))));
+                            if (!fields[2].Contains(""))
+                            {
+                                preventing = (fields[2][i].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+                                for (int j = 0; j < preventing.Length; j++)
+                                {
+                                    sequencePreventingCleavage.Add(new Tuple<string, TerminusType>(preventing[j], (TerminusType)Enum.Parse(typeof(TerminusType), fields[3][i], true)));
+                                }
+                            }
+                        }
+                    }
+                    var cleavageSpecificity = ((CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4][0], true));
+                    string psiMsAccessionNumber = fields[5][0];
+                    string psiMsName = fields[6][0];
+                    string siteRegexp = fields[7][0];
+                    var protease = new Protease(name, sequencesInducingCleavage, sequencePreventingCleavage, cleavageSpecificity, psiMsAccessionNumber, psiMsName, siteRegexp);
                     dict.Add(protease.Name, protease);
                 }
             }
