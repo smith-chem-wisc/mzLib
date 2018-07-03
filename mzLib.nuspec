@@ -30,6 +30,7 @@
     <file src="PepXML\bin\Release\netstandard2.0\PepXML.dll" target="lib\netstandard2.0" /> 
     <file src="MassSpectrometry\bin\Release\netstandard2.0\MassSpectrometry.dll" target="lib\netstandard2.0" /> 
     <file src="Proteomics\bin\Release\netstandard2.0\Proteomics.dll" target="lib\netstandard2.0" /> 
+    <file src="Proteomics\bin\Release\netstandard2.0\ProteolyticDigestion\proteases.tsv" target="lib\netstandard2.0\ProteolyticDigestion" /> 
     <file src="Spectra\bin\Release\netstandard2.0\Spectra.dll" target="lib\netstandard2.0" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\netstandard2.0\UsefulProteomicsDatabases.dll" target="lib\netstandard2.0" /> 
 
@@ -43,6 +44,7 @@
     <file src="PepXML\bin\Release\net471\PepXML.dll" target="lib\net471" /> 
     <file src="MassSpectrometry\bin\Release\net471\MassSpectrometry.dll" target="lib\net471" /> 
     <file src="Proteomics\bin\Release\net471\Proteomics.dll" target="lib\net471" /> 
+    <file src="Proteomics\bin\Release\net471\ProteolyticDigestion\proteases.tsv" target="lib\net471\ProteolyticDigestion" /> 
     <file src="Spectra\bin\Release\net471\Spectra.dll" target="lib\net471" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\net471\UsefulProteomicsDatabases.dll" target="lib\net471" /> 
 
