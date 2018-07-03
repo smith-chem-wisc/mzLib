@@ -12,12 +12,12 @@ namespace Proteomics
         public string Individual { get; }
 
         public ProteinWithAppliedVariants(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations, string individual)
-            : base(variantBaseSequence, protein.Accession, organism: protein.Organism, gene_names: protein.GeneNames.ToList(),
+            : base(variantBaseSequence, protein.Accession, organism: protein.Organism, gene_names: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: protein.OneBasedPossibleLocalizedModifications.ToDictionary(x => x.Key, x => x.Value), 
-                  proteolysisProducts: protein.ProteolysisProducts.ToList(), name: protein.Name, full_name: protein.FullName, 
+                  proteolysisProducts: new List<ProteolysisProduct>(protein.ProteolysisProducts), name: protein.Name, full_name: protein.FullName, 
                   isDecoy: protein.IsDecoy, isContaminant: protein.IsContaminant, 
-                  databaseReferences: protein.DatabaseReferences.ToList(), sequenceVariations: protein.SequenceVariations.ToList(),
-                  disulfideBonds: protein.DisulfideBonds.ToList(), databaseFilePath: protein.DatabaseFilePath)
+                  databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences), sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
+                  disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds), databaseFilePath: protein.DatabaseFilePath)
         {
             Protein = protein;
             AppliedSequenceVariations = appliedSequenceVariations != null ? appliedSequenceVariations.ToList() : new List<SequenceVariation>();

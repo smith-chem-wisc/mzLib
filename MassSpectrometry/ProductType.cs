@@ -1,4 +1,4 @@
-namespace Proteomics.ProteolyticDigestion
+namespace MassSpectrometry
 {
     public enum ProductType
     {

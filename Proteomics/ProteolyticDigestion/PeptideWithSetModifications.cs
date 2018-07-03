@@ -3,6 +3,7 @@ using Proteomics.AminoAcidPolymer;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using MassSpectrometry;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -13,6 +14,7 @@ namespace Proteomics.ProteolyticDigestion
         /// key indicates which residue modification is on (with 1 being N terminus)
         /// </summary>
         public readonly Dictionary<int, ModificationWithMass> AllModsOneIsNterminus;
+        public readonly DigestionParams DigestionParams;
         public readonly int NumFixedMods;
 
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
@@ -21,22 +23,6 @@ namespace Proteomics.ProteolyticDigestion
         private string _sequence;
         private string _sequenceWithChemicalFormulas;
         private double? _monoisotopicMass;
-
-        public PeptideWithSetModifications(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
-            Dictionary<int, ModificationWithMass> allModsOneIsNterminus, int numFixedMods)
-            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
-        {
-            AllModsOneIsNterminus = allModsOneIsNterminus;
-            NumFixedMods = numFixedMods;
-        }
-
-        public PeptideWithSetModifications(PeptideWithSetModifications modsFromThisOne, PeptideWithSetModifications everythingElseFromThisOne)
-            : base(everythingElseFromThisOne.Protein, everythingElseFromThisOne.OneBasedStartResidueInProtein, everythingElseFromThisOne.OneBasedEndResidueInProtein,
-                  everythingElseFromThisOne.MissedCleavages, everythingElseFromThisOne.PeptideDescription)
-        {
-            AllModsOneIsNterminus = modsFromThisOne.AllModsOneIsNterminus;
-            NumFixedMods = modsFromThisOne.NumFixedMods;
-        }
 
         public PeptideWithSetModifications(PeptideWithSetModifications modsFromThisOne, int proteinOneBasedStart, int proteinOneBasedEnd)
             : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart, modsFromThisOne.PeptideDescription)
@@ -53,6 +39,15 @@ namespace Proteomics.ProteolyticDigestion
         {
             NumFixedMods = numFixedMods;
             AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, ModificationWithMass>();
+        }
+
+        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
+           Dictionary<int, ModificationWithMass> allModsOneIsNterminus, int numFixedMods)
+           : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
+        {
+            AllModsOneIsNterminus = allModsOneIsNterminus;
+            NumFixedMods = numFixedMods;
+            DigestionParams = digestionParams;
         }
 
         public double MonoisotopicMass
@@ -174,6 +169,37 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
+        /// <summary>
+        /// Generates theoretical fragment ions for given product types for this peptide
+        /// </summary>
+        public List<TheoreticalFragmentIon> GetTheoreticalFragments(List<ProductType> productTypes)
+        {
+            // TODO: make this method more self-contained... right now it makes a CompactPeptide (deprecated) and fragments it
+            List<TheoreticalFragmentIon> theoreticalFragmentIons = new List<TheoreticalFragmentIon>();
+
+            foreach (var productType in productTypes)
+            {
+                int ionNumberAdd = 1;
+                if (productType == ProductType.BnoB1ions)
+                {
+                    // first generated b ion is b2, not b1, if we're skipping b1 ions
+                    ionNumberAdd++;
+                }
+
+                List<ProductType> temp = new List<ProductType> { productType };
+                TerminusType terminusType = ProductTypeMethods.IdentifyTerminusType(temp);
+
+                var productMasses = new CompactPeptide(this, terminusType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
+
+                for (int i = 0; i < productMasses.Length; i++)
+                {
+                    theoreticalFragmentIons.Add(new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
+                }
+            }
+
+            return theoreticalFragmentIons;
+        }
+
         public int NumVariableMods { get { return NumMods - NumFixedMods; } }
 
         public virtual string EssentialSequence(IReadOnlyDictionary<string, int> ModstoWritePruned)
@@ -248,6 +274,10 @@ namespace Proteomics.ProteolyticDigestion
             return hm;
         }
 
+        public override string ToString()
+        {
+            return Sequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
+        }
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
