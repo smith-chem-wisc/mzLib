@@ -605,13 +605,20 @@ namespace FlashLFQ
 
             Parallel.ForEach(Partitioner.Create(0, identifications.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
-                range =>
+                (range, loopState) =>
             {
                 List<IndexedMassSpectralPeak> binPeaks = new List<IndexedMassSpectralPeak>();
                 List<IsotopicEnvelope> isotopicEnvelopes = new List<IsotopicEnvelope>();
 
                 for (int i = range.Item1; i < range.Item2; i++)
                 {
+                    //// Stop loop if canceled
+                    //if (GlobalVariables.StopLoops)
+                    //{
+                    //    loopState.Stop();
+                    //    return;
+                    //}
+
                     binPeaks.Clear();
                     isotopicEnvelopes.Clear();
                     var identification = identifications[i];
@@ -714,6 +721,13 @@ namespace FlashLFQ
                     {
                         for (int i = range.Item1; i < range.Item2; i++)
                         {
+                            //// Stop loop if canceled
+                            //if (GlobalVariables.StopLoops)
+                            //{
+                            //    loopState.Stop();
+                            //    return;
+                            //}
+
                             var identification = identificationsFromOtherRunsToLookFor[i];
 
                             ChromatographicPeak mbrFeature = new ChromatographicPeak(identification, true, fileInfo);

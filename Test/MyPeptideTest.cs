@@ -1,11 +1,13 @@
 ﻿using Chemistry;
 using NUnit.Framework;
 using Proteomics;
-using Proteomics.ProteolyticDigestion;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using static Chemistry.PeriodicTable;
+using MassSpectrometry;
 
 namespace Test
 {
@@ -16,7 +18,7 @@ namespace Test
         public static void TestGoodPeptide()
         {
             var prot = new Protein("MNNNKQQQQ", null);
-            var protease = new Protease("CustomizedProtease", new List<string> { "K" }, new List<string>(), TerminusType.C, CleavageSpecificity.Full, null, null, null);
+            var protease = new Protease("CustomizedProtease", new List<Tuple<string, TerminusType>> { new Tuple<string, TerminusType>("K", TerminusType.C) }, new List<Tuple<string, TerminusType>>(), CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -47,11 +49,8 @@ namespace Test
         {
             List<ModificationWithMass> fixedModifications = new List<ModificationWithMass>();
             var prot = new Protein("MNNNKQQQQ", null, null, null, new Dictionary<int, List<Modification>>(), new List<ProteolysisProduct> { new ProteolysisProduct(5, 6, "lala") });
-            var protease = new Protease("Custom Protease", null, null, TerminusType.None, CleavageSpecificity.None, null, null, null);
-
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 5);
             var ye = prot.Digest(digestionParams, fixedModifications, new List<ModificationWithMass>()).ToList();
-
             Assert.AreEqual(3, ye.Count);
         }
 
@@ -59,7 +58,7 @@ namespace Test
         public static void TestBadPeptide()
         {
             var prot = new Protein("MNNNKQQXQ", null);
-            var protease = new Protease("Custom Protease7", new List<string> { "K" }, new List<string>(), TerminusType.C, CleavageSpecificity.Full, null, null, null);
+            var protease = new Protease("Custom Protease7", new List<Tuple<string, TerminusType>> { new Tuple<string, TerminusType>("K", TerminusType.C) }, new List<Tuple<string, TerminusType>>(), CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -109,7 +108,6 @@ namespace Test
         public static void TestPeptideWithFixedModifications()
         {
             var prot = new Protein("M", null);
-            var protease = new Protease("Custom Protease", new List<string> { "K" }, new List<string>(), TerminusType.C, CleavageSpecificity.Full, null, null, null);
             List<ModificationWithMass> fixedMods = new List<ModificationWithMass>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
             fixedMods.Add(new ModificationWithMassAndCf("ProtNmod", null, motif, TerminusLocalization.NProt, Chemistry.ChemicalFormula.ParseFormula("H"), GetElement(1).PrincipalIsotope.AtomicMass));
