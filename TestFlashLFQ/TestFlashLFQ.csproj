@@ -85,6 +85,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="sliced-mzml_b.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="sliced-mzml.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -105,6 +108,9 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="sliced-raw_b.raw">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="sliced-raw.raw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
