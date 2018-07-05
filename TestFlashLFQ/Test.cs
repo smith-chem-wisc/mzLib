@@ -129,9 +129,7 @@ namespace Test
 
             // run the engine
             var resultsA = engineA.Run();
-
-            var tempResultsA = resultsA;
-
+            
             SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw_b.raw"), "b", 0, 0, 0);
             SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml_b.mzml"), "b", 0, 1, 0);
 
