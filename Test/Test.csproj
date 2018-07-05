@@ -47,7 +47,6 @@
     <Compile Include="MyPeptideTest.cs" />
     <Compile Include="SeqCoverageTests.cs" />
     <Compile Include="TestCZE.cs" />
-    <Compile Include="TestMergeFlashLFQResults.cs" />
     <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseTests\DatabaseLoaderTests.cs" />
