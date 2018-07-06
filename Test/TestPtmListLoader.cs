@@ -49,7 +49,24 @@ namespace Test
             }
 
         }
+        [Test]
+        public static void Test_ModsWithComments()
+        {
+            string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"ModsWithComments.txt");
+            var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
+            Assert.AreEqual(4, a.Select(m => m.id).ToList().Count);
 
+            Assert.AreEqual("Deamidation on N", a[0].id.ToString());
+            Assert.AreEqual("Sodium on D", a[2].id.ToString());//this has trailing whitespace that shouldn't be in the name
+
+            //Make sure comments are okay on DR key and that key value pairs are still split correctly
+            var someMod = a[2];
+            var test = (Proteomics.ModificationWithMass)someMod;
+            var residValueTest = test.linksToOtherDbs.First().Value.First();
+            var residKeyTest = test.linksToOtherDbs.First().Key;
+            Assert.AreEqual("RESID", residKeyTest);
+            Assert.AreEqual("AA0441", residValueTest);
+        }
 
     }
 }

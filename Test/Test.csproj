@@ -158,6 +158,9 @@
     <Content Include="ModificationTests\CommonBiological.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="ModificationTests\ModsWithComments.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="DatabaseTests\sampleModFileFail6.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
