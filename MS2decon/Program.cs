@@ -15,8 +15,6 @@ namespace MS2decon
 {
     internal class Program
     {
-        #region Private Methods
-
         private static void Main(string[] args)
         {
             Loaders.LoadElements("elements.dat");
@@ -52,7 +50,7 @@ namespace MS2decon
 
             if (result.HasErrors == false)
             {
-                IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> myMsDataFile;
+                MsDataFile myMsDataFile;
                 if (Path.GetExtension(p.Object.FilePath).Equals(".mzML", StringComparison.OrdinalIgnoreCase))
                     myMsDataFile = Mzml.LoadAllStaticData(p.Object.FilePath);
                 else
@@ -61,8 +59,7 @@ namespace MS2decon
                 using (StreamWriter output = new StreamWriter(@"MS2DeconvolutionOutput-" + DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss", CultureInfo.InvariantCulture) + ".tsv"))
                 {
                     output.WriteLine("Mass\tNumPeaks\tNumScans\tMinScan\tMaxScan\tAverageElutionTime\tIntensity\tObservedCharges\tMostIntenseCharge\tMostIntenseMz\tNumPeaksInMostIntenseEnvelope");
-
-                    foreach (var ok in myMsDataFile.OfType<IMsDataScanWithPrecursor<IMzSpectrum<IMzPeak>>>())
+                    foreach (var ok in myMsDataFile.GetAllScansList().Where(x => x.MsnOrder != 1))
                     {
                         if ((!p.Object.MinScan.HasValue || ok.OneBasedScanNumber >= p.Object.MinScan) && (!p.Object.MaxScan.HasValue || ok.OneBasedScanNumber <= p.Object.MaxScan))
                         {
@@ -110,14 +107,10 @@ namespace MS2decon
                 Console.WriteLine(result.ErrorText);
             }
         }
-
-        #endregion Private Methods
     }
 
     internal class ApplicationArguments
     {
-        #region Public Properties
-
         public int? MinScan { get; set; } = null;
         public int? MaxScan { get; set; } = null;
         public int MinAssumedChargeState { get; set; } = 1;
@@ -126,10 +119,6 @@ namespace MS2decon
         public double IntensityRatioLimit { get; set; } = 5;
         public double AggregationTolerancePpm { get; set; } = 5;
         public string FilePath { get; set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -144,7 +133,5 @@ namespace MS2decon
             sb.AppendLine("AggregationTolerancePpm: " + AggregationTolerancePpm);
             return sb.ToString();
         }
-
-        #endregion Public Methods
     }
 }

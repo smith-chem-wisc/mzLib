@@ -43,9 +43,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FakeMsDataFile.cs" />
+    <Compile Include="ModFitsTest.cs" />
+    <Compile Include="MyPeptideTest.cs" />
+    <Compile Include="SeqCoverageTests.cs" />
     <Compile Include="TestCZE.cs" />
+    <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
-    <Compile Include="DatabaseLoaderTests.cs" />
+    <Compile Include="DatabaseTests\DatabaseLoaderTests.cs" />
     <Compile Include="ElementsAndIsotopesTests.cs" />
     <Compile Include="ChemicalFormulaTestFixture.cs" />
     <Compile Include="MassTestFixture.cs" />
@@ -58,8 +62,9 @@
     <Compile Include="TestFragments.cs" />
     <Compile Include="TestModifications.cs" />
     <Compile Include="TestPeptides.cs" />
-    <Compile Include="TestProteinReader.cs" />
-    <Compile Include="TestProteomicsReadWrite.cs" />
+    <Compile Include="DatabaseTests\TestProteinReader.cs" />
+    <Compile Include="DatabaseTests\TestProteomicsReadWrite.cs" />
+    <Compile Include="TestPtmListLoader.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestIsolation.cs" />
     <Compile Include="TestSpectra.cs" />
@@ -78,9 +83,13 @@
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
     </ProjectReference>
-    <ProjectReference Include="..\mzIdentML\mzIdentML.csproj">
+    <ProjectReference Include="..\Mgf\Mgf.csproj">
+      <Project>{d8bcae00-e826-4771-a423-8b47d8d86ef4}</Project>
+      <Name>Mgf</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\MzIdentML\MzIdentML.csproj">
       <Project>{63d869df-55d8-4043-ad89-f90462403ebb}</Project>
-      <Name>mzIdentML</Name>
+      <Name>MzIdentML</Name>
     </ProjectReference>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
       <Project>{b208ff5f-5a33-490d-9ddb-7c76f5600fc4}</Project>
@@ -107,91 +116,104 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="bad.fasta">
+    <None Include="DatabaseTests\bad.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="bad3.fasta">
+    <None Include="DatabaseTests\bad3.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="bad4.fasta">
+    <None Include="DatabaseTests\bad4.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="blank.fasta">
+    <None Include="DatabaseTests\blank.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="fasta.fasta">
+    <None Include="DatabaseTests\fasta.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
+    <None Include="tester.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="tester.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="test_ensembl.pep.all.fasta">
+    <None Include="DatabaseTests\test_ensembl.pep.all.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="tiny.pwiz.1.1.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="xml.xml.gz">
+    <None Include="DatabaseTests\xml.xml.gz">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="sampleModFileFail6.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="sampleModFileDouble2.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <Content Include="cRAP_databaseGPTMD.xml">
+    <Content Include="ModificationTests\CommonArtifacts.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="disulfidetests.xml">
+    <Content Include="ModificationTests\CommonBiological.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="cfInNL.txt">
+    <None Include="DatabaseTests\sampleModFileFail6.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <Content Include="sampleModFileFail5.txt">
+    <None Include="DatabaseTests\sampleModFileDouble2.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Content Include="DatabaseTests\cRAP_databaseGPTMD.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\disulfidetests.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <None Include="DatabaseTests\cfInNL.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <Content Include="DatabaseTests\sampleModFileFail5.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <None Include="sampleModFileDouble.txt">
+    <None Include="DatabaseTests\sampleModFileDouble.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <Content Include="seqvartests.xml">
+    <Content Include="DatabaseTests\seqvartests.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="xml2.xml">
+    <Content Include="DatabaseTests\xml2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="z.txt">
+    <Content Include="DatabaseTests\z.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Include="sampleModFile.txt">
+    <None Include="DatabaseTests\sampleModFile.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="sampleModFileFail1.txt">
+    <None Include="DatabaseTests\sampleModFileFail1.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="sampleModFileFail2.txt">
+    <None Include="DatabaseTests\sampleModFileFail2.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Include="sampleModFileFail3.txt">
+    <None Include="DatabaseTests\sampleModFileFail3.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <Content Include="fake_h4.xml">
+    <Content Include="DatabaseTests\fake_h4.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="m.txt">
+    <Content Include="DatabaseTests\m.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="modified_start.xml">
+    <Content Include="DatabaseTests\modified_start.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="xml.xml">
+    <Content Include="DatabaseTests\xml.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

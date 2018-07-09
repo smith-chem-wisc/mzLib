@@ -4,34 +4,22 @@ using System.Text;
 
 namespace FlashLFQ
 {
-    public enum DetectionType { MSMS, MBR, NotDetected, MSMSAmbiguousPeakfinding, MSMSIdentifiedButNotQuantified }
-
     public class Peptide
     {
-        #region Public Fields
-
         public readonly string Sequence;
-        public Dictionary<RawFileInfo, double> intensities;
-        public Dictionary<RawFileInfo, DetectionType> detectionTypes;
+        private Dictionary<SpectraFileInfo, double> intensities;
+        private Dictionary<SpectraFileInfo, DetectionType> detectionTypes;
         public HashSet<ProteinGroup> proteinGroups;
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public Peptide(string sequence)
         {
-            this.Sequence = sequence;
-            intensities = new Dictionary<RawFileInfo, double>();
-            detectionTypes = new Dictionary<RawFileInfo, DetectionType>();
+            Sequence = sequence;
+            intensities = new Dictionary<SpectraFileInfo, double>();
+            detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             proteinGroups = new HashSet<ProteinGroup>();
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
-        public static string TabSeparatedHeader(List<RawFileInfo> rawFiles)
+        public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
         {
             var sb = new StringBuilder();
             sb.Append("Sequence" + "\t");
@@ -39,17 +27,61 @@ namespace FlashLFQ
             sb.Append("Gene Names" + "\t");
             sb.Append("Organism" + "\t");
             foreach (var rawfile in rawFiles)
-                sb.Append("Intensity_" + rawfile.filenameWithoutExtension + "\t");
+            {
+                sb.Append("Intensity_" + rawfile.FilenameWithoutExtension + "\t");
+            }
             foreach (var rawfile in rawFiles)
-                sb.Append("Detection Type_" + rawfile.filenameWithoutExtension + "\t");
+            {
+                sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
+            }
             return sb.ToString();
         }
 
-        #endregion Public Properties
+        public double GetIntensity(SpectraFileInfo fileInfo)
+        {
+            if (intensities.TryGetValue(fileInfo, out double intensity))
+            {
+                return intensity;
+            }
+            else
+            {
+                return 0;
+            }
+        }
 
-        #region Public Methods
+        public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
+        {
+            if (intensities.ContainsKey(fileInfo))
+                intensities[fileInfo] = intensity;
+            else
+                intensities.Add(fileInfo, intensity);
+        }
 
-        public string ToString(List<RawFileInfo> rawFiles)
+        public DetectionType GetDetectionType(SpectraFileInfo fileInfo)
+        {
+            if (detectionTypes.TryGetValue(fileInfo, out DetectionType detectionType))
+            {
+                return detectionType;
+            }
+            else
+            {
+                return DetectionType.NotDetected;
+            }
+        }
+
+        public void SetDetectionType(SpectraFileInfo fileInfo, DetectionType detectionType)
+        {
+            if (detectionTypes.ContainsKey(fileInfo))
+            {
+                detectionTypes[fileInfo] = detectionType;
+            }
+            else
+            {
+                detectionTypes.Add(fileInfo, detectionType);
+            }
+        }
+
+        public string ToString(List<SpectraFileInfo> rawFiles)
         {
             StringBuilder str = new StringBuilder();
             str.Append(Sequence + "\t");
@@ -59,17 +91,11 @@ namespace FlashLFQ
 
             foreach (var file in rawFiles)
             {
-                if (intensities.TryGetValue(file, out double intensity))
-                    str.Append(intensity + "\t");
-                else
-                    str.Append(0 + "\t");
+                str.Append(GetIntensity(file) + "\t");
             }
             foreach (var file in rawFiles)
             {
-                if (detectionTypes.TryGetValue(file, out var detectionType))
-                    str.Append(detectionType + "\t");
-                else
-                    str.Append(DetectionType.NotDetected + "\t");
+                str.Append(GetDetectionType(file) + "\t");
             }
 
             return str.ToString();
@@ -84,7 +110,5 @@ namespace FlashLFQ
         {
             return Sequence.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

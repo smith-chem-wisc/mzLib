@@ -26,8 +26,6 @@ namespace MzLibUtil
     /// </summary>
     public abstract class Tolerance
     {
-        #region Private Fields
-
         /// <summary>
         /// A regex for parsing a string representation of a tolerance
         /// <para>
@@ -35,10 +33,6 @@ namespace MzLibUtil
         /// </para>
         /// </summary>
         private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|Absolute)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-        #endregion Private Fields
-
-        #region Protected Constructors
 
         /// <summary>
         /// Creates a new tolerance given a unit, value, and whether the tolerance is ±
@@ -50,18 +44,10 @@ namespace MzLibUtil
             Value = Math.Abs(value);
         }
 
-        #endregion Protected Constructors
-
-        #region Public Properties
-
         /// <summary>
         /// The value of the tolerance
         /// </summary>
         public double Value { get; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         /// <summary>
         /// Calculates a tolerance from the string representation
@@ -74,9 +60,13 @@ namespace MzLibUtil
         {
             Match m = StringRegex.Match(s);
             if (m.Groups[3].Value.Equals("PPM", StringComparison.OrdinalIgnoreCase))
+            {
                 return new PpmTolerance(double.Parse(m.Groups[2].Value));
+            }
             else
+            {
                 return new AbsoluteTolerance(double.Parse(m.Groups[2].Value));
+            }
         }
 
         /// <summary>
@@ -107,7 +97,5 @@ namespace MzLibUtil
         /// <param name="theoretical">The theoretical value</param>
         /// <returns>Returns true if the value is within this tolerance  </returns>
         public abstract bool Within(double experimental, double theoretical);
-
-        #endregion Public Methods
     }
 }

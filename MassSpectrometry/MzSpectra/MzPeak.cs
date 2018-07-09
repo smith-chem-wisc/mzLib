@@ -1,45 +1,19 @@
-﻿using Spectra;
-
-namespace MassSpectrometry
+﻿namespace MassSpectrometry
 {
-    public class MzPeak : Peak, IMzPeak
+    public class MzPeak
     {
-        #region Public Constructors
+        public double Mz { get; protected set; }
+        public double Intensity { get; protected set; }
 
         public MzPeak(double mz, double intensity)
-            : base(mz, intensity)
         {
+            Mz = mz;
+            Intensity = intensity;
         }
-
-        #endregion Public Constructors
-
-        #region Public Properties
-
-        public double Intensity
-        {
-            get
-            {
-                return Y;
-            }
-        }
-
-        public double Mz
-        {
-            get
-            {
-                return X;
-            }
-        }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public override string ToString()
         {
-            return string.Format("({0:G7},{1:G7})", X, Y);
+            return string.Format("({0:G7},{1:G7})", Mz, Intensity);
         }
-
-        #endregion Public Methods
     }
 }

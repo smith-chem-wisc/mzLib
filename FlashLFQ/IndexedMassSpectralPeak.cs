@@ -2,25 +2,22 @@
 {
     public class IndexedMassSpectralPeak
     {
-        #region Public Fields
+        public readonly int ZeroBasedIndexOfPeakInScan;
+        public readonly double Intensity;
+        public readonly int OneBasedScanNumber;
+        public readonly double Mz;
 
-        public readonly int zeroBasedIndexOfPeakInScan;
-        public readonly double intensity;
-        public readonly int oneBasedScanNumber;
-        public readonly double mz;
-
-        #endregion Public Fields
-
-        #region Public Constructors
-
-        public IndexedMassSpectralPeak(double mz, double intensity, int indexInScan, int oneBasedScanIndex)
+        public IndexedMassSpectralPeak(double mz, double intensity, int zeroBasedIndexOfPeakInScan, int oneBasedScanNumber)
         {
-            this.mz = mz;
-            zeroBasedIndexOfPeakInScan = indexInScan;
-            this.intensity = intensity;
-            oneBasedScanNumber = oneBasedScanIndex;
+            this.Mz = mz;
+            this.Intensity = intensity;
+            this.ZeroBasedIndexOfPeakInScan = zeroBasedIndexOfPeakInScan;
+            this.OneBasedScanNumber = oneBasedScanNumber;
         }
 
-        #endregion Public Constructors
+        public override string ToString()
+        {
+            return Mz.ToString("F3") + "; " + OneBasedScanNumber + "; " + ZeroBasedIndexOfPeakInScan;
+        }
     }
 }

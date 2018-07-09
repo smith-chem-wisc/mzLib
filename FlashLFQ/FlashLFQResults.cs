@@ -6,30 +6,20 @@ namespace FlashLFQ
 {
     public class FlashLFQResults
     {
-        #region Public Fields
-
-        public readonly List<RawFileInfo> rawFiles;
+        public readonly List<SpectraFileInfo> spectraFiles;
         public readonly Dictionary<string, Peptide> peptideBaseSequences;
         public readonly Dictionary<string, Peptide> peptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> proteinGroups;
-        public readonly Dictionary<RawFileInfo, List<ChromatographicPeak>> peaks;
+        public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> peaks;
 
-        #endregion Public Fields
-
-        #region Public Constructors
-
-        public FlashLFQResults(List<RawFileInfo> rawFiles)
+        public FlashLFQResults(List<SpectraFileInfo> rawFiles)
         {
-            this.rawFiles = rawFiles;
+            this.spectraFiles = rawFiles;
             peptideBaseSequences = new Dictionary<string, Peptide>();
             peptideModifiedSequences = new Dictionary<string, Peptide>();
             proteinGroups = new Dictionary<string, ProteinGroup>();
-            peaks = new Dictionary<RawFileInfo, List<ChromatographicPeak>>();
+            peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public void CalculatePeptideResults(bool sumByBaseSequenceNotModifiedSequence)
         {
@@ -40,7 +30,7 @@ namespace FlashLFQ
 
                 foreach (var peak in file.Value)
                 {
-                    foreach (var id in peak.identifyingScans)
+                    foreach (var id in peak.Identifications)
                     {
                         string seq = id.BaseSequence;
                         if (!sumByBaseSequenceNotModifiedSequence)
@@ -59,16 +49,16 @@ namespace FlashLFQ
                     // calculate intensity and detection type for this peptide and file
                     double intensity = 0;
                     DetectionType detectionType = DetectionType.NotDetected;
-                    var pgs = new HashSet<ProteinGroup>(sequence.Value.SelectMany(p => p.identifyingScans).SelectMany(v => v.proteinGroups));
+                    var pgs = new HashSet<ProteinGroup>(sequence.Value.SelectMany(p => p.Identifications).SelectMany(v => v.proteinGroups));
 
-                    if (sequence.Value.First().isMbrFeature)
+                    if (sequence.Value.First().IsMbrFeature)
                     {
-                        intensity = sequence.Value.Max(p => p.intensity);
+                        intensity = sequence.Value.Max(p => p.Intensity);
                         detectionType = DetectionType.MBR;
                     }
                     else
                     {
-                        intensity = sequence.Value.Sum(p => p.intensity);
+                        intensity = sequence.Value.Sum(p => p.Intensity);
                         detectionType = DetectionType.MSMS;
 
                         if (intensity == 0)
@@ -76,10 +66,10 @@ namespace FlashLFQ
 
                         if (sequence.Value.Max(p => p.NumIdentificationsByBaseSeq) > 1)
                         {
-                            double ambigPeakIntensity = sequence.Value.Where(p => p.NumIdentificationsByBaseSeq > 1).Sum(v => v.intensity);
+                            double ambigPeakIntensity = sequence.Value.Where(p => p.NumIdentificationsByBaseSeq > 1).Sum(v => v.Intensity);
 
                             if ((ambigPeakIntensity / intensity) < 0.3)
-                                intensity = sequence.Value.Select(p => (p.intensity / p.NumIdentificationsByBaseSeq)).Sum();
+                                intensity = sequence.Value.Select(p => (p.Intensity / p.NumIdentificationsByBaseSeq)).Sum();
                             else
                             {
                                 detectionType = DetectionType.MSMSAmbiguousPeakfinding;
@@ -94,8 +84,8 @@ namespace FlashLFQ
                         if (!peptideBaseSequences.ContainsKey(sequence.Key))
                             peptideBaseSequences.Add(sequence.Key, new Peptide(sequence.Key));
 
-                        peptideBaseSequences[sequence.Key].intensities[file.Key] = intensity;
-                        peptideBaseSequences[sequence.Key].detectionTypes[file.Key] = detectionType;
+                        peptideBaseSequences[sequence.Key].SetIntensity(file.Key, intensity);
+                        peptideBaseSequences[sequence.Key].SetDetectionType(file.Key, detectionType);
                         peptideBaseSequences[sequence.Key].proteinGroups = pgs;
                     }
                     else
@@ -103,8 +93,8 @@ namespace FlashLFQ
                         if (!peptideModifiedSequences.ContainsKey(sequence.Key))
                             peptideModifiedSequences.Add(sequence.Key, new Peptide(sequence.Key));
 
-                        peptideModifiedSequences[sequence.Key].intensities[file.Key] = intensity;
-                        peptideModifiedSequences[sequence.Key].detectionTypes[file.Key] = detectionType;
+                        peptideModifiedSequences[sequence.Key].SetIntensity(file.Key, intensity);
+                        peptideModifiedSequences[sequence.Key].SetDetectionType(file.Key, detectionType);
                         peptideModifiedSequences[sequence.Key].proteinGroups = pgs;
                     }
                 }
@@ -117,16 +107,16 @@ namespace FlashLFQ
             var allFeatures = peaks.Values.SelectMany(p => p).ToList();
 
             foreach (var peak in allFeatures)
-                foreach (var id in peak.identifyingScans)
+                foreach (var id in peak.Identifications)
                     foreach (var proteinGroup in id.proteinGroups)
                         if (!proteinGroups.ContainsKey(proteinGroup.ProteinGroupName))
                             proteinGroups.Add(proteinGroup.ProteinGroupName, proteinGroup);
 
             var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByBaseSeq > 1).ToList();
-            var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.identifyingScans.Select(v => v.BaseSequence)));
+            var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.Identifications.Select(v => v.BaseSequence)));
 
             foreach (var feature in allFeatures)
-                if (ambiguousFeatureSeqs.Contains(feature.identifyingScans.First().BaseSequence))
+                if (ambiguousFeatureSeqs.Contains(feature.Identifications.First().BaseSequence))
                     allAmbiguousFeatures.Add(feature);
 
             var allUnambiguousFeatures = allFeatures.Except(allAmbiguousFeatures).ToList();
@@ -135,7 +125,7 @@ namespace FlashLFQ
             var proteinsWithFeatures = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
             foreach (var feature in allUnambiguousFeatures)
             {
-                foreach (var proteinGroup in feature.identifyingScans.First().proteinGroups)
+                foreach (var proteinGroup in feature.Identifications.First().proteinGroups)
                 {
                     if (proteinsWithFeatures.TryGetValue(proteinGroup, out List<ChromatographicPeak> featuresForThisProtein))
                         featuresForThisProtein.Add(feature);
@@ -148,27 +138,27 @@ namespace FlashLFQ
             foreach (var proteinGroup in proteinsWithFeatures)
             {
                 int topNFeatures = 3;
-                Dictionary<RawFileInfo, List<double>> fileToPepIntensities = new Dictionary<RawFileInfo, List<double>>();
+                Dictionary<SpectraFileInfo, List<double>> fileToPepIntensities = new Dictionary<SpectraFileInfo, List<double>>();
 
                 foreach (var feature in proteinGroup.Value)
                 {
-                    int numProteinGroupsClaimingThisFeature = feature.identifyingScans.SelectMany(p => p.proteinGroups).Distinct().Count();
+                    int numProteinGroupsClaimingThisFeature = feature.Identifications.SelectMany(p => p.proteinGroups).Distinct().Count();
 
-                    if (fileToPepIntensities.TryGetValue(feature.rawFileInfo, out var featureIntensitiesForThisProtein))
+                    if (fileToPepIntensities.TryGetValue(feature.RawFileInfo, out var featureIntensitiesForThisProtein))
                     {
-                        fileToPepIntensities[feature.rawFileInfo].Add(feature.intensity / numProteinGroupsClaimingThisFeature);
+                        fileToPepIntensities[feature.RawFileInfo].Add(feature.Intensity / numProteinGroupsClaimingThisFeature);
                     }
                     else
                     {
-                        fileToPepIntensities.Add(feature.rawFileInfo, new List<double> { feature.intensity / numProteinGroupsClaimingThisFeature });
+                        fileToPepIntensities.Add(feature.RawFileInfo, new List<double> { feature.Intensity / numProteinGroupsClaimingThisFeature });
                     }
                 }
 
                 foreach (var file in fileToPepIntensities)
                 {
-                    // need to observe at least one MS2-identified peptide for a protein in a file. if they're all MBR-identified, the protein 
+                    // need to observe at least one MS2-identified peptide for a protein in a file. if they're all MBR-identified, the protein
                     // intensity is zero. this is to prevent false-positives but will reduce the number of quantified proteins
-                    if (proteinGroup.Value.Any(p => !p.isMbrFeature))
+                    if (proteinGroup.Value.Any(p => !p.IsMbrFeature))
                     {
                         proteinGroup.Key.intensities[file.Key] = file.Value.OrderByDescending(p => p).Take(topNFeatures).Sum();
                     }
@@ -182,41 +172,57 @@ namespace FlashLFQ
 
         public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string baseSeqPeptideOutputPath, string proteinOutputPath)
         {
-            List<string> output;
-
             if (peaksOutputPath != null)
             {
-                output = new List<string> { ChromatographicPeak.TabSeparatedHeader };
-                foreach (var peak in peaks.SelectMany(p => p.Value))
-                    output.Add(peak.ToString());
-                File.WriteAllLines(peaksOutputPath, output);
+                using (StreamWriter output = new StreamWriter(peaksOutputPath))
+                {
+                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var peak in peaks.SelectMany(p => p.Value))
+                    {
+                        output.WriteLine(peak.ToString());
+                    }
+                }
             }
 
             if (modPeptideOutputPath != null)
             {
-                output = new List<string>() { Peptide.TabSeparatedHeader(rawFiles) };
-                foreach (var pep in peptideModifiedSequences.OrderBy(p => p.Key))
-                    output.Add(pep.Value.ToString(rawFiles));
-                File.WriteAllLines(modPeptideOutputPath, output);
+                using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
+                {
+                    output.WriteLine(Peptide.TabSeparatedHeader(spectraFiles));
+
+                    foreach (var peptide in peptideModifiedSequences.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(peptide.Value.ToString(spectraFiles));
+                    }
+                }
             }
 
             if (baseSeqPeptideOutputPath != null)
             {
-                output = new List<string>() { Peptide.TabSeparatedHeader(rawFiles) };
-                foreach (var pep in peptideBaseSequences.OrderBy(p => p.Key))
-                    output.Add(pep.Value.ToString(rawFiles));
-                File.WriteAllLines(baseSeqPeptideOutputPath, output);
+                using (StreamWriter output = new StreamWriter(baseSeqPeptideOutputPath))
+                {
+                    output.WriteLine(Peptide.TabSeparatedHeader(spectraFiles));
+
+                    foreach (var peptide in peptideBaseSequences.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(peptide.Value.ToString(spectraFiles));
+                    }
+                }
             }
 
-            if(proteinOutputPath != null)
+            if (proteinOutputPath != null)
             {
-                output = new List<string>() { ProteinGroup.TabSeparatedHeader(rawFiles) };
-                foreach (var protein in proteinGroups.OrderBy(p => p.Key))
-                    output.Add(protein.Value.ToString(rawFiles));
-                File.WriteAllLines(proteinOutputPath, output);
+                using (StreamWriter output = new StreamWriter(proteinOutputPath))
+                {
+                    output.WriteLine(ProteinGroup.TabSeparatedHeader(spectraFiles));
+
+                    foreach (var protein in proteinGroups.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(protein.Value.ToString(spectraFiles));
+                    }
+                }
             }
         }
-
-        #endregion Public Methods
     }
 }

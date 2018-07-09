@@ -29,9 +29,8 @@ using System.Threading.Tasks;
 
 namespace IO.MzML
 {
-    public class Mzml : MsDataFile<IMzmlScan>, IMsStaticDataFile<IMzmlScan>
+    public class Mzml : MsDataFile
     {
-        #region Private Fields
 
         private const string _zlibCompression = "MS:1000574";
         private const string _64bit = "MS:1000523";
@@ -56,45 +55,37 @@ namespace IO.MzML
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
 
         private static readonly Dictionary<string, Polarity> polarityDictionary = new Dictionary<string, Polarity>
-                {
-                    {"MS:1000129",Polarity.Negative},
-                    {"MS:1000130",Polarity.Positive}
-                };
+        {
+            {"MS:1000129",Polarity.Negative},
+            {"MS:1000130",Polarity.Positive}
+        };
 
         private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
-            {
-                { "MS:1000443", MZAnalyzerType.Unknown},
-                { "MS:1000081",MZAnalyzerType.Quadrupole},
-                { "MS:1000291",MZAnalyzerType.IonTrap2D},
-                { "MS:1000082",MZAnalyzerType.IonTrap3D},
-                { "MS:1000484",MZAnalyzerType.Orbitrap},
-                { "MS:1000084",MZAnalyzerType.TOF},
-                { "MS:1000079",MZAnalyzerType.FTICR},
-                { "MS:1000080",MZAnalyzerType.Sector}
-            };
+        {
+            { "MS:1000443", MZAnalyzerType.Unknown},
+            { "MS:1000081",MZAnalyzerType.Quadrupole},
+            { "MS:1000291",MZAnalyzerType.IonTrap2D},
+            { "MS:1000082",MZAnalyzerType.IonTrap3D},
+            { "MS:1000484",MZAnalyzerType.Orbitrap},
+            { "MS:1000084",MZAnalyzerType.TOF},
+            { "MS:1000079",MZAnalyzerType.FTICR},
+            { "MS:1000080",MZAnalyzerType.Sector}
+        };
 
         private static readonly Dictionary<string, DissociationType> dissociationDictionary = new Dictionary<string, DissociationType>
-                {
-                    { "MS:1000133",DissociationType.CID},
-                    { "MS:1001880",DissociationType.ISCID},
-                    { "MS:1000422",DissociationType.HCD},
-                    { "MS:1000598",DissociationType.ETD},
-                    { "MS:1000435",DissociationType.MPD},
-                    { "MS:1000599",DissociationType.PQD},
-                    { "MS:1000044",DissociationType.Unknown}
-                };
+        {
+            { "MS:1000133",DissociationType.CID},
+            { "MS:1001880",DissociationType.ISCID},
+            { "MS:1000422",DissociationType.HCD},
+            { "MS:1000598",DissociationType.ETD},
+            { "MS:1000435",DissociationType.MPD},
+            { "MS:1000599",DissociationType.PQD},
+            { "MS:1000044",DissociationType.Unknown}
+        };
 
-        #endregion Private Fields
-
-        #region Private Constructors
-
-        private Mzml(IMzmlScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
-
-        #endregion Private Constructors
-
-        #region Public Methods
 
         public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
@@ -194,7 +185,7 @@ namespace IO.MzML
             }
 
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
-            IMzmlScan[] scans = new IMzmlScan[numSpecta];
+            MsDataScan[] scans = new MsDataScan[numSpecta];
 
             Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
             {
@@ -204,31 +195,30 @@ namespace IO.MzML
                 }
             });
 
+            //make reference pervious ms1 scan
+            // we weren't able to get the precursor scan number, so we'll have to guess;
+            // loop back to find precursor scan
+            // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
+            // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
+            for (int i = 0; i < scans.Length; i++)
+            {
+                if (scans[i].MsnOrder > 1 && scans[i].OneBasedPrecursorScanNumber == null)
+                {
+                    for (int j = i; j >= 0; j--)
+                    {
+                        if (scans[i].MsnOrder - scans[j].MsnOrder == 1)
+                        {
+                            scans[i].setOneBasedPrecursorScanNumber(scans[j].OneBasedScanNumber);
+                            break;
+                        }
+                    }
+                }
+            }
+
             return new Mzml(scans, sourceFile);
         }
 
-        public override IMzmlScan GetOneBasedScan(int scanNumber)
-        {
-            return Scans[scanNumber - 1];
-        }
-
-        public override IEnumerable<IMzmlScan> GetMS1Scans()
-        {
-            for (int i = 1; i <= NumSpectra; i++)
-            {
-                var scan = GetOneBasedScan(i);
-                if (scan.MsnOrder == 1)
-                {
-                    yield return scan;
-                }
-            }
-        }
-
-        #endregion Public Methods
-
-        #region Private Methods
-
-        private static IMzmlScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, IFilteringParams filterParams)
+        private static MsDataScan GetMsDataOneBasedScanFromConnection(Generated.mzMLType _mzMLConnection, int oneBasedSpectrumNumber, IFilteringParams filterParams)
         {
             // Read in the instrument configuration types from connection (in mzml it's at the start)
 
@@ -347,7 +337,7 @@ namespace IO.MzML
                 }
             }
             Array.Sort(masses, intensities);
-            var mzmlMzSpectrum = new MzmlMzSpectrum(masses, intensities, false);
+            var mzmlMzSpectrum = new MzSpectrum(masses, intensities, false);
 
             double rtInMinutes = double.NaN;
             string scanFilter = null;
@@ -395,9 +385,9 @@ namespace IO.MzML
 
             if (msOrder.Value == 1)
             {
-                return new MzmlScan(
-                    oneBasedSpectrumNumber,
+                return new MsDataScan(
                     mzmlMzSpectrum,
+                    oneBasedSpectrumNumber,
                     msOrder.Value,
                     isCentroid.Value,
                     polarity,
@@ -407,6 +397,7 @@ namespace IO.MzML
                     analyzer,
                     tic,
                     injectionTime,
+                    null,
                     nativeId);
             }
 
@@ -470,6 +461,7 @@ namespace IO.MzML
                     }
                 }
             }
+
             int? precursorScanNumber;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].precursorList.precursor[0].spectrumRef == null)
             {
@@ -479,9 +471,10 @@ namespace IO.MzML
             {
                 precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedSpectrumNumber);
             }
-            return new MzmlScanWithPrecursor(
-                oneBasedSpectrumNumber,
+
+            return new MsDataScan(
                 mzmlMzSpectrum,
+                oneBasedSpectrumNumber,
                 msOrder.Value,
                 isCentroid.Value,
                 polarity,
@@ -490,6 +483,9 @@ namespace IO.MzML
                 scanFilter,
                 analyzer,
                 tic,
+                injectionTime,
+                null,
+                nativeId,
                 selectedIonMz,
                 selectedIonCharge,
                 selectedIonIntensity,
@@ -497,9 +493,8 @@ namespace IO.MzML
                 lowIsolation + highIsolation,
                 dissociationType,
                 precursorScanNumber,
-                monoisotopicMz,
-                injectionTime,
-                nativeId);
+                monoisotopicMz
+                );
         }
 
         /// <summary>
@@ -557,7 +552,5 @@ namespace IO.MzML
             } while (!precursorID.Equals(_mzMLConnection.run.spectrumList.spectrum[oneBasedSpectrumNumber - 1].id));
             return oneBasedSpectrumNumber;
         }
-
-        #endregion Private Methods
     }
 }

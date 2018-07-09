@@ -17,8 +17,8 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
-using Spectra;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -26,20 +26,20 @@ using System.Linq;
 
 namespace MassSpectrometry
 {
-    public abstract class MzSpectrum<TPeak> : Spectrum<TPeak>, IMzSpectrum<TPeak>
-        where TPeak : IMzPeak
+    public class MzSpectrum
     {
-        #region Private Fields
-
         private const int numAveraginesToGenerate = 1500;
         private static readonly double[][] allMasses = new double[numAveraginesToGenerate][];
         private static readonly double[][] allIntensities = new double[numAveraginesToGenerate][];
         private static readonly double[] mostIntenseMasses = new double[numAveraginesToGenerate];
         private static readonly double[] diffToMonoisotopic = new double[numAveraginesToGenerate];
 
-        #endregion Private Fields
+        private MzPeak[] peakList;
+        private int? indexOfpeakWithHighestY;
+        private double? sumOfAllY;
 
-        #region Public Constructors
+        public double[] XArray { get; private set; }
+        public double[] YArray { get; private set; }
 
         static MzSpectrum()
         {
@@ -81,35 +81,123 @@ namespace MassSpectrometry
             }
         }
 
-        #endregion Public Constructors
-
-        #region Protected Constructors
-
-        protected MzSpectrum(double[,] mzintensities) : base(mzintensities)
+        public MzSpectrum(double[,] mzintensities)
         {
+            var count = mzintensities.GetLength(1);
+
+            XArray = new double[count];
+            YArray = new double[count];
+            Buffer.BlockCopy(mzintensities, 0, XArray, 0, sizeof(double) * count);
+            Buffer.BlockCopy(mzintensities, sizeof(double) * count, YArray, 0, sizeof(double) * count);
+            peakList = new MzPeak[Size];
         }
 
-        protected MzSpectrum(double[] mz, double[] intensities, bool shouldCopy) : base(mz, intensities, shouldCopy)
+        public MzSpectrum(double[] mz, double[] intensities, bool shouldCopy)
         {
+            if (shouldCopy)
+            {
+                XArray = new double[mz.Length];
+                YArray = new double[intensities.Length];
+                Array.Copy(mz, XArray, mz.Length);
+                Array.Copy(intensities, YArray, intensities.Length);
+            }
+            else
+            {
+                XArray = mz;
+                YArray = intensities;
+            }
+            peakList = new MzPeak[Size];
         }
 
-        #endregion Protected Constructors
-
-        #region Public Properties
-
-        new public MzRange Range
+        public MzRange Range
         {
             get
             {
                 if (Size == 0)
+                {
                     return null;
+                }
                 return new MzRange(FirstX.Value, LastX.Value);
             }
         }
 
-        #endregion Public Properties
+        public double? FirstX
+        {
+            get
+            {
+                if (Size == 0)
+                {
+                    return null;
+                }
+                return XArray[0];
+            }
+        }
 
-        #region Public Methods
+        public double? LastX
+        {
+            get
+            {
+                if (Size == 0)
+                {
+                    return null;
+                }
+                return XArray[Size - 1];
+            }
+        }
+
+        public int Size { get { return XArray.Length; } }
+
+        public int? IndexOfPeakWithHighesetY
+        {
+            get
+            {
+                if (Size == 0)
+                {
+                    return null;
+                }
+                if (!indexOfpeakWithHighestY.HasValue)
+                {
+                    indexOfpeakWithHighestY = Array.IndexOf(YArray, YArray.Max());
+                }
+                return indexOfpeakWithHighestY.Value;
+            }
+        }
+
+        public double? YofPeakWithHighestY
+        {
+            get
+            {
+                if (Size == 0)
+                {
+                    return null;
+                }
+                return YArray[IndexOfPeakWithHighesetY.Value];
+            }
+        }
+
+        public double? XofPeakWithHighestY
+        {
+            get
+            {
+                if (Size == 0)
+                {
+                    return null;
+                }
+                return XArray[IndexOfPeakWithHighesetY.Value];
+            }
+        }
+
+        public double SumOfAllY
+        {
+            get
+            {
+                if (!sumOfAllY.HasValue)
+                {
+                    sumOfAllY = YArray.Sum();
+                }
+                return sumOfAllY.Value;
+            }
+        }
 
         public static byte[] Get64Bitarray(IEnumerable<double> array)
         {
@@ -142,7 +230,9 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
         {
             if (Size == 0)
+            {
                 yield break;
+            }
 
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
@@ -199,7 +289,9 @@ namespace MassSpectrometry
                             listOfRatios.Add(allIntensities[massIndex][indexToLookAt] / closestPeakIntensity);
                         }
                         else
+                        {
                             break;
+                        }
                     }
 
                     var extrapolatedMonoisotopicMass = testMostIntenseMass - diffToMonoisotopic[massIndex]; // Optimized for proteoforms!!
@@ -217,28 +309,177 @@ namespace MassSpectrometry
                 }
 
                 if (bestIsotopeEnvelopeForThisPeak != null && bestIsotopeEnvelopeForThisPeak.peaks.Count >= 2)
+                {
                     isolatedMassesAndCharges.Add(bestIsotopeEnvelopeForThisPeak);
+                }
             }
 
             HashSet<double> seen = new HashSet<double>();
             foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => ScoreIsotopeEnvelope(b)))
             {
                 if (seen.Overlaps(ok.peaks.Select(b => b.mz)))
+                {
                     continue;
+                }
                 foreach (var ah in ok.peaks.Select(b => b.mz))
+                {
                     seen.Add(ah);
+                }
                 yield return ok;
             }
         }
 
-        #endregion Public Methods
+        public IEnumerable<int> ExtractIndices(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+            {
+                ind = ~ind;
+            }
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return ind;
+                ind++;
+            }
+        }
 
-        #region Private Methods
+        public int? GetClosestPeakIndex(double x)
+        {
+            if (Size == 0)
+            {
+                return null;
+            }
+            int index = Array.BinarySearch(XArray, x);
+            if (index >= 0)
+            {
+                return index;
+            }
+            index = ~index;
+
+            if (index >= Size)
+            {
+                return index - 1;
+            }
+            if (index == 0)
+            {
+                return index;
+            }
+
+            if (x - XArray[index - 1] > XArray[index] - x)
+            {
+                return index;
+            }
+            return index - 1;
+        }
+
+        public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
+        {
+            for (int i = 0; i < Size; i++)
+            {
+                XArray[i] = convertor(GetPeak(i));
+            }
+            peakList = new MzPeak[Size];
+        }
+
+        public virtual double[,] CopyTo2DArray()
+        {
+            double[,] data = new double[2, Size];
+            const int size = sizeof(double);
+            Buffer.BlockCopy(XArray, 0, data, 0, size * Size);
+            Buffer.BlockCopy(YArray, 0, data, size * Size, size * Size);
+            return data;
+        }
+
+        public double? GetClosestPeakXvalue(double x)
+        {
+            if (Size == 0)
+            {
+                return null;
+            }
+            return XArray[GetClosestPeakIndex(x).Value];
+        }
+
+        public int NumPeaksWithinRange(double minX, double maxX)
+        {
+            int startingIndex = Array.BinarySearch(XArray, minX);
+            if (startingIndex < 0)
+            {
+                startingIndex = ~startingIndex;
+            }
+            if (startingIndex >= Size)
+            {
+                return 0;
+            }
+            int endIndex = Array.BinarySearch(XArray, maxX);
+            if (endIndex < 0)
+            {
+                endIndex = ~endIndex;
+            }
+            if (endIndex == 0)
+            {
+                return 0;
+            }
+
+            return endIndex - startingIndex;
+        }
+
+        public IEnumerable<MzPeak> FilterByNumberOfMostIntense(int topNPeaks)
+        {
+            var quantile = 1.0 - (double)topNPeaks / Size;
+            quantile = Math.Max(0, quantile);
+            quantile = Math.Min(1, quantile);
+            double cutoffYvalue = YArray.Quantile(quantile);
+
+            for (int i = 0; i < Size; i++)
+            {
+                if (YArray[i] >= cutoffYvalue)
+                {
+                    yield return GetPeak(i);
+                }
+            }
+        }
+
+        public IEnumerable<MzPeak> Extract(DoubleRange xRange)
+        {
+            return Extract(xRange.Minimum, xRange.Maximum);
+        }
+
+        public IEnumerable<MzPeak> Extract(double minX, double maxX)
+        {
+            int ind = Array.BinarySearch(XArray, minX);
+            if (ind < 0)
+            {
+                ind = ~ind;
+            }
+            while (ind < Size && XArray[ind] <= maxX)
+            {
+                yield return GetPeak(ind);
+                ind++;
+            }
+        }
+
+        public IEnumerable<MzPeak> FilterByY(double minY, double maxY)
+        {
+            for (int i = 0; i < Size; i++)
+            {
+                if (YArray[i] >= minY && YArray[i] <= maxY)
+                {
+                    yield return GetPeak(i);
+                }
+            }
+        }
+
+        public IEnumerable<MzPeak> FilterByY(DoubleRange yRange)
+        {
+            return FilterByY(yRange.Minimum, yRange.Maximum);
+        }
 
         private double ScoreIsotopeEnvelope(IsotopicEnvelope b)
         {
             if (b == null)
+            {
                 return 0;
+            }
             return b.totalIntensity / Math.Pow(b.stDev, 0.13) * Math.Pow(b.peaks.Count, 0.4) / Math.Pow(b.charge, 0.06);
         }
 
@@ -247,11 +488,24 @@ namespace MassSpectrometry
             var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
 
             if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
+            {
                 return false;
-
+            }
             return true;
         }
 
-        #endregion Private Methods
+        private MzPeak GetPeak(int index)
+        {
+            if (peakList[index] == null)
+            {
+                peakList[index] = GeneratePeak(index);
+            }
+            return peakList[index];
+        }
+
+        private MzPeak GeneratePeak(int index)
+        {
+            return new MzPeak(XArray[index], YArray[index]);
+        }
     }
 }

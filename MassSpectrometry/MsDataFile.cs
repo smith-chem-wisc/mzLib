@@ -18,7 +18,6 @@
 
 using MzLibUtil;
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,39 +28,21 @@ namespace MassSpectrometry
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public abstract class MsDataFile<TScan> : IMsDataFile<TScan>
-        where TScan : IMsDataScan<IMzSpectrum<IMzPeak>>
+    public class MsDataFile
     {
-        #region Protected Fields
+        protected MsDataScan[] Scans;
 
-        protected TScan[] Scans;
-
-        #endregion Protected Fields
-
-        #region Protected Constructors
-
-        protected MsDataFile(int numSpectra, SourceFile sourceFile) : this(sourceFile)
+        public MsDataFile(int numSpectra, SourceFile sourceFile)
         {
-            Scans = new TScan[numSpectra];
+            Scans = new MsDataScan[numSpectra];
+            SourceFile = sourceFile;
         }
 
-        protected MsDataFile(TScan[] scans, SourceFile sourceFile) : this(sourceFile)
+        public MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
         {
             Scans = scans;
+            SourceFile = sourceFile;
         }
-
-        #endregion Protected Constructors
-
-        #region Private Constructors
-
-        private MsDataFile(SourceFile sourceFile)
-        {
-            this.SourceFile = sourceFile;
-        }
-
-        #endregion Private Constructors
-
-        #region Public Properties
 
         public SourceFile SourceFile { get; }
 
@@ -73,9 +54,10 @@ namespace MassSpectrometry
             }
         }
 
-        #endregion Public Properties
-
-        #region Public Methods
+        public virtual List<MsDataScan> GetAllScansList()
+        {
+            return Scans.ToList();
+        }
 
         public static int TopNpeakHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
         {
@@ -105,7 +87,7 @@ namespace MassSpectrometry
         {
             List<double> mzResults = new List<double>();
             List<double> intensityResults = new List<double>();
-            
+
             int windowSize = intensities.Length / filteringParams.NumberOfWindows.Value;
 
             // window must always have at least one peak in it
@@ -117,7 +99,7 @@ namespace MassSpectrometry
             int windowPeakIndexMinimum = 0;
             int windowPeakIndexMaximum = windowSize - 1;
 
-            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks 
+            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks
             // divided into 10 windows would have 10 peaks per window) and takes the top N peaks per window.
             // the results of each trimmed window are concatenated into mzResults and intensityResults
             for (int i = 0; i < filteringParams.NumberOfWindows; i++)
@@ -160,11 +142,24 @@ namespace MassSpectrometry
             Array.Sort(mArray, intensities);
         }
 
-        public abstract IEnumerable<TScan> GetMS1Scans();
+        public virtual IEnumerable<MsDataScan> GetMS1Scans()
+        {
+            for (int i = 1; i <= NumSpectra; i++)
+            {
+                var scan = GetOneBasedScan(i);
+                if (scan.MsnOrder == 1)
+                {
+                    yield return scan;
+                }
+            }
+        }
 
-        public abstract TScan GetOneBasedScan(int scanNumber);
+        public virtual MsDataScan GetOneBasedScan(int scanNumber)
+        {
+            return Scans[scanNumber - 1];
+        }
 
-        public IEnumerable<TScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
+        public IEnumerable<MsDataScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
         {
             for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
             {
@@ -172,12 +167,12 @@ namespace MassSpectrometry
             }
         }
 
-        public IEnumerable<TScan> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
-                TScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
+                MsDataScan scan = GetOneBasedScan(oneBasedSpectrumNumber);
                 double rt = scan.RetentionTime;
                 if (rt < firstRT)
                 {
@@ -205,17 +200,12 @@ namespace MassSpectrometry
             return NumSpectra;
         }
 
-        IEnumerator IEnumerable.GetEnumerator()
+        public IEnumerator<MsDataScan> GetEnumerator()
         {
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
-        public IEnumerator<TScan> GetEnumerator()
-        {
-            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
-        }
-
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<TScan, bool> scanFilterFunc)
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScan, bool> scanFilterFunc)
         {
             minScan = minScan ?? 1;
             maxScan = maxScan ?? NumSpectra;
@@ -272,22 +262,12 @@ namespace MassSpectrometry
                 yield return ok;
         }
 
-        #endregion Public Methods
-
-        #region Protected Classes
-
         protected class ReverseComparer : IComparer<double>
         {
-            #region Public Methods
-
             public int Compare(double x, double y)
             {
                 return y.CompareTo(x);
             }
-
-            #endregion Public Methods
         }
-
-        #endregion Protected Classes
     }
 }

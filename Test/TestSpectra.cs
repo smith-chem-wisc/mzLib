@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
-using IO.MzML;
+using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System.Collections.Generic;
@@ -27,13 +27,7 @@ namespace Test
     [TestFixture]
     public sealed class SpectrumTestFixture
     {
-        #region Private Fields
-
-        private MzmlMzSpectrum _mzSpectrumA;
-
-        #endregion Private Fields
-
-        #region Public Methods
+        private MzSpectrum _mzSpectrumA;
 
         [SetUp]
         public void Setup()
@@ -41,7 +35,7 @@ namespace Test
             double[] mz = { 328.73795, 329.23935, 447.73849, 448.23987, 482.23792, 482.57089, 482.90393, 500.95358, 501.28732, 501.62131, 611.99377, 612.32806, 612.66187, 722.85217, 723.35345 };
             double[] intensities = { 81007096.0, 28604418.0, 78353512.0, 39291696.0, 122781408.0, 94147520.0, 44238040.0, 71198680.0, 54184096.0, 21975364.0, 44514172.0, 43061628.0, 23599424.0, 56022696.0, 41019144.0 };
 
-            _mzSpectrumA = new MzmlMzSpectrum(mz, intensities, false);
+            _mzSpectrumA = new MzSpectrum(mz, intensities, false);
         }
 
         [Test]
@@ -166,7 +160,7 @@ namespace Test
         {
             double[] x = new double[] { 50, 60, 70, 147.0764, 257.1244, 258.127, 275.135 };
             double[] y = new double[] { 1, 1, 1, 1, 1, 1, 1 };
-            MzmlMzSpectrum spectrum = new MzmlMzSpectrum(x, y, false);
+            MzSpectrum spectrum = new MzSpectrum(x, y, false);
             Assert.AreEqual(7, spectrum.FilterByNumberOfMostIntense(200).Count());
         }
 
@@ -192,7 +186,7 @@ namespace Test
         [Test]
         public void CorrectOrder()
         {
-            _mzSpectrumA = new MzmlMzSpectrum(new double[] { 5, 6, 7 }, new double[] { 1, 2, 3 }, false);
+            _mzSpectrumA = new MzSpectrum(new double[] { 5, 6, 7 }, new double[] { 1, 2, 3 }, false);
             Assert.IsTrue(_mzSpectrumA.FilterByNumberOfMostIntense(2).First().Mz < _mzSpectrumA.FilterByNumberOfMostIntense(2).ToList()[1].Mz);
         }
 
@@ -208,7 +202,7 @@ namespace Test
         {
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447.73849));
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447));
-            Assert.IsNull(new MzmlMzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1));
+            Assert.IsNull(new MzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1));
         }
 
         [Test]
@@ -217,7 +211,7 @@ namespace Test
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
             double[] yArray = { 1, 2, 1, 5, 1, 2, 1 };
 
-            var thisSpectrum = new MzmlMzSpectrum(xArray, yArray, false);
+            var thisSpectrum = new MzSpectrum(xArray, yArray, false);
 
             Assert.AreEqual(7, thisSpectrum.NumPeaksWithinRange(double.MinValue, double.MaxValue));
 
@@ -283,7 +277,5 @@ namespace Test
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(8));
         }
-
-        #endregion Public Methods
     }
 }
