@@ -26,6 +26,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace IO.MzML
 {
@@ -196,6 +197,20 @@ namespace IO.MzML
                 }
             });
 
+            //Mzml sometimes have scan numbers specified, but usually not. In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
+            //Do a quick check
+            int highestScanNumber = scans.Max(x => x.OneBasedScanNumber);
+            if (highestScanNumber != scans.Length)
+            {
+                //reassign indexes
+                MsDataScan[] indexedScans = new MsDataScan[highestScanNumber];
+                foreach (MsDataScan scan in scans)
+                {
+                    indexedScans[scan.OneBasedScanNumber - 1] = scan;
+                }
+                scans = indexedScans;
+            }
+
             //make reference pervious ms1 scan
             // we weren't able to get the precursor scan number, so we'll have to guess;
             // loop back to find precursor scan
@@ -364,7 +379,7 @@ namespace IO.MzML
                     {
                         injectionTime = double.Parse(cv.value);
                     }
-                    if(cv.accession.Equals(_oneBasedScanNumber)) //get the real one based spectrum number (if available), the other assumes they are in order. This is present in .mgf->.mzml conversions from MSConvert
+                    if (cv.accession.Equals(_oneBasedScanNumber)) //get the real one based spectrum number (if available), the other assumes they are in order. This is present in .mgf->.mzml conversions from MSConvert
                     {
                         oneBasedScanNumber = int.Parse(cv.value);
                     }

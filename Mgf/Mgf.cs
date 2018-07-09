@@ -13,7 +13,11 @@ namespace IO.Mgf
 
         private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
-            indexedScans = scans.OrderBy(x => x.OneBasedScanNumber).ToArray();
+            indexedScans = new MsDataScan[scans.Max(x => x.OneBasedScanNumber)];
+            foreach (MsDataScan scan in scans)
+            {
+                indexedScans[scan.OneBasedScanNumber - 1] = scan;
+            }
         }
 
         public static Mgf LoadAllStaticData(string filePath, FilteringParams filterParams = null)
