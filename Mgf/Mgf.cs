@@ -13,7 +13,7 @@ namespace IO.Mgf
 
         private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
-            indexedScans = new MsDataScan[scans.Max(x => x.OneBasedScanNumber)];
+            indexedScans = new MsDataScan[scans[scans.Length - 1].OneBasedScanNumber];
             foreach (MsDataScan scan in scans)
             {
                 indexedScans[scan.OneBasedScanNumber - 1] = scan;
@@ -128,7 +128,7 @@ namespace IO.Mgf
 
             SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
 
-            return new Mgf(scans.ToArray(), sourceFile);
+            return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }
 
         public override MsDataScan GetOneBasedScan(int scanNumber)
