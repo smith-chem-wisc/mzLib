@@ -197,13 +197,30 @@ namespace IO.MzML
                 }
             });
 
-            //Mzml sometimes have scan numbers specified, but usually not. In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
-            //Do a quick check
-            int highestScanNumber = scans.Max(x => x.OneBasedScanNumber);
-            if (highestScanNumber != scans.Length)
+            //Mzml sometimes have scan numbers specified, but usually not. 
+            //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
+            //Check to make sure that the scans are in order and that there are no duplicate scans
+            HashSet<int> checkForDuplicateScans = new HashSet<int>();
+            bool ordered = true;
+            int previousScanNumber = -1;
+            foreach (MsDataScan scan in scans)
             {
-                //reassign indexes
-                MsDataScan[] indexedScans = new MsDataScan[highestScanNumber];
+                //check if no duplicates
+                if(!checkForDuplicateScans.Add(scan.OneBasedScanNumber)) //returns false if the scan already exists
+                {
+                    throw new MzLibException("Scan number " + scan.OneBasedScanNumber.ToString() + " appeared multiple times in " + filePath);
+                }
+                //check if scans are in order
+                if (previousScanNumber > scan.OneBasedScanNumber)
+                {
+                    ordered = false;
+                }
+                previousScanNumber = scan.OneBasedScanNumber;
+            }
+
+            if(!ordered) //reassign indexes if not ordered
+            {
+                MsDataScan[] indexedScans = new MsDataScan[checkForDuplicateScans.Max()];
                 foreach (MsDataScan scan in scans)
                 {
                     indexedScans[scan.OneBasedScanNumber - 1] = scan;
