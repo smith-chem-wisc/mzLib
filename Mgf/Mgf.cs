@@ -56,7 +56,7 @@ namespace IO.Mgf
                             {
                                 if (!checkForDuplicateScans.Add(scanNumber)) //returns false if the scan already exists
                                 {
-                                    throw new MzLibException("Scan number " + scanNumber.ToString() + " appeared multiple times in " + filePath);
+                                    throw new MzLibException("Scan number " + scanNumber.ToString() + " appeared multiple times in " + filePath + ", which is not allowed because we assume all scan numbers are unique.");
                                 }
 
                                 readingPeaks = false;
