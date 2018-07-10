@@ -206,7 +206,7 @@ namespace IO.MzML
             foreach (MsDataScan scan in scans)
             {
                 //check if no duplicates
-                if(!checkForDuplicateScans.Add(scan.OneBasedScanNumber)) //returns false if the scan already exists
+                if (!checkForDuplicateScans.Add(scan.OneBasedScanNumber)) //returns false if the scan already exists
                 {
                     throw new MzLibException("Scan number " + scan.OneBasedScanNumber.ToString() + " appeared multiple times in " + filePath);
                 }
@@ -218,7 +218,7 @@ namespace IO.MzML
                 previousScanNumber = scan.OneBasedScanNumber;
             }
 
-            if(!ordered) //reassign indexes if not ordered
+            if (!ordered) //reassign indexes if not ordered
             {
                 MsDataScan[] indexedScans = new MsDataScan[checkForDuplicateScans.Max()];
                 foreach (MsDataScan scan in scans)

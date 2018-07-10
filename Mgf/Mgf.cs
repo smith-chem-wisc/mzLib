@@ -135,7 +135,7 @@ namespace IO.Mgf
 
             SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
 
-            return new Mgf(scans.OrderBy(x=>x.OneBasedScanNumber).ToArray(), sourceFile);
+            return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }
 
         public override MsDataScan GetOneBasedScan(int scanNumber)
