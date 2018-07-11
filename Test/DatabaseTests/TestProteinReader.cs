@@ -179,7 +179,16 @@ namespace Test
                 out Dictionary<string, Modification> un);
 
             var target = ok.First(p => !p.IsDecoy);
-            var decoy = ok.First(p => p.IsDecoy);
+            Protein decoy = new Protein(null, null);
+            foreach (var protein in ok)
+            {
+                int variants = protein.SequenceVariations.Count();
+                if (protein.IsDecoy && variants != 0)
+                {
+                    decoy = protein;
+                }
+            }
+            
             Assert.AreEqual('M', target[0]);
             Assert.AreEqual('M', decoy[0]);
             List<SequenceVariation> seqvar0 = target.SequenceVariations.ToList();
