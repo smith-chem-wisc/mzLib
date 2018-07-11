@@ -72,11 +72,6 @@ namespace Proteomics
             }
         }
 
-        public bool ValidModiication()
-        {
-            return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null));
-        }
-
         public override bool Equals(object o)
         {
             ModificationGeneral m = o as ModificationGeneral;
