@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using UsefulProteomicsDatabases;
 using Proteomics.ProteolyticDigestion;
 
@@ -190,13 +191,6 @@ namespace Test
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
             Assert.AreEqual(2, ok[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(3, ok2[0].OneBasedPossibleLocalizedModifications.Count);
-        }
-
-        [Test]
-        public void Test_getptms_from_mzLibxml_without_prep()
-        {
-            List<Modification> ok = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"cRAP_databaseGPTMD.xml"));
-            Assert.AreEqual(70, ok.Count);
         }
 
         [Test]
@@ -390,5 +384,25 @@ namespace Test
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
+
+        [Test]
+        public void TestModificationGeneralToString()
+        {
+            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
+            char[] myChar = { '"' };
+            string output = a.First().ToString();
+            Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate\r\nMT   Biological\r\nTG   E\r\nPP   Any.\r\nCF   CO2\r\nMM   43.989829\r\n");
+        }
+
+        [Test]
+        public void TestModificationGeneral_Equals()
+        {
+            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
+            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
+
+            Assert.IsTrue(a.First().Equals(b.First()));
+        }
+
+
     }
 }

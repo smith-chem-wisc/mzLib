@@ -1,5 +1,4 @@
-﻿CommonArtifacts
-ID   Deamidation
+﻿ID   Deamidation
 TG   N or Q
 PP   Anywhere.
 MT   Artifact

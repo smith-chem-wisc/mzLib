@@ -1,0 +1,13 @@
+﻿ID   Deamidation# comment 1
+TG   N or Q# comment 2
+PP   Anywhere.#comment 3
+MT   Artifact#comment4
+CF   H-1 N-1 O1#comment5
+//
+ID   Sodium #comment with preceding white space
+TG   D or E #comment with preceding white space
+PP   Anywhere. #comment with preceding white space
+MT   Artifact #comment with preceding white space
+CF   H-1 Na1 #comment with preceding white space
+DR   RESID; AA0441. #comment
+//  #comment with preceding white space on end line
