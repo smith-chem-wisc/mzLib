@@ -24,8 +24,6 @@ namespace Test
     [TestFixture]
     public class ElementsAndIsotopesTest
     {
-        #region Public Methods
-
         [Test]
         public void AddIsotopeWithExistingMassNumber()
         {
@@ -44,7 +42,5 @@ namespace Test
             var elementC = new Element("GGG", 127, 12.0106);
             PeriodicTable.Add(elementC);
         }
-
-        #endregion Public Methods
     }
 }

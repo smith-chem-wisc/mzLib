@@ -9,8 +9,6 @@ namespace Test
     [TestFixture]
     internal class Test
     {
-        #region Public Methods
-
         [Test]
         public static void TestFlashLFQ()
         {
@@ -33,23 +31,23 @@ namespace Test
 
             // check raw results
             Assert.That(results.peaks[raw].Count == 1);
-            Assert.That(results.peaks[raw].First().intensity > 0);
-            Assert.That(!results.peaks[raw].First().isMbrFeature);
+            Assert.That(results.peaks[raw].First().Intensity > 0);
+            Assert.That(!results.peaks[raw].First().IsMbrFeature);
             Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.proteinGroups["MyProtein"].intensities[raw] > 0);
 
             // check mzml results
             Assert.That(results.peaks[mzml].Count == 1);
-            Assert.That(results.peaks[mzml].First().intensity > 0);
-            Assert.That(!results.peaks[mzml].First().isMbrFeature);
+            Assert.That(results.peaks[mzml].First().Intensity > 0);
+            Assert.That(!results.peaks[mzml].First().IsMbrFeature);
             Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.proteinGroups["MyProtein"].intensities[mzml] > 0);
 
             // check that condition normalization worked
-            int int1 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
-            int int2 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            int int1 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
+            int int2 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
             Assert.That(int1 == int2);
 
             // test peak output
@@ -77,8 +75,8 @@ namespace Test
             var results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
             // check that biorep normalization worked
-            int int1 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
-            int int2 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            int int1 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
+            int int2 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
             Assert.That(int1 > 0);
             Assert.That(int1 == int2);
 
@@ -91,8 +89,8 @@ namespace Test
 
             results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
-            int int3 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
-            int int4 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            int int3 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
+            int int4 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
             Assert.That(int3 > 0);
             Assert.That(int3 == int4);
 
@@ -105,15 +103,13 @@ namespace Test
 
             results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
 
-            int int5 = (int)System.Math.Round(results.peaks[mzml].First().intensity, 0);
-            int int6 = (int)System.Math.Round(results.peaks[raw].First().intensity, 0);
+            int int5 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
+            int int6 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
             Assert.That(int5 > 0);
             Assert.That(int5 == int6);
 
             Assert.That(int1 == int3);
-            //Assert.That(int1 == int5);
+            Assert.That(int1 == int5);
         }
-
-        #endregion Public Methods
     }
 }

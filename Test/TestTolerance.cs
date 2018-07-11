@@ -24,8 +24,6 @@ namespace Test
     [TestFixture]
     public sealed class MassToleranceTestFixture
     {
-        #region Public Methods
-
         [Test]
         public void MassToleranceConstructorDaValue()
         {
@@ -77,7 +75,5 @@ namespace Test
 
             Assert.AreEqual("±1.0000 PPM", tol.ToString());
         }
-
-        #endregion Public Methods
     }
 }

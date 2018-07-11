@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using IO.MzML;
 using MassSpectrometry;
 using System;
 using System.Collections.Generic;
@@ -25,16 +24,10 @@ namespace Test
 {
     public class FakeMsDataFile : MsDataFile
     {
-        #region Public Constructors
-
         public FakeMsDataFile(MsDataScan[] FakeScans) : base(FakeScans, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
         {
             this.Scans = FakeScans;
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public override int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
@@ -53,7 +46,5 @@ namespace Test
         {
             return Scans[scanNumber - 1];
         }
-
-        #endregion Public Methods
     }
 }

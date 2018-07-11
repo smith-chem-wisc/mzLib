@@ -26,15 +26,12 @@ namespace MzIdentML
 {
     public class MzidIdentifications : IIdentifications
     {
-        #region Private Fields
 
         private readonly mzIdentML110.Generated.MzIdentMLType110 dd110;
         private readonly mzIdentML111.Generated.MzIdentMLType111 dd111;
         private readonly mzIdentML120.Generated.MzIdentMLType120 dd120;
 
-        #endregion Private Fields
 
-        #region Public Constructors
 
         public MzidIdentifications(string mzidFile)
         {
@@ -72,9 +69,7 @@ namespace MzIdentML
             }
         }
 
-        #endregion Public Constructors
 
-        #region Public Properties
 
         public Tolerance ParentTolerance
         {
@@ -160,7 +155,6 @@ namespace MzIdentML
             }
         }
 
-        #endregion Public Properties
 
         #region Public Methods
 

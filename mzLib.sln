@@ -35,7 +35,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnmanagedThermoHelperLayer"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UsefulProteomicsDatabases", "UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj", "{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "pepXML", "pepXML\pepXML.csproj", "{7CD7B0D5-D5D3-4422-9FD3-2919C8CD1121}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PepXML", "PepXML\PepXML.csproj", "{7CD7B0D5-D5D3-4422-9FD3-2919C8CD1121}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MS1decon", "MS1decon\MS1decon.csproj", "{1D54A7B3-E523-418A-92B6-16399358A8F6}"
 EndProject

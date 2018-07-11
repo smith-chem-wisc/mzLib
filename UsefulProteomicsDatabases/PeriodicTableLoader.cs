@@ -28,7 +28,6 @@ namespace UsefulProteomicsDatabases
     /// </summary>
     public static class PeriodicTableLoader
     {
-        #region Public Methods
 
         public static void Load(string elementLocation)
         {
@@ -96,7 +95,5 @@ namespace UsefulProteomicsDatabases
                 } while (line.Contains("Atomic Number"));
             }
         }
-
-        #endregion Public Methods
     }
 }

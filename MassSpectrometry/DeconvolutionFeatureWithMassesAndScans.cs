@@ -7,13 +7,7 @@ namespace MassSpectrometry
 {
     public class DeconvolutionFeatureWithMassesAndScans
     {
-        #region Public Fields
-
         public List<DeconvolutionFeature> groups = new List<DeconvolutionFeature>();
-
-        #endregion Public Fields
-
-        #region Public Constructors
 
         public DeconvolutionFeatureWithMassesAndScans()
         {
@@ -25,14 +19,8 @@ namespace MassSpectrometry
             MaxElutionTime = double.MinValue;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public int MinScanIndex { get; private set; }
-
         public int MaxScanIndex { get; private set; }
-
         public double Mass { get; private set; }
 
         public double Score
@@ -57,10 +45,6 @@ namespace MassSpectrometry
         public double TotalNormalizedIntensity { get; private set; }
         public IsotopicEnvelope MostIntenseEnvelope { get; private set; }
         public double MostIntenseEnvelopeElutionTime { get; private set; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public override string ToString()
         {
@@ -147,7 +131,5 @@ namespace MassSpectrometry
                 MostIntenseEnvelopeElutionTime = elutionTime;
             }
         }
-
-        #endregion Public Methods
     }
 }

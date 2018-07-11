@@ -9,8 +9,6 @@ namespace UsefulProteomicsDatabases
 {
     internal static class UnimodLoader
     {
-        #region Private Fields
-
         private static readonly Dictionary<string, string> DictOfElements = new Dictionary<string, string>
         {
             {"2H", "H{2}" },
@@ -27,10 +25,6 @@ namespace UsefulProteomicsDatabases
             {position_t.AnyNterm, TerminusLocalization.NPep },
             {position_t.ProteinNterm, TerminusLocalization.NProt }
             };
-
-        #endregion Private Fields
-
-        #region Internal Methods
 
         internal static IEnumerable<ModificationWithLocation> ReadMods(string unimodLocation)
         {
@@ -101,7 +95,5 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
-        #endregion Internal Methods
     }
 }

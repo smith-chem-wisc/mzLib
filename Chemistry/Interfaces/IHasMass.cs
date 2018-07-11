@@ -23,13 +23,9 @@ namespace Chemistry
     /// </summary>
     public interface IHasMass
     {
-        #region Public Properties
-
         /// <summary>
         /// The monoisotopic mass of this object
         /// </summary>
         double MonoisotopicMass { get; }
-
-        #endregion Public Properties
     }
 }

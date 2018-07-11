@@ -30,16 +30,10 @@ namespace UsefulProteomicsDatabases
 {
     public static class Loaders
     {
-        #region Public Constructors
-
         static Loaders()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public static void UpdateUniprot(string uniprotLocation)
         {
@@ -176,10 +170,6 @@ namespace UsefulProteomicsDatabases
             return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary).OfType<ModificationWithLocation>();
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private static bool FilesAreEqual_Hash(string first, string second)
         {
             using (FileStream a = File.Open(first, FileMode.Open, FileAccess.Read))
@@ -229,7 +219,5 @@ namespace UsefulProteomicsDatabases
                 Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
             }
         }
-
-        #endregion Private Methods
     }
 }

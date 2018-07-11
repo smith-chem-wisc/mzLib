@@ -22,8 +22,6 @@ namespace MassSpectrometry
 {
     public class SourceFile
     {
-        #region Public Constructors
-
         public SourceFile(string nativeIdFormat, string massSpectrometerFileFormat, string checkSum, string fileChecksumType, string id)
         {
             NativeIdFormat = nativeIdFormat;
@@ -48,10 +46,6 @@ namespace MassSpectrometry
             this.FileName = fileName;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public string NativeIdFormat { get; }
         public string MassSpectrometerFileFormat { get; }
         public string CheckSum { get; }
@@ -60,7 +54,5 @@ namespace MassSpectrometry
 
         public string FileName { get; }
         public string Id { get; }
-
-        #endregion Public Properties
     }
 }
