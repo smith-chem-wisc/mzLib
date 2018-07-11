@@ -124,6 +124,23 @@ namespace Test
         }
 
         [Test]
+        public void PTMListLoader_ModWithComments_Equals_ModWithoutComments()
+        {
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_Comments.txt")).ToList();
+            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_NoComments.txt")).ToList();
+            Assert.IsTrue(a.First().Equals(b.First()));
+        }
+
+        [Test]
+        public void PTMListLoaderGeneral_ModWithComments_Equals_ModWithoutComments()
+        {
+            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_Comments.txt")).ToList();
+            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_NoComments.txt")).ToList();
+            Assert.IsTrue(a.First().Equals(b.First()));
+        }
+
+
+        [Test]
         public void SampleModFileLoadingFail3General()
         {
             Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),

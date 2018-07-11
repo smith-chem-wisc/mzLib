@@ -1,0 +1,14 @@
+﻿ID   (3R)-3-hydroxyarginine
+AC   PTM-0476
+FT   MOD_RES
+TG   Arginine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Hydroxylation.
+DR   RESID; AA0601.
+DR   PSI-MOD; MOD:01956.
+//
