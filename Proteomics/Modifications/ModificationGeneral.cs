@@ -33,8 +33,6 @@ namespace Proteomics
         public ModificationGeneral(string _Id, string _Accession, string _ModificationType, string _FeatureType, ModificationMotif _Target, string _Position, ChemicalFormula _ChemicalFormula, double? _MonoisotopicMass, Dictionary<string, IList<string>> _DatabaseReference, Dictionary<string, IList<string>> _TaxonomicRange, List<string> _Keywords, Dictionary<DissociationType, List<double>> _NeutralLosses, Dictionary<DissociationType, List<double>> _DiagnosticIons, string _FileOrigin)
         {
             this.Id = _Id;
-            //if ((_Id != null)&&_Target!=null)//rename the id with its target amino acid or motif if both are defined.
-            //    this.Id = _Id + " on " + _Target;
             this.Accession = _Accession;
             this.ModificationType = _ModificationType;
             this.FeatureType = _FeatureType;
@@ -50,9 +48,9 @@ namespace Proteomics
             this.FileOrigin = _FileOrigin;
         }
 
-        public ModLocationOnPeptideOrProtein? Localization(string localization)
+        public static ModLocationOnPeptideOrProtein? Localization(string myLocalization)
         {
-            switch (localization)
+            switch (myLocalization)
             {
                 case "N-terminal.":
                     return ModLocationOnPeptideOrProtein.NProt;
@@ -74,7 +72,7 @@ namespace Proteomics
             }
         }
 
-        private bool ValidModiication()
+        public bool ValidModiication()
         {
             return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null));
         }
@@ -95,21 +93,21 @@ namespace Proteomics
         {
             StringBuilder sb = new StringBuilder();
             if (this.Id != null)
-                sb.AppendLine("ID   " + this.Id);
+            { sb.AppendLine("ID   " + this.Id); }
             if (this.Accession != null)
-                sb.AppendLine("AC   " + this.Accession);
+            { sb.AppendLine("AC   " + this.Accession); }
             if (this.ModificationType != null)
-                sb.AppendLine("MT   " + this.ModificationType);
+            { sb.AppendLine("MT   " + this.ModificationType); }
             if (this.FeatureType != null)
-                sb.AppendLine("FT   " + this.FeatureType);
+            { sb.AppendLine("FT   " + this.FeatureType); }
             if (this.Target != null)
-                sb.AppendLine("TG   " + this.Target); // at this stage, each mod has only one target though many may have the same Id
+            { sb.AppendLine("TG   " + this.Target); } // at this stage, each mod has only one target though many may have the same Id
             if (this.Position != null)
-                sb.AppendLine("PP   " + this.Position + ".");
+            { sb.AppendLine("PP   " + this.Position + "."); }
             if (this.ChemicalFormula != null)
-                sb.AppendLine("CF   " + this.ChemicalFormula.Formula);
+            { sb.AppendLine("CF   " + this.ChemicalFormula.Formula); }
             if (this.MonoisotopicMass != null)
-                sb.AppendLine("MM   " + this.MonoisotopicMass);
+            { sb.AppendLine("MM   " + this.MonoisotopicMass); }
             if (this.DatabaseReference != null)
             {
                 if (this.DatabaseReference.Count != 0)
@@ -155,7 +153,8 @@ namespace Proteomics
             {
                 if (this.NeutralLosses.Count != 0)
                 {
-                    string myLine = "NL   ";
+                    StringBuilder myLine = new StringBuilder();
+                    myLine.Append("NL   ");
                     List<DissociationType> myKeys = new List<DissociationType>(this.NeutralLosses.Keys);
                     myKeys.Sort();
                     foreach (DissociationType myKey in myKeys)
@@ -164,19 +163,20 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine = myLine + myKey + ":" + myValues[i];
+                            myLine.Append(myKey + ":" + myValues[i]);
                             if (i < myValues.Count)
-                                myLine = myLine + " or ";
+                                myLine.Append(" or ");
                         }
                     }
                     sb.Append(myLine);
                 }
             }
-            if (this.DiagnosticIons != null || this.DiagnosticIons.Count != 0)
+            if (this.DiagnosticIons != null)
             {
                 if (this.DiagnosticIons.Count != 0)
                 {
-                    string myLine = "DI   ";
+                    StringBuilder myLine = new StringBuilder();
+                    myLine.Append("DI   ");
                     List<DissociationType> myKeys = new List<DissociationType>(this.DiagnosticIons.Keys);
                     myKeys.Sort();
                     foreach (DissociationType myKey in myKeys)
@@ -185,9 +185,9 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine = myLine + myKey + ":" + myValues[i];
+                            myLine.Append(myKey + ":" + myValues[i]);
                             if (i < myValues.Count)
-                                myLine = myLine + " or ";
+                                myLine.Append(" or ");
                         }
                     }
                     sb.Append(myLine);
@@ -195,8 +195,11 @@ namespace Proteomics
             }
 
             if (this.Keywords != null)
+            {
                 if (this.Keywords.Count != 0)
-                    sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
+                { sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b))); }
+            }
+
             return sb.ToString();
         }
 

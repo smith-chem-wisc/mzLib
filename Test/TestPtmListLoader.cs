@@ -94,27 +94,27 @@ namespace Test
         }
 
         [Test]
-        public void SampleModFileLoadingGeneral()
+        public static void SampleModFileLoadingGeneral()
         {
             PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"));
         }
 
         [Test]
-        public void SampleModFileLoadingFail1General() //TG is not valide
+        public static void SampleModFileLoadingFail1General() //TG is not valide
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification);
         }
 
         [Test]
-        public void SampleModFileLoadingFail2General()
+        public static void SampleModFileLoadingFail2General()
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); ;
         }
 
         [Test]
-        public void PTMListLoader_ModWithComments_Equals_ModWithoutComments()
+        public static void PTMListLoader_ModWithComments_Equals_ModWithoutComments()
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_Comments.txt")).ToList();
             var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_NoComments.txt")).ToList();
@@ -122,7 +122,7 @@ namespace Test
         }
 
         [Test]
-        public void PTMListLoaderGeneral_ModWithComments_Equals_ModWithoutComments()
+        public static void PTMListLoaderGeneral_ModWithComments_Equals_ModWithoutComments()
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_Comments.txt")).ToList();
             var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_NoComments.txt")).ToList();
@@ -130,7 +130,7 @@ namespace Test
         }
 
         [Test]
-        public void SampleModFileLoadingFail3General()
+        public static void SampleModFileLoadingFail3General()
         {
             Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
@@ -139,7 +139,7 @@ namespace Test
         }
 
         [Test]
-        public void SampleModFileLoadingFail4General()
+        public static void SampleModFileLoadingFail4General()
         {
             Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
@@ -148,41 +148,41 @@ namespace Test
         }
 
         [Test]
-        public void SampleModFileLoadingFail5General()
+        public static void SampleModFileLoadingFail5General()
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // ID is missing
         }
 
         [Test]
-        public void SampleModFileLoadingFail6General()
+        public static void SampleModFileLoadingFail6General()
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail6.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // modification type is missing
         }
 
         [Test]
-        public void SampleModFileLoadingFail5General_missingPosition()
+        public static void SampleModFileLoadingFail5General_missingPosition()
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingPosition.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // ID is missing
         }
 
         [Test]
-        public void SampleModFileLoadingFail5General_missingMonoisotopicMassAndChemicalFormula()
+        public static void SampleModFileLoadingFail5General_missingMonoisotopicMassAndChemicalFormula()
         {
             var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // ID is missing
         }
 
         [Test]
-        public void CompactFormReadingGeneral()
+        public static void CompactFormReadingGeneral()
         {
             Assert.AreEqual(2, PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt")).Count());
         }
 
         [Test]
-        public void CompactFormReading2General()
+        public static void CompactFormReading2General()
         {
             Assert.AreEqual(2, PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt")).Count());
         }

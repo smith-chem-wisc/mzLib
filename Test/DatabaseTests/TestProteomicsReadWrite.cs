@@ -193,15 +193,6 @@ namespace Test
             Assert.AreEqual(3, ok2[0].OneBasedPossibleLocalizedModifications.Count);
         }
 
-
-        // this doesn't work anymore because exception is thrown for missing value after DI
-        //[Test]
-        //public void Test_getptms_from_mzLibxml_without_prep()
-        //{
-        //    List<Modification> ok = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"cRAP_databaseGPTMD.xml"));
-        //    Assert.AreEqual(70, ok.Count);
-        //}
-
         [Test]
         public void AnotherTest()
         {

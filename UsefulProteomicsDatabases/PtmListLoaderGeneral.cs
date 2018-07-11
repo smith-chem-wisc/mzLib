@@ -66,8 +66,8 @@ namespace UsefulProteomicsDatabases
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
-                        foreach (var mod in ReadMod(ptmListLocation, modification_specification, formalChargesDictionary))
-                            yield return mod;
+                        foreach (var mod in ReadMod(ptmListLocation, modification_specification))
+                        { yield return mod; }
                         modification_specification = new List<string>();
                     }
                 }
@@ -91,15 +91,15 @@ namespace UsefulProteomicsDatabases
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
-                        foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
-                            yield return mod;
+                        foreach (var mod in ReadMod(null, modification_specification))
+                        { yield return mod; }
                         modification_specification = new List<string>();
                     }
                 }
             }
         }
 
-        private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
+        private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification)
         {
             string _Id = null;
             string _Accession = null;
@@ -123,6 +123,7 @@ namespace UsefulProteomicsDatabases
                     string modKey = line.Substring(0, 2);
                     string modValue = null;
                     if (line.Length > 5)
+                    {
                         try
                         {
                             modValue = line.Split('#')[0].Trim().Substring(5); //removes commented text
@@ -131,6 +132,7 @@ namespace UsefulProteomicsDatabases
                         {
                             //do nothing leave as null
                         }
+                    }
 
                     switch (modKey)
                     {
@@ -153,11 +155,11 @@ namespace UsefulProteomicsDatabases
                             {
                                 string theMotif;
                                 if (aminoAcidCodes.TryGetValue(singleTarget, out char possibleMotifChar))
-                                    theMotif = possibleMotifChar.ToString();
+                                { theMotif = possibleMotifChar.ToString(); }
                                 else
-                                    theMotif = singleTarget;
+                                { theMotif = singleTarget; }
                                 if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
-                                    acceptableMotifs.Add(motif);
+                                { acceptableMotifs.Add(motif); }
                             }
                             _Target = acceptableMotifs.ToList();
                             break;
@@ -173,7 +175,7 @@ namespace UsefulProteomicsDatabases
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
                             {
                                 if (!double.TryParse(modValue, NumberStyles.Any, CultureInfo.InvariantCulture, out double thisMM))
-                                    throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass");
+                                { throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass"); }
                                 _MonoisotopicMass = thisMM;
                             }
                             break;
@@ -216,7 +218,7 @@ namespace UsefulProteomicsDatabases
 
                         // NOW CUSTOM FIELDS:
 
-                        case "NL": // Netural Losses. If field doesn't exist, single equal to 0. these must all be on one line;
+                        case "NL": // Netural Losses. when field doesn't exist, single equal to 0. these must all be on one line;
                             {
                                 _NeutralLosses = DiagnosticIonsAndNeutralLosses(modValue);
                             }
@@ -235,10 +237,12 @@ namespace UsefulProteomicsDatabases
                         case "//":
 
                             if (_Target.Count != 0)
+                            {
                                 foreach (ModificationMotif motif in _Target)
                                 {
                                     yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, motif, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
                                 }
+                            }
                             else
                             {
                                 yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, null, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
