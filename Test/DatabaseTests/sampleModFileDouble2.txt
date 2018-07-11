@@ -3,6 +3,5 @@ TG   Nxs or Nxt
 PP   Anywhere.
 MM   15.995
 NL   0 or 15
-OM   343
 MT   nice
 //
