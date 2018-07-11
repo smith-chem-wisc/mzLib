@@ -28,6 +28,8 @@ namespace IO.Mgf
             }
 
             List<MsDataScan> scans = new List<MsDataScan>();
+            HashSet<int> checkForDuplicateScans = new HashSet<int>();
+
             using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (BufferedStream bs = new BufferedStream(fs))
@@ -52,6 +54,11 @@ namespace IO.Mgf
                         {
                             if (s.Equals("END IONS"))
                             {
+                                if (!checkForDuplicateScans.Add(scanNumber)) //returns false if the scan already exists
+                                {
+                                    throw new MzLibException("Scan number " + scanNumber.ToString() + " appeared multiple times in " + filePath + ", which is not allowed because we assume all scan numbers are unique.");
+                                }
+
                                 readingPeaks = false;
                                 MzSpectrum spectrum = new MzSpectrum(mzs.ToArray(), intensities.ToArray(), false);
                                 scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count - 1]), null, MZAnalyzerType.Unknown, intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null, DissociationType.Unknown, null, precursorMz));
@@ -128,7 +135,7 @@ namespace IO.Mgf
 
             SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
 
-            return new Mgf(scans.ToArray(), sourceFile);
+            return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }
 
         public override MsDataScan GetOneBasedScan(int scanNumber)

@@ -37,7 +37,7 @@ namespace Test
             Assert.AreEqual(1038.8018, ya.ScanWindowRange.Maximum);
             var ya2 = a.GetOneBasedScan(20).MassSpectrum;
             Assert.AreEqual(165, ya2.Size);
-            var ya3 = a.GetOneBasedScan(22).MassSpectrum;
+            var ya3 = a.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
         }
     }
