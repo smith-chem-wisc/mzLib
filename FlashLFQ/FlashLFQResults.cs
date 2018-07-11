@@ -58,7 +58,7 @@ namespace FlashLFQ
                 }
                 else
                 {
-                    this.peptideBaseSequences.Add(pep.Key, pep.Value);
+                    this.peptideModifiedSequences.Add(pep.Key, pep.Value);
                 }
             }
             foreach (var pg in mergeFrom.proteinGroups)
@@ -71,31 +71,23 @@ namespace FlashLFQ
                     {
                         mergeToPg.intensities.Add(intensity.Key, intensity.Value);
                     }
-
                 }
                 else
                 {
                     this.proteinGroups.Add(pg.Key,pg.Value);
                 }
             }
-            foreach (var peak in mergeFrom.peaks)
+            foreach (var fromPeaks in mergeFrom.peaks)
             {
-                if (this.peaks.TryGetValue(peak.Key, out var p))
+                if (this.peaks.TryGetValue(fromPeaks.Key, out var toPeaks))
                 {
-                    var mergeFromPeak = peak.Value;
-                    var mergeToPeak = p;
-                    foreach (var chromPeak in mergeFromPeak)
-                    {
-                        mergeToPeak.Add(chromPeak);
-                    }
+                    toPeaks.AddRange(fromPeaks.Value);
                 }
                 else
                 {
-                    this.peaks.Add(peak.Key, peak.Value);
+                    this.peaks.Add(fromPeaks.Key, fromPeaks.Value);
                 }
-                
             }
-
         }
 
         public void CalculatePeptideResults(bool sumByBaseSequenceNotModifiedSequence)
