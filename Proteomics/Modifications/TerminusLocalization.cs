@@ -25,14 +25,4 @@ namespace Proteomics
         ProtC,
         Any
     }
-
-    public enum ModLocationOnPeptideOrProtein
-    {
-        NPep,
-        PepC,
-        NProt,
-        ProtC,
-        Any
-    }
-
 }

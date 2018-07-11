@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
 
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
-            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b=>b.id); 
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b => b.id);
         }
 
         /// <summary>
@@ -70,7 +70,6 @@ namespace UsefulProteomicsDatabases
                         modification_specification = new List<string>();
                     }
                 }
-
             }
         }
 
@@ -137,9 +136,8 @@ namespace UsefulProteomicsDatabases
                         }
                         catch
                         {
-
+                            //This catches a bug where there is a correct two letter code entry but no information that follows. so, when trim get's at it, the string is not at least 5 characters and then there is a crash.
                         }
-
 
                     switch (modKey)
                     {
