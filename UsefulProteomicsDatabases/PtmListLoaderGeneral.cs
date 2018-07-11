@@ -71,7 +71,6 @@ namespace UsefulProteomicsDatabases
                         modification_specification = new List<string>();
                     }
                 }
-
             }
         }
 
@@ -99,7 +98,6 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
 
         private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
@@ -134,7 +132,6 @@ namespace UsefulProteomicsDatabases
                             //do nothing leave as null
                         }
 
-
                     switch (modKey)
                     {
                         case "ID": // Mandatory
@@ -159,7 +156,7 @@ namespace UsefulProteomicsDatabases
                                     theMotif = possibleMotifChar.ToString();
                                 else
                                     theMotif = singleTarget;
-                                if(ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
+                                if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                     acceptableMotifs.Add(motif);
                             }
                             _Target = acceptableMotifs.ToList();
@@ -192,7 +189,7 @@ namespace UsefulProteomicsDatabases
                                 catch
                                 {
                                     _DatabaseReference.Add(splitString[0], new List<string> { splitString[1] });
-                                }                                    
+                                }
                             }
                             break;
 
@@ -210,6 +207,7 @@ namespace UsefulProteomicsDatabases
                                 }
                             }
                             break;
+
                         case "KW": // ; Separated keywords
                             {
                                 _Keywords = new List<string>(modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
@@ -236,7 +234,7 @@ namespace UsefulProteomicsDatabases
 
                         case "//":
 
-                            if(_Target.Count != 0)
+                            if (_Target.Count != 0)
                                 foreach (ModificationMotif motif in _Target)
                                 {
                                     yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, motif, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
@@ -254,38 +252,49 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-
         public static DissociationType? ModDissociationType(string modType)
         {
             switch (modType)
             {
                 case "Any":
                     return DissociationType.AnyActivationType;
+
                 case "CID":
                     return DissociationType.CID;
+
                 case "MPD":
                     return DissociationType.MPD;
+
                 case "ECD":
                     return DissociationType.ECD;
+
                 case "PQD":
                     return DissociationType.PQD;
+
                 case "ETD":
                     return DissociationType.ETD;
+
                 case "HCD":
                     return DissociationType.HCD;
+
                 case "SA":
                     return DissociationType.SA;
+
                 case "PTR":
                     return DissociationType.PTR;
+
                 case "NETD":
                     return DissociationType.NETD;
+
                 case "NPTR":
                     return DissociationType.NPTR;
+
                 case "ISCID":
                     return DissociationType.ISCID;
+
                 default:
-                    return null;            
-             }
+                    return null;
+            }
         }
 
         public static Dictionary<DissociationType, List<double>> DiagnosticIonsAndNeutralLosses(string oneEntry)
@@ -312,7 +321,7 @@ namespace UsefulProteomicsDatabases
                                 mm = double.Parse(entryKeyValue[0], CultureInfo.InvariantCulture);
                             }
 
-                            dAndNDictionary.TryGetValue(DissociationType.AnyActivationType, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys, 
+                            dAndNDictionary.TryGetValue(DissociationType.AnyActivationType, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys,
                             val.Add(mm); // no check for redundancy. could check for that in the future.
                         }
                         catch // dictionary doesn't contain key AnyActiviationType so we're gonna add it.
@@ -334,7 +343,6 @@ namespace UsefulProteomicsDatabases
                         DissociationType? dt = ModDissociationType(entryKeyValue[0]);
                         if (dt != null)
                         {
-
                             try // see if dictionary already contains key AnyActivationType
                             {
                                 double mm;
@@ -347,7 +355,7 @@ namespace UsefulProteomicsDatabases
                                     mm = double.Parse(entryKeyValue[1], CultureInfo.InvariantCulture);
                                 }
 
-                                dAndNDictionary.TryGetValue((DissociationType)dt, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys, 
+                                dAndNDictionary.TryGetValue((DissociationType)dt, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys,
                                 val.Add(mm); // no check for redundancy. could check for that in the future.
                             }
                             catch // dictionary doesn't contain key AnyActiviationType so we're gonna add it.

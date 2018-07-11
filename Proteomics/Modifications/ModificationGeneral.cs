@@ -1,10 +1,9 @@
-﻿using System;
+﻿using Chemistry;
+using MassSpectrometry;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
-using Chemistry;
-using MassSpectrometry;
 
 namespace Proteomics
 {
@@ -24,10 +23,11 @@ namespace Proteomics
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; private set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; private set; }
         public string FileOrigin { get; private set; }
+
         public bool ValidModification
         {
-            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Position !=null &&this.ModificationType != null); }
-            private set { ValidModification = value; } 
+            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Position != null && this.ModificationType != null); }
+            private set { ValidModification = value; }
         }
 
         public ModificationGeneral(string _Id, string _Accession, string _ModificationType, string _FeatureType, ModificationMotif _Target, string _Position, ChemicalFormula _ChemicalFormula, double? _MonoisotopicMass, Dictionary<string, IList<string>> _DatabaseReference, Dictionary<string, IList<string>> _TaxonomicRange, List<string> _Keywords, Dictionary<DissociationType, List<double>> _NeutralLosses, Dictionary<DissociationType, List<double>> _DiagnosticIons, string _FileOrigin)
@@ -38,7 +38,7 @@ namespace Proteomics
             this.Accession = _Accession;
             this.ModificationType = _ModificationType;
             this.FeatureType = _FeatureType;
-            this.Target =_Target;
+            this.Target = _Target;
             this.Position = Localization(_Position);
             this.ChemicalFormula = _ChemicalFormula;
             this.MonoisotopicMass = _MonoisotopicMass;
@@ -54,22 +54,27 @@ namespace Proteomics
         {
             switch (localization)
             {
-                case "N-terminal.": 
+                case "N-terminal.":
                     return ModLocationOnPeptideOrProtein.NProt;
-                case "C-terminal.": 
+
+                case "C-terminal.":
                     return ModLocationOnPeptideOrProtein.ProtC;
-                case "Peptide N-terminal.": 
+
+                case "Peptide N-terminal.":
                     return ModLocationOnPeptideOrProtein.NPep;
-                case "Peptide C-terminal.": 
+
+                case "Peptide C-terminal.":
                     return ModLocationOnPeptideOrProtein.PepC;
-                case "Anywhere.": 
+
+                case "Anywhere.":
                     return ModLocationOnPeptideOrProtein.Any;
-                default: 
+
+                default:
                     return null;
             }
         }
 
-        bool ValidModiication()
+        private bool ValidModiication()
         {
             return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null));
         }
@@ -86,11 +91,10 @@ namespace Proteomics
             return this.ToString().GetHashCode();
         }
 
-
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            if(this.Id != null)
+            if (this.Id != null)
                 sb.AppendLine("ID   " + this.Id);
             if (this.Accession != null)
                 sb.AppendLine("AC   " + this.Accession);
@@ -99,9 +103,9 @@ namespace Proteomics
             if (this.FeatureType != null)
                 sb.AppendLine("FT   " + this.FeatureType);
             if (this.Target != null)
-                sb.AppendLine("TG   " + this.Target); // at this stage, each mod has only one target though many may have the same Id              
+                sb.AppendLine("TG   " + this.Target); // at this stage, each mod has only one target though many may have the same Id
             if (this.Position != null)
-                sb.AppendLine("PP   " + this.Position +".");
+                sb.AppendLine("PP   " + this.Position + ".");
             if (this.ChemicalFormula != null)
                 sb.AppendLine("CF   " + this.ChemicalFormula.Formula);
             if (this.MonoisotopicMass != null)
@@ -121,11 +125,11 @@ namespace Proteomics
                             sb.AppendLine("DR   " + myKey + "; " + myValue);
                         }
                     }
-                }                            
+                }
             }
             if (this.TaxonomicRange != null)
             {
-                if(this.TaxonomicRange.Count != 0)
+                if (this.TaxonomicRange.Count != 0)
                 {
                     List<string> myKeys = new List<string>(this.TaxonomicRange.Keys);
                     myKeys.Sort();
@@ -138,18 +142,18 @@ namespace Proteomics
                             sb.AppendLine("TR   " + myKey + "; " + myValue);
                         }
                     }
-                }              
+                }
             }
             if (this.Keywords != null)
             {
-                if(this.Keywords.Count != 0)
+                if (this.Keywords.Count != 0)
                 {
                     sb.Append("KW   " + String.Join(" or ", this.Keywords));
-                }                
+                }
             }
             if (this.NeutralLosses != null)
             {
-                if(this.NeutralLosses.Count != 0)
+                if (this.NeutralLosses.Count != 0)
                 {
                     string myLine = "NL   ";
                     List<DissociationType> myKeys = new List<DissociationType>(this.NeutralLosses.Keys);
@@ -166,11 +170,11 @@ namespace Proteomics
                         }
                     }
                     sb.Append(myLine);
-                }             
+                }
             }
             if (this.DiagnosticIons != null || this.DiagnosticIons.Count != 0)
             {
-                if(this.DiagnosticIons.Count != 0)
+                if (this.DiagnosticIons.Count != 0)
                 {
                     string myLine = "DI   ";
                     List<DissociationType> myKeys = new List<DissociationType>(this.DiagnosticIons.Keys);
@@ -187,14 +191,15 @@ namespace Proteomics
                         }
                     }
                     sb.Append(myLine);
-                }            
+                }
             }
 
             if (this.Keywords != null)
-                if(this.Keywords.Count != 0)
-                    sb.AppendLine("KW   " + String.Join(" or ",  this.Keywords.ToList().OrderBy(b=>b)));
+                if (this.Keywords.Count != 0)
+                    sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
             return sb.ToString();
         }
+
         public string ModificationErrorsToString() //reports errors in required fields.
         {
             StringBuilder sb = new StringBuilder();
@@ -204,15 +209,14 @@ namespace Proteomics
             if (this.Id == null)
                 sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.Id);
             if (this.ModificationType == null)
-                sb.AppendLine("#Required field MT missing or malformed. Current value = " + this.ModificationType);            
+                sb.AppendLine("#Required field MT missing or malformed. Current value = " + this.ModificationType);
             if (this.Position == null)
                 sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.Position + ".");
-            if (this.ChemicalFormula == null && this.MonoisotopicMass  == null)
+            if (this.ChemicalFormula == null && this.MonoisotopicMass == null)
                 sb.AppendLine("#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
             sb.Append("#This modification can be found in file " + this.FileOrigin);
 
             return sb.ToString();
         }
     }
-
 }
