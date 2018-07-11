@@ -168,7 +168,7 @@ namespace Test
             Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
-                                            .EqualTo("Input string for chemical formula was in an incorrect format: $%#$%"));
+                                            .EqualTo("Input string for chemical formula was in an incorrect format: $%&$%"));
         }
 
         [Test]

@@ -1,5 +1,4 @@
-﻿ModsWithComments
-ID   Deamidation# comment 1
+﻿ID   Deamidation# comment 1
 TG   N or Q# comment 2
 PP   Anywhere.#comment 3
 MT   Artifact#comment4

@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
 
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
-            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b=>b.id);
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b=>b.id); 
         }
 
         /// <summary>
@@ -58,13 +58,14 @@ namespace UsefulProteomicsDatabases
             {
                 List<string> modification_specification = new List<string>();
 
-                while (uniprot_mods.Peek() != -1)
+                //This block will read one complete modification entry at a time until the EOF is reached.
+                while (uniprot_mods.Peek() != -1) //The Peek method returns an integer value in order to determine whether the end of the file, or another error has occurred.
                 {
                     string line = uniprot_mods.ReadLine();
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
-                        foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
+                        foreach (var mod in ReadMod(ptmListLocation, modification_specification, formalChargesDictionary))
                             yield return mod;
                         modification_specification = new List<string>();
                     }
@@ -90,7 +91,7 @@ namespace UsefulProteomicsDatabases
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
-                        foreach (var mod in ReadMod(modification_specification, new Dictionary<string, int>()))
+                        foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
                             yield return mod;
                         modification_specification = new List<string>();
                     }
@@ -103,7 +104,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="specification"></param>
         /// <returns></returns>
-        private static IEnumerable<Modification> ReadMod(List<string> specification, Dictionary<string, int> formalChargesDictionary)
+        private static IEnumerable<Modification> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
             // UniProt-specific fields
             string uniprotAC = null;
@@ -127,30 +128,43 @@ namespace UsefulProteomicsDatabases
             {
                 if (line.Length >= 2)
                 {
-                    switch (line.Substring(0, 2))
+                    string modKey = line.Substring(0, 2);
+                    string modValue = null;
+                    if (line.Length > 5)
+                        try
+                        {
+                            modValue = line.Split('#')[0].Trim().Substring(5);
+                        }
+                        catch
+                        {
+
+                        }
+
+
+                    switch (modKey)
                     {
                         case "ID": // Mandatory
-                            id = line.Split('#')[0].Trim().Substring(5);
+                            id = modValue;
                             break;
 
                         case "AC": // Do not use! Only present in UniProt ptmlist
-                            uniprotAC = line.Split('#')[0].Trim().Substring(5);
+                            uniprotAC = modValue;
                             break;
 
                         case "FT": // Optional
-                            uniprotFT = line.Split('#')[0].Trim().Substring(5);
+                            uniprotFT = modValue;
                             break;
 
                         case "TG": // Which amino acid(s) or motifs is the modification on
-                            motifs = new List<string>(line.Split('#')[0].Trim().Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
+                            motifs = new List<string>(modValue.TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
                             break;
 
                         case "PP": // Terminus localization
-                            terminusLocalizationString = line.Split('#')[0].Trim().Substring(5);
+                            terminusLocalizationString = modValue;
                             break;
 
                         case "CF": // Correction formula
-                            correctionFormula = ChemicalFormula.ParseFormula(line.Split('#')[0].Trim().Substring(5).Replace(" ", string.Empty));
+                            correctionFormula = ChemicalFormula.ParseFormula(modValue.Replace(" ", string.Empty));
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
@@ -193,11 +207,18 @@ namespace UsefulProteomicsDatabases
                         case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
                             try
                             {
+                                var ok = line;
+                                var ok2 = ok.Split('#');
+                                var ok3 = ok2[0];
+                                var ok4 = ok3.Trim();
+                                var ok5 = ok4.Substring(5);
+
                                 diagnosticIons = new List<double>(line.Split('#')[0].Trim().Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
                             }
                             catch (MzLibException)
                             {
-                                diagnosticIons = new List<double>(line.Split('#')[0].Trim().Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                                //diagnosticIons = new List<double>(line.Split('#')[0].Trim().Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                                diagnosticIons = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             }
                             break;
 
