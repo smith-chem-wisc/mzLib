@@ -501,14 +501,12 @@ namespace IO.MzML
             }
 
             int? precursorScanNumber;
-
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].precursorList.precursor[0].spectrumRef == null)
             {
                 precursorScanNumber = null;
             }
             else
             {
-
                 precursorScanNumber = GetOneBasedPrecursorScanNumber(_mzMLConnection, oneBasedIndex);
             }
 
