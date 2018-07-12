@@ -197,7 +197,6 @@ namespace IO.MzML
                 }
             });
 
-
             //Mzml sometimes have scan numbers specified, but usually not. 
             //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
             //Check to make sure that the scans are in order and that there are no duplicate scans
