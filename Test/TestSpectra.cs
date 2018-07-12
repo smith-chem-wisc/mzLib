@@ -27,13 +27,7 @@ namespace Test
     [TestFixture]
     public sealed class SpectrumTestFixture
     {
-        #region Private Fields
-
         private MzSpectrum _mzSpectrumA;
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         [SetUp]
         public void Setup()
@@ -283,7 +277,5 @@ namespace Test
 
             Assert.AreEqual(7, thisSpectrum.GetClosestPeakXvalue(8));
         }
-
-        #endregion Public Methods
     }
 }

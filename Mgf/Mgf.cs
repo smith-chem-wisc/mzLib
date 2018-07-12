@@ -1,7 +1,6 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
 using System;
-using Chemistry;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,14 +9,7 @@ namespace IO.Mgf
 {
     public class Mgf : MsDataFile
     {
-
-        #region Private Fields
-
         private MsDataScan[] indexedScans;
-
-        #endregion Private Fields
-
-        #region Private Constructors
 
         private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
@@ -28,10 +20,6 @@ namespace IO.Mgf
             }
         }
 
-        #endregion Private Constructors
-
-        #region Public Methods
-
         public static Mgf LoadAllStaticData(string filePath, FilteringParams filterParams = null)
         {
             if (!File.Exists(filePath))
@@ -40,6 +28,8 @@ namespace IO.Mgf
             }
 
             List<MsDataScan> scans = new List<MsDataScan>();
+            HashSet<int> checkForDuplicateScans = new HashSet<int>();
+
             using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 using (BufferedStream bs = new BufferedStream(fs))
@@ -64,9 +54,14 @@ namespace IO.Mgf
                         {
                             if (s.Equals("END IONS"))
                             {
+                                if (!checkForDuplicateScans.Add(scanNumber)) //returns false if the scan already exists
+                                {
+                                    throw new MzLibException("Scan number " + scanNumber.ToString() + " appeared multiple times in " + filePath + ", which is not allowed because we assume all scan numbers are unique.");
+                                }
+
                                 readingPeaks = false;
                                 MzSpectrum spectrum = new MzSpectrum(mzs.ToArray(), intensities.ToArray(), false);
-                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count-1]), null, MZAnalyzerType.Unknown, intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null, DissociationType.Unknown, null, precursorMz ));
+                                scans.Add(new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative, rtInMinutes, new MzRange(mzs[0], mzs[mzs.Count - 1]), null, MZAnalyzerType.Unknown, intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null, DissociationType.Unknown, null, precursorMz));
                                 mzs = new List<double>();
                                 intensities = new List<double>();
                                 oldScanNumber = scanNumber;
@@ -109,6 +104,7 @@ namespace IO.Mgf
                                                 sArray = sArray[1].Split(' ');
                                                 precursorMz = Convert.ToDouble(sArray[0]);
                                                 break;
+
                                             case "CHARGE":
                                                 string entry = sArray[1];
                                                 charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
@@ -117,12 +113,15 @@ namespace IO.Mgf
                                                     charge *= -1;
                                                 }
                                                 break;
+
                                             case "SCANS":
                                                 scanNumber = Convert.ToInt32(sArray[1]);
                                                 break;
+
                                             case "RTINSECONDS":
                                                 rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1]) / 60.0;
                                                 break;
+
                                             default:
                                                 break;
                                         }
@@ -134,17 +133,14 @@ namespace IO.Mgf
                 }
             }
 
-            SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);          
+            SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
 
-            return new Mgf(scans.ToArray(), sourceFile);
+            return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }
 
         public override MsDataScan GetOneBasedScan(int scanNumber)
         {
             return indexedScans[scanNumber - 1];
         }
-
-        #endregion Public Methods
-
     }
 }

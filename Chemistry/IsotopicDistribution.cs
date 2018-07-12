@@ -42,8 +42,6 @@ namespace Chemistry
     /// </remarks>
     public class IsotopicDistribution
     {
-        #region Private Fields
-
         private const double defaultFineResolution = 0.01;
         private const double defaultMinProbability = 1e-200;
         private const double defaultMolecularWeightResolution = 1e-12;
@@ -52,26 +50,14 @@ namespace Chemistry
         private readonly double[] masses;
         private readonly double[] intensities;
 
-        #endregion Private Fields
-
-        #region Private Constructors
-
         private IsotopicDistribution(int count)
         {
             masses = new double[count];
             intensities = new double[count];
         }
 
-        #endregion Private Constructors
-
-        #region Public Properties
-
         public IEnumerable<double> Masses { get { return masses; } }
         public IEnumerable<double> Intensities { get { return intensities; } }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public static IsotopicDistribution GetDistribution(ChemicalFormula formula)
         {
@@ -140,10 +126,6 @@ namespace Chemistry
 
             return dist;
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         /// <summary>
         /// Calculates the fineResolution and mergeFineResolution parameters
@@ -436,19 +418,11 @@ namespace Chemistry
             return dist;
         }
 
-        #endregion Private Methods
-
-        #region Private Structs
-
         private struct Polynomial
         {
             public double Power;
             public double Probablity;
         }
-
-        #endregion Private Structs
-
-        #region Private Classes
 
         private class Composition
         {
@@ -458,7 +432,5 @@ namespace Chemistry
             public double MolecularWeight;
             public int Atoms;
         }
-
-        #endregion Private Classes
     }
 }

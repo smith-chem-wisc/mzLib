@@ -20,35 +20,24 @@ using MassSpectrometry;
 using MSFileReaderLib;
 using MzLibUtil;
 using System;
-using System.IO;
-using System.Security.Cryptography;
-using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace IO.Thermo
 {
     public class ThermoStaticData : ThermoDataFile
     {
-        #region Private Fields
-
         private static readonly Regex PolarityRegex = new Regex(@"\+ ", RegexOptions.Compiled);
         private static readonly Regex mFindParentIonOnlyNonMsx = new Regex(@"[Mm][Ss]\d*[^\[\r\n]* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*(\[[^\]\r\n]\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex mFindParentIonOnlyMsx = new Regex(@"[Mm][Ss]\d* (?<ParentMZ>[0-9.]+)@?[A-Za-z]*\d*\.?\d*[^\[\r\n]*(\[[^\]\r\n]+\])?", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        #endregion Private Fields
-        
-        #region Private Constructors
 
         private ThermoStaticData(MsDataScan[] scans, ThermoGlobalParams thermoGlobalParams, SourceFile sourceFile) : base(scans, sourceFile)
         {
             this.ThermoGlobalParams = thermoGlobalParams;
         }
-
-        #endregion Private Constructors
-
-        #region Private Enums
 
         private enum ThermoMzAnalyzer
         {
@@ -60,10 +49,6 @@ namespace IO.Thermo
             FTMS = 4,
             Sector = 5
         }
-
-        #endregion Private Enums
-
-        #region Public Methods
 
         public static ThermoStaticData LoadAllStaticData(string filePath, IFilteringParams filterParams = null)
         {
@@ -93,7 +78,9 @@ namespace IO.Thermo
             for (int i = 0; i < precursorInfosArray.Length; i++)
             {
                 if (precursorInfosArray[i].nScanNumber == 0)
+                {
                     precursorInfosArray[i].nScanNumber = -1;
+                }
             }
 
             int pnFirstSpectrum = 0;
@@ -105,7 +92,9 @@ namespace IO.Thermo
 
             MsDataScan[] scans = new MsDataScan[pnLastSpectrum - pnFirstSpectrum + 1];
             for (int nScanNumber = pnFirstSpectrum; nScanNumber <= pnLastSpectrum; nScanNumber++)
+            {
                 scans[nScanNumber - pnFirstSpectrum] = GetMsDataOneBasedScanFromThermoFile(theConnection, nScanNumber, p, filterParams);
+            }
 
             theConnection.Close();
 
@@ -259,7 +248,9 @@ namespace IO.Thermo
                 thermoSpectrum = new MzSpectrum(mzArray, intensityArray, false);
             }
             else
+            {
                 thermoSpectrum = new MzSpectrum(data);
+            }
             MZAnalyzerType mzAnalyzerType;
             if ((ThermoMzAnalyzer)pnMassAnalyzerType == ThermoMzAnalyzer.FTMS)
             {
@@ -277,13 +268,13 @@ namespace IO.Thermo
                 theConnection.GetActivationTypeForScanNum(nScanNumber, pnMSOrder, ref pnActivationType);
 
                 // INITIALIZE globalParams.couldBePrecursor[nScanNumber - 1] (for dynamic connections that don't have it initialized yet)
-                if (globalParams.couldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
+                if (globalParams.CouldBePrecursor[nScanNumber - 1].Equals(default(ManagedThermoHelperLayer.PrecursorInfo)))
                 {
                     var ok = new ManagedThermoHelperLayer.HelperClass();
-                    globalParams.couldBePrecursor[nScanNumber - 1] = ok.GetSingleScanPrecursorInfo(nScanNumber, globalParams.filePath);
+                    globalParams.CouldBePrecursor[nScanNumber - 1] = ok.GetSingleScanPrecursorInfo(nScanNumber, globalParams.FilePath);
                 }
 
-                var precursorInfo = globalParams.couldBePrecursor[nScanNumber - 1];
+                var precursorInfo = globalParams.CouldBePrecursor[nScanNumber - 1];
 
                 // THIS METHOD IS BUGGY!!! DO NOT USE
                 //theConnection.FindPrecursorMassInFullScan(nScanNumber, ref pnMasterScan, ref pdFoundMass, ref pdHeaderMass, ref pnChargeState);
@@ -300,15 +291,15 @@ namespace IO.Thermo
                 else
                 {
                     // we weren't able to get the precursor scan number, so we'll have to guess;
-                    // loop back to find precursor scan 
+                    // loop back to find precursor scan
                     // (assumed to be the first scan before this scan with an MS order of this scan's MS order - 1)
                     // e.g., if this is an MS2 scan, find the first MS1 scan before this and assume that's the precursor scan
-                    int scanOrder = globalParams.msOrderByScan[nScanNumber - 1];
+                    int scanOrder = globalParams.MsOrderByScan[nScanNumber - 1];
                     int precursorScanOrder = scanOrder - 1;
 
                     for (int i = nScanNumber - 1; i >= 0; i--)
                     {
-                        int msOrder = globalParams.msOrderByScan[i];
+                        int msOrder = globalParams.MsOrderByScan[i];
 
                         if (msOrder == precursorScanOrder)
                         {
@@ -448,7 +439,5 @@ namespace IO.Thermo
             }
             return true;
         }
-
-        #endregion Public Methods
     }
 }

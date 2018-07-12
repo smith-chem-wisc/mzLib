@@ -10,8 +10,6 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinDbWriter
     {
-        #region Public Methods
-
         /// <summary>
         /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
@@ -19,7 +17,8 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            List<Protein> proteinList, string outputFileName)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
@@ -36,10 +35,10 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                HashSet<Modification> all_relevant_modifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
+                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
                     .Concat(additionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
-                foreach (Modification mod in all_relevant_modifications.OrderBy(m => m.id))
+                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.id))
                 {
                     writer.WriteStartElement("modification");
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
@@ -133,6 +132,7 @@ namespace UsefulProteomicsDatabases
                     }
 
                     if (additionalModsToAddToProteins.ContainsKey(protein.Accession))
+                    {
                         foreach (var ye in additionalModsToAddToProteins[protein.Accession])
                         {
                             int additionalModResidueIndex = ye.Item1;
@@ -141,8 +141,10 @@ namespace UsefulProteomicsDatabases
 
                             // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
                             if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
+                            {
                                 // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
                                 modAdded = val.Add(additionalModId);
+                            }
 
                             // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                             else
@@ -155,11 +157,16 @@ namespace UsefulProteomicsDatabases
                             if (modAdded)
                             {
                                 if (newModResEntries.ContainsKey(additionalModId))
+                                {
                                     newModResEntries[additionalModId]++;
+                                }
                                 else
+                                {
                                     newModResEntries.Add(additionalModId, 1);
+                                }
                             }
                         }
+                    }
 
                     foreach (var hm in modsToWriteForThisSpecificProtein.OrderBy(b => b.Key))
                     {
@@ -258,7 +265,5 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
-        #endregion Public Methods
     }
 }

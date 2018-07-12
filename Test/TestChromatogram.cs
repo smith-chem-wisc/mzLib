@@ -26,8 +26,6 @@ namespace Test
     [TestFixture]
     public sealed class ChromatogramTestFixture
     {
-        #region Public Methods
-
         [Test]
         public void ChromatogramTest()
         {
@@ -90,7 +88,5 @@ namespace Test
 
             Assert.AreEqual(4, a.GetApex(5, 6).X);
         }
-
-        #endregion Public Methods
     }
 }
