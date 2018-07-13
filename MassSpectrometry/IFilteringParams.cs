@@ -20,14 +20,10 @@ namespace MassSpectrometry
 {
     public interface IFilteringParams
     {
-        #region Public Properties
-
         double? MinimumAllowedIntensityRatioToBasePeakM { get; }
         int? NumberOfPeaksToKeepPerWindow { get; }
         int? NumberOfWindows { get; }
         bool ApplyTrimmingToMs1 { get; }
         bool ApplyTrimmingToMsMs { get; }
-
-        #endregion Public Properties
     }
 }

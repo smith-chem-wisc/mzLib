@@ -26,8 +26,6 @@ namespace MassSpectrometry
 {
     public class Chromatogram : Chromatogram<ChromatographicPeak>
     {
-        #region Public Constructors
-
         public Chromatogram(double[] times, double[] intensities, bool shouldCopy)
             : base(times, intensities, shouldCopy)
         {
@@ -43,10 +41,6 @@ namespace MassSpectrometry
         {
         }
 
-        #endregion Public Constructors
-
-        #region Public Methods
-
         public Chromatogram CreateSmoothChromatogram(SmoothingType smoothing, int points)
         {
             switch (smoothing)
@@ -61,23 +55,15 @@ namespace MassSpectrometry
             }
         }
 
-        #endregion Public Methods
-
-        #region Protected Methods
-
         protected override ChromatographicPeak GeneratePeak(int index)
         {
             return new ChromatographicPeak(XArray[index], YArray[index]);
         }
-
-        #endregion Protected Methods
     }
 
     public abstract class Chromatogram<TPeak> : Spectrum<TPeak>
         where TPeak : IPeak
     {
-        #region Protected Constructors
-
         protected Chromatogram(double[] times, double[] intensities, bool shouldCopy) : base(times, intensities, shouldCopy)
         {
         }
@@ -91,10 +77,6 @@ namespace MassSpectrometry
         {
         }
 
-        #endregion Protected Constructors
-
-        #region Public Properties
-
         public double FirstTime
         {
             get { return XArray[0]; }
@@ -104,10 +86,6 @@ namespace MassSpectrometry
         {
             get { return XArray[Size - 1]; }
         }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         public double[] GetTimes()
         {
@@ -248,7 +226,5 @@ namespace MassSpectrometry
         {
             return string.Format("Count = {0:N0} TIC = {1:G4}", Size, YArray.Sum());
         }
-
-        #endregion Public Methods
     }
 }

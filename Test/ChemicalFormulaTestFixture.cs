@@ -28,8 +28,6 @@ namespace Test
     [TestFixture]
     public static class ChemicalFormulaTestFixture
     {
-        #region Public Methods
-
         [Test]
         public static void AddIsotopeWithExistingMassNumber()
         {
@@ -178,6 +176,14 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
 
             Assert.Throws<MzLibException>(() => { formulaA.AddPrincipalIsotopesOf("Faa", 1); });
+        }
+
+        [Test]
+        public static void AddNonExistentAtomicNumberToFormula()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+
+            Assert.Throws<MzLibException>(() => { formulaA.AddPrincipalIsotopesOf(1000000, 1); });
         }
 
         [Test]
@@ -809,7 +815,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaIsNotSubSet()
+        public static void ChemicalFormulaIsNotSubSet()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H2NO");
@@ -818,7 +824,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaIsSuperSet()
+        public static void ChemicalFormulaIsSuperSet()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
@@ -827,7 +833,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaIsNotSuperSet()
+        public static void ChemicalFormulaIsNotSuperSet()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO2");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C3H3NO");
@@ -836,7 +842,7 @@ namespace Test
         }
 
         [Test]
-        public static void ChemicalForulaMyTest()
+        public static void ChemicalFormulaMyTest()
         {
             ChemicalFormula formula = new ChemicalFormula();
             formula.Add(ChemicalFormula.ParseFormula("C3H5NO"));
@@ -1016,22 +1022,12 @@ namespace Test
             Assert.AreEqual(17, d.Intensities.Count());
         }
 
-        #endregion Public Methods
-
-        #region Private Classes
-
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
-            #region Public Constructors
-
             public PhysicalObjectWithChemicalFormula(string v)
             {
                 ThisChemicalFormula = ChemicalFormula.ParseFormula(v);
             }
-
-            #endregion Public Constructors
-
-            #region Public Properties
 
             public double MonoisotopicMass
             {
@@ -1045,10 +1041,6 @@ namespace Test
             {
                 get; private set;
             }
-
-            #endregion Public Properties
         }
-
-        #endregion Private Classes
     }
 }

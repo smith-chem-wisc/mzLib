@@ -17,15 +17,13 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestAminoAcids
     {
-        #region Public Methods
-
         [Test]
         public void GetResidueByCharacter()
         {
@@ -62,7 +60,5 @@ namespace Test
         {
             Assert.AreEqual(Residue.ResidueMonoisotopicMass['A'], Residue.GetResidue('A').MonoisotopicMass, 1e-9);
         }
-
-        #endregion Public Methods
     }
 }

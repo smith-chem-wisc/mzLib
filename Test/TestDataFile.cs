@@ -17,13 +17,11 @@
 // License along with MassSpectrometry.Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,15 +30,8 @@ namespace Test
     [TestFixture]
     public sealed class TestDataFile
     {
-        #region Private Fields
-
         private MzSpectrum _mzSpectrumA;
-
         private FakeMsDataFile myMsDataFile;
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         [OneTimeSetUp]
         public void Setup()
@@ -173,10 +164,6 @@ namespace Test
                 Assert.AreEqual(Polarity.Positive, b.Polarity);
         }
 
-        #endregion Public Methods
-
-        #region Private Methods
-
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
@@ -229,7 +216,5 @@ namespace Test
 
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
-
-        #endregion Private Methods
     }
 }

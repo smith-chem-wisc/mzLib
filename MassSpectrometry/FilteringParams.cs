@@ -20,8 +20,6 @@ namespace MassSpectrometry
 {
     public class FilteringParams : IFilteringParams
     {
-        #region Public Constructors
-
         //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
         public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, int? numberOfWindows = null, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
         {
@@ -32,16 +30,10 @@ namespace MassSpectrometry
             ApplyTrimmingToMsMs = applyTrimmingToMsMs;
         }
 
-        #endregion Public Constructors
-
-        #region Public Properties
-
         public double? MinimumAllowedIntensityRatioToBasePeakM { get; }
         public int? NumberOfPeaksToKeepPerWindow { get; }
         public int? NumberOfWindows { get; }
         public bool ApplyTrimmingToMs1 { get; }
         public bool ApplyTrimmingToMsMs { get; }
-
-        #endregion Public Properties
     }
 }

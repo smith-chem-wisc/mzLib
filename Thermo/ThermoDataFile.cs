@@ -7,13 +7,14 @@ namespace IO.Thermo
     {
         public ThermoGlobalParams ThermoGlobalParams { get; protected set; }
 
-        public ThermoDataFile(int numSpectra, SourceFile sourceFile) : base(numSpectra, sourceFile)
+        public ThermoDataFile(int numSpectra, SourceFile sourceFile)
+            : base(numSpectra, sourceFile)
         {
-
         }
-        public ThermoDataFile(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
-        {
 
+        public ThermoDataFile(MsDataScan[] scans, SourceFile sourceFile)
+            : base(scans, sourceFile)
+        {
         }
     }
 }

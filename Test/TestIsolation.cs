@@ -16,11 +16,10 @@
 // License along with Tests. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Linq;
 
@@ -29,8 +28,6 @@ namespace Test
     [TestFixture]
     public sealed class TestIsolation
     {
-        #region Public Methods
-
         [OneTimeSetUp]
         public void Setup()
         {
@@ -124,7 +121,5 @@ namespace Test
             Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Item1.ToMass(b.charge)).Min(), 1e-9);
             Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Item1.ToMass(b.charge)).Max(), 1e-9);
         }
-
-        #endregion Public Methods
     }
 }

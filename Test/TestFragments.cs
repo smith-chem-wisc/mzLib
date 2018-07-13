@@ -19,7 +19,7 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,13 +29,7 @@ namespace Test
     [TestFixture]
     public sealed class TestFragments
     {
-        #region Private Fields
-
         private Peptide _mockPeptideEveryAminoAcid;
-
-        #endregion Private Fields
-
-        #region Public Methods
 
         [SetUp]
         public void SetUp()
@@ -175,7 +169,5 @@ namespace Test
                                             .With.Property("Message")
                                             .EqualTo("Fragment Type must be a single value to determine the terminus"));
         }
-
-        #endregion Public Methods
     }
 }

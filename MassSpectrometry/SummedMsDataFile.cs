@@ -7,15 +7,9 @@ namespace MassSpectrometry
 {
     public class SummedMsDataFile : MsDataFile
     {
-        #region Private Fields
-
         private readonly MsDataFile raw;
         private readonly int numScansToAverage;
         private readonly double ppmToleranceForPeakCombination;
-
-        #endregion Private Fields
-
-        #region Public Constructors
 
         public SummedMsDataFile(MsDataFile raw, int numScansToAverage, double ppmToleranceForPeakCombination) :
             base(raw.NumSpectra - numScansToAverage + 1,
@@ -32,10 +26,6 @@ namespace MassSpectrometry
             this.numScansToAverage = numScansToAverage;
             this.ppmToleranceForPeakCombination = ppmToleranceForPeakCombination;
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         public override List<MsDataScan> GetAllScansList()
         {
@@ -75,10 +65,6 @@ namespace MassSpectrometry
             }
             return Scans[oneBasedScanNumber - 1];
         }
-
-        #endregion Public Methods
-
-        #region Private Methods
 
         private static MzSpectrum CombinePeaks(List<MzSpectrum> spectraToCombine, double ppmTolerance)
         {
@@ -124,7 +110,5 @@ namespace MassSpectrometry
 
             return new GeneratedMzSpectrum(finalizedPeaks.Select(b => b.Mz).ToArray(), finalizedPeaks.Select(b => b.Intensity).ToArray(), false);
         }
-
-        #endregion Private Methods
     }
 }

@@ -2,46 +2,32 @@
 {
     public class SpectraFileInfo
     {
-        #region Public Fields
-
-        public readonly string fullFilePathWithExtension;
-        public readonly string filenameWithoutExtension;
-
-        // condition/biorep/techrep/fraction info
-        public readonly string condition;
-        public readonly int biologicalReplicate;
-        public readonly int fraction;
-        public readonly int technicalReplicate;
-        
-        #endregion Public Fields
-
-        #region Public Constructors
+        public readonly string FullFilePathWithExtension;
+        public readonly string FilenameWithoutExtension;
+        public readonly string Condition; // condition/biorep/techrep/fraction info
+        public readonly int BiologicalReplicate;
+        public readonly int Fraction;
+        public readonly int TechnicalReplicate;
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
-            this.fullFilePathWithExtension = fullFilePathWithExtension;
-            this.filenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.fullFilePathWithExtension);
-            this.condition = condition;
-            this.biologicalReplicate = biorep;
-            this.technicalReplicate = techrep;
-            this.fraction = fraction;
+            this.FullFilePathWithExtension = fullFilePathWithExtension;
+            this.FilenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.FullFilePathWithExtension);
+            this.Condition = condition;
+            this.BiologicalReplicate = biorep;
+            this.TechnicalReplicate = techrep;
+            this.Fraction = fraction;
         }
-
-        #endregion Public Constructors
-
-        #region Public Methods
 
         // files are considered the same if the absolute file path is the same
         public override bool Equals(object obj)
         {
-            return base.Equals(obj) && ((SpectraFileInfo)obj).fullFilePathWithExtension.Equals(this.fullFilePathWithExtension);
+            return base.Equals(obj) && ((SpectraFileInfo)obj).FullFilePathWithExtension.Equals(this.FullFilePathWithExtension);
         }
 
         public override int GetHashCode()
         {
-            return fullFilePathWithExtension.GetHashCode();
+            return FullFilePathWithExtension.GetHashCode();
         }
-
-        #endregion Public Methods
     }
 }

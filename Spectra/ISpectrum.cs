@@ -29,8 +29,6 @@ namespace Spectra
     public interface ISpectrum<out TPeak>
         where TPeak : IPeak
     {
-        #region Public Properties
-
         double[] XArray { get; }
         double[] YArray { get; }
 
@@ -41,10 +39,6 @@ namespace Spectra
         double? XofPeakWithHighestY { get; }
         double SumOfAllY { get; }
         DoubleRange Range { get; }
-
-        #endregion Public Properties
-
-        #region Public Methods
 
         double[,] CopyTo2DArray();
 
@@ -65,7 +59,5 @@ namespace Spectra
         IEnumerable<TPeak> FilterByY(DoubleRange yRange);
 
         void ReplaceXbyApplyingFunction(Func<IPeak, double> convertor);
-
-        #endregion Public Methods
     }
 }
