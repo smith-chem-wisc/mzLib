@@ -102,9 +102,13 @@ namespace Test
 
             var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), variableModifications).ToList();
             Assert.AreEqual(3 * 2 * 3, ye.Count);
-
             Assert.AreEqual("[H]M[H][H]", ye.Last().SequenceWithChemicalFormulas);
-            Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ye.Last().MonoisotopicMass, 1e-9);
+
+            double m1 = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
+            double m2 = ye.Last().MonoisotopicMass;
+            double m3 = m1 - m2;
+
+            Assert.IsTrue(m3 < 1e-9);
         }
 
         [Test]

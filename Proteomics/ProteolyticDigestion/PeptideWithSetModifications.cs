@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -64,8 +65,13 @@ namespace Proteomics.ProteolyticDigestion
                     }
                     _monoisotopicMass += BaseSequence.Select(b => Residue.ResidueMonoisotopicMass[b]).Sum();
                 }
-                return _monoisotopicMass.Value;
+                return RoundedDouble(_monoisotopicMass.Value);//rounding this at 1e-9 tolerance
             }
+        }
+
+        public double RoundedDouble(double myNumber)
+        {
+            return Math.Round((double)myNumber, 9, MidpointRounding.AwayFromZero);
         }
 
         public virtual string Sequence
