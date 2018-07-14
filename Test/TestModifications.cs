@@ -36,12 +36,12 @@ namespace Test
         public static void Test_modificationsHashCode()
         {
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            var mod1 = new ModificationWithMass("mod", "type", motif, TerminusLocalization.Any, 1, null, null, null);
-            var mod2 = new ModificationWithMass("mod2", "type", motif, TerminusLocalization.Any, 10, null, null, null);
+            var mod1 = new ModificationGeneral("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null);
+            var mod2 = new ModificationGeneral("mod2", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null);
 
             Assert.AreNotEqual(mod1.GetHashCode(), mod2.GetHashCode());
             Assert.AreNotEqual(mod1, mod2);
-            HashSet<Modification> myHashSet = new HashSet<Modification>
+            HashSet<ModificationGeneral> myHashSet = new HashSet<ModificationGeneral>
             {
                 mod1,
                 mod2
@@ -53,11 +53,12 @@ namespace Test
         public static void Test_ModificationWithNoMassWritten()
         {
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            var mod1 = new ModificationWithMassAndCf("mod", "type", motif, TerminusLocalization.Any, ChemicalFormula.ParseFormula("H"), ChemicalFormula.ParseFormula("H").MonoisotopicMass, null, null, null);
+            var mod1 = new ModificationGeneral(_Id: "mod", _ModificationType: "type", _Target: motif, _Position: "Anywhere.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
             var mod1string = mod1.ToString();
-            Assert.IsTrue(!mod1string.Contains("MM"));
-            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as ModificationWithMassAndCf;
-            Assert.AreEqual(mod1, modAfterWriteRead);
+            Assert.IsTrue(mod1string.Contains("MM"));
+            var modAfterWriteRead = PtmListLoaderGeneral.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as ModificationGeneral;
+
+            Assert.IsTrue(modAfterWriteRead.Equals(mod1));
         }
 
         [Test]
@@ -187,9 +188,9 @@ namespace Test
         [Test]
         public void Test_modification_hash_set()
         {
-            Modification m1 = new Modification("23", "unknown");
-            Modification m2 = new Modification("23", "unknown");
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            ModificationGeneral m1 = new ModificationGeneral("23", null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
+            ModificationGeneral m2 = new ModificationGeneral("23", null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
+            HashSet<ModificationGeneral> mods = new HashSet<ModificationGeneral>(new ModificationGeneral[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
 
@@ -197,26 +198,27 @@ namespace Test
         public void Test_modification2_hash_set()
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithLocation m1 = new ModificationWithLocation("id1", "modificationType", motif, TerminusLocalization.Any, new Dictionary<string, IList<string>>());
-            ModificationWithLocation m2 = new ModificationWithLocation("id1", "modificationType", motif, TerminusLocalization.Any);
-            m1.linksToOtherDbs.Add("key", new List<string> { "value" });
-            m2.linksToOtherDbs.Add("key", new List<string> { "value" });
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            ModificationGeneral m1 = new ModificationGeneral("id1", null, "modificationType", null, motif, "Anywhere.", null, null, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            ModificationGeneral m2 = new ModificationGeneral("id1", null, "modificationType", null, motif, "Anywhere.", null, null, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            m1.DatabaseReference.Add("key", new List<string> { "value" });
+            m2.DatabaseReference.Add("key", new List<string> { "value" });
+            HashSet<ModificationGeneral> mods = new HashSet<ModificationGeneral>(new ModificationGeneral[] { m1, m2 });
             Assert.True(m1.Equals(m2));
             Assert.AreEqual(1, mods.Count);
         }
 
         [Test]
-        public void Test_modification3_hash_set()
+        public void Test_modification3_hash_set() // numerical tolerance is 1e-9 so these two mods need to evaluate as identical
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithMass m1 = new ModificationWithMass("id1", "modificationType", motif, TerminusLocalization.Any, 1.11111d, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 }, diagnosticIons: new List<double> { 1.2233 });
-            ModificationWithMass m2 = new ModificationWithMass("id1", "modificationType", motif, TerminusLocalization.Any, 1.11111d - 1e-10, new Dictionary<string, IList<string>>(), neutralLosses: new List<double> { 2.222222 + 1e-10 }, diagnosticIons: new List<double> { 1.2233 });
-            m1.linksToOtherDbs.Add("key", new List<string> { "value" });
-            m2.linksToOtherDbs.Add("key", new List<string> { "value" });
-            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            ModificationGeneral m1 = new ModificationGeneral(_Id: "id1", _ModificationType: "modificationType", _Target: motif, _Position: "Anywhere.", _MonoisotopicMass: 1.11111d, _DatabaseReference: new Dictionary<string, IList<string>>(), _NeutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _DiagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            ModificationGeneral m2 = new ModificationGeneral(_Id: "id1", _ModificationType: "modificationType", _Target: motif, _Position: "Anywhere.", _MonoisotopicMass: 1.11111d - 1e-10, _DatabaseReference: new Dictionary<string, IList<string>>(), _NeutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _DiagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            m1.DatabaseReference.Add("key", new List<string> { "value" });
+            m2.DatabaseReference.Add("key", new List<string> { "value" });
+
+            HashSet<ModificationGeneral> mods = new HashSet<ModificationGeneral>(new ModificationGeneral[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
-            Assert.True(m1.Equals(m2));
+            Assert.IsTrue(m1.Equals(m2));
         }
     }
 }

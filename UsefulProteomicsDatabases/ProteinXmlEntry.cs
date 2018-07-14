@@ -30,7 +30,7 @@ namespace UsefulProteomicsDatabases
         public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
-        public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
+        public Dictionary<int, List<ModificationGeneral>> OneBasedModifications { get; private set; } = new Dictionary<int, List<ModificationGeneral>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
@@ -144,8 +144,8 @@ namespace UsefulProteomicsDatabases
         /// <param name="isContaminant"></param>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
-        public List<Protein> ParseEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications, bool isContaminant, string proteinDbLocation)
+        public List<Protein> ParseEndElement(XmlReader xml, Dictionary<string, IList<ModificationGeneral>> mod_dict, IEnumerable<string> modTypesToExclude,
+            Dictionary<string, ModificationGeneral> unknownModifications, bool isContaminant, string proteinDbLocation)
         {
             List<Protein> result = new List<Protein>();
             if (xml.Name == "feature")
@@ -180,7 +180,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="isContaminant"></param>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
-        public List<Protein> ParseEntryEndElement(XmlReader xml,  bool isContaminant, string proteinDbLocation)
+        public List<Protein> ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation)
         {
             List<Protein> result = new List<Protein>();
             if (Accession != null && Sequence != null)
@@ -200,23 +200,23 @@ namespace UsefulProteomicsDatabases
         /// <param name="mod_dict"></param>
         /// <param name="modTypesToExclude"></param>
         /// <param name="unknownModifications"></param>
-        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude, 
-            Dictionary<string, Modification> unknownModifications)
+        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<ModificationGeneral>> mod_dict, IEnumerable<string> modTypesToExclude,
+            Dictionary<string, ModificationGeneral> unknownModifications)
         {
             if (FeatureType == "modified residue")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
 
                 // Create new entry for this residue, if needed
-                if (!OneBasedModifications.TryGetValue(OneBasedFeaturePosition, out List<Modification> residue_modifications))
+                if (!OneBasedModifications.TryGetValue(OneBasedFeaturePosition, out List<ModificationGeneral> residue_modifications))
                 {
-                    residue_modifications = new List<Modification>();
+                    residue_modifications = new List<ModificationGeneral>();
                     OneBasedModifications.Add(OneBasedFeaturePosition, residue_modifications);
                 }
                 if (mod_dict.ContainsKey(FeatureDescription))
                 {
                     // Known and not of a type in the exclusion list
-                    List<Modification> mods = mod_dict[FeatureDescription].Where(m => !modTypesToExclude.Contains(m.modificationType)).ToList();
+                    List<ModificationGeneral> mods = mod_dict[FeatureDescription].Where(m => !modTypesToExclude.Contains(m.ModificationType)).ToList();
                     if (mods.Count == 0 && OneBasedModifications[OneBasedFeaturePosition].Count == 0)
                     {
                         OneBasedModifications.Remove(OneBasedFeaturePosition);
@@ -234,7 +234,7 @@ namespace UsefulProteomicsDatabases
                 else
                 {
                     // Not known and not seen
-                    unknownModifications[FeatureDescription] = new Modification(FeatureDescription, "unknown");
+                    unknownModifications[FeatureDescription] = new ModificationGeneral(FeatureDescription, null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
                     residue_modifications.Add(unknownModifications[FeatureDescription]);
                 }
             }
@@ -305,7 +305,7 @@ namespace UsefulProteomicsDatabases
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;
-            OneBasedModifications = new Dictionary<int, List<Modification>>();
+            OneBasedModifications = new Dictionary<int, List<ModificationGeneral>>();
             ProteolysisProducts = new List<ProteolysisProduct>();
             SequenceVariations = new List<SequenceVariation>();
             DisulfideBonds = new List<DisulfideBond>();

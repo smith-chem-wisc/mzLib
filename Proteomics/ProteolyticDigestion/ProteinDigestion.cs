@@ -11,7 +11,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="digestionParams"></param>
         /// <param name="allKnownFixedModifications"></param>
         /// <param name="variableModifications"></param>
-        public ProteinDigestion(DigestionParams digestionParams, IEnumerable<ModificationWithMass> allKnownFixedModifications, List<ModificationWithMass> variableModifications)
+        public ProteinDigestion(DigestionParams digestionParams, IEnumerable<ModificationGeneral> allKnownFixedModifications, List<ModificationGeneral> variableModifications)
         {
             DigestionParams = digestionParams;
             Protease = digestionParams.Protease;
@@ -19,8 +19,8 @@ namespace Proteomics.ProteolyticDigestion
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
             MinPeptidesLength = digestionParams.MinPeptideLength;
             MaxPeptidesLength = digestionParams.MaxPeptideLength;
-            AllKnownFixedModifications = allKnownFixedModifications ?? new List<ModificationWithMass>();
-            VariableModifications = variableModifications ?? new List<ModificationWithMass>();
+            AllKnownFixedModifications = allKnownFixedModifications ?? new List<ModificationGeneral>();
+            VariableModifications = variableModifications ?? new List<ModificationGeneral>();
         }
 
         public Protease Protease { get; set; }
@@ -29,8 +29,8 @@ namespace Proteomics.ProteolyticDigestion
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; set; }
         public int MinPeptidesLength { get; set; }
         public int MaxPeptidesLength { get; set; }
-        public IEnumerable<ModificationWithMass> AllKnownFixedModifications { get; set; }
-        public List<ModificationWithMass> VariableModifications { get; set; }
+        public IEnumerable<ModificationGeneral> AllKnownFixedModifications { get; set; }
+        public List<ModificationGeneral> VariableModifications { get; set; }
 
         /// <summary>
         /// Gets peptides for semispecific digestion of a protein

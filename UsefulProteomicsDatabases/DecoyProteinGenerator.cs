@@ -1,9 +1,7 @@
 ﻿using Proteomics;
-using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace UsefulProteomicsDatabases
@@ -48,14 +46,14 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoyProteins = new List<Protein>();
             Parallel.ForEach(proteins, protein =>
             {
-                Dictionary<int, List<Modification>> decoyModifications = null;
+                Dictionary<int, List<ModificationGeneral>> decoyModifications = null;
                 char[] sequence_array = protein.BaseSequence.ToCharArray();
                 List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
                 if (protein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
                     // Do not include the initiator methionine in reversal!!!
                     Array.Reverse(sequence_array, 1, protein.BaseSequence.Length - 1);
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
+                    decoyModifications = new Dictionary<int, List<ModificationGeneral>>(protein.OneBasedPossibleLocalizedModifications.Count);
                     foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
                     {
                         if (kvp.Key > 1)
@@ -71,7 +69,7 @@ namespace UsefulProteomicsDatabases
                 else
                 {
                     Array.Reverse(sequence_array);
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
+                    decoyModifications = new Dictionary<int, List<ModificationGeneral>>(protein.OneBasedPossibleLocalizedModifications.Count);
                     foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
                     {
                         decoyModifications.Add(protein.BaseSequence.Length - kvp.Key + 1, kvp.Value);
@@ -128,7 +126,7 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoyProteins = new List<Protein>();
             Parallel.ForEach(proteins, protein =>
             {
-                Dictionary<int, List<Modification>> decoyModifications = null;
+                Dictionary<int, List<ModificationGeneral>> decoyModifications = null;
                 int numSlides = 20;
                 char[] sequenceArrayUnslided = protein.BaseSequence.ToCharArray();
                 char[] sequenceArraySlided = protein.BaseSequence.ToCharArray();
@@ -146,7 +144,7 @@ namespace UsefulProteomicsDatabases
                         sequenceArraySlided[i] = sequenceArrayUnslided[GetOldShuffleIndex(i, numSlides, protein.BaseSequence.Length, true)];
                     }
 
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
+                    decoyModifications = new Dictionary<int, List<ModificationGeneral>>(protein.OneBasedPossibleLocalizedModifications.Count);
                     foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
                     {
                         if (kvp.Key > 1)
@@ -169,7 +167,7 @@ namespace UsefulProteomicsDatabases
                     {
                         sequenceArraySlided[i] = sequenceArrayUnslided[GetOldShuffleIndex(i, numSlides, protein.BaseSequence.Length, false)];
                     }
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
+                    decoyModifications = new Dictionary<int, List<ModificationGeneral>>(protein.OneBasedPossibleLocalizedModifications.Count);
                     foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
                     {
                         decoyModifications.Add(GetOldShuffleIndex(kvp.Key - 1, numSlides, protein.BaseSequence.Length, false) + 1, kvp.Value);

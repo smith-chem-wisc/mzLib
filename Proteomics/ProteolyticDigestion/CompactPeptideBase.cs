@@ -177,9 +177,9 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        protected static IEnumerable<double> ComputeFollowingFragmentMasses(PeptideWithSetModifications yyy, double prevMass, int oneBasedIndexToLookAt, int direction)
+        protected static IEnumerable<double> ComputeFollowingFragmentMasses(PeptideWithSetModifications yyy, double prevMass, int oneBasedIndexToLookAt, int direction)//we're going to have to pass fragmentation type
         {
-            ModificationWithMass currentModification = null;
+            ModificationGeneral currentModification = null;
             do
             {
                 if (oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
@@ -190,16 +190,23 @@ namespace Proteomics.ProteolyticDigestion
                 // If modification exists
                 if (yyy.AllModsOneIsNterminus.TryGetValue(oneBasedIndexToLookAt + 1, out currentModification))
                 {
-                    if (currentModification.neutralLosses.Count == 1 && oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
+                    List<double> neutralLossValuesList = new List<double>();
+                    if (currentModification.NeutralLosses.Count == 1 && oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
                     {
-                        prevMass += currentModification.monoisotopicMass - currentModification.neutralLosses.First();
+                        List<DissociationType> dtList = new List<DissociationType>();
+                        dtList = currentModification.NeutralLosses.Keys.ToList();
+                        DissociationType firstDt = dtList.First();
+                        neutralLossValuesList = currentModification.NeutralLosses[firstDt];
+                        double neutralLoss = neutralLossValuesList.First();
+
+                        prevMass += (double)currentModification.MonoisotopicMass - neutralLoss;
                         yield return Math.Round(prevMass, digitsForRoundingMasses);
                     }
                     else
                     {
-                        foreach (double nl in currentModification.neutralLosses)
+                        foreach (double nl in neutralLossValuesList)
                         {
-                            var theMass = prevMass + currentModification.monoisotopicMass - nl;
+                            double theMass = prevMass + (double)currentModification.MonoisotopicMass - nl;
                             if (oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
                             {
                                 yield return Math.Round(theMass, digitsForRoundingMasses);

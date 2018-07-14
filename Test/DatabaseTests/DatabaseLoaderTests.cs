@@ -33,8 +33,17 @@ namespace Test
         [Test]
         public static void LoadModWithNl()
         {
-            var hah = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt")).First() as ModificationWithMassAndCf;
-            Assert.AreEqual(2, hah.neutralLosses.Count);
+            var hah = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt")).First() as ModificationGeneral;
+            int count = 0;
+            foreach (KeyValuePair<MassSpectrometry.DissociationType, List<double>> item in hah.NeutralLosses)
+            {
+                foreach (double loos in item.Value)
+                {
+                    count++;
+                }
+            }
+
+            Assert.AreEqual(2, count);
         }
 
         [Test]
@@ -99,7 +108,20 @@ namespace Test
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
 
-            Assert.AreEqual(2, (unimodMods.First(b => b.id.Equals("HexNAc(2) on N at Any")) as ModificationWithMass).neutralLosses.Count);
+            ModificationGeneral testMod = unimodMods.First(b => b.Id.Equals("HexNAc(2)"));
+            int neutralLossCount = 0;
+            if (testMod.NeutralLosses.Count != 0)
+            {
+                foreach (KeyValuePair<MassSpectrometry.DissociationType, List<double>> item in testMod.NeutralLosses)
+                {
+                    foreach (double loss in item.Value)
+                    {
+                        neutralLossCount++;
+                    }
+                }
+            }
+
+            Assert.AreEqual(2, neutralLossCount);
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
 
             // N6,N6,N6-trimethyllysine
@@ -127,45 +149,45 @@ namespace Test
                 }
             }
 
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
+            var sampleModList = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")).ToList();
 
-            string stringRepresentation = "ID   (3R)-3-hydroxyarginine\r\nMT   UniProt\r\nPP   Anywhere.\r\nDR   RESID; AA0601\r\nDR   PSI-MOD; MOD:01956\r\nDR   UniProt; PTM-0476\r\nTG   R\r\nMM   15.994915\r\nCF   O";
+            string stringRepresentation = "ID   (2-aminosuccinimidyl)acetic acid (Asn-Gly)\r\nAC   PTM-0450\r\nFT   CROSSLNK\r\nPP   Unassigned.\r\nCF   H-3N-1\r\nMM   -17.026549\r\nDR   PSI-MOD; MOD:01624\r\nDR   RESID; AA0441\r\nTR   Archaea; taxId:2157 (Archaea)\r\nTR   Bacteria; taxId:2 (Bacteria)\r\nTR   Eukaryota; taxId:2759 (Eukaryota)\r\n";
+
+            string modString = sampleModList.First().ToString();
+
             Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
 
             // N,N,N-trimethylalanine
-            var thisMod = sampleModList.First(b => b.id.Equals(@"N,N,N-trimethylalanine")) as ModificationWithMass;
-            Assert.IsTrue(thisMod.monoisotopicMass > 42);
-            Assert.IsTrue(thisMod.monoisotopicMass < 43);
+            var thisMod = sampleModList.First(b => b.Id.Equals(@"N,N,N-trimethylalanine")) as ModificationGeneral;
+            Assert.IsTrue(thisMod.MonoisotopicMass > 42);
+            Assert.IsTrue(thisMod.MonoisotopicMass < 43);
         }
 
         [Test]
         public void SampleModFileLoading()
         {
-            PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"));
+            PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"));
         }
 
         [Test]
         public void SampleModFileLoadingFail1()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt")).ToList(),
-                                            Throws.TypeOf<MzLibException>()
-                                            .With.Property("Message")
-                                            .EqualTo("Could not get motif from NxS"));
+            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt"));
+            Assert.IsFalse(b.First().ValidModification);
         }
 
         [Test]
         public void SampleModFileLoadingFail2()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt")).ToList(),
-                                            Throws.TypeOf<MzLibException>()
-                                            .With.Property("Message")
-                                            .EqualTo("Could not get modification site from Anyplace."));
+            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt"));
+            Assert.AreEqual(b.First().Position, "Unassigned.");
+            Assert.IsFalse(b.First().ValidModification);
         }
 
         [Test]
         public void SampleModFileLoadingFail3()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),
+            Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Input string for chemical formula was in an incorrect format: $%&$%"));
@@ -174,7 +196,7 @@ namespace Test
         [Test]
         public void SampleModFileLoadingFail4()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt")).ToList(),
+            Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
@@ -183,54 +205,64 @@ namespace Test
         [Test]
         public void SampleModFileLoadingFail5()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt")).ToList(),
-                                            Throws.TypeOf<MzLibException>()
-                                            .With.Property("Message")
-                                            .EqualTo("id is null"));
+            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"));
+            Assert.IsTrue(b.First().Id == null);
+            Assert.IsFalse(b.First().ValidModification);
         }
 
         [Test]
         public void SampleModFileLoadingFail6()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail6.txt")).ToList(),
-                                            Throws.TypeOf<MzLibException>()
-                                            .With.Property("Message")
-                                            .EqualTo("modificationType of lalaMod is null"));
+            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"));
+            Assert.IsTrue(b.First().ModificationType == null);
+            Assert.IsFalse(b.First().ValidModification);
         }
 
         [Test]
         public void CompactFormReading()
         {
-            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt")).Count());
+            Assert.AreEqual(2, PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt")).Count());
         }
 
         [Test]
         public void CompactFormReading2()
         {
-            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt")).Count());
+            Assert.AreEqual(2, PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt")).Count());
         }
 
         [Test]
         public void Modification_read_write_into_proteinDb()
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt")).ToList();
-            Assert.AreEqual(1, sampleModList.OfType<ModificationWithMass>().Count());
-            Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), new List<DisulfideBond>());
-            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"));
+            var sampleModList = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt")).ToList();
+            Assert.AreEqual(1, sampleModList.OfType<ModificationGeneral>().Count());
+            Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<ModificationGeneral>> { { 2, sampleModList.OfType<ModificationGeneral>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), new List<DisulfideBond>());
+            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationGeneral>().Count());
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>>(), new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"));
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"),
-                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out Dictionary<string, Modification> um);
+                true, DecoyType.None, new List<ModificationGeneral>(), false, new List<string>(), out Dictionary<string, ModificationGeneral> um);
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
-            Assert.AreEqual("Type", new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).OfType<ModificationWithMass>().First().modificationType);
-            Assert.AreEqual("Palmitoylation of C", new_proteins[0].OneBasedPossibleLocalizedModifications[2][0].id);
-            Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
+            Assert.AreEqual("Type", new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).OfType<ModificationGeneral>().First().ModificationType);
+            Assert.AreEqual("Palmitoylation of C", new_proteins[0].OneBasedPossibleLocalizedModifications[2][0].Id);
+            Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications[2].OfType<ModificationGeneral>().Count());
 
             // Check that Modifications were saved after last load
             Assert.AreEqual(1, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml")).Count);
             Assert.True(ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"))[0] == new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First());
+
+            //But that we can still read modifications from other protein XMLs that exist
+            Assert.AreEqual(0, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "xml.xml")).Count);
+
+            // Check that Modifications were saved after last load
+            var b = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"));
+            Assert.AreEqual(1, b.Count);
+
+            var c = ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, @"test_modifications_with_proteins.xml"))[0];
+            var d = new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).First();
+
+            Assert.IsTrue(c.Equals(d));
 
             //But that we can still read modifications from other protein XMLs that exist
             Assert.AreEqual(0, ProteinDbLoader.GetPtmListFromProteinXml(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "xml.xml")).Count);
@@ -240,28 +272,30 @@ namespace Test
         public void DoNotWriteSameModTwiceAndDoNotWriteInHeaderSinceDifferent()
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt")).ToList();
-            Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), new List<DisulfideBond>());
-            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
+            var sampleModList = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt")).ToList();
+            Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<ModificationGeneral>> { { 2, sampleModList.OfType<ModificationGeneral>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), new List<DisulfideBond>());
+            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationGeneral>().Count());
 
-            Dictionary<string, HashSet<Tuple<int, Modification>>> dictWithThisMod = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>> dictWithThisMod = new Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>>();
 
-            HashSet<Tuple<int, Modification>> value = new HashSet<Tuple<int, Modification>>();
+            HashSet<Tuple<int, ModificationGeneral>> value = new HashSet<Tuple<int, ModificationGeneral>>();
 
-            var modReadFromFile = sampleModList.First() as ModificationWithMassAndCf;
+            var modReadFromFile = sampleModList.First() as ModificationGeneral;
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            ModificationWithMass newMod = new ModificationWithMassAndCf("Palmitoylation of C", modReadFromFile.modificationType, motif, TerminusLocalization.Any, modReadFromFile.chemicalFormula, modReadFromFile.monoisotopicMass, null, null, null);
+            ModificationGeneral newMod = new ModificationGeneral(_Id: "Palmitoylation of C", _ModificationType: "Type", _Target: motif, _Position: "Anywhere.", _ChemicalFormula: modReadFromFile.ChemicalFormula, _MonoisotopicMass: modReadFromFile.MonoisotopicMass, _FeatureType: "MOD_RES", _FileOrigin: "E:\\GitClones\\mzLib\\Test\\bin\\x64\\Debug\\DatabaseTests\\z.txt");
+
+            Assert.IsTrue(newMod.Equals(sampleModList.First()));
 
             Assert.AreEqual(newMod, sampleModList.First());
             Assert.AreEqual(sampleModList.First(), newMod);
 
-            value.Add(new Tuple<int, Modification>(2, newMod));
+            value.Add(new Tuple<int, ModificationGeneral>(2, newMod));
 
             dictWithThisMod.Add("accession", value);
             var newModResEntries = ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"));
             Assert.AreEqual(0, newModResEntries.Count);
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"),
-                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out Dictionary<string, Modification> um);
+                true, DecoyType.None, new List<ModificationGeneral>(), false, new List<string>(), out Dictionary<string, ModificationGeneral> um);
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());
@@ -271,27 +305,27 @@ namespace Test
         public void DoNotWriteSameModTwiceButWriteInHeaderSinceDifferent()
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt")).ToList();
-            Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), new List<DisulfideBond>());
-            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationWithMass>().Count());
+            var sampleModList = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt")).ToList();
+            Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<ModificationGeneral>> { { 2, sampleModList.OfType<ModificationGeneral>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), new List<DisulfideBond>());
+            Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<ModificationGeneral>().Count());
 
-            Dictionary<string, HashSet<Tuple<int, Modification>>> dictWithThisMod = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>> dictWithThisMod = new Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>>();
 
-            HashSet<Tuple<int, Modification>> value = new HashSet<Tuple<int, Modification>>();
+            HashSet<Tuple<int, ModificationGeneral>> value = new HashSet<Tuple<int, ModificationGeneral>>();
 
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            ModificationWithMass newMod = new ModificationWithMass("Palmitoylation of C", "mt", motif, TerminusLocalization.Any, double.NaN, null, null);
+            ModificationGeneral newMod = new ModificationGeneral("Palmitoylation of C", null, "mt", null, motif, "Anywhere.", null, double.NaN, null, null, null, null, null, null);
 
             Assert.AreNotEqual(newMod, sampleModList.First());
 
-            value.Add(new Tuple<int, Modification>(2, newMod));
+            value.Add(new Tuple<int, ModificationGeneral>(2, newMod));
 
             dictWithThisMod.Add("accession", value);
 
             var newModResEntries = ProteinDbWriter.WriteXmlDatabase(dictWithThisMod, new List<Protein> { protein }, Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml"));
             Assert.AreEqual(0, newModResEntries.Count);
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins2.xml"),
-                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out Dictionary<string, Modification> um);
+                true, DecoyType.None, new List<ModificationGeneral>(), false, new List<string>(), out Dictionary<string, ModificationGeneral> um);
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(2, new_proteins[0].OneBasedPossibleLocalizedModifications.SelectMany(kv => kv.Value).Count());

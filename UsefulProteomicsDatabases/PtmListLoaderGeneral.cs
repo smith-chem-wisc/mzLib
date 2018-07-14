@@ -66,7 +66,7 @@ namespace UsefulProteomicsDatabases
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
-                        foreach (var mod in ReadMod(ptmListLocation, modification_specification))
+                        foreach (var mod in ReadMod(ptmListLocation, modification_specification, formalChargesDictionary))
                         { yield return mod; }
                         modification_specification = new List<string>();
                     }
@@ -91,7 +91,7 @@ namespace UsefulProteomicsDatabases
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
-                        foreach (var mod in ReadMod(null, modification_specification))
+                        foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
                         { yield return mod; }
                         modification_specification = new List<string>();
                     }
@@ -99,7 +99,7 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification)
+        private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
             string _Id = null;
             string _Accession = null;
@@ -109,11 +109,17 @@ namespace UsefulProteomicsDatabases
             string _Position = null; //constructor will convert this to enum type
             ChemicalFormula _ChemicalFormula = null;
             double? _MonoisotopicMass = null;
-            Dictionary<string, IList<string>> _DatabaseReference = new Dictionary<string, IList<string>>();
-            Dictionary<string, IList<string>> _TaxonomicRange = new Dictionary<string, IList<string>>();
+
+            Dictionary<string, IList<string>> _DatabaseReference = null;
+
+            Dictionary<string, IList<string>> _TaxonomicRange = null;
+
             List<string> _Keywords = null;
-            Dictionary<DissociationType, List<double>> _NeutralLosses = new Dictionary<DissociationType, List<double>>();
-            Dictionary<DissociationType, List<double>> _DiagnosticIons = new Dictionary<DissociationType, List<double>>();
+
+            Dictionary<DissociationType, List<double>> _NeutralLosses = null;
+
+            Dictionary<DissociationType, List<double>> _DiagnosticIons = null;
+
             string _FileOrigin = ptmListLocation;
 
             foreach (string line in specification)
@@ -138,6 +144,11 @@ namespace UsefulProteomicsDatabases
                     {
                         case "ID": // Mandatory
                             _Id = modValue;
+                            if (modValue == "N,N,N-trimethylglycine")
+                            {
+                                int i = 1;
+                                i++;
+                            }
                             break;
 
                         case "AC": // Do not use! Only present in UniProt ptmlist
@@ -190,7 +201,15 @@ namespace UsefulProteomicsDatabases
                                 }
                                 catch
                                 {
-                                    _DatabaseReference.Add(splitString[0], new List<string> { splitString[1] });
+                                    if (_DatabaseReference == null)
+                                    {
+                                        _DatabaseReference = new Dictionary<string, IList<string>>();
+                                        _DatabaseReference.Add(splitString[0], new List<string> { splitString[1] });
+                                    }
+                                    else
+                                    {
+                                        _DatabaseReference.Add(splitString[0], new List<string> { splitString[1] });
+                                    }
                                 }
                             }
                             break;
@@ -205,7 +224,15 @@ namespace UsefulProteomicsDatabases
                                 }
                                 catch
                                 {
-                                    _TaxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
+                                    if (_TaxonomicRange == null)
+                                    {
+                                        _TaxonomicRange = new Dictionary<string, IList<string>>();
+                                        _TaxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
+                                    }
+                                    else
+                                    {
+                                        _TaxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
+                                    }
                                 }
                             }
                             break;
@@ -235,25 +262,69 @@ namespace UsefulProteomicsDatabases
                             break;
 
                         case "//":
-
-                            if (_Target.Count != 0)
+                            if (_Target == null) //This happens for FT=CROSSLINK modifications. We ignore these for now.
                             {
-                                foreach (ModificationMotif motif in _Target)
+                                if (_MonoisotopicMass == null && _ChemicalFormula != null)
                                 {
-                                    yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, motif, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                    _MonoisotopicMass = _ChemicalFormula.MonoisotopicMass;
                                 }
+                                if (_MonoisotopicMass != null && _DatabaseReference != null)
+                                {
+                                    _MonoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_MonoisotopicMass, _ChemicalFormula, _DatabaseReference, formalChargesDictionary);
+                                }
+                                yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, null, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                break;
                             }
                             else
                             {
-                                yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, null, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                if (_Target.Count != 0)
+                                {
+                                    foreach (ModificationMotif motif in _Target)
+                                    {
+                                        if (_MonoisotopicMass == null && _ChemicalFormula != null)
+                                        {
+                                            _MonoisotopicMass = _ChemicalFormula.MonoisotopicMass;
+                                        }
+                                        if (_MonoisotopicMass != null && _DatabaseReference != null)
+                                        {
+                                            _MonoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_MonoisotopicMass, _ChemicalFormula, _DatabaseReference, formalChargesDictionary);
+                                        }
+                                        yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, motif, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                    }
+                                }
+                                else
+                                {
+                                    if (_MonoisotopicMass == null && _ChemicalFormula != null)
+                                    {
+                                        _MonoisotopicMass = _ChemicalFormula.MonoisotopicMass;
+                                    }
+                                    if (_MonoisotopicMass != null && _DatabaseReference != null)
+                                    {
+                                        _MonoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_MonoisotopicMass, _ChemicalFormula, _DatabaseReference, formalChargesDictionary);
+                                    }
+                                    yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, null, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                }
+                                break;
                             }
-                            break;
-
                         default:
                             break;
                     }
                 }
             }
+        }
+
+        private static double AdjustMonoIsotopicMassForFormalCharge(double? _MonoisotopicMass, ChemicalFormula _ChemicalFormula, Dictionary<string, IList<string>> _DatabaseReference, Dictionary<string, int> formalChargesDictionary)
+        {
+            foreach (var dbAndAccession in _DatabaseReference.SelectMany(b => b.Value.Select(c => b.Key + "; " + c)))
+                if (formalChargesDictionary.ContainsKey(dbAndAccession))
+                {
+                    if (_MonoisotopicMass.HasValue)
+                        _MonoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
+                    if (_ChemicalFormula != null)
+                        _ChemicalFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                    break;
+                }
+            return (double)_MonoisotopicMass;
         }
 
         public static DissociationType? ModDissociationType(string modType)
@@ -389,7 +460,7 @@ namespace UsefulProteomicsDatabases
             }
             catch
             {
-                throw new MzLibException("woah");
+                dAndNDictionary = null; // must have run into some junk
             }
 
             return dAndNDictionary;

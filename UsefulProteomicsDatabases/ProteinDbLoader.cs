@@ -31,7 +31,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Stores the modification list read during LoadProteinXML
         /// </summary>
-        private static List<Modification> protein_xml_modlist;
+        private static List<ModificationGeneral> protein_xml_modlist_general;
 
         /// <summary>
         /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
@@ -50,21 +50,21 @@ namespace UsefulProteomicsDatabases
         /// <param name="unknownModifications"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<ModificationGeneral> allKnownModifications,
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, ModificationGeneral> unknownModifications)
         {
-            List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
-            allKnownModifications = allKnownModifications ?? new List<Modification>();
+            List<ModificationGeneral> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
+            allKnownModifications = allKnownModifications ?? new List<ModificationGeneral>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
 
-            Dictionary<string, IList<Modification>> mod_dict = new Dictionary<string, IList<Modification>>();
+            Dictionary<string, IList<ModificationGeneral>> mod_dict = new Dictionary<string, IList<ModificationGeneral>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
             {
-                mod_dict = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
+                mod_dict = GetModificationDict(new HashSet<ModificationGeneral>(prespecified.Concat(allKnownModifications)));
             }
 
             List<Protein> targets = new List<Protein>();
-            unknownModifications = new Dictionary<string, Modification>();
+            unknownModifications = new Dictionary<string, ModificationGeneral>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
@@ -102,11 +102,11 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Modification> GetPtmListFromProteinXml(string proteinDbLocation)
+        public static List<ModificationGeneral> GetPtmListFromProteinXml(string proteinDbLocation)
         {
             if (proteinDbLocation.Equals(last_database_location))
             {
-                return protein_xml_modlist;
+                return protein_xml_modlist_general;
             }
             last_database_location = proteinDbLocation;
 
@@ -131,17 +131,17 @@ namespace UsefulProteomicsDatabases
                             }
                             else if (xml.Name == "entry")
                             {
-                                protein_xml_modlist = storedKnownModificationsBuilder.Length <= 0 ?
-                                    new List<Modification>() :
-                                    PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList();
-                                return protein_xml_modlist;
+                                protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
+                                    new List<ModificationGeneral>() :
+                                    PtmListLoaderGeneral.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList();
+                                return protein_xml_modlist_general;
                             }
                         }
                     }
                 }
             }
-            protein_xml_modlist = new List<Modification>();
-            return protein_xml_modlist;
+            protein_xml_modlist_general = new List<ModificationGeneral>();
+            return protein_xml_modlist_general;
         }
 
         /// <summary>
@@ -287,22 +287,22 @@ namespace UsefulProteomicsDatabases
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
 
-                Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
-                foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
+                Dictionary<int, HashSet<ModificationGeneral>> mod_dict = new Dictionary<int, HashSet<ModificationGeneral>>();
+                foreach (KeyValuePair<int, List<ModificationGeneral>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
                 {
-                    if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
+                    if (!mod_dict.TryGetValue(nice.Key, out HashSet<ModificationGeneral> val))
                     {
-                        mod_dict.Add(nice.Key, new HashSet<Modification>(nice.Value));
+                        mod_dict.Add(nice.Key, new HashSet<ModificationGeneral>(nice.Value));
                     }
                     else
                     {
-                        foreach (Modification mod in nice.Value)
+                        foreach (ModificationGeneral mod in nice.Value)
                         {
                             val.Add(mod);
                         }
                     }
                 }
-                Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
+                Dictionary<int, List<ModificationGeneral>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
                 yield return new Protein(
                     proteins.Key.Item2,
@@ -335,18 +335,18 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        private static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
+        private static Dictionary<string, IList<ModificationGeneral>> GetModificationDict(IEnumerable<ModificationGeneral> mods)
         {
-            var mod_dict = new Dictionary<string, IList<Modification>>();
-            foreach (Modification nice in mods)
+            var mod_dict = new Dictionary<string, IList<ModificationGeneral>>();
+            foreach (ModificationGeneral nice in mods)
             {
-                if (mod_dict.TryGetValue(nice.id, out IList<Modification> val))
+                if (mod_dict.TryGetValue(nice.Id, out IList<ModificationGeneral> val))
                 {
                     val.Add(nice);
                 }
                 else
                 {
-                    mod_dict.Add(nice.id, new List<Modification> { nice });
+                    mod_dict.Add(nice.Id, new List<ModificationGeneral> { nice });
                 }
             }
             return mod_dict;

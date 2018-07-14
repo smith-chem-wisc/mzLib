@@ -14,9 +14,22 @@ namespace Proteomics
         public string ModificationType { get; private set; }
         public string FeatureType { get; private set; }
         public ModificationMotif Target { get; private set; }
-        public ModLocationOnPeptideOrProtein? Position { get; private set; }
+        public string Position { get; private set; }
         public ChemicalFormula ChemicalFormula { get; private set; }
-        public double? MonoisotopicMass { get; private set; }
+        private double? monoisotopicMass = null;
+
+        public double? MonoisotopicMass
+        {
+            get
+            {
+                return RoundedDouble(monoisotopicMass);
+            }
+            private set
+            {
+                monoisotopicMass = value;
+            }
+        }
+
         public Dictionary<string, IList<string>> DatabaseReference { get; private set; }
         public Dictionary<string, IList<string>> TaxonomicRange { get; private set; }
         public List<string> Keywords { get; private set; }
@@ -26,18 +39,18 @@ namespace Proteomics
 
         public bool ValidModification
         {
-            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Position != null && this.ModificationType != null); }
+            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Position != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
             private set { ValidModification = value; }
         }
 
-        public ModificationGeneral(string _Id, string _Accession, string _ModificationType, string _FeatureType, ModificationMotif _Target, string _Position, ChemicalFormula _ChemicalFormula, double? _MonoisotopicMass, Dictionary<string, IList<string>> _DatabaseReference, Dictionary<string, IList<string>> _TaxonomicRange, List<string> _Keywords, Dictionary<DissociationType, List<double>> _NeutralLosses, Dictionary<DissociationType, List<double>> _DiagnosticIons, string _FileOrigin)
+        public ModificationGeneral(string _Id = null, string _Accession = null, string _ModificationType = null, string _FeatureType = null, ModificationMotif _Target = null, string _Position = "Unassigned.", ChemicalFormula _ChemicalFormula = null, double? _MonoisotopicMass = null, Dictionary<string, IList<string>> _DatabaseReference = null, Dictionary<string, IList<string>> _TaxonomicRange = null, List<string> _Keywords = null, Dictionary<DissociationType, List<double>> _NeutralLosses = null, Dictionary<DissociationType, List<double>> _DiagnosticIons = null, string _FileOrigin = null)
         {
             this.Id = _Id;
             this.Accession = _Accession;
             this.ModificationType = _ModificationType;
             this.FeatureType = _FeatureType;
             this.Target = _Target;
-            this.Position = Localization(_Position);
+            this.Position = ModLocationOnPeptideOrProtein(_Position);
             this.ChemicalFormula = _ChemicalFormula;
             this.MonoisotopicMass = _MonoisotopicMass;
             this.DatabaseReference = _DatabaseReference;
@@ -48,28 +61,33 @@ namespace Proteomics
             this.FileOrigin = _FileOrigin;
         }
 
-        public static ModLocationOnPeptideOrProtein? Localization(string myLocalization)
+        public static string ModLocationOnPeptideOrProtein(string modLocation)
         {
-            switch (myLocalization)
+            List<string> locationList = new List<string>
             {
-                case "N-terminal.":
-                    return ModLocationOnPeptideOrProtein.NProt;
-
-                case "C-terminal.":
-                    return ModLocationOnPeptideOrProtein.ProtC;
-
-                case "Peptide N-terminal.":
-                    return ModLocationOnPeptideOrProtein.NPep;
-
-                case "Peptide C-terminal.":
-                    return ModLocationOnPeptideOrProtein.PepC;
-
-                case "Anywhere.":
-                    return ModLocationOnPeptideOrProtein.Any;
-
-                default:
-                    return null;
+                "N-terminal.",
+                "C-terminal.",
+                "Peptide N-terminal.",
+                "Peptide C-terminal.",
+                "Anywhere."
+            };
+            if (locationList.Contains(modLocation))
+            {
+                return modLocation;
             }
+            else
+            {
+                return "Unassigned.";
+            }
+        }
+
+        public double? RoundedDouble(double? myNumber)
+        {
+            if (myNumber != null)
+            {
+                myNumber = Math.Round((double)myNumber, 9, MidpointRounding.AwayFromZero);
+            }
+            return myNumber;
         }
 
         public override bool Equals(object o)
@@ -98,7 +116,7 @@ namespace Proteomics
             if (this.Target != null)
             { sb.AppendLine("TG   " + this.Target); } // at this stage, each mod has only one target though many may have the same Id
             if (this.Position != null)
-            { sb.AppendLine("PP   " + this.Position + "."); }
+            { sb.AppendLine("PP   " + this.Position); }
             if (this.ChemicalFormula != null)
             { sb.AppendLine("CF   " + this.ChemicalFormula.Formula); }
             if (this.MonoisotopicMass != null)
@@ -158,7 +176,7 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(myKey + ":" + myValues[i]);
+                            myLine.Append(myKey + ":" + RoundedDouble(myValues[i]));
                             if (i < myValues.Count)
                                 myLine.Append(" or ");
                         }
@@ -180,7 +198,7 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(myKey + ":" + myValues[i]);
+                            myLine.Append(myKey + ":" + RoundedDouble(myValues[i]));
                             if (i < myValues.Count)
                                 myLine.Append(" or ");
                         }
