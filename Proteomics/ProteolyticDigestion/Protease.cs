@@ -78,7 +78,7 @@ namespace Proteomics.ProteolyticDigestion
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
                 // retain methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M') 
+                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M')
                     && OkayLength(protein.Length, minPeptidesLength, maxPeptidesLength))
                 {
                     peptides.Add(new Peptide(protein, 1, protein.Length, 0, "full"));
@@ -420,7 +420,7 @@ namespace Proteomics.ProteolyticDigestion
                     && proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1 >= 0
                     && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1, sequenceInducingCleavage.Item1.Length)
                         .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (sequenceInducingCleavage.Item2 == TerminusType.N 
+                || (sequenceInducingCleavage.Item2 == TerminusType.N
                     && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
                     && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Item1.Length)
                         .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
@@ -444,7 +444,6 @@ namespace Proteomics.ProteolyticDigestion
                     && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1, sequencePreventingCleavage.Item1.Length)
                         .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
         }
-
 
         /// <summary>
         /// Is length of given peptide okay, given minimum?

@@ -88,9 +88,7 @@ namespace Test
         public static void TestPeptideWithSetModifications()
         {
             var prot = new Protein("M", null);
-            var protease = new Protease("Custom Protease7", new List<Tuple<string, TerminusType>> { new Tuple<string, TerminusType>("K", TerminusType.C) }, new List<Tuple<string, TerminusType>>(), CleavageSpecificity.Full, null, null, null);
-            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
-            DigestionParams digestionParams = new DigestionParams(protease: "Custom Protease7", maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3);
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
             List<ModificationGeneral> variableModifications = new List<ModificationGeneral>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
 
@@ -105,6 +103,9 @@ namespace Test
             Assert.AreEqual("[H]M[H][H]", ye.Last().SequenceWithChemicalFormulas);
 
             double m1 = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
+
+            m1 = Math.Round((double)m1, 9, MidpointRounding.AwayFromZero);
+
             double m2 = ye.Last().MonoisotopicMass;
             double m3 = m1 - m2;
 
