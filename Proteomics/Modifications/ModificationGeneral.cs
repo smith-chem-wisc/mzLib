@@ -44,6 +44,7 @@ namespace Proteomics
         }
 
         public ModificationGeneral(string _Id = null, string _Accession = null, string _ModificationType = null, string _FeatureType = null, ModificationMotif _Target = null, string _Position = "Unassigned.", ChemicalFormula _ChemicalFormula = null, double? _MonoisotopicMass = null, Dictionary<string, IList<string>> _DatabaseReference = null, Dictionary<string, IList<string>> _TaxonomicRange = null, List<string> _Keywords = null, Dictionary<DissociationType, List<double>> _NeutralLosses = null, Dictionary<DissociationType, List<double>> _DiagnosticIons = null, string _FileOrigin = null)
+
         {
             this.Id = _Id;
             this.Accession = _Accession;

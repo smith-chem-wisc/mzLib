@@ -144,11 +144,6 @@ namespace UsefulProteomicsDatabases
                     {
                         case "ID": // Mandatory
                             _Id = modValue;
-                            if (modValue == "N,N,N-trimethylglycine")
-                            {
-                                int i = 1;
-                                i++;
-                            }
                             break;
 
                         case "AC": // Do not use! Only present in UniProt ptmlist

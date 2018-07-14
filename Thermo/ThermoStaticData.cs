@@ -190,7 +190,14 @@ namespace IO.Thermo
             theConnection.GetMassAnalyzerTypeForScanNum(nScanNumber, ref pnMassAnalyzerType);
 
             object pvarNoisePacket = null;
-            theConnection.GetNoiseData(ref pvarNoisePacket, nScanNumber);
+            try //if there is no noise data
+            {
+                theConnection.GetNoiseData(ref pvarNoisePacket, nScanNumber);
+            }
+            catch
+            {
+                //pvarNoisePAcket is already null
+            }
             double[,] noiseData = pvarNoisePacket as double[,];
 
             double[,] data;
