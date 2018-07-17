@@ -21,6 +21,75 @@ namespace FlashLFQ
             peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
         }
 
+        public void MergeResultsWith(FlashLFQResults mergeFrom)
+        {
+            this.spectraFiles.AddRange(mergeFrom.spectraFiles);
+
+            foreach (var pep in mergeFrom.peptideBaseSequences)
+            {
+                if (this.peptideBaseSequences.TryGetValue(pep.Key, out var peptide))
+                {
+                    Peptide mergeFromPep = pep.Value;
+                    Peptide mergeToPep = peptide;
+
+                    foreach (SpectraFileInfo file in mergeFrom.spectraFiles)
+                    {
+                        mergeToPep.SetIntensity(file, mergeFromPep.GetIntensity(file));
+                        mergeToPep.SetDetectionType(file, mergeFromPep.GetDetectionType(file));
+                    }
+                }
+                else
+                {
+                    this.peptideBaseSequences.Add(pep.Key, pep.Value);
+                }
+            }
+            foreach (var pep in mergeFrom.peptideModifiedSequences)
+            {
+                if (this.peptideModifiedSequences.TryGetValue(pep.Key, out var peptide))
+                {
+                    Peptide mergeFromPep = pep.Value;
+                    Peptide mergeToPep = peptide;
+
+                    foreach (SpectraFileInfo file in mergeFrom.spectraFiles)
+                    {
+                        mergeToPep.SetIntensity(file, mergeFromPep.GetIntensity(file));
+                        mergeToPep.SetDetectionType(file, mergeFromPep.GetDetectionType(file));
+                    }
+                }
+                else
+                {
+                    this.peptideModifiedSequences.Add(pep.Key, pep.Value);
+                }
+            }
+            foreach (var pg in mergeFrom.proteinGroups)
+            {
+                if (this.proteinGroups.TryGetValue(pg.Key, out var proteinGroup))
+                {
+                    ProteinGroup mergeFromPg = pg.Value;
+                    ProteinGroup mergeToPg = proteinGroup;
+                    foreach (var intensity in mergeFromPg.intensities)
+                    {
+                        mergeToPg.intensities.Add(intensity.Key, intensity.Value);
+                    }
+                }
+                else
+                {
+                    this.proteinGroups.Add(pg.Key,pg.Value);
+                }
+            }
+            foreach (var fromPeaks in mergeFrom.peaks)
+            {
+                if (this.peaks.TryGetValue(fromPeaks.Key, out var toPeaks))
+                {
+                    toPeaks.AddRange(fromPeaks.Value);
+                }
+                else
+                {
+                    this.peaks.Add(fromPeaks.Key, fromPeaks.Value);
+                }
+            }
+        }
+
         public void CalculatePeptideResults(bool sumByBaseSequenceNotModifiedSequence)
         {
             foreach (var file in peaks)

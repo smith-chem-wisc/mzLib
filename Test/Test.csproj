@@ -79,6 +79,10 @@
       <Project>{edf2377d-9fa8-4f85-a3e5-63fe085f956f}</Project>
       <Name>Chromatography</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj">
+      <Project>{ACE491E5-AC71-4B19-99C9-A947E92EB6C1}</Project>
+      <Name>FlashLFQ</Name>
+    </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
@@ -152,10 +156,25 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\sampleModFileFail_missingPosition.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\SampleMod_Comments.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\SampleMod_NoComments.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="ModificationTests\CommonArtifacts.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="ModificationTests\CommonBiological.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ModificationTests\ModsWithComments.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <None Include="DatabaseTests\sampleModFileFail6.txt">

@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
 
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
-            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b=>b.id);
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b => b.id);
         }
 
         /// <summary>
@@ -58,18 +58,18 @@ namespace UsefulProteomicsDatabases
             {
                 List<string> modification_specification = new List<string>();
 
-                while (uniprot_mods.Peek() != -1)
+                //This block will read one complete modification entry at a time until the EOF is reached.
+                while (uniprot_mods.Peek() != -1) //The Peek method returns an integer value in order to determine whether the end of the file, or another error has occurred.
                 {
                     string line = uniprot_mods.ReadLine();
                     modification_specification.Add(line);
                     if (line.StartsWith("//"))
                     {
                         foreach (var mod in ReadMod(modification_specification, formalChargesDictionary))
-                            yield return mod;
+                        { yield return mod; }
                         modification_specification = new List<string>();
                     }
                 }
-
             }
         }
 
@@ -127,43 +127,57 @@ namespace UsefulProteomicsDatabases
             {
                 if (line.Length >= 2)
                 {
-                    switch (line.Substring(0, 2))
+                    string modKey = line.Substring(0, 2);
+                    string modValue = null;
+                    if (line.Length > 5)
+                    {
+                        try
+                        {
+                            modValue = line.Split('#')[0].Trim().Substring(5);
+                        }
+                        catch
+                        {
+                            //This catches a bug where there is a correct two letter code entry but no information that follows. so, when trim get's at it, the string is not at least 5 characters and then there is a crash.
+                        }
+                    }
+
+                    switch (modKey)
                     {
                         case "ID": // Mandatory
-                            id = line.Substring(5);
+                            id = modValue;
                             break;
 
                         case "AC": // Do not use! Only present in UniProt ptmlist
-                            uniprotAC = line.Substring(5);
+                            uniprotAC = modValue;
                             break;
 
                         case "FT": // Optional
-                            uniprotFT = line.Substring(5);
+                            uniprotFT = modValue;
                             break;
 
                         case "TG": // Which amino acid(s) or motifs is the modification on
-                            motifs = new List<string>(line.Substring(5).TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
+                            motifs = new List<string>(modValue.TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None));
                             break;
 
                         case "PP": // Terminus localization
-                            terminusLocalizationString = line.Substring(5);
+                            terminusLocalizationString = modValue;
                             break;
 
                         case "CF": // Correction formula
-                            correctionFormula = ChemicalFormula.ParseFormula(line.Substring(5).Replace(" ", string.Empty));
+                            correctionFormula = ChemicalFormula.ParseFormula(modValue.Replace(" ", string.Empty));
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
                             {
-                                if (!double.TryParse(line.Substring(5), NumberStyles.Any, CultureInfo.InvariantCulture, out double thisMM))
-                                    throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass");
+                                if (!double.TryParse(modValue, NumberStyles.Any, CultureInfo.InvariantCulture, out double thisMM))
+                                { throw new MzLibException(modValue + " is not a valid monoisotopic mass"); }
                                 monoisotopicMass = thisMM;
                             }
                             break;
 
                         case "DR": // External database links!
                             {
-                                var splitString = line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
+                                var splitString = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
                                 if (externalDatabaseLinks.TryGetValue(splitString[0], out IList<string> val))
                                     val.Add(splitString[1]);
                                 else
@@ -173,7 +187,7 @@ namespace UsefulProteomicsDatabases
 
                         case "KW": // ; Separated keywords
                             {
-                                keywords = new List<string>(line.Substring(5).TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
+                                keywords = new List<string>(modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
                             }
                             break;
 
@@ -182,27 +196,33 @@ namespace UsefulProteomicsDatabases
                         case "NL": // Netural Losses. If field doesn't exist, single equal to 0
                             try
                             {
-                                neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
+                                neutralLosses = new List<double>(modValue.Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
                             }
                             catch (MzLibException)
                             {
-                                neutralLosses = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                                neutralLosses = new List<double>(modValue.Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             }
                             break;
 
                         case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
                             try
                             {
-                                diagnosticIons = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
+                                var ok = line;
+                                var ok2 = ok.Split('#');
+                                var ok3 = ok2[0];
+                                var ok4 = ok3.Trim();
+                                var ok5 = ok4.Substring(5);
+
+                                diagnosticIons = new List<double>(modValue.Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => ChemicalFormula.ParseFormula(b).MonoisotopicMass));
                             }
                             catch (MzLibException)
                             {
-                                diagnosticIons = new List<double>(line.Substring(5).Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
+                                diagnosticIons = new List<double>(modValue.Split(new string[] { " or " }, StringSplitOptions.RemoveEmptyEntries).Select(b => double.Parse(b, CultureInfo.InvariantCulture)));
                             }
                             break;
 
                         case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                            modificationType = line.Substring(5);
+                            modificationType = modValue;
                             break;
 
                         case "//":
@@ -287,6 +307,8 @@ namespace UsefulProteomicsDatabases
                             else
                                 throw new MzLibException("Could not get modification site from " + terminusLocalizationString);
                             break;
+                        default:
+                            break; 
                     }
                 }
             }

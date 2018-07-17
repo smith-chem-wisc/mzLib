@@ -1,0 +1,14 @@
+﻿ID   3'-nitrotyrosine
+AC   PTM-0434
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+CF   H-1 N1 O2
+MM   44.985078
+MA   45.00
+LC   Extracellular localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Nitration.
+DR   RESID; AA0537.
+DR   PSI-MOD; MOD:01786.
+//
