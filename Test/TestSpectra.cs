@@ -206,6 +206,26 @@ namespace Test
         }
 
         [Test]
+        public void TestDotProduct()
+        {
+            double[] array1 = { 1 };
+            double[] array2 = { 2 };
+            double[] array3 = { 1, 2 };
+            double[] array4 = { 1, 1 };
+
+            MzSpectrum spec1 = new MzSpectrum(array1, array1, false);
+            MzSpectrum spec2 = new MzSpectrum(array2, array1, false);
+            MzSpectrum spec3 = new MzSpectrum(array3, array4, false);
+            Tolerance tolerance = new PpmTolerance(10);
+
+            Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec3, tolerance), spec3.CalculateDotProductSimilarity(spec1, tolerance));
+
+            Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec2, tolerance), 0);
+            Assert.AreEqual(spec2.CalculateDotProductSimilarity(spec2, tolerance), 1);
+            Assert.IsTrue(tolerance.Within(spec3.CalculateDotProductSimilarity(spec2, tolerance), 0.7071));
+        }
+
+        [Test]
         public void TestNumPeaksWithinRange()
         {
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
