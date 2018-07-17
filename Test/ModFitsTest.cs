@@ -10,7 +10,7 @@ namespace Test
         public static void TestModFits()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            ModificationGeneral attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            ModificationGeneral attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
 
             Protein protein = new Protein("M", null);
             int peptideOneBasedIndex = 1;
@@ -19,27 +19,27 @@ namespace Test
             Assert.IsTrue(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("M", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
             Assert.IsTrue(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("N", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
             Assert.IsFalse(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("Mx", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
             Assert.IsFalse(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("Mr", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
             Assert.IsFalse(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("xM", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
             Assert.IsFalse(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("Nxs", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
 
             protein = new Protein("MNRS", null);
             peptideOneBasedIndex = 1;
@@ -48,7 +48,7 @@ namespace Test
             Assert.IsFalse(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("Nxs", out motif);
-            attemptToLocalize = new ModificationGeneral(_Target: motif, _Position: "Anywhere.", _MonoisotopicMass: double.NaN);
+            attemptToLocalize = new ModificationGeneral(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
 
             protein = new Protein("MNRS", null);
             peptideOneBasedIndex = 1;

@@ -45,5 +45,15 @@ namespace Chemistry
         {
             return Math.Abs(charge) * massToChargeRatio - charge * Constants.ProtonMass;
         }
+
+        public static double? RoundedDouble(this double? myNumber, int places = 9)
+        {
+            if (myNumber != null)
+            {
+                myNumber = Math.Round((double)myNumber, places, MidpointRounding.AwayFromZero);
+            }
+            return myNumber;
+        }
+
     }
 }

@@ -317,7 +317,7 @@ namespace Test
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].ModificationType, ok[0].OneBasedPossibleLocalizedModifications[4][0].ModificationType);
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).DatabaseReference, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).DatabaseReference);
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).Target, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).Target);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).Position, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).Position);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).LocationRestriction, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationGeneral).LocationRestriction);
 
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as ModificationGeneral).DiagnosticIons, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as ModificationGeneral).DiagnosticIons);
             Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as ModificationGeneral).NeutralLosses, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as ModificationGeneral).NeutralLosses);

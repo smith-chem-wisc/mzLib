@@ -53,7 +53,7 @@ namespace Test
         public static void Test_ModificationWithNoMassWritten()
         {
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            var mod1 = new ModificationGeneral(_Id: "mod", _ModificationType: "type", _Target: motif, _Position: "Anywhere.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
+            var mod1 = new ModificationGeneral(_id: "mod", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
             var mod1string = mod1.ToString();
             Assert.IsTrue(mod1string.Contains("MM"));
             var modAfterWriteRead = PtmListLoaderGeneral.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as ModificationGeneral;
@@ -211,8 +211,8 @@ namespace Test
         public void Test_modification3_hash_set() // numerical tolerance is 1e-9 so these two mods need to evaluate as identical
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationGeneral m1 = new ModificationGeneral(_Id: "id1", _ModificationType: "modificationType", _Target: motif, _Position: "Anywhere.", _MonoisotopicMass: 1.11111d, _DatabaseReference: new Dictionary<string, IList<string>>(), _NeutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _DiagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
-            ModificationGeneral m2 = new ModificationGeneral(_Id: "id1", _ModificationType: "modificationType", _Target: motif, _Position: "Anywhere.", _MonoisotopicMass: 1.11111d - 1e-10, _DatabaseReference: new Dictionary<string, IList<string>>(), _NeutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _DiagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            ModificationGeneral m1 = new ModificationGeneral(_id: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            ModificationGeneral m2 = new ModificationGeneral(_id: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
             m1.DatabaseReference.Add("key", new List<string> { "value" });
             m2.DatabaseReference.Add("key", new List<string> { "value" });
 

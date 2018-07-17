@@ -52,6 +52,7 @@ namespace Proteomics.ProteolyticDigestion
             DigestionParams = digestionParams;
         }
 
+
         public double MonoisotopicMass
         {
             get
@@ -65,13 +66,8 @@ namespace Proteomics.ProteolyticDigestion
                     }
                     _monoisotopicMass += BaseSequence.Select(b => Residue.ResidueMonoisotopicMass[b]).Sum();
                 }
-                return RoundedDouble(_monoisotopicMass.Value);//rounding this at 1e-9 tolerance
+                return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
-        }
-
-        public double RoundedDouble(double myNumber)
-        {
-            return Math.Round((double)myNumber, 9, MidpointRounding.AwayFromZero);
         }
 
         public virtual string Sequence
@@ -275,7 +271,7 @@ namespace Proteomics.ProteolyticDigestion
                 vvv.Remove(j + 2);
             }
 
-            vvv.Add(j + 2, new ModificationGeneral(null, null, null, null, null, "Anywhere.", null, massToLocalize + massOfExistingMod, null, null, null, null, null, null));
+            vvv.Add(j + 2, new ModificationGeneral(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
             var hm = new PeptideWithSetModifications(NumFixedMods, Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, vvv, MissedCleavages);
 
             return hm;

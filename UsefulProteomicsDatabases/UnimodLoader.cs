@@ -81,7 +81,7 @@ namespace UsefulProteomicsDatabases
                     };
 
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationGeneral(_Id: id, _ModificationType: "Unimod", _Target: motif, _Position: pos, _ChemicalFormula: cf, _DatabaseReference: dblinks);
+                        yield return new ModificationGeneral(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
                     else
                     {
                         Dictionary<MassSpectrometry.DissociationType, List<double>> neutralLosses = null;
@@ -138,7 +138,7 @@ namespace UsefulProteomicsDatabases
                                 }
                             }
                         }
-                        yield return new ModificationGeneral(_Id: id, _Target: motif, _Position: "Anywhere.", _ModificationType: "Unimod", _ChemicalFormula: cf, _DatabaseReference: dblinks, _NeutralLosses: neutralLosses);
+                        yield return new ModificationGeneral(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
                     }
                 }
             }

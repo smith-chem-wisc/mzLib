@@ -180,7 +180,7 @@ namespace Test
         public void SampleModFileLoadingFail2()
         {
             var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt"));
-            Assert.AreEqual(b.First().Position, "Unassigned.");
+            Assert.AreEqual(b.First().LocationRestriction, "Unassigned.");
             Assert.IsFalse(b.First().ValidModification);
         }
 
@@ -282,7 +282,7 @@ namespace Test
 
             var modReadFromFile = sampleModList.First() as ModificationGeneral;
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
-            ModificationGeneral newMod = new ModificationGeneral(_Id: "Palmitoylation of C", _ModificationType: "Type", _Target: motif, _Position: "Anywhere.", _ChemicalFormula: modReadFromFile.ChemicalFormula, _MonoisotopicMass: modReadFromFile.MonoisotopicMass, _FeatureType: "MOD_RES", _FileOrigin: "E:\\GitClones\\mzLib\\Test\\bin\\x64\\Debug\\DatabaseTests\\z.txt");
+            ModificationGeneral newMod = new ModificationGeneral(_id: "Palmitoylation of C", _modificationType: "Type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: modReadFromFile.ChemicalFormula, _monoisotopicMass: modReadFromFile.MonoisotopicMass, _featureType: "MOD_RES", _fileOrigin: "E:\\GitClones\\mzLib\\Test\\bin\\x64\\Debug\\DatabaseTests\\z.txt");
 
             Assert.IsTrue(newMod.Equals(sampleModList.First()));
 

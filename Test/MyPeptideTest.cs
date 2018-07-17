@@ -92,11 +92,11 @@ namespace Test
             List<ModificationGeneral> variableModifications = new List<ModificationGeneral>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
 
-            variableModifications.Add(new ModificationGeneral(_Id: "ProtNmod", _Target: motif, _Position: "N-terminal.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new ModificationGeneral(_Id: "pepNmod", _Target: motif, _Position: "Peptide N-terminal.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new ModificationGeneral(_Id: "resMod", _Target: motif, _Position: "Anywhere.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new ModificationGeneral(_Id: "PepCmod", _Target: motif, _Position: "Peptide C-terminal.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new ModificationGeneral(_Id: "ProtCmod", _Target: motif, _Position: "C-terminal.", _ChemicalFormula: ChemicalFormula.ParseFormula("H"), _MonoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new ModificationGeneral(_id: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new ModificationGeneral(_id: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new ModificationGeneral(_id: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new ModificationGeneral(_id: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new ModificationGeneral(_id: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
 
             var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), variableModifications).ToList();
             Assert.AreEqual(3 * 2 * 3, ye.Count);
@@ -116,18 +116,24 @@ namespace Test
         public static void TestPeptideWithFixedModifications()
         {
             var prot = new Protein("M", null);
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
             List<ModificationGeneral> fixedMods = new List<ModificationGeneral>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            fixedMods.Add(new ModificationGeneral("ProtNmod", null, null, null, motif, "Anywhere.", ChemicalFormula.ParseFormula("H"), GetElement(1).PrincipalIsotope.AtomicMass, null, null, null, null, null, null));
-            fixedMods.Add(new ModificationGeneral("pepNmod", null, null, null, motif, "Peptide N-terminal.", ChemicalFormula.ParseFormula("H"), GetElement(1).PrincipalIsotope.AtomicMass, null, null, null, null, null, null));
-            fixedMods.Add(new ModificationGeneral("resMod", null, null, null, motif, "Anywhere.", ChemicalFormula.ParseFormula("H"), GetElement(1).PrincipalIsotope.AtomicMass, null, null, null, null, null, null));
-            fixedMods.Add(new ModificationGeneral("PepCmod", null, null, null, motif, "Peptide C-terminal.", ChemicalFormula.ParseFormula("H"), GetElement(1).PrincipalIsotope.AtomicMass, null, null, null, null, null, null));
-            fixedMods.Add(new ModificationGeneral("ProtCmod", null, null, null, motif, "C-terminal.", ChemicalFormula.ParseFormula("H"), GetElement(1).PrincipalIsotope.AtomicMass, null, null, null, null, null, null));
 
-            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 1);
+
+
+
+            fixedMods.Add(new ModificationGeneral(_id: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new ModificationGeneral(_id: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new ModificationGeneral(_id: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new ModificationGeneral(_id: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new ModificationGeneral(_id: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+
+
             var ok = prot.Digest(digestionParams, fixedMods, new List<ModificationGeneral>()).ToList();
 
             Assert.AreEqual(1, ok.Count);
+
 
             Assert.AreEqual("[:pepNmod]M[:resMod][:ProtCmod]", ok.First().Sequence);
 

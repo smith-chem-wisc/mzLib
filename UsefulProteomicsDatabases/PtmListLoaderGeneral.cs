@@ -101,26 +101,26 @@ namespace UsefulProteomicsDatabases
 
         private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
-            string _Id = null;
-            string _Accession = null;
-            string _ModificationType = null;
-            string _FeatureType = null;
-            List<ModificationMotif> _Target = null;
-            string _Position = null; //constructor will convert this to enum type
-            ChemicalFormula _ChemicalFormula = null;
-            double? _MonoisotopicMass = null;
+            string _id = null;
+            string _accession = null;
+            string _modificationType = null;
+            string _featureType = null;
+            List<ModificationMotif> _target = null;
+            string _locationRestriction = null; //constructor will convert this to enum type
+            ChemicalFormula _chemicalFormula = null;
+            double? _monoisotopicMass = null;
 
-            Dictionary<string, IList<string>> _DatabaseReference = null;
+            Dictionary<string, IList<string>> _databaseReference = null;
 
-            Dictionary<string, IList<string>> _TaxonomicRange = null;
+            Dictionary<string, IList<string>> _taxonomicRange = null;
 
-            List<string> _Keywords = null;
+            List<string> _keywords = null;
 
-            Dictionary<DissociationType, List<double>> _NeutralLosses = null;
+            Dictionary<DissociationType, List<double>> _neutralLosses = null;
 
-            Dictionary<DissociationType, List<double>> _DiagnosticIons = null;
+            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
 
-            string _FileOrigin = ptmListLocation;
+            string _fileOrigin = ptmListLocation;
 
             foreach (string line in specification)
             {
@@ -143,15 +143,15 @@ namespace UsefulProteomicsDatabases
                     switch (modKey)
                     {
                         case "ID": // Mandatory
-                            _Id = modValue;
+                            _id = modValue;
                             break;
 
                         case "AC": // Do not use! Only present in UniProt ptmlist
-                            _Accession = modValue;
+                            _accession = modValue;
                             break;
 
                         case "FT": // Optional
-                            _FeatureType = modValue;
+                            _featureType = modValue;
                             break;
 
                         case "TG": // Which amino acid(s) or motifs is the modification on
@@ -167,22 +167,22 @@ namespace UsefulProteomicsDatabases
                                 if (ModificationMotif.TryGetMotif(theMotif, out ModificationMotif motif))
                                 { acceptableMotifs.Add(motif); }
                             }
-                            _Target = acceptableMotifs.ToList();
+                            _target = acceptableMotifs.ToList();
                             break;
 
                         case "PP": // Terminus localization
-                            _Position = modValue;
+                            _locationRestriction = modValue;
                             break;
 
                         case "CF": // Correction formula
-                            _ChemicalFormula = ChemicalFormula.ParseFormula(modValue.Replace(" ", string.Empty));
+                            _chemicalFormula = ChemicalFormula.ParseFormula(modValue.Replace(" ", string.Empty));
                             break;
 
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
                             {
                                 if (!double.TryParse(modValue, NumberStyles.Any, CultureInfo.InvariantCulture, out double thisMM))
                                 { throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass"); }
-                                _MonoisotopicMass = thisMM;
+                                _monoisotopicMass = thisMM;
                             }
                             break;
 
@@ -191,19 +191,19 @@ namespace UsefulProteomicsDatabases
                                 var splitString = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
                                 try
                                 {
-                                    _DatabaseReference.TryGetValue(splitString[0], out IList<string> val);
+                                    _databaseReference.TryGetValue(splitString[0], out IList<string> val);
                                     val.Add(splitString[1]);
                                 }
                                 catch
                                 {
-                                    if (_DatabaseReference == null)
+                                    if (_databaseReference == null)
                                     {
-                                        _DatabaseReference = new Dictionary<string, IList<string>>();
-                                        _DatabaseReference.Add(splitString[0], new List<string> { splitString[1] });
+                                        _databaseReference = new Dictionary<string, IList<string>>();
+                                        _databaseReference.Add(splitString[0], new List<string> { splitString[1] });
                                     }
                                     else
                                     {
-                                        _DatabaseReference.Add(splitString[0], new List<string> { splitString[1] });
+                                        _databaseReference.Add(splitString[0], new List<string> { splitString[1] });
                                     }
                                 }
                             }
@@ -214,19 +214,19 @@ namespace UsefulProteomicsDatabases
                                 var splitString = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
                                 try
                                 {
-                                    _TaxonomicRange.TryGetValue(splitString[0], out IList<string> val);
+                                    _taxonomicRange.TryGetValue(splitString[0], out IList<string> val);
                                     val.Add(splitString[1]);
                                 }
                                 catch
                                 {
-                                    if (_TaxonomicRange == null)
+                                    if (_taxonomicRange == null)
                                     {
-                                        _TaxonomicRange = new Dictionary<string, IList<string>>();
-                                        _TaxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
+                                        _taxonomicRange = new Dictionary<string, IList<string>>();
+                                        _taxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
                                     }
                                     else
                                     {
-                                        _TaxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
+                                        _taxonomicRange.Add(splitString[0], new List<string> { splitString[1] });
                                     }
                                 }
                             }
@@ -234,7 +234,7 @@ namespace UsefulProteomicsDatabases
 
                         case "KW": // ; Separated keywords
                             {
-                                _Keywords = new List<string>(modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
+                                _keywords = new List<string>(modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
                             }
                             break;
 
@@ -242,62 +242,62 @@ namespace UsefulProteomicsDatabases
 
                         case "NL": // Netural Losses. when field doesn't exist, single equal to 0. these must all be on one line;
                             {
-                                _NeutralLosses = DiagnosticIonsAndNeutralLosses(modValue);
+                                _neutralLosses = DiagnosticIonsAndNeutralLosses(modValue);
                             }
                             break;
 
                         case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
                             {
-                                _DiagnosticIons = DiagnosticIonsAndNeutralLosses(modValue);
+                                _diagnosticIons = DiagnosticIonsAndNeutralLosses(modValue);
                             }
                             break;
 
                         case "MT": // Modification Type. If the field doesn't exist, set to the database name
-                            _ModificationType = modValue;
+                            _modificationType = modValue;
                             break;
 
                         case "//":
-                            if (_Target == null) //This happens for FT=CROSSLINK modifications. We ignore these for now.
+                            if (_target == null) //This happens for FT=CROSSLINK modifications. We ignore these for now.
                             {
-                                if (_MonoisotopicMass == null && _ChemicalFormula != null)
+                                if (_monoisotopicMass == null && _chemicalFormula != null)
                                 {
-                                    _MonoisotopicMass = _ChemicalFormula.MonoisotopicMass;
+                                    _monoisotopicMass = _chemicalFormula.MonoisotopicMass;
                                 }
-                                if (_MonoisotopicMass != null && _DatabaseReference != null)
+                                if (_monoisotopicMass != null && _databaseReference != null)
                                 {
-                                    _MonoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_MonoisotopicMass, _ChemicalFormula, _DatabaseReference, formalChargesDictionary);
+                                    _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                 }
-                                yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, null, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                yield return new ModificationGeneral(_id, _accession, _modificationType, _featureType, null, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                 break;
                             }
                             else
                             {
-                                if (_Target.Count != 0)
+                                if (_target.Count != 0)
                                 {
-                                    foreach (ModificationMotif motif in _Target)
+                                    foreach (ModificationMotif motif in _target)
                                     {
-                                        if (_MonoisotopicMass == null && _ChemicalFormula != null)
+                                        if (_monoisotopicMass == null && _chemicalFormula != null)
                                         {
-                                            _MonoisotopicMass = _ChemicalFormula.MonoisotopicMass;
+                                            _monoisotopicMass = _chemicalFormula.MonoisotopicMass;
                                         }
-                                        if (_MonoisotopicMass != null && _DatabaseReference != null)
+                                        if (_monoisotopicMass != null && _databaseReference != null)
                                         {
-                                            _MonoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_MonoisotopicMass, _ChemicalFormula, _DatabaseReference, formalChargesDictionary);
+                                            _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                         }
-                                        yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, motif, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                        yield return new ModificationGeneral(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                     }
                                 }
                                 else
                                 {
-                                    if (_MonoisotopicMass == null && _ChemicalFormula != null)
+                                    if (_monoisotopicMass == null && _chemicalFormula != null)
                                     {
-                                        _MonoisotopicMass = _ChemicalFormula.MonoisotopicMass;
+                                        _monoisotopicMass = _chemicalFormula.MonoisotopicMass;
                                     }
-                                    if (_MonoisotopicMass != null && _DatabaseReference != null)
+                                    if (_monoisotopicMass != null && _databaseReference != null)
                                     {
-                                        _MonoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_MonoisotopicMass, _ChemicalFormula, _DatabaseReference, formalChargesDictionary);
+                                        _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                     }
-                                    yield return new ModificationGeneral(_Id, _Accession, _ModificationType, _FeatureType, null, _Position, _ChemicalFormula, _MonoisotopicMass, _DatabaseReference, _TaxonomicRange, _Keywords, _NeutralLosses, _DiagnosticIons, _FileOrigin);
+                                    yield return new ModificationGeneral(_id, _accession, _modificationType, _featureType, null, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                 }
                                 break;
                             }
@@ -308,18 +308,18 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static double AdjustMonoIsotopicMassForFormalCharge(double? _MonoisotopicMass, ChemicalFormula _ChemicalFormula, Dictionary<string, IList<string>> _DatabaseReference, Dictionary<string, int> formalChargesDictionary)
+        private static double AdjustMonoIsotopicMassForFormalCharge(double? _monoisotopicMass, ChemicalFormula _chemicalFormula, Dictionary<string, IList<string>> _databaseReference, Dictionary<string, int> formalChargesDictionary)
         {
-            foreach (var dbAndAccession in _DatabaseReference.SelectMany(b => b.Value.Select(c => b.Key + "; " + c)))
+            foreach (var dbAndAccession in _databaseReference.SelectMany(b => b.Value.Select(c => b.Key + "; " + c)))
                 if (formalChargesDictionary.ContainsKey(dbAndAccession))
                 {
-                    if (_MonoisotopicMass.HasValue)
-                        _MonoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
-                    if (_ChemicalFormula != null)
-                        _ChemicalFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                    if (_monoisotopicMass.HasValue)
+                        _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
+                    if (_chemicalFormula != null)
+                        _chemicalFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
                     break;
                 }
-            return (double)_MonoisotopicMass;
+            return (double)_monoisotopicMass;
         }
 
         public static DissociationType? ModDissociationType(string modType)
@@ -347,20 +347,11 @@ namespace UsefulProteomicsDatabases
                 case "HCD":
                     return DissociationType.HCD;
 
-                case "SA":
-                    return DissociationType.SA;
+                case "EThCD":
+                    return DissociationType.EThCD;
 
-                case "PTR":
-                    return DissociationType.PTR;
-
-                case "NETD":
-                    return DissociationType.NETD;
-
-                case "NPTR":
-                    return DissociationType.NPTR;
-
-                case "ISCID":
-                    return DissociationType.ISCID;
+                case "Custom":
+                    return DissociationType.Custom;
 
                 default:
                     return null;

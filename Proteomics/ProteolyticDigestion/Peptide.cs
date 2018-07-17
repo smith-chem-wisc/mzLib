@@ -98,7 +98,7 @@ namespace Proteomics.ProteolyticDigestion
                 for (int r = 0; r < peptideLength; r++)
                 {
                     if (ModificationLocalization.ModFits(variableModification, Protein, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
-                        && variableModification.Position == "Anywhere.")
+                        && variableModification.LocationRestriction == "Anywhere.")
                     {
                         if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<ModificationGeneral> residueVariableMods))
                         {
@@ -142,7 +142,7 @@ namespace Proteomics.ProteolyticDigestion
                         if (r >= 0 && r < peptideLength
                             && (Protein.IsDecoy ||
                             (ModificationLocalization.ModFits(variableModification, Protein, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
-                                && variableModification.Position == "Anywhere.")))
+                                && variableModification.LocationRestriction == "Anywhere.")))
                         {
                             if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<ModificationGeneral> residueVariableMods))
                             {
@@ -196,7 +196,7 @@ namespace Proteomics.ProteolyticDigestion
         private bool CanBeNTerminalMod(ModificationGeneral variableModification, int peptideLength)
         {
             return ModificationLocalization.ModFits(variableModification, Protein, 1, peptideLength, OneBasedStartResidueInProtein)
-                && (variableModification.Position == "N-terminal." || variableModification.Position == "Peptide N-terminal.");
+                && (variableModification.LocationRestriction == "N-terminal." || variableModification.LocationRestriction == "Peptide N-terminal.");
         }
 
         /// <summary>
@@ -208,7 +208,7 @@ namespace Proteomics.ProteolyticDigestion
         private bool CanBeCTerminalMod(ModificationGeneral variableModification, int peptideLength)
         {
             return ModificationLocalization.ModFits(variableModification, Protein, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1)
-                && (variableModification.Position == "C-terminal." || variableModification.Position == "Peptide C-terminal.");
+                && (variableModification.LocationRestriction == "C-terminal." || variableModification.LocationRestriction == "Peptide C-terminal.");
         }
 
         private static IEnumerable<Dictionary<int, ModificationGeneral>> GetVariableModificationPatterns(Dictionary<int, List<ModificationGeneral>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
@@ -301,7 +301,7 @@ namespace Proteomics.ProteolyticDigestion
             var fixedModsOneIsNterminus = new Dictionary<int, ModificationGeneral>(peptideLength + 3);
             foreach (ModificationGeneral mod in allKnownFixedModifications)
             {
-                switch (mod.Position)
+                switch (mod.LocationRestriction)
                 {
                     case "N-terminal.":
                     case "Peptide N-terminal.":
