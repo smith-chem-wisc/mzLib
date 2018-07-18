@@ -207,6 +207,21 @@ namespace Test
         }
 
         [Test]
+        public void TestSetMzSpectrum()
+        {
+            double[] intensities1 = new double[] { 1 };
+            double[] intensities2 = new double[] { 3 };
+            double[] mz1 = new double[] { 1, 3 };
+            double[] mz2 = new double[] { 57, 85 };
+            MzSpectrum originalSpectrum = new MzSpectrum(mz1, intensities1, false);
+            MsDataScan scans = new MsDataScan(originalSpectrum, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, originalSpectrum.SumOfAllY, null, null, "1");
+            MzSpectrum updatedSpectrum = new MzSpectrum(mz2, intensities2, false);
+            scans.SetMzSpectrum(updatedSpectrum);
+            Assert.AreEqual(mz2, scans.MassSpectrum.XArray);
+            Assert.AreEqual(intensities2, scans.MassSpectrum.YArray);
+        }
+
+        [Test]
         public void TestDotProduct()
         {
             double[] array1 = { 1 };
@@ -222,7 +237,7 @@ namespace Test
             Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec3, tolerance), spec3.CalculateDotProductSimilarity(spec1, tolerance)); //comparison side shouldn't matter
             Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec2, tolerance), 0); //orthogonal spectra give a score of zero
             Assert.AreEqual(spec2.CalculateDotProductSimilarity(spec2, tolerance), 1); //identical spectra give a score of 1
-            Assert.IsTrue(tolerance.Within(spec3.CalculateDotProductSimilarity(spec2, tolerance), Math.Cos(Math.PI/4)));
+            Assert.IsTrue(tolerance.Within(spec3.CalculateDotProductSimilarity(spec2, tolerance), Math.Cos(Math.PI / 4)));
         }
 
         [Test]

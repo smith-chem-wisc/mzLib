@@ -148,6 +148,11 @@ namespace MassSpectrometry
             isolationRange = null;
         }
 
+        public void SetMzSpectrum(MzSpectrum updatedSpectrum)
+        {
+            MassSpectrum = updatedSpectrum;
+        }
+
         public void RefineSelectedMzAndIntensity(MzSpectrum precursorSpectrum)
         {
             if (!IsolationMz.HasValue)
