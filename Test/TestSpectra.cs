@@ -206,6 +206,21 @@ namespace Test
         }
 
         [Test]
+        public void TestSetMzSpectrum()
+        {
+            double[] intensities1 = new double[] { 1 };
+            double[] intensities2 = new double[] { 3 };
+            double[] mz1 = new double[] { 1, 3 };
+            double[] mz2 = new double[] { 57, 85 };
+            MzSpectrum originalSpectrum = new MzSpectrum(mz1, intensities1, false);
+            MsDataScan scans = new MsDataScan(originalSpectrum, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 100), "f", MZAnalyzerType.Orbitrap, originalSpectrum.SumOfAllY, null, null, "1");
+            MzSpectrum updatedSpectrum = new MzSpectrum(mz2, intensities2, false);
+            scans.SetMzSpectrum(updatedSpectrum);
+            Assert.AreEqual(mz2, scans.MassSpectrum.XArray);
+            Assert.AreEqual(intensities2, scans.MassSpectrum.YArray);
+        }
+
+        [Test]
         public void TestNumPeaksWithinRange()
         {
             double[] xArray = { 1, 2, 3, 4, 5, 6, 7 };
