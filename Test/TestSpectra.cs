@@ -220,7 +220,6 @@ namespace Test
             Assert.AreEqual(mz2, scans.MassSpectrum.XArray);
             Assert.AreEqual(intensities2, scans.MassSpectrum.YArray);
 
-        [Test]
         public void TestDotProduct()
         {
             double[] array1 = { 1 };
