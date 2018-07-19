@@ -4,7 +4,7 @@ namespace Proteomics
 {
     public static class ModificationLocalization
     {
-        public static bool ModFits(ModificationGeneral attemptToLocalize, Protein protein, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
+        public static bool ModFits(Modification attemptToLocalize, Protein protein, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
         {
             // First find the capital letter...
             var motif = attemptToLocalize.Target;

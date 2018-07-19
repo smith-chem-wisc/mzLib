@@ -10,11 +10,11 @@ using System.Linq;
 
 namespace UsefulProteomicsDatabases
 {
-    public static class PtmListLoaderGeneral
+    public static class PtmListLoader
     {
         private static readonly Dictionary<string, char> aminoAcidCodes;
 
-        static PtmListLoaderGeneral()
+        static PtmListLoader()
         {
             aminoAcidCodes = new Dictionary<string, char>
             {
@@ -43,7 +43,7 @@ namespace UsefulProteomicsDatabases
             };
         }
 
-        public static IEnumerable<ModificationGeneral> ReadModsFromFile(string ptmListLocation)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
             return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b => b.Id);
         }
@@ -53,7 +53,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
-        public static IEnumerable<ModificationGeneral> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary)
         {
             using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
@@ -79,7 +79,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="storedModifications"></param>
         /// <returns></returns>
-        public static IEnumerable<ModificationGeneral> ReadModsFromString(string storedModifications)
+        public static IEnumerable<Modification> ReadModsFromString(string storedModifications)
         {
             using (StringReader uniprot_mods = new StringReader(storedModifications))
             {
@@ -99,7 +99,7 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static IEnumerable<ModificationGeneral> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
+        private static IEnumerable<Modification> ReadMod(String ptmListLocation, List<string> specification, Dictionary<string, int> formalChargesDictionary)
         {
             string _id = null;
             string _accession = null;
@@ -267,7 +267,7 @@ namespace UsefulProteomicsDatabases
                                 {
                                     _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                 }
-                                yield return new ModificationGeneral(_id, _accession, _modificationType, _featureType, null, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+                                yield return new Modification(_id, _accession, _modificationType, _featureType, null, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                 break;
                             }
                             else
@@ -284,7 +284,7 @@ namespace UsefulProteomicsDatabases
                                         {
                                             _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                         }
-                                        yield return new ModificationGeneral(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+                                        yield return new Modification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                     }
                                 }
                                 else
@@ -297,7 +297,7 @@ namespace UsefulProteomicsDatabases
                                     {
                                         _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                     }
-                                    yield return new ModificationGeneral(_id, _accession, _modificationType, _featureType, null, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+                                    yield return new Modification(_id, _accession, _modificationType, _featureType, null, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                 }
                                 break;
                             }

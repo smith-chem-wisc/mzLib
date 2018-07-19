@@ -12,7 +12,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="digestionParams"></param>
         /// <param name="allKnownFixedModifications"></param>
         /// <param name="variableModifications"></param>
-        public ProteinDigestion(DigestionParams digestionParams, IEnumerable<ModificationGeneral> allKnownFixedModifications, List<ModificationGeneral> variableModifications)
+        public ProteinDigestion(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications, List<Modification> variableModifications)
         {
             DigestionParams = digestionParams;
             Protease = digestionParams.Protease;
@@ -20,8 +20,8 @@ namespace Proteomics.ProteolyticDigestion
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
             MinPeptidesLength = digestionParams.MinPeptideLength;
             MaxPeptidesLength = digestionParams.MaxPeptideLength;
-            AllKnownFixedModifications = allKnownFixedModifications ?? new List<ModificationGeneral>();
-            VariableModifications = variableModifications ?? new List<ModificationGeneral>();
+            AllKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
+            VariableModifications = variableModifications ?? new List<Modification>();
         }
 
         public Protease Protease { get; set; }
@@ -30,8 +30,8 @@ namespace Proteomics.ProteolyticDigestion
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; set; }
         public int MinPeptidesLength { get; set; }
         public int MaxPeptidesLength { get; set; }
-        public IEnumerable<ModificationGeneral> AllKnownFixedModifications { get; set; }
-        public List<ModificationGeneral> VariableModifications { get; set; }
+        public IEnumerable<Modification> AllKnownFixedModifications { get; set; }
+        public List<Modification> VariableModifications { get; set; }
 
         /// <summary>
         /// Gets peptides for semispecific digestion of a protein

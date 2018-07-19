@@ -26,7 +26,7 @@ namespace UsefulProteomicsDatabases
             {position_t.ProteinNterm, TerminusLocalization.NProt }
             };
 
-        internal static IEnumerable<ModificationGeneral> ReadMods(string unimodLocation)
+        internal static IEnumerable<Modification> ReadMods(string unimodLocation)
         {
             var unimodSerializer = new XmlSerializer(typeof(unimod_t));
             var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as unimod_t;
@@ -81,7 +81,7 @@ namespace UsefulProteomicsDatabases
                     };
 
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationGeneral(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
+                        yield return new Modification(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
                     else
                     {
                         Dictionary<MassSpectrometry.DissociationType, List<double>> neutralLosses = null;
@@ -138,7 +138,7 @@ namespace UsefulProteomicsDatabases
                                 }
                             }
                         }
-                        yield return new ModificationGeneral(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
+                        yield return new Modification(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
                     }
                 }
             }

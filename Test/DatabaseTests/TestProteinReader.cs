@@ -100,7 +100,7 @@ namespace Test
                 databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
                 sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
                 proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
-                oneBasedModifications: new Dictionary<int, List<ModificationGeneral>> { { 1, new List<ModificationGeneral> { new ModificationGeneral("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null) } } }
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null) } } }
                 );
 
             Protein p2 = new Protein(
@@ -114,7 +114,7 @@ namespace Test
                 databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
                 sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
                 proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
-                oneBasedModifications: new Dictionary<int, List<ModificationGeneral>> { { 1, new List<ModificationGeneral> { new ModificationGeneral("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
 
             List<Protein> merged = ProteinDbLoader.MergeProteins(new List<Protein> { p, p2 }).ToList();
@@ -132,14 +132,14 @@ namespace Test
         public static void XmlTest()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse,
                 nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -168,13 +168,13 @@ namespace Test
         public static void SeqVarXmlTest()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"), true, DecoyType.Reverse, nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             var target = ok.First(p => !p.IsDecoy);
             Protein decoy = ok.Where(p => p.IsDecoy && p.SequenceVariations.Count() > 0).First();
@@ -205,13 +205,13 @@ namespace Test
         public static void DisulfideXmlTest()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -234,13 +234,13 @@ namespace Test
         public static void XmlTest_2entry()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.Reverse, nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             // proteolysis products check
             Assert.True(ok.All(p => p.ProteolysisProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
@@ -262,13 +262,13 @@ namespace Test
         public static void XmlGzTest()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"), true, DecoyType.Reverse, nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -288,13 +288,13 @@ namespace Test
         public static void XmlFunkySequenceTest()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"), true, DecoyType.Reverse, nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
@@ -304,13 +304,13 @@ namespace Test
         public static void XmlModifiedStartTest()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"), true, DecoyType.Reverse, nice, false, null,
-                out Dictionary<string, ModificationGeneral> un);
+                out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -360,14 +360,14 @@ namespace Test
         public static void Read_xml_mod_collision()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("N-acetylserine", null, "one", null,  motif, "Anywhere.", null, null, null, null, null, null, null, null),
-                new ModificationGeneral("N-acetylserine", null, "two", null,  motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("N-acetylserine", null, "one", null,  motif, "Anywhere.", null, null, null, null, null, null, null, null),
+                new Modification("N-acetylserine", null, "two", null,  motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, nice, false,
-                new List<string>(), out Dictionary<string, ModificationGeneral> un);
+                new List<string>(), out Dictionary<string, Modification> un);
 
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.Id).Contains("N-acetylserine"));
@@ -377,13 +377,13 @@ namespace Test
         public static void Read_xml_exclude_mods()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            var nice = new List<ModificationGeneral>
+            var nice = new List<Modification>
             {
-                new ModificationGeneral("N-acetylserine", null, "exclude_me", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
+                new Modification("N-acetylserine", null, "exclude_me", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, nice, false,
-                new[] { "exclude_me" }, out Dictionary<string, ModificationGeneral> un);
+                new[] { "exclude_me" }, out Dictionary<string, Modification> un);
 
             Assert.False(ok2[0].OneBasedPossibleLocalizedModifications[2].Select(m => m.Id).Contains("N-acetylserine"));
         }
@@ -407,7 +407,7 @@ KW   Oxidation.
 DR   RESID; AA0581.
 DR   PSI-MOD; MOD:00720.
 //";
-            var a = PtmListLoaderGeneral.ReadModsFromString(aString).First();
+            var a = PtmListLoader.ReadModsFromString(aString).First();
 
             string bString =
 @"ID   Oxidation of M
@@ -416,18 +416,18 @@ PP   Anywhere.
 MT   Common Variable
 CF   O1
 //";
-            var b = PtmListLoaderGeneral.ReadModsFromString(bString).First();
+            var b = PtmListLoader.ReadModsFromString(bString).First();
 
-            Assert.IsTrue(Math.Abs((double)(a as ModificationGeneral).MonoisotopicMass - (double)(b as ModificationGeneral).MonoisotopicMass) < 1e-6);
-            Assert.IsTrue(Math.Abs((double)(a as ModificationGeneral).MonoisotopicMass - (double)(b as ModificationGeneral).MonoisotopicMass) > 1e-7);
+            Assert.IsTrue(Math.Abs((double)(a as Modification).MonoisotopicMass - (double)(b as Modification).MonoisotopicMass) < 1e-6);
+            Assert.IsTrue(Math.Abs((double)(a as Modification).MonoisotopicMass - (double)(b as Modification).MonoisotopicMass) > 1e-7);
         }
 
         [Test]
         public static void TestReverseDecoyXML()
         {
-            var nice = new List<ModificationGeneral>();
+            var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
-                new string[] { "exclude_me" }, out Dictionary<string, ModificationGeneral> un);
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
@@ -448,9 +448,9 @@ CF   O1
         [Test]
         public static void TestSlideDecoyXML()
         {
-            var nice = new List<ModificationGeneral>();
+            var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, nice, false,
-                new string[] { "exclude_me" }, out Dictionary<string, ModificationGeneral> un);
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
