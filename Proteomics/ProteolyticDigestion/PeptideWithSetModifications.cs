@@ -175,12 +175,12 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Generates theoretical fragment ions for given product types for this peptide
         /// </summary>
-        public List<TheoreticalFragmentIon> GetTheoreticalFragments(List<ProductType> productTypes)
+        public List<TheoreticalFragmentIon> GetTheoreticalFragments(DissociationType dissociationType)
         {
             // TODO: make this method more self-contained... right now it makes a CompactPeptide (deprecated) and fragments it
             List<TheoreticalFragmentIon> theoreticalFragmentIons = new List<TheoreticalFragmentIon>();
 
-            foreach (var productType in productTypes)
+            foreach (var productType in DissociationTypeCollection.ProductsFromDissociationType[dissociationType])
             {
                 int ionNumberAdd = 1;
                 if (productType == ProductType.BnoB1ions)
@@ -191,12 +191,12 @@ namespace Proteomics.ProteolyticDigestion
 
                 List<ProductType> temp = new List<ProductType> { productType };
                 TerminusType terminusType = ProductTypeMethods.IdentifyTerminusType(temp);
-
-                var productMasses = new CompactPeptide(this, terminusType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
+                
+                var productMasses = new CompactPeptide(this, terminusType, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
 
                 for (int i = 0; i < productMasses.Length; i++)
                 {
-                    theoreticalFragmentIons.Add(new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
+                    theoreticalFragmentIons.Add(  new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
                 }
             }
 
@@ -247,7 +247,7 @@ namespace Proteomics.ProteolyticDigestion
             return essentialSequence;
         }
 
-        public CompactPeptide CompactPeptide(TerminusType terminusType)
+        public CompactPeptide CompactPeptide(TerminusType terminusType, DissociationType dissociationType)
         {
             if (_compactPeptides.TryGetValue(terminusType, out CompactPeptide compactPeptide))
             {
@@ -255,7 +255,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             else
             {
-                CompactPeptide cp = new CompactPeptide(this, terminusType);
+                CompactPeptide cp = new CompactPeptide(this, terminusType, dissociationType);
                 _compactPeptides.Add(terminusType, cp);
                 return cp;
             }

@@ -21,11 +21,13 @@ using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UsefulProteomicsDatabases;
+using MassSpectrometry;
 
 namespace Test
 {
@@ -220,5 +222,243 @@ namespace Test
             Assert.AreEqual(1, mods.Count);
             Assert.IsTrue(m1.Equals(m2));
         }
+
+        [Test]
+        public void TestFragmentationNoMod()
+        {
+            // First we're checking to see if the fragment masses of an unmodified peptide a calculated correctly
+            var prot = new Protein("PEPTIDE", null);
+            DigestionParams digestionParams = new DigestionParams(
+                
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<ModificationGeneral> variableModifications = new List<ModificationGeneral>();
+            var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), variableModifications).ToList();
+
+            // check unmodified
+            var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
+            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD);
+            List<double> neutralMasses = new List<double>();
+            neutralMasses.AddRange(myUnmodFragments.Select(m => m.Mass).ToList());
+            List<double> expectedMasses = new List<double> { 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
+            for (int i = 0; i < neutralMasses.Count; i++)
+            {
+                neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
+            }
+
+            var firstNotSecond = neutralMasses.Except(expectedMasses).ToList();
+            var secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
+
+            Assert.AreEqual(11, myUnmodFragments.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+        }
+
+        [Test]
+        public void TestFragmentationModNoNeutralLoss()
+        {
+            // Now we'll check the mass of modified peptide with no neutral losses
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+            ModificationGeneral mod = new ModificationGeneral(_id: "oxidation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
+            List<ModificationGeneral> modlist = new List<ModificationGeneral> { mod };
+            DigestionParams digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            var prot = new Protein("PEPTIDE", null, oneBasedModifications: new Dictionary<int, List<ModificationGeneral>> { { 4, modlist } });
+            var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+
+            // check unmodified
+            var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
+            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD);
+            var neutralMasses = new List<double>();
+            neutralMasses.AddRange(myUnmodFragments.Select(m => m.Mass).ToList());
+            var expectedMasses = new List<double> { 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
+            for (int i = 0; i < neutralMasses.Count; i++)
+            {
+                neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
+            }
+
+            var firstNotSecond = neutralMasses.Except(expectedMasses).ToList();
+            var secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
+
+            //this is the set without oxidation
+            Assert.AreEqual(11, myUnmodFragments.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+
+            // with oxidation, no neutral loss
+            var modPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+
+            var compactPeptide = modPeptide.CompactPeptide(TerminusType.None, DissociationType.HCD);
+
+
+
+            var myModFragments = modPeptide.GetTheoreticalFragments(DissociationType.HCD);
+            neutralMasses = new List<double>();
+            neutralMasses.AddRange(myModFragments.Select(m => m.Mass).ToList());
+            expectedMasses = new List<double> { 226, 323, 440, 553, 668, 147, 262, 375, 492, 589, 718 };
+            for (int i = 0; i < neutralMasses.Count; i++)
+            {
+                neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
+            }
+
+            firstNotSecond = neutralMasses.Except(expectedMasses).ToList();
+            secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
+
+            //this is the set with oxidation
+            Assert.AreEqual(11, myUnmodFragments.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+
+        }
+
+        [Test]
+        public void Test_FragmentationModNeutralLoss()
+        {
+            // Now we'll check the mass of modified peptide with no neutral losses
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+            ModificationGeneral mod = new ModificationGeneral(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
+            List<ModificationGeneral> modlist = new List<ModificationGeneral> { mod };
+            DigestionParams digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            var prot = new Protein("PEPTIDE", null, oneBasedModifications: new Dictionary<int, List<ModificationGeneral>> { { 4, modlist } });
+            var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+
+            var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count > 0).First();
+
+            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD);
+            var neutralMasses = new List<double>();
+            neutralMasses.AddRange(myModFragments.Select(m => m.Mass).ToList());
+            var expectedMasses = new List<double> { 226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
+            for (int i = 0; i < neutralMasses.Count; i++)
+            {
+                neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
+            }
+
+            var firstNotSecond = neutralMasses.Except(expectedMasses).ToList();
+            var secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
+
+            //this is the set with oxidation
+            Assert.AreEqual(17, myModFragments.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+
+        }
+
+        [Test]
+        public void Test_FragmentationTwoModNeutralLoss()
+        {
+            // Now we'll check the mass of modified peptide with no neutral losses
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+            ModificationGeneral mod = new ModificationGeneral(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
+            List<ModificationGeneral> modlist = new List<ModificationGeneral> { mod };
+            DigestionParams digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            var prot = new Protein("PETTIDE", null, oneBasedModifications: new Dictionary<int, List<ModificationGeneral>> { { 3, modlist }, { 4, modlist} });
+            var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+
+            var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 2).First();
+
+            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD);
+            var neutralMasses = new List<double>();
+            neutralMasses.AddRange(myModFragments.Select(m => m.Mass).ToList());
+            var expectedMasses = new List<double> { 226, 407, 588, 701, 816, 309, 490, 603, 718, 392, 505, 620, 147, 262, 375, 556, 737, 866, 458, 639, 768, 541, 670 };
+            for (int i = 0; i < neutralMasses.Count; i++)
+            {
+                neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
+            }
+            neutralMasses = neutralMasses.Distinct().ToList();
+            var firstNotSecond = neutralMasses.Except(expectedMasses).ToList();
+            var secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
+
+            //this is the set with oxidation
+            Assert.AreEqual(23, neutralMasses.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+
+        }
+
+
+        [Test]
+        public void Test_FragmentationTwoModNeutralLossTwoFragTypes()
+        {
+            // Now we'll check the mass of modified peptide with no neutral losses
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+
+            Dictionary<DissociationType, List<double>> myNeutralLosses = new Dictionary<DissociationType, List<double>>()
+            {
+                { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } },
+                { DissociationType.ETD, new List<double>() { 0 } }
+            };
+
+            ModificationGeneral mod = new ModificationGeneral(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+            List<ModificationGeneral> modlist = new List<ModificationGeneral> { mod };
+            DigestionParams digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            var prot = new Protein("PEPTIDE", null, oneBasedModifications: new Dictionary<int, List<ModificationGeneral>> { { 4, modlist } });
+            var ye = prot.Digest(digestionParams, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+
+            var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 1).First();
+
+            var myModFragmentsHCD = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD);
+
+
+
+            var neutralMassesHCD = new List<double>();
+            neutralMassesHCD.AddRange(myModFragmentsHCD.Select(m => m.Mass).ToList());
+            var expectedMassesHCD = new List<double> {226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
+            for (int i = 0; i < neutralMassesHCD.Count; i++)
+            {
+                neutralMassesHCD[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMassesHCD[i], 0).Value;
+            }
+            neutralMassesHCD = neutralMassesHCD.Distinct().ToList();
+            var firstNotSecond = neutralMassesHCD.Except(expectedMassesHCD).ToList();
+            var secondNotFirst = expectedMassesHCD.Except(neutralMassesHCD).ToList();
+
+            //this is the set with oxidation
+            Assert.AreEqual(17, neutralMassesHCD.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+
+
+
+            var myModFragmentsEtd = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.ETD);
+
+
+            var neutralMassesEtd = new List<double>();
+            neutralMassesEtd.AddRange(myModFragmentsEtd.Select(m => m.Mass).ToList());
+            var expectedMassesEtd = new List<double> { 114, 243, 340, 521, 634, 749, 147, 262, 375, 556, 653, 782, 131, 246, 359, 540, 637, 766 };
+            for (int i = 0; i < neutralMassesEtd.Count; i++)
+            {
+                neutralMassesEtd[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMassesEtd[i], 0).Value;
+            }
+            neutralMassesEtd = neutralMassesEtd.Distinct().ToList();
+            firstNotSecond = neutralMassesEtd.Except(expectedMassesEtd).ToList();
+            secondNotFirst = expectedMassesEtd.Except(neutralMassesEtd).ToList();
+
+            //this is the set with oxidation
+            Assert.AreEqual(18, neutralMassesEtd.Count);
+            Assert.AreEqual(0, firstNotSecond.Count);
+            Assert.AreEqual(0, secondNotFirst.Count);
+
+
+        }
+
     }
 }

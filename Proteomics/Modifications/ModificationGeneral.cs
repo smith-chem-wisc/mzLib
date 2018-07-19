@@ -59,6 +59,11 @@ namespace Proteomics
             this.NeutralLosses = _neutralLosses;
             this.DiagnosticIons = _diagnosticIons;
             this.FileOrigin = _fileOrigin;
+
+            if(this.MonoisotopicMass == null && this.ChemicalFormula != null)
+            {
+                this.MonoisotopicMass = this.ChemicalFormula.MonoisotopicMass;
+            }
         }
 
         public static string ModLocationOnPeptideOrProtein(string _locationRestriction)

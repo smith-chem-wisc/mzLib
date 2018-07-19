@@ -15,8 +15,8 @@ namespace Proteomics.ProteolyticDigestion
         protected static readonly double hydrogenAtomMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
         protected static readonly double waterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
 
-        private const int digitsForRoundingMasses = 7;
-        private const double massTolForPeptideEquality = 1e-7;
+        private const int digitsForRoundingMasses = 9;
+        private const double massTolForPeptideEquality = 1e-9;
 
         public double[] CTerminalMasses { get; protected set; }
         public double[] NTerminalMasses { get; protected set; }
@@ -75,12 +75,12 @@ namespace Proteomics.ProteolyticDigestion
                     var hm = NTerminalMasses[j];
                     if (containsB || (containsBnoB1 && j > 0))
                     {
-                        massesToReturn[i] = hm;
+                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm).Value;
                         i++;
                     }
                     if (containsC)
                     {
-                        massesToReturn[i] = hm + nitrogenAtomMonoisotopicMass + 3 * hydrogenAtomMonoisotopicMass;
+                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm + nitrogenAtomMonoisotopicMass + 3 * hydrogenAtomMonoisotopicMass).Value;
                         i++;
                     }
                 }
@@ -91,12 +91,12 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (containsY)
                     {
-                        massesToReturn[i] = hm + waterMonoisotopicMass;
+                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm + waterMonoisotopicMass).Value;
                         i++;
                     }
                     if (containsZdot)
                     {
-                        massesToReturn[i] = hm + oxygenAtomMonoisotopicMass - nitrogenAtomMonoisotopicMass;
+                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm + oxygenAtomMonoisotopicMass - nitrogenAtomMonoisotopicMass).Value;
                         i++;
                     }
                 }
@@ -177,58 +177,58 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        protected static IEnumerable<double> ComputeFollowingFragmentMasses(PeptideWithSetModifications yyy, double prevMass, int oneBasedIndexToLookAt, int direction)//we're going to have to pass fragmentation type
+        protected static IEnumerable<double> ComputeFollowingFragmentMasses(PeptideWithSetModifications peptide, double prevMass, int residue, int direction, DissociationType dissociationType)//we're going to have to pass fragmentation type
         {
-            ModificationGeneral currentModification = null;
             do
             {
-                if (oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
+                if (residue != 0 && residue != peptide.Length + 1)
                 {
-                    prevMass += Residue.ResidueMonoisotopicMass[yyy[oneBasedIndexToLookAt - 1]];
+                    prevMass += Residue.ResidueMonoisotopicMass[peptide[residue - 1]];
                 }
 
                 // If modification exists
-                if (yyy.AllModsOneIsNterminus.TryGetValue(oneBasedIndexToLookAt + 1, out currentModification))
+                if (peptide.AllModsOneIsNterminus.TryGetValue(residue + 1, out ModificationGeneral currentModification))
                 {
-                    List<double> neutralLossValuesList = new List<double>();
-                    if (currentModification.NeutralLosses.Count == 1 && oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
+                    if ((currentModification.NeutralLosses == null || currentModification.NeutralLosses.Count == 0) && residue != 0 && residue != peptide.Length + 1)
                     {
-                        List<DissociationType> dtList = new List<DissociationType>();
-                        dtList = currentModification.NeutralLosses.Keys.ToList();
-                        DissociationType firstDt = dtList.First();
-                        neutralLossValuesList = currentModification.NeutralLosses[firstDt];
-                        double neutralLoss = neutralLossValuesList.First();
-
-                        prevMass += (double)currentModification.MonoisotopicMass - neutralLoss;
+                        // no neutral losses - just add the modification's mass
+                        prevMass += (double)currentModification.MonoisotopicMass;
                         yield return Math.Round(prevMass, digitsForRoundingMasses);
                     }
-                    else
+                    else if (currentModification.NeutralLosses != null)
                     {
-                        foreach (double nl in neutralLossValuesList)
+                        // neutral losses
+                        if (currentModification.NeutralLosses.TryGetValue(dissociationType, out var neutralLosses))
                         {
-                            double theMass = prevMass + (double)currentModification.MonoisotopicMass - nl;
-                            if (oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1)
+                            // return mass without neutral loss
+                            prevMass += (double)currentModification.MonoisotopicMass;
+                            yield return Math.Round(prevMass, digitsForRoundingMasses);
+
+                            foreach (double loss in neutralLosses)
                             {
-                                yield return Math.Round(theMass, digitsForRoundingMasses);
-                            }
-                            if ((direction == 1 && oneBasedIndexToLookAt + direction < yyy.Length) ||
-                                (direction == -1 && oneBasedIndexToLookAt + direction > 1))
-                            {
-                                foreach (var nextMass in ComputeFollowingFragmentMasses(yyy, theMass, oneBasedIndexToLookAt + direction, direction))
+                                if (loss == 0)
                                 {
-                                    yield return Math.Round(nextMass, digitsForRoundingMasses);
+                                    continue;
+                                }
+
+                                // return the current fragment minus neutral loss
+                                yield return Math.Round(prevMass - loss, digitsForRoundingMasses);
+                                
+                                // generate the remainder of the series with the neutral loss
+                                foreach (var followingMass in ComputeFollowingFragmentMasses(peptide, prevMass, residue + direction, direction, dissociationType))
+                                {
+                                    yield return Math.Round(followingMass - loss, digitsForRoundingMasses);
                                 }
                             }
                         }
-                        break;
                     }
                 }
-                else if (oneBasedIndexToLookAt != 0 && oneBasedIndexToLookAt != yyy.Length + 1) // No modification exists
+                else if (residue != 0 && residue != peptide.Length + 1) // No modification exists
                 {
                     yield return Math.Round(prevMass, digitsForRoundingMasses);
                 }
-                oneBasedIndexToLookAt += direction;
-            } while ((oneBasedIndexToLookAt > 1 && direction == -1) || (oneBasedIndexToLookAt < yyy.Length && direction == 1));
+                residue += direction;
+            } while ((residue > 1 && direction == -1) || (residue < peptide.Length && direction == 1));
         }
     }
 }

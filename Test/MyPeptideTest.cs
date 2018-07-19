@@ -32,13 +32,16 @@ namespace Test
 
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
-            foreach (var huh in pep1.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+
+            var test = pep1.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y });
+
+            foreach (var huh in pep1.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
             {
                 Assert.IsTrue(huh > 0);
             }
             var pep2 = ye[1];
             Assert.IsTrue(pep2.MonoisotopicMass > 0);
-            foreach (var huh in pep2.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep2.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
             {
                 Assert.IsTrue(huh > 0);
             }
@@ -70,14 +73,14 @@ namespace Test
             Assert.AreEqual(2, ye.Count);
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
-            foreach (var huh in pep1.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep1.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
             {
                 Assert.IsTrue(huh > 0);
             }
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);
-            var cool = pep2.CompactPeptide(TerminusType.None).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.Y });
+            var cool = pep2.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.Y });
             Assert.IsTrue(cool[0] > 0);
             Assert.IsTrue(double.IsNaN(cool[1]));
             Assert.IsTrue(double.IsNaN(cool[2]));
