@@ -16,7 +16,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="digestionParams"></param>
         /// <param name="randomSeed">Used when decoy type is shuffle for shuffling the peptides</param>
         /// <returns></returns>
-        public static List<Protein> GenerateDecoys(List<Protein> proteins, DecoyType decoyType)
+        public static List<Protein> GenerateDecoys(List<Protein> proteins, DecoyType decoyType, int maxThreads = -1)
         {
             if (decoyType == DecoyType.None)
             {
@@ -24,11 +24,11 @@ namespace UsefulProteomicsDatabases
             }
             else if (decoyType == DecoyType.Reverse)
             {
-                return GenerateReverseDecoys(proteins);
+                return GenerateReverseDecoys(proteins, maxThreads);
             }
             else if (decoyType == DecoyType.Slide)
             {
-                return GenerateSlideDecoys(proteins);
+                return GenerateSlideDecoys(proteins , maxThreads);
             }
             else
             {
@@ -41,10 +41,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        private static List<Protein> GenerateReverseDecoys(List<Protein> proteins)
+        private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1)
         {
             List<Protein> decoyProteins = new List<Protein>();
-            Parallel.ForEach(proteins, protein =>
+            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
                 Dictionary<int, List<ModificationGeneral>> decoyModifications = null;
                 char[] sequence_array = protein.BaseSequence.ToCharArray();
@@ -121,10 +121,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        private static List<Protein> GenerateSlideDecoys(List<Protein> proteins)
+        private static List<Protein> GenerateSlideDecoys(List<Protein> proteins, int maxThreads = -1)
         {
             List<Protein> decoyProteins = new List<Protein>();
-            Parallel.ForEach(proteins, protein =>
+            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
                 Dictionary<int, List<ModificationGeneral>> decoyModifications = null;
                 int numSlides = 20;

@@ -51,7 +51,7 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<ModificationGeneral> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, ModificationGeneral> unknownModifications)
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, ModificationGeneral> unknownModifications, int maxThreads = -1)
         {
             List<ModificationGeneral> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<ModificationGeneral>();
@@ -92,7 +92,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
         }
 
@@ -160,7 +160,7 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant,
             FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex,
-            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors)
+            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors, int maxThreads = -1)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -251,7 +251,7 @@ namespace UsefulProteomicsDatabases
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
         }
 
