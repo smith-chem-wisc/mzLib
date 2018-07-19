@@ -98,6 +98,35 @@ namespace Test
         }
 
         [Test]
+        public static void FastaTest()
+        {
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out var a);
+            ProteinDbWriter.WriteFastaDatabase(prots, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), "|");
+            List<Protein> prots2 = ProteinDbLoader.LoadProteinFasta(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"),
+                true,
+                DecoyType.None,
+                false,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex,
+                out var un);
+
+            Assert.AreEqual("P62805", prots.First().Accession);
+            Assert.AreEqual("H4_HUMAN", prots.First().Name);
+            Assert.AreEqual("Histone H4", prots.First().FullName);
+            Assert.AreEqual("HIST1H4A", prots.First().GeneNames.First().Item2);
+            Assert.AreEqual("Homo sapiens", prots.First().Organism);
+
+            Assert.AreEqual("P62805", prots2.First().Accession);
+            Assert.AreEqual("H4_HUMAN", prots2.First().Name);
+            Assert.AreEqual("Histone H4", prots2.First().FullName);
+            Assert.AreEqual("HIST1H4A", prots2.First().GeneNames.First().Item2);
+            Assert.AreEqual("Homo sapiens", prots2.First().Organism);
+        }
+
+        [Test]
         public void Test_read_write_read_fasta()
         {
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false,
