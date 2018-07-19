@@ -1,6 +1,6 @@
 ﻿using Chemistry;
 
-namespace MassSpectrometry
+namespace Proteomics.Fragmentation
 {
     public class TheoreticalFragmentIon
     {

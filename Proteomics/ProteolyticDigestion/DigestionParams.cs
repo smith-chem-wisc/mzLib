@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -14,7 +12,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public DigestionParams(string protease = "trypsin", int maxMissedCleavages = 2, int minPeptideLength = 7, int maxPeptideLength = int.MaxValue,
             int maxModificationIsoforms = 1024, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Variable,
-            int maxModsForPeptides = 2, bool semiProteaseDigestion = false, TerminusType terminusTypeSemiProtease = TerminusType.N)
+            int maxModsForPeptides = 2, bool semiProteaseDigestion = false, FragmentationTerminus terminusTypeSemiProtease = FragmentationTerminus.N)
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
@@ -35,7 +33,7 @@ namespace Proteomics.ProteolyticDigestion
         public int MaxModsForPeptide { get; private set; }
         public Protease Protease { get; private set; }
         public bool SemiProteaseDigestion { get; private set; } //for nonspecific searching of proteases
-        public TerminusType TerminusTypeSemiProtease { get; private set; }
+        public FragmentationTerminus TerminusTypeSemiProtease { get; private set; }
 
         public override bool Equals(object obj)
         {

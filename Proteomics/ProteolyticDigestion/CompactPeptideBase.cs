@@ -4,6 +4,7 @@ using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
+using MassSpectrometry;
 
-namespace MassSpectrometry
+namespace Proteomics.Fragmentation
 {
     public class DissociationTypeCollection
     {

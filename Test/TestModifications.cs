@@ -21,6 +21,7 @@ using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections;
@@ -238,7 +239,7 @@ namespace Test
 
             // check unmodified
             var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
-            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD);
+            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             List<double> neutralMasses = new List<double>();
             neutralMasses.AddRange(myUnmodFragments.Select(m => m.Mass).ToList());
             List<double> expectedMasses = new List<double> { 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
@@ -273,7 +274,7 @@ namespace Test
 
             // check unmodified
             var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
-            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD);
+            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             var neutralMasses = new List<double>();
             neutralMasses.AddRange(myUnmodFragments.Select(m => m.Mass).ToList());
             var expectedMasses = new List<double> { 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
@@ -293,11 +294,11 @@ namespace Test
             // with oxidation, no neutral loss
             var modPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 1).First();
 
-            var compactPeptide = modPeptide.CompactPeptide(TerminusType.None, DissociationType.HCD);
+            var compactPeptide = modPeptide.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
 
 
 
-            var myModFragments = modPeptide.GetTheoreticalFragments(DissociationType.HCD);
+            var myModFragments = modPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             neutralMasses = new List<double>();
             neutralMasses.AddRange(myModFragments.Select(m => m.Mass).ToList());
             expectedMasses = new List<double> { 226, 323, 440, 553, 668, 147, 262, 375, 492, 589, 718 };
@@ -334,7 +335,7 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count > 0).First();
 
-            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD);
+            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             var neutralMasses = new List<double>();
             neutralMasses.AddRange(myModFragments.Select(m => m.Mass).ToList());
             var expectedMasses = new List<double> { 226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
@@ -371,7 +372,7 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 2).First();
 
-            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD);
+            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             var neutralMasses = new List<double>();
             neutralMasses.AddRange(myModFragments.Select(m => m.Mass).ToList());
             var expectedMasses = new List<double> { 226, 407, 588, 701, 816, 309, 490, 603, 718, 392, 505, 620, 147, 262, 375, 556, 737, 866, 458, 639, 768, 541, 670 };
@@ -416,7 +417,7 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 1).First();
 
-            var myModFragmentsHCD = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD);
+            var myModFragmentsHCD = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
 
 
 
@@ -438,7 +439,7 @@ namespace Test
 
 
 
-            var myModFragmentsEtd = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.ETD);
+            var myModFragmentsEtd = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.ETD, FragmentationTerminus.Both);
 
 
             var neutralMassesEtd = new List<double>();

@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        public Protease(string name, IEnumerable<Tuple<string, TerminusType>> sequencesInducingCleavage, IEnumerable<Tuple<string, TerminusType>> sequencesPreventingCleavage, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
+        public Protease(string name, IEnumerable<Tuple<string, FragmentationTerminus>> sequencesInducingCleavage, IEnumerable<Tuple<string, FragmentationTerminus>> sequencesPreventingCleavage, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
         {
             Name = name;
             SequencesInducingCleavage = sequencesInducingCleavage;
@@ -18,9 +19,9 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         public string Name { get; }
-        public TerminusType CleavageTerminus { get; }
-        public IEnumerable<Tuple<string, TerminusType>> SequencesInducingCleavage { get; }
-        public IEnumerable<Tuple<string, TerminusType>> SequencesPreventingCleavage { get; }
+        public FragmentationTerminus CleavageTerminus { get; }
+        public IEnumerable<Tuple<string, FragmentationTerminus>> SequencesInducingCleavage { get; }
+        public IEnumerable<Tuple<string, FragmentationTerminus>> SequencesPreventingCleavage { get; }
         public CleavageSpecificity CleavageSpecificity { get; }
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
@@ -414,13 +415,13 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="proteinSequenceIndex"></param>
         /// <param name="sequenceInducingCleavage"></param>
         /// <returns></returns>
-        private bool SequenceInducesCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, TerminusType> sequenceInducingCleavage)
+        private bool SequenceInducesCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, FragmentationTerminus> sequenceInducingCleavage)
         {
-            return (sequenceInducingCleavage.Item2 != TerminusType.N
+            return (sequenceInducingCleavage.Item2 != FragmentationTerminus.N
                     && proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1 >= 0
                     && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1, sequenceInducingCleavage.Item1.Length)
                         .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (sequenceInducingCleavage.Item2 == TerminusType.N
+                || (sequenceInducingCleavage.Item2 == FragmentationTerminus.N
                     && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
                     && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Item1.Length)
                         .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
@@ -433,13 +434,13 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="proteinSequenceIndex"></param>
         /// <param name="sequencePreventingCleavage"></param>
         /// <returns></returns>
-        private bool SequencePreventsCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, TerminusType> sequencePreventingCleavage)
+        private bool SequencePreventsCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, FragmentationTerminus> sequencePreventingCleavage)
         {
-            return (sequencePreventingCleavage.Item2 != TerminusType.N
+            return (sequencePreventingCleavage.Item2 != FragmentationTerminus.N
                     && proteinSequenceIndex + 1 + sequencePreventingCleavage.Item1.Length <= proteinSequence.Length
                     && proteinSequence.Substring(proteinSequenceIndex + 1, sequencePreventingCleavage.Item1.Length)
                         .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (SequencesInducingCleavage.First().Item2 == TerminusType.N
+                || (SequencesInducingCleavage.First().Item2 == FragmentationTerminus.N
                     && proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1 >= 0
                     && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1, sequencePreventingCleavage.Item1.Length)
                         .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase));

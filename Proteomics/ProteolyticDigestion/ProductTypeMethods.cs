@@ -1,4 +1,4 @@
-﻿using MassSpectrometry;
+﻿using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 
@@ -6,20 +6,20 @@ namespace Proteomics.ProteolyticDigestion
 {
     public static class ProductTypeMethods
     {
-        public static TerminusType IdentifyTerminusType(List<ProductType> productTypes)
+        public static FragmentationTerminus IdentifyTerminusType(List<ProductType> productTypes)
         {
             if ((productTypes.Contains(ProductType.B) || productTypes.Contains(ProductType.BnoB1ions) || productTypes.Contains(ProductType.C) || productTypes.Contains(ProductType.Adot))
                 && (productTypes.Contains(ProductType.Y) || productTypes.Contains(ProductType.Zdot) || productTypes.Contains(ProductType.X)))
             {
-                return TerminusType.None;
+                return FragmentationTerminus.Both;
             }
             else if (productTypes.Contains(ProductType.Y) || productTypes.Contains(ProductType.Zdot) || productTypes.Contains(ProductType.X))
             {
-                return TerminusType.C;
+                return FragmentationTerminus.C;
             }
             else //"lp.Contains(ProductType.B) || lp.Contains(ProductType.BnoB1ions) || lp.Contains(ProductType.C) || lp.Contains(ProductType.Adot))"
             {
-                return TerminusType.N;
+                return FragmentationTerminus.N;
             }
         }
 

@@ -19,4 +19,8 @@
     <ProjectReference Include="..\Spectra\Spectra.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="DataScan\" />
+  </ItemGroup>
+
 </Project>

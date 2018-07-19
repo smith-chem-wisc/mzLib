@@ -3,6 +3,7 @@ using MassSpectrometry;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
@@ -18,7 +19,7 @@ namespace Test
         public static void TestGoodPeptide()
         {
             var prot = new Protein("MNNNKQQQQ", null);
-            var protease = new Protease("CustomizedProtease", new List<Tuple<string, TerminusType>> { new Tuple<string, TerminusType>("K", TerminusType.C) }, new List<Tuple<string, TerminusType>>(), CleavageSpecificity.Full, null, null, null);
+            var protease = new Protease("CustomizedProtease", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("K", FragmentationTerminus.C) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -33,15 +34,15 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
 
-            var test = pep1.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y });
+            var test = pep1.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y });
 
-            foreach (var huh in pep1.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep1.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
             {
                 Assert.IsTrue(huh > 0);
             }
             var pep2 = ye[1];
             Assert.IsTrue(pep2.MonoisotopicMass > 0);
-            foreach (var huh in pep2.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep2.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
             {
                 Assert.IsTrue(huh > 0);
             }
@@ -61,7 +62,7 @@ namespace Test
         public static void TestBadPeptide()
         {
             var prot = new Protein("MNNNKQQXQ", null);
-            var protease = new Protease("Custom Protease7", new List<Tuple<string, TerminusType>> { new Tuple<string, TerminusType>("K", TerminusType.C) }, new List<Tuple<string, TerminusType>>(), CleavageSpecificity.Full, null, null, null);
+            var protease = new Protease("Custom Protease7", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("K", FragmentationTerminus.C) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -73,14 +74,14 @@ namespace Test
             Assert.AreEqual(2, ye.Count);
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
-            foreach (var huh in pep1.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep1.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
             {
                 Assert.IsTrue(huh > 0);
             }
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);
-            var cool = pep2.CompactPeptide(TerminusType.None, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.Y });
+            var cool = pep2.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.Y });
             Assert.IsTrue(cool[0] > 0);
             Assert.IsTrue(double.IsNaN(cool[1]));
             Assert.IsTrue(double.IsNaN(cool[2]));

@@ -1,4 +1,6 @@
-namespace MassSpectrometry
+using System.Collections.Generic;
+
+namespace Proteomics.Fragmentation
 {
     public enum ProductType
     {
@@ -35,4 +37,5 @@ namespace MassSpectrometry
         Zdot,
         None
     }
+
 }

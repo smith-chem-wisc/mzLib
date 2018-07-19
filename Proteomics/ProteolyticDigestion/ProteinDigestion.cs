@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -65,7 +66,7 @@ namespace Proteomics.ProteolyticDigestion
             int maxIndex = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex;
             for (int i = 1; i <= maxIndex; i++)
             {
-                if (DigestionParams.TerminusTypeSemiProtease == TerminusType.N) //tricky, it's N because we want the extra peptide at the C terminus |_
+                if (DigestionParams.TerminusTypeSemiProtease == FragmentationTerminus.N) //tricky, it's N because we want the extra peptide at the C terminus |_
                 {
                     if (Protease.OkayLength(oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i], MinPeptidesLength, MaxPeptidesLength))
                     {

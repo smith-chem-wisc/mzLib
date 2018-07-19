@@ -1,6 +1,7 @@
 ﻿using MassSpectrometry;
 using NUnit.Framework;
 using System.Collections.Generic;
+using Proteomics.Fragmentation;
 
 namespace Test
 {

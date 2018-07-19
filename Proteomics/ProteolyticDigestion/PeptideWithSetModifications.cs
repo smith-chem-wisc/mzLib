@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,7 +22,7 @@ namespace Proteomics.ProteolyticDigestion
 
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private bool? HasChemicalFormulas;
-        private readonly Dictionary<TerminusType, CompactPeptide> _compactPeptides = new Dictionary<TerminusType, CompactPeptide>();
+        private readonly Dictionary<FragmentationTerminus, CompactPeptide> _compactPeptides = new Dictionary<FragmentationTerminus, CompactPeptide>();
         private string _sequence;
         private string _sequenceWithChemicalFormulas;
         private double? _monoisotopicMass;
@@ -175,12 +176,14 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Generates theoretical fragment ions for given product types for this peptide
         /// </summary>
-        public List<TheoreticalFragmentIon> GetTheoreticalFragments(DissociationType dissociationType)
+        public List<TheoreticalFragmentIon> GetTheoreticalFragments(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
             // TODO: make this method more self-contained... right now it makes a CompactPeptide (deprecated) and fragments it
             List<TheoreticalFragmentIon> theoreticalFragmentIons = new List<TheoreticalFragmentIon>();
 
-            foreach (var productType in DissociationTypeCollection.ProductsFromDissociationType[dissociationType])
+            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+
+            foreach (var productType in productCollection)
             {
                 int ionNumberAdd = 1;
                 if (productType == ProductType.BnoB1ions)
@@ -190,9 +193,8 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 List<ProductType> temp = new List<ProductType> { productType };
-                TerminusType terminusType = ProductTypeMethods.IdentifyTerminusType(temp);
                 
-                var productMasses = new CompactPeptide(this, terminusType, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
+                var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
 
                 for (int i = 0; i < productMasses.Length; i++)
                 {
@@ -247,16 +249,16 @@ namespace Proteomics.ProteolyticDigestion
             return essentialSequence;
         }
 
-        public CompactPeptide CompactPeptide(TerminusType terminusType, DissociationType dissociationType)
+        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus, DissociationType dissociationType)
         {
-            if (_compactPeptides.TryGetValue(terminusType, out CompactPeptide compactPeptide))
+            if (_compactPeptides.TryGetValue(fragmentationTerminus, out CompactPeptide compactPeptide))
             {
                 return compactPeptide;
             }
             else
             {
-                CompactPeptide cp = new CompactPeptide(this, terminusType, dissociationType);
-                _compactPeptides.Add(terminusType, cp);
+                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus, dissociationType);
+                _compactPeptides.Add(fragmentationTerminus, cp);
                 return cp;
             }
         }
