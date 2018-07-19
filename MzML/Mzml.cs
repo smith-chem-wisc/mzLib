@@ -89,7 +89,7 @@ namespace IO.MzML
         {
         }
 
-        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null)
+        public static Mzml LoadAllStaticData(string filePath, FilteringParams filterParams = null, int maxThreads = -1)
         {
             if (!File.Exists(filePath))
             {
@@ -189,7 +189,7 @@ namespace IO.MzML
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             MsDataScan[] scans = new MsDataScan[numSpecta];
 
-            Parallel.ForEach(Partitioner.Create(0, numSpecta), fff =>
+            Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)
                 {
