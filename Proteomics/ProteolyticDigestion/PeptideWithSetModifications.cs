@@ -1,9 +1,11 @@
 ﻿using Chemistry;
+using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using MassSpectrometry;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -13,13 +15,14 @@ namespace Proteomics.ProteolyticDigestion
         /// dictionary of modifications on a peptide the N terminus is index 1
         /// key indicates which residue modification is on (with 1 being N terminus)
         /// </summary>
-        public readonly Dictionary<int, ModificationWithMass> AllModsOneIsNterminus;
+        public readonly Dictionary<int, ModificationGeneral> AllModsOneIsNterminus;
+
         public readonly DigestionParams DigestionParams;
         public readonly int NumFixedMods;
 
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private bool? HasChemicalFormulas;
-        private readonly Dictionary<TerminusType, CompactPeptide> _compactPeptides = new Dictionary<TerminusType, CompactPeptide>();
+        private readonly Dictionary<FragmentationTerminus, CompactPeptide> _compactPeptides = new Dictionary<FragmentationTerminus, CompactPeptide>();
         private string _sequence;
         private string _sequenceWithChemicalFormulas;
         private double? _monoisotopicMass;
@@ -28,27 +31,28 @@ namespace Proteomics.ProteolyticDigestion
             : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart, modsFromThisOne.PeptideDescription)
         {
             AllModsOneIsNterminus = modsFromThisOne.AllModsOneIsNterminus
-                .Where(b => b.Key > (1 + proteinOneBasedStart - modsFromThisOne.OneBasedStartResidueInProtein) 
+                .Where(b => b.Key > (1 + proteinOneBasedStart - modsFromThisOne.OneBasedStartResidueInProtein)
                     && b.Key <= (2 + proteinOneBasedEnd - modsFromThisOne.OneBasedStartResidueInProtein))
                 .ToDictionary(b => (b.Key + modsFromThisOne.OneBasedStartResidueInProtein - proteinOneBasedStart), b => b.Value);
         }
 
         public PeptideWithSetModifications(int numFixedMods, Protein protein, int proteinOneBasedStart, int proteinOneBasedEnd,
-            Dictionary<int, ModificationWithMass> allModsOneIsNterminus = null, int missedCleavages = 0)
+            Dictionary<int, ModificationGeneral> allModsOneIsNterminus = null, int missedCleavages = 0)
             : base(protein, proteinOneBasedStart, proteinOneBasedEnd, missedCleavages, null)
         {
             NumFixedMods = numFixedMods;
-            AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, ModificationWithMass>();
+            AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, ModificationGeneral>();
         }
 
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
-           Dictionary<int, ModificationWithMass> allModsOneIsNterminus, int numFixedMods)
+           Dictionary<int, ModificationGeneral> allModsOneIsNterminus, int numFixedMods)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
         {
             AllModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
             DigestionParams = digestionParams;
         }
+
 
         public double MonoisotopicMass
         {
@@ -59,11 +63,11 @@ namespace Proteomics.ProteolyticDigestion
                     _monoisotopicMass = WaterMonoisotopicMass;
                     foreach (var mod in AllModsOneIsNterminus.Values)
                     {
-                        _monoisotopicMass += mod.monoisotopicMass;
+                        _monoisotopicMass += mod.MonoisotopicMass;
                     }
                     _monoisotopicMass += BaseSequence.Select(b => Residue.ResidueMonoisotopicMass[b]).Sum();
                 }
-                return _monoisotopicMass.Value;
+                return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
         }
 
@@ -76,25 +80,25 @@ namespace Proteomics.ProteolyticDigestion
                     var subsequence = new StringBuilder();
 
                     // variable modification on peptide N-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(1, out ModificationWithMass pep_n_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(1, out ModificationGeneral pep_n_term_variable_mod))
                     {
-                        subsequence.Append('[' + pep_n_term_variable_mod.modificationType + ":" + pep_n_term_variable_mod.id + ']');
+                        subsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.Id + ']');
                     }
 
                     for (int r = 0; r < Length; r++)
                     {
                         subsequence.Append(this[r]);
                         // variable modification on this residue
-                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationWithMass residue_variable_mod))
+                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationGeneral residue_variable_mod))
                         {
-                            subsequence.Append('[' + residue_variable_mod.modificationType + ":" + residue_variable_mod.id + ']');
+                            subsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.Id + ']');
                         }
                     }
 
                     // variable modification on peptide C-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationWithMass pep_c_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationGeneral pep_c_term_variable_mod))
                     {
-                        subsequence.Append('[' + pep_c_term_variable_mod.modificationType + ":" + pep_c_term_variable_mod.id + ']');
+                        subsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.Id + ']');
                     }
 
                     _sequence = subsequence.ToString();
@@ -121,11 +125,11 @@ namespace Proteomics.ProteolyticDigestion
                     var subsequence = new StringBuilder();
 
                     // variable modification on peptide N-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(1, out ModificationWithMass pep_n_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(1, out ModificationGeneral pep_n_term_variable_mod))
                     {
-                        if (pep_n_term_variable_mod is ModificationWithMassAndCf jj)
+                        if (pep_n_term_variable_mod is ModificationGeneral jj)
                         {
-                            subsequence.Append('[' + jj.chemicalFormula.Formula + ']');
+                            subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
                         }
                         else
                         {
@@ -137,11 +141,11 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         subsequence.Append(this[r]);
                         // variable modification on this residue
-                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationWithMass residue_variable_mod))
+                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationGeneral residue_variable_mod))
                         {
-                            if (residue_variable_mod is ModificationWithMassAndCf jj)
+                            if (residue_variable_mod is ModificationGeneral jj)
                             {
-                                subsequence.Append('[' + jj.chemicalFormula.Formula + ']');
+                                subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
                             }
                             else
                             {
@@ -151,11 +155,11 @@ namespace Proteomics.ProteolyticDigestion
                     }
 
                     // variable modification on peptide C-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationWithMass pep_c_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationGeneral pep_c_term_variable_mod))
                     {
-                        if (pep_c_term_variable_mod is ModificationWithMassAndCf jj)
+                        if (pep_c_term_variable_mod is ModificationGeneral jj)
                         {
-                            subsequence.Append('[' + jj.chemicalFormula.Formula + ']');
+                            subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
                         }
                         else
                         {
@@ -172,12 +176,14 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Generates theoretical fragment ions for given product types for this peptide
         /// </summary>
-        public List<TheoreticalFragmentIon> GetTheoreticalFragments(List<ProductType> productTypes)
+        public List<TheoreticalFragmentIon> GetTheoreticalFragments(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
             // TODO: make this method more self-contained... right now it makes a CompactPeptide (deprecated) and fragments it
             List<TheoreticalFragmentIon> theoreticalFragmentIons = new List<TheoreticalFragmentIon>();
 
-            foreach (var productType in productTypes)
+            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+
+            foreach (var productType in productCollection)
             {
                 int ionNumberAdd = 1;
                 if (productType == ProductType.BnoB1ions)
@@ -187,13 +193,12 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 List<ProductType> temp = new List<ProductType> { productType };
-                TerminusType terminusType = ProductTypeMethods.IdentifyTerminusType(temp);
-
-                var productMasses = new CompactPeptide(this, terminusType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
+                
+                var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
 
                 for (int i = 0; i < productMasses.Length; i++)
                 {
-                    theoreticalFragmentIons.Add(new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
+                    theoreticalFragmentIons.Add(  new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
                 }
             }
 
@@ -210,32 +215,32 @@ namespace Proteomics.ProteolyticDigestion
                 var sbsequence = new StringBuilder();
 
                 // variable modification on peptide N-terminus
-                if (AllModsOneIsNterminus.TryGetValue(1, out ModificationWithMass pep_n_term_variable_mod))
+                if (AllModsOneIsNterminus.TryGetValue(1, out ModificationGeneral pep_n_term_variable_mod))
                 {
-                    if (ModstoWritePruned.ContainsKey(pep_n_term_variable_mod.modificationType))
+                    if (ModstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
                     {
-                        sbsequence.Append('[' + pep_n_term_variable_mod.modificationType + ":" + pep_n_term_variable_mod.id + ']');
+                        sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.Id + ']');
                     }
                 }
                 for (int r = 0; r < Length; r++)
                 {
                     sbsequence.Append(this[r]);
                     // variable modification on this residue
-                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationWithMass residue_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationGeneral residue_variable_mod))
                     {
-                        if (ModstoWritePruned.ContainsKey(residue_variable_mod.modificationType))
+                        if (ModstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
                         {
-                            sbsequence.Append('[' + residue_variable_mod.modificationType + ":" + residue_variable_mod.id + ']');
+                            sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.Id + ']');
                         }
                     }
                 }
 
                 // variable modification on peptide C-terminus
-                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationWithMass pep_c_term_variable_mod))
+                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationGeneral pep_c_term_variable_mod))
                 {
-                    if (ModstoWritePruned.ContainsKey(pep_c_term_variable_mod.modificationType))
+                    if (ModstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                     {
-                        sbsequence.Append('[' + pep_c_term_variable_mod.modificationType + ":" + pep_c_term_variable_mod.id + ']');
+                        sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.Id + ']');
                     }
                 }
 
@@ -244,31 +249,31 @@ namespace Proteomics.ProteolyticDigestion
             return essentialSequence;
         }
 
-        public CompactPeptide CompactPeptide(TerminusType terminusType)
+        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus, DissociationType dissociationType)
         {
-            if (_compactPeptides.TryGetValue(terminusType, out CompactPeptide compactPeptide))
+            if (_compactPeptides.TryGetValue(fragmentationTerminus, out CompactPeptide compactPeptide))
             {
                 return compactPeptide;
             }
             else
             {
-                CompactPeptide cp = new CompactPeptide(this, terminusType);
-                _compactPeptides.Add(terminusType, cp);
+                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus, dissociationType);
+                _compactPeptides.Add(fragmentationTerminus, cp);
                 return cp;
             }
         }
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
-            var vvv = new Dictionary<int, ModificationWithMass>(AllModsOneIsNterminus);
+            var vvv = new Dictionary<int, ModificationGeneral>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
-            if (vvv.TryGetValue(j + 2, out ModificationWithMass modToReplace))
+            if (vvv.TryGetValue(j + 2, out ModificationGeneral modToReplace))
             {
-                massOfExistingMod = modToReplace.monoisotopicMass;
+                massOfExistingMod = (double)modToReplace.MonoisotopicMass;
                 vvv.Remove(j + 2);
             }
 
-            vvv.Add(j + 2, new ModificationWithMass(null, null, null, TerminusLocalization.Any, massToLocalize + massOfExistingMod));
+            vvv.Add(j + 2, new ModificationGeneral(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
             var hm = new PeptideWithSetModifications(NumFixedMods, Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, vvv, MissedCleavages);
 
             return hm;
@@ -278,6 +283,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             return Sequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
+
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;

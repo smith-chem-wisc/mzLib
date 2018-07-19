@@ -23,16 +23,15 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace IO.MzML
 {
     public class Mzml : MsDataFile
     {
-
         private const string _zlibCompression = "MS:1000574";
         private const string _64bit = "MS:1000523";
         private const string _32bit = "MS:1000521";
@@ -197,7 +196,7 @@ namespace IO.MzML
                 }
             });
 
-            //Mzml sometimes have scan numbers specified, but usually not. 
+            //Mzml sometimes have scan numbers specified, but usually not.
             //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
             //Check to make sure that the scans are in order and that there are no duplicate scans
             HashSet<int> checkForDuplicateScans = new HashSet<int>();

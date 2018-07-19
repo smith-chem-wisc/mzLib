@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Proteomics.Fragmentation;
 
 namespace Proteomics
 {
@@ -14,9 +15,22 @@ namespace Proteomics
         public string ModificationType { get; private set; }
         public string FeatureType { get; private set; }
         public ModificationMotif Target { get; private set; }
-        public ModLocationOnPeptideOrProtein? Position { get; private set; }
+        public string LocationRestriction { get; private set; }
         public ChemicalFormula ChemicalFormula { get; private set; }
-        public double? MonoisotopicMass { get; private set; }
+        private double? monoisotopicMass = null;
+
+        public double? MonoisotopicMass
+        {
+            get
+            {
+                return ClassExtensions.RoundedDouble(monoisotopicMass);
+            }
+            private set
+            {
+                monoisotopicMass = value;
+            }
+        }
+
         public Dictionary<string, IList<string>> DatabaseReference { get; private set; }
         public Dictionary<string, IList<string>> TaxonomicRange { get; private set; }
         public List<string> Keywords { get; private set; }
@@ -26,49 +40,54 @@ namespace Proteomics
 
         public bool ValidModification
         {
-            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Position != null && this.ModificationType != null); }
-            private set { ValidModification = value; }
+            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.LocationRestriction != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
         }
 
-        public ModificationGeneral(string _Id, string _Accession, string _ModificationType, string _FeatureType, ModificationMotif _Target, string _Position, ChemicalFormula _ChemicalFormula, double? _MonoisotopicMass, Dictionary<string, IList<string>> _DatabaseReference, Dictionary<string, IList<string>> _TaxonomicRange, List<string> _Keywords, Dictionary<DissociationType, List<double>> _NeutralLosses, Dictionary<DissociationType, List<double>> _DiagnosticIons, string _FileOrigin)
+        public ModificationGeneral(string _id = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
+
         {
-            this.Id = _Id;
-            this.Accession = _Accession;
-            this.ModificationType = _ModificationType;
-            this.FeatureType = _FeatureType;
-            this.Target = _Target;
-            this.Position = Localization(_Position);
-            this.ChemicalFormula = _ChemicalFormula;
-            this.MonoisotopicMass = _MonoisotopicMass;
-            this.DatabaseReference = _DatabaseReference;
-            this.TaxonomicRange = _TaxonomicRange;
-            this.Keywords = _Keywords;
-            this.NeutralLosses = _NeutralLosses;
-            this.DiagnosticIons = _DiagnosticIons;
-            this.FileOrigin = _FileOrigin;
+            this.Id = _id;
+            this.Accession = _accession;
+            this.ModificationType = _modificationType;
+            this.FeatureType = _featureType;
+            this.Target = _target;
+            this.LocationRestriction = ModLocationOnPeptideOrProtein(_locationRestriction);
+            this.ChemicalFormula = _chemicalFormula;
+            this.MonoisotopicMass = _monoisotopicMass;
+            this.DatabaseReference = _databaseReference;
+            this.TaxonomicRange = _taxonomicRange;
+            this.Keywords = _keywords;
+            this.NeutralLosses = _neutralLosses;
+            this.DiagnosticIons = _diagnosticIons;
+            this.FileOrigin = _fileOrigin;
+
+            if(this.MonoisotopicMass == null && this.ChemicalFormula != null)
+            {
+                this.MonoisotopicMass = this.ChemicalFormula.MonoisotopicMass;
+            }
         }
 
-        public static ModLocationOnPeptideOrProtein? Localization(string myLocalization)
+        public static string ModLocationOnPeptideOrProtein(string _locationRestriction)
         {
-            switch (myLocalization)
+            switch (_locationRestriction)
             {
                 case "N-terminal.":
-                    return ModLocationOnPeptideOrProtein.NProt;
+                    return _locationRestriction;
 
                 case "C-terminal.":
-                    return ModLocationOnPeptideOrProtein.ProtC;
+                    return _locationRestriction;
 
                 case "Peptide N-terminal.":
-                    return ModLocationOnPeptideOrProtein.NPep;
+                    return _locationRestriction;
 
                 case "Peptide C-terminal.":
-                    return ModLocationOnPeptideOrProtein.PepC;
+                    return _locationRestriction;
 
                 case "Anywhere.":
-                    return ModLocationOnPeptideOrProtein.Any;
+                    return _locationRestriction;
 
                 default:
-                    return null;
+                    return "Unassigned.";
             }
         }
 
@@ -97,8 +116,8 @@ namespace Proteomics
             { sb.AppendLine("FT   " + this.FeatureType); }
             if (this.Target != null)
             { sb.AppendLine("TG   " + this.Target); } // at this stage, each mod has only one target though many may have the same Id
-            if (this.Position != null)
-            { sb.AppendLine("PP   " + this.Position + "."); }
+            if (this.LocationRestriction != null)
+            { sb.AppendLine("PP   " + this.LocationRestriction); }
             if (this.ChemicalFormula != null)
             { sb.AppendLine("CF   " + this.ChemicalFormula.Formula); }
             if (this.MonoisotopicMass != null)
@@ -158,7 +177,7 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(myKey + ":" + myValues[i]);
+                            myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
                             if (i < myValues.Count)
                                 myLine.Append(" or ");
                         }
@@ -180,7 +199,7 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(myKey + ":" + myValues[i]);
+                            myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
                             if (i < myValues.Count)
                                 myLine.Append(" or ");
                         }
@@ -208,8 +227,8 @@ namespace Proteomics
                 sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.Id);
             if (this.ModificationType == null)
                 sb.AppendLine("#Required field MT missing or malformed. Current value = " + this.ModificationType);
-            if (this.Position == null)
-                sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.Position + ".");
+            if (this.LocationRestriction == null)
+                sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.LocationRestriction + ".");
             if (this.ChemicalFormula == null && this.MonoisotopicMass == null)
                 sb.AppendLine("#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
             sb.Append("#This modification can be found in file " + this.FileOrigin);

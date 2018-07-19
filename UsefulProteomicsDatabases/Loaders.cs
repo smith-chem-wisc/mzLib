@@ -141,7 +141,7 @@ namespace UsefulProteomicsDatabases
             PeriodicTableLoader.Load(elementLocation);
         }
 
-        public static IEnumerable<ModificationWithLocation> LoadUnimod(string unimodLocation)
+        public static IEnumerable<ModificationGeneral> LoadUnimod(string unimodLocation)
         {
             if (!File.Exists(unimodLocation))
             {
@@ -161,13 +161,13 @@ namespace UsefulProteomicsDatabases
             return psimodSerializer.Deserialize(new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as Generated.obo;
         }
 
-        public static IEnumerable<ModificationWithLocation> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
+        public static IEnumerable<ModificationGeneral> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
         {
             if (!File.Exists(uniprotLocation))
             {
                 UpdateUniprot(uniprotLocation);
             }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary).OfType<ModificationWithLocation>();
+            return PtmListLoaderGeneral.ReadModsFromFile(uniprotLocation, formalChargesDictionary).OfType<ModificationGeneral>();
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)

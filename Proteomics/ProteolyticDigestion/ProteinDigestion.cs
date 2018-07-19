@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -11,7 +12,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="digestionParams"></param>
         /// <param name="allKnownFixedModifications"></param>
         /// <param name="variableModifications"></param>
-        public ProteinDigestion(DigestionParams digestionParams, IEnumerable<ModificationWithMass> allKnownFixedModifications, List<ModificationWithMass> variableModifications)
+        public ProteinDigestion(DigestionParams digestionParams, IEnumerable<ModificationGeneral> allKnownFixedModifications, List<ModificationGeneral> variableModifications)
         {
             DigestionParams = digestionParams;
             Protease = digestionParams.Protease;
@@ -19,8 +20,8 @@ namespace Proteomics.ProteolyticDigestion
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
             MinPeptidesLength = digestionParams.MinPeptideLength;
             MaxPeptidesLength = digestionParams.MaxPeptideLength;
-            AllKnownFixedModifications = allKnownFixedModifications ?? new List<ModificationWithMass>();
-            VariableModifications = variableModifications ?? new List<ModificationWithMass>();
+            AllKnownFixedModifications = allKnownFixedModifications ?? new List<ModificationGeneral>();
+            VariableModifications = variableModifications ?? new List<ModificationGeneral>();
         }
 
         public Protease Protease { get; set; }
@@ -29,8 +30,8 @@ namespace Proteomics.ProteolyticDigestion
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; set; }
         public int MinPeptidesLength { get; set; }
         public int MaxPeptidesLength { get; set; }
-        public IEnumerable<ModificationWithMass> AllKnownFixedModifications { get; set; }
-        public List<ModificationWithMass> VariableModifications { get; set; }
+        public IEnumerable<ModificationGeneral> AllKnownFixedModifications { get; set; }
+        public List<ModificationGeneral> VariableModifications { get; set; }
 
         /// <summary>
         /// Gets peptides for semispecific digestion of a protein
@@ -65,7 +66,7 @@ namespace Proteomics.ProteolyticDigestion
             int maxIndex = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex;
             for (int i = 1; i <= maxIndex; i++)
             {
-                if (DigestionParams.TerminusTypeSemiProtease == TerminusType.N) //tricky, it's N because we want the extra peptide at the C terminus |_
+                if (DigestionParams.TerminusTypeSemiProtease == FragmentationTerminus.N) //tricky, it's N because we want the extra peptide at the C terminus |_
                 {
                     if (Protease.OkayLength(oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i], MinPeptidesLength, MaxPeptidesLength))
                     {
