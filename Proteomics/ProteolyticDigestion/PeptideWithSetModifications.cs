@@ -15,7 +15,7 @@ namespace Proteomics.ProteolyticDigestion
         /// dictionary of modifications on a peptide the N terminus is index 1
         /// key indicates which residue modification is on (with 1 being N terminus)
         /// </summary>
-        public readonly Dictionary<int, ModificationGeneral> AllModsOneIsNterminus;
+        public readonly Dictionary<int, Modification> AllModsOneIsNterminus;
 
         public readonly DigestionParams DigestionParams;
         public readonly int NumFixedMods;
@@ -37,15 +37,15 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         public PeptideWithSetModifications(int numFixedMods, Protein protein, int proteinOneBasedStart, int proteinOneBasedEnd,
-            Dictionary<int, ModificationGeneral> allModsOneIsNterminus = null, int missedCleavages = 0)
+            Dictionary<int, Modification> allModsOneIsNterminus = null, int missedCleavages = 0)
             : base(protein, proteinOneBasedStart, proteinOneBasedEnd, missedCleavages, null)
         {
             NumFixedMods = numFixedMods;
-            AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, ModificationGeneral>();
+            AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, Modification>();
         }
 
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
-           Dictionary<int, ModificationGeneral> allModsOneIsNterminus, int numFixedMods)
+           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
         {
             AllModsOneIsNterminus = allModsOneIsNterminus;
@@ -80,7 +80,7 @@ namespace Proteomics.ProteolyticDigestion
                     var subsequence = new StringBuilder();
 
                     // variable modification on peptide N-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(1, out ModificationGeneral pep_n_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
                     {
                         subsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.Id + ']');
                     }
@@ -89,14 +89,14 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         subsequence.Append(this[r]);
                         // variable modification on this residue
-                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationGeneral residue_variable_mod))
+                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
                         {
                             subsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.Id + ']');
                         }
                     }
 
                     // variable modification on peptide C-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationGeneral pep_c_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
                     {
                         subsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.Id + ']');
                     }
@@ -125,9 +125,9 @@ namespace Proteomics.ProteolyticDigestion
                     var subsequence = new StringBuilder();
 
                     // variable modification on peptide N-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(1, out ModificationGeneral pep_n_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
                     {
-                        if (pep_n_term_variable_mod is ModificationGeneral jj)
+                        if (pep_n_term_variable_mod is Modification jj)
                         {
                             subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
                         }
@@ -141,9 +141,9 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         subsequence.Append(this[r]);
                         // variable modification on this residue
-                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationGeneral residue_variable_mod))
+                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
                         {
-                            if (residue_variable_mod is ModificationGeneral jj)
+                            if (residue_variable_mod is Modification jj)
                             {
                                 subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
                             }
@@ -155,9 +155,9 @@ namespace Proteomics.ProteolyticDigestion
                     }
 
                     // variable modification on peptide C-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationGeneral pep_c_term_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
                     {
-                        if (pep_c_term_variable_mod is ModificationGeneral jj)
+                        if (pep_c_term_variable_mod is Modification jj)
                         {
                             subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
                         }
@@ -215,7 +215,7 @@ namespace Proteomics.ProteolyticDigestion
                 var sbsequence = new StringBuilder();
 
                 // variable modification on peptide N-terminus
-                if (AllModsOneIsNterminus.TryGetValue(1, out ModificationGeneral pep_n_term_variable_mod))
+                if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
                 {
                     if (ModstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
                     {
@@ -226,7 +226,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     sbsequence.Append(this[r]);
                     // variable modification on this residue
-                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out ModificationGeneral residue_variable_mod))
+                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
                     {
                         if (ModstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
                         {
@@ -236,7 +236,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // variable modification on peptide C-terminus
-                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out ModificationGeneral pep_c_term_variable_mod))
+                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
                 {
                     if (ModstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                     {
@@ -265,15 +265,15 @@ namespace Proteomics.ProteolyticDigestion
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
-            var vvv = new Dictionary<int, ModificationGeneral>(AllModsOneIsNterminus);
+            var vvv = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
-            if (vvv.TryGetValue(j + 2, out ModificationGeneral modToReplace))
+            if (vvv.TryGetValue(j + 2, out Modification modToReplace))
             {
                 massOfExistingMod = (double)modToReplace.MonoisotopicMass;
                 vvv.Remove(j + 2);
             }
 
-            vvv.Add(j + 2, new ModificationGeneral(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
+            vvv.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
             var hm = new PeptideWithSetModifications(NumFixedMods, Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, vvv, MissedCleavages);
 
             return hm;

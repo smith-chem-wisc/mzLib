@@ -17,16 +17,16 @@ namespace UsefulProteomicsDatabases
             {"15N", "N{15}" }
         };
 
-        private static readonly Dictionary<position_t, TerminusLocalization> positionDict = new Dictionary<position_t, TerminusLocalization>
+        private static readonly Dictionary<position_t, ModLocationOnPeptideOrProtein> positionDict = new Dictionary<position_t, ModLocationOnPeptideOrProtein>
             {
-            {position_t.AnyCterm, TerminusLocalization.PepC },
-            {position_t.ProteinCterm, TerminusLocalization.ProtC },
-            {position_t.Anywhere, TerminusLocalization.Any },
-            {position_t.AnyNterm, TerminusLocalization.NPep },
-            {position_t.ProteinNterm, TerminusLocalization.NProt }
+            {position_t.AnyCterm, ModLocationOnPeptideOrProtein.PepC },
+            {position_t.ProteinCterm, ModLocationOnPeptideOrProtein.ProtC },
+            {position_t.Anywhere, ModLocationOnPeptideOrProtein.Any },
+            {position_t.AnyNterm, ModLocationOnPeptideOrProtein.NPep },
+            {position_t.ProteinNterm, ModLocationOnPeptideOrProtein.NProt }
             };
 
-        internal static IEnumerable<ModificationGeneral> ReadMods(string unimodLocation)
+        internal static IEnumerable<Modification> ReadMods(string unimodLocation)
         {
             var unimodSerializer = new XmlSerializer(typeof(unimod_t));
             var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as unimod_t;
@@ -81,7 +81,7 @@ namespace UsefulProteomicsDatabases
                     };
 
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationGeneral(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
+                        yield return new Modification(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
                     else
                     {
                         Dictionary<MassSpectrometry.DissociationType, List<double>> neutralLosses = null;
@@ -138,7 +138,7 @@ namespace UsefulProteomicsDatabases
                                 }
                             }
                         }
-                        yield return new ModificationGeneral(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
+                        yield return new Modification(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
                     }
                 }
             }

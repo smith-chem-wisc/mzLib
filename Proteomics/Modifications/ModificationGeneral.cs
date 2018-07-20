@@ -8,7 +8,7 @@ using Proteomics.Fragmentation;
 
 namespace Proteomics
 {
-    public class ModificationGeneral
+    public class Modification
     {
         public string Id { get; private set; }
         public string Accession { get; private set; }
@@ -43,7 +43,7 @@ namespace Proteomics
             get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.LocationRestriction != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
         }
 
-        public ModificationGeneral(string _id = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
+        public Modification(string _id = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
 
         {
             this.Id = _id;
@@ -93,7 +93,7 @@ namespace Proteomics
 
         public override bool Equals(object o)
         {
-            ModificationGeneral m = o as ModificationGeneral;
+            Modification m = o as Modification;
             return o != null
                 && m.ToString() == this.ToString();
         }

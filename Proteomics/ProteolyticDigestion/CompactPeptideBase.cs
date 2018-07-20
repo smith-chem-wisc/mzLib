@@ -188,7 +188,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // If modification exists
-                if (peptide.AllModsOneIsNterminus.TryGetValue(residue + 1, out ModificationGeneral currentModification))
+                if (peptide.AllModsOneIsNterminus.TryGetValue(residue + 1, out Modification currentModification))
                 {
                     if ((currentModification.NeutralLosses == null || currentModification.NeutralLosses.Count == 0) && residue != 0 && residue != peptide.Length + 1)
                     {

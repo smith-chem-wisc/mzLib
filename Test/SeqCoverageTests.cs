@@ -20,7 +20,7 @@ namespace Test
             var protease = new Protease("TestProtease1", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("O", FragmentationTerminus.C), new Tuple<string, FragmentationTerminus>("T", FragmentationTerminus.N) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestedList = ParentProtein.Digest(multiProtease, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+            var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
             var sequences = digestedList.Select(p => p.BaseSequence).ToList();
             Assert.That(sequences.Count == 3);
             Assert.That(sequences.Contains("MO"));
@@ -36,7 +36,7 @@ namespace Test
             var protease = new Protease("TestProtease2", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("O", FragmentationTerminus.C), new Tuple<string, FragmentationTerminus>("T", FragmentationTerminus.N) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 1, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestedList = ParentProtein.Digest(multiProtease, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+            var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
             var sequences = digestedList.Select(p => p.BaseSequence).ToList();
             Assert.That(sequences.Count == 5);
             Assert.That(sequences.Contains("MOA"));
@@ -54,7 +54,7 @@ namespace Test
             var protease = new Protease("TestProtease3", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("O", FragmentationTerminus.C), new Tuple<string, FragmentationTerminus>("T", FragmentationTerminus.N) }, new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("A", FragmentationTerminus.C) }, CleavageSpecificity.Full, null, null, null);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestedList = ParentProtein.Digest(multiProtease, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+            var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
             var sequences = digestedList.Select(p => p.BaseSequence).ToList();
             Assert.That(sequences.Count == 2);
             Assert.That(sequences.Contains("MOA"));
@@ -75,7 +75,7 @@ namespace Test
             ProteaseDictionary.Dictionary.Add("Test1", proteaseDict["Test1"]);
 
             DigestionParams multiProtease1 = new DigestionParams(protease: "Test1", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestedList1 = ParentProtein.Digest(multiProtease1, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+            var digestedList1 = ParentProtein.Digest(multiProtease1, new List<Modification>(), new List<Modification>()).ToList();
             ProteaseDictionary.Dictionary.Remove("Test1");
 
             var sequences = digestedList1.Select(p => p.BaseSequence).ToList();
@@ -86,7 +86,7 @@ namespace Test
 
             ProteaseDictionary.Dictionary.Add("Test2", proteaseDict["Test2"]);
             DigestionParams multiProtease2 = new DigestionParams(protease: "Test2", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestedList2 = ParentProtein.Digest(multiProtease2, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+            var digestedList2 = ParentProtein.Digest(multiProtease2, new List<Modification>(), new List<Modification>()).ToList();
             ProteaseDictionary.Dictionary.Remove("Test2");
             var sequences2 = digestedList2.Select(p => p.BaseSequence).ToList();
             Assert.That(sequences2.Count == 3);
@@ -96,7 +96,7 @@ namespace Test
 
             ProteaseDictionary.Dictionary.Add("Test3", proteaseDict["Test3"]);
             DigestionParams multiProtease3 = new DigestionParams(protease: "Test3", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestedList3 = ParentProtein.Digest(multiProtease3, new List<ModificationGeneral>(), new List<ModificationGeneral>()).ToList();
+            var digestedList3 = ParentProtein.Digest(multiProtease3, new List<Modification>(), new List<Modification>()).ToList();
             ProteaseDictionary.Dictionary.Remove("Test3");
             var sequences3 = digestedList3.Select(p => p.BaseSequence).ToList();
             Assert.That(sequences3.Count == 2);

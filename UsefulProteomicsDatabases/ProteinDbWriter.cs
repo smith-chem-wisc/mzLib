@@ -17,10 +17,10 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>> additionalModsToAddToProteins,
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<Protein> proteinList, string outputFileName)
         {
-            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, ModificationGeneral>>>();
+            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -35,10 +35,10 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                HashSet<ModificationGeneral> allRelevantModifications = new HashSet<ModificationGeneral>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
+                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
                     .Concat(additionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
-                foreach (ModificationGeneral mod in allRelevantModifications.OrderBy(m => m.Id))
+                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.Id))
                 {
                     writer.WriteStartElement("modification");
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");

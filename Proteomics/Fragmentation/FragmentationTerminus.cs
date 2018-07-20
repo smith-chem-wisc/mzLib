@@ -7,5 +7,4 @@
         C, //C-terminus only
         None //could be used for top down intact mass
     }
-
 }
