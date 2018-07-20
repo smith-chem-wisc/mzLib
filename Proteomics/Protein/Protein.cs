@@ -7,6 +7,23 @@ namespace Proteomics
 {
     public class Protein
     {
+        /// <summary>
+        /// Protein.
+        /// </summary>
+        /// <param name="sequence">The complete protein amino acid sequence.</param>
+        /// <param name="accession">Protein accession number, typically UniProt accession.</param>
+        /// <param name="organism"></param>
+        /// <param name="gene_names"></param>
+        /// <param name="oneBasedModifications">Post-translational modifications. The first amino acid is index=1 to determine location.</param>
+        /// <param name="proteolysisProducts"></param>
+        /// <param name="name"></param>
+        /// <param name="full_name"></param>
+        /// <param name="isDecoy"></param>
+        /// <param name="isContaminant"></param>
+        /// <param name="databaseReferences"></param>
+        /// <param name="sequenceVariations"></param>
+        /// <param name="disulfideBonds"></param>
+        /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> gene_names = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string full_name = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
@@ -107,8 +124,8 @@ namespace Proteomics
         /// <param name="allKnownFixedModifications"></param>
         /// <param name="variableModifications"></param>
         /// <returns></returns>
-        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<ModificationWithMass> allKnownFixedModifications,
-            List<ModificationWithMass> variableModifications)
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
+            List<Modification> variableModifications)
         {
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
             return digestionParams.SemiProteaseDigestion ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);

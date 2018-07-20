@@ -180,7 +180,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="isContaminant"></param>
         /// <param name="proteinDbLocation"></param>
         /// <returns></returns>
-        public List<Protein> ParseEntryEndElement(XmlReader xml,  bool isContaminant, string proteinDbLocation)
+        public List<Protein> ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation)
         {
             List<Protein> result = new List<Protein>();
             if (Accession != null && Sequence != null)
@@ -200,7 +200,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="mod_dict"></param>
         /// <param name="modTypesToExclude"></param>
         /// <param name="unknownModifications"></param>
-        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude, 
+        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
@@ -216,7 +216,7 @@ namespace UsefulProteomicsDatabases
                 if (mod_dict.ContainsKey(FeatureDescription))
                 {
                     // Known and not of a type in the exclusion list
-                    List<Modification> mods = mod_dict[FeatureDescription].Where(m => !modTypesToExclude.Contains(m.modificationType)).ToList();
+                    List<Modification> mods = mod_dict[FeatureDescription].Where(m => !modTypesToExclude.Contains(m.ModificationType)).ToList();
                     if (mods.Count == 0 && OneBasedModifications[OneBasedFeaturePosition].Count == 0)
                     {
                         OneBasedModifications.Remove(OneBasedFeaturePosition);
@@ -234,7 +234,7 @@ namespace UsefulProteomicsDatabases
                 else
                 {
                     // Not known and not seen
-                    unknownModifications[FeatureDescription] = new Modification(FeatureDescription, "unknown");
+                    unknownModifications[FeatureDescription] = new Modification(_id: FeatureDescription, _modificationType: "unknown");
                     residue_modifications.Add(unknownModifications[FeatureDescription]);
                 }
             }

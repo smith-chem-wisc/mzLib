@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using MassSpectrometry;
+using NUnit.Framework;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -6,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using UsefulProteomicsDatabases;
-using Proteomics.ProteolyticDigestion;
 
 namespace Test
 {
@@ -26,7 +26,7 @@ namespace Test
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, nice, false, null,
@@ -64,7 +64,7 @@ namespace Test
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk", "mt", motif, TerminusLocalization.Any, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false,
@@ -98,6 +98,35 @@ namespace Test
         }
 
         [Test]
+        public static void FastaTest()
+        {
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out var a);
+            ProteinDbWriter.WriteFastaDatabase(prots, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), "|");
+            List<Protein> prots2 = ProteinDbLoader.LoadProteinFasta(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"),
+                true,
+                DecoyType.None,
+                false,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex,
+                out var un);
+
+            Assert.AreEqual("P62805", prots.First().Accession);
+            Assert.AreEqual("H4_HUMAN", prots.First().Name);
+            Assert.AreEqual("Histone H4", prots.First().FullName);
+            Assert.AreEqual("HIST1H4A", prots.First().GeneNames.First().Item2);
+            Assert.AreEqual("Homo sapiens", prots.First().Organism);
+
+            Assert.AreEqual("P62805", prots2.First().Accession);
+            Assert.AreEqual("H4_HUMAN", prots2.First().Name);
+            Assert.AreEqual("Histone H4", prots2.First().FullName);
+            Assert.AreEqual("HIST1H4A", prots2.First().GeneNames.First().Item2);
+            Assert.AreEqual("Homo sapiens", prots2.First().Organism);
+        }
+
+        [Test]
         public void Test_read_write_read_fasta()
         {
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false,
@@ -121,7 +150,7 @@ namespace Test
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk", "mt", motif, TerminusLocalization.Any, null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, nice, false, null,
@@ -167,13 +196,13 @@ namespace Test
 
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk", "mt", motiff,TerminusLocalization.Any,null),
-                new ModificationWithLocation("Phosphoserine",  "mt", m1,TerminusLocalization.Any,null),
-                new ModificationWithLocation("Phosphothreonine",  "mt", m2,TerminusLocalization.Any,null)
+                new Modification("fayk", null, "mt", null, motiff, "Anywhere.", null, null, null, null, null, null, null, null),
+                new Modification("Phosphoserine", null, "mt", null, m1, "Anywhere.", null, null, null, null, null, null, null, null),
+                new Modification("Phosphothreonine", null, "mt", null,  m2, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            ModificationWithMass m = new ModificationWithMass("mod", "mt", motif, TerminusLocalization.Any, 1, neutralLosses: new List<double> { -1 });
+            Modification m = new Modification("mod", null, "mt", null, motif, "Anywhere.", null, 1, null, null, null, new Dictionary<DissociationType, List<double>>() { { DissociationType.AnyActivationType, new List<double> { -1 } } }, null, null);
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> new_mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>
             {
@@ -196,8 +225,8 @@ namespace Test
         [Test]
         public void AnotherTest()
         {
-            List<ModificationWithMass> variableModifications = new List<ModificationWithMass>();
-            List<ModificationWithMass> fixedModifications = new List<ModificationWithMass>();
+            List<Modification> variableModifications = new List<Modification>();
+            List<Modification> fixedModifications = new List<Modification>();
 
             // Generate data for files
             Protein ParentProtein = new Protein("MPEPTIDEKANTHE", "accession1", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null,
@@ -236,11 +265,11 @@ namespace Test
         [Test]
         public void TestFullProteinReadWrite()
         {
-            Modification mod = new Modification("mod1", "modType1");
+            Modification mod = new Modification("mod1", null, "modType1", null, null, null, null, null, null, null, null, null, null, null);
             ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
-            ModificationWithLocation mod2 = new ModificationWithLocation("mod2", "modType1", motif, TerminusLocalization.Any, null);
+            Modification mod2 = new Modification("mod2", null, "modType1", null, motif, "Anywhere.", null, null, null, null, null, null, null, null);
             ModificationMotif.TryGetMotif("N", out ModificationMotif motif3);
-            ModificationWithMass mod3 = new ModificationWithMass("mod3", "modType1", motif3, TerminusLocalization.Any, 10, null, null, null);
+            Modification mod3 = new Modification("mod3", null, "modType1", null, motif3, "Anywhere.", null, 10, null, null, null, null, null, null);
 
             List<Tuple<string, string>> gene_names = new List<Tuple<string, string>> { new Tuple<string, string>("a", "b") };
             IDictionary<int, List<Modification>> oneBasedModifications = new Dictionary<int, List<Modification>>
@@ -310,18 +339,18 @@ namespace Test
             Assert.AreEqual(p1.Organism, ok[0].Organism);
             Assert.AreEqual(p1.DatabaseFilePath, ok[0].DatabaseFilePath);
             Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0], ok[0].OneBasedPossibleLocalizedModifications[3][0]);
-            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0].id, ok[0].OneBasedPossibleLocalizedModifications[3][0].id);
-            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0].modificationType, ok[0].OneBasedPossibleLocalizedModifications[3][0].modificationType);
+            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0].Id, ok[0].OneBasedPossibleLocalizedModifications[3][0].Id);
+            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[3][0].ModificationType, ok[0].OneBasedPossibleLocalizedModifications[3][0].ModificationType);
 
-            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].id, ok[0].OneBasedPossibleLocalizedModifications[4][0].id);
-            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].modificationType, ok[0].OneBasedPossibleLocalizedModifications[4][0].modificationType);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).linksToOtherDbs, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).linksToOtherDbs);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).motif, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).motif);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).terminusLocalization, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as ModificationWithLocation).terminusLocalization);
+            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].Id, ok[0].OneBasedPossibleLocalizedModifications[4][0].Id);
+            Assert.AreEqual(p1.OneBasedPossibleLocalizedModifications[4][0].ModificationType, ok[0].OneBasedPossibleLocalizedModifications[4][0].ModificationType);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as Modification).DatabaseReference, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as Modification).DatabaseReference);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as Modification).Target, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as Modification).Target);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[4][0] as Modification).LocationRestriction, (ok[0].OneBasedPossibleLocalizedModifications[4][0] as Modification).LocationRestriction);
 
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).diagnosticIons, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).diagnosticIons);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).neutralLosses, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).neutralLosses);
-            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).monoisotopicMass, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as ModificationWithMass).monoisotopicMass);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as Modification).DiagnosticIons, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as Modification).DiagnosticIons);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as Modification).NeutralLosses, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as Modification).NeutralLosses);
+            Assert.AreEqual((p1.OneBasedPossibleLocalizedModifications[5][0] as Modification).MonoisotopicMass, (ok[0].OneBasedPossibleLocalizedModifications[5][0] as Modification).MonoisotopicMass);
 
             Assert.AreEqual(p1.ProteolysisProducts.First().OneBasedBeginPosition, ok[0].ProteolysisProducts.First().OneBasedBeginPosition);
             Assert.AreEqual(p1.ProteolysisProducts.First().OneBasedEndPosition, ok[0].ProteolysisProducts.First().OneBasedEndPosition);
@@ -345,7 +374,7 @@ namespace Test
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.None,
@@ -368,7 +397,7 @@ namespace Test
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
             var nice = new List<Modification>
             {
-                new ModificationWithLocation("fayk", "mt", motif,TerminusLocalization.Any,null)
+                new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"seqvartests.xml"), true, DecoyType.None,
@@ -388,21 +417,19 @@ namespace Test
         [Test]
         public void TestModificationGeneralToString()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
             char[] myChar = { '"' };
             string output = a.First().ToString();
-            Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate\r\nMT   Biological\r\nTG   E\r\nPP   Any.\r\nCF   CO2\r\nMM   43.989829\r\n");
+            Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate\r\nMT   Biological\r\nTG   E\r\nPP   Anywhere.\r\nCF   CO2\r\nMM   43.989829\r\n");
         }
 
         [Test]
         public void TestModificationGeneral_Equals()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
-            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
+            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
 
             Assert.IsTrue(a.First().Equals(b.First()));
         }
-
-
     }
 }

@@ -19,6 +19,7 @@
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -203,6 +204,25 @@ namespace Test
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447.73849));
             Assert.AreEqual(447.73849, _mzSpectrumA.GetClosestPeakXvalue(447));
             Assert.IsNull(new MzSpectrum(new double[0], new double[0], false).GetClosestPeakXvalue(1));
+        }
+
+        [Test]
+        public void TestDotProduct()
+        {
+            double[] array1 = { 1 };
+            double[] array2 = { 2 };
+            double[] array3 = { 1, 2 };
+            double[] array4 = { 1, 1 };
+
+            MzSpectrum spec1 = new MzSpectrum(array1, array1, false);
+            MzSpectrum spec2 = new MzSpectrum(array2, array1, false);
+            MzSpectrum spec3 = new MzSpectrum(array3, array4, false);
+            Tolerance tolerance = new PpmTolerance(10);
+
+            Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec3, tolerance), spec3.CalculateDotProductSimilarity(spec1, tolerance)); //comparison side shouldn't matter
+            Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec2, tolerance), 0); //orthogonal spectra give a score of zero
+            Assert.AreEqual(spec2.CalculateDotProductSimilarity(spec2, tolerance), 1); //identical spectra give a score of 1
+            Assert.IsTrue(tolerance.Within(spec3.CalculateDotProductSimilarity(spec2, tolerance), Math.Cos(Math.PI/4)));
         }
 
         [Test]

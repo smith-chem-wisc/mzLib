@@ -31,7 +31,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Stores the modification list read during LoadProteinXML
         /// </summary>
-        private static List<Modification> protein_xml_modlist;
+        private static List<Modification> protein_xml_modlist_general;
 
         /// <summary>
         /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
@@ -51,7 +51,7 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications)
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -92,7 +92,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
         }
 
@@ -106,7 +106,7 @@ namespace UsefulProteomicsDatabases
         {
             if (proteinDbLocation.Equals(last_database_location))
             {
-                return protein_xml_modlist;
+                return protein_xml_modlist_general;
             }
             last_database_location = proteinDbLocation;
 
@@ -131,17 +131,17 @@ namespace UsefulProteomicsDatabases
                             }
                             else if (xml.Name == "entry")
                             {
-                                protein_xml_modlist = storedKnownModificationsBuilder.Length <= 0 ?
+                                protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
                                     new List<Modification>() :
                                     PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList();
-                                return protein_xml_modlist;
+                                return protein_xml_modlist_general;
                             }
                         }
                     }
                 }
             }
-            protein_xml_modlist = new List<Modification>();
-            return protein_xml_modlist;
+            protein_xml_modlist_general = new List<Modification>();
+            return protein_xml_modlist_general;
         }
 
         /// <summary>
@@ -160,7 +160,7 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant,
             FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex,
-            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors)
+            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors, int maxThreads = -1)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
@@ -251,7 +251,7 @@ namespace UsefulProteomicsDatabases
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType);
+            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
         }
 
@@ -340,13 +340,13 @@ namespace UsefulProteomicsDatabases
             var mod_dict = new Dictionary<string, IList<Modification>>();
             foreach (Modification nice in mods)
             {
-                if (mod_dict.TryGetValue(nice.id, out IList<Modification> val))
+                if (mod_dict.TryGetValue(nice.Id, out IList<Modification> val))
                 {
                     val.Add(nice);
                 }
                 else
                 {
-                    mod_dict.Add(nice.id, new List<Modification> { nice });
+                    mod_dict.Add(nice.Id, new List<Modification> { nice });
                 }
             }
             return mod_dict;
