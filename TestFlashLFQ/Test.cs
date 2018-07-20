@@ -26,7 +26,7 @@ namespace Test
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 });
+            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true);
 
             // run the engine
             var results = engine.Run();
@@ -74,7 +74,7 @@ namespace Test
             Identification id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            var results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
+            var results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             // check that biorep normalization worked
             int int1 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
@@ -89,7 +89,7 @@ namespace Test
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
+            results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             int int3 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
             int int4 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
@@ -103,7 +103,7 @@ namespace Test
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            results = new FlashLFQEngine(new List<Identification> { id1, id2 }).Run();
+            results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             int int5 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
             int int6 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
