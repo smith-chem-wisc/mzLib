@@ -17,19 +17,28 @@ namespace UsefulProteomicsDatabases
             {"15N", "N{15}" }
         };
 
-        private static readonly Dictionary<position_t, TerminusLocalization> positionDict = new Dictionary<position_t, TerminusLocalization>
+        private static readonly Dictionary<position_t, ModLocationOnPeptideOrProtein> positionDict = new Dictionary<position_t, ModLocationOnPeptideOrProtein>
             {
-            {position_t.AnyCterm, TerminusLocalization.PepC },
-            {position_t.ProteinCterm, TerminusLocalization.ProtC },
-            {position_t.Anywhere, TerminusLocalization.Any },
-            {position_t.AnyNterm, TerminusLocalization.NPep },
-            {position_t.ProteinNterm, TerminusLocalization.NProt }
+            {position_t.AnyCterm, ModLocationOnPeptideOrProtein.PepC },
+            {position_t.ProteinCterm, ModLocationOnPeptideOrProtein.ProtC },
+            {position_t.Anywhere, ModLocationOnPeptideOrProtein.Any },
+            {position_t.AnyNterm, ModLocationOnPeptideOrProtein.NPep },
+            {position_t.ProteinNterm, ModLocationOnPeptideOrProtein.NProt }
             };
 
-        internal static IEnumerable<ModificationWithLocation> ReadMods(string unimodLocation)
+        internal static IEnumerable<Modification> ReadMods(string unimodLocation)
         {
             var unimodSerializer = new XmlSerializer(typeof(unimod_t));
             var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as unimod_t;
+
+            Dictionary<string, string> positionConversion = new Dictionary<string, string>()
+            {
+                { "Anywhere", "Anywhere."},
+                { "AnyNterm", "Peptide N-terminal."},
+                { "AnyCterm", "Peptide C-terminal."},
+                { "ProteinNterm", "N-terminal."},
+                { "ProteinCterm", "C-terminal."}
+            };
 
             foreach (var cool in deserialized.modifications)
             {
@@ -54,24 +63,49 @@ namespace UsefulProteomicsDatabases
                 {
                     var tg = nice.site;
                     if (tg.Length > 1)
-                        tg = "X";
+                        tg = "X"; //I think that we should allow motifs here using the trygetmotif
                     ModificationMotif.TryGetMotif(tg, out ModificationMotif motif);
-                    var pos = nice.position;
-                    IDictionary<string, IList<string>> dblinks = new Dictionary<string, IList<string>>
+
+                    if (positionConversion.TryGetValue(nice.position.ToString(), out string pos))
+                    {
+                        //do nothing, the new string value should be there
+                    }
+                    else
+                    {
+                        pos = null;
+                    }
+
+                    Dictionary<string, IList<string>> dblinks = new Dictionary<string, IList<string>>
                     {
                         { "Unimod",  new List<string>{ac.ToString() } },
                     };
 
                     if (nice.NeutralLoss == null)
-                        yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks);
+                        yield return new Modification(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
                     else
                     {
-                        List<double> neutralLosses = new List<double>();
+                        Dictionary<MassSpectrometry.DissociationType, List<double>> neutralLosses = null;
                         foreach (var nl in nice.NeutralLoss)
                         {
                             ChemicalFormula cfnl = new ChemicalFormula();
                             if (nl.mono_mass == 0)
-                                neutralLosses.Add(0);
+                            {
+                                if (neutralLosses == null)
+                                {
+                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>();
+                                    neutralLosses.Add(MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0 });
+                                }
+                                else
+                                {
+                                    if (neutralLosses.ContainsKey(MassSpectrometry.DissociationType.AnyActivationType))
+                                    {
+                                        if (!neutralLosses[MassSpectrometry.DissociationType.AnyActivationType].Contains(0))
+                                        {
+                                            neutralLosses[MassSpectrometry.DissociationType.AnyActivationType].Add(0);
+                                        }
+                                    }//we don't need an else cuz it's already there
+                                }
+                            }
                             else
                             {
                                 foreach (var el in nl.element)
@@ -87,10 +121,24 @@ namespace UsefulProteomicsDatabases
                                         cfnl.Add(tempCF);
                                     }
                                 }
-                                neutralLosses.Add(cfnl.MonoisotopicMass);
+                                if (neutralLosses == null)
+                                {
+                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>();
+                                    neutralLosses.Add(MassSpectrometry.DissociationType.AnyActivationType, new List<double> { cfnl.MonoisotopicMass });
+                                }
+                                else
+                                {
+                                    if (neutralLosses.ContainsKey(MassSpectrometry.DissociationType.AnyActivationType))
+                                    {
+                                        if (!neutralLosses[MassSpectrometry.DissociationType.AnyActivationType].Contains(cfnl.MonoisotopicMass))
+                                        {
+                                            neutralLosses[MassSpectrometry.DissociationType.AnyActivationType].Add(cfnl.MonoisotopicMass);
+                                        }
+                                    }//we don't need an else cuz it's already there
+                                }
                             }
                         }
-                        yield return new ModificationWithMassAndCf(id + " on " + motif + " at " + positionDict[pos], "Unimod", motif, positionDict[pos], cf, linksToOtherDbs: dblinks, neutralLosses: neutralLosses);
+                        yield return new Modification(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
                     }
                 }
             }

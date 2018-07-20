@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -32,19 +33,19 @@ namespace Proteomics.ProteolyticDigestion
                     string[][] fields = line.Split('\t').Select(x => x.Split('|')).ToArray();
                     string name = fields[0][0];
                     string[] preventing;
-                    List<Tuple<string, TerminusType>> sequencesInducingCleavage = new List<Tuple<string, TerminusType>>();
-                    List<Tuple<string, TerminusType>> sequencePreventingCleavage = new List<Tuple<string, TerminusType>>();
+                    List<Tuple<string, FragmentationTerminus>> sequencesInducingCleavage = new List<Tuple<string, FragmentationTerminus>>();
+                    List<Tuple<string, FragmentationTerminus>> sequencePreventingCleavage = new List<Tuple<string, FragmentationTerminus>>();
                     for (int i = 0; i < fields[1].Length; i++)
                     {
                         if (!fields[1][i].Equals(""))
                         {
-                            sequencesInducingCleavage.Add(new Tuple<string, TerminusType>(fields[1][i], ((TerminusType)Enum.Parse(typeof(TerminusType), fields[3][i], true))));
+                            sequencesInducingCleavage.Add(new Tuple<string, FragmentationTerminus>(fields[1][i], ((FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus), fields[3][i], true))));
                             if (!fields[2].Contains(""))
                             {
                                 preventing = (fields[2][i].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                                 for (int j = 0; j < preventing.Length; j++)
                                 {
-                                    sequencePreventingCleavage.Add(new Tuple<string, TerminusType>(preventing[j], (TerminusType)Enum.Parse(typeof(TerminusType), fields[3][i], true)));
+                                    sequencePreventingCleavage.Add(new Tuple<string, FragmentationTerminus>(preventing[j], (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus), fields[3][i], true)));
                                 }
                             }
                         }

@@ -29,16 +29,17 @@ namespace MassSpectrometry
         ECD = 2, // MS:1000250 electron capture dissociation
         PQD = 3, // MS:1000599 pulsed q dissociation
         ETD = 4, // MS:1000598 electron transfer dissociation
-        HCD = 5, // MS:1000422 beam-type collision-induced dissociation (Higher-energy CID)
+        HCD = 5, // MS:1002481 higher energy beam-type collision-induced dissociation
 
         AnyActivationType = 6,
 
-        SA = 7,
-        PTR = 8,
-        NETD = 9,
-        NPTR = 10,
+        EThCD = 7, // MS:1002631 Electron-Transfer/Higher-Energy Collision Dissociation (EThcD)
+        Custom = 8,
+
+        ISCID = 9,
+        //NPTR = 10,
         // The values above are identical to thermo names
 
-        ISCID = 11
+        //ISCID = 11
     }
 }

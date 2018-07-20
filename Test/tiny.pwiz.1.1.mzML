@@ -187,7 +187,8 @@
                 </selectedIon>
               </selectedIonList>
               <activation>
-                <cvParam cvRef="MS" accession="MS:1000133" name="collision-induced dissociation" value=""/>
+                <cvParam cvRef="MS" accession="MS:1000133" name="collision-induced 
+                         ociation" value=""/>
                 <cvParam cvRef="MS" accession="MS:1000045" name="collision energy" value="35" unitCvRef="UO" unitAccession="UO:0000266" unitName="electronvolt"/>
               </activation>
             </precursor>

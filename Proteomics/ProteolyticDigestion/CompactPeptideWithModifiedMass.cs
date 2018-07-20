@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -23,17 +24,17 @@ namespace Proteomics.ProteolyticDigestion
             ModifiedMass = tempDouble;
         }
 
-        public void CropTerminalMasses(TerminusType terminusType)
+        public void CropTerminalMasses(FragmentationTerminus terminusType)
         {
             List<double> tempList = new List<double>();
-            double[] masses = terminusType == TerminusType.N ? NTerminalMasses : CTerminalMasses;
+            double[] masses = terminusType == FragmentationTerminus.N ? NTerminalMasses : CTerminalMasses;
             for (int i = 0; i < masses.Length; i++)
             {
                 if (masses[i] < MonoisotopicMassIncludingFixedMods)
                 {
                     tempList.Add(masses[i]);
                 }
-                else if (terminusType == TerminusType.N)
+                else if (terminusType == FragmentationTerminus.N)
                 {
                     NTerminalMasses = tempList.ToArray();
                     break;
