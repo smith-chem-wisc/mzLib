@@ -17,13 +17,13 @@ namespace UsefulProteomicsDatabases
             {"15N", "N{15}" }
         };
 
-        private static readonly Dictionary<position_t, TerminusLocalization> positionDict = new Dictionary<position_t, TerminusLocalization>
+        private static readonly Dictionary<position_t, ModLocationOnPeptideOrProtein> positionDict = new Dictionary<position_t, ModLocationOnPeptideOrProtein>
             {
-            {position_t.AnyCterm, TerminusLocalization.PepC },
-            {position_t.ProteinCterm, TerminusLocalization.ProtC },
-            {position_t.Anywhere, TerminusLocalization.Any },
-            {position_t.AnyNterm, TerminusLocalization.NPep },
-            {position_t.ProteinNterm, TerminusLocalization.NProt }
+            {position_t.AnyCterm, ModLocationOnPeptideOrProtein.PepC },
+            {position_t.ProteinCterm, ModLocationOnPeptideOrProtein.ProtC },
+            {position_t.Anywhere, ModLocationOnPeptideOrProtein.Any },
+            {position_t.AnyNterm, ModLocationOnPeptideOrProtein.NPep },
+            {position_t.ProteinNterm, ModLocationOnPeptideOrProtein.NProt }
             };
 
         internal static IEnumerable<Modification> ReadMods(string unimodLocation)
