@@ -9,6 +9,8 @@ namespace Test
     [TestFixture]
     internal class Test
     {
+        // TODO: need an advanced protein quant unit test
+
         [Test]
         public static void TestFlashLFQ()
         {
@@ -35,7 +37,7 @@ namespace Test
             Assert.That(!results.peaks[raw].First().IsMbrFeature);
             Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
-            Assert.That(results.proteinGroups["MyProtein"].intensities[raw] > 0);
+            Assert.That(results.proteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
             Assert.That(results.peaks[mzml].Count == 1);
@@ -43,7 +45,7 @@ namespace Test
             Assert.That(!results.peaks[mzml].First().IsMbrFeature);
             Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
-            Assert.That(results.proteinGroups["MyProtein"].intensities[mzml] > 0);
+            Assert.That(results.proteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
             // check that condition normalization worked
             int int1 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
@@ -110,7 +112,10 @@ namespace Test
 
             Assert.That(int1 == int3);
             Assert.That(int1 == int5);
+
+            // TODO: need a test to check fraction normalization
         }
+
         [Test]
         public static void MergeFlashLFQResults()
         {
@@ -129,7 +134,7 @@ namespace Test
 
             // run the engine
             var resultsA = engineA.Run();
-            
+
             SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "b", 0, 0, 0);
             SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "b", 0, 1, 0);
 
