@@ -100,7 +100,7 @@ namespace FlashLFQ
                 // fill lookup-table with peaks from the raw file
                 IndexMassSpectralPeaks(spectraFile);
 
-                if (indexedPeaks.Length == 0)
+                if (indexedPeaks == null || indexedPeaks.Length == 0)
                 {
                     // no MS1 peaks found
                     return results;
