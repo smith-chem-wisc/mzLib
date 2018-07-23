@@ -113,7 +113,24 @@ namespace Test
             Assert.That(int1 == int3);
             Assert.That(int1 == int5);
 
-            // TODO: need a test to check fraction normalization
+
+            // ********************************* check fraction normalization *********************************
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
+            var raw2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 1);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            var mzml2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 1);
+
+            id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            id2 = new Identification(raw2, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            var id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            var id4 = new Identification(mzml2, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+
+            results = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true).Run();
+
+            int int7 = (int)System.Math.Round(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw2));
+            int int8 = (int)System.Math.Round(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
+            Assert.That(int7 > 0);
+            Assert.That(int7 == int8);
         }
 
         [Test]
