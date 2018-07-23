@@ -110,6 +110,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj">
+      <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
+      <Name>Chemistry</Name>
+    </ProjectReference>
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj">
       <Project>{5e1f73df-4f01-4c79-9d3f-671dd60bafaf}</Project>
       <Name>FlashLFQ</Name>
@@ -118,13 +122,25 @@
       <Project>{6FEBB7ED-0BE6-4493-817E-CEFD4CBE61DD}</Project>
       <Name>MassSpectrometry</Name>
     </ProjectReference>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj">
+      <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
+      <Name>MzLibUtil</Name>
+    </ProjectReference>
     <ProjectReference Include="..\MzML\MzML.csproj">
       <Project>{012434FB-88A9-4DEC-B887-5F64C0B481D4}</Project>
       <Name>MzML</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Proteomics\Proteomics.csproj">
+      <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
+      <Name>Proteomics</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
       <Name>Spectra</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Test\Test.csproj">
+      <Project>{d7c69058-1fe4-49bd-b994-b08c1dfb21a4}</Project>
+      <Name>Test</Name>
     </ProjectReference>
     <ProjectReference Include="..\Thermo\Thermo.csproj">
       <Project>{24DC85FF-E97B-4140-9614-77DD8FDDD32F}</Project>
