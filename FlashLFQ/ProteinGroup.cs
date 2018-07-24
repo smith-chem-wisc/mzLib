@@ -8,9 +8,7 @@ namespace FlashLFQ
         public readonly string ProteinGroupName;
         public readonly string GeneName;
         public readonly string Organism;
-        // might crash if trying to access intensity of a protein when it acutally is not present in a given file
-        //( see peptide intensity dictionary for fix)
-        public readonly Dictionary<SpectraFileInfo, double> intensities;
+        private Dictionary<SpectraFileInfo, double> intensities;
 
         public ProteinGroup(string proteinGroupName, string geneName, string organism)
         {
@@ -18,6 +16,26 @@ namespace FlashLFQ
             GeneName = geneName;
             Organism = organism;
             intensities = new Dictionary<SpectraFileInfo, double>();
+        }
+
+        public double GetIntensity(SpectraFileInfo fileInfo)
+        {
+            if (intensities.TryGetValue(fileInfo, out double intensity))
+            {
+                return intensity;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
+        {
+            if (intensities.ContainsKey(fileInfo))
+                intensities[fileInfo] = intensity;
+            else
+                intensities.Add(fileInfo, intensity);
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)

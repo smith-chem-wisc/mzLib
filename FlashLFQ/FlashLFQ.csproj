@@ -27,6 +27,7 @@
   </ItemGroup>
   
   <ItemGroup>
+    <PackageReference Include="Accord.Math" Version="3.8.0" />
     <PackageReference Include="SharpLearning.Containers" Version="[0.28.0]" />
     <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
   </ItemGroup>

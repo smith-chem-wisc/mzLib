@@ -15,12 +15,14 @@ namespace FlashLFQ
         private readonly FlashLFQResults results;
         private readonly bool integrate;
         private readonly bool silent;
+        private readonly int maxThreads;
 
-        public IntensityNormalizationEngine(FlashLFQResults results, bool integrate, bool silent)
+        public IntensityNormalizationEngine(FlashLFQResults results, bool integrate, bool silent, int maxThreads)
         {
             this.results = results;
             this.integrate = integrate;
             this.silent = silent;
+            this.maxThreads = maxThreads;
         }
 
         /// <summary>
@@ -206,7 +208,7 @@ namespace FlashLFQ
                     }
 
                     // solve for normalization factors
-                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, 2, numF);
+                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, 2, numF, maxThreads);
                     if (normFactors.All(p => p == 1.0) && !silent)
                     {
                         Console.WriteLine("Warning: Could not solve for optimal normalization factors for condition \"" + condition + "\" biorep " + (b + 1));
@@ -383,7 +385,7 @@ namespace FlashLFQ
         /// Calculates normalization factors for fractionated data using a bounded Nelder-Mead optimization algorithm.
         /// Called by NormalizeFractions().
         /// </summary>
-        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numB, int numF)
+        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numB, int numF, int maxThreads)
         {
             double step = 0.01;
             object locker = new object();
@@ -439,7 +441,7 @@ namespace FlashLFQ
             int startN = (int)(parameterArray[0].Min / step);
             int endN = (int)(parameterArray[0].Max / step);
 
-            Parallel.For(startN, endN, n =>
+            Parallel.For(startN, endN, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, n =>
             {
                 double startPosition = n * step;
 
