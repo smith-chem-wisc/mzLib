@@ -182,7 +182,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             do
             {
-                if(residue != 0 && ((residue > 1 && direction == -1) || (residue != peptide.Length && direction == 1)))//This equates to true if you're at the beginning or end of the peptide and about to jump off. This should be true at the final step of the do loop.
+                if (residue != 0 && ((residue > 1 && direction == -1) || (residue != peptide.Length && direction == 1)))//This equates to true if you're at the beginning or end of the peptide and about to jump off. This should be true at the final step of the do loop.
                 {
                     prevMass += Residue.ResidueMonoisotopicMass[peptide[residue - 1]];
                 }
@@ -199,13 +199,20 @@ namespace Proteomics.ProteolyticDigestion
                     else if (currentModification.NeutralLosses != null && ((residue > 1 && direction == -1) || (residue != peptide.Length && direction == 1))) // we don't want to consider neutral losses on the complete peptide
                     {
                         // neutral losses
-                        if (currentModification.NeutralLosses.TryGetValue(dissociationType, out var neutralLosses))
+
+                        List<double> theseNeutralLosses = new List<double>();
+                        if (currentModification.NeutralLosses.TryGetValue(dissociationType, out var specificNeutralLosses))
+                            theseNeutralLosses.AddRange(specificNeutralLosses);
+                        if(dissociationType != DissociationType.AnyActivationType)
+                            if (currentModification.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out var anyNeutralLosses))
+                                theseNeutralLosses.AddRange(anyNeutralLosses);
+                        if (theseNeutralLosses.Count > 0)
                         {
                             // return mass without neutral loss
                             prevMass += (double)currentModification.MonoisotopicMass;
                             yield return Math.Round(prevMass, digitsForRoundingMasses);
 
-                            foreach (double loss in neutralLosses)
+                            foreach (double loss in theseNeutralLosses)
                             {
                                 if (loss == 0)
                                 {
@@ -216,7 +223,7 @@ namespace Proteomics.ProteolyticDigestion
                                 yield return Math.Round(prevMass - loss, digitsForRoundingMasses);
 
                                 // generate the remainder of the series with the neutral loss
-                                if ((residue > 1 && direction == -1) || (residue < (peptide.Length-1) && direction == 1))
+                                if ((residue > 1 && direction == -1) || (residue < (peptide.Length - 1) && direction == 1))
                                 {
                                     foreach (var followingMass in ComputeFollowingFragmentMasses(peptide, prevMass, residue + direction, direction, dissociationType))
                                     {
@@ -224,6 +231,11 @@ namespace Proteomics.ProteolyticDigestion
                                     }
                                 }
                             }
+                        }
+                        else//there were neutral losses but they were the wrong kind so just add the mass of the mod.
+                        {
+                            prevMass += (double)currentModification.MonoisotopicMass;
+                            yield return Math.Round(prevMass, digitsForRoundingMasses);
                         }
                     }
                 }
