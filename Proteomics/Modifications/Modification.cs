@@ -178,7 +178,7 @@ namespace Proteomics
                         for (int i = 0; i < myValues.Count; i++)
                         {
                             myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
-                            if (i < myValues.Count)
+                            if (i < myValues.Count-1)
                                 myLine.Append(" or ");
                         }
                     }
@@ -200,7 +200,7 @@ namespace Proteomics
                         for (int i = 0; i < myValues.Count; i++)
                         {
                             myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
-                            if (i < myValues.Count)
+                            if (i < myValues.Count-1)
                                 myLine.Append(" or ");
                         }
                     }

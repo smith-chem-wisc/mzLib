@@ -1,10 +1,10 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -19,7 +19,7 @@ namespace Proteomics.ProteolyticDigestion
         private const int digitsForRoundingMasses = 9;
         private const double massTolForPeptideEquality = 1e-9;
 
-        public double[] CTerminalMasses { get; protected set; }
+        public double[] CTerminalMasses { get; protected set; } //
         public double[] NTerminalMasses { get; protected set; }
         public double MonoisotopicMassIncludingFixedMods { get; protected set; }
 
@@ -182,12 +182,12 @@ namespace Proteomics.ProteolyticDigestion
         {
             do
             {
-                if (residue != 0 && residue != peptide.Length + 1)
+                if(residue != 0 && ((residue > 1 && direction == -1) || (residue != peptide.Length && direction == 1)))//This equates to true if you're at the beginning or end of the peptide and about to jump off. This should be true at the final step of the do loop.
                 {
                     prevMass += Residue.ResidueMonoisotopicMass[peptide[residue - 1]];
                 }
 
-                // If modification exists
+                // If modification exists on the particular residue that is being evaluated in the do loop.
                 if (peptide.AllModsOneIsNterminus.TryGetValue(residue + 1, out Modification currentModification))
                 {
                     if ((currentModification.NeutralLosses == null || currentModification.NeutralLosses.Count == 0) && residue != 0 && residue != peptide.Length + 1)
@@ -196,7 +196,7 @@ namespace Proteomics.ProteolyticDigestion
                         prevMass += (double)currentModification.MonoisotopicMass;
                         yield return Math.Round(prevMass, digitsForRoundingMasses);
                     }
-                    else if (currentModification.NeutralLosses != null)
+                    else if (currentModification.NeutralLosses != null && ((residue > 1 && direction == -1) || (residue != peptide.Length && direction == 1))) // we don't want to consider neutral losses on the complete peptide
                     {
                         // neutral losses
                         if (currentModification.NeutralLosses.TryGetValue(dissociationType, out var neutralLosses))
@@ -214,17 +214,20 @@ namespace Proteomics.ProteolyticDigestion
 
                                 // return the current fragment minus neutral loss
                                 yield return Math.Round(prevMass - loss, digitsForRoundingMasses);
-                                
+
                                 // generate the remainder of the series with the neutral loss
-                                foreach (var followingMass in ComputeFollowingFragmentMasses(peptide, prevMass, residue + direction, direction, dissociationType))
+                                if ((residue > 1 && direction == -1) || (residue < (peptide.Length-1) && direction == 1))
                                 {
-                                    yield return Math.Round(followingMass - loss, digitsForRoundingMasses);
+                                    foreach (var followingMass in ComputeFollowingFragmentMasses(peptide, prevMass, residue + direction, direction, dissociationType))
+                                    {
+                                        yield return Math.Round(followingMass - loss, digitsForRoundingMasses);
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                else if (residue != 0 && residue != peptide.Length + 1) // No modification exists
+                else if (residue != 0) // No modification exists
                 {
                     yield return Math.Round(prevMass, digitsForRoundingMasses);
                 }
