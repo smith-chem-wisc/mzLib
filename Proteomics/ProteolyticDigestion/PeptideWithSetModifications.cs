@@ -28,7 +28,8 @@ namespace Proteomics.ProteolyticDigestion
         private double? _monoisotopicMass;
 
         public PeptideWithSetModifications(PeptideWithSetModifications modsFromThisOne, int proteinOneBasedStart, int proteinOneBasedEnd)
-            : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart, modsFromThisOne.PeptideDescription)
+            : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart,
+            modsFromThisOne.PeptideDescription)
         {
             AllModsOneIsNterminus = modsFromThisOne.AllModsOneIsNterminus
                 .Where(b => b.Key > (1 + proteinOneBasedStart - modsFromThisOne.OneBasedStartResidueInProtein)
@@ -44,7 +45,8 @@ namespace Proteomics.ProteolyticDigestion
             AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, Modification>();
         }
 
-        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
+        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
+            int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
         {
@@ -53,6 +55,68 @@ namespace Proteomics.ProteolyticDigestion
             DigestionParams = digestionParams;
         }
 
+        /// <summary>
+        /// Creates a PeptideWithSetModifications object from a sequence string. 
+        /// Useful for reading in MetaMorpheus search engine output into mzLib objects
+        /// </summary>
+        public PeptideWithSetModifications(string sequence, IEnumerable<Modification> allKnownModifications, int numFixedMods = 0,
+            DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
+            int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue, string peptideDescription = null)
+            : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
+        {
+            if (sequence.Contains("|"))
+            {
+                throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
+            }
+
+            AllModsOneIsNterminus = new Dictionary<int, Modification>();
+            StringBuilder baseSequence = new StringBuilder();
+            StringBuilder currentModification = new StringBuilder();
+            int currentModificationLocation = 1;
+            bool currentlyReadingMod = false;
+
+            for (int r = 0; r < sequence.Length; r++)
+            {
+                char c = sequence[r];
+
+                switch (c)
+                {
+                    case '[':
+                        currentlyReadingMod = true;
+                        break;
+                    case ']':
+                        var split = currentModification.ToString().Split(new char[] { ':' });
+                        string modType = split[0];
+                        string id = split[1];
+                        Modification mod = allKnownModifications.Where(m => m.Id == id && m.ModificationType == modType).FirstOrDefault();
+
+                        if(mod == null)
+                        {
+                            throw new MzLibUtil.MzLibException("Could not get modification while reading string: " + sequence);
+                        }
+
+                        AllModsOneIsNterminus.Add(currentModificationLocation, mod);
+                        currentlyReadingMod = false;
+                        currentModification = new StringBuilder();
+                        break;
+                    default:
+                        if(currentlyReadingMod)
+                        {
+                            currentModification.Append(c);
+                        }
+                        else
+                        {
+                            currentModificationLocation++;
+                            baseSequence.Append(c);
+                        }
+                        break;
+                }
+            }
+
+            _baseSequence = baseSequence.ToString();
+            NumFixedMods = numFixedMods;
+            DigestionParams = digestionParams;
+        }
 
         public double MonoisotopicMass
         {
@@ -193,12 +257,12 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 List<ProductType> temp = new List<ProductType> { productType };
-                
+
                 var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
 
                 for (int i = 0; i < productMasses.Length; i++)
                 {
-                    theoreticalFragmentIons.Add(  new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
+                    theoreticalFragmentIons.Add(new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
                 }
             }
 
