@@ -250,6 +250,10 @@ namespace Test
             Assert.That(peptide.AllModsOneIsNterminus.First().Value.Id == "Carbamidomethyl of C");
             Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
             Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
+
+            // calculate fragments. just check that they exist and it doesn't crash
+            List<TheoreticalFragmentIon> theoreticalFragments = peptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
+            Assert.That(theoreticalFragments.Count > 0);
         }
     }
 }

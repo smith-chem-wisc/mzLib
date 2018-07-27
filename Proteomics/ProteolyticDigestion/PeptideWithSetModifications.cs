@@ -85,14 +85,24 @@ namespace Proteomics.ProteolyticDigestion
                         currentlyReadingMod = true;
                         break;
                     case ']':
-                        var split = currentModification.ToString().Split(new char[] { ':' });
-                        string modType = split[0];
-                        string id = split[1];
-                        Modification mod = allKnownModifications.Where(m => m.Id == id && m.ModificationType == modType).FirstOrDefault();
 
-                        if(mod == null)
+                        Modification mod = null;
+
+                        try
                         {
-                            throw new MzLibUtil.MzLibException("Could not get modification while reading string: " + sequence);
+                            var split = currentModification.ToString().Split(new char[] { ':' });
+                            string modType = split[0];
+                            string id = split[1];
+                            mod = allKnownModifications.Where(m => m.Id == id && m.ModificationType == modType).FirstOrDefault();
+                        }
+                        catch (Exception e)
+                        {
+                            throw new MzLibUtil.MzLibException("Error while trying to parse string into peptide: " + e.Message);
+                        }
+
+                        if (mod == null)
+                        {
+                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + sequence);
                         }
 
                         AllModsOneIsNterminus.Add(currentModificationLocation, mod);
@@ -100,7 +110,7 @@ namespace Proteomics.ProteolyticDigestion
                         currentModification = new StringBuilder();
                         break;
                     default:
-                        if(currentlyReadingMod)
+                        if (currentlyReadingMod)
                         {
                             currentModification.Append(c);
                         }
