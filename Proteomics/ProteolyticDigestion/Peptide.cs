@@ -50,7 +50,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 if (_baseSequence == null)
                 {
-                    _baseSequence = Protein.BaseSequence.Substring(OneBasedStartResidueInProtein - 1, Length);
+                    _baseSequence = Protein.BaseSequence.Substring(OneBasedStartResidueInProtein - 1, OneBasedEndResidueInProtein - OneBasedStartResidueInProtein + 1);
                 }
                 return _baseSequence;
             }
