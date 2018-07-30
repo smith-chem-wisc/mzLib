@@ -225,5 +225,35 @@ namespace Test
             Assert.AreEqual(2, ye2.Count);
             Assert.AreEqual(1, ye3.Count);
         }
+
+        [Test]
+        /// <summary>
+        /// Tests that a PeptideWithSetModifications object can be parsed correctly from a string, with mod info
+        /// </summary>
+        public static void TestReadPeptideFromString()
+        {
+            // set up the test 
+            Modification carbamidomethylOfC = new Modification(_id: "Carbamidomethyl of C", _modificationType: "Common Fixed", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
+            string sequence = "HQVC[Common Fixed:Carbamidomethyl of C]TPGGTTIAGLC[Common Fixed:Carbamidomethyl of C]VMEEK";
+
+            // parse the peptide from the string
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new List<Modification>() { carbamidomethylOfC });
+
+            // test base sequence and full sequence
+            Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
+            Assert.That(peptide.Sequence == sequence);
+
+            // test peptide mass
+            Assert.That(Math.Round(peptide.MonoisotopicMass, 5) == 2187.01225);
+
+            // test mods (correct id, correct number of mods, correct location of mods)
+            Assert.That(peptide.AllModsOneIsNterminus.First().Value.Id == "Carbamidomethyl of C");
+            Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
+            Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
+
+            // calculate fragments. just check that they exist and it doesn't crash
+            List<TheoreticalFragmentIon> theoreticalFragments = peptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
+            Assert.That(theoreticalFragments.Count > 0);
+        }
     }
 }
