@@ -17,32 +17,20 @@ namespace Test
         public static void TestCompactPeptideMasses_UnmodifiedPeptide()
         {
             Protein p = new Protein("PET", "accession");
-
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
-
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
-            Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
 
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
+            
             //evaluate N-terminal masses
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 97, 226 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 230 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
-
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -53,27 +41,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
 
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
+            
             //evaluate N-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 177, 306 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 230 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -84,27 +63,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
 
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
+            
             //evaluate N-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 97, 226 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 181, 310 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 181, 310 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -115,27 +85,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
+
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             //evaluate N-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 97, 306 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 306 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 310 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 310 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -146,27 +107,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
+
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             //evaluate N-terminal masses
-            Assert.AreEqual(4, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 177, 306, 79, 208 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306, 79, 208 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 230 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -177,27 +129,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
+
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             //evaluate N-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 97, 226 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(4, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 181, 310, 83, 212 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 181, 310, 83, 212 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -208,27 +151,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
+
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             //evaluate N-terminal masses
-            Assert.AreEqual(3, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 97, 306, 208 }; 
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 306, 208 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(4, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 310, 212 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 310, 212 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -239,27 +173,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);//this dissociation type was the one used in the experiment
+
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             //evaluate N-terminal masses
-            Assert.AreEqual(4, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 177, 306, 79, 208 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306, 79, 208 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 230 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -270,28 +195,18 @@ namespace Test
             Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);//this dissociation type was the one used in the experiment
+
+            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             //evaluate N-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
-            List<int> nTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.NTerminalMasses)
-            {
-                nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_n_Values = new List<int> { 177, 306 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
-            List<int> cTerminalMassListRounded = new List<int>();
-            foreach (double mass in aCompactPeptide.CTerminalMasses)
-            {
-                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
-            }
-            List<int> actual_c_Values = new List<int> { 101, 230 };
-            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
-
     }
 }

@@ -21,29 +21,38 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
 
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-            var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.AnyActivationType);
 
-            var allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.Unknown).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
-            Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.CID).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+            var allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.Unknown, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
+            Assert.IsTrue(allFragmentIonMzs.SetEquals(new int[] { }));
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.CID, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 98, 227, 120, 249 }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.MPD).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.MPD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.ECD).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
-            Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 115, 244, 120, 103, 249, 232 }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.PQD).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.ECD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
+            Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 115, 244, 120, 249, 103, 232 }));
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.PQD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.ETD).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
-            Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 115, 244, 120, 103, 249, 232 }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.HCD).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.ETD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
+            Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 115, 244, 120, 249, 103, 232 }));
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 98, 227, 120, 249 }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.AnyActivationType).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.AnyActivationType, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 98, 227, 120, 249 }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.EThCD).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.EThCD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { 98, 227, 120, 249 }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.Custom).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.Custom, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { }));
-            allFragmentIonMzs = aCompactPeptide.ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType.ISCID).Select(i => (int)Math.Round(i.ToMz(1))).ToArray();
+
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.GetTheoreticalFragments(DissociationType.ISCID, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SequenceEqual(new int[] { }));
         }
     }

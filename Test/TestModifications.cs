@@ -239,21 +239,10 @@ namespace Test
 
             // check unmodified
             var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
-            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
-            List<double> neutralMasses = new List<double>();
-            neutralMasses.AddRange(myUnmodFragments.Select(m => m.NeutralMass).ToList());
-            List<double> expectedMasses = new List<double> { 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
-            for (int i = 0; i < neutralMasses.Count; i++)
-            {
-                neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
-            }
+            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both).Select(v => (int)Math.Round(v.NeutralMass.ToMz(1), 1)).ToList();
+            HashSet<int> expectedMzs = new HashSet<int> { 98, 227, 324, 425, 538, 653, 703, 574, 477, 376, 263, 148 };
 
-            var firstNotSecond = neutralMasses.Except(expectedMasses).ToList();
-            var secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
-
-            Assert.AreEqual(11, myUnmodFragments.Count);
-            Assert.AreEqual(0, firstNotSecond.Count);
-            Assert.AreEqual(0, secondNotFirst.Count);
+            Assert.That(expectedMzs.SetEquals(myUnmodFragments));
         }
 
         [Test]
@@ -274,10 +263,10 @@ namespace Test
 
             // check unmodified
             var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
-            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
+            var myUnmodFragments = unmodPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both).ToList();
             var neutralMasses = new List<double>();
             neutralMasses.AddRange(myUnmodFragments.Select(m => m.NeutralMass).ToList());
-            var expectedMasses = new List<double> { 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
+            var expectedMasses = new List<double> { 97, 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
             for (int i = 0; i < neutralMasses.Count; i++)
             {
                 neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
@@ -287,21 +276,17 @@ namespace Test
             var secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
 
             //this is the set without oxidation
-            Assert.AreEqual(11, myUnmodFragments.Count);
+            Assert.AreEqual(12, myUnmodFragments.Count);
             Assert.AreEqual(0, firstNotSecond.Count);
             Assert.AreEqual(0, secondNotFirst.Count);
 
             // with oxidation, no neutral loss
             var modPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 1).First();
-
-            var compactPeptide = modPeptide.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
-
-
-
+            
             var myModFragments = modPeptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             neutralMasses = new List<double>();
             neutralMasses.AddRange(myModFragments.Select(m => m.NeutralMass).ToList());
-            expectedMasses = new List<double> { 226, 323, 440, 553, 668, 147, 262, 375, 492, 589, 718 };
+            expectedMasses = new List<double> { 97, 226, 323, 440, 553, 668, 147, 262, 375, 492, 589, 718 };
             for (int i = 0; i < neutralMasses.Count; i++)
             {
                 neutralMasses[i] = Chemistry.ClassExtensions.RoundedDouble(neutralMasses[i], 0).Value;
@@ -311,7 +296,7 @@ namespace Test
             secondNotFirst = expectedMasses.Except(neutralMasses).ToList();
 
             //this is the set with oxidation
-            Assert.AreEqual(11, myUnmodFragments.Count);
+            Assert.AreEqual(12, myUnmodFragments.Count);
             Assert.AreEqual(0, firstNotSecond.Count);
             Assert.AreEqual(0, secondNotFirst.Count);
 
@@ -335,9 +320,9 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count > 0).First();
 
-            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
+            var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both).ToList();
             var neutralMasses = new List<double>();
-            neutralMasses.AddRange(myModFragments.Select(m => m.NeutralMass).ToList());
+            neutralMasses.AddRange(myModFragments.Select(m => m.NeutralMass.ToMass(1)).ToList());
             var expectedMasses = new List<double> { 97, 226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
             for (int i = 0; i < neutralMasses.Count; i++)
             {
@@ -374,7 +359,7 @@ namespace Test
 
             var myModFragments = peptideWithNeutralMassMod.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
             var neutralMasses = new List<double>();
-            neutralMasses.AddRange(myModFragments.Select(m => m.NeutralMass).ToList());
+            neutralMasses.AddRange(myModFragments.Select(m => m.NeutralMass.ToMass(1)).ToList());
             var expectedMasses = new List<double> { 226, 407, 588, 701, 816, 309, 490, 603, 718, 392, 505, 620, 147, 262, 375, 556, 737, 866, 458, 639, 768, 541, 670 };
             for (int i = 0; i < neutralMasses.Count; i++)
             {
@@ -422,7 +407,7 @@ namespace Test
 
 
             var neutralMassesHCD = new List<double>();
-            neutralMassesHCD.AddRange(myModFragmentsHCD.Select(m => m.NeutralMass).ToList());
+            neutralMassesHCD.AddRange(myModFragmentsHCD.Select(m => m.NeutralMass.ToMass(1)).ToList());
             var expectedMassesHCD = new List<double> {226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
             for (int i = 0; i < neutralMassesHCD.Count; i++)
             {
@@ -443,7 +428,7 @@ namespace Test
 
 
             var neutralMassesEtd = new List<double>();
-            neutralMassesEtd.AddRange(myModFragmentsEtd.Select(m => m.NeutralMass).ToList());
+            neutralMassesEtd.AddRange(myModFragmentsEtd.Select(m => m.NeutralMass.ToMass(1)).ToList());
             var expectedMassesEtd = new List<double> { 114, 243, 340, 521, 634, 749, 147, 262, 375, 556, 653, 782, 131, 246, 359, 540, 637, 766 };
             for (int i = 0; i < neutralMassesEtd.Count; i++)
             {

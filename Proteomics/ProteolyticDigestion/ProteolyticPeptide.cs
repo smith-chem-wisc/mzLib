@@ -11,7 +11,7 @@ namespace Proteomics.ProteolyticDigestion
     /// </summary>
     public class ProteolyticPeptide
     {
-        private string _baseSequence;
+        protected string _baseSequence;
 
         internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
         {

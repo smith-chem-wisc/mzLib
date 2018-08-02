@@ -28,7 +28,8 @@ namespace Proteomics.Fragmentation
         private double? _monoisotopicMass;
 
         public PeptideWithSetModifications(PeptideWithSetModifications modsFromThisOne, int proteinOneBasedStart, int proteinOneBasedEnd)
-            : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart, modsFromThisOne.PeptideDescription)
+            : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart,
+            modsFromThisOne.PeptideDescription)
         {
             AllModsOneIsNterminus = modsFromThisOne.AllModsOneIsNterminus
                 .Where(b => b.Key > (1 + proteinOneBasedStart - modsFromThisOne.OneBasedStartResidueInProtein)
@@ -44,7 +45,8 @@ namespace Proteomics.Fragmentation
             AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, Modification>();
         }
 
-        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
+        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
+            int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
         {
@@ -53,6 +55,78 @@ namespace Proteomics.Fragmentation
             DigestionParams = digestionParams;
         }
 
+        /// <summary>
+        /// Creates a PeptideWithSetModifications object from a sequence string. 
+        /// Useful for reading in MetaMorpheus search engine output into mzLib objects
+        /// </summary>
+        public PeptideWithSetModifications(string sequence, IEnumerable<Modification> allKnownModifications, int numFixedMods = 0,
+            DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
+            int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue, string peptideDescription = null)
+            : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
+        {
+            if (sequence.Contains("|"))
+            {
+                throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
+            }
+
+            AllModsOneIsNterminus = new Dictionary<int, Modification>();
+            StringBuilder baseSequence = new StringBuilder();
+            StringBuilder currentModification = new StringBuilder();
+            int currentModificationLocation = 1;
+            bool currentlyReadingMod = false;
+
+            for (int r = 0; r < sequence.Length; r++)
+            {
+                char c = sequence[r];
+
+                switch (c)
+                {
+                    case '[':
+                        currentlyReadingMod = true;
+                        break;
+                    case ']':
+
+                        Modification mod = null;
+
+                        try
+                        {
+                            var split = currentModification.ToString().Split(new char[] { ':' });
+                            string modType = split[0];
+                            string id = split[1];
+                            mod = allKnownModifications.Where(m => m.Id == id && m.ModificationType == modType).FirstOrDefault();
+                        }
+                        catch (Exception e)
+                        {
+                            throw new MzLibUtil.MzLibException("Error while trying to parse string into peptide: " + e.Message);
+                        }
+
+                        if (mod == null)
+                        {
+                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + sequence);
+                        }
+
+                        AllModsOneIsNterminus.Add(currentModificationLocation, mod);
+                        currentlyReadingMod = false;
+                        currentModification = new StringBuilder();
+                        break;
+                    default:
+                        if (currentlyReadingMod)
+                        {
+                            currentModification.Append(c);
+                        }
+                        else
+                        {
+                            currentModificationLocation++;
+                            baseSequence.Append(c);
+                        }
+                        break;
+                }
+            }
+
+            _baseSequence = baseSequence.ToString();
+            NumFixedMods = numFixedMods;
+            DigestionParams = digestionParams;
+        }
 
         public double MonoisotopicMass
         {
@@ -176,26 +250,22 @@ namespace Proteomics.Fragmentation
         /// <summary>
         /// Generates theoretical fragment ions for given product types for this peptide
         /// </summary>
-        public List<TheoreticalFragmentIon> GetTheoreticalFragments(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        public IEnumerable<NeutralTheoreticalProduct> GetTheoreticalFragments(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
-            // TODO: make this method more self-contained... right now it makes a CompactPeptide (deprecated) and fragments it
-            List<TheoreticalFragmentIon> theoreticalFragmentIons = new List<TheoreticalFragmentIon>();
-
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
             foreach (var productType in productCollection)
             {
-                int ionNumberAdd = 1;
-                
-                var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNsNew(dissociationType, 0);
+                // we're separating the N and C terminal masses and computing a separate compact peptide for each one
+                // this speeds calculations up without producing unnecessary terminus fragment info
+                FragmentationTerminus temp = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
 
-                for (int i = 0; i < productMasses.Length; i++)
+                foreach (var neutralTerminusFragment in CompactPeptide(temp).TerminalMasses)
                 {
-                    theoreticalFragmentIons.Add(  new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
+                    //TODO: compute mass of fragment given neutral loss
+                    yield return new NeutralTheoreticalProduct(productType, neutralTerminusFragment, null);
                 }
             }
-
-            return theoreticalFragmentIons;
         }
 
         public int NumVariableMods { get { return NumMods - NumFixedMods; } }
@@ -242,7 +312,7 @@ namespace Proteomics.Fragmentation
             return essentialSequence;
         }
 
-        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus, DissociationType dissociationType)
+        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus)
         {
             if (_compactPeptides.TryGetValue(fragmentationTerminus, out CompactPeptide compactPeptide))
             {
@@ -250,7 +320,7 @@ namespace Proteomics.Fragmentation
             }
             else
             {
-                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus, dissociationType);
+                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus);
                 _compactPeptides.Add(fragmentationTerminus, cp);
                 return cp;
             }
