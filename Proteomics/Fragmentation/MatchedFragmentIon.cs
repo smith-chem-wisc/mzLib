@@ -17,7 +17,7 @@ namespace Proteomics.Fragmentation
             TheoreticalFragmentIon = theoreticalFragmentIon;
             Mz = experMz;
             Intensity = experIntensity;
-            PpmMassError = ((experMz.ToMass(theoreticalFragmentIon.Charge) - theoreticalFragmentIon.Mass) / theoreticalFragmentIon.Mass) * 1e6;
+            PpmMassError = ((experMz.ToMass(theoreticalFragmentIon.Charge) - theoreticalFragmentIon.NeutralMass) / theoreticalFragmentIon.NeutralMass) * 1e6;
         }
 
         /// <summary>
@@ -26,7 +26,7 @@ namespace Proteomics.Fragmentation
         /// </summary>
         public override string ToString()
         {
-            return TheoreticalFragmentIon.ProductType.ToString().ToLowerInvariant() + TheoreticalFragmentIon.IonNumber + "+" + TheoreticalFragmentIon.Charge + "\t;" + TheoreticalFragmentIon.Mass;
+            return TheoreticalFragmentIon.ProductType.ToString().ToLowerInvariant() + TheoreticalFragmentIon.IonNumber + "+" + TheoreticalFragmentIon.Charge + "\t;" + TheoreticalFragmentIon.NeutralMass;
         }
     }
 }

@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using Proteomics.Fragmentation;
 
-namespace Proteomics.ProteolyticDigestion
+namespace Proteomics.Fragmentation
 {
     [Serializable]
     public class CompactPeptideWithModifiedMass : CompactPeptideBase

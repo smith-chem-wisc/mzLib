@@ -1,12 +1,11 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Proteomics.ProteolyticDigestion
+namespace Proteomics.Fragmentation
 {
     [Serializable]
     public abstract class CompactPeptideBase : IEquatable<CompactPeptideBase>
@@ -19,91 +18,46 @@ namespace Proteomics.ProteolyticDigestion
         private const int digitsForRoundingMasses = 9;
         private const double massTolForPeptideEquality = 1e-9;
 
-        public double[] CTerminalMasses { get; protected set; } //
-        public double[] NTerminalMasses { get; protected set; }
+        public NeutralTerminusFragment[] TerminalMasses { get; protected set; } //
+
         public double MonoisotopicMassIncludingFixedMods { get; protected set; }
 
-        public double[] ProductMassesMightHaveDuplicatesAndNaNs(List<ProductType> productTypes)
+        public TheoreticalFragmentIon[] ProductMassesMightHaveDuplicatesAndNaNsNew(DissociationType dissociationType, int charge = 0)
         {
-            int massLen = 0;
-            bool containsAdot = productTypes.Contains(ProductType.Adot);
-            bool containsB = productTypes.Contains(ProductType.B);
-            bool containsBnoB1 = productTypes.Contains(ProductType.BnoB1ions);
-            bool containsC = productTypes.Contains(ProductType.C);
-            bool containsX = productTypes.Contains(ProductType.X);
-            bool containsY = productTypes.Contains(ProductType.Y);
-            bool containsZdot = productTypes.Contains(ProductType.Zdot);
 
-            if (containsAdot)
-            {
-                throw new NotImplementedException();
-            }
-            if (containsBnoB1)
-            {
-                massLen += NTerminalMasses.Length - 1;
-            }
-            else if (containsB)
-            {
-                massLen += NTerminalMasses.Length;
-            }
-            if (containsC)
-            {
-                massLen += NTerminalMasses.Length;
-            }
-            if (containsX)
-            {
-                throw new NotImplementedException();
-            }
-            if (containsY)
-            {
-                massLen += CTerminalMasses.Length;
-            }
-            if (containsZdot)
-            {
-                massLen += CTerminalMasses.Length;
-            }
+            List<ProductType> nTerminalProductTypes = DissociationTypeCollection.ProductsFromDissociationType[dissociationType].Except(TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C]).ToList();
+            List<ProductType> cTerminalProductTypes = DissociationTypeCollection.ProductsFromDissociationType[dissociationType].Except(TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N]).ToList();
 
-            if (massLen < 0)
-                return new double[0];
+            List<double> calculated_N_terminalMasses = new List<double>();
+            List<double> calculated_C_terminalMasses = new List<double>();
 
-            double[] massesToReturn = new double[massLen];
-
-            int i = 0;
-            if (NTerminalMasses != null)
+            if(NTerminalMasses != null && nTerminalProductTypes.Count > 0)
             {
-                for (int j = 0; j < NTerminalMasses.Length; j++)
+                foreach (var NTerminalMass in NTerminalMasses)
                 {
-                    var hm = NTerminalMasses[j];
-                    if (containsB || (containsBnoB1 && j > 0))
+                    foreach (ProductType p in nTerminalProductTypes)
                     {
-                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm).Value;
-                        i++;
-                    }
-                    if (containsC)
+                        calculated_N_terminalMasses.Add(DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(NTerminalMass, p));
+                    }                   
+                }
+            }
+
+            if (CTerminalMasses != null && cTerminalProductTypes.Count > 0)
+            {
+                foreach (var CTerminalMass in CTerminalMasses)
+                {
+                    foreach (ProductType p in cTerminalProductTypes)
                     {
-                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm + nitrogenAtomMonoisotopicMass + 3 * hydrogenAtomMonoisotopicMass).Value;
-                        i++;
+                        calculated_N_terminalMasses.Add(DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(CTerminalMass, p));
                     }
                 }
             }
-            if (CTerminalMasses != null)
-            {
-                foreach (double hm in CTerminalMasses)
-                {
-                    if (containsY)
-                    {
-                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm + waterMonoisotopicMass).Value;
-                        i++;
-                    }
-                    if (containsZdot)
-                    {
-                        massesToReturn[i] = ClassExtensions.RoundedDouble(hm + oxygenAtomMonoisotopicMass - nitrogenAtomMonoisotopicMass).Value;
-                        i++;
-                    }
-                }
-            }
-            return massesToReturn;
+
+            return calculated_N_terminalMasses.Concat(calculated_C_terminalMasses).ToArray();
         }
+
+
+
 
         /// <summary>
         /// Sometimes says not equal when in reality should be equal, due to rounding errors. Small but annoying bug. Careful when fixing! Make sure Indexing runs at a reasonable speed.
@@ -178,7 +132,7 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        protected static IEnumerable<double> ComputeFollowingFragmentMasses(PeptideWithSetModifications peptide, double prevMass, int residue, int direction, DissociationType dissociationType)//we're going to have to pass fragmentation type
+        protected static IEnumerable<NeutralTerminusFragment> ComputeFollowingFragmentMasses(PeptideWithSetModifications peptide, double prevMass, int residue, int direction, DissociationType dissociationType)//we're going to have to pass fragmentation type
         {
             do
             {
@@ -194,7 +148,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         // no neutral losses - just add the modification's mass
                         prevMass += (double)currentModification.MonoisotopicMass;
-                        yield return Math.Round(prevMass, digitsForRoundingMasses);
+                        yield return new NeutralTerminusFragment(GetTermus(direction), Math.Round(prevMass, digitsForRoundingMasses), "", residue) ;
                     }
                     else if (currentModification.NeutralLosses != null && ((residue > 1 && direction == -1) || (residue != peptide.Length && direction == 1))) // we don't want to consider neutral losses on the complete peptide
                     {
@@ -210,7 +164,7 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             // return mass without neutral loss
                             prevMass += (double)currentModification.MonoisotopicMass;
-                            yield return Math.Round(prevMass, digitsForRoundingMasses);
+                            yield return new NeutralTerminusFragment(GetTermus(direction), Math.Round(prevMass, digitsForRoundingMasses), "", residue) ;
 
                             foreach (double loss in theseNeutralLosses)
                             {
@@ -220,14 +174,14 @@ namespace Proteomics.ProteolyticDigestion
                                 }
 
                                 // return the current fragment minus neutral loss
-                                yield return Math.Round(prevMass - loss, digitsForRoundingMasses);
+                                yield return new NeutralTerminusFragment(GetTermus(direction), Math.Round(prevMass - loss, digitsForRoundingMasses), "-" + loss.ToString(), residue) ;
 
                                 // generate the remainder of the series with the neutral loss
                                 if ((residue > 1 && direction == -1) || (residue < (peptide.Length - 1) && direction == 1))
                                 {
                                     foreach (var followingMass in ComputeFollowingFragmentMasses(peptide, prevMass, residue + direction, direction, dissociationType))
                                     {
-                                        yield return Math.Round(followingMass - loss, digitsForRoundingMasses);
+                                        yield return new NeutralTerminusFragment(GetTermus(direction), Math.Round(followingMass.NeutralMass - loss, digitsForRoundingMasses), "-" + loss.ToString(), residue) ;
                                     }
                                 }
                             }
@@ -235,16 +189,25 @@ namespace Proteomics.ProteolyticDigestion
                         else//there were neutral losses but they were the wrong kind so just add the mass of the mod.
                         {
                             prevMass += (double)currentModification.MonoisotopicMass;
-                            yield return Math.Round(prevMass, digitsForRoundingMasses);
+                            yield return new NeutralTerminusFragment(GetTermus(direction), Math.Round(prevMass, digitsForRoundingMasses), "", ) ;
                         }
                     }
                 }
                 else if (residue != 0) // No modification exists
                 {
-                    yield return Math.Round(prevMass, digitsForRoundingMasses);
+                    yield return new NeutralTerminusFragment(GetTermus(direction), Math.Round(prevMass, digitsForRoundingMasses), "", ) ;
                 }
                 residue += direction;
             } while ((residue > 1 && direction == -1) || (residue < peptide.Length && direction == 1));
         }
+
+        private static FragmentationTerminus GetTermus(int direction)
+        {
+            if (direction == 1)
+                return FragmentationTerminus.N;
+            else
+                return FragmentationTerminus.C;
+        }
+
     }
 }

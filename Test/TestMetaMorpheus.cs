@@ -16,7 +16,7 @@ namespace Test
         [Test]
         public static void TestCompactPeptideMasses_UnmodifiedPeptide()
         {
-            Protein p = new Protein("PEP", "accession");
+            Protein p = new Protein("PET", "accession");
 
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
 
@@ -24,13 +24,25 @@ namespace Test
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD);
             Assert.AreEqual(2, aCompactPeptide.NTerminalMasses.Length);
             Assert.AreEqual(2, aCompactPeptide.CTerminalMasses.Length);
+
+            //evaluate N-terminal masses
             List<int> nTerminalMassListRounded = new List<int>();
             foreach (double mass in aCompactPeptide.NTerminalMasses)
             {
                 nTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
             }
-            List<int> actualValues = new List<int> { 97, 226 };
-            Assert.IsTrue(nTerminalMassListRounded.Except(actualValues).ToList().Count == 0);
+            List<int> actual_n_Values = new List<int> { 97, 226 };
+            Assert.IsTrue(nTerminalMassListRounded.Except(actual_n_Values).ToList().Count == 0);
+
+            //evaluate C-terminal masses
+            List<int> cTerminalMassListRounded = new List<int>();
+            foreach (double mass in aCompactPeptide.CTerminalMasses)
+            {
+                cTerminalMassListRounded.Add((int)Math.Round(mass, MidpointRounding.AwayFromZero));
+            }
+            List<int> actual_c_Values = new List<int> { 101, 230 };
+            Assert.IsTrue(cTerminalMassListRounded.Except(actual_c_Values).ToList().Count == 0);
+
         }
 
         [Test]

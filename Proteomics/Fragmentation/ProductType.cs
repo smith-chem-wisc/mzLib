@@ -27,15 +27,15 @@ namespace Proteomics.Fragmentation
         B,
         Bstar,
         Bdot,
-        BnoB1ions,
+        //BnoB1ions,
         C,
         X,
         Y,
         Ystar,
         Ydot,
         Z,
-        Zdot,
-        None
+        //Zdot,
+        //None
     }
 
 }

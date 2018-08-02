@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -8,11 +9,11 @@ namespace Proteomics.ProteolyticDigestion
     /// Product of digesting a protein
     /// Contains methods for modified peptide combinitorics
     /// </summary>
-    public class Peptide
+    public class ProteolyticPeptide
     {
         private string _baseSequence;
 
-        internal Peptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
+        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
         {
             Protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;

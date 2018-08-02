@@ -1,15 +1,15 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Proteomics.ProteolyticDigestion
+namespace Proteomics.Fragmentation
 {
-    public class PeptideWithSetModifications : Peptide
+    public class PeptideWithSetModifications : ProteolyticPeptide
     {
         /// <summary>
         /// dictionary of modifications on a peptide the N terminus is index 1
@@ -186,15 +186,8 @@ namespace Proteomics.ProteolyticDigestion
             foreach (var productType in productCollection)
             {
                 int ionNumberAdd = 1;
-                if (productType == ProductType.BnoB1ions)
-                {
-                    // first generated b ion is b2, not b1, if we're skipping b1 ions
-                    ionNumberAdd++;
-                }
-
-                List<ProductType> temp = new List<ProductType> { productType };
                 
-                var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
+                var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNsNew(dissociationType, 0);
 
                 for (int i = 0; i < productMasses.Length; i++)
                 {
