@@ -205,13 +205,13 @@ namespace MassSpectrometry
             return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
         }
 
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScan, bool> scanFilterFunc)
+        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScan, bool> scanFilterFunc, int maxThreads = -1)
         {
             minScan = minScan ?? 1;
             maxScan = maxScan ?? NumSpectra;
 
             var allAggregateGroups = new List<IsotopicEnvelope>[maxScan.Value - minScan.Value + 1];
-            Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), fff =>
+            Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
             {
                 for (int scanIndex = fff.Item1; scanIndex < fff.Item2; scanIndex++)
                 {

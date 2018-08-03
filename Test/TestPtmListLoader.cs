@@ -13,11 +13,11 @@ namespace Test
         public static void Test_ReadAllModsFromFile()
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonArtifacts.txt");
-            var a = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation);
+            var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
             Assert.AreEqual(33, a.Select(m => m.Id).ToList().Count);
 
             testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonBiological.txt");
-            var b = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation);
+            var b = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
             Assert.AreEqual(35, b.Select(m => m.Id).ToList().Count);
         }
 
@@ -25,7 +25,7 @@ namespace Test
         public static void Test_ModsFromFileAreSorted()
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonArtifacts.txt");
-            var a = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation);
+            var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
 
             string id1 = a.First().Id.ToString();
             foreach (string modId in a.Select(m => m.Id))
@@ -34,7 +34,7 @@ namespace Test
             }
 
             testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonBiological.txt");
-            var b = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation);
+            var b = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
 
             string id2 = b.First().Id.ToString();
             foreach (string modId in b.Select(m => m.Id))
@@ -47,7 +47,7 @@ namespace Test
         public static void Test_ModsWithComments()
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"ModsWithComments.txt");
-            var a = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation).ToList();
+            var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
             Assert.AreEqual(4, a.Select(m => m.Id).ToList().Count);
 
             Assert.AreEqual("Deamidation", a[0].Id.ToString());
@@ -55,7 +55,7 @@ namespace Test
 
             //Make sure comments are okay on DR key and that key value pairs are still split correctly
             var someMod = a[2];
-            var test = (Proteomics.ModificationGeneral)someMod;
+            var test = (Proteomics.Modification)someMod;
             var residValueTest = test.DatabaseReference.First().Value.First();
             var residKeyTest = test.DatabaseReference.First().Key;
             Assert.AreEqual("RESID", residKeyTest);
@@ -66,11 +66,11 @@ namespace Test
         public static void Test_ReadAllModsFromFileGeneral()
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonArtifacts.txt");
-            var a = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation);
+            var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
             Assert.AreEqual(33, a.Select(m => m.Id).ToList().Count);
 
             testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonBiological.txt");
-            var b = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation);
+            var b = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
             Assert.AreEqual(35, b.Select(m => m.Id).ToList().Count);
         }
 
@@ -78,7 +78,7 @@ namespace Test
         public static void Test_ModsWithCommentsGeneral()
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"ModsWithComments.txt");
-            var a = PtmListLoaderGeneral.ReadModsFromFile(testModificationsFileLocation).ToList();
+            var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
             Assert.AreEqual(4, a.Select(m => m.Id).ToList().Count);
 
             Assert.AreEqual("Deamidation", a[0].Id.ToString());
@@ -86,7 +86,7 @@ namespace Test
 
             //Make sure comments are okay on DR key and that key value pairs are still split correctly
             var someMod = a[2];
-            var test = (Proteomics.ModificationGeneral)someMod;
+            var test = (Proteomics.Modification)someMod;
             var residValueTest = test.DatabaseReference.First().Value.First();
             var residKeyTest = test.DatabaseReference.First().Key;
             Assert.AreEqual("RESID", residKeyTest);
@@ -96,20 +96,20 @@ namespace Test
         [Test]
         public static void SampleModFileLoadingGeneral()
         {
-            PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"));
+            PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"));
         }
 
         [Test]
         public static void SampleModFileLoadingFail1General() //TG is not valide
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification);
         }
 
         [Test]
         public static void SampleModFileLoadingFail2General()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); ;
         }
 
@@ -124,15 +124,15 @@ namespace Test
         [Test]
         public static void PTMListLoaderGeneral_ModWithComments_Equals_ModWithoutComments()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_Comments.txt")).ToList();
-            var b = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_NoComments.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_Comments.txt")).ToList();
+            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SampleMod_NoComments.txt")).ToList();
             Assert.IsTrue(a.First().Equals(b.First()));
         }
 
         [Test]
         public static void SampleModFileLoadingFail3General()
         {
-            Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Input string for chemical formula was in an incorrect format: $%&$%"));
@@ -141,7 +141,7 @@ namespace Test
         [Test]
         public static void SampleModFileLoadingFail4General()
         {
-            Assert.That(() => PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt")).ToList(),
+            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt")).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
@@ -150,41 +150,41 @@ namespace Test
         [Test]
         public static void SampleModFileLoadingFail5General()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // ID is missing
         }
 
         [Test]
         public static void SampleModFileLoadingFail6General()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail6.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail6.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // modification type is missing
         }
 
         [Test]
         public static void SampleModFileLoadingFail5General_missingPosition()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingPosition.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingPosition.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // ID is missing
         }
 
         [Test]
         public static void SampleModFileLoadingFail5General_missingMonoisotopicMassAndChemicalFormula()
         {
-            var a = PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt")).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt")).ToList();
             Assert.AreEqual(false, a.First().ValidModification); // ID is missing
         }
 
         [Test]
         public static void CompactFormReadingGeneral()
         {
-            Assert.AreEqual(2, PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt")).Count());
+            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt")).Count());
         }
 
         [Test]
         public static void CompactFormReading2General()
         {
-            Assert.AreEqual(2, PtmListLoaderGeneral.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt")).Count());
+            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt")).Count());
         }
     }
 }

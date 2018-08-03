@@ -38,7 +38,7 @@ namespace UsefulProteomicsDatabases
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
                     .Concat(additionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.id))
+                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.Id))
                 {
                     writer.WriteStartElement("modification");
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
@@ -125,9 +125,9 @@ namespace UsefulProteomicsDatabases
                         foreach (var nice in ye.Value)
                         {
                             if (modsToWriteForThisSpecificProtein.TryGetValue(ye.Key, out HashSet<string> val))
-                                val.Add(nice.id);
+                                val.Add(nice.Id);
                             else
-                                modsToWriteForThisSpecificProtein.Add(ye.Key, new HashSet<string> { nice.id });
+                                modsToWriteForThisSpecificProtein.Add(ye.Key, new HashSet<string> { nice.Id });
                         }
                     }
 
@@ -136,7 +136,7 @@ namespace UsefulProteomicsDatabases
                         foreach (var ye in additionalModsToAddToProteins[protein.Accession])
                         {
                             int additionalModResidueIndex = ye.Item1;
-                            string additionalModId = ye.Item2.id;
+                            string additionalModId = ye.Item2.Id;
                             bool modAdded = false;
 
                             // If we already have modifications that need to be written to the specific residue, get the hash set of those mods

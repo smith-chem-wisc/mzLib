@@ -67,14 +67,15 @@ namespace FlashLFQ
                 {
                     ProteinGroup mergeFromPg = pg.Value;
                     ProteinGroup mergeToPg = proteinGroup;
-                    foreach (var intensity in mergeFromPg.intensities)
+
+                    foreach (SpectraFileInfo file in mergeFrom.spectraFiles)
                     {
-                        mergeToPg.intensities.Add(intensity.Key, intensity.Value);
+                        mergeToPg.SetIntensity(file, mergeFromPg.GetIntensity(file));
                     }
                 }
                 else
                 {
-                    this.proteinGroups.Add(pg.Key,pg.Value);
+                    this.proteinGroups.Add(pg.Key, pg.Value);
                 }
             }
             foreach (var fromPeaks in mergeFrom.peaks)
@@ -170,7 +171,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculateProteinResults()
+        public void CalculateProteinResultsBasic()
         {
             // get all peptides without ambiguous peaks
             var allFeatures = peaks.Values.SelectMany(p => p).ToList();
@@ -229,11 +230,11 @@ namespace FlashLFQ
                     // intensity is zero. this is to prevent false-positives but will reduce the number of quantified proteins
                     if (proteinGroup.Value.Any(p => !p.IsMbrFeature))
                     {
-                        proteinGroup.Key.intensities[file.Key] = file.Value.OrderByDescending(p => p).Take(topNFeatures).Sum();
+                        proteinGroup.Key.SetIntensity(file.Key, file.Value.OrderByDescending(p => p).Take(topNFeatures).Sum());
                     }
                     else
                     {
-                        proteinGroup.Key.intensities[file.Key] = 0;
+                        proteinGroup.Key.SetIntensity(file.Key, 0);
                     }
                 }
             }

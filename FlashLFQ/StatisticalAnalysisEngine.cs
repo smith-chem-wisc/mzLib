@@ -24,7 +24,7 @@ namespace FlashLFQ
             // calculate intensities for proteins/peptides
             Results.CalculatePeptideResults(true);
             Results.CalculatePeptideResults(false);
-            Results.CalculateProteinResults();
+            Results.CalculateProteinResultsBasic();
 
             List<string> output = new List<string>();
             Dictionary<string, List<double[]>> conditionToSamples = new Dictionary<string, List<double[]>>();
