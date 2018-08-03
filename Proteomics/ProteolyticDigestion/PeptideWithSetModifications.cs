@@ -27,24 +27,6 @@ namespace Proteomics.ProteolyticDigestion
         private string _sequenceWithChemicalFormulas;
         private double? _monoisotopicMass;
 
-        public PeptideWithSetModifications(PeptideWithSetModifications modsFromThisOne, int proteinOneBasedStart, int proteinOneBasedEnd)
-            : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart,
-            modsFromThisOne.PeptideDescription)
-        {
-            AllModsOneIsNterminus = modsFromThisOne.AllModsOneIsNterminus
-                .Where(b => b.Key > (1 + proteinOneBasedStart - modsFromThisOne.OneBasedStartResidueInProtein)
-                    && b.Key <= (2 + proteinOneBasedEnd - modsFromThisOne.OneBasedStartResidueInProtein))
-                .ToDictionary(b => (b.Key + modsFromThisOne.OneBasedStartResidueInProtein - proteinOneBasedStart), b => b.Value);
-        }
-
-        public PeptideWithSetModifications(int numFixedMods, Protein protein, int proteinOneBasedStart, int proteinOneBasedEnd,
-            Dictionary<int, Modification> allModsOneIsNterminus = null, int missedCleavages = 0)
-            : base(protein, proteinOneBasedStart, proteinOneBasedEnd, missedCleavages, null)
-        {
-            NumFixedMods = numFixedMods;
-            AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, Modification>();
-        }
-
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
