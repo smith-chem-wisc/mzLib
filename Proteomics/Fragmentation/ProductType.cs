@@ -20,6 +20,8 @@ namespace Proteomics.Fragmentation
         //y*	        y-NH3
         //y°	        y-H2O
         //z             [C]+[M]-NH2
+        //gy            glycan-Y ion  
+        //D             Diagnostic ion
 
         A,
         Astar,
@@ -35,6 +37,8 @@ namespace Proteomics.Fragmentation
         Ydot,
         Z,
         Zdot,
+        GY,
+        D,
         None
     }
 
