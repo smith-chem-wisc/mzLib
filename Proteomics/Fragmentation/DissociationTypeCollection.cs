@@ -35,6 +35,8 @@ namespace Proteomics.Fragmentation
             { ProductType.Ystar, null},//+O -H -N
             { ProductType.Ydot, null},//no change
             { ProductType.Zdot, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
+            { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
+            { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
         };
 
         private static double GetMassShiftFromProductType(ProductType productType)
@@ -58,6 +60,10 @@ namespace Proteomics.Fragmentation
                         case ProductType.Ystar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
                         case ProductType.Ydot: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
                         case ProductType.Zdot: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
+
+                        case ProductType.M: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+                        case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+
                         default: throw new MzLibUtil.MzLibException("Unknown product type!");
                     }
                 }

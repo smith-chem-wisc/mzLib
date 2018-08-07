@@ -10,10 +10,7 @@ namespace Proteomics.Fragmentation
     [Serializable]
     public abstract class CompactPeptideBase : IEquatable<CompactPeptideBase>
     {
-        protected static readonly double nitrogenAtomMonoisotopicMass = PeriodicTable.GetElement("N").PrincipalIsotope.AtomicMass;
-        protected static readonly double oxygenAtomMonoisotopicMass = PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-        protected static readonly double hydrogenAtomMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
-
+        
         private const int digitsForRoundingMasses = 9;
         private const double massTolForPeptideEquality = 1e-9;
 

@@ -503,5 +503,69 @@ namespace Test
 
         }
 
+        [Test]
+        public static void Test_Fragment_DiagnosticIons()
+        {
+            Protein p = new Protein("PET", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+
+            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+
+            //evaluate N-terminal masses
+            var diagnosticIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.D).ToList();
+            Assert.AreEqual("D0;97.976895573-0", diagnosticIons.First().ToString());
+        }
+
+        [Test]
+        public static void Test_Fragment_MolecularIon_NeutralLoss()
+        {
+            Protein p = new Protein("PTE", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+
+            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+
+            //evaluate N-terminal masses
+            var molecularIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.M).ToList();
+            Assert.AreEqual("M0;327.14303540761-97.97689557339", molecularIons.First().ToString());
+        }
+
+        [Test]
+        public static void Test_Fragment_DiagnosticIons_unmatchedDissociationType()
+        {
+            Protein p = new Protein("PET", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+
+            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+
+            //evaluate N-terminal masses
+            var diagnosticIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.D).ToList();
+            Assert.AreEqual(0, diagnosticIons.Count());
+        }
+
+        [Test]
+        public static void Test_Fragment_MolecularIon_NeutralLoss_unmatchedDissociationType()
+        {
+            Protein p = new Protein("PTE", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+
+            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+
+            //evaluate N-terminal masses
+            var molecularIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.M).ToList();
+            Assert.AreEqual(0, molecularIons.Count());
+        }
+
     }
 }

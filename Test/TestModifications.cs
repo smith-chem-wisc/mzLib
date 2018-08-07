@@ -323,8 +323,10 @@ namespace Test
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count > 0).First();
 
             var myModFragments = peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
-            HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass).ToList());
-            HashSet<int> expectedMasses = new HashSet<int> { 97, 226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
+            HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass.ToMz(1)).ToList());
+            HashSet<int> expectedMasses = new HashSet<int> { 98,227, 324, 407, 520, 635, 505, 618, 733, //b-ions with and without neutral loss
+            148, 263, 376, 459, 556, 685, 557, 654, 783, //y-ions with and without neutral loss
+            782}; //molecular ion with neutral loss
 
             Assert.That(neutralMasses.SetEquals(expectedMasses));
         }
@@ -356,9 +358,10 @@ namespace Test
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 2).First();
 
             var myModFragments = peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
-            HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass).ToList());
-            HashSet<int> expectedMasses = new HashSet<int> { 97, 226, 354, 535, 648, 763, 437, 550, 665, 337, 518, 631, 746, // b
-                                                             147, 262, 375, 556, 684, 813, 667, 796, 458, 586, 715};         // y
+            HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass.ToMz(1)).ToList());
+            HashSet<int> expectedMasses = new HashSet<int> { 98, 227, 355, 536, 649, 764, 438, 551, 666, 338, 519, 632, 747, // b-ions with and without neutral losses
+                                                             148, 263, 376, 557, 685, 814, 668, 797, 459, 587, 716, //y ions with and without neutral losses
+                                                               813, 894, }; //molecular ion with neutral losses (phospho and ammonia respectively)
             
             Assert.That(neutralMasses.SetEquals(expectedMasses));
         }
@@ -391,18 +394,22 @@ namespace Test
 
             var myModFragmentsHCD = peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
 
-            var neutralMassesHCD = myModFragmentsHCD.Select(m => (int)m.NeutralMass);
-            var expectedMassesHCD = new HashSet<int> { 97, 226, 323, 504, 617, 732, 406, 519, 634, 147, 262, 375, 556, 653, 782, 458, 555, 684 };
+            var neutralMassesHCD = myModFragmentsHCD.Select(m => (int)m.NeutralMass.ToMz(1));
+            var expectedMassesHCD = new HashSet<int> { 98, 227, 324, 407, 520, 635, 505, 618, 733,// b-ions with and without neutral loss
+                                                        148, 263, 376, 459, 556, 685, 557, 654, 783,//y-ions with and without neutral loss
+                                                        782};// molecular ion with neutral loss
 
             Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
 
             //Now try the other half
-            myModFragmentsHCD = peptideWithNeutralMassMod.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+            var myModFragmentsETD = peptideWithNeutralMassMod.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
-            neutralMassesHCD = myModFragmentsHCD.Select(m => (int)m.NeutralMass.ToMz(1));
-            expectedMassesHCD = new HashSet<int> { 115, 244, 341, 505, 618, 733, 522, 635, 750,  // c-ions and c-17 ions
+            var neutralMassesETD = myModFragmentsETD.Select(m => (int)m.NeutralMass.ToMz(1));
+            var expectedMassesETD = new HashSet<int> { 115, 244, 341, 505, 618, 733, 522, 635, 750,  // c-ions and c-17 ions
             148, 263, 376, 540, 637, 766, 557, 654, 783,          // y and y-17 ions
-            133, 248, 361, 525, 622, 751, 542, 639, 768};         // z+1 and z+1-17 ions
+            133, 248, 361, 525, 622, 751, 542, 639, 768,         // z+1 and z+1-17 ions
+            863 };//Molecular ions minus ammonia
+
 
             Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
 

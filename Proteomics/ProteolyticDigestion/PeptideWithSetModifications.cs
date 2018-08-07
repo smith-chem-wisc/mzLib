@@ -15,7 +15,7 @@ namespace Proteomics.ProteolyticDigestion
         /// dictionary of modifications on a peptide the N terminus is index 1
         /// key indicates which residue modification is on (with 1 being N terminus)
         /// </summary>
-        public readonly Dictionary<int, Modification> AllModsOneIsNterminus;
+        public readonly Dictionary<int, Modification> AllModsOneIsNterminus; //we currently only allow one mod per position
 
         public readonly DigestionParams DigestionParams;
         public readonly int NumFixedMods;
@@ -254,6 +254,9 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         public IEnumerable<Product> Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
+            // molecular ion
+            //yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.None, this.MonoisotopicMass, Length, Length), 0);
+
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
             foreach (var productType in productCollection)
@@ -262,10 +265,6 @@ namespace Proteomics.ProteolyticDigestion
                 // this speeds calculations up without producing unnecessary terminus fragment info
                 FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
                 NeutralTerminusFragment[] terminalMasses = CompactPeptide(temporaryFragmentationTerminus).TerminalMasses;
-
-                // commented-out code is for double-neutral-loss which we currently don't support
-                //int nlStart = 0;
-                //double totalNeutralLoss = 0;
 
                 for (int f = 0; f < terminalMasses.Length; f++)
                 {
@@ -280,26 +279,43 @@ namespace Proteomics.ProteolyticDigestion
                                 continue;
                             }
 
-                            //if (totalNeutralLoss != 0)
-                            //{
                             for (int n = f; n < terminalMasses.Length; n++)
                             {
                                 yield return new Product(productType, terminalMasses[n], neutralLoss);
                             }
-                            //}
-
-                            //nlStart = f;
-                            //totalNeutralLoss += neutralLoss;
-
-                            //foreach (var fragment in GetNeutralLossFragments(productType, terminalMasses, nlStart, totalNeutralLoss))
-                            //{
-                            //    yield return fragment;
-                            //}
                         }
                     }
 
                     // "normal" fragment without neutral loss
                     yield return new Product(productType, terminalMasses[f], 0);
+                }
+            }
+
+            if (AllModsOneIsNterminus != null)
+            {
+                foreach (Modification mod in AllModsOneIsNterminus.Values)
+                {
+                    // molecular ion minus neutral losses
+                    if (mod.NeutralLosses != null && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> losses))
+                    {
+                        foreach (double neutralLoss in losses)
+                        {
+                            if (neutralLoss != 0)
+                            {
+                                yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.Both, MonoisotopicMass, 0, 0), neutralLoss);
+                            }
+                        }
+                    }
+
+                    // diagnostic ions
+                    if (mod.DiagnosticIons != null && mod.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagnosticIons))
+                    {
+                        foreach (double diagnosticIon in diagnosticIons)
+                        {
+                            // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
+                            yield return new Product(ProductType.D, new NeutralTerminusFragment(FragmentationTerminus.Both, diagnosticIon, 0, 0), 0);
+                        }
+                    }
                 }
             }
         }

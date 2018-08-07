@@ -34,8 +34,8 @@ namespace Proteomics.Fragmentation
         Ystar,
         Ydot,
         Zdot,// A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
-        //Zdot,
-        //None
+        M, //this is the molecular ion
+        D //this is a diagnostic ion
     }
 
 }
