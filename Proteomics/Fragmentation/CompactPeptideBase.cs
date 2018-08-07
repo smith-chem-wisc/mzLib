@@ -10,10 +10,6 @@ namespace Proteomics.Fragmentation
     [Serializable]
     public abstract class CompactPeptideBase : IEquatable<CompactPeptideBase>
     {
-        
-        private const int digitsForRoundingMasses = 9;
-        private const double massTolForPeptideEquality = 1e-9;
-
         public NeutralTerminusFragment[] TerminalMasses { get; protected set; }
         public double MonoisotopicMassIncludingFixedMods { get; protected set; }
 
@@ -31,7 +27,7 @@ namespace Proteomics.Fragmentation
             unchecked
             {
                 var result = 0;
-                if (TerminalMasses == null)
+                if (TerminalMasses != null)
                 {
                     foreach (var mass in TerminalMasses)
                     {
@@ -46,12 +42,7 @@ namespace Proteomics.Fragmentation
         {
             if (TerminalMasses != null && cp.TerminalMasses != null) //neither series is nulll
             {
-                return (
-                    ((double.IsNaN(MonoisotopicMassIncludingFixedMods)
-                        && double.IsNaN(cp.MonoisotopicMassIncludingFixedMods))
-                        || (Math.Abs(MonoisotopicMassIncludingFixedMods - cp.MonoisotopicMassIncludingFixedMods) < massTolForPeptideEquality))
-                    && TerminalMasses.SequenceEqual(cp.TerminalMasses)
-                    );
+                return TerminalMasses.SequenceEqual(cp.TerminalMasses);
             }
             else //Cannot compare
             {
@@ -65,18 +56,18 @@ namespace Proteomics.Fragmentation
 
             if (fragmentationTerminus == FragmentationTerminus.N || fragmentationTerminus == FragmentationTerminus.Both)
             {
-                for (int r = 0; r <= peptide.Length-1; r++)//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0. 
+                for (int r = 0; r <= peptide.Length - 1; r++)//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0.
                 {
-                    mass += Residue.ResidueMonoisotopicMass[peptide[r]];//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0. 
+                    mass += Residue.ResidueMonoisotopicMass[peptide[r]];//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0.
 
-                    if (peptide.AllModsOneIsNterminus.TryGetValue(r+2, out Modification currentModification))//This is a one based index. The index of the fragment from the first amino acid is 1.
+                    if (peptide.AllModsOneIsNterminus.TryGetValue(r + 2, out Modification currentModification))//This is a one based index. The index of the fragment from the first amino acid is 1.
                     {
                         mass += (double)currentModification.MonoisotopicMass;
                     }
 
-                    if (r != peptide.Length-1)
+                    if (r != peptide.Length - 1)
                     {
-                        yield return new NeutralTerminusFragment(FragmentationTerminus.N, Math.Round(mass, digitsForRoundingMasses), r+1, r+1);//This is a one based index. The index of the fragment from the first amino acid is 1.
+                        yield return new NeutralTerminusFragment(FragmentationTerminus.N, mass, r + 1, r + 1);//This is a one based index. The index of the fragment from the first amino acid is 1.
                     }
                 }
             }
@@ -96,7 +87,7 @@ namespace Proteomics.Fragmentation
 
                     if (r != 0)
                     {
-                        yield return new NeutralTerminusFragment(FragmentationTerminus.C, Math.Round(mass, digitsForRoundingMasses), peptide.Length - r, r + 1);
+                        yield return new NeutralTerminusFragment(FragmentationTerminus.C, mass, peptide.Length - r, r + 1);
                     }
                 }
             }
