@@ -9,8 +9,8 @@ namespace Proteomics.Fragmentation
         public static Dictionary<FragmentationTerminus, List<ProductType>> ProductIonTypesFromSpecifiedTerminus = new Dictionary<FragmentationTerminus, List<ProductType>>
         {
             {FragmentationTerminus.N, new List<ProductType>{ ProductType.A, ProductType.Adot, ProductType.Astar, ProductType.B, ProductType.Bdot, ProductType.Bstar, ProductType.C } }, //all ion types that include the N-terminus
-            {FragmentationTerminus.C, new List<ProductType>{ ProductType.X, ProductType.Y, ProductType.Ydot, ProductType.Ystar, ProductType.Z } }, //all ion types that include the C-terminus
-            {FragmentationTerminus.Both, new List<ProductType>{ ProductType.A, ProductType.Adot, ProductType.Astar, ProductType.B, ProductType.Bdot, ProductType.Bstar, ProductType.C, ProductType.X, ProductType.Y, ProductType.Ydot, ProductType.Ystar, ProductType.Z} },
+            {FragmentationTerminus.C, new List<ProductType>{ ProductType.X, ProductType.Y, ProductType.Ydot, ProductType.Ystar, ProductType.Zdot } }, //all ion types that include the C-terminus
+            {FragmentationTerminus.Both, new List<ProductType>{ ProductType.A, ProductType.Adot, ProductType.Astar, ProductType.B, ProductType.Bdot, ProductType.Bstar, ProductType.C, ProductType.X, ProductType.Y, ProductType.Ydot, ProductType.Ystar, ProductType.Zdot} },
             {FragmentationTerminus.None, new List<ProductType>() }
         };
 
@@ -27,7 +27,7 @@ namespace Proteomics.Fragmentation
             { ProductType.Y, FragmentationTerminus.C },
             { ProductType.Ydot, FragmentationTerminus.C },
             { ProductType.Ystar, FragmentationTerminus.C },
-            { ProductType.Z, FragmentationTerminus.C },
+            { ProductType.Zdot, FragmentationTerminus.C },
         };
 
     }

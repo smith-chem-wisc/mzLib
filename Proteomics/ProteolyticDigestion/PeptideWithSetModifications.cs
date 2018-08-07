@@ -1,13 +1,13 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.ProteolyticDigestion;
+using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Proteomics.Fragmentation
+namespace Proteomics.ProteolyticDigestion
 {
     public class PeptideWithSetModifications : ProteolyticPeptide
     {
@@ -56,7 +56,7 @@ namespace Proteomics.Fragmentation
         }
 
         /// <summary>
-        /// Creates a PeptideWithSetModifications object from a sequence string. 
+        /// Creates a PeptideWithSetModifications object from a sequence string.
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects
         /// </summary>
         public PeptideWithSetModifications(string sequence, IEnumerable<Modification> allKnownModifications, int numFixedMods = 0,
@@ -84,6 +84,7 @@ namespace Proteomics.Fragmentation
                     case '[':
                         currentlyReadingMod = true;
                         break;
+
                     case ']':
 
                         Modification mod = null;
@@ -109,6 +110,7 @@ namespace Proteomics.Fragmentation
                         currentlyReadingMod = false;
                         currentModification = new StringBuilder();
                         break;
+
                     default:
                         if (currentlyReadingMod)
                         {
@@ -248,9 +250,9 @@ namespace Proteomics.Fragmentation
         }
 
         /// <summary>
-        /// Generates theoretical fragment ions for given product types for this peptide
+        /// Generates theoretical fragments for given dissociation type for this peptide
         /// </summary>
-        public IEnumerable<NeutralTheoreticalProduct> GetTheoreticalFragments(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        public IEnumerable<Product> Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
@@ -258,12 +260,46 @@ namespace Proteomics.Fragmentation
             {
                 // we're separating the N and C terminal masses and computing a separate compact peptide for each one
                 // this speeds calculations up without producing unnecessary terminus fragment info
-                FragmentationTerminus temp = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
+                FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
+                NeutralTerminusFragment[] terminalMasses = CompactPeptide(temporaryFragmentationTerminus).TerminalMasses;
 
-                foreach (var neutralTerminusFragment in CompactPeptide(temp).TerminalMasses)
+                // commented-out code is for double-neutral-loss which we currently don't support
+                //int nlStart = 0;
+                //double totalNeutralLoss = 0;
+
+                for (int f = 0; f < terminalMasses.Length; f++)
                 {
-                    //TODO: compute mass of fragment given neutral loss
-                    yield return new NeutralTheoreticalProduct(productType, neutralTerminusFragment, null);
+                    // fragments with neutral loss
+                    if (AllModsOneIsNterminus.TryGetValue(terminalMasses[f].AminoAcidPosition + 1, out Modification mod) && mod.NeutralLosses != null
+                        && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
+                    {
+                        foreach (double neutralLoss in neutralLosses)
+                        {
+                            if (neutralLoss == 0)
+                            {
+                                continue;
+                            }
+
+                            //if (totalNeutralLoss != 0)
+                            //{
+                            for (int n = f; n < terminalMasses.Length; n++)
+                            {
+                                yield return new Product(productType, terminalMasses[n], neutralLoss);
+                            }
+                            //}
+
+                            //nlStart = f;
+                            //totalNeutralLoss += neutralLoss;
+
+                            //foreach (var fragment in GetNeutralLossFragments(productType, terminalMasses, nlStart, totalNeutralLoss))
+                            //{
+                            //    yield return fragment;
+                            //}
+                        }
+                    }
+
+                    // "normal" fragment without neutral loss
+                    yield return new Product(productType, terminalMasses[f], 0);
                 }
             }
         }

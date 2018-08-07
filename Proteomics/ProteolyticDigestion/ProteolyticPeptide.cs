@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -18,7 +17,6 @@ namespace Proteomics.ProteolyticDigestion
             Protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;
             OneBasedEndResidueInProtein = oneBasedEndResidueInProtein;
-            Length = OneBasedEndResidueInProtein - OneBasedStartResidueInProtein + 1;
             MissedCleavages = missedCleavages;
             PeptideDescription = peptideDescription;
         }
@@ -28,7 +26,7 @@ namespace Proteomics.ProteolyticDigestion
         public int OneBasedEndResidueInProtein { get; }// if the first residue in a protien is 1 this is the number of the residue at which the peptide ends
         public int MissedCleavages { get; set; }// the number of missed cleavages this peptide has considerign what protease was supposed to generate it?
         public string PeptideDescription { get; }
-        public int Length { get; }//how many residues llong the peptide is (calculated from oneBased Starts and End Residues)
+        public int Length { get { return BaseSequence.Length; } }//how many residues llong the peptide is (calculated from oneBased Starts and End Residues)
 
         public virtual char PreviousAminoAcid
         {
@@ -52,7 +50,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 if (_baseSequence == null)
                 {
-                    _baseSequence = Protein.BaseSequence.Substring(OneBasedStartResidueInProtein - 1, Length);
+                    _baseSequence = Protein.BaseSequence.Substring(OneBasedStartResidueInProtein - 1, OneBasedEndResidueInProtein - OneBasedStartResidueInProtein + 1);
                 }
                 return _baseSequence;
             }
@@ -62,7 +60,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             get
             {
-                return Protein.BaseSequence[zeroBasedIndex + OneBasedStartResidueInProtein - 1];
+                return BaseSequence[zeroBasedIndex];
             }
         }
 

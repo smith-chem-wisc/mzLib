@@ -1,6 +1,6 @@
 ﻿using Chemistry;
-using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -68,18 +68,18 @@ namespace Proteomics.Fragmentation
 
             if (fragmentationTerminus == FragmentationTerminus.N || fragmentationTerminus == FragmentationTerminus.Both)
             {
-                for (int r = 0; r < peptide.Length; r++)
+                for (int r = 0; r <= peptide.Length-1; r++)//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0. 
                 {
-                    mass += Residue.ResidueMonoisotopicMass[peptide[r]];
+                    mass += Residue.ResidueMonoisotopicMass[peptide[r]];//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0. 
 
-                    if (peptide.AllModsOneIsNterminus.TryGetValue(r + 2, out Modification currentModification))
+                    if (peptide.AllModsOneIsNterminus.TryGetValue(r+2, out Modification currentModification))//This is a one based index. The index of the fragment from the first amino acid is 1.
                     {
                         mass += (double)currentModification.MonoisotopicMass;
                     }
 
-                    if (r != peptide.Length - 1)
+                    if (r != peptide.Length-1)
                     {
-                        yield return new NeutralTerminusFragment(FragmentationTerminus.N, Math.Round(mass, digitsForRoundingMasses), r + 1);
+                        yield return new NeutralTerminusFragment(FragmentationTerminus.N, Math.Round(mass, digitsForRoundingMasses), r+1, r+1);//This is a one based index. The index of the fragment from the first amino acid is 1.
                     }
                 }
             }
@@ -99,7 +99,7 @@ namespace Proteomics.Fragmentation
 
                     if (r != 0)
                     {
-                        yield return new NeutralTerminusFragment(FragmentationTerminus.C, Math.Round(mass, digitsForRoundingMasses), r);
+                        yield return new NeutralTerminusFragment(FragmentationTerminus.C, Math.Round(mass, digitsForRoundingMasses), peptide.Length - r, r + 1);
                     }
                 }
             }

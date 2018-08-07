@@ -47,12 +47,12 @@ namespace Test
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
-            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
 
             //evaluate C-terminal masses
             var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
         }
 
         [Test]
@@ -91,12 +91,16 @@ namespace Test
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 306 };
-            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            HashSet<int> foundNTerminalMasses = new HashSet<int>(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0)).ToList());
+
+            Assert.That(expectedNTerminalMasses.SetEquals(foundNTerminalMasses));
 
             //evaluate C-terminal masses
             var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 310 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            HashSet<int> foundCTerminalMasses = new HashSet<int>(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0)).ToList());
+
+            Assert.That(expectedCTerminalMasses.SetEquals(foundCTerminalMasses));
         }
 
         [Test]
@@ -112,13 +116,13 @@ namespace Test
 
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
-            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306, 79, 208 };
-            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
 
             //evaluate C-terminal masses
             var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
         }
 
         [Test]
@@ -132,15 +136,19 @@ namespace Test
 
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
-            //evaluate N-terminal masses
+            //var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            HashSet<int> foundNTerminalMasses = new HashSet<int>(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0)).ToList());
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
-            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+
+            Assert.That(expectedNTerminalMasses.SetEquals(foundNTerminalMasses));
 
             //evaluate C-terminal masses
             var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
-            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 181, 310, 83, 212 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            HashSet<int> foundCTerminalMasses = new HashSet<int>(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0)).ToList());
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 181, 310 };
+
+            Assert.That(expectedCTerminalMasses.SetEquals(foundCTerminalMasses));
         }
 
         [Test]
@@ -154,15 +162,19 @@ namespace Test
 
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
+            var allFragmentNeutralMasses = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            
+            
+
             //evaluate N-terminal masses
-            var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
+            var n = allFragmentNeutralMasses.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 306, 208 };
-            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            Assert.That(expectedNTerminalMasses.SetEquals(n.Select(v => (int)Math.Round(v.NeutralMass, 1))));
 
             //evaluate C-terminal masses
-            var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
-            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 310, 212 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            var c = allFragmentNeutralMasses.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.C).ToList();
+            HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 328, 230 };
+            Assert.That(expectedCTerminalMasses.SetEquals(c.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
 
         [Test]
@@ -178,13 +190,13 @@ namespace Test
 
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
-            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306, 79, 208 };
-            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
+            Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
 
             //evaluate C-terminal masses
             var cTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.C);
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
+            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
         }
 
         [Test]
@@ -208,5 +220,10 @@ namespace Test
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
+
+
+
+
+
     }
 }

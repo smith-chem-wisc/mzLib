@@ -34,15 +34,15 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
 
-            var test = pep1.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
+            var test = pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
 
-            foreach (var huh in pep1.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both))
+            foreach (var huh in pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
             {
                 Assert.IsTrue(huh.NeutralMass > 0);
             }
             var pep2 = ye[1];
             Assert.IsTrue(pep2.MonoisotopicMass > 0);
-            foreach (var huh in pep2.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both))
+            foreach (var huh in pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
             {
                 Assert.IsTrue(huh.NeutralMass > 0);
             }
@@ -74,14 +74,14 @@ namespace Test
             Assert.AreEqual(2, ye.Count);
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
-            foreach (var huh in pep1.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both))
+            foreach (var huh in pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
             {
                 Assert.IsTrue(huh.NeutralMass > 0);
             }
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);
-            var cool = pep2.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both).ToArray();
+            var cool = pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToArray();
             Assert.IsTrue(cool[0].NeutralMass > 0);
             Assert.IsTrue(cool[1].NeutralMass > 0);
             Assert.IsTrue(cool[3].NeutralMass > 0);
@@ -255,7 +255,7 @@ namespace Test
             Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 
             // calculate fragments. just check that they exist and it doesn't crash
-            List<NeutralTheoreticalProduct> theoreticalFragments = peptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            List<Product> theoreticalFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
             Assert.That(theoreticalFragments.Count > 0);
         }
     }

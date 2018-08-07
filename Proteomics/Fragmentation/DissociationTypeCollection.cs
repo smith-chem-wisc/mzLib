@@ -11,12 +11,12 @@ namespace Proteomics.Fragmentation
             { DissociationType.Unknown, new List<ProductType>() },
             { DissociationType.CID, new List<ProductType>{ ProductType.B, ProductType.Y } },
             { DissociationType.MPD, new List<ProductType>() },
-            { DissociationType.ECD, new List<ProductType>{ ProductType.C, ProductType.Y, ProductType.Z } },
+            { DissociationType.ECD, new List<ProductType>{ ProductType.C, ProductType.Y, ProductType.Zdot } },
             { DissociationType.PQD, new List<ProductType>() },
-            { DissociationType.ETD, new List<ProductType>{ ProductType.C, ProductType.Y, ProductType.Z } },
+            { DissociationType.ETD, new List<ProductType>{ ProductType.C, ProductType.Y, ProductType.Zdot } },
             { DissociationType.HCD, new List<ProductType>{ ProductType.B, ProductType.Y } },
             { DissociationType.AnyActivationType, new List<ProductType>{ ProductType.B, ProductType.Y } },
-            { DissociationType.EThCD, new List<ProductType>{ ProductType.B, ProductType.Y } },
+            { DissociationType.EThCD, new List<ProductType>{ ProductType.B, ProductType.Y, ProductType.C, ProductType.Zdot } },
             { DissociationType.Custom, new List<ProductType>() },
             { DissociationType.ISCID, new List<ProductType>() }
         };
@@ -34,7 +34,7 @@ namespace Proteomics.Fragmentation
             { ProductType.Y, null},//+O +H2
             { ProductType.Ystar, null},//+O -H -N
             { ProductType.Ydot, null},//no change
-            { ProductType.Z, null},//+O -H -N
+            { ProductType.Zdot, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
         };
 
         private static double GetMassShiftFromProductType(ProductType productType)
@@ -57,7 +57,7 @@ namespace Proteomics.Fragmentation
                         case ProductType.Y: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass; break;// 18.01056468403, +O +H2
                         case ProductType.Ystar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
                         case ProductType.Ydot: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
-                        case ProductType.Z: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;//; 0.98401558291000057, +O -H -N
+                        case ProductType.Zdot: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
                         default: throw new MzLibUtil.MzLibException("Unknown product type!");
                     }
                 }
