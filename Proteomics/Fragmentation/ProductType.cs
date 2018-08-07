@@ -21,6 +21,8 @@ namespace Proteomics.Fragmentation
         //y°	        y-H2O
         //z             [C]+[M]-NH2
         //gy            glycan-Y ion  
+        //bg            b-glycan
+        //yg            y-glycan
         //D             Diagnostic ion
 
         A,
@@ -38,6 +40,8 @@ namespace Proteomics.Fragmentation
         Z,
         Zdot,
         GY,
+        BG,
+        YG,
         D,
         None
     }
