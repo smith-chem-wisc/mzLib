@@ -624,11 +624,27 @@ namespace Test
         }
 
         [Test]
-        public void Test_NeutralMassShiftFromProductType_Exceptions()
+        public static void Test_NeutralMassShiftFromProductType_Exceptions()
         {
             ProductType undefinedProduct = (ProductType)99;
 
             Assert.Throws<MzLibException>(() => DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(0, undefinedProduct), "Unknown product type!");
         }
+
+        [Test]
+        public static void Test_CustomDissociationType()
+        {
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.B);
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.Y);
+            Assert.IsTrue(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Contains(ProductType.B));
+
+            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
+            Assert.IsTrue(productCollection.Contains(ProductType.B));
+
+            productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
+            Assert.IsTrue(productCollection.Contains(ProductType.Y));
+
+        }
+
     }
 }
