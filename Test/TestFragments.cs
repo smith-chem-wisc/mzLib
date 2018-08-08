@@ -187,7 +187,9 @@ namespace Test
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
             Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
+
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
+
             HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "B1;97.05276385-0", "B2;226.095356938-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
