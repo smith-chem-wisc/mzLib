@@ -8,11 +8,11 @@ namespace Proteomics.ProteolyticDigestion
     /// Product of digesting a protein
     /// Contains methods for modified peptide combinitorics
     /// </summary>
-    public class Peptide
+    public class ProteolyticPeptide
     {
         protected string _baseSequence;
 
-        internal Peptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
+        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
         {
             Protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;

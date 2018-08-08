@@ -13,7 +13,7 @@ namespace Test
         {
 
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD];
-            Assert.IsTrue(d.Contains(ProductType.BnoB1ions));
+            Assert.IsTrue(d.Contains(ProductType.B));
             Assert.IsTrue(d.Contains(ProductType.Y));
         }
 
@@ -39,7 +39,7 @@ namespace Test
         public void TestEThCD_ProductTypes()
         {
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.EThCD];
-            Assert.IsTrue(d.Contains(ProductType.BnoB1ions));
+            Assert.IsTrue(d.Contains(ProductType.B));
             Assert.IsTrue(d.Contains(ProductType.Y));
         }
 

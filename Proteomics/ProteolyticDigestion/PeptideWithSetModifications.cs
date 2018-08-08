@@ -9,13 +9,13 @@ using System.Text;
 
 namespace Proteomics.ProteolyticDigestion
 {
-    public class PeptideWithSetModifications : Peptide
+    public class PeptideWithSetModifications : ProteolyticPeptide
     {
         /// <summary>
         /// dictionary of modifications on a peptide the N terminus is index 1
         /// key indicates which residue modification is on (with 1 being N terminus)
         /// </summary>
-        public readonly Dictionary<int, Modification> AllModsOneIsNterminus;
+        public readonly Dictionary<int, Modification> AllModsOneIsNterminus; //we currently only allow one mod per position
 
         public readonly DigestionParams DigestionParams;
         public readonly int NumFixedMods;
@@ -56,7 +56,7 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Creates a PeptideWithSetModifications object from a sequence string. 
+        /// Creates a PeptideWithSetModifications object from a sequence string.
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects
         /// </summary>
         public PeptideWithSetModifications(string sequence, IEnumerable<Modification> allKnownModifications, int numFixedMods = 0,
@@ -84,6 +84,7 @@ namespace Proteomics.ProteolyticDigestion
                     case '[':
                         currentlyReadingMod = true;
                         break;
+
                     case ']':
 
                         Modification mod = null;
@@ -109,6 +110,7 @@ namespace Proteomics.ProteolyticDigestion
                         currentlyReadingMod = false;
                         currentModification = new StringBuilder();
                         break;
+
                     default:
                         if (currentlyReadingMod)
                         {
@@ -248,35 +250,74 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Generates theoretical fragment ions for given product types for this peptide
+        /// Generates theoretical fragments for given dissociation type for this peptide
         /// </summary>
-        public List<TheoreticalFragmentIon> GetTheoreticalFragments(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        public IEnumerable<Product> Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
-            // TODO: make this method more self-contained... right now it makes a CompactPeptide (deprecated) and fragments it
-            List<TheoreticalFragmentIon> theoreticalFragmentIons = new List<TheoreticalFragmentIon>();
+            // molecular ion
+            //yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.None, this.MonoisotopicMass, Length, Length), 0);
 
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
             foreach (var productType in productCollection)
             {
-                int ionNumberAdd = 1;
-                if (productType == ProductType.BnoB1ions)
+                // we're separating the N and C terminal masses and computing a separate compact peptide for each one
+                // this speeds calculations up without producing unnecessary terminus fragment info
+                FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
+                NeutralTerminusFragment[] terminalMasses = CompactPeptide(temporaryFragmentationTerminus).TerminalMasses;
+
+                for (int f = 0; f < terminalMasses.Length; f++)
                 {
-                    // first generated b ion is b2, not b1, if we're skipping b1 ions
-                    ionNumberAdd++;
-                }
+                    // fragments with neutral loss
+                    if (AllModsOneIsNterminus.TryGetValue(terminalMasses[f].AminoAcidPosition + 1, out Modification mod) && mod.NeutralLosses != null
+                        && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
+                    {
+                        foreach (double neutralLoss in neutralLosses)
+                        {
+                            if (neutralLoss == 0)
+                            {
+                                continue;
+                            }
 
-                List<ProductType> temp = new List<ProductType> { productType };
+                            for (int n = f; n < terminalMasses.Length; n++)
+                            {
+                                yield return new Product(productType, terminalMasses[n], neutralLoss);
+                            }
+                        }
+                    }
 
-                var productMasses = new CompactPeptide(this, fragmentationTerminus, dissociationType).ProductMassesMightHaveDuplicatesAndNaNs(temp);
-
-                for (int i = 0; i < productMasses.Length; i++)
-                {
-                    theoreticalFragmentIons.Add(new TheoreticalFragmentIon(productMasses[i], double.NaN, 1, productType, i + ionNumberAdd));
+                    // "normal" fragment without neutral loss
+                    yield return new Product(productType, terminalMasses[f], 0);
                 }
             }
 
-            return theoreticalFragmentIons;
+            if (AllModsOneIsNterminus != null)
+            {
+                foreach (Modification mod in AllModsOneIsNterminus.Values)
+                {
+                    // molecular ion minus neutral losses
+                    if (mod.NeutralLosses != null && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> losses))
+                    {
+                        foreach (double neutralLoss in losses)
+                        {
+                            if (neutralLoss != 0)
+                            {
+                                yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.Both, MonoisotopicMass, 0, 0), neutralLoss);
+                            }
+                        }
+                    }
+
+                    // diagnostic ions
+                    if (mod.DiagnosticIons != null && mod.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagnosticIons))
+                    {
+                        foreach (double diagnosticIon in diagnosticIons)
+                        {
+                            // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
+                            yield return new Product(ProductType.D, new NeutralTerminusFragment(FragmentationTerminus.Both, diagnosticIon, 0, 0), 0);
+                        }
+                    }
+                }
+            }
         }
 
         public int NumVariableMods { get { return NumMods - NumFixedMods; } }
@@ -323,7 +364,7 @@ namespace Proteomics.ProteolyticDigestion
             return essentialSequence;
         }
 
-        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus, DissociationType dissociationType)
+        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus)
         {
             if (_compactPeptides.TryGetValue(fragmentationTerminus, out CompactPeptide compactPeptide))
             {
@@ -331,7 +372,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             else
             {
-                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus, dissociationType);
+                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus);
                 _compactPeptides.Add(fragmentationTerminus, cp);
                 return cp;
             }

@@ -48,6 +48,7 @@
     <Compile Include="SeqCoverageTests.cs" />
     <Compile Include="TestCZE.cs" />
     <Compile Include="TestDissociation.cs" />
+    <Compile Include="TestMetaMorpheus.cs" />
     <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseTests\DatabaseLoaderTests.cs" />
@@ -65,6 +66,7 @@
     <Compile Include="TestPeptides.cs" />
     <Compile Include="DatabaseTests\TestProteinReader.cs" />
     <Compile Include="DatabaseTests\TestProteomicsReadWrite.cs" />
+    <Compile Include="TestProductMassesMightHaveDuplicates.cs" />
     <Compile Include="TestPtmListLoader.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestIsolation.cs" />
