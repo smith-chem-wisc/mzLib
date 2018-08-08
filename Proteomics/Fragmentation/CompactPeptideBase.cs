@@ -31,7 +31,7 @@ namespace Proteomics.Fragmentation
                 {
                     foreach (var mass in TerminalMasses)
                     {
-                        result = (result * 31) ^ mass.GetHashCode();
+                        result += (result * 31) ^ mass.GetHashCode();
                     }
                 }
                 return result;
