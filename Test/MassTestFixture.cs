@@ -40,6 +40,15 @@ namespace Test
         }
 
         [Test]
+        public void MassToMzPositiveCharge_plus3()
+        {
+            ObjectWithMass1000 a = new ObjectWithMass1000();
+            double mz = (double)ClassExtensions.RoundedDouble(a.ToMz(3),9);
+            Assert.AreEqual(334.340609800, mz);
+        }
+
+
+        [Test]
         public void MassToMzNegativeCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
@@ -53,6 +62,7 @@ namespace Test
             double a = 524.3;
             Assert.AreEqual(1046.5854470662418, a.ToMass(2));
         }
+
 
         [Test]
         public void MzToMassNegativeCharge()
