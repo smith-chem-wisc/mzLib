@@ -476,6 +476,7 @@ namespace Test
             expectedNTerminalMassesLabels = new HashSet<string> { };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom] = new List<ProductType> { };
             theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.Custom, FragmentationTerminus.N);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
             expectedNTerminalMassesLabels = new HashSet<string> { };
@@ -643,8 +644,6 @@ namespace Test
 
             productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
             Assert.IsTrue(productCollection.Contains(ProductType.Y));
-
         }
-
     }
 }
