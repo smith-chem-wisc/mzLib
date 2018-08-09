@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Proteomics.Fragmentation;
 
 namespace Proteomics
 {
@@ -61,7 +60,7 @@ namespace Proteomics
             this.DiagnosticIons = _diagnosticIons;
             this.FileOrigin = _fileOrigin;
 
-            if(this.MonoisotopicMass == null && this.ChemicalFormula != null)
+            if (this.MonoisotopicMass == null && this.ChemicalFormula != null)
             {
                 this.MonoisotopicMass = this.ChemicalFormula.MonoisotopicMass;
             }
@@ -178,7 +177,7 @@ namespace Proteomics
                         for (int i = 0; i < myValues.Count; i++)
                         {
                             myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
-                            if (i < myValues.Count)
+                            if (i < myValues.Count - 1)
                                 myLine.Append(" or ");
                         }
                     }
@@ -200,7 +199,7 @@ namespace Proteomics
                         for (int i = 0; i < myValues.Count; i++)
                         {
                             myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
-                            if (i < myValues.Count)
+                            if (i < myValues.Count - 1)
                                 myLine.Append(" or ");
                         }
                     }

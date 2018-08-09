@@ -4,20 +4,20 @@ namespace Proteomics.Fragmentation
 {
     public class MatchedFragmentIon
     {
-        public readonly TheoreticalFragmentIon TheoreticalFragmentIon;
+        public readonly Product TheoreticalProduct;
         public readonly double Mz;
         public readonly double Intensity;
-        public readonly double PpmMassError;
+        public readonly int Charge;
 
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
         /// </summary>
-        public MatchedFragmentIon(TheoreticalFragmentIon theoreticalFragmentIon, double experMz, double experIntensity)
+        public MatchedFragmentIon(Product theoreticalProduct, double experMz, double experIntensity, int charge)
         {
-            TheoreticalFragmentIon = theoreticalFragmentIon;
+            TheoreticalProduct = theoreticalProduct;
             Mz = experMz;
             Intensity = experIntensity;
-            PpmMassError = ((experMz.ToMass(theoreticalFragmentIon.Charge) - theoreticalFragmentIon.Mass) / theoreticalFragmentIon.Mass) * 1e6;
+            Charge = charge;
         }
 
         /// <summary>
@@ -26,7 +26,7 @@ namespace Proteomics.Fragmentation
         /// </summary>
         public override string ToString()
         {
-            return TheoreticalFragmentIon.ProductType.ToString().ToLowerInvariant() + TheoreticalFragmentIon.IonNumber + "+" + TheoreticalFragmentIon.Charge + "\t;" + TheoreticalFragmentIon.Mass;
+            return TheoreticalProduct.ProductType + TheoreticalProduct.TerminusFragment.FragmentNumber + "+" + Charge + "\t;" + TheoreticalProduct.NeutralMass;
         }
     }
 }
