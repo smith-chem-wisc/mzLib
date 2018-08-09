@@ -244,8 +244,6 @@ namespace Test
             HashSet<int> expectedMzs = new HashSet<int> { 98, 227, 324, 425, 538, 653, 703, 574, 477, 376, 263, 148 };
 
             Assert.That(expectedMzs.SetEquals(myUnmodFragmentMasses));
-
-            //TODO: test labels of ions (amino acid position, fragment #, product type, etc)
         }
 
         [Test]
@@ -369,7 +367,6 @@ namespace Test
         [Test]
         public void Test_FragmentationTwoModNeutralLossTwoFragTypes()
         {
-
             // Now we'll check the mass of modified peptide with no neutral losses
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
 
@@ -409,11 +406,181 @@ namespace Test
             148, 263, 376, 540, 637, 766, 557, 654, 783,          // y and y-17 ions
             133, 248, 361, 525, 622, 751, 542, 639, 768,         // z+1 and z+1-17 ions
             863 };//Molecular ions minus ammonia
-
-
+            
             Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
+        }
 
+        [Test]
+        public static void TestCompactPeptideSerialization()
+        {
+            // purpose of this test is to serialize/deserialize a CompactPeptide and make sure the deserialized peptide
+            // has the same properties as before it was serialized. This peptide is unmodified
+            string sequence = "PEPTIDE";
+            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0, null);
+            CompactPeptide cp = p.CompactPeptide(FragmentationTerminus.Both);
+            CompactPeptide deserializedCp = null;
 
+            string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestCompactPeptideSerialization");
+            System.IO.Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir, "myCompactPeptideIndex.ind");
+
+            var messageTypes = typeof(CompactPeptide);
+            var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
+
+            using (var file = System.IO.File.Create(path))
+            {
+                ser.Serialize(file, cp);
+            }
+
+            using (var file = System.IO.File.OpenRead(path))
+            {
+                deserializedCp = (CompactPeptide)ser.Deserialize(file);
+            }
+
+            Assert.That(cp.Equals(deserializedCp));
+        }
+
+        [Test]
+        public static void TestSerializationPeptideFromString()
+        {
+            // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized peptide
+            // has the same properties as before it was serialized. This peptide is unmodified and generated from reading in a string
+            string sequence = "PEPTIDE";
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0, null);
+            PeptideWithSetModifications deserializedPeptide = null;
+
+            string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromString");
+            System.IO.Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir, "myPeptideIndex.ind");
+
+            var messageTypes = typeof(PeptideWithSetModifications);
+            var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
+            
+            using (var file = System.IO.File.Create(path))
+            {
+                ser.Serialize(file, peptide);
+            }
+            
+            using (var file = System.IO.File.OpenRead(path))
+            {
+                deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
+            }
+
+            PeptideWithSetModifications.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, Protein>(), deserializedPeptide);
+            
+            // not asserting any protein properties - since the peptide was created from a sequence string it didn't have a protein to begin with
+
+            Assert.That(peptide.Equals(deserializedPeptide));
+            Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
+            Assert.That(deserializedPeptide.SequenceWithChemicalFormulas == peptide.SequenceWithChemicalFormulas);
+
+            List<double> deserializedPeptideFragments = deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
+                .Select(v => v.NeutralMass).ToList();
+            List<double> peptideFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
+                .Select(v => v.NeutralMass).ToList();
+
+            Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        }
+
+        [Test]
+        public static void TestSerializationPeptideFromProtein()
+        {
+            // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized peptide
+            // has the same properties as before it was serialized. This peptide is unmodified and generated from digesting a protein
+            Protein protein = new Protein("PEPTIDE", "Accession1", name: "MyProtein");
+
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).First();
+            PeptideWithSetModifications deserializedPeptide = null;
+
+            string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromProtein");
+            System.IO.Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir, "myPeptideIndex.ind");
+
+            var messageTypes = typeof(PeptideWithSetModifications);
+            var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
+            
+            using (var file = System.IO.File.Create(path))
+            {
+                ser.Serialize(file, peptide);
+            }
+
+            using (var file = System.IO.File.OpenRead(path))
+            {
+                deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
+            }
+
+            PeptideWithSetModifications.SetNonSerializedPeptideInfo(
+                new Dictionary<string, Modification>(), new Dictionary<string, Protein> { { protein.Accession, protein } }, deserializedPeptide);
+            
+            Assert.That(peptide.Equals(deserializedPeptide));
+            Assert.That(deserializedPeptide.Protein.Name == peptide.Protein.Name);
+            Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
+            Assert.That(deserializedPeptide.SequenceWithChemicalFormulas == peptide.SequenceWithChemicalFormulas);
+
+            List<double> deserializedPeptideFragments = deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
+                .Select(v => v.NeutralMass).ToList();
+            List<double> peptideFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
+                .Select(v => v.NeutralMass).ToList();
+
+            Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        }
+
+        [Test]
+        public static void TestSerializationPeptideFromProteinWithMod()
+        {
+            // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized peptide
+            // has the same properties as before it was serialized. This peptide is modified with a phosphorylation
+
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+
+            Dictionary<DissociationType, List<double>> myNeutralLosses = new Dictionary<DissociationType, List<double>>()
+            {
+                { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } },
+                { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
+            };
+
+            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+            
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
+
+            Protein protein = new Protein("PEPTIDE", "Accession1", name: "MyProtein", oneBasedModifications: mods);
+
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(v => v.AllModsOneIsNterminus.Count == 1).First();
+            PeptideWithSetModifications deserializedPeptide = null;
+
+            string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromProteinWithMod");
+            System.IO.Directory.CreateDirectory(dir);
+            string path = System.IO.Path.Combine(dir, "myPeptideIndex.ind");
+
+            var messageTypes = typeof(PeptideWithSetModifications);
+            var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
+
+            using (var file = System.IO.File.Create(path))
+            {
+                ser.Serialize(file, peptide);
+            }
+
+            using (var file = System.IO.File.OpenRead(path))
+            {
+                deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
+            }
+
+            Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().Id, mods.Values.First().First() } };
+
+            PeptideWithSetModifications.SetNonSerializedPeptideInfo(
+                stringToMod, new Dictionary<string, Protein> { { protein.Accession, protein } }, deserializedPeptide);
+            
+            Assert.That(peptide.Equals(deserializedPeptide));
+            Assert.That(deserializedPeptide.Protein.Name == peptide.Protein.Name);
+            Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
+            Assert.That(deserializedPeptide.SequenceWithChemicalFormulas == peptide.SequenceWithChemicalFormulas);
+
+            List<double> deserializedPeptideFragments = deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
+                .Select(v => v.NeutralMass).ToList();
+            List<double> peptideFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
+                .Select(v => v.NeutralMass).ToList();
+
+            Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
         }
     }
 }

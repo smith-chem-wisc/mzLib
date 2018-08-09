@@ -1,7 +1,9 @@
 ﻿using Chemistry;
+using System;
 
 namespace Proteomics.Fragmentation
 {
+    [Serializable]
     public class NeutralTerminusFragment
     {
         public readonly FragmentationTerminus Terminus;
@@ -10,7 +12,8 @@ namespace Proteomics.Fragmentation
         public readonly int AminoAcidPosition;
 
         /// <summary>
-        ///This object has the neutral mass, the fragment terminus, and the amino acid position of the last amino acid in the fragment next to the break in the peptide backbone. N-terminal amino acid is numbered 1.
+        /// This object has the neutral mass, the fragment terminus, and the amino acid position of the last amino acid in the fragment next to the 
+        /// break in the peptide backbone. N-terminal amino acid is numbered 1.
         /// See for Reference the following two web-pages.
         /// http://www.matrixscience.com/help/fragmentation_help.html
         /// http://www.matrixscience.com/help/aa_help.html

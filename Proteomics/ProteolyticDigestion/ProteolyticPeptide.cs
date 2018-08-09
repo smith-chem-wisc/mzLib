@@ -8,25 +8,26 @@ namespace Proteomics.ProteolyticDigestion
     /// Product of digesting a protein
     /// Contains methods for modified peptide combinitorics
     /// </summary>
+    [Serializable]
     public class ProteolyticPeptide
     {
         protected string _baseSequence;
 
         internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, string peptideDescription = null)
         {
-            Protein = protein;
+            _protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;
             OneBasedEndResidueInProtein = oneBasedEndResidueInProtein;
             MissedCleavages = missedCleavages;
             PeptideDescription = peptideDescription;
         }
 
-        public Protein Protein { get; }// protein from which this peptide came
-        public int OneBasedStartResidueInProtein { get; }// if the first residue in a protein is 1 this is the number of the residue at which the peptide begins
-        public int OneBasedEndResidueInProtein { get; }// if the first residue in a protien is 1 this is the number of the residue at which the peptide ends
-        public int MissedCleavages { get; set; }// the number of missed cleavages this peptide has considerign what protease was supposed to generate it?
+        [NonSerialized] private Protein _protein; // protein that this peptide is a digestion product of
+        public int OneBasedStartResidueInProtein { get; } // the residue number at which the peptide begins (the first residue in a protein is 1)
+        public int OneBasedEndResidueInProtein { get; } // the residue number at which the peptide ends
+        public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
         public string PeptideDescription { get; }
-        public int Length { get { return BaseSequence.Length; } }//how many residues llong the peptide is (calculated from oneBased Starts and End Residues)
+        public int Length { get { return BaseSequence.Length; } } //how many residues long the peptide is
 
         public virtual char PreviousAminoAcid
         {
@@ -42,6 +43,12 @@ namespace Proteomics.ProteolyticDigestion
             {
                 return OneBasedEndResidueInProtein < Protein.Length ? Protein[OneBasedEndResidueInProtein] : '-';
             }
+        }
+
+        public Protein Protein
+        {
+            get { return _protein; }
+            protected set { _protein = value; }
         }
 
         public string BaseSequence
