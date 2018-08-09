@@ -321,18 +321,16 @@ namespace Proteomics.ProteolyticDigestion
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
-            var vvv = new Dictionary<int, Modification>(AllModsOneIsNterminus);
+            var localizedModsOneIsNTerminus = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
-            if (vvv.TryGetValue(j + 2, out Modification modToReplace))
+            if (localizedModsOneIsNTerminus.TryGetValue(j + 2, out Modification modToReplace))
             {
                 massOfExistingMod = (double)modToReplace.MonoisotopicMass;
-                vvv.Remove(j + 2);
+                localizedModsOneIsNTerminus.Remove(j + 2);
             }
 
-            vvv.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
-            var hm = new PeptideWithSetModifications(NumFixedMods, Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, vvv, MissedCleavages);
-
-            return hm;
+            localizedModsOneIsNTerminus.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
+            return new PeptideWithSetModifications(Protein, DigestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, PeptideDescription, MissedCleavages, localizedModsOneIsNTerminus, NumFixedMods);
         }
 
         public override string ToString()
