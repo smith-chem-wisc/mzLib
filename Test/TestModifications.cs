@@ -511,7 +511,8 @@ namespace Test
 
             PeptideWithSetModifications.SetNonSerializedPeptideInfo(
                 new Dictionary<string, Modification>(), new Dictionary<string, Protein> { { protein.Accession, protein } }, deserializedPeptide);
-            
+
+            Assert.That(peptide.DigestionParams.Equals(deserializedPeptide.DigestionParams));
             Assert.That(peptide.Equals(deserializedPeptide));
             Assert.That(deserializedPeptide.Protein.Name == peptide.Protein.Name);
             Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
