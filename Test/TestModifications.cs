@@ -466,7 +466,7 @@ namespace Test
                 deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
             }
 
-            PeptideWithSetModifications.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, Protein>(), deserializedPeptide);
+            deserializedPeptide.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, Protein>());
             
             // not asserting any protein properties - since the peptide was created from a sequence string it didn't have a protein to begin with
 
@@ -509,8 +509,7 @@ namespace Test
                 deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
             }
 
-            PeptideWithSetModifications.SetNonSerializedPeptideInfo(
-                new Dictionary<string, Modification>(), new Dictionary<string, Protein> { { protein.Accession, protein } }, deserializedPeptide);
+            deserializedPeptide.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, Protein> { { protein.Accession, protein } });
 
             Assert.That(peptide.DigestionParams.Equals(deserializedPeptide.DigestionParams));
             Assert.That(peptide.Equals(deserializedPeptide));
@@ -568,8 +567,7 @@ namespace Test
 
             Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().Id, mods.Values.First().First() } };
 
-            PeptideWithSetModifications.SetNonSerializedPeptideInfo(
-                stringToMod, new Dictionary<string, Protein> { { protein.Accession, protein } }, deserializedPeptide);
+            deserializedPeptide.SetNonSerializedPeptideInfo(stringToMod, new Dictionary<string, Protein> { { protein.Accession, protein } });
             
             Assert.That(peptide.Equals(deserializedPeptide));
             Assert.That(deserializedPeptide.Protein.Name == peptide.Protein.Name);

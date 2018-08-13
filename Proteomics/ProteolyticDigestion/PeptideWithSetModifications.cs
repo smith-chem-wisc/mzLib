@@ -348,11 +348,11 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public static void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, PeptideWithSetModifications peptide)
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein)
         {
-            peptide.GetModsAfterDeserialization(idToMod, out string baseSequence);
-            peptide.GetProteinAfterDeserialization(accessionToProtein);
-            peptide.GetDigestionParamsAfterDeserialization();
+            GetModsAfterDeserialization(idToMod, out string baseSequence);
+            GetProteinAfterDeserialization(accessionToProtein);
+            GetDigestionParamsAfterDeserialization();
         }
 
         private void GetDigestionParamsAfterDeserialization()
