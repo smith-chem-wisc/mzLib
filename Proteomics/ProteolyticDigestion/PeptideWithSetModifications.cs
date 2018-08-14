@@ -9,57 +9,47 @@ using System.Text;
 
 namespace Proteomics.ProteolyticDigestion
 {
+    [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide
     {
-        /// <summary>
-        /// dictionary of modifications on a peptide the N terminus is index 1
-        /// key indicates which residue modification is on (with 1 being N terminus)
-        /// </summary>
-        public readonly Dictionary<int, Modification> AllModsOneIsNterminus; //we currently only allow one mod per position
-
-        public readonly DigestionParams DigestionParams;
+        public string Sequence { get; private set; }
         public readonly int NumFixedMods;
 
+        /// <summary>
+        /// Dictionary of modifications on the peptide. The N terminus is index 1.
+        /// The key indicates which residue modification is on (with 1 being N terminus).
+        /// </summary>
+        [NonSerialized] private Dictionary<int, Modification> _allModsOneIsNterminus; //we currently only allow one mod per position
+        [NonSerialized] private bool? _hasChemicalFormulas;
+        [NonSerialized] private string _sequenceWithChemicalFormulas;
+        [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private Dictionary<FragmentationTerminus, CompactPeptide> _compactPeptides;
+        [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-        private bool? HasChemicalFormulas;
-        private readonly Dictionary<FragmentationTerminus, CompactPeptide> _compactPeptides = new Dictionary<FragmentationTerminus, CompactPeptide>();
-        private string _sequence;
-        private string _sequenceWithChemicalFormulas;
-        private double? _monoisotopicMass;
+        private readonly string DigestionParamString; // used to get digestion param object after deserialization
+        private readonly string ProteinAccession; // used to get protein object after deserialization
 
-        public PeptideWithSetModifications(PeptideWithSetModifications modsFromThisOne, int proteinOneBasedStart, int proteinOneBasedEnd)
-            : base(modsFromThisOne.Protein, proteinOneBasedStart, proteinOneBasedEnd, proteinOneBasedEnd - proteinOneBasedStart,
-            modsFromThisOne.PeptideDescription)
-        {
-            AllModsOneIsNterminus = modsFromThisOne.AllModsOneIsNterminus
-                .Where(b => b.Key > (1 + proteinOneBasedStart - modsFromThisOne.OneBasedStartResidueInProtein)
-                    && b.Key <= (2 + proteinOneBasedEnd - modsFromThisOne.OneBasedStartResidueInProtein))
-                .ToDictionary(b => (b.Key + modsFromThisOne.OneBasedStartResidueInProtein - proteinOneBasedStart), b => b.Value);
-        }
-
-        public PeptideWithSetModifications(int numFixedMods, Protein protein, int proteinOneBasedStart, int proteinOneBasedEnd,
-            Dictionary<int, Modification> allModsOneIsNterminus = null, int missedCleavages = 0)
-            : base(protein, proteinOneBasedStart, proteinOneBasedEnd, missedCleavages, null)
-        {
-            NumFixedMods = numFixedMods;
-            AllModsOneIsNterminus = allModsOneIsNterminus ?? new Dictionary<int, Modification>();
-        }
-
+        /// <summary>
+        /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
+        /// </summary>
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
         {
-            AllModsOneIsNterminus = allModsOneIsNterminus;
+            _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
-            DigestionParams = digestionParams;
+            _digestionParams = digestionParams;
+            DetermineFullSequence();
+            ProteinAccession = protein.Accession;
+            DigestionParamString = digestionParams.ToString();
         }
 
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a sequence string.
-        /// Useful for reading in MetaMorpheus search engine output into mzLib objects
+        /// Useful for reading in MetaMorpheus search engine output into mzLib objects.
         /// </summary>
-        public PeptideWithSetModifications(string sequence, IEnumerable<Modification> allKnownModifications, int numFixedMods = 0,
+        public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
             DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue, string peptideDescription = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
@@ -69,65 +59,39 @@ namespace Proteomics.ProteolyticDigestion
                 throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
             }
 
-            AllModsOneIsNterminus = new Dictionary<int, Modification>();
-            StringBuilder baseSequence = new StringBuilder();
-            StringBuilder currentModification = new StringBuilder();
-            int currentModificationLocation = 1;
-            bool currentlyReadingMod = false;
-
-            for (int r = 0; r < sequence.Length; r++)
-            {
-                char c = sequence[r];
-
-                switch (c)
-                {
-                    case '[':
-                        currentlyReadingMod = true;
-                        break;
-
-                    case ']':
-
-                        Modification mod = null;
-
-                        try
-                        {
-                            var split = currentModification.ToString().Split(new char[] { ':' });
-                            string modType = split[0];
-                            string id = split[1];
-                            mod = allKnownModifications.Where(m => m.Id == id && m.ModificationType == modType).FirstOrDefault();
-                        }
-                        catch (Exception e)
-                        {
-                            throw new MzLibUtil.MzLibException("Error while trying to parse string into peptide: " + e.Message);
-                        }
-
-                        if (mod == null)
-                        {
-                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + sequence);
-                        }
-
-                        AllModsOneIsNterminus.Add(currentModificationLocation, mod);
-                        currentlyReadingMod = false;
-                        currentModification = new StringBuilder();
-                        break;
-
-                    default:
-                        if (currentlyReadingMod)
-                        {
-                            currentModification.Append(c);
-                        }
-                        else
-                        {
-                            currentModificationLocation++;
-                            baseSequence.Append(c);
-                        }
-                        break;
-                }
-            }
-
-            _baseSequence = baseSequence.ToString();
+            Sequence = sequence;
+            GetModsAfterDeserialization(allKnownMods, out _baseSequence);
             NumFixedMods = numFixedMods;
-            DigestionParams = digestionParams;
+            _digestionParams = digestionParams;
+
+            if (p != null)
+            {
+                ProteinAccession = p.Accession;
+            }
+            if (digestionParams != null)
+            {
+                DigestionParamString = digestionParams.ToString();
+            }
+        }
+
+        public DigestionParams DigestionParams
+        {
+            get { return _digestionParams; }
+        }
+
+        public Dictionary<int, Modification> AllModsOneIsNterminus
+        {
+            get { return _allModsOneIsNterminus; }
+        }
+
+        public int NumMods
+        {
+            get { return AllModsOneIsNterminus.Count; }
+        }
+
+        public int NumVariableMods
+        {
+            get { return NumMods - NumFixedMods; }
         }
 
         public double MonoisotopicMass
@@ -147,57 +111,13 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public virtual string Sequence
-        {
-            get
-            {
-                if (_sequence == null)
-                {
-                    var subsequence = new StringBuilder();
-
-                    // variable modification on peptide N-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
-                    {
-                        subsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.Id + ']');
-                    }
-
-                    for (int r = 0; r < Length; r++)
-                    {
-                        subsequence.Append(this[r]);
-                        // variable modification on this residue
-                        if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
-                        {
-                            subsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.Id + ']');
-                        }
-                    }
-
-                    // variable modification on peptide C-terminus
-                    if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
-                    {
-                        subsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.Id + ']');
-                    }
-
-                    _sequence = subsequence.ToString();
-                }
-                return _sequence;
-            }
-        }
-
-        public int NumMods
-        {
-            get
-            {
-                return AllModsOneIsNterminus.Count;
-            }
-        }
-
         public string SequenceWithChemicalFormulas
         {
             get
             {
-                if (!HasChemicalFormulas.HasValue)
+                if (!_hasChemicalFormulas.HasValue)
                 {
-                    HasChemicalFormulas = true;
+                    _hasChemicalFormulas = true;
                     var subsequence = new StringBuilder();
 
                     // variable modification on peptide N-terminus
@@ -320,8 +240,6 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public int NumVariableMods { get { return NumMods - NumFixedMods; } }
-
         public virtual string EssentialSequence(IReadOnlyDictionary<string, int> ModstoWritePruned)
         {
             string essentialSequence = BaseSequence;
@@ -366,6 +284,12 @@ namespace Proteomics.ProteolyticDigestion
 
         public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus)
         {
+            // need this for deserialization
+            if (_compactPeptides == null)
+            {
+                _compactPeptides = new Dictionary<FragmentationTerminus, CompactPeptide>();
+            }
+
             if (_compactPeptides.TryGetValue(fragmentationTerminus, out CompactPeptide compactPeptide))
             {
                 return compactPeptide;
@@ -380,18 +304,20 @@ namespace Proteomics.ProteolyticDigestion
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
-            var vvv = new Dictionary<int, Modification>(AllModsOneIsNterminus);
+            var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
-            if (vvv.TryGetValue(j + 2, out Modification modToReplace))
+            if (dictWithLocalizedMass.TryGetValue(j + 2, out Modification modToReplace))
             {
                 massOfExistingMod = (double)modToReplace.MonoisotopicMass;
-                vvv.Remove(j + 2);
+                dictWithLocalizedMass.Remove(j + 2);
             }
 
-            vvv.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
-            var hm = new PeptideWithSetModifications(NumFixedMods, Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, vvv, MissedCleavages);
+            dictWithLocalizedMass.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
 
-            return hm;
+            var peptideWithLocalizedMass = new PeptideWithSetModifications(Protein, _digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
+                PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
+
+            return peptideWithLocalizedMass;
         }
 
         public override string ToString()
@@ -402,6 +328,12 @@ namespace Proteomics.ProteolyticDigestion
         public override bool Equals(object obj)
         {
             var q = obj as PeptideWithSetModifications;
+
+            if (Protein == null && q.Protein == null)
+            {
+                return q.Sequence.Equals(Sequence);
+            }
+
             return q != null
                 && q.Sequence.Equals(Sequence)
                 && q.OneBasedStartResidueInProtein == OneBasedStartResidueInProtein
@@ -411,6 +343,125 @@ namespace Proteomics.ProteolyticDigestion
         public override int GetHashCode()
         {
             return Sequence.GetHashCode();
+        }
+
+        /// <summary>
+        /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
+        /// </summary>
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein)
+        {
+            GetModsAfterDeserialization(idToMod, out string baseSequence);
+            GetProteinAfterDeserialization(accessionToProtein);
+            GetDigestionParamsAfterDeserialization();
+        }
+
+        private void GetDigestionParamsAfterDeserialization()
+        {
+            if (DigestionParamString != null)
+            {
+                _digestionParams = DigestionParams.FromString(DigestionParamString);
+            }
+        }
+
+        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod, out string baseSequence)
+        {
+            _allModsOneIsNterminus = new Dictionary<int, Modification>();
+            StringBuilder baseSequenceSb = new StringBuilder();
+            StringBuilder currentModification = new StringBuilder();
+            int currentModificationLocation = 1;
+            bool currentlyReadingMod = false;
+
+            for (int r = 0; r < Sequence.Length; r++)
+            {
+                char c = Sequence[r];
+
+                switch (c)
+                {
+                    case '[':
+                        currentlyReadingMod = true;
+                        break;
+
+                    case ']':
+                        string modId = null;
+
+                        try
+                        {
+                            var split = currentModification.ToString().Split(new char[] { ':' });
+                            string modType = split[0];
+                            modId = split[1];
+                        }
+                        catch (Exception e)
+                        {
+                            throw new MzLibUtil.MzLibException("Error while trying to parse string into peptide: " + e.Message);
+                        }
+
+                        if (!idToMod.TryGetValue(modId, out Modification mod))
+                        {
+                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + Sequence);
+                        }
+
+                        AllModsOneIsNterminus.Add(currentModificationLocation, mod);
+                        currentlyReadingMod = false;
+                        currentModification = new StringBuilder();
+                        break;
+
+                    default:
+                        if (currentlyReadingMod)
+                        {
+                            currentModification.Append(c);
+                        }
+                        else
+                        {
+                            currentModificationLocation++;
+                            baseSequenceSb.Append(c);
+                        }
+                        break;
+                }
+            }
+
+            baseSequence = baseSequenceSb.ToString();
+        }
+
+        private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
+        {
+            Protein protein = null;
+
+            if (ProteinAccession != null && !idToProtein.TryGetValue(ProteinAccession, out protein))
+            {
+                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
+            }
+
+            Protein = protein;
+        }
+
+        private void DetermineFullSequence()
+        {
+            var subsequence = new StringBuilder();
+
+            // modification on peptide N-terminus
+            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+            {
+                subsequence.Append('[' + mod.ModificationType + ":" + mod.Id + ']');
+            }
+
+            for (int r = 0; r < Length; r++)
+            {
+                subsequence.Append(this[r]);
+
+                // modification on this residue
+                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
+                {
+                    subsequence.Append('[' + mod.ModificationType + ":" + mod.Id + ']');
+                }
+            }
+
+            // modification on peptide C-terminus
+            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
+            {
+                subsequence.Append('[' + mod.ModificationType + ":" + mod.Id + ']');
+            }
+
+            Sequence = subsequence.ToString();
         }
     }
 }

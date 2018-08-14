@@ -1,4 +1,5 @@
 ﻿using Proteomics.Fragmentation;
+using System;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -24,7 +25,7 @@ namespace Proteomics.ProteolyticDigestion
             SemiProteaseDigestion = semiProteaseDigestion;
             TerminusTypeSemiProtease = terminusTypeSemiProtease;
         }
-
+        
         public int MaxMissedCleavages { get; private set; }
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; private set; }
         public int MinPeptideLength { get; private set; }
@@ -50,7 +51,7 @@ namespace Proteomics.ProteolyticDigestion
                 && this.SemiProteaseDigestion.Equals(a.SemiProteaseDigestion)
                 && this.TerminusTypeSemiProtease.Equals(a.TerminusTypeSemiProtease);
         }
-
+        
         public override int GetHashCode()
         {
             return
@@ -58,6 +59,31 @@ namespace Proteomics.ProteolyticDigestion
                 ^ InitiatorMethionineBehavior.GetHashCode()
                 ^ MaxModificationIsoforms.GetHashCode()
                 ^ MaxModsForPeptide.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinPeptideLength + "," + MaxPeptideLength + "," 
+                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + Protease.Name + "," + SemiProteaseDigestion + ","
+                + TerminusTypeSemiProtease;
+        }
+
+        /// <summary>
+        /// Creates a DigestionParams object from string. Used after deserializing a PeptideWithSetModifications
+        /// </summary>
+        public static DigestionParams FromString(string str)
+        {
+            string[] split = str.Split(',');
+            return new DigestionParams(
+                protease: split[6], 
+                maxMissedCleavages: int.Parse(split[0]), 
+                minPeptideLength: int.Parse(split[2]), 
+                maxPeptideLength: int.Parse(split[3]), 
+                maxModificationIsoforms: int.Parse(split[4]), 
+                initiatorMethionineBehavior: (InitiatorMethionineBehavior)Enum.Parse(typeof(InitiatorMethionineBehavior), split[1]),
+                maxModsForPeptides: int.Parse(split[5]), 
+                semiProteaseDigestion: bool.Parse(split[7]),
+                terminusTypeSemiProtease: (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus), split[8]));
         }
     }
 }
