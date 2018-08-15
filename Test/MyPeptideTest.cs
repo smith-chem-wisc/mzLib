@@ -240,7 +240,7 @@ namespace Test
             string sequence = "HQVC[Common Fixed:Carbamidomethyl of C]TPGGTTIAGLC[Common Fixed:Carbamidomethyl of C]VMEEK";
 
             // parse the peptide from the string
-            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new List<Modification>() { carbamidomethylOfC });
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification> { { carbamidomethylOfC.Id, carbamidomethylOfC } });
 
             // test base sequence and full sequence
             Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
