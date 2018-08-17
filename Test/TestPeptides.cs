@@ -19,6 +19,7 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
+using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
@@ -105,6 +106,8 @@ namespace Test
 
             Assert.AreEqual(formulaA, formulaB);
         }
+
+
 
         [Test]
         public void ParseCTerminalChemicalFormula()

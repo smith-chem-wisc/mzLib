@@ -20,10 +20,6 @@ namespace Proteomics.Fragmentation
         //y*	        y-NH3
         //y°	        y-H2O
         //z             [C]+[M]-NH2
-        //gy            glycan-Y ion  
-        //bg            b-glycan
-        //yg            y-glycan
-        //D             Diagnostic ion
 
         A,
         Astar,
@@ -31,19 +27,15 @@ namespace Proteomics.Fragmentation
         B,
         Bstar,
         Bdot,
-        BnoB1ions,
+        //BnoB1ions,
         C,
         X,
         Y,
         Ystar,
         Ydot,
-        Z,
-        Zdot,
-        GY,
-        BG,
-        YG,
-        D,
-        None
+        Zdot,// A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
+        M, //this is the molecular ion
+        D //this is a diagnostic ion
     }
 
 }

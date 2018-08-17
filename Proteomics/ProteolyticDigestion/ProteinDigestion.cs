@@ -42,7 +42,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         public IEnumerable<PeptideWithSetModifications> SemiSpecificDigestion(Protein protein)
         {
-            List<Peptide> intervals = new List<Peptide>();
+            List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = Protease.GetDigestionSiteIndices(protein.BaseSequence);
 
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - MaximumMissedCleavages - 1; i++)
@@ -50,14 +50,14 @@ namespace Proteomics.ProteolyticDigestion
                 if (Protease.Retain(i, InitiatorMethionineBehavior, protein[0])
                     && Protease.OkayLength(oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], MinPeptidesLength, MaxPeptidesLength))
                 {
-                    intervals.Add(new Peptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1],
+                    intervals.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1],
                         oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], "semi"));
                 }
 
                 if (Protease.Cleave(i, InitiatorMethionineBehavior, protein[0])
                     && Protease.OkayLength(oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1] - 1, MinPeptidesLength, MaxPeptidesLength))
                 {
-                    intervals.Add(new Peptide(protein, 2, oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1],
+                    intervals.Add(new ProteolyticPeptide(protein, 2, oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1],
                         oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1] - 1, "semi:M cleaved"));
                 }
             }
@@ -70,7 +70,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (Protease.OkayLength(oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i], MinPeptidesLength, MaxPeptidesLength))
                     {
-                        intervals.Add(new Peptide(protein, oneBasedIndicesToCleaveAfter[lastIndex - i] + 1, oneBasedIndicesToCleaveAfter[lastIndex],
+                        intervals.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[lastIndex - i] + 1, oneBasedIndicesToCleaveAfter[lastIndex],
                             oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i], "semiN"));
                     }
                 }
@@ -78,7 +78,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (Protease.OkayLength(oneBasedIndicesToCleaveAfter[i] - oneBasedIndicesToCleaveAfter[0], MinPeptidesLength, MaxPeptidesLength))
                     {
-                        intervals.Add(new Peptide(protein, oneBasedIndicesToCleaveAfter[0] + 1, oneBasedIndicesToCleaveAfter[i],
+                        intervals.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[0] + 1, oneBasedIndicesToCleaveAfter[i],
                             oneBasedIndicesToCleaveAfter[i] - oneBasedIndicesToCleaveAfter[0], "semiC"));
                     }
                 }
@@ -89,7 +89,7 @@ namespace Proteomics.ProteolyticDigestion
                 protein.ProteolysisProducts
                     .Where(proteolysisProduct => proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue &&
                     (proteolysisProduct.OneBasedBeginPosition != 1 || proteolysisProduct.OneBasedEndPosition != protein.Length))
-                    .Select(proteolysisProduct => new Peptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value,
+                    .Select(proteolysisProduct => new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value,
                         0, proteolysisProduct.Type + " start")));
 
             return intervals.SelectMany(peptide => peptide.GetModifiedPeptides(AllKnownFixedModifications, DigestionParams, VariableModifications));
