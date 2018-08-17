@@ -21,6 +21,14 @@ namespace Proteomics.Fragmentation
         //y°	        y-H2O
         //z             [C]+[M]-NH2
 
+        //gy            glycan-Y ion  
+        //bg            b-glycan
+        //b$            b-glycan-cross ring fragment 
+        //yg            y-glycan
+        //y$            y-glycan-cross ring fragment
+
+        //xl            crosslink signature ions
+
         A,
         Astar,
         Adot,
@@ -35,7 +43,14 @@ namespace Proteomics.Fragmentation
         Ydot,
         Zdot,// A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
         M, //this is the molecular ion
-        D //this is a diagnostic ion
+        D, //this is a diagnostic ion
+
+        GY,
+        BG,
+        Br,
+        YG,
+        Yr,
+        XL
     }
 
 }
