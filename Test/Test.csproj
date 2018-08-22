@@ -69,6 +69,7 @@
     <Compile Include="TestPeptides.cs" />
     <Compile Include="DatabaseTests\TestProteinReader.cs" />
     <Compile Include="DatabaseTests\TestProteomicsReadWrite.cs" />
+    <Compile Include="TestPeptideWithSetMods.cs" />
     <Compile Include="TestProductMassesMightHaveDuplicates.cs" />
     <Compile Include="TestPtmListLoader.cs" />
     <Compile Include="TestRange.cs" />
