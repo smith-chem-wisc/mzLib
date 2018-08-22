@@ -31,6 +31,7 @@ namespace Test
             Assert.That(pep1.Protein.Equals(pep2.Protein));
             Assert.That(!pep1.DigestionParams.Protease.Equals(pep2.DigestionParams.Protease));
             Assert.That(!pep1.Equals(pep2));
+            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
     }
 }

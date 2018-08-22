@@ -343,7 +343,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public override int GetHashCode()
         {
-            return Sequence.GetHashCode();
+            return Sequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
         }
 
         /// <summary>
