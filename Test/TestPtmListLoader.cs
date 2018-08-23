@@ -50,8 +50,8 @@ namespace Test
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
             Assert.AreEqual(4, a.Select(m => m.Id).ToList().Count);
 
-            Assert.AreEqual("Deamidation", a[0].Id.ToString());
-            Assert.AreEqual("Sodium", a[2].Id.ToString());//this has trailing whitespace that shouldn't be in the name
+            Assert.AreEqual("Deamidation on N", a[0].Id.ToString());
+            Assert.AreEqual("Sodium on D", a[2].Id.ToString());//this has trailing whitespace that shouldn't be in the name
 
             //Make sure comments are okay on DR key and that key value pairs are still split correctly
             var someMod = a[2];
@@ -81,8 +81,8 @@ namespace Test
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
             Assert.AreEqual(4, a.Select(m => m.Id).ToList().Count);
 
-            Assert.AreEqual("Deamidation", a[0].Id.ToString());
-            Assert.AreEqual("Sodium", a[2].Id.ToString());//this has trailing whitespace that shouldn't be in the name
+            Assert.AreEqual("Deamidation on N", a[0].Id.ToString());
+            Assert.AreEqual("Sodium on D", a[2].Id.ToString());//this has trailing whitespace that shouldn't be in the name
 
             //Make sure comments are okay on DR key and that key value pairs are still split correctly
             var someMod = a[2];
