@@ -158,7 +158,7 @@ namespace Test
             Assert.AreEqual(stringRepresentation, sampleModList.First().ToString());
 
             // N,N,N-trimethylalanine
-            var thisMod = sampleModList.First(b => b.Id.Equals(@"N,N,N-trimethylalanine")) as Modification;
+            var thisMod = sampleModList.First(b => b.Id.Equals(@"N,N,N-trimethylalanine on A")) as Modification;
             Assert.IsTrue(thisMod.MonoisotopicMass > 42);
             Assert.IsTrue(thisMod.MonoisotopicMass < 43);
         }
