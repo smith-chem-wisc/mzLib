@@ -186,5 +186,22 @@ namespace Test
         {
             Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt")).Count());
         }
+
+        [Test]
+        public static void TestReadingIdWithMotif()
+        {
+            string modText = "ID   Detached EVK or XleDK\r\nPP   Peptide N-terminal.\r\nTG   evkX or vekX or ldkX or dlkX or idkX or dikX\r\nMT   Detached\r\nNL   C16H28N4O5\r\nCF   C16H28N4O5\r\n" + @"//";
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "detacher.txt");
+            File.WriteAllLines(path, new string[] { modText });
+            
+            var mods = PtmListLoader.ReadModsFromFile(path).ToList();
+            var motifs = mods.Select(p => p.Target.ToString()).Distinct().ToList();
+            var ids = mods.Select(p => p.Id).Distinct().ToList();
+
+            Assert.That(mods.Count == 6);
+            Assert.That(motifs.Count == 6);
+            Assert.That(ids.Count == 6);
+        }
     }
 }
