@@ -177,17 +177,29 @@ namespace FlashLFQ
             var allFeatures = peaks.Values.SelectMany(p => p).ToList();
 
             foreach (var peak in allFeatures)
+            {
                 foreach (var id in peak.Identifications)
+                {
                     foreach (var proteinGroup in id.proteinGroups)
+                    {
                         if (!proteinGroups.ContainsKey(proteinGroup.ProteinGroupName))
+                        {
                             proteinGroups.Add(proteinGroup.ProteinGroupName, proteinGroup);
+                        }
+                    }
+                }
+            }
 
             var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByBaseSeq > 1).ToList();
             var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.Identifications.Select(v => v.BaseSequence)));
 
             foreach (var feature in allFeatures)
+            {
                 if (ambiguousFeatureSeqs.Contains(feature.Identifications.First().BaseSequence))
+                {
                     allAmbiguousFeatures.Add(feature);
+                }
+            }
 
             var allUnambiguousFeatures = allFeatures.Except(allAmbiguousFeatures).ToList();
 
@@ -198,9 +210,13 @@ namespace FlashLFQ
                 foreach (var proteinGroup in feature.Identifications.First().proteinGroups)
                 {
                     if (proteinsWithFeatures.TryGetValue(proteinGroup, out List<ChromatographicPeak> featuresForThisProtein))
+                    {
                         featuresForThisProtein.Add(feature);
+                    }
                     else
+                    {
                         proteinsWithFeatures.Add(proteinGroup, new List<ChromatographicPeak> { feature });
+                    }
                 }
             }
 

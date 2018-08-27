@@ -698,13 +698,29 @@ namespace FlashLFQ
         private void MatchBetweenRunsInitialPeakfinding(SpectraFileInfo fileInfo)
         {
             if (!Silent)
+            {
                 Console.WriteLine("Finding possible matched peptides for " + fileInfo.FilenameWithoutExtension);
+            }
 
             if (!results.peaks.ContainsKey(fileInfo) || results.peaks[fileInfo].Count == 0)
+            {
                 return;
+            }
 
             Tolerance mbrTol = new PpmTolerance(MbrPpmTolerance);
 
+            // ignore IDs from proteins that have no MS/MS evidence in this biorep (or no evidence in this spectra file, if bioreps are not defined)
+            var allowedFilesMatchingFrom = new HashSet<SpectraFileInfo>(spectraFileInfo.Where(
+                f => f.Condition == fileInfo.Condition && f.BiologicalReplicate == fileInfo.BiologicalReplicate));
+
+            if(spectraFileInfo.Max(p => p.BiologicalReplicate) == 0)
+            {
+                allowedFilesMatchingFrom = new HashSet<SpectraFileInfo> { fileInfo };
+            }
+
+            var allowedProteins = new HashSet<ProteinGroup>(allIdentifications.Where(p => allowedFilesMatchingFrom.Contains(p.fileInfo)).SelectMany(v => v.proteinGroups));
+
+            // get IDs to look for
             var concurrentBagOfMatchedFeatures = new ConcurrentBag<ChromatographicPeak>();
             var identificationsFromOtherRunsToLookFor = new List<Identification>();
             var idsGroupedByFullSeq = allIdentifications.GroupBy(p => p.ModifiedSequence);
@@ -715,7 +731,11 @@ namespace FlashLFQ
                 var seqsByFilename = fullSequenceGroup.GroupBy(p => p.fileInfo);
 
                 if (!seqsByFilename.Where(p => p.Key.Equals(fileInfo)).Any())
-                    identificationsFromOtherRunsToLookFor.AddRange(fullSequenceGroup);
+                {
+                    // ignore proteins that have no IDs in this file
+                    identificationsFromOtherRunsToLookFor.AddRange(fullSequenceGroup.Where(
+                        id => id.proteinGroups.Any(pg => allowedProteins.Contains(pg))));
+                }
             }
 
             if (identificationsFromOtherRunsToLookFor.Any())
