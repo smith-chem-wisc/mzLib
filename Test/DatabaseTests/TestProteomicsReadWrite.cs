@@ -267,9 +267,9 @@ namespace Test
         {
             Modification mod = new Modification("mod1", null, "modType1", null, null, null, null, null, null, null, null, null, null, null);
             ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
-            Modification mod2 = new Modification("mod2", null, "modType1", null, motif, "Anywhere.", null, null, null, null, null, null, null, null);
+            Modification mod2 = new Modification("mod2 on E", null, "modType1", null, motif, "Anywhere.", null, null, null, null, null, null, null, null);
             ModificationMotif.TryGetMotif("N", out ModificationMotif motif3);
-            Modification mod3 = new Modification("mod3", null, "modType1", null, motif3, "Anywhere.", null, 10, null, null, null, null, null, null);
+            Modification mod3 = new Modification("mod3 on N", null, "modType1", null, motif3, "Anywhere.", null, 10, null, null, null, null, null, null);
 
             List<Tuple<string, string>> gene_names = new List<Tuple<string, string>> { new Tuple<string, string>("a", "b") };
             IDictionary<int, List<Modification>> oneBasedModifications = new Dictionary<int, List<Modification>>
@@ -420,7 +420,7 @@ namespace Test
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt")).ToList();
             char[] myChar = { '"' };
             string output = a.First().ToString();
-            Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate\r\nMT   Biological\r\nTG   E\r\nPP   Anywhere.\r\nCF   CO2\r\nMM   43.989829\r\n");
+            Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate on E\r\nMT   Biological\r\nTG   E\r\nPP   Anywhere.\r\nCF   CO2\r\nMM   43.989829\r\n");
         }
 
         [Test]

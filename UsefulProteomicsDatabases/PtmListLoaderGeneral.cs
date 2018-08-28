@@ -284,7 +284,14 @@ namespace UsefulProteomicsDatabases
                                         {
                                             _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                                         }
-                                        yield return new Modification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
+                                        string idWithMotifAppended = _id;
+                                        if (_id != null && motif != null && !_id.Contains(" on ") && !_id.Contains(" of "))
+                                        {
+                                            idWithMotifAppended = _id + " on " + motif.ToString();
+                                        }
+
+                                        yield return new Modification(idWithMotifAppended, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
                                     }
                                 }
                                 else

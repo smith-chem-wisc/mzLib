@@ -34,17 +34,17 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
 
-            var test = pep1.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y });
+            var test = pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
 
-            foreach (var huh in pep1.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
             {
-                Assert.IsTrue(huh > 0);
+                Assert.IsTrue(huh.NeutralMass > 0);
             }
             var pep2 = ye[1];
             Assert.IsTrue(pep2.MonoisotopicMass > 0);
-            foreach (var huh in pep2.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
             {
-                Assert.IsTrue(huh > 0);
+                Assert.IsTrue(huh.NeutralMass > 0);
             }
         }
 
@@ -74,18 +74,21 @@ namespace Test
             Assert.AreEqual(2, ye.Count);
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
-            foreach (var huh in pep1.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.B, ProductType.Y }))
+            foreach (var huh in pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
             {
-                Assert.IsTrue(huh > 0);
+                Assert.IsTrue(huh.NeutralMass > 0);
             }
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);
-            var cool = pep2.CompactPeptide(FragmentationTerminus.Both, DissociationType.HCD).ProductMassesMightHaveDuplicatesAndNaNs(new List<ProductType> { ProductType.Y });
-            Assert.IsTrue(cool[0] > 0);
-            Assert.IsTrue(double.IsNaN(cool[1]));
-            Assert.IsTrue(double.IsNaN(cool[2]));
-            Assert.IsTrue(cool.Length == 3);
+            var cool = pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToArray();
+            Assert.IsTrue(cool[0].NeutralMass > 0);
+            Assert.IsTrue(cool[1].NeutralMass > 0);
+            Assert.IsTrue(cool[3].NeutralMass > 0);
+            Assert.IsTrue(double.IsNaN(cool[2].NeutralMass));
+            Assert.IsTrue(double.IsNaN(cool[4].NeutralMass));
+            Assert.IsTrue(double.IsNaN(cool[5].NeutralMass));
+            Assert.IsTrue(cool.Length == 6);
         }
 
         [Test]
@@ -237,7 +240,7 @@ namespace Test
             string sequence = "HQVC[Common Fixed:Carbamidomethyl of C]TPGGTTIAGLC[Common Fixed:Carbamidomethyl of C]VMEEK";
 
             // parse the peptide from the string
-            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new List<Modification>() { carbamidomethylOfC });
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification> { { carbamidomethylOfC.Id, carbamidomethylOfC } });
 
             // test base sequence and full sequence
             Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
@@ -252,7 +255,7 @@ namespace Test
             Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 
             // calculate fragments. just check that they exist and it doesn't crash
-            List<TheoreticalFragmentIon> theoreticalFragments = peptide.GetTheoreticalFragments(DissociationType.HCD, FragmentationTerminus.Both);
+            List<Product> theoreticalFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
             Assert.That(theoreticalFragments.Count > 0);
         }
     }
