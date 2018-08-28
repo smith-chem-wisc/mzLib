@@ -118,13 +118,18 @@ namespace Proteomics
         /// </summary>
         public List<ProteinWithAppliedVariants> GetVariantProteins()
         {
+            if (SequenceVariations.Count() > 0)
+            {
+                int i = 0;
+                int asdf = SequenceVariations.Select(v => v.Description.Split(new[] { @"\t" }, StringSplitOptions.None).Length).Max();
+            }
             List<SequenceVariation> uniqueEffects = SequenceVariations
-                .GroupBy(v => v.OriginalSequence + v.OneBasedBeginPosition.ToString() + v.VariantSequence).Select(x => x.First())
-                .Where(v => v.Description.Split('\t').Length >= 10) // likely a VCF line (should probably do more rigorous testing, eventually)
+                .GroupBy(v => v.SimpleString())
+                .Select(x => x.First())
+                .Where(v => v.Description.Split(new[] { @"\t" }, StringSplitOptions.None).Length >= 10) // likely a VCF line (should probably do more rigorous testing, eventually)
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
-
-            ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, null);
+            ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, ProteolysisProducts, OneBasedPossibleLocalizedModifications, null);
             return variantProtein.ApplyVariants(variantProtein, uniqueEffects);
         }
 
