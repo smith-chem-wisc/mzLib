@@ -34,24 +34,24 @@ namespace Test
             var results = engine.Run();
 
             // check raw results
-            Assert.That(results.peaks[raw].Count == 1);
-            Assert.That(results.peaks[raw].First().Intensity > 0);
-            Assert.That(!results.peaks[raw].First().IsMbrFeature);
-            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
-            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
-            Assert.That(results.proteinGroups["MyProtein"].GetIntensity(raw) > 0);
+            Assert.That(results.Peaks[raw].Count == 1);
+            Assert.That(results.Peaks[raw].First().Intensity > 0);
+            Assert.That(!results.Peaks[raw].First().IsMbrFeature);
+            Assert.That(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
-            Assert.That(results.peaks[mzml].Count == 1);
-            Assert.That(results.peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.peaks[mzml].First().IsMbrFeature);
-            Assert.That(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
-            Assert.That(results.peptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
-            Assert.That(results.proteinGroups["MyProtein"].GetIntensity(mzml) > 0);
+            Assert.That(results.Peaks[mzml].Count == 1);
+            Assert.That(results.Peaks[mzml].First().Intensity > 0);
+            Assert.That(!results.Peaks[mzml].First().IsMbrFeature);
+            Assert.That(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
             // check that condition normalization worked
-            int int1 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
-            int int2 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
+            int int1 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
+            int int2 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
             Assert.That(int1 == int2);
 
             // test peak output
@@ -79,8 +79,8 @@ namespace Test
             var results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             // check that biorep normalization worked
-            int int1 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
-            int int2 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
+            int int1 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
+            int int2 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
             Assert.That(int1 > 0);
             Assert.That(int1 == int2);
 
@@ -93,8 +93,8 @@ namespace Test
 
             results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
-            int int3 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
-            int int4 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
+            int int3 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
+            int int4 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
             Assert.That(int3 > 0);
             Assert.That(int3 == int4);
 
@@ -107,8 +107,8 @@ namespace Test
 
             results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
-            int int5 = (int)System.Math.Round(results.peaks[mzml].First().Intensity, 0);
-            int int6 = (int)System.Math.Round(results.peaks[raw].First().Intensity, 0);
+            int int5 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
+            int int6 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
             Assert.That(int5 > 0);
             Assert.That(int5 == int6);
 
@@ -129,8 +129,8 @@ namespace Test
 
             results = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true).Run();
 
-            int int7 = (int)System.Math.Round(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw2));
-            int int8 = (int)System.Math.Round(results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.peptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
+            int int7 = (int)System.Math.Round(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw2));
+            int int8 = (int)System.Math.Round(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
             Assert.That(int7 > 0);
             Assert.That(int7 == int8);
         }
@@ -171,11 +171,11 @@ namespace Test
             var resultsB = engineB.Run();
 
             resultsA.MergeResultsWith(resultsB);
-            Assert.AreEqual(4, resultsA.peaks.Count);
-            Assert.AreEqual(1, resultsA.peptideBaseSequences.Count);
-            Assert.AreEqual(1, resultsA.peptideModifiedSequences.Count);
-            Assert.AreEqual(1, resultsA.proteinGroups.Count);
-            Assert.AreEqual(4, resultsA.spectraFiles.Count);
+            Assert.AreEqual(4, resultsA.Peaks.Count);
+            Assert.AreEqual(1, resultsA.PeptideBaseSequences.Count);
+            Assert.AreEqual(1, resultsA.PeptideModifiedSequences.Count);
+            Assert.AreEqual(1, resultsA.ProteinGroups.Count);
+            Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
 
         [Test]
@@ -233,11 +233,11 @@ namespace Test
 
             // third peptide should be low-weighted
             // protein should be ~sum of first two peptide intensities (a little lower, because some smaller isotope peaks get skipped)
-            double file1ProteinIntensity = results.proteinGroups["MyProtein"].GetIntensity(file1);
+            double file1ProteinIntensity = results.ProteinGroups["MyProtein"].GetIntensity(file1);
             Assert.That(file1ProteinIntensity < 2e6);
             Assert.That(file1ProteinIntensity > 1e6);
 
-            double file2ProteinIntensity = results.proteinGroups["MyProtein"].GetIntensity(file2);
+            double file2ProteinIntensity = results.ProteinGroups["MyProtein"].GetIntensity(file2);
             Assert.That(file2ProteinIntensity < 4e6);
             Assert.That(file2ProteinIntensity > 3e6);
         }
@@ -320,21 +320,21 @@ namespace Test
             // run the engine
             var results = engine.Run();
 
-            Assert.That(results.peaks[file2].Count == 5);
-            Assert.That(results.peaks[file2].Where(p => p.IsMbrFeature == true).Count() == 1);
+            Assert.That(results.Peaks[file2].Count == 5);
+            Assert.That(results.Peaks[file2].Where(p => p.IsMbrFeature == true).Count() == 1);
 
-            var peak = results.peaks[file2].Where(p => p.IsMbrFeature == true).First();
-            var otherFilePeak = results.peaks[file1].Where(p => p.Identifications.First().BaseSequence == 
+            var peak = results.Peaks[file2].Where(p => p.IsMbrFeature == true).First();
+            var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence == 
                 peak.Identifications.First().BaseSequence).First();
 
             Assert.That(peak.Intensity > 0);
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
 
-            Assert.That(results.peaks[file1].Count == 5);
-            Assert.That(results.peaks[file1].Where(p => p.IsMbrFeature == true).Count() == 0);
+            Assert.That(results.Peaks[file1].Count == 5);
+            Assert.That(results.Peaks[file1].Where(p => p.IsMbrFeature == true).Count() == 0);
 
-            Assert.That(results.proteinGroups["MyProtein"].GetIntensity(file1) > 0);
-            Assert.That(results.proteinGroups["MyProtein"].GetIntensity(file2) > 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file1) > 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file2) > 0);
         }
 
         [Test]
@@ -415,15 +415,15 @@ namespace Test
             FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
             
-            Assert.That(results.proteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
-            Assert.That(results.proteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
+            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
+            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
             
             // test with advanced protein quant engine
             engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true, advancedProteinQuant: true);
             results = engine.Run();
 
-            Assert.That(results.proteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
-            Assert.That(results.proteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
+            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
+            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
         }
     }
 }
