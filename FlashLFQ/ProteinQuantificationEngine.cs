@@ -31,13 +31,13 @@ namespace FlashLFQ
         private const double MIN_NOISE = 1e-4;
         private const double ALPHA = 0.1;
         private const int MAX_ITER = 1000;
-        private readonly FlashLFQResults results;
+        private readonly FlashLfqResults results;
         private readonly int maxThreads;
 
         /// <summary>
         /// Constructs the protein quantification engine
         /// </summary>
-        public ProteinQuantificationEngine(FlashLFQResults results, int maxThreads)
+        public ProteinQuantificationEngine(FlashLfqResults results, int maxThreads)
         {
             this.maxThreads = maxThreads;
             this.results = results;
@@ -50,7 +50,7 @@ namespace FlashLFQ
         {
             // link proteins to peptides
             Dictionary<ProteinGroup, List<Peptide>> proteinsToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
-            foreach (var peptide in results.peptideModifiedSequences)
+            foreach (var peptide in results.PeptideModifiedSequences)
             {
                 foreach (var protein in peptide.Value.proteinGroups)
                 {
@@ -76,7 +76,7 @@ namespace FlashLFQ
 
                     for (int p = 0; p < proteinList[i].Value.Count; p++)
                     {
-                        foreach (var file in results.spectraFiles.Where(f => f.TechnicalReplicate == 0))
+                        foreach (var file in results.SpectraFiles.Where(f => f.TechnicalReplicate == 0))
                         {
                             if (proteinList[i].Value[p].GetIntensity(file) > 0)
                             {
@@ -89,14 +89,14 @@ namespace FlashLFQ
                     // if this protein has no valid peptides (i.e., all missing values) its intensity is 0
                     if (!peptides.Any())
                     {
-                        for (int s = 0; s < results.spectraFiles.Count; s++)
+                        for (int s = 0; s < results.SpectraFiles.Count; s++)
                         {
-                            proteinList[i].Key.SetIntensity(results.spectraFiles[s], 0);
+                            proteinList[i].Key.SetIntensity(results.SpectraFiles[s], 0);
                         }
 
-                        lock (results.proteinGroups)
+                        lock (results.ProteinGroups)
                         {
-                            results.proteinGroups.Add(proteinList[i].Key.ProteinGroupName, proteinList[i].Key);
+                            results.ProteinGroups.Add(proteinList[i].Key.ProteinGroupName, proteinList[i].Key);
                         }
 
                         continue;
@@ -138,7 +138,7 @@ namespace FlashLFQ
                         weights = new double[] { 1.0 };
                     }
 
-                    double[] proteinIntensitiesPerFile = new double[results.spectraFiles.Count];
+                    double[] proteinIntensitiesPerFile = new double[results.SpectraFiles.Count];
 
                     // calculate weighted-average peptide intensity
                     for (int p = 0; p < peptides.Count; p++)
@@ -147,20 +147,20 @@ namespace FlashLFQ
                         {
                             for (int s = 0; s < proteinIntensitiesPerFile.Length; s++)
                             {
-                                proteinIntensitiesPerFile[s] += (weights[p] * peptides[p].GetIntensity(results.spectraFiles[s]));
+                                proteinIntensitiesPerFile[s] += (weights[p] * peptides[p].GetIntensity(results.SpectraFiles[s]));
                             }
                         }
                     }
 
                     // store results
-                    for (int s = 0; s < results.spectraFiles.Count; s++)
+                    for (int s = 0; s < results.SpectraFiles.Count; s++)
                     {
-                        proteinList[i].Key.SetIntensity(results.spectraFiles[s], proteinIntensitiesPerFile[s]);
+                        proteinList[i].Key.SetIntensity(results.SpectraFiles[s], proteinIntensitiesPerFile[s]);
                     }
 
-                    lock (results.proteinGroups)
+                    lock (results.ProteinGroups)
                     {
-                        results.proteinGroups.Add(proteinList[i].Key.ProteinGroupName, proteinList[i].Key);
+                        results.ProteinGroups.Add(proteinList[i].Key.ProteinGroupName, proteinList[i].Key);
                     }
                 }
             });
@@ -360,7 +360,7 @@ namespace FlashLFQ
         private double[][] GetIntensityArray(List<Peptide> peptides)
         {
             // only use the first tech rep for calculating peptide weights... could change this later
-            var spectraFiles = results.spectraFiles.Where(p => p.TechnicalReplicate == 0).ToList();
+            var spectraFiles = results.SpectraFiles.Where(p => p.TechnicalReplicate == 0).ToList();
 
             double[][] intensityArray = new double[peptides.Count][];
 
