@@ -146,7 +146,6 @@ namespace FlashLFQ
                 {
                     throw new MzLibException("A crash occured in FlashLFQ during the intensity normalization process:\n" + e.Message);
                 }
-                //new StatisticalAnalysisEngine(results, 0.05, 0.1).PerformStatisticalAnalysis();
             }
 
             // calculate intensities for proteins/peptides

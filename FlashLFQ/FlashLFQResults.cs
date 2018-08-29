@@ -14,7 +14,7 @@ namespace FlashLFQ
 
         public FlashLfqResults(List<SpectraFileInfo> rawFiles)
         {
-            this.SpectraFiles = rawFiles;
+            SpectraFiles = rawFiles;
             PeptideBaseSequences = new Dictionary<string, Peptide>();
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
@@ -207,6 +207,13 @@ namespace FlashLFQ
             var proteinsWithFeatures = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
             foreach (var feature in allUnambiguousFeatures)
             {
+                // only use unmodified peptides for protein quant
+                // ONLY WORKS WITH METAMORPHEUS OUTPUT
+                //if (feature.Identifications.First().BaseSequence != feature.Identifications.First().ModifiedSequence)
+                //{
+                //    continue;
+                //}
+
                 foreach (var proteinGroup in feature.Identifications.First().proteinGroups)
                 {
                     if (proteinsWithFeatures.TryGetValue(proteinGroup, out List<ChromatographicPeak> featuresForThisProtein))
@@ -232,7 +239,7 @@ namespace FlashLFQ
 
                     if (fileToPepIntensities.TryGetValue(feature.RawFileInfo, out var featureIntensitiesForThisProtein))
                     {
-                        fileToPepIntensities[feature.RawFileInfo].Add(feature.Intensity / numProteinGroupsClaimingThisFeature);
+                        featureIntensitiesForThisProtein.Add(feature.Intensity / numProteinGroupsClaimingThisFeature);
                     }
                     else
                     {
