@@ -199,6 +199,7 @@ namespace Test
             var motifs = mods.Select(p => p.Target.ToString()).Distinct().ToList();
             var ids = mods.Select(p => p.IdWithMotif).Distinct().ToList();
 
+
             Assert.That(mods.Count == 6);
             Assert.That(motifs.Count == 6);
             Assert.That(ids.Count == 6);
