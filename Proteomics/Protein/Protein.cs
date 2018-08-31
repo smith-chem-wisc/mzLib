@@ -44,7 +44,14 @@ namespace Proteomics
             GeneNames = gene_names ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
-            OneBasedPossibleLocalizedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            if (oneBasedModifications != null)
+            {
+                OneBasedPossibleLocalizedModifications = SelectValidOneBaseMods(oneBasedModifications);
+            }                
+            else
+            {
+                OneBasedPossibleLocalizedModifications =  new Dictionary<int, List<Modification>>();
+            }
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
         }
@@ -144,6 +151,29 @@ namespace Proteomics
                 .ToList();
             ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, null);
             return variantProtein.ApplyVariants(variantProtein, uniqueEffects);
+        }
+
+        private IDictionary<int,List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> d)
+        {
+            Dictionary<int, List<Modification>> validModDictionary = new Dictionary<int, List<Modification>>();
+            foreach (KeyValuePair<int,List<Modification>> entry in d)
+            {
+                List<Modification> validMods = new List<Modification>();
+                foreach (Modification m in entry.Value)
+                {
+                    //mod must be valid mod and the motif of the mod must be present in the protein at the specified location
+                    if (m.ValidModification && ModificationLocalization.ModFits(m, BaseSequence, 0, BaseSequence.Length, entry.Key))
+                        validMods.Add(m);
+                }
+                if (validMods.Count() > 0)
+                {
+                    if (validModDictionary.Keys.Contains(entry.Key) == true)
+                        validModDictionary[entry.Key].AddRange(validMods);
+                    else
+                        validModDictionary.Add(entry.Key, validMods);                    
+                }
+            }
+            return validModDictionary as IDictionary<int,List<Modification>>;
         }
     }
 }

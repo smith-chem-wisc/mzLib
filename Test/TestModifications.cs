@@ -56,7 +56,7 @@ namespace Test
         public static void Test_ModificationWithNoMassWritten()
         {
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            var mod1 = new Modification(_id: "mod of M", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
+            var mod1 = new Modification(_originalId: "mod of M", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
             var mod1string = mod1.ToString();
             Assert.IsTrue(mod1string.Contains("MM"));
             var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as Modification;
@@ -214,8 +214,8 @@ namespace Test
         public void Test_modification3_hash_set() // numerical tolerance is 1e-9 so these two mods need to evaluate as identical
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            Modification m1 = new Modification(_id: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
-            Modification m2 = new Modification(_id: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            Modification m1 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            Modification m2 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
             m1.DatabaseReference.Add("key", new List<string> { "value" });
             m2.DatabaseReference.Add("key", new List<string> { "value" });
 
@@ -251,7 +251,7 @@ namespace Test
         {
             // Now we'll check the mass of modified peptide with no neutral losses
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
-            Modification mod = new Modification(_id: "oxidation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "oxidation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
                 protease: "trypsin",
@@ -307,7 +307,7 @@ namespace Test
         {
             // Now we'll check the mass of modified peptide with no neutral losses
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
-            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
                 protease: "trypsin",
@@ -334,11 +334,11 @@ namespace Test
         {
             // Now we'll check the mass of modified peptide with 2 neutral loss mods
             ModificationMotif.TryGetMotif("Q", out ModificationMotif motifone);
-            Modification modone = new Modification(_id: "ammonia", _modificationType: "testModType", _target: motifone, _monoisotopicMass: 0, _neutralLosses: new Dictionary<DissociationType, 
+            Modification modone = new Modification(_originalId: "ammonia", _modificationType: "testModType", _target: motifone, _monoisotopicMass: 0, _neutralLosses: new Dictionary<DissociationType, 
                 List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
 
             ModificationMotif.TryGetMotif("T", out ModificationMotif motiftwo);
-            Modification modtwo = new Modification(_id: "phospho", _modificationType: "testModType", _target: motiftwo, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, 
+            Modification modtwo = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motiftwo, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, 
                 List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
 
             List<Modification> modlistone = new List<Modification> { modone };
@@ -376,7 +376,7 @@ namespace Test
                 { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
             };
 
-            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
                 protease: "trypsin",
@@ -539,7 +539,7 @@ namespace Test
                 { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
             };
 
-            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
             
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
 
@@ -565,7 +565,7 @@ namespace Test
                 deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
             }
 
-            Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().Id, mods.Values.First().First() } };
+            Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().IdWithMotif, mods.Values.First().First() } };
 
             deserializedPeptide.SetNonSerializedPeptideInfo(stringToMod, new Dictionary<string, Protein> { { protein.Accession, protein } });
             

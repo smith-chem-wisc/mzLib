@@ -35,10 +35,19 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
+                List<Modification> myModificationList = new List<Modification>();
+                foreach (Protein p in proteinList)
+                {
+                    foreach (KeyValuePair<int,List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
+                    {
+                        myModificationList.AddRange(entry.Value);
+                    }
+                }
+
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
                     .Concat(additionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.Id))
+                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
                     writer.WriteStartElement("modification");
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
@@ -89,6 +98,8 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
+                    //This code works but it's bloat.
+
                     foreach (var dbRef in protein.DatabaseReferences)
                     {
                         writer.WriteStartElement("dbReference");
@@ -120,14 +131,14 @@ namespace UsefulProteomicsDatabases
 
                     Dictionary<int, HashSet<string>> modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
-                    foreach (var ye in protein.OneBasedPossibleLocalizedModifications)
+                    foreach (var mods in protein.OneBasedPossibleLocalizedModifications)
                     {
-                        foreach (var nice in ye.Value)
+                        foreach (var mod in mods.Value)
                         {
-                            if (modsToWriteForThisSpecificProtein.TryGetValue(ye.Key, out HashSet<string> val))
-                                val.Add(nice.Id);
+                            if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
+                                val.Add(mod.IdWithMotif);
                             else
-                                modsToWriteForThisSpecificProtein.Add(ye.Key, new HashSet<string> { nice.Id });
+                                modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
                         }
                     }
 
@@ -136,7 +147,7 @@ namespace UsefulProteomicsDatabases
                         foreach (var ye in additionalModsToAddToProteins[protein.Accession])
                         {
                             int additionalModResidueIndex = ye.Item1;
-                            string additionalModId = ye.Item2.Id;
+                            string additionalModId = ye.Item2.IdWithMotif;
                             bool modAdded = false;
 
                             // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
