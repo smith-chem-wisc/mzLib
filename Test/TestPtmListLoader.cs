@@ -14,11 +14,11 @@ namespace Test
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonArtifacts.txt");
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
-            Assert.AreEqual(33, a.Select(m => m.Id).ToList().Count);
+            Assert.AreEqual(33, a.Select(m => m.IdWithMotif).ToList().Count);
 
             testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonBiological.txt");
             var b = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
-            Assert.AreEqual(35, b.Select(m => m.Id).ToList().Count);
+            Assert.AreEqual(35, b.Select(m => m.IdWithMotif).ToList().Count);
         }
 
         [Test]
@@ -27,8 +27,8 @@ namespace Test
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonArtifacts.txt");
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
 
-            string id1 = a.First().Id.ToString();
-            foreach (string modId in a.Select(m => m.Id))
+            string id1 = a.First().IdWithMotif.ToString();
+            foreach (string modId in a.Select(m => m.IdWithMotif))
             {
                 Assert.GreaterOrEqual(modId, id1);
             }
@@ -36,8 +36,8 @@ namespace Test
             testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonBiological.txt");
             var b = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
 
-            string id2 = b.First().Id.ToString();
-            foreach (string modId in b.Select(m => m.Id))
+            string id2 = b.First().IdWithMotif.ToString();
+            foreach (string modId in b.Select(m => m.IdWithMotif))
             {
                 Assert.GreaterOrEqual(modId, id2);
             }
@@ -48,10 +48,10 @@ namespace Test
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"ModsWithComments.txt");
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
-            Assert.AreEqual(4, a.Select(m => m.Id).ToList().Count);
+            Assert.AreEqual(4, a.Select(m => m.IdWithMotif).ToList().Count);
 
-            Assert.AreEqual("Deamidation on N", a[0].Id.ToString());
-            Assert.AreEqual("Sodium on D", a[2].Id.ToString());//this has trailing whitespace that shouldn't be in the name
+            Assert.AreEqual("Deamidation on N", a[0].IdWithMotif.ToString());
+            Assert.AreEqual("Sodium on D", a[2].IdWithMotif.ToString());//this has trailing whitespace that shouldn't be in the name
 
             //Make sure comments are okay on DR key and that key value pairs are still split correctly
             var someMod = a[2];
@@ -67,11 +67,11 @@ namespace Test
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonArtifacts.txt");
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
-            Assert.AreEqual(33, a.Select(m => m.Id).ToList().Count);
+            Assert.AreEqual(33, a.Select(m => m.IdWithMotif).ToList().Count);
 
             testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"CommonBiological.txt");
             var b = PtmListLoader.ReadModsFromFile(testModificationsFileLocation);
-            Assert.AreEqual(35, b.Select(m => m.Id).ToList().Count);
+            Assert.AreEqual(35, b.Select(m => m.IdWithMotif).ToList().Count);
         }
 
         [Test]
@@ -79,10 +79,10 @@ namespace Test
         {
             string testModificationsFileLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", @"ModsWithComments.txt");
             var a = PtmListLoader.ReadModsFromFile(testModificationsFileLocation).ToList();
-            Assert.AreEqual(4, a.Select(m => m.Id).ToList().Count);
+            Assert.AreEqual(4, a.Select(m => m.IdWithMotif).ToList().Count);
 
-            Assert.AreEqual("Deamidation on N", a[0].Id.ToString());
-            Assert.AreEqual("Sodium on D", a[2].Id.ToString());//this has trailing whitespace that shouldn't be in the name
+            Assert.AreEqual("Deamidation on N", a[0].IdWithMotif.ToString());
+            Assert.AreEqual("Sodium on D", a[2].IdWithMotif.ToString());//this has trailing whitespace that shouldn't be in the name
 
             //Make sure comments are okay on DR key and that key value pairs are still split correctly
             var someMod = a[2];
@@ -103,14 +103,14 @@ namespace Test
         public static void SampleModFileLoadingFail1General() //TG is not valide
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt")).ToList();
-            Assert.AreEqual(false, a.First().ValidModification);
+            Assert.AreEqual(0, a.Count());
         }
 
         [Test]
         public static void SampleModFileLoadingFail2General()
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt")).ToList();
-            Assert.AreEqual(false, a.First().ValidModification); ;
+            Assert.AreEqual(0, a.Count()); ;
         }
 
         [Test]
@@ -151,28 +151,28 @@ namespace Test
         public static void SampleModFileLoadingFail5General()
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt")).ToList();
-            Assert.AreEqual(false, a.First().ValidModification); // ID is missing
+            Assert.AreEqual(0, a.Count()); // ID is missing
         }
 
         [Test]
         public static void SampleModFileLoadingFail6General()
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail6.txt")).ToList();
-            Assert.AreEqual(false, a.First().ValidModification); // modification type is missing
+            Assert.AreEqual(0, a.Count()); // modification type is missing
         }
 
         [Test]
         public static void SampleModFileLoadingFail5General_missingPosition()
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingPosition.txt")).ToList();
-            Assert.AreEqual(false, a.First().ValidModification); // ID is missing
+            Assert.AreEqual(0, a.Count()); // ID is missing
         }
 
         [Test]
         public static void SampleModFileLoadingFail5General_missingMonoisotopicMassAndChemicalFormula()
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt")).ToList();
-            Assert.AreEqual(false, a.First().ValidModification); // ID is missing
+            Assert.AreEqual(0, a.Count()); // ID is missing
         }
 
         [Test]
@@ -197,7 +197,7 @@ namespace Test
             
             var mods = PtmListLoader.ReadModsFromFile(path).ToList();
             var motifs = mods.Select(p => p.Target.ToString()).Distinct().ToList();
-            var ids = mods.Select(p => p.Id).Distinct().ToList();
+            var ids = mods.Select(p => p.IdWithMotif).Distinct().ToList();
 
             Assert.That(mods.Count == 6);
             Assert.That(motifs.Count == 6);

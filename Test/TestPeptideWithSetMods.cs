@@ -27,7 +27,7 @@ namespace Test
             PeptideWithSetModifications pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();
 
-            Assert.That(pep1.Sequence.Equals(pep2.Sequence));
+            Assert.That(pep1.FullSequence.Equals(pep2.FullSequence));
             Assert.That(pep1.Protein.Equals(pep2.Protein));
             Assert.That(!pep1.DigestionParams.Protease.Equals(pep2.DigestionParams.Protease));
             Assert.That(!pep1.Equals(pep2));

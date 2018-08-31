@@ -4,20 +4,24 @@ namespace Proteomics
 {
     public static class ModificationLocalization
     {
+        public static bool ModFits(Modification attemptToLocalize, string proteinSequence, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
+        {
+            return ModFits(attemptToLocalize, new Protein(proteinSequence, ""), peptideOneBasedIndex, peptideLength, proteinOneBasedIndex);
+        }
+
         public static bool ModFits(Modification attemptToLocalize, Protein protein, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
         {
             // First find the capital letter...
             var motif = attemptToLocalize.Target;
-            var hehe = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
+            var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
 
             // Look up starting at and including the capital letter
-            var proteinToMotifOffset = proteinOneBasedIndex - hehe - 1;
+            var proteinToMotifOffset = proteinOneBasedIndex - motifStartLocation - 1;
             var indexUp = 0;
             while (indexUp < motif.ToString().Length)
             {
                 if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= protein.Length
-                    || (!char.ToUpper(motif.ToString()[indexUp]).Equals('X')
-                        && !char.ToUpper(motif.ToString()[indexUp]).Equals(protein.BaseSequence[indexUp + proteinToMotifOffset])))
+                    || !MotifMatches(motif.ToString()[indexUp], protein.BaseSequence[indexUp + proteinToMotifOffset]))
                 {
                     return false;
                 }
@@ -43,6 +47,16 @@ namespace Proteomics
             // I guess Anywhere. and Unassigned. are true since how do you localize anywhere or unassigned.
 
             return true;
+        }
+
+        private static bool MotifMatches(char motifChar, char sequenceChar)
+        {
+            char upperMotifChar = char.ToUpper(motifChar);
+            return upperMotifChar.Equals('X')
+                || upperMotifChar.Equals(sequenceChar)
+                || upperMotifChar.Equals('B') && new[] { 'D', 'N' }.Contains(sequenceChar)
+                || upperMotifChar.Equals('J') && new[] { 'I', 'L' }.Contains(sequenceChar)
+                || upperMotifChar.Equals('Z') && new[] { 'E', 'Q' }.Contains(sequenceChar);
         }
     }
 }

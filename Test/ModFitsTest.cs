@@ -9,17 +9,13 @@ namespace Test
         [Test]
         public static void TestModFits()
         {
-            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            Modification attemptToLocalize = new Modification(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
-
             Protein protein = new Protein("M", null);
             int peptideOneBasedIndex = 1;
             int peptideLength = 1;
             int proteinOneBasedIndex = 1;
-            Assert.IsTrue(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
-            ModificationMotif.TryGetMotif("M", out motif);
-            attemptToLocalize = new Modification(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            Modification attemptToLocalize = new Modification(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
             Assert.IsTrue(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
 
             ModificationMotif.TryGetMotif("N", out motif);
@@ -61,6 +57,28 @@ namespace Test
             Assert.IsTrue(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
             protein = new Protein("MNRN", null);
             Assert.IsFalse(ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
+        }
+
+        [Test]
+        [TestCase("M", "X", true)]
+        [TestCase("M", "J", false)]
+        [TestCase("I", "J", true)]
+        [TestCase("L", "X", true)]
+        [TestCase("M", "B", false)]
+        [TestCase("D", "B", true)]
+        [TestCase("N", "B", true)]
+        [TestCase("M", "Z", false)]
+        [TestCase("E", "Z", true)]
+        [TestCase("Q", "Z", true)]
+        public static void TestAmbiguousModFits(string proteinSequence, string motifString, bool result)
+        {
+            Protein protein = new Protein(proteinSequence, null);
+            int peptideOneBasedIndex = 1;
+            int peptideLength = 1;
+            int proteinOneBasedIndex = 1;
+            ModificationMotif.TryGetMotif(motifString, out ModificationMotif motif);
+            Modification attemptToLocalize = new Modification(_target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: double.NaN);
+            Assert.AreEqual(result, ModificationLocalization.ModFits(attemptToLocalize, protein, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex));
         }
     }
 }
