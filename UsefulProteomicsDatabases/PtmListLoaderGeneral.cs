@@ -70,8 +70,10 @@ namespace UsefulProteomicsDatabases
                     {
                         foreach (var mod in ReadMod(ptmListLocation, modification_specification, formalChargesDictionary))
                         {
-                            if(mod.ValidModification)
-                            yield return mod;
+                            if (mod.ValidModification)
+                            {
+                                yield return mod;
+                            }
                         }
                         modification_specification = new List<string>();
                     }

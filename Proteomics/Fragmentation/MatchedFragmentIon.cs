@@ -1,6 +1,4 @@
-﻿using Chemistry;
-
-namespace Proteomics.Fragmentation
+﻿namespace Proteomics.Fragmentation
 {
     public class MatchedFragmentIon
     {

@@ -1,5 +1,4 @@
-﻿using Proteomics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
+﻿using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,10 +46,10 @@ namespace Proteomics
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = SelectValidOneBaseMods(oneBasedModifications);
-            }                
+            }
             else
             {
-                OneBasedPossibleLocalizedModifications =  new Dictionary<int, List<Modification>>();
+                OneBasedPossibleLocalizedModifications = new Dictionary<int, List<Modification>>();
             }
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
@@ -153,10 +152,10 @@ namespace Proteomics
             return variantProtein.ApplyVariants(variantProtein, uniqueEffects);
         }
 
-        private IDictionary<int,List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> d)
+        private IDictionary<int, List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> d)
         {
             Dictionary<int, List<Modification>> validModDictionary = new Dictionary<int, List<Modification>>();
-            foreach (KeyValuePair<int,List<Modification>> entry in d)
+            foreach (KeyValuePair<int, List<Modification>> entry in d)
             {
                 List<Modification> validMods = new List<Modification>();
                 foreach (Modification m in entry.Value)
@@ -170,10 +169,10 @@ namespace Proteomics
                     if (validModDictionary.Keys.Contains(entry.Key) == true)
                         validModDictionary[entry.Key].AddRange(validMods);
                     else
-                        validModDictionary.Add(entry.Key, validMods);                    
+                        validModDictionary.Add(entry.Key, validMods);
                 }
             }
-            return validModDictionary as IDictionary<int,List<Modification>>;
+            return validModDictionary as IDictionary<int, List<Modification>>;
         }
     }
 }

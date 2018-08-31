@@ -194,11 +194,10 @@ namespace Test
 
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "detacher.txt");
             File.WriteAllLines(path, new string[] { modText });
-            
+
             var mods = PtmListLoader.ReadModsFromFile(path).ToList();
             var motifs = mods.Select(p => p.Target.ToString()).Distinct().ToList();
             var ids = mods.Select(p => p.IdWithMotif).Distinct().ToList();
-
 
             Assert.That(mods.Count == 6);
             Assert.That(motifs.Count == 6);

@@ -162,11 +162,10 @@ namespace Test
                 s = mod.IdWithMotif;
                 if (mod.IdWithMotif != null && mod.IdWithMotif.Contains("Acetyl"))
                     myOtherList.Add(mod);
-
             }
-            
+
             //List<Modification> myOtherList = sampleModList.Where(m => m.IdWithMotif.Contains("Acetyl on K")).ToList();
-            
+
             var thisMod = myOtherList.First();
             Assert.IsTrue(thisMod.MonoisotopicMass > 42);
             Assert.IsTrue(thisMod.MonoisotopicMass < 43);
@@ -184,7 +183,7 @@ namespace Test
 
             Assert.That(testMod.ValidModification);
             Assert.That(testMod.Target.ToString().Equals("msgRgk"));
-            
+
             Protein protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "modified_start.xml"), true, DecoyType.None, allKnownMods, false, new List<string>(), out var unk).First();
 
             Assert.That(protein.BaseSequence.StartsWith("MSGRGK"));
@@ -202,7 +201,7 @@ namespace Test
         public void SampleModFileLoadingFail1()
         {
             var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt"));
-            Assert.AreEqual(0,b.Count());
+            Assert.AreEqual(0, b.Count());
         }
 
         [Test]
@@ -241,7 +240,7 @@ namespace Test
         public void SampleModFileLoadingFail6()
         {
             var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"));
-            Assert.AreEqual(0,b.Count());
+            Assert.AreEqual(0, b.Count());
         }
 
         [Test]
@@ -297,7 +296,6 @@ namespace Test
         [Test]
         public static void Test_MetaMorpheusStyleProteinDatabaseWriteAndREad()
         {
-
             string proteinDbFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestProteinSplitAcrossFiles.xml");
 
             ModificationMotif.TryGetMotif("D", out ModificationMotif motif);
@@ -314,7 +312,6 @@ namespace Test
 
             var lines = File.ReadAllLines(proteinDbFilePath);
             List<Protein> newProteinList = ProteinDbLoader.LoadProteinXML(proteinDbFilePath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var um, -1);
-
         }
 
         [Test]

@@ -21,7 +21,7 @@ namespace Test
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
 
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
@@ -43,7 +43,7 @@ namespace Test
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
@@ -65,7 +65,7 @@ namespace Test
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
@@ -163,8 +163,6 @@ namespace Test
             var aCompactPeptide = aPeptideWithSetModifications.CompactPeptide(FragmentationTerminus.Both);
 
             var allFragmentNeutralMasses = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
-            
-            
 
             //evaluate N-terminal masses
             var n = allFragmentNeutralMasses.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).ToList();
@@ -220,10 +218,5 @@ namespace Test
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 101, 230 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 1))));
         }
-
-
-
-
-
     }
 }

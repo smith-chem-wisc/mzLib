@@ -48,7 +48,7 @@ namespace Proteomics
         {
             if (_originalId != null && _target != null)
             {
-                if ( _originalId.Contains(" on "))
+                if (_originalId.Contains(" on "))
                 {
                     this.IdWithMotif = _originalId;
                 }

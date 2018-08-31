@@ -49,11 +49,9 @@ namespace UsefulProteomicsDatabases
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
-            
-            //Dictionary<string, IList<Modification>> modsDictionary = new Dictionary<string, IList<Modification>>();
+
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
             {
-                //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
@@ -128,7 +126,7 @@ namespace UsefulProteomicsDatabases
                                 }
                                 else if (xml.Name == "entry")
                                 {
-                                    //if we are up to entry fields in the protein database, then there no more prespecified modifications to read and we 
+                                    //if we are up to entry fields in the protein database, then there no more prespecified modifications to read and we
                                     //can begin processing all the lines we have read.
                                     //This block of code does not process information in any of the entries.
                                     protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?

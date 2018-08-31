@@ -38,7 +38,7 @@ namespace UsefulProteomicsDatabases
                 List<Modification> myModificationList = new List<Modification>();
                 foreach (Protein p in proteinList)
                 {
-                    foreach (KeyValuePair<int,List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
+                    foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
                     {
                         myModificationList.AddRange(entry.Value);
                     }

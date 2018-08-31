@@ -141,7 +141,7 @@ namespace Test
         [Test]
         public static void XmlTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), 
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual('M', ok[0][0]);
@@ -175,7 +175,7 @@ namespace Test
 
             var target = ok.First(p => !p.IsDecoy);
             Protein decoy = ok.Where(p => p.IsDecoy && p.SequenceVariations.Count() > 0).First();
-            
+
             Assert.AreEqual('M', target[0]);
             Assert.AreEqual('M', decoy[0]);
             List<SequenceVariation> seqvar0 = target.SequenceVariations.ToList();
@@ -201,7 +201,7 @@ namespace Test
         [Test]
         public static void DisulfideXmlTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), 
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out Dictionary<string, Modification> un);
 
             Assert.AreEqual('M', ok[0][0]);
@@ -246,7 +246,7 @@ namespace Test
         [Test]
         public static void XmlGzTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"), 
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml.gz"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual('M', ok[0][0]);
@@ -266,7 +266,7 @@ namespace Test
         [Test]
         public static void XmlFunkySequenceTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"), 
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1)); //the original protein sequence in the original order starts with 'M'
@@ -279,7 +279,7 @@ namespace Test
         [Test]
         public static void XmlModifiedStartTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"), 
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             Assert.AreEqual("M", ok[0].BaseSequence.Substring(0, 1)); //the original protein sequence in the original order starts with 'M'
@@ -353,7 +353,6 @@ namespace Test
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
 
-
             var nice = new List<Modification>
             {
                 new Modification("N-acetylserine", null, "exclude_me", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null),
@@ -366,7 +365,7 @@ namespace Test
                 new[] { excludeString }, out Dictionary<string, Modification> un);
 
             List<string> modTypes = new List<string>();
-            foreach (KeyValuePair<int,List<Modification>> entry in ok2[0].OneBasedPossibleLocalizedModifications)
+            foreach (KeyValuePair<int, List<Modification>> entry in ok2[0].OneBasedPossibleLocalizedModifications)
             {
                 modTypes.AddRange(entry.Value.Select(m => m.ModificationType).ToList().Distinct());
             }

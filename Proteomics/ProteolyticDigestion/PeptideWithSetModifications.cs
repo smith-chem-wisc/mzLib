@@ -333,7 +333,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 return q.FullSequence.Equals(this.FullSequence);
             }
-            
+
             return q != null
                 && q.FullSequence.Equals(this.FullSequence)
                 && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein

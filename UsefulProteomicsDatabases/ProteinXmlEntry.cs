@@ -30,12 +30,13 @@ namespace UsefulProteomicsDatabases
         public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
-        private List<(int, string)> annotatedMods = new List<(int position, string originalModificationID)>();
         public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
+
+        private List<(int, string)> AnnotatedMods { get; set; } = new List<(int position, string originalModificationID)>();
 
         /// <summary>
         /// Start parsing a protein XML element
@@ -187,7 +188,7 @@ namespace UsefulProteomicsDatabases
             if (FeatureType == "modified residue")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
-                annotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
+                AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
             }
             else if (FeatureType == "peptide" || FeatureType == "propeptide" || FeatureType == "chain" || FeatureType == "signal peptide")
             {
@@ -224,7 +225,7 @@ namespace UsefulProteomicsDatabases
 
         private void ParseAnnotatedMods(IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
-            foreach ((int, string) annotatedMod in annotatedMods)
+            foreach ((int, string) annotatedMod in AnnotatedMods)
             {
                 string annotatedId = annotatedMod.Item2;
                 int annotatedModLocation = annotatedMod.Item1;
@@ -232,7 +233,7 @@ namespace UsefulProteomicsDatabases
                 if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod))
                 {
                     // if the list of known mods contains this IdWithMotif
-                    if (ModificationLocalization.ModFits(foundMod, Sequence, 0, 0, annotatedModLocation) 
+                    if (ModificationLocalization.ModFits(foundMod, Sequence, 0, 0, annotatedModLocation)
                         && !modTypesToExclude.Contains(foundMod.ModificationType))
                     {
                         if (OneBasedModifications.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
@@ -252,7 +253,7 @@ namespace UsefulProteomicsDatabases
                 {
                     foreach (Modification mod in mods)
                     {
-                        if (ModificationLocalization.ModFits(mod, Sequence, 0, 0, annotatedModLocation) 
+                        if (ModificationLocalization.ModFits(mod, Sequence, 0, 0, annotatedModLocation)
                             && !modTypesToExclude.Contains(mod.ModificationType))
                         {
                             if (OneBasedModifications.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
@@ -276,9 +277,6 @@ namespace UsefulProteomicsDatabases
                         unknownModifications.Add(annotatedId, new Modification(annotatedId));
                     }
                 }
-
-                
-
 
                 //}
                 //foreach ((int, string) modifiedResidueEntryFromXml in temp)
@@ -379,7 +377,6 @@ namespace UsefulProteomicsDatabases
                 //            //residue_modifications.Add(unknownModifications[featureName]);
                 //        }
                 //    }
-
             }
         }
 
@@ -430,7 +427,7 @@ namespace UsefulProteomicsDatabases
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;
-            annotatedMods = new List<(int, string)>();
+            AnnotatedMods = new List<(int, string)>();
             OneBasedModifications = new Dictionary<int, List<Modification>>();
             ProteolysisProducts = new List<ProteolysisProduct>();
             SequenceVariations = new List<SequenceVariation>();
