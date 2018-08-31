@@ -3232,7 +3232,7 @@
 <end position="21" />
 </location>
 </feature>
-<feature type="modified residue" description="Methionine amide" evidence="26">
+<feature type="modified residue" description="Methionine sulfoxide" evidence="26">
 <location>
 <position position="1" />
 </location>

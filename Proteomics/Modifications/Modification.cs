@@ -9,7 +9,8 @@ namespace Proteomics
 {
     public class Modification
     {
-        public string Id { get; private set; }
+        public string IdWithMotif { get; private set; }
+        public string OriginalId { get; private set; }
         public string Accession { get; private set; }
         public string ModificationType { get; private set; }
         public string FeatureType { get; private set; }
@@ -39,13 +40,29 @@ namespace Proteomics
 
         public bool ValidModification
         {
-            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.LocationRestriction != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
+            get { return (this.IdWithMotif != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Target != null && this.LocationRestriction != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
         }
 
-        public Modification(string _id = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
+        public Modification(string _originalId = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
 
         {
-            this.Id = _id;
+            if (_originalId != null && _target != null)
+            {
+                if (_originalId.Contains(" on "))
+                {
+                    this.IdWithMotif = _originalId;
+                }
+                else if (_originalId.Contains(" of "))
+                {
+                    this.IdWithMotif = _originalId.Replace(" of ", " on ");
+                }
+                else
+                {
+                    this.IdWithMotif = _originalId + " on " + _target.ToString();
+                }
+            }
+
+            this.OriginalId = _originalId;
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;
@@ -105,8 +122,8 @@ namespace Proteomics
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            if (this.Id != null)
-            { sb.AppendLine("ID   " + this.Id); }
+            if (this.IdWithMotif != null)
+            { sb.AppendLine("ID   " + this.IdWithMotif); }
             if (this.Accession != null)
             { sb.AppendLine("AC   " + this.Accession); }
             if (this.ModificationType != null)
@@ -222,8 +239,8 @@ namespace Proteomics
 
             sb.Append(this.ToString());
 
-            if (this.Id == null)
-                sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.Id);
+            if (this.IdWithMotif == null)
+                sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.IdWithMotif);
             if (this.ModificationType == null)
                 sb.AppendLine("#Required field MT missing or malformed. Current value = " + this.ModificationType);
             if (this.LocationRestriction == null)

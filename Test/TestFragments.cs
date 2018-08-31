@@ -207,7 +207,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -235,7 +235,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -263,7 +263,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -295,7 +295,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -323,7 +323,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -355,7 +355,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -383,7 +383,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -411,7 +411,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -435,61 +435,27 @@ namespace Test
         }
 
         [Test]
-        public static void Test_GetTheoreticalFragments_ProductTypeLabel()
+        [TestCase(DissociationType.HCD, new string[] { "B1;97.05276385-0", "B2;226.095356938-0" })]
+        [TestCase(DissociationType.AnyActivationType, new string[] { "B1;97.05276385-0", "B2;226.095356938-0" })]
+        [TestCase(DissociationType.CID, new string[] { "B1;97.05276385-0", "B2;226.095356938-0" })]
+        [TestCase(DissociationType.ECD, new string[] { "C1;114.079312951-0", "C2;243.121906039-0" })]
+        [TestCase(DissociationType.ETD, new string[] { "C1;114.079312951-0", "C2;243.121906039-0" })]
+        [TestCase(DissociationType.EThCD, new string[] { "B1;97.05276385-0", "B2;226.095356938-0", "C1;114.079312951-0", "C2;243.121906039-0" })]
+        [TestCase(DissociationType.ISCID, new string[0])]
+        [TestCase(DissociationType.Custom, new string[0])]
+        [TestCase(DissociationType.MPD, new string[0])]
+        [TestCase(DissociationType.PQD, new string[0])]
+        public static void Test_GetTheoreticalFragments_ProductTypeLabel(DissociationType dissociationType, string[] expectedNTerminalMassLabelsInput)
         {
+            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom] = new List<ProductType> { };
+
             Protein p = new Protein("PET", "accession");
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.N);
+            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(dissociationType, FragmentationTerminus.N);
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "B1;97.05276385-0", "B2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.AnyActivationType, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "B1;97.05276385-0", "B2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.CID, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "B1;97.05276385-0", "B2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.ECD, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "C1;114.079312951-0", "C2;243.121906039-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "C1;114.079312951-0", "C2;243.121906039-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.EThCD, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "B1;97.05276385-0", "B2;226.095356938-0", "C1;114.079312951-0", "C2;243.121906039-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.ISCID, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom] = new List<ProductType> { };
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.Custom, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.MPD, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
-
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.PQD, FragmentationTerminus.N);
-            nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>(expectedNTerminalMassLabelsInput);
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
         }
 
@@ -498,7 +464,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -514,7 +480,7 @@ namespace Test
         {
             Protein p = new Protein("PTE", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -530,7 +496,7 @@ namespace Test
         {
             Protein p = new Protein("PET", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -546,7 +512,7 @@ namespace Test
         {
             Protein p = new Protein("PTE", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_id: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.CID, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
@@ -644,6 +610,55 @@ namespace Test
 
             productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
             Assert.IsTrue(productCollection.Contains(ProductType.Y));
+        }
+
+        [Test]
+        public static void Test_TerminusSpecificProductTypes()
+        {
+            Assert.AreEqual(new List<ProductType> { ProductType.B, ProductType.Y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.B }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.Y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
+            Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
+
+            Assert.AreEqual(new List<ProductType> { ProductType.C, ProductType.Y, ProductType.Zdot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.C }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.Y, ProductType.Zdot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+
+            Assert.AreEqual(new List<ProductType> { ProductType.B, ProductType.Y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
+            Assert.AreEqual(new List<ProductType> { ProductType.B }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
+            Assert.AreEqual(new List<ProductType> { ProductType.Y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
+            Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
+        }
+
+        [Test]
+        public static void Test_TerminusSpecificProductTypesFromPeptideWithSetMods()
+        {
+            Protein protein = new Protein("PEPTIDE", "accession");
+            PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, "", 0, new Dictionary<int, Modification>(), 0);
+
+            Assert.AreEqual(new List<ProductType> { ProductType.B, ProductType.Y }, p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.B }, p.Fragment(DissociationType.HCD, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.Y }, p.Fragment(DissociationType.HCD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.HCD, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
+
+            Assert.AreEqual(new List<ProductType> { ProductType.C, ProductType.Y, ProductType.Zdot }, p.Fragment(DissociationType.ETD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.C }, p.Fragment(DissociationType.ETD, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.Y, ProductType.Zdot }, p.Fragment(DissociationType.ETD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.ETD, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
+
+            Assert.AreEqual(new List<ProductType> { ProductType.B, ProductType.Y }, p.Fragment(DissociationType.CID, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.B }, p.Fragment(DissociationType.CID, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.Y }, p.Fragment(DissociationType.CID, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.CID, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
+        }
+
+        [Test]
+        public static void Test_MatchedFragmentIonToString()
+        {
+            Product P = new Product(ProductType.B, new NeutralTerminusFragment(FragmentationTerminus.N, 1, 1, 1), 0);
+            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
+            Assert.AreEqual("B1+1\t;1", m.ToString());
         }
     }
 }

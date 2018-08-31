@@ -12,7 +12,7 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide
     {
-        public string Sequence { get; private set; }
+        public string FullSequence { get; private set; } //sequence with modifications
         public readonly int NumFixedMods;
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace Proteomics.ProteolyticDigestion
                 throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
             }
 
-            Sequence = sequence;
+            FullSequence = sequence;
             GetModsAfterDeserialization(allKnownMods, out _baseSequence);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
@@ -252,7 +252,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (ModstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
                     {
-                        sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.Id + ']');
+                        sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
                     }
                 }
                 for (int r = 0; r < Length; r++)
@@ -263,7 +263,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (ModstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
                         {
-                            sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.Id + ']');
+                            sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
                         }
                     }
                 }
@@ -273,7 +273,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (ModstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                     {
-                        sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.Id + ']');
+                        sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
                     }
                 }
 
@@ -322,7 +322,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public override string ToString()
         {
-            return Sequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
+            return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
         public override bool Equals(object obj)
@@ -331,11 +331,11 @@ namespace Proteomics.ProteolyticDigestion
 
             if (Protein == null && q.Protein == null)
             {
-                return q.Sequence.Equals(this.Sequence);
+                return q.FullSequence.Equals(this.FullSequence);
             }
-            
+
             return q != null
-                && q.Sequence.Equals(this.Sequence)
+                && q.FullSequence.Equals(this.FullSequence)
                 && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
                 && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
                 && q.DigestionParams.Protease == this.DigestionParams.Protease;
@@ -343,7 +343,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public override int GetHashCode()
         {
-            return Sequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+            return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
         }
 
         /// <summary>
@@ -372,9 +372,9 @@ namespace Proteomics.ProteolyticDigestion
             int currentModificationLocation = 1;
             bool currentlyReadingMod = false;
 
-            for (int r = 0; r < Sequence.Length; r++)
+            for (int r = 0; r < FullSequence.Length; r++)
             {
-                char c = Sequence[r];
+                char c = FullSequence[r];
 
                 switch (c)
                 {
@@ -398,7 +398,7 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (!idToMod.TryGetValue(modId, out Modification mod))
                         {
-                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + Sequence);
+                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + FullSequence);
                         }
 
                         AllModsOneIsNterminus.Add(currentModificationLocation, mod);
@@ -442,7 +442,7 @@ namespace Proteomics.ProteolyticDigestion
             // modification on peptide N-terminus
             if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
             {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.Id + ']');
+                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
             }
 
             for (int r = 0; r < Length; r++)
@@ -452,17 +452,17 @@ namespace Proteomics.ProteolyticDigestion
                 // modification on this residue
                 if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
                 {
-                    subsequence.Append('[' + mod.ModificationType + ":" + mod.Id + ']');
+                    subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
                 }
             }
 
             // modification on peptide C-terminus
             if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
             {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.Id + ']');
+                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
             }
 
-            Sequence = subsequence.ToString();
+            FullSequence = subsequence.ToString();
         }
     }
 }
