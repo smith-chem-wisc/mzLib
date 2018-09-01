@@ -74,6 +74,7 @@
     <Compile Include="TestPtmListLoader.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestIsolation.cs" />
+    <Compile Include="TestRetentionTimePrediction.cs" />
     <Compile Include="TestSpectra.cs" />
     <Compile Include="TestTolerance.cs" />
   </ItemGroup>
