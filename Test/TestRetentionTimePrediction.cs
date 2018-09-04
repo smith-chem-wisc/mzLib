@@ -30,6 +30,7 @@ namespace Test
     {
         private readonly object[,] _peptides300A;
         private readonly object[,] _peptides100A;
+        private readonly object[,] _peptidesCZE;
 
         public TestRetentionTimePrediction()
         {
@@ -579,6 +580,10 @@ namespace Test
                 {"AKPHTIFLPQHIDADLILVVLSGK", 49.06},
                 {"LSPGDVVIIPAGHPVAITASSNLNLLGFGINAENNER", 47.19},
             };
+
+            _peptidesCZE = new object[,]
+            {
+            };
         }
 
         /// <summary>
@@ -649,7 +654,29 @@ namespace Test
         [Test]
         public void CZE_RetentionTime_Test()
         {
+            SSRCalc3 calc = new SSRCalc3("SSRCalc 3.0 (100A)", SSRCalc3.Column.A100);
 
+            for (int i = 0; i < _peptides100A.GetLength(0); i++)
+            {
+                var peptide = new PeptideWithSetModifications((string)_peptides100A[i, 0], new Dictionary<string, Modification>());
+                object obj = _peptides100A[i, 1];
+                double expected = (double)_peptides100A[i, 1];
+                double actual = calc.ScoreSequence(peptide);
+
+                // Round the returned value to match the values presented
+                // in the supporting information of the SSRCalc 3 publication.
+                // First cast to float, since the added precision of the double
+                // caused the double representation of 12.805 to round to 12.80
+                // instead of 12.81.  When diffed with 12.81 the result was
+                // 0.005000000000002558.
+                double actualRound = Math.Round((float)actual, 2);
+
+                // Extra conditional added to improve debugging of issues.
+                if (Math.Abs(expected - actual) > 0.005)
+                {
+                    Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
+                }
+            }
         }
     }
 }

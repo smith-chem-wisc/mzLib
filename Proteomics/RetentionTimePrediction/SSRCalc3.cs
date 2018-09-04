@@ -63,6 +63,7 @@ namespace Proteomics
         private static readonly Dictionary<string, double> HlxScore4 = new Dictionary<string, double>();
         private static readonly Dictionary<string, double> HlxScore5 = new Dictionary<string, double>();
         private static readonly Dictionary<string, double> HlxScore6 = new Dictionary<string, double>();
+        private static readonly int[] EMap = new int[128];
 
         private sealed class CLUSTCOMB_List : List<KeyValuePair<Regex, double>>
         {
@@ -402,6 +403,19 @@ namespace Proteomics
             HlxScore6.Add("ZZUUZX", 0.75);
             HlxScore6.Add("ZZUUZZ", 0.75);
             // ReSharper restore NonLocalizedString
+
+            // populate eMap
+            for (int i = 0; i < EMap.Length; i++)
+            {
+                EMap[i] = -1; //default
+            }
+            EMap['K'] = 0;
+            EMap['R'] = 1;
+            EMap['H'] = 2;
+            EMap['D'] = 3;
+            EMap['E'] = 4;
+            EMap['C'] = 5;
+            EMap['Y'] = 6;
         }
 
         public enum Column { A300, A100 }
@@ -597,19 +611,19 @@ namespace Proteomics
             //_log.debug("Core = "+tsum3);
 
             // 1- smallness - adjust based on tsum score of peptides shorter than 20 aa's.
-            tsum3 += smallness(sze, tsum3);
+            tsum3 += Smallness(sze, tsum3);
             //_log.debug("smallness = "+tsum3);
             // 2- undigested parts
-            tsum3 -= undigested(seq);
+            tsum3 -= Undigested(seq);
             //_log.debug("undigested = "+tsum3);
             // 3- clusterness # NB:weighting of v1 is now done in subrtn.
-            tsum3 -= clusterness(seq);
+            tsum3 -= Clusterness(seq);
             //_log.debug("clusterness = "+tsum3);
             // 4- proline fix
-            tsum3 -= proline(seq);
+            tsum3 -= Proline(seq);
             //_log.debug("proline = "+tsum3);
             // 5- length scaling correction
-            tsum3 *= length_scale(sze);
+            tsum3 *= Length_scale(sze);
             //_log.debug("length_scale = "+tsum3);
             // 6- total sum correction
             if (tsum3 >= 20 && tsum3 < 30) tsum3 -= ((tsum3 - 18) * SUMSCALE1);
@@ -618,36 +632,36 @@ namespace Proteomics
             if (tsum3 >= 50) tsum3 -= ((tsum3 - 18) * SUMSCALE4);
             //_log.debug("total sum = "+tsum3);
             // 7- isoelectric change
-            tsum3 += newiso(seq, tsum3);
+            tsum3 += NewIso(seq, tsum3);
             //_log.debug("isoelectric = "+tsum3);
             // 8- helicity corrections  #NB: HELIX#SCALE-ing is now done in subrtn.
-            tsum3 += helicity1(seq);
+            tsum3 += Helicity1(seq);
             //_log.debug("helicity1 = "+tsum3);
-            tsum3 += helicity2(seq);
+            tsum3 += Helicity2(seq);
             //_log.debug("helicity2 = "+tsum3);
-            tsum3 += helectric(seq);
+            tsum3 += Helectric(seq);
             //_log.debug("helectric = "+tsum3);
             return tsum3;
         }
 
-        private double smallness(int sqlen, double tsum)
+        private double Smallness(int sqlen, double tsum)
         {
             if (NOSMALL == 1)
+            {
                 return 0.0;
-            if (sqlen < 20)
-            {
-                if ((tsum / sqlen) < 0.9)
-                    return 3.5 * (0.9 - (tsum / sqlen));
             }
-            if (sqlen < 15)
+            if (sqlen < 20 && (tsum / sqlen) < 0.9)
             {
-                if ((tsum / sqlen) > 2.8)
-                    return 2.6 * ((tsum / sqlen) - 2.8);
+                return 3.5 * (0.9 - (tsum / sqlen));
+            }
+            if (sqlen < 15 && (tsum / sqlen) > 2.8)
+            {
+                return 2.6 * ((tsum / sqlen) - 2.8);
             }
             return 0.0;
         }
 
-        private double undigested(String sq)
+        private double Undigested(String sq)
         {
             if (NODIGEST == 1)
                 return 0.0;
@@ -712,7 +726,7 @@ namespace Proteomics
         // code M,Y,V as 1
         // code all others as 0
 
-        private double clusterness(String sq)
+        private double Clusterness(String sq)
         {
             if (NOCLUSTER == 1)
                 return 0.0;
@@ -765,55 +779,47 @@ namespace Proteomics
 
         // ============================================================
         //  process based on proline - v 2,3 algorithm
-        private static double proline(String sq)
+        private static double Proline(String sq)
         {
-            double score = 0.0;
             if (sq.Contains("PPPP")) // Not L10N
-                score = PPPPSCORE;
+            {
+                return PPPPSCORE;
+            }
             else if (sq.Contains("PPP")) // Not L10N
-                score = PPPSCORE;
+            {
+                return PPPSCORE;
+            }
             else if (sq.Contains("PP")) // Not L10N
-                score = PPSCORE;
-            return score;
+            {
+                return PPSCORE;
+            }
+            else
+            {
+                return 0.0;
+            }
         }
 
         // ============================================================
         //  scaling based on length - v 1,2,3 algorithms
-        private static double length_scale(int sqlen)
+        private static double Length_scale(int sqlen)
         {
-            double LS = 1.0;
             if (sqlen < SPLim)
             {
-                LS = 1.0 + SPSFac * (SPLim - sqlen);
+                return 1.0 + SPSFac * (SPLim - sqlen);
+            }
+            else if (sqlen > LPLim)
+            {
+                return 1.0 / (1.0 + LPSFac * (sqlen - LPLim));
             }
             else
             {
-                if (sqlen > LPLim)
-                {
-                    LS = 1.0 / (1.0 + LPSFac * (sqlen - LPLim));
-                }
-            }
-            return LS;
-        }
-
-        private static int eMap(char aa)
-        {
-            switch (aa)
-            {
-                case 'K': return 0;
-                case 'R': return 1;
-                case 'H': return 2;
-                case 'D': return 3;
-                case 'E': return 4;
-                case 'C': return 5;
-                case 'Y': return 6;
-                default: return -1;
+                return 1.0;
             }
         }
 
         // ============================================================
         // compute partial charge - v 2,3 algorithms
-        private static double _partial_charge(double pK, double pH)
+        private static double Partial_charge(double pK, double pH)
         {
             double cr = Math.Pow(10.0, (pK - pH));
             return cr / (cr + 1.0);
@@ -821,7 +827,7 @@ namespace Proteomics
 
         // ============================================================
         //    - v 2,3 algorithms
-        private double electric(String sq)
+        private double Electric(String sq)
         {
             int[] aaCNT = { 0, 0, 0, 0, 0, 0, 0 };
 
@@ -838,10 +844,11 @@ namespace Proteomics
             // count them up
             for (int i = 0; i < ss; i++)
             {
-                char e = sq[i];
-                int index = eMap(e);
+                int index = EMap[sq[i]];
                 if (index >= 0)
+                {
                     aaCNT[index]++;
+                }
             }
 
             // cycle through pH values looking for closest to zero
@@ -883,14 +890,14 @@ namespace Proteomics
         private double CalcR(double pH, double PK0, double PK1, int[] CNTref)
         {
             double cr0 =
-                                     _partial_charge(PK0, pH)                    // n terminus
-               + CNTref[eMap('K')] * _partial_charge(AAPARAMS['K'].PK, pH)  // lys // Not L10N
-               + CNTref[eMap('R')] * _partial_charge(AAPARAMS['R'].PK, pH)  // arg // Not L10N 
-               + CNTref[eMap('H')] * _partial_charge(AAPARAMS['H'].PK, pH)  // his // Not L10N
-               - CNTref[eMap('D')] * _partial_charge(pH, AAPARAMS['D'].PK)  // asp // Not L10N
-               - CNTref[eMap('E')] * _partial_charge(pH, AAPARAMS['E'].PK)  // glu // Not L10N
-               - CNTref[eMap('Y')] * _partial_charge(pH, AAPARAMS['Y'].PK)  // try // Not L10N
-               - _partial_charge(pH, PK1); // c terminus
+                                     Partial_charge(PK0, pH)                    // n terminus
+               + CNTref[EMap['K']] * Partial_charge(AAPARAMS['K'].PK, pH)  // lys // Not L10N
+               + CNTref[EMap['R']] * Partial_charge(AAPARAMS['R'].PK, pH)  // arg // Not L10N 
+               + CNTref[EMap['H']] * Partial_charge(AAPARAMS['H'].PK, pH)  // his // Not L10N
+               - CNTref[EMap['D']] * Partial_charge(pH, AAPARAMS['D'].PK)  // asp // Not L10N
+               - CNTref[EMap['E']] * Partial_charge(pH, AAPARAMS['E'].PK)  // glu // Not L10N
+               - CNTref[EMap['Y']] * Partial_charge(pH, AAPARAMS['Y'].PK)  // try // Not L10N
+               - Partial_charge(pH, PK1); // c terminus
                                            /*
                                            // The following was taken out of the formula for R
                                            //  - $CNTref->{C} * _partial_charge( $pH,      $PK{C} )    // cys
@@ -898,7 +905,7 @@ namespace Proteomics
             return cr0;
         }
 
-        private double newiso(string sq, double tsum)
+        private double NewIso(string sq, double tsum)
         {
             if (NOELECTRIC == 1)
                 return 0.0;
@@ -910,7 +917,7 @@ namespace Proteomics
                 mass += AAPARAMS[cf1].AMASS;
             }
             // compute isoelectric value
-            double pi1 = electric(sq);
+            double pi1 = Electric(sq);
             double lmass = 1.8014 * Math.Log(mass);
 
             // make mass correction
@@ -931,7 +938,7 @@ namespace Proteomics
 
         // ============================================================
         // called by helicity1  - v 3 algorithm
-        private static double heli1TermAdj(string ss1, int ix2, int sqlen)
+        private static double Heli1TermAdj(string ss1, int ix2, int sqlen)
         {
             int where = 0;
 
@@ -969,7 +976,7 @@ namespace Proteomics
         // ============================================================
         // helicity1 adjust for short helices or sections - v 3 algorithm
         //
-        private double helicity1(string sq)
+        private double Helicity1(string sq)
         {
             if (NOHELIX1 == 1)
                 return 0.0;
@@ -1006,7 +1013,7 @@ namespace Proteomics
                 }
                 if (sc6 > 0)
                 {
-                    double trmAdj6 = heli1TermAdj(hc6, i, sqlen);
+                    double trmAdj6 = Heli1TermAdj(hc6, i, sqlen);
                     sum += (sc6 * trmAdj6);
                     i = i + 1; //??
                     continue;
@@ -1023,7 +1030,7 @@ namespace Proteomics
                 }
                 if (sc5 > 0)
                 {
-                    double trmAdj5 = heli1TermAdj(hc5, i, sqlen);
+                    double trmAdj5 = Heli1TermAdj(hc5, i, sqlen);
                     sum += (sc5 * trmAdj5);
                     i = i + 1; //??
                     continue;
@@ -1040,10 +1047,9 @@ namespace Proteomics
                 }
                 if (sc4 > 0)
                 {
-                    double trmAdj4 = heli1TermAdj(hc4, i, sqlen);
+                    double trmAdj4 = Heli1TermAdj(hc4, i, sqlen);
                     sum += (sc4 * trmAdj4);
                     i = i + 1; //??
-                               // continue;
                 }
             }
             return HELIX1SCALE * sum;
@@ -1051,7 +1057,7 @@ namespace Proteomics
 
         // ============================================================
         // called by heli2calc  - v 3 algorithm
-        private double evalH2pattern(String pattern, String testsq, int posn, char etype)
+        private double EvalH2pattern(String pattern, String testsq, int posn, char etype)
         {
             char f01 = pattern[0];
             double prod1 = AAPARAMS[f01].H2BASCORE;
@@ -1064,7 +1070,7 @@ namespace Proteomics
             char testAAl = testsq[OFF1 + posn];
             char testAAr = testsq[OFF1 + posn + 2];
             string testsqCopy = testsq.Substring(OFF1 + posn + 1);
-            double mult = connector(f01, testAAl, testAAr, "--", far1, far2); // Not L10N
+            double mult = Connector(f01, testAAl, testAAr, "--", far1, far2); // Not L10N
             prod1 = prod1 * mult;
             if (etype == '*') // Not L10N
                 prod1 = prod1 * 25.0;
@@ -1093,7 +1099,7 @@ namespace Proteomics
                 testAAl = testsqCopy[i + 1 + iss];
                 testAAr = testsqCopy[i + 3 + iss];
 
-                mult = connector(gpart, testAAl, testAAr, fpart, far1, far2);
+                mult = Connector(gpart, testAAl, testAAr, fpart, far1, far2);
 
                 if (etype == '*') // Not L10N
                 {
@@ -1120,7 +1126,7 @@ namespace Proteomics
 
         // ============================================================
         // called by evalH2pattern  - v 3 algorithm
-        private double connector(char acid, char lp, char rp, String ct, char far1, char far2)
+        private double Connector(char acid, char lp, char rp, String ct, char far1, char far2)
         {
             double mult = 1.0;
 
@@ -1149,7 +1155,7 @@ namespace Proteomics
 
         // ============================================================
         // called by helicity2  - v 3 algorithm
-        private double[] heli2Calc(String sq)
+        private double[] Heli2Calc(String sq)
         {
             // Translator1 note: in the original perl and translated C, this function
             // was void and returned values through double pointer arguments. Like this:
@@ -1233,7 +1239,7 @@ namespace Proteomics
                     if (pat.Length > 4)
                     {
                         traps = prechop;
-                        double skore = evalH2pattern(pat, traps, i - 1, '*'); // Not L10N
+                        double skore = EvalH2pattern(pat, traps, i - 1, '*'); // Not L10N
                         if (skore >= hiscore)
                         {
                             hiscore = skore;
@@ -1248,7 +1254,7 @@ namespace Proteomics
             {
                 double gscore = hiscore; //not my()'ed in perl source
                 traps = prechop;
-                hiscore = evalH2pattern(best, traps, best_pos - 1, '+'); // Not L10N
+                hiscore = EvalH2pattern(best, traps, best_pos - 1, '+'); // Not L10N
 
                 ret[HISC] = hiscore;
                 ret[GSC] = gscore;
@@ -1262,15 +1268,15 @@ namespace Proteomics
 
         // ============================================================
         // helicity2 adjust for long helices - v 3 algorithm
-        private double helicity2(string sq)
+        private double Helicity2(string sq)
         {
             if (NOHELIX2 == 1)
                 return 0.0;
             string Bksq = sq.Backwards();
-            double[] fhg = heli2Calc(sq);
+            double[] fhg = Heli2Calc(sq);
             double FwHiscor = fhg[HISC];
             double FwGscor = fhg[GSC];
-            double[] rhg = heli2Calc(Bksq);
+            double[] rhg = Heli2Calc(Bksq);
             double BkHiscor = rhg[HISC];
             double BkGscor = rhg[GSC];
             double h2FwBk = BkGscor > FwGscor ? BkHiscor : FwHiscor;
@@ -1286,7 +1292,7 @@ namespace Proteomics
             return HELIX2SCALE * h2mult * h2FwBk;
         }
 
-        private double helectric(String sq)
+        private double Helectric(String sq)
         {
             if (NOEHEL == 1 || sq.Length > 14 || sq.Length < 4)
                 return 0.0;
@@ -1444,11 +1450,17 @@ namespace Proteomics
             foreach (char c in s)
             {
                 if (!allAAs && aas.IndexOf(c) != -1)
+                {
                     sb.Append(newValue);
+                }
                 else if (allAAs && char.IsLetter(c) && char.IsUpper(c))
+                {
                     sb.Append(newValue);
+                }
                 else
+                {
                     sb.Append(c);
+                }
             }
 
             return sb.ToString();
@@ -1466,7 +1478,9 @@ namespace Proteomics
             foreach (char c in s)
             {
                 if (aas.IndexOf(c) != -1)
+                {
                     return true;
+                }
             }
             return false;
         }
@@ -1475,7 +1489,9 @@ namespace Proteomics
         {
             StringBuilder sb = new StringBuilder();
             foreach (char c in s.Reverse())
+            {
                 sb.Append(c);
+            }
             return sb.ToString();
         }
     }
