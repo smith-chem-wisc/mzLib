@@ -6,11 +6,6 @@ namespace Proteomics
     {
         public static bool ModFits(Modification attemptToLocalize, string proteinSequence, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
         {
-            return ModFits(attemptToLocalize, new Protein(proteinSequence, ""), peptideOneBasedIndex, peptideLength, proteinOneBasedIndex);
-        }
-
-        public static bool ModFits(Modification attemptToLocalize, Protein protein, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
-        {
             // First find the capital letter...
             var motif = attemptToLocalize.Target;
             var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
@@ -20,8 +15,8 @@ namespace Proteomics
             var indexUp = 0;
             while (indexUp < motif.ToString().Length)
             {
-                if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= protein.Length
-                    || !MotifMatches(motif.ToString()[indexUp], protein.BaseSequence[indexUp + proteinToMotifOffset]))
+                if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= proteinSequence.Length
+                    || !MotifMatches(motif.ToString()[indexUp], proteinSequence[indexUp + proteinToMotifOffset]))
                 {
                     return false;
                 }
@@ -35,11 +30,11 @@ namespace Proteomics
             {
                 return false;
             }
-            if (attemptToLocalize.LocationRestriction == "C-terminal." && peptideOneBasedIndex < peptideLength)
+            if (attemptToLocalize.LocationRestriction == "C-terminal." && proteinOneBasedIndex < proteinSequence.Length)
             {
                 return false;
             }
-            if (attemptToLocalize.LocationRestriction == "Peptide C-terminal." && proteinOneBasedIndex < protein.Length)
+            if (attemptToLocalize.LocationRestriction == "Peptide C-terminal." && peptideOneBasedIndex < peptideLength)
             {
                 return false;
             }

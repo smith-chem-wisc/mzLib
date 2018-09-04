@@ -756,5 +756,67 @@ namespace Test
             IEnumerable<Product> myFragments = myPeptide.Fragment(dissociationType, FragmentationTerminus.Both);
             Assert.AreEqual(fragmentCount, myFragments.Count());
         }
+
+        [Test]
+        public static void CheckProlineFragments()
+        {
+            PeptideWithSetModifications p = new PeptideWithSetModifications("MPEPTIDE", new Dictionary<string, Modification>());
+            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+
+            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
+
+            var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
+            var expected = new[] { 1, 3, 5, 6, 7, 8 };
+
+            Assert.That(expected.SequenceEqual(ionNums));
+        }
+
+        [Test]
+        public static void CheckProlineFragments2()
+        {
+            PeptideWithSetModifications p = new PeptideWithSetModifications("MTETTIDE", new Dictionary<string, Modification>());
+            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+
+            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
+
+            var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
+            var expected = new[] { 1, 2, 3, 4, 5, 6, 7, 8 };
+
+            Assert.That(expected.SequenceEqual(ionNums));
+        }
+
+        [Test]
+        public static void CheckProlineFragments3()
+        {
+            PeptideWithSetModifications p = new PeptideWithSetModifications("METPIPEEEE", new Dictionary<string, Modification>());
+            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+
+            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
+
+            var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
+            var expected = new[] { 1, 2, 3, 5, 7, 8, 9, 10 };
+
+            Assert.That(expected.SequenceEqual(ionNums));
+        }
+
+        [Test]
+        public static void CheckProlineFragments4()
+        {
+            ModificationMotif.TryGetMotif("P", out var motif);
+            Modification m = new Modification("TEST", "", "OK", null, motif, "Anywhere.", null, 20);
+            PeptideWithSetModifications p = new PeptideWithSetModifications("METP[OK:TEST]IPEEEE", new Dictionary<string, Modification> { { "TEST", m } });
+            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+
+            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
+
+            var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
+            var expected = new[] { 1, 2, 3, 5, 7, 8, 9, 10 };
+
+            Assert.That(expected.SequenceEqual(ionNums));
+        }
     }
 }

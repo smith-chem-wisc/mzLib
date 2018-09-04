@@ -181,6 +181,10 @@ namespace Proteomics.ProteolyticDigestion
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
             List<(ProductType, int)> skippers = new List<(ProductType, int)>();
+            foreach (var product in productCollection.Where(f => f != ProductType.zPlusOne))
+            {
+                skippers.Add((product, BaseSequence.Length));
+            }
 
             switch (dissociationType)
             {
@@ -191,7 +195,7 @@ namespace Proteomics.ProteolyticDigestion
                 case DissociationType.ETD:
                 case DissociationType.ECD:
                 case DissociationType.EThcD:
-                    skippers.AddRange(GetProlineIndicies());
+                    skippers.AddRange(GetProlineZIonIndicies());
                     break;
 
                 default:
@@ -220,19 +224,19 @@ namespace Proteomics.ProteolyticDigestion
 
                             for (int n = f; n < terminalMasses.Length; n++)
                             {
-                                if (skippers.Count == 0)
+                                if (!skippers.Contains((productType, terminalMasses[n].FragmentNumber)))
+                                {
                                     yield return new Product(productType, terminalMasses[n], neutralLoss);
-                                else if (!skippers.Contains((productType, f+1)))
-                                    yield return new Product(productType, terminalMasses[n], neutralLoss);
+                                }
                             }
                         }
                     }
 
                     // "normal" fragment without neutral loss
-                    if (skippers.Count == 0)
+                    if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
+                    {
                         yield return new Product(productType, terminalMasses[f], 0);
-                    else if (!skippers.Contains((productType, f+1)))
-                        yield return new Product(productType, terminalMasses[f], 0);
+                    }
                 }
             }
 
@@ -265,17 +269,17 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public virtual string EssentialSequence(IReadOnlyDictionary<string, int> ModstoWritePruned)
+        public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
         {
             string essentialSequence = BaseSequence;
-            if (ModstoWritePruned != null)
+            if (modstoWritePruned != null)
             {
                 var sbsequence = new StringBuilder();
 
                 // variable modification on peptide N-terminus
                 if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
                 {
-                    if (ModstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
+                    if (modstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
                     {
                         sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
                     }
@@ -286,7 +290,7 @@ namespace Proteomics.ProteolyticDigestion
                     // variable modification on this residue
                     if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
                     {
-                        if (ModstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
+                        if (modstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
                         {
                             sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
                         }
@@ -296,7 +300,7 @@ namespace Proteomics.ProteolyticDigestion
                 // variable modification on peptide C-terminus
                 if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
                 {
-                    if (ModstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
+                    if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                     {
                         sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
                     }
@@ -307,15 +311,12 @@ namespace Proteomics.ProteolyticDigestion
             return essentialSequence;
         }
 
-        private IEnumerable<(ProductType, int)> GetProlineIndicies()
+        private IEnumerable<(ProductType, int)> GetProlineZIonIndicies()
         {
-            int Length = FullSequence.Length;
-            //List<(ProductType, int)> indicies = new List<(ProductType, int)>();
-            for (int i = FullSequence.IndexOf('P'); i > -1; i = FullSequence.IndexOf('P', i + 1))
+            for (int i = BaseSequence.IndexOf('P'); i > -1; i = BaseSequence.IndexOf('P', i + 1))
             {
-                yield return (ProductType.zPlusOne, Length - i);
+                yield return (ProductType.zPlusOne, i + 1);
             }
-            //return indicies;
         }
 
         public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus)

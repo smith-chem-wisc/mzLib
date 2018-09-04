@@ -269,8 +269,8 @@ namespace Test
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"), 
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
-            Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1)); //the original protein sequence in the original order starts with 'M'
-            Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1)); //the decoy protein sequence in the reverse order from the original still starts with 'M'
+            Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1));
+            Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1));
 
             Assert.AreEqual('S', ok[0][0]);
             Assert.AreEqual('G', ok[1][0]);
