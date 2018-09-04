@@ -107,7 +107,7 @@ namespace Test
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
-            Assert.AreEqual(2639, unimodMods.Count()); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(2639, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -161,13 +161,11 @@ namespace Test
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
             {
-                s = mod.IdWithMotif;
                 if (mod.IdWithMotif != null && mod.IdWithMotif.Contains("Acetyl"))
+                {
                     myOtherList.Add(mod);
-
+                }
             }
-            
-            //List<Modification> myOtherList = sampleModList.Where(m => m.IdWithMotif.Contains("Acetyl on K")).ToList();
             
             var thisMod = myOtherList.First();
             Assert.IsTrue(thisMod.MonoisotopicMass > 42);
@@ -299,7 +297,6 @@ namespace Test
         [Test]
         public static void Test_MetaMorpheusStyleProteinDatabaseWriteAndREad()
         {
-
             string proteinDbFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestProteinSplitAcrossFiles.xml");
 
             ModificationMotif.TryGetMotif("D", out ModificationMotif motif);
@@ -316,7 +313,6 @@ namespace Test
 
             var lines = File.ReadAllLines(proteinDbFilePath);
             List<Protein> newProteinList = ProteinDbLoader.LoadProteinXML(proteinDbFilePath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var um, -1);
-
         }
 
         [Test]

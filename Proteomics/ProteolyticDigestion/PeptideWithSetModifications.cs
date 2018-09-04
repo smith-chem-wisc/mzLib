@@ -197,9 +197,6 @@ namespace Proteomics.ProteolyticDigestion
                 case DissociationType.EThcD:
                     skippers.AddRange(GetProlineZIonIndicies());
                     break;
-
-                default:
-                    break;
             }
 
             foreach (var productType in productCollection)
@@ -315,7 +312,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             for (int i = BaseSequence.IndexOf('P'); i > -1; i = BaseSequence.IndexOf('P', i + 1))
             {
-                yield return (ProductType.zPlusOne, i + 1);
+                yield return (ProductType.zPlusOne, BaseSequence.Length - i);
             }
         }
 
