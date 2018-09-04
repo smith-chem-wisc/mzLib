@@ -3226,16 +3226,16 @@
 <end position="10" />
 </location>
 </feature>
-<feature type="DNA-binding region">
-<location>
-<begin position="17" />
-<end position="21" />
-</location>
+  <feature type="DNA-binding region">
+    <location>
+      <begin position="17" />
+      <end position="21" />
+    </location>
+  </feature>
 <feature type="modified residue" description="Phosphoserine" evidence="26">
 <location>
 <position position="1" />
 </location>
-</feature>
 </feature>
 <feature type="modified residue" description="N-acetylserine" evidence="26">
 <location>

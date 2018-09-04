@@ -8,26 +8,26 @@ namespace Proteomics.Fragmentation
     {
         public static Dictionary<FragmentationTerminus, List<ProductType>> ProductIonTypesFromSpecifiedTerminus = new Dictionary<FragmentationTerminus, List<ProductType>>
         {
-            {FragmentationTerminus.N, new List<ProductType>{ ProductType.A, ProductType.Adot, ProductType.Astar, ProductType.B, ProductType.Bdot, ProductType.Bstar, ProductType.C } }, //all ion types that include the N-terminus
-            {FragmentationTerminus.C, new List<ProductType>{ ProductType.X, ProductType.Y, ProductType.Ydot, ProductType.Ystar, ProductType.Zdot } }, //all ion types that include the C-terminus
-            {FragmentationTerminus.Both, new List<ProductType>{ ProductType.A, ProductType.Adot, ProductType.Astar, ProductType.B, ProductType.Bdot, ProductType.Bstar, ProductType.C, ProductType.X, ProductType.Y, ProductType.Ydot, ProductType.Ystar, ProductType.Zdot} },
+            {FragmentationTerminus.N, new List<ProductType>{ ProductType.a, ProductType.aDegree, ProductType.aStar, ProductType.b, ProductType.bDegree, ProductType.bStar, ProductType.c } }, //all ion types that include the N-terminus
+            {FragmentationTerminus.C, new List<ProductType>{ ProductType.x, ProductType.y, ProductType.yDegree, ProductType.yStar, ProductType.zPlusOne } }, //all ion types that include the C-terminus
+            {FragmentationTerminus.Both, new List<ProductType>{ ProductType.a, ProductType.aDegree, ProductType.aStar, ProductType.b, ProductType.bDegree, ProductType.bStar, ProductType.c, ProductType.x, ProductType.y, ProductType.yDegree, ProductType.yStar, ProductType.zPlusOne} },
             {FragmentationTerminus.None, new List<ProductType>() }
         };
 
         public static Dictionary<ProductType, FragmentationTerminus> ProductTypeToFragmentationTerminus = new Dictionary<ProductType, FragmentationTerminus>
         {
-            { ProductType.A, FragmentationTerminus.N },
-            { ProductType.Adot, FragmentationTerminus.N },
-            { ProductType.Astar, FragmentationTerminus.N },
-            { ProductType.B, FragmentationTerminus.N },
-            { ProductType.Bdot, FragmentationTerminus.N },
-            { ProductType.Bstar, FragmentationTerminus.N },
-            { ProductType.C, FragmentationTerminus.N },
-            { ProductType.X, FragmentationTerminus.C },
-            { ProductType.Y, FragmentationTerminus.C },
-            { ProductType.Ydot, FragmentationTerminus.C },
-            { ProductType.Ystar, FragmentationTerminus.C },
-            { ProductType.Zdot, FragmentationTerminus.C },
+            { ProductType.a, FragmentationTerminus.N },
+            { ProductType.aDegree, FragmentationTerminus.N },
+            { ProductType.aStar, FragmentationTerminus.N },
+            { ProductType.b, FragmentationTerminus.N },
+            { ProductType.bDegree, FragmentationTerminus.N },
+            { ProductType.bStar, FragmentationTerminus.N },
+            { ProductType.c, FragmentationTerminus.N },
+            { ProductType.x, FragmentationTerminus.C },
+            { ProductType.y, FragmentationTerminus.C },
+            { ProductType.yDegree, FragmentationTerminus.C },
+            { ProductType.yStar, FragmentationTerminus.C },
+            { ProductType.zPlusOne, FragmentationTerminus.C },
         };
 
     }

@@ -85,7 +85,7 @@ namespace Proteomics.Fragmentation
                         mass += (double)currentModification.MonoisotopicMass;
                     }
 
-                    if (r != 0)
+                    if (r != -1)
                     {
                         yield return new NeutralTerminusFragment(FragmentationTerminus.C, mass, peptide.Length - r, r + 1);
                     }
