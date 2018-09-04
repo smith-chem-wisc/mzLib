@@ -69,7 +69,7 @@ namespace Chromatography
         private double PredictedCharge(string peptideSequence)
         {
             string substitutedString = peptideSequence.Replace("R", "").Replace("K", "").Replace("H", "").ToString();
-            return (1d + (double)(peptideSequence.Length - substitutedString.Length));
+            return (1d + (peptideSequence.Length - substitutedString.Length));
         }
 
         /// <summary>
@@ -87,125 +87,129 @@ namespace Chromatography
             double runningSum = 0;
             string internalString = peptideSequence.Substring(3, peptideSequence.Length - 5);
 
-            switch (peptideSequence[0])//first AA
+            char firstAA = peptideSequence[0];
+            if (firstAA == 'D')
             {
-                case 'D':
-                    runningSum -= 0.26741;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.06852;
-                    break;
-
-                case 'N':
-                    runningSum += 0.011699;
-                    break;
-
-                case 'Q':
-                    runningSum += 0;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                runningSum -= 0.26741;
             }
-            switch (peptideSequence[1])//second AA
+            else if (firstAA == 'E')
             {
-                case 'D':
-                    runningSum -= 0.10947;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.04011;
-                    break;
-
-                case 'N':
-                    runningSum += 0.012535;
-                    break;
-
-                case 'Q':
-                    runningSum += 0.011699;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                runningSum -= 0.06852;
             }
-            switch (peptideSequence[2])//third AA
+            else if (firstAA == 'N')
             {
-                case 'D':
-                    runningSum -= 0.08022;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.03426;
-                    break;
-
-                case 'N':
-                    runningSum += 0.016713;
-                    break;
-
-                case 'Q':
-                    runningSum += 0.00585;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                runningSum += 0.011699;
             }
-            switch (peptideSequence[peptideSequence.Length - 2])//second to last AA
+            else
             {
-                case 'D':
-                    runningSum -= 0.03844;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.01337;
-                    break;
-
-                case 'N':
-                    runningSum += 0.026741;
-                    break;
-
-                case 'Q':
-                    runningSum -= 0.00084;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
-            }
-            switch (peptideSequence[peptideSequence.Length - 1])//last AA
-            {
-                case 'D':
-                    runningSum -= 0.02256;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.00418;
-                    break;
-
-                case 'N':
-                    runningSum += 0.010864;
-                    break;
-
-                case 'Q':
-                    runningSum -= 0.0117;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                //change nothing
             }
 
-            if (internalString.Contains("D"))
-                runningSum -= 0.05014;
-            if (internalString.Contains("E"))
-                runningSum -= 0.01922;
-            if (internalString.Contains("N"))
+            char secondAA = peptideSequence[1];
+            if (secondAA == 'D')
+            {
+                runningSum -= 0.10947;
+            }
+            else if (secondAA == 'E')
+            {
+                runningSum -= 0.04011;
+            }
+            else if (secondAA == 'N')
+            {
                 runningSum += 0.012535;
+            }
+            else if (secondAA == 'Q')
+            {
+                runningSum += 0.011699;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            char thirdAA = peptideSequence[2];
+            if (secondAA == 'D')
+            {
+                runningSum -= 0.08022;
+            }
+            else if (secondAA == 'E')
+            {
+                runningSum -= 0.03426;
+            }
+            else if (secondAA == 'N')
+            {
+                runningSum += 0.016713;
+            }
+            else if (secondAA == 'Q')
+            {
+                runningSum += 0.00585;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            char secondToLastAA = peptideSequence[peptideSequence.Length - 2];
+            if (secondAA == 'D')
+            {
+                runningSum -= 0.03844;
+            }
+            else if (secondAA == 'E')
+            {
+                runningSum -= 0.01337;
+            }
+            else if (secondAA == 'N')
+            {
+                runningSum += 0.026741;
+            }
+            else if (secondAA == 'Q')
+            {
+                runningSum -= 0.00084;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            char lastAA = peptideSequence[peptideSequence.Length - 1];
+            if (secondAA == 'D')
+            {
+                runningSum -= 0.02256;
+            }
+            else if (secondAA == 'E')
+            {
+                runningSum -= 0.00418;
+            }
+            else if (secondAA == 'N')
+            {
+                runningSum += 0.010864;
+            }
+            else if (secondAA == 'Q')
+            {
+                runningSum -= 0.0117;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            //consider internal residues
+            if (internalString.Contains("D"))
+            {
+                runningSum -= 0.05014;
+            }
+            if (internalString.Contains("E"))
+            {
+                runningSum -= 0.01922;
+            }
+            if (internalString.Contains("N"))
+            {
+                runningSum += 0.012535;
+            }
             if (internalString.Contains("Q"))
+            {
                 runningSum -= 0.000251;
+            }
 
             runningSum += PredictedCharge(peptideSequence);
 
