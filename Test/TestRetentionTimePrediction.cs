@@ -1,6 +1,6 @@
 ﻿using NUnit.Framework;
 using Proteomics;
-using Proteomics.AminoAcidPolymer;
+using Proteomics.RetentionTimePrediction;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Proteomics
+namespace Proteomics.RetentionTimePrediction
 {
     /// <summary>
     /// This class will return theoretical retention times, hydrobphobicites, electrophoretic mobilities and etc. for peptides.
