@@ -3,7 +3,6 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
-using System.IO;
 
 namespace Test
 {
@@ -642,6 +641,15 @@ namespace Test
                     Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
                 }
             }
+        }
+
+        /// <summary>
+        ///A test for CZE retention time prediction
+        ///</summary>
+        [Test]
+        public void CZE_RetentionTime_Test()
+        {
+
         }
     }
 }
