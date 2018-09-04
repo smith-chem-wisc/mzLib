@@ -83,10 +83,6 @@
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Chromatography\Chromatography.csproj">
-      <Project>{edf2377d-9fa8-4f85-a3e5-63fe085f956f}</Project>
-      <Name>Chromatography</Name>
-    </ProjectReference>
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj">
       <Project>{ACE491E5-AC71-4B19-99C9-A947E92EB6C1}</Project>
       <Name>FlashLFQ</Name>
