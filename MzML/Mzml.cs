@@ -79,7 +79,7 @@ namespace IO.MzML
             { "MS:1001880",DissociationType.ISCID},
             { "MS:1000422",DissociationType.HCD},
             { "MS:1000598",DissociationType.ETD},
-            { "MS:1000435",DissociationType.MPD},
+            { "MS:1000435",DissociationType.IRMPD},
             { "MS:1000599",DissociationType.PQD},
             { "MS:1000044",DissociationType.Unknown}
         };

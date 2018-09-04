@@ -346,7 +346,7 @@ namespace UsefulProteomicsDatabases
                     return DissociationType.CID;
 
                 case "MPD":
-                    return DissociationType.MPD;
+                    return DissociationType.IRMPD;
 
                 case "ECD":
                     return DissociationType.ECD;
@@ -361,7 +361,7 @@ namespace UsefulProteomicsDatabases
                     return DissociationType.HCD;
 
                 case "EThCD":
-                    return DissociationType.EThCD;
+                    return DissociationType.EThcD;
 
                 case "Custom":
                     return DissociationType.Custom;

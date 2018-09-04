@@ -26,10 +26,10 @@ namespace Test
             Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { }));
 
             allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.CID, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
-            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 98, 227, 120, 249 }));
+            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 227, 120, 249 }));
 
-            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.MPD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
-            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { }));
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.IRMPD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
+            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 98, 227, 120, 249 }));
 
             allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.ECD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 115, 244, 120, 249, 105, 234 }));
@@ -46,7 +46,7 @@ namespace Test
             allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.AnyActivationType, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 98, 227, 120, 249 }));
 
-            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.EThCD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
+            allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.EThcD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 98, 227, 115, 244, 120, 249, 105, 234 }));
 
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom] = new List<ProductType> { };

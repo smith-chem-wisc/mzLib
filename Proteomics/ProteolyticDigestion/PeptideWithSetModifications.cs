@@ -20,6 +20,7 @@ namespace Proteomics.ProteolyticDigestion
         /// The key indicates which residue modification is on (with 1 being N terminus).
         /// </summary>
         [NonSerialized] private Dictionary<int, Modification> _allModsOneIsNterminus; //we currently only allow one mod per position
+
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
@@ -179,6 +180,24 @@ namespace Proteomics.ProteolyticDigestion
 
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
+            List<(ProductType, int)> skippers = new List<(ProductType, int)>();
+
+            switch (dissociationType)
+            {
+                case DissociationType.CID:
+                    skippers.Add((ProductType.b, 1));
+                    break;
+
+                case DissociationType.ETD:
+                case DissociationType.ECD:
+                case DissociationType.EThcD:
+                    skippers.AddRange(GetProlineIndicies());
+                    break;
+
+                default:
+                    break;
+            }
+
             foreach (var productType in productCollection)
             {
                 // we're separating the N and C terminal masses and computing a separate compact peptide for each one
@@ -201,13 +220,19 @@ namespace Proteomics.ProteolyticDigestion
 
                             for (int n = f; n < terminalMasses.Length; n++)
                             {
-                                yield return new Product(productType, terminalMasses[n], neutralLoss);
+                                if (skippers.Count == 0)
+                                    yield return new Product(productType, terminalMasses[n], neutralLoss);
+                                else if (!skippers.Contains((productType, f+1)))
+                                    yield return new Product(productType, terminalMasses[n], neutralLoss);
                             }
                         }
                     }
 
                     // "normal" fragment without neutral loss
-                    yield return new Product(productType, terminalMasses[f], 0);
+                    if (skippers.Count == 0)
+                        yield return new Product(productType, terminalMasses[f], 0);
+                    else if (!skippers.Contains((productType, f+1)))
+                        yield return new Product(productType, terminalMasses[f], 0);
                 }
             }
 
@@ -282,6 +307,17 @@ namespace Proteomics.ProteolyticDigestion
             return essentialSequence;
         }
 
+        private IEnumerable<(ProductType, int)> GetProlineIndicies()
+        {
+            int Length = FullSequence.Length;
+            //List<(ProductType, int)> indicies = new List<(ProductType, int)>();
+            for (int i = FullSequence.IndexOf('P'); i > -1; i = FullSequence.IndexOf('P', i + 1))
+            {
+                yield return (ProductType.zPlusOne, Length - i);
+            }
+            //return indicies;
+        }
+
         public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus)
         {
             // need this for deserialization
@@ -333,7 +369,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 return q.FullSequence.Equals(this.FullSequence);
             }
-            
+
             return q != null
                 && q.FullSequence.Equals(this.FullSequence)
                 && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
