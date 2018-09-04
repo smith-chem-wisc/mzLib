@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Chromatography
+namespace Proteomics
 {
     /// <summary>
     /// This class will return theoretical retention times, hydrobphobicites, electrophoretic mobilities and etc. for peptides.
@@ -15,19 +15,43 @@ namespace Chromatography
     /// </summary>
     public class CZE
     {
+        private double ColumnLength; //in meters
+        private double VoltsPerMeter; //in volts/meter
+        public CZE(double columnLength, double voltsPerMeter)
+        {
+            ColumnLength = columnLength;
+            VoltsPerMeter = voltsPerMeter;
+        }
+
         /// <summary>
         /// This method returns calculated electrophoretic mobility for an observed peptide. The calculation requires use of an
         /// observed retention time(min), the total capillary length(m) and the applied voltage (V/m)
         /// </summary>
-        /// <param name="length"></param>
         /// <param name="timeMin"></param>
-        /// <param name="voltsPerMeter"></param>
         /// <returns></returns>
-        public double ExperimentalElectrophoreticMobility(double length, double timeMin, double voltsPerMeter)
+        public double ExperimentalElectrophoreticMobility(double timeMin)
         {
-            if (length >= 0 && timeMin >= 0)
+            if (ColumnLength >= 0 && timeMin >= 0)
             {
-                return length / (60 * timeMin * voltsPerMeter) * 1e9;
+                return ColumnLength / (60 * timeMin * VoltsPerMeter) * 1e9;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// This method returns an expected retention time for a given electrophoretic mobility and experiment. The calculation requires use of an
+        /// electrophoretic mobility, the total capillary length(m) and the applied voltage (V/m)
+        /// </summary>
+        /// <param name="electrophoreticMobility"></param>
+        /// <returns></returns>
+        public double TheoreticalElutionTime(double electrophoreticMobility)
+        {
+            if (ColumnLength >= 0)
+            {
+                return (ColumnLength * 1e9) / (60 * VoltsPerMeter *electrophoreticMobility);
             }
             else
             {
@@ -48,7 +72,7 @@ namespace Chromatography
         /// <param name="peptideSequence"></param>
         /// <param name="observedMass"></param>
         /// <returns></returns>
-        public double PredictedElectrophoreticMobility(string peptideSequence, double observedMass)
+        public static double PredictedElectrophoreticMobility(string peptideSequence, double observedMass)
         {
             double predictedMu = 0;
 
@@ -66,7 +90,7 @@ namespace Chromatography
         /// </summary>
         /// <param name="peptideSequence"></param>
         /// <returns></returns>
-        private double PredictedCharge(string peptideSequence)
+        private static double PredictedCharge(string peptideSequence)
         {
             string substitutedString = peptideSequence.Replace("R", "").Replace("K", "").Replace("H", "").ToString();
             return (1d + (peptideSequence.Length - substitutedString.Length));
@@ -82,7 +106,7 @@ namespace Chromatography
         /// </summary>
         /// <param name="peptideSequence"></param>
         /// <returns></returns>
-        private double PredictedChargeCorrected(string peptideSequence)
+        private static double PredictedChargeCorrected(string peptideSequence)
         {
             double runningSum = 0;
             string internalString = peptideSequence.Substring(3, peptideSequence.Length - 5);
@@ -225,7 +249,7 @@ namespace Chromatography
         /// <param name="correctedCharge"></param>
         /// <param name="length"></param>
         /// <returns></returns>
-        private double Offset(double correctedCharge, int length)
+        private static double Offset(double correctedCharge, int length)
         {
             return 0;
             //should fit 5th order polynomical to plot of (ExperimentalElectrophoreticMobility - PredictedElectrophoreticMobility) vs. (Zc/N) where N is peptidelength.

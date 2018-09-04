@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
@@ -583,6 +584,11 @@ namespace Test
 
             _peptidesCZE = new object[,]
             {
+                {"DDDRDD", 13.69},
+                {"EEEKEE", 15.42},
+                {"NNNHNN", 17.15},
+                {"QQQGQQ", 10.88},
+                {"KKKKKK", 33.92}
             };
         }
 
@@ -654,14 +660,21 @@ namespace Test
         [Test]
         public void CZE_RetentionTime_Test()
         {
-            SSRCalc3 calc = new SSRCalc3("SSRCalc 3.0 (100A)", SSRCalc3.Column.A100);
+            CZE testCZE = new CZE(1,1);
 
-            for (int i = 0; i < _peptides100A.GetLength(0); i++)
+            double expElutionTime = 1;
+            double expMu = Math.Round(testCZE.ExperimentalElectrophoreticMobility(expElutionTime), 0);
+            Assert.AreEqual(expMu, 16666667);
+            double theoreticalElutionTime = testCZE.TheoreticalElutionTime(expMu);
+            Assert.AreEqual(Math.Round(expElutionTime, 5), Math.Round(theoreticalElutionTime, 5));
+
+
+            for (int i = 0; i < _peptidesCZE.GetLength(0); i++)
             {
-                var peptide = new PeptideWithSetModifications((string)_peptides100A[i, 0], new Dictionary<string, Modification>());
-                object obj = _peptides100A[i, 1];
-                double expected = (double)_peptides100A[i, 1];
-                double actual = calc.ScoreSequence(peptide);
+                var peptide = new PeptideWithSetModifications((string)_peptidesCZE[i, 0], new Dictionary<string, Modification>());
+                object obj = _peptidesCZE[i, 1];
+                double expected = (double)_peptidesCZE[i, 1];
+                double actual = CZE.PredictedElectrophoreticMobility(peptide.BaseSequence, peptide.MonoisotopicMass);
 
                 // Round the returned value to match the values presented
                 // in the supporting information of the SSRCalc 3 publication.
