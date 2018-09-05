@@ -764,10 +764,9 @@ namespace Test
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
-            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
-            var expected = new[] { 1, 3, 5, 6, 7, 8 };
+            var expected = new[] { 1, 2, 3, 4, 6, 8 };
 
             Assert.That(expected.SequenceEqual(ionNums));
         }
@@ -779,7 +778,6 @@ namespace Test
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
-            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
             var expected = new[] { 1, 2, 3, 4, 5, 6, 7, 8 };
@@ -794,10 +792,9 @@ namespace Test
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
-            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
-            var expected = new[] { 1, 2, 3, 5, 7, 8, 9, 10 };
+            var expected = new[] { 1, 2, 3, 4, 6, 8, 9, 10 };
 
             Assert.That(expected.SequenceEqual(ionNums));
         }
@@ -811,10 +808,9 @@ namespace Test
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
-            var c = fragments.Where(f => f.ProductType == ProductType.c).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
-            var expected = new[] { 1, 2, 3, 5, 7, 8, 9, 10 };
+            var expected = new[] { 1, 2, 3, 4, 6, 8, 9, 10 };
 
             Assert.That(expected.SequenceEqual(ionNums));
         }

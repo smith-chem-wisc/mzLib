@@ -40,15 +40,27 @@ namespace Proteomics
 
         public bool ValidModification
         {
-            get { return (this.IdWithMotif != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.Target != null && this.LocationRestriction != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
+            get
+            {
+                return (this.IdWithMotif != null &&
+                        (this.ChemicalFormula != null || this.MonoisotopicMass != null)
+                        && this.Target != null
+                        && this.LocationRestriction != "Unassigned."
+                        && this.ModificationType != null
+                        && this.FeatureType != "CROSSLINK");
+            }
         }
 
-        public Modification(string _originalId = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
-
+        public Modification(string _originalId = null, string _accession = null, string _modificationType = null, string _featureType = null, 
+            ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, 
+            double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, 
+            Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, 
+            Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, 
+            string _fileOrigin = null)
         {
             if (_originalId != null && _target != null)
             {
-                if ( _originalId.Contains(" on "))
+                if (_originalId.Contains(" on "))
                 {
                     this.IdWithMotif = _originalId;
                 }
@@ -213,11 +225,15 @@ namespace Proteomics
                     {
                         List<double> myValues = new List<double>(this.DiagnosticIons[myKey]);
                         myValues.Sort();
+
                         for (int i = 0; i < myValues.Count; i++)
                         {
                             myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
+
                             if (i < myValues.Count - 1)
+                            {
                                 myLine.Append(" or ");
+                            }
                         }
                     }
                     sb.Append(myLine);
@@ -227,7 +243,9 @@ namespace Proteomics
             if (this.Keywords != null)
             {
                 if (this.Keywords.Count != 0)
-                { sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b))); }
+                {
+                    sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
+                }
             }
 
             return sb.ToString();
@@ -240,13 +258,27 @@ namespace Proteomics
             sb.Append(this.ToString());
 
             if (this.IdWithMotif == null)
+            {
                 sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.IdWithMotif);
+            }
+
             if (this.ModificationType == null)
+            {
                 sb.AppendLine("#Required field MT missing or malformed. Current value = " + this.ModificationType);
+            }
+
             if (this.LocationRestriction == null)
-                sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.LocationRestriction + ".");
+            {
+                sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.LocationRestriction +
+                              ".");
+            }
+
             if (this.ChemicalFormula == null && this.MonoisotopicMass == null)
-                sb.AppendLine("#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
+            {
+                sb.AppendLine(
+                    "#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
+            }
+
             sb.Append("#This modification can be found in file " + this.FileOrigin);
 
             return sb.ToString();

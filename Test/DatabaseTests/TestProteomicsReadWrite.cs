@@ -317,11 +317,11 @@ namespace Test
             Protein p1 = new Protein(
                 "SEQENCE",
                 "a1",
-                gene_names: gene_names,
+                geneNames: gene_names,
                 oneBasedModifications: oneBasedModifications,
                 proteolysisProducts: proteolysisProducts,
                 name: name,
-                full_name: full_name,
+                fullName: full_name,
                 isDecoy: false,
                 isContaminant: true,
                 databaseReferences: databaseReferences,

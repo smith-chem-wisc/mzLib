@@ -211,7 +211,7 @@ namespace UsefulProteomicsDatabases
                             unique_identifier++;
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, organism, geneName, name: name, full_name: fullName,
+                        Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
                             isContaminant: isContaminant, databaseFilePath: proteinDbLocation);
                         if (protein.Length == 0)
                         {
@@ -296,11 +296,11 @@ namespace UsefulProteomicsDatabases
                     proteins.Key.Item1,
                     isContaminant: proteins.Key.Item3,
                     isDecoy: proteins.Key.Item4,
-                    gene_names: genenames.ToList(),
+                    geneNames: genenames.ToList(),
                     oneBasedModifications: mod_dict2,
                     proteolysisProducts: proteolysis.ToList(),
                     name: names.FirstOrDefault(),
-                    full_name: fullnames.FirstOrDefault(),
+                    fullName: fullnames.FirstOrDefault(),
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList()
