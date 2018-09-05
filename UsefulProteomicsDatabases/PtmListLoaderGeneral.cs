@@ -35,6 +35,8 @@ namespace UsefulProteomicsDatabases
                 { "Methionine", 'M' },
                 { "Phenylalanine", 'F' },
                 { "Proline", 'P' },
+                { "Pyrrolysine", 'O' },
+                { "Selenocysteine", 'U' },
                 { "Serine", 'S' },
                 { "Threonine", 'T' },
                 { "Tryptophan", 'W' },
@@ -45,7 +47,7 @@ namespace UsefulProteomicsDatabases
 
         public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
         {
-            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b => b.Id);
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b => b.IdWithMotif);
         }
 
         /// <summary>
@@ -67,7 +69,10 @@ namespace UsefulProteomicsDatabases
                     if (line.StartsWith("//"))
                     {
                         foreach (var mod in ReadMod(ptmListLocation, modification_specification, formalChargesDictionary))
-                        { yield return mod; }
+                        {
+                            if(mod.ValidModification)
+                            yield return mod;
+                        }
                         modification_specification = new List<string>();
                     }
                 }
@@ -148,6 +153,7 @@ namespace UsefulProteomicsDatabases
 
                         case "AC": // Do not use! Only present in UniProt ptmlist
                             _accession = modValue;
+                            _modificationType = "UniProt";
                             break;
 
                         case "FT": // Optional
@@ -340,7 +346,7 @@ namespace UsefulProteomicsDatabases
                     return DissociationType.CID;
 
                 case "MPD":
-                    return DissociationType.MPD;
+                    return DissociationType.IRMPD;
 
                 case "ECD":
                     return DissociationType.ECD;
@@ -355,7 +361,7 @@ namespace UsefulProteomicsDatabases
                     return DissociationType.HCD;
 
                 case "EThCD":
-                    return DissociationType.EThCD;
+                    return DissociationType.EThcD;
 
                 case "Custom":
                     return DissociationType.Custom;

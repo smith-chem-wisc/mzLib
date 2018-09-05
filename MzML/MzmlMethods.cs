@@ -21,7 +21,7 @@ namespace IO.MzML
             {DissociationType.ISCID, "MS:1001880"},
             {DissociationType.HCD, "MS:1000422" },
             {DissociationType.ETD, "MS:1000598"},
-            {DissociationType.MPD, "MS:1000435"},
+            {DissociationType.IRMPD, "MS:1000435"},
             {DissociationType.PQD, "MS:1000599"},
             {DissociationType.Unknown, "MS:1000044"}
         };
@@ -32,7 +32,7 @@ namespace IO.MzML
             {DissociationType.ISCID, "in-source collision-induced dissociation"},
             {DissociationType.HCD, "beam-type collision-induced dissociation"},
             {DissociationType.ETD, "electron transfer dissociation"},
-            {DissociationType.MPD, "photodissociation"},
+            {DissociationType.IRMPD, "photodissociation"},
             {DissociationType.PQD, "pulsed q dissociation"},
             {DissociationType.Unknown, "dissociation method"}
         };

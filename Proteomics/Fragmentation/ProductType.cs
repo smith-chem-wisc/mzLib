@@ -21,19 +21,19 @@ namespace Proteomics.Fragmentation
         //y°	        y-H2O
         //z             [C]+[M]-NH2
 
-        A,
-        Astar,
-        Adot,
-        B,
-        Bstar,
-        Bdot,
+        a,
+        aStar,
+        aDegree,
+        b,
+        bStar,
+        bDegree,
         //BnoB1ions,
-        C,
-        X,
-        Y,
-        Ystar,
-        Ydot,
-        Zdot,// A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
+        c,
+        x,
+        y,
+        yStar,
+        yDegree,
+        zPlusOne,//This is zDot plus H
         M, //this is the molecular ion
         D //this is a diagnostic ion
     }
