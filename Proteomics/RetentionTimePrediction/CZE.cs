@@ -15,8 +15,8 @@ namespace Proteomics.RetentionTimePrediction
     /// </summary>
     public class CZE
     {
-        private double ColumnLength; //in meters
-        private double VoltsPerMeter; //in volts/meter
+        private readonly double ColumnLength; //in meters
+        private readonly double VoltsPerMeter; //in volts/meter
         public CZE(double columnLength, double voltsPerMeter)
         {
             ColumnLength = columnLength;
