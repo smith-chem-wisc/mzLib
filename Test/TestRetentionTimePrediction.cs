@@ -588,7 +588,9 @@ namespace Test
                 {"EEEKEE", 15.42},
                 {"NNNHNN", 17.15},
                 {"QQQGQQ", 10.88},
-                {"KKKKKK", 33.92}
+                {"KKKKKK", 33.92},
+                {"EDNHKRQM", 21.86},
+                {"QNEHKRDE", 22.20}
             };
         }
 

@@ -152,19 +152,19 @@ namespace Proteomics.RetentionTimePrediction
             }
 
             char thirdAA = peptideSequence[2];
-            if (secondAA == 'D')
+            if (thirdAA == 'D')
             {
                 runningSum -= 0.08022;
             }
-            else if (secondAA == 'E')
+            else if (thirdAA == 'E')
             {
                 runningSum -= 0.03426;
             }
-            else if (secondAA == 'N')
+            else if (thirdAA == 'N')
             {
                 runningSum += 0.016713;
             }
-            else if (secondAA == 'Q')
+            else if (thirdAA == 'Q')
             {
                 runningSum += 0.00585;
             }
@@ -174,19 +174,19 @@ namespace Proteomics.RetentionTimePrediction
             }
 
             char secondToLastAA = peptideSequence[peptideSequence.Length - 2];
-            if (secondAA == 'D')
+            if (secondToLastAA == 'D')
             {
                 runningSum -= 0.03844;
             }
-            else if (secondAA == 'E')
+            else if (secondToLastAA == 'E')
             {
                 runningSum -= 0.01337;
             }
-            else if (secondAA == 'N')
+            else if (secondToLastAA == 'N')
             {
                 runningSum += 0.026741;
             }
-            else if (secondAA == 'Q')
+            else if (secondToLastAA == 'Q')
             {
                 runningSum -= 0.00084;
             }
@@ -196,19 +196,19 @@ namespace Proteomics.RetentionTimePrediction
             }
 
             char lastAA = peptideSequence[peptideSequence.Length - 1];
-            if (secondAA == 'D')
+            if (lastAA == 'D')
             {
                 runningSum -= 0.02256;
             }
-            else if (secondAA == 'E')
+            else if (lastAA == 'E')
             {
                 runningSum -= 0.00418;
             }
-            else if (secondAA == 'N')
+            else if (lastAA == 'N')
             {
                 runningSum += 0.010864;
             }
-            else if (secondAA == 'Q')
+            else if (lastAA == 'Q')
             {
                 runningSum -= 0.0117;
             }
