@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Proteomics.Fragmentation
 {
@@ -76,6 +77,11 @@ namespace Proteomics.Fragmentation
         public static double ProductTypeSpecificFragmentNeutralMass(double mass, ProductType p)
         {
             return (double)ClassExtensions.RoundedDouble(mass + GetMassShiftFromProductType(p), 9);
+        }
+
+        public static List<ProductType> ProductTypesToSearch(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        {
+            return TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(ProductsFromDissociationType[dissociationType]).ToList();
         }
     }
 }

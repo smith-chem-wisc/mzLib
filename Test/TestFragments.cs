@@ -639,30 +639,30 @@ namespace Test
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Add(ProductType.y);
             Assert.IsTrue(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Contains(ProductType.b));
 
-            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
+            var productCollection = DissociationTypeCollection.ProductTypesToSearch(DissociationType.Custom, FragmentationTerminus.N);
             Assert.IsTrue(productCollection.Contains(ProductType.b));
 
-            productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom]);
+            productCollection = DissociationTypeCollection.ProductTypesToSearch(DissociationType.Custom, FragmentationTerminus.C);
             Assert.IsTrue(productCollection.Contains(ProductType.y));
         }
 
         [Test]
         public static void Test_TerminusSpecificProductTypes()
         {
-            Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.b }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
-            Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
+             Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.HCD,FragmentationTerminus.Both));
+            Assert.AreEqual(new List<ProductType> { ProductType.b }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.HCD, FragmentationTerminus.N));
+            Assert.AreEqual(new List<ProductType> {  ProductType.y }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.HCD, FragmentationTerminus.C));
+            Assert.AreEqual(new List<ProductType> { }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.HCD, FragmentationTerminus.None));
 
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zPlusOne }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.c }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zPlusOne }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
-            Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zPlusOne }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.ETD, FragmentationTerminus.Both));
+            Assert.AreEqual(new List<ProductType> { ProductType.c }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.ETD, FragmentationTerminus.N));
+            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zPlusOne }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.ETD, FragmentationTerminus.C));
+            Assert.AreEqual(new List<ProductType> { }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.ETD, FragmentationTerminus.None));
 
-            Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
-            Assert.AreEqual(new List<ProductType> { ProductType.b }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
-            Assert.AreEqual(new List<ProductType> { ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
-            Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
+            Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.CID, FragmentationTerminus.Both));
+            Assert.AreEqual(new List<ProductType> { ProductType.b }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.CID, FragmentationTerminus.N));
+            Assert.AreEqual(new List<ProductType> { ProductType.y }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.CID, FragmentationTerminus.C));
+            Assert.AreEqual(new List<ProductType> { }, DissociationTypeCollection.ProductTypesToSearch(DissociationType.CID, FragmentationTerminus.None));
         }
 
         [Test]
