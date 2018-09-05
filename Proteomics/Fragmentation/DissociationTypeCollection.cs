@@ -40,7 +40,7 @@ namespace Proteomics.Fragmentation
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
         };
 
-        private static double GetMassShiftFromProductType(ProductType productType)
+        public static double GetMassShiftFromProductType(ProductType productType)
         {
             if (NeutralMassShiftFromProductType.TryGetValue(productType, out double? shift))
             {
