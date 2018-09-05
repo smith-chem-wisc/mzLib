@@ -21,7 +21,6 @@
   </metadata>
   <files>
     <file src="Chemistry\bin\Release\netstandard2.0\Chemistry.dll" target="lib\netstandard2.0" />
-    <file src="Chromatography\bin\Release\netstandard2.0\Chromatography.dll" target="lib\netstandard2.0" />
     <file src="FlashLFQ\bin\Release\netstandard2.0\FlashLFQ.dll" target="lib\netstandard2.0" />
     <file src="MzIdentML\bin\Release\netstandard2.0\MzIdentML.dll" target="lib\netstandard2.0" />
     <file src="MzLibUtil\bin\Release\netstandard2.0\MzLibUtil.dll" target="lib\netstandard2.0" />
@@ -35,7 +34,6 @@
     <file src="UsefulProteomicsDatabases\bin\Release\netstandard2.0\UsefulProteomicsDatabases.dll" target="lib\netstandard2.0" /> 
 
     <file src="Chemistry\bin\Release\net471\Chemistry.dll" target="lib\net471" />
-    <file src="Chromatography\bin\Release\net471\Chromatography.dll" target="lib\net471" />
     <file src="FlashLFQ\bin\Release\net471\FlashLFQ.dll" target="lib\net471" />
     <file src="MzIdentML\bin\Release\net471\MzIdentML.dll" target="lib\net471" />
     <file src="MzLibUtil\bin\Release\net471\MzLibUtil.dll" target="lib\net471" />
