@@ -343,7 +343,7 @@ namespace Test
 
             List<string> myOriginalIds = ok[0].OneBasedPossibleLocalizedModifications[2].Select(i => i.OriginalId).ToList();
 
-            Assert.True(myOriginalIds.Contains("N-acetylserine on S"));
+            Assert.True(myOriginalIds.Contains("N-acetylserine"));
         }
 
         [Test]

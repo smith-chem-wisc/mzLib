@@ -55,26 +55,30 @@ namespace Proteomics
             ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, 
             double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, 
             Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, 
-            Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, 
+            Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
             string _fileOrigin = null)
         {
+
             if (_originalId != null && _target != null)
             {
                 if (_originalId.Contains(" on "))
                 {
                     this.IdWithMotif = _originalId;
+                    this.OriginalId = _originalId.Split(new[] { " on " }, StringSplitOptions.None)[0];
                 }
                 else if (_originalId.Contains(" of "))
                 {
                     this.IdWithMotif = _originalId.Replace(" of ", " on ");
+                    this.OriginalId = _originalId.Split(new[] { " of ", " on " }, StringSplitOptions.None)[0];
+
                 }
                 else
                 {
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
+                    this.OriginalId = _originalId;
                 }
             }
 
-            this.OriginalId = _originalId;
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;
