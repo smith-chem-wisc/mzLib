@@ -63,18 +63,21 @@ namespace Proteomics
                 if (_originalId.Contains(" on "))
                 {
                     this.IdWithMotif = _originalId;
+                    this.OriginalId = _originalId.Split(new[] { " on " }, StringSplitOptions.None)[0];
                 }
                 else if (_originalId.Contains(" of "))
                 {
                     this.IdWithMotif = _originalId.Replace(" of ", " on ");
+                    this.OriginalId = _originalId.Split(new[] { " of ", " on " }, StringSplitOptions.None)[0];
+
                 }
                 else
                 {
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
+                    this.OriginalId = _originalId;
                 }
             }
 
-            this.OriginalId = _originalId;
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;
