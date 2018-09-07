@@ -105,7 +105,9 @@ namespace UsefulProteomicsDatabases
                     if (line.StartsWith("//"))
                     {
                         foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
-                        { yield return mod; }
+                        {
+                            yield return mod;
+                        }
                         modification_specification = new List<string>();
                     }
                 }
