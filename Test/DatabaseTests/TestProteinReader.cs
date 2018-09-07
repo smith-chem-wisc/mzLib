@@ -341,9 +341,9 @@ namespace Test
 
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
 
-            List<string> myMotifedIds = ok[0].OneBasedPossibleLocalizedModifications[2].Select(i => i.IdWithMotif).ToList();
+            List<string> myOriginalIds = ok[0].OneBasedPossibleLocalizedModifications[2].Select(i => i.OriginalId).ToList();
 
-            Assert.True(myMotifedIds.Contains("N-acetylserine on S"));
+            Assert.True(myOriginalIds.Contains("N-acetylserine"));
         }
 
         [Test]

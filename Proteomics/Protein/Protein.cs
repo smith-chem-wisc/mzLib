@@ -48,7 +48,6 @@ namespace Proteomics
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
         public IEnumerable<Tuple<string, string>> GeneNames { get; }
-
         public string Accession { get; }
         public string BaseSequence { get; }
         public string Organism { get; }
@@ -58,7 +57,6 @@ namespace Proteomics
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
-
         public int Length
         {
             get
@@ -66,7 +64,6 @@ namespace Proteomics
                 return BaseSequence.Length;
             }
         }
-
         public string FullDescription
         {
             get
@@ -74,7 +71,6 @@ namespace Proteomics
                 return Accession + "|" + Name + "|" + FullName;
             }
         }
-
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
