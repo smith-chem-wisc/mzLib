@@ -106,7 +106,11 @@ namespace UsefulProteomicsDatabases
                     {
                         foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
                         {
-                            yield return mod;
+                            // Filter out the modifications that don't meet validation
+                            if (mod.ValidModification)
+                            {
+                                yield return mod;
+                            }
                         }
                         modification_specification = new List<string>();
                     }
