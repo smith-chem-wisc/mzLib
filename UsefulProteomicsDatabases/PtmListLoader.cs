@@ -50,9 +50,9 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
-        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, out List<(Modification, string)> filteredModificationsWithWarnings)
         {
-            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>()).OrderBy(b => b.IdWithMotif);
+            return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>(), out filteredModificationsWithWarnings).OrderBy(b => b.IdWithMotif);
         }
 
         /// <summary>
@@ -60,8 +60,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
-        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary, out List<(Modification, string)> filteredModificationsWithWarnings)
         {
+            List<Modification> acceptedModifications = new List<Modification>();
+            filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
             using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
             {
                 List<string> modification_specification = new List<string>();
@@ -78,13 +80,18 @@ namespace UsefulProteomicsDatabases
                             // Filter out the modifications that don't meet validation
                             if (mod.ValidModification)
                             {
-                                yield return mod;
+                                acceptedModifications.Add(mod);
+                            }
+                            else
+                            {
+                                filteredModificationsWithWarnings.Add((mod, mod.ModificationErrorsToString()));
                             }
                         }
                         modification_specification = new List<string>();
                     }
                 }
             }
+            return acceptedModifications;
         }
 
         /// <summary>
@@ -92,8 +99,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="storedModifications"></param>
         /// <returns></returns>
-        public static IEnumerable<Modification> ReadModsFromString(string storedModifications)
+        public static IEnumerable<Modification> ReadModsFromString(string storedModifications, out List<(Modification, string)> filteredModificationsWithWarnings)
         {
+            List<Modification> acceptedModifications = new List<Modification>();
+            filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
             using (StringReader uniprot_mods = new StringReader(storedModifications))
             {
                 List<string> modification_specification = new List<string>();
@@ -109,13 +118,18 @@ namespace UsefulProteomicsDatabases
                             // Filter out the modifications that don't meet validation
                             if (mod.ValidModification)
                             {
-                                yield return mod;
+                                acceptedModifications.Add(mod);
+                            }
+                            else
+                            {
+                                filteredModificationsWithWarnings.Add((mod, mod.ModificationErrorsToString()));
                             }
                         }
                         modification_specification = new List<string>();
                     }
                 }
             }
+            return acceptedModifications;
         }
 
         /// <summary>
