@@ -67,7 +67,7 @@ namespace Test
         [TestCase("sampleModFileFail6.txt")] // modification type is missing
         [TestCase("sampleModFileFail_missingPosition.txt")] // missing position
         [TestCase("sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt")]
-        public static void SampleModFileLoadingFail1General(string filename) 
+        public static void SampleModFileLoadingFail1General(string filename)
         {
             var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), out var errors).ToList();
             Assert.AreEqual(0, a.Count);
@@ -83,10 +83,10 @@ namespace Test
 
         [Test]
         [TestCase("sampleModFileFail3.txt", "Input string for chemical formula was in an incorrect format: $%&$%")]
-        [TestCase("m.txt",                  "0 or 238.229666 is not a valid monoisotopic mass")]
+        [TestCase("m.txt", "0 or 238.229666 is not a valid monoisotopic mass")]
         public static void SampleModFileLoadingFail3General(string filename, string errorMessage)
         {
-            Assert.That(() => 
+            Assert.That(() =>
                 PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), out var errors).ToList(),
                 Throws.TypeOf<MzLibException>().With.Property("Message").EqualTo(errorMessage));
         }
@@ -106,7 +106,7 @@ namespace Test
 
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "detacher.txt");
             File.WriteAllLines(path, new string[] { modText });
-            
+
             var mods = PtmListLoader.ReadModsFromFile(path, out var errors).ToList();
             var motifs = mods.Select(p => p.Target.ToString()).Distinct().ToList();
             var ids = mods.Select(p => p.IdWithMotif).Distinct().ToList();
