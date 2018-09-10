@@ -191,8 +191,9 @@ namespace Test
         [Test]
         public void Test_modification_hash_set()
         {
-            Modification m1 = new Modification("23", null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
-            Modification m2 = new Modification("23", null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification m1 = new Modification("23", null, "unknown", null, motif, null, null, 42.01, null, null, null, null, null, null);
+            Modification m2 = new Modification("23", null, "unknown", null, motif, null, null, 42.01, null, null, null, null, null, null);
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
@@ -201,8 +202,8 @@ namespace Test
         public void Test_modification2_hash_set()
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            Modification m1 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, null, new Dictionary<string, IList<string>>(), null, null, null, null, null);
-            Modification m2 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, null, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification m1 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification m2 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
             m1.DatabaseReference.Add("key", new List<string> { "value" });
             m2.DatabaseReference.Add("key", new List<string> { "value" });
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
