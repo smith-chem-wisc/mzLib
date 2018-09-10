@@ -37,6 +37,7 @@ namespace Proteomics
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; private set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; private set; }
         public string FileOrigin { get; private set; }
+        protected const double tolForEquality = 1e-9;
 
         public bool ValidModification
         {
@@ -75,10 +76,10 @@ namespace Proteomics
                 else
                 {
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
-                    this.OriginalId = _originalId;
                 }
             }
 
+            this.OriginalId = _originalId;
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;
@@ -127,12 +128,16 @@ namespace Proteomics
         {
             Modification m = o as Modification;
             return o != null
-                && m.ToString() == this.ToString();
+                   && m.IdWithMotif != null && IdWithMotif != null && m.ModificationType != null && ModificationType != null && m.MonoisotopicMass.HasValue 
+                   && MonoisotopicMass.HasValue
+                   && m.IdWithMotif == IdWithMotif
+                   && m.ModificationType == ModificationType
+                   && Math.Abs((double)m.MonoisotopicMass - (double)MonoisotopicMass) < tolForEquality;
         }
 
         public override int GetHashCode()
         {
-            return this.ToString().GetHashCode();
+            return (IdWithMotif != null ? IdWithMotif.GetHashCode() : OriginalId.GetHashCode()) ^ ModificationType.GetHashCode();
         }
 
         public override string ToString()
