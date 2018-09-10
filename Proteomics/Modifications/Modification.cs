@@ -43,12 +43,12 @@ namespace Proteomics
         {
             get
             {
-                return (this.IdWithMotif != null &&
-                        (this.ChemicalFormula != null || this.MonoisotopicMass != null)
-                        && this.Target != null
-                        && this.LocationRestriction != "Unassigned."
-                        && this.ModificationType != null
-                        && this.FeatureType != "CROSSLINK");
+                return this.IdWithMotif != null 
+                    && (this.ChemicalFormula != null || this.MonoisotopicMass != null)
+                    && this.Target != null
+                    && this.LocationRestriction != "Unassigned."
+                    && this.ModificationType != null
+                    && this.FeatureType != "CROSSLINK";
             }
         }
 
@@ -128,16 +128,18 @@ namespace Proteomics
         {
             Modification m = o as Modification;
             return o != null
-                   && m.IdWithMotif != null && IdWithMotif != null && m.ModificationType != null && ModificationType != null && m.MonoisotopicMass.HasValue 
-                   && MonoisotopicMass.HasValue
-                   && m.IdWithMotif == IdWithMotif
-                   && m.ModificationType == ModificationType
-                   && Math.Abs((double)m.MonoisotopicMass - (double)MonoisotopicMass) < tolForEquality;
+                && IdWithMotif == m.IdWithMotif
+                && OriginalId == m.OriginalId
+                && ModificationType == m.ModificationType
+                && (MonoisotopicMass == m.MonoisotopicMass
+                    || MonoisotopicMass != null && m.MonoisotopicMass != null && Math.Abs((double)m.MonoisotopicMass - (double)MonoisotopicMass) < tolForEquality);
         }
 
         public override int GetHashCode()
         {
-            return (IdWithMotif != null ? IdWithMotif.GetHashCode() : OriginalId.GetHashCode()) ^ ModificationType.GetHashCode();
+            string id = IdWithMotif ?? OriginalId ?? string.Empty;
+            string mt = ModificationType ?? string.Empty;
+            return id.GetHashCode() ^ mt.GetHashCode();
         }
 
         public override string ToString()

@@ -1,6 +1,7 @@
 ﻿using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
+using System;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
@@ -97,6 +98,22 @@ namespace Test
         public static void CompactFormReadingGeneral(string filename)
         {
             Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), out var errors).Count());
+        }
+
+        [Test]
+        public static void TestReadingInvalidModifications()
+        {
+            string modText = "ID   mod\r\nMT   type\r\nPP   Anywhere.\r\nTG   X\r\nCF   H1\r\n" + @"//";
+            var mods = PtmListLoader.ReadModsFromString(modText, out var errors1);
+            Assert.AreEqual(1, mods.Count());
+            Assert.AreEqual(0, errors1.Count);
+
+            modText = "ID   mod\r\nMT   type\r\nPP   Anywhere.\r\nTG   X\r\n" + @"//"; // no monoisotopic mass, so invalid
+            mods = PtmListLoader.ReadModsFromString(modText, out var errors2);
+            Assert.AreEqual(0, mods.Count());
+            Assert.AreEqual(1, errors2.Count);
+            Assert.IsFalse(errors2.Single().Item1.ValidModification);
+            Assert.IsTrue(errors2.Single().Item2.Split(new[] { "\r\n" }, StringSplitOptions.None).Any(x => x.StartsWith("#"))); // has an error comment
         }
 
         [Test]

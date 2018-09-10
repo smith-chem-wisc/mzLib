@@ -172,7 +172,7 @@ namespace Test
         }
 
         [Test]
-        public void ChemicalFormulaModificaiton()
+        public void ChemicalFormulaModification()
         {
             OldSchoolChemicalFormulaModification a = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("OH"));
             OldSchoolChemicalFormulaModification b = new OldSchoolChemicalFormulaModification(a);
@@ -215,14 +215,36 @@ namespace Test
         public void Test_modification3_hash_set() // numerical tolerance is 1e-9 so these two mods need to evaluate as identical
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            Modification m1 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
-            Modification m2 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            Modification m1 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            Modification m2 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
             m1.DatabaseReference.Add("key", new List<string> { "value" });
             m2.DatabaseReference.Add("key", new List<string> { "value" });
 
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
             Assert.IsTrue(m1.Equals(m2));
+        }
+
+        [Test]
+        public void TestInvalidModificationHash()
+        {
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification m1 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.");
+            Modification m2 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.");
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.IsFalse(m1.ValidModification);
+            Assert.IsFalse(m2.ValidModification);
+            Assert.True(m1.Equals(m2));
+            Assert.AreEqual(1, mods.Count);
+
+            // test comparing invalid mods with null vs not-null MMs
+            m1 = new Modification(_originalId: "id1", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1);
+            m2 = new Modification(_originalId: "id1", _target: motif, _locationRestriction: "Anywhere.");
+            mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.IsFalse(m1.ValidModification);
+            Assert.IsFalse(m2.ValidModification);
+            Assert.False(m1.Equals(m2));
+            Assert.AreEqual(2, mods.Count);
         }
 
         [Test]
