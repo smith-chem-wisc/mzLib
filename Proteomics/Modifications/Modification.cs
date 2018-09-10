@@ -76,10 +76,10 @@ namespace Proteomics
                 else
                 {
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
+                    this.OriginalId = _originalId;
                 }
             }
 
-            this.OriginalId = _originalId;
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;

@@ -245,6 +245,15 @@ namespace Test
             Assert.IsFalse(m2.ValidModification);
             Assert.False(m1.Equals(m2));
             Assert.AreEqual(2, mods.Count);
+
+            // test comparing invalid mods with null vs not-null IDs
+            m1 = new Modification(_originalId: "id1", _target: motif, _locationRestriction: "Anywhere.");
+            m2 = new Modification(_target: motif, _locationRestriction: "Anywhere.");
+            mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.IsFalse(m1.ValidModification);
+            Assert.IsFalse(m2.ValidModification);
+            Assert.False(m1.Equals(m2));
+            Assert.AreEqual(2, mods.Count);
         }
 
         [Test]
