@@ -33,27 +33,27 @@
         /// <summary>
         /// Beginning position of original sequence to be replaced
         /// </summary>
-        public int OneBasedBeginPosition { get; set; }
+        public int OneBasedBeginPosition { get; }
 
         /// <summary>
         /// End position of original sequence to be replaced
         /// </summary>
-        public int OneBasedEndPosition { get; set; }
+        public int OneBasedEndPosition { get; }
 
         /// <summary>
         /// Original sequence information (optional)
         /// </summary>
-        public string OriginalSequence { get; set; }
+        public string OriginalSequence { get; }
 
         /// <summary>
         /// Variant sequence information (required)
         /// </summary>
-        public string VariantSequence { get; set; }
+        public string VariantSequence { get; }
 
         /// <summary>
         /// Description of this variation (optional)
         /// </summary>
-        public string Description { get; set; }
+        public string Description { get; }
 
         public override bool Equals(object obj)
         {
@@ -76,6 +76,15 @@
         }
 
         /// <summary>
+        /// Returns a simple string represantation of this amino acid change
+        /// </summary>
+        /// <returns></returns>
+        public string SimpleString()
+        {
+            return OriginalSequence + OneBasedBeginPosition.ToString() + VariantSequence;
+        }
+
+        /// <summary>
         /// Determines whether this interval overlaps the queried interval
         /// </summary>
         /// <param name="segment"></param>
@@ -86,6 +95,26 @@
         }
 
         /// <summary>
+        /// Determines whether this interval overlaps the queried interval
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <returns></returns>
+        internal bool Intersects(ProteolysisProduct segment)
+        {
+            return segment.OneBasedEndPosition >= OneBasedBeginPosition && segment.OneBasedBeginPosition <= OneBasedEndPosition;
+        }
+
+        /// <summary>
+        /// Determines whether this interval overlaps the queried position
+        /// </summary>
+        /// <param name="pos"></param>
+        /// <returns></returns>
+        internal bool Intersects(int pos)
+        {
+            return OneBasedBeginPosition <= pos && pos <= OneBasedEndPosition;
+        }
+
+        /// <summary>
         /// Determines whether this interval includes the queried interval
         /// </summary>
         /// <param name="segment"></param>
@@ -93,6 +122,26 @@
         internal bool Includes(SequenceVariation segment)
         {
             return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
+        }
+
+        /// <summary>
+        /// Determines whether this interval includes the queried interval
+        /// </summary>
+        /// <param name="segment"></param>
+        /// <returns></returns>
+        internal bool Includes(ProteolysisProduct segment)
+        {
+            return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
+        }
+
+        /// <summary>
+        /// Determines whether this interval overlaps the queried position
+        /// </summary>
+        /// <param name="pos"></param>
+        /// <returns></returns>
+        internal bool Includes(int pos)
+        {
+            return OneBasedBeginPosition <= pos && pos <= OneBasedEndPosition;
         }
     }
 }

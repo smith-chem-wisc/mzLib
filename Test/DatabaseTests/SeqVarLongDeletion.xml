@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   N6-acetyllysine on K
+MT   UniProt
+PP   Anywhere.
+DR   RESID; AA0055
+DR   PSI-MOD; MOD:00064
+DR   UniProt; PTM-0190
+TG   K
+MM   42.010565
+CF   C2H2O
+//</modification>
+<modification>ID   N-acetylalanine on A
+MT   UniProt
+PP   N-terminal.
+DR   RESID; AA0041
+DR   PSI-MOD; MOD:00050
+DR   UniProt; PTM-0199
+TG   A
+MM   42.010565
+CF   C2H2O
+//</modification>
+  <entry>
+    <accession>P78318</accession>
+    <name>transcript:ENST00000356413,transcript:ENST00000342206</name>
+    <protein>
+      <recommendedName>
+        <fullName>Immunoglobulin-binding protein 1</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">IGBP1</name>
+      <name type="synonym">IBP1</name>
+      <name type="primary">IGBP1</name>
+      <name type="accession">MSTRG.22714</name>
+      <name type="primary">IGBP1</name>
+      <name type="accession">MSTRG.22714</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="9441740" />
+    <dbReference type="DOI" id="10.1006/geno.1997.5048" />
+    <dbReference type="PubMed" id="15772651" />
+    <dbReference type="DOI" id="10.1038/nature03440" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="9647778" />
+    <dbReference type="DOI" id="10.1006/bbrc.1998.8792" />
+    <dbReference type="PubMed" id="10508479" />
+    <dbReference type="DOI" id="10.1002/(SICI)1097-0215(19991112)83:4&lt;456::AID-IJC4&gt;3.0.CO;2-5" />
+    <dbReference type="PubMed" id="11806752" />
+    <dbReference type="DOI" id="10.1186/1471-2121-3-1" />
+    <dbReference type="PubMed" id="14556245" />
+    <dbReference type="DOI" id="10.1002/ajmg.a.20504" />
+    <dbReference type="PubMed" id="19413330" />
+    <dbReference type="DOI" id="10.1021/ac9004309" />
+    <dbReference type="PubMed" id="19818709" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2009.09.025" />
+    <dbReference type="PubMed" id="19608861" />
+    <dbReference type="DOI" id="10.1126/science.1175371" />
+    <dbReference type="PubMed" id="20092282" />
+    <dbReference type="DOI" id="10.1021/bi901837h" />
+    <dbReference type="PubMed" id="21269460" />
+    <dbReference type="DOI" id="10.1186/1752-0509-5-17" />
+    <dbReference type="PubMed" id="22613722" />
+    <dbReference type="DOI" id="10.1074/jbc.M112.368613" />
+    <dbReference type="PubMed" id="22814378" />
+    <dbReference type="DOI" id="10.1073/pnas.1210303109" />
+    <dbReference type="PubMed" id="23591866" />
+    <dbReference type="DOI" id="10.1038/ncomms2663" />
+    <dbReference type="MIM" id="300472" />
+    <dbReference type="EMBL" id="Y08915">
+      <property type="protein sequence ID" value="CAA70119.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BT006736">
+      <property type="protein sequence ID" value="AAP35382.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AL158141">
+      <property type="protein sequence ID" value="CAD13488.2" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AL139111">
+      <property type="protein sequence ID" value="CAD13488.2" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC004137">
+      <property type="protein sequence ID" value="AAH04137.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS14396.1" />
+    <dbReference type="RefSeq" id="NP_001542.1">
+      <property type="nucleotide sequence ID" value="NM_001551.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_016884978.1">
+      <property type="nucleotide sequence ID" value="XM_017029489.1" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.496267" />
+    <dbReference type="PDB" id="4IYP">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.80" />
+      <property type="chains" value="A=2-234" />
+    </dbReference>
+    <dbReference type="PDBsum" id="4IYP" />
+    <dbReference type="ProteinModelPortal" id="P78318" />
+    <dbReference type="SMR" id="P78318" />
+    <dbReference type="BioGrid" id="109698">
+      <property type="interactions" value="131" />
+    </dbReference>
+    <dbReference type="IntAct" id="P78318">
+      <property type="interactions" value="39" />
+    </dbReference>
+    <dbReference type="MINT" id="P78318" />
+    <dbReference type="STRING" id="9606.ENSP00000348784" />
+    <dbReference type="CarbonylDB" id="P78318" />
+    <dbReference type="iPTMnet" id="P78318" />
+    <dbReference type="PhosphoSitePlus" id="P78318" />
+    <dbReference type="BioMuta" id="IGBP1" />
+    <dbReference type="DMDM" id="14285501" />
+    <dbReference type="EPD" id="P78318" />
+    <dbReference type="MaxQB" id="P78318" />
+    <dbReference type="PaxDb" id="P78318" />
+    <dbReference type="PeptideAtlas" id="P78318" />
+    <dbReference type="PRIDE" id="P78318" />
+    <dbReference type="DNASU" id="3476" />
+    <dbReference type="Ensembl" id="ENST00000342206">
+      <property type="protein sequence ID" value="ENSP00000363661" />
+      <property type="gene ID" value="ENSG00000089289" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000356413">
+      <property type="protein sequence ID" value="ENSP00000348784" />
+      <property type="gene ID" value="ENSG00000089289" />
+    </dbReference>
+    <dbReference type="GeneID" id="3476" />
+    <dbReference type="KEGG" id="hsa:3476" />
+    <dbReference type="UCSC" id="uc004dxv.4">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="3476" />
+    <dbReference type="DisGeNET" id="3476" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000089289.15" />
+    <dbReference type="GeneCards" id="IGBP1" />
+    <dbReference type="HGNC" id="HGNC:5461">
+      <property type="gene designation" value="IGBP1" />
+    </dbReference>
+    <dbReference type="HPA" id="CAB034139" />
+    <dbReference type="HPA" id="HPA000634" />
+    <dbReference type="HPA" id="HPA001004" />
+    <dbReference type="MalaCards" id="IGBP1" />
+    <dbReference type="MIM" id="300139">
+      <property type="type" value="gene" />
+    </dbReference>
+    <dbReference type="MIM" id="300472">
+      <property type="type" value="phenotype" />
+    </dbReference>
+    <dbReference type="neXtProt" id="NX_P78318" />
+    <dbReference type="OpenTargets" id="ENSG00000089289" />
+    <dbReference type="Orphanet" id="52055">
+      <property type="disease" value="Agenesis of the corpus callosum - intellectual disability - coloboma - micrognathia" />
+    </dbReference>
+    <dbReference type="PharmGKB" id="PA29694" />
+    <dbReference type="eggNOG" id="KOG2830">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG41110HD">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00390000002414" />
+    <dbReference type="HOGENOM" id="HOG000038526" />
+    <dbReference type="HOVERGEN" id="HBG052090" />
+    <dbReference type="InParanoid" id="P78318" />
+    <dbReference type="KO" id="K17606" />
+    <dbReference type="OMA" id="FRPGHNL" />
+    <dbReference type="OrthoDB" id="EOG091G0ELO" />
+    <dbReference type="PhylomeDB" id="P78318" />
+    <dbReference type="TreeFam" id="TF313433" />
+    <dbReference type="ChiTaRS" id="IGBP1">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="GeneWiki" id="IGBP1" />
+    <dbReference type="GenomeRNAi" id="3476" />
+    <dbReference type="PRO" id="PR:P78318" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome X" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000089289" />
+    <dbReference type="CleanEx" id="HS_IGBP1" />
+    <dbReference type="Genevisible" id="P78318">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005737">
+      <property type="term" value="C:cytoplasm" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005829">
+      <property type="term" value="C:cytosol" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0051721">
+      <property type="term" value="F:protein phosphatase 2A binding" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0019888">
+      <property type="term" value="F:protein phosphatase regulator activity" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042113">
+      <property type="term" value="P:B cell activation" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-KW" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043154">
+      <property type="term" value="P:negative regulation of cysteine-type endopeptidase activity involved in apoptotic process" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0032873">
+      <property type="term" value="P:negative regulation of stress-activated MAPK cascade" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000122">
+      <property type="term" value="P:negative regulation of transcription by RNA polymerase II" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0035303">
+      <property type="term" value="P:regulation of dephosphorylation" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0060632">
+      <property type="term" value="P:regulation of microtubule-based movement" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0070555">
+      <property type="term" value="P:response to interleukin-1" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0034612">
+      <property type="term" value="P:response to tumor necrosis factor" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0007165">
+      <property type="term" value="P:signal transduction" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="Gene3D" id="1.25.40.540">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR007304">
+      <property type="entry name" value="TAP42-like" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR038511">
+      <property type="entry name" value="TAP42/TAP46-like_sf" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR10933">
+      <property type="entry name" value="PTHR10933" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF04177">
+      <property type="entry name" value="TAP42" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="4IYP" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="339" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N-acetylalanine on A">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="241" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="X\t70148650\t.\tAGTGAGTGAATTTTGAATCCAGAGCTTTTCAAGCACCTGAAGACTTAAGAGCCCGTATGGTATGTTGGGTAAAATGGCAAATTCACCTCTCATAATTAATTTCCTTCTTAG\tA\t.\tPASS\tANN=A|frameshift_variant&amp;splice_acceptor_variant&amp;splice_region_variant&amp;intron_variant|HIGH|IGBP1|MSTRG.22714|transcript|transcript:ENST00000356413|protein_coding|5/7|c.679-109_679del|p.Ala227fs||679/1020|227/339||INFO_REALIGN_3_PRIME\tGT:AD:DP\t1/1:0,6:6">
+      <original>ASTSNSSRQERPPVKPFILTRNMAQAKVFGAGYPSLPTMTVSDWYEQHRKYGALPDQGIAKAAPEEFRKAAQQQEEQEEKEEEDDEQTLHRAREWDDWKDTHPRGYGNRQNMG</original>
+      <variation>HQLLTHLARRGLQ</variation>
+      <location>
+        <position position="227" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="X\t70148650\t.\tAGTGAGTGAATTTTGAATCCAGAGCTTTTCAAGCACCTGAAGACTTAAGAGCCCGTATGGTATGTTGGGTAAAATGGCAAATTCACCTCTCATAATTAATTTCCTTCTTAG\tA\t.\tPASS\tANN=A|frameshift_variant&amp;splice_acceptor_variant&amp;splice_region_variant&amp;intron_variant|HIGH|IGBP1|MSTRG.22714|transcript|transcript:ENST00000342206|protein_coding|4/6|c.679-109_679del|p.Ala227fs||679/1020|227/339||INFO_REALIGN_3_PRIME\tGT:AD:DP\t1/1:0,6:6">
+      <original>ASTSNSSRQERPPVKPFILTRNMAQAKVFGAGYPSLPTMTVSDWYEQHRKYGALPDQGIAKAAPEEFRKAAQQQEEQEEKEEEDDEQTLHRAREWDDWKDTHPRGYGNRQNMG</original>
+      <variation>HQLLTHLARRGLQ</variation>
+      <location>
+        <position position="227" />
+      </location>
+    </feature>
+    <sequence length="339">MAAEDELQLPRLPELFETGRQLLDEVEVATEPAGSRIVQEKVFKGLDLLEKAAEMLSQLDLFSRNEDLEEIASTDLKYLLVPAFQGALTMKQVNPSKRLDHLQRAREHFINYLTQCHCYHVAEFELPKTMNNSAENHTANSSMAYPSLVAMASQRQAKIQRYKQKKELEHRLSAMKSAVESGQADDERVREYYLLHLQRWIDISLEEIESIDQEIKILRERDSSREASTSNSSRQERPPVKPFILTRNMAQAKVFGAGYPSLPTMTVSDWYEQHRKYGALPDQGIAKAAPEEFRKAAQQQEEQEEKEEEDDEQTLHRAREWDDWKDTHPRGYGNRQNMG</sequence>
+  </entry>
+  </mzLibProteinDb>
