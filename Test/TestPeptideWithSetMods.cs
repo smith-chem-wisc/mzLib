@@ -37,25 +37,25 @@ namespace Test
         [Test]
         public static void TestHardToParseModifiedSequence()
         {
-            string fullSequence = "PE[Metal::Fe[III] on X]PTIDE";
+            string fullSequence = "PE[Metal:Cation:Fe[III] on X]PTIDE";
 
             ModificationMotif.TryGetMotif("X", out var motif);
 
-            Modification mod = new Modification(_originalId: "Fe[III]", _modificationType: "Metal:",
+            Modification mod = new Modification(_originalId: "Cation:Fe[III]", _modificationType: "Metal",
                 _monoisotopicMass: 1, _locationRestriction: "Anywhere.", _target: motif);
 
-            Dictionary<string, Modification> mods = new Dictionary<string, Modification> { { "Fe[III] on X", mod } };
+            Dictionary<string, Modification> mods = new Dictionary<string, Modification> { { "Cation:Fe[III] on X", mod } };
 
             PeptideWithSetModifications pep = new PeptideWithSetModifications(fullSequence, mods);
 
             Assert.That(pep.AllModsOneIsNterminus.Count == 1);
             var annotatedMod = pep.AllModsOneIsNterminus.First();
             Assert.That(annotatedMod.Key == 3);
-            Assert.That(annotatedMod.Value.IdWithMotif == "Fe[III] on X");
-            Assert.That(annotatedMod.Value.OriginalId == "Fe[III]");
-            Assert.That(annotatedMod.Value.ModificationType == "Metal:");
+            Assert.That(annotatedMod.Value.IdWithMotif == "Cation:Fe[III] on X");
+            Assert.That(annotatedMod.Value.OriginalId == "Cation:Fe[III]");
+            Assert.That(annotatedMod.Value.ModificationType == "Metal");
 
-            fullSequence = "[Metal::Fe[III] on X]PE[Metal::Fe[III] on X]PTIDE[Metal::Fe[III] on X]";
+            fullSequence = "[Metal:Cation:Fe[III] on X]PE[Metal:Cation:Fe[III] on X]PTIDE[Metal:Cation:Fe[III] on X]";
             pep = new PeptideWithSetModifications(fullSequence, mods);
             Assert.That(pep.AllModsOneIsNterminus.Count == 3);
             Assert.That(pep.AllModsOneIsNterminus.Keys.ToList().SequenceEqual(new int[] { 1, 3, 8 }));

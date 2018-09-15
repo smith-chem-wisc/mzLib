@@ -434,7 +434,7 @@ namespace Proteomics.ProteolyticDigestion
                             try
                             {
                                 string modString = currentModification.ToString();
-                                int splitIndex = modString.LastIndexOf(':');
+                                int splitIndex = modString.IndexOf(':');
                                 string modType = modString.Substring(0, splitIndex);
                                 modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
                             }
