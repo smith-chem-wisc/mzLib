@@ -24,8 +24,6 @@ using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MassSpectrometry;
-using Proteomics.ProteolyticDigestion;
 
 namespace Test
 {
@@ -777,30 +775,6 @@ namespace Test
                 return obj.Length + obj.Index * 256;
             }
         }
-
-        //[Test]
-        //public static void TestDigestionWithMod()
-        //{
-        //    ModificationMotif.TryGetMotif("S", out ModificationMotif motif);
-        //    ModificationMotif.TryGetMotif("R", out ModificationMotif motifR);
-        //    Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
-        //    Modification oxidation = new Modification("ox", "", "test", null, motifR, _locationRestriction: "Anywhere.", _monoisotopicMass: 16.0);
-
-        //    List<Modification> modList = new List<Modification>() { phosphorylation };
-        //    Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
-        //    mods.Add(1, modList);
-
-        //    Protein p = new Protein("SR", "ac", null, null, mods, null, null, null, false, false, null, null, null, null);
-
-        //    DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
-            
-        //    IEnumerable<PeptideWithSetModifications> peptides = p.Digest(digestionParams, new List<Modification>(), new List<Modification> { oxidation });
-        //    //IEnumerable<PeptideWithSetModifications> peptides = p.Digest(digestionParams, empty, new List<Modification>());
-
-        //    Assert.AreEqual(2, peptides.Count());
-        //    Assert.That(peptides.Where(v => v.AllModsOneIsNterminus.Count == 1).Count() == 1);
-        //    Assert.That(peptides.Where(v => v.AllModsOneIsNterminus.Count == 0).Count() == 1);
-        //}
     }
 
     internal class TestProtease : IProtease
