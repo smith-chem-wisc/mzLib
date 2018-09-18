@@ -581,5 +581,39 @@ namespace Test
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
         }
+        
+        [Test]
+        public static void TestFragmentNterminalModifiedPeptide()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Modification nTermMod = new Modification(_originalId: "acetylation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "N-terminal.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 1, new List<Modification> { nTermMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+            Assert.That(peptide.FullSequence == "[testModType:acetylation on P]PEPTIDE");
+
+            var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
+            Assert.That(roundedFragments.SequenceEqual(new int[] { 139, 268, 365, 466, 579, 694, 147, 262, 375, 476, 573, 702  }));
+        }
+
+        [Test]
+        public static void TestFragmentCTerminalModifiedPeptide()
+        {
+            ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
+            Modification cTermMod = new Modification(_originalId: "acetylation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "C-terminal.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 7, new List<Modification> { cTermMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+            Assert.That(peptide.FullSequence == "PEPTIDE[testModType:acetylation on E]");
+
+            var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
+            Assert.That(roundedFragments.SequenceEqual(new int[] { 97, 226, 323, 424, 537, 652, 189, 304, 417, 518, 615, 744 }));
+        }
     }
 }
