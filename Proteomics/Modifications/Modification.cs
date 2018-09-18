@@ -43,19 +43,20 @@ namespace Proteomics
         {
             get
             {
-                return this.IdWithMotif != null 
-                    && (this.ChemicalFormula != null || this.MonoisotopicMass != null)
-                    && this.Target != null
-                    && this.LocationRestriction != "Unassigned."
-                    && this.ModificationType != null
-                    && this.FeatureType != "CROSSLINK";
+                return this.IdWithMotif != null
+                       && (this.ChemicalFormula != null || this.MonoisotopicMass != null)
+                       && this.Target != null
+                       && this.LocationRestriction != "Unassigned."
+                       && this.ModificationType != null
+                       && this.FeatureType != "CROSSLINK"
+                       && !this.ModificationType.Contains(':');
             }
         }
 
-        public Modification(string _originalId = null, string _accession = null, string _modificationType = null, string _featureType = null, 
-            ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, 
-            double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, 
-            Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, 
+        public Modification(string _originalId = null, string _accession = null, string _modificationType = null, string _featureType = null,
+            ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null,
+            double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null,
+            Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null,
             Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
             string _fileOrigin = null)
         {
@@ -288,6 +289,11 @@ namespace Proteomics
             {
                 sb.AppendLine(
                     "#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
+            }
+
+            if (this.ModificationType.Contains(':'))
+            {
+                sb.AppendLine("#Modification type cannot contain ':'!");
             }
 
             sb.Append("#This modification can be found in file " + this.FileOrigin);

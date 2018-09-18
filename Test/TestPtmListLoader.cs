@@ -132,5 +132,20 @@ namespace Test
             Assert.That(motifs.Count == 6);
             Assert.That(ids.Count == 6);
         }
+
+        [Test]
+        public static void TestInvalidModTypeError()
+        {
+            string mod = "ID   Deamidation\r\nTG   N or Q\r\nPP   Anywhere.\r\nMT   Mod:\r\nCF   H-1 N-1 O1\r\n//";
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"TestInvalidModTypeError\ptmlist.txt");
+            Directory.CreateDirectory(Directory.GetParent(filepath).FullName);
+            File.WriteAllLines(filepath, new string[] { mod });
+
+            var ptms = PtmListLoader.ReadModsFromFile(filepath, out var warnings).ToList();
+            Assert.That(ptms.Count == 0);
+            Assert.That(warnings.Count == 2);
+
+            Assert.That(warnings.First().Item2.Contains("Modification type cannot contain ':'!"));
+        }
     }
 }
