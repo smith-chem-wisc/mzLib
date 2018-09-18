@@ -291,7 +291,7 @@ namespace Proteomics
                     "#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
             }
 
-            if (this.ModificationType.Contains(':'))
+            if (this.ModificationType != null && this.ModificationType.Contains(':'))
             {
                 sb.AppendLine("#Modification type cannot contain ':'!");
             }
