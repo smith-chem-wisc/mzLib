@@ -37,17 +37,18 @@ namespace Proteomics
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; private set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; private set; }
         public string FileOrigin { get; private set; }
+        protected const double tolForEquality = 1e-9;
 
         public bool ValidModification
         {
             get
             {
-                return (this.IdWithMotif != null &&
-                        (this.ChemicalFormula != null || this.MonoisotopicMass != null)
-                        && this.Target != null
-                        && this.LocationRestriction != "Unassigned."
-                        && this.ModificationType != null
-                        && this.FeatureType != "CROSSLINK");
+                return this.IdWithMotif != null 
+                    && (this.ChemicalFormula != null || this.MonoisotopicMass != null)
+                    && this.Target != null
+                    && this.LocationRestriction != "Unassigned."
+                    && this.ModificationType != null
+                    && this.FeatureType != "CROSSLINK";
             }
         }
 
@@ -55,26 +56,30 @@ namespace Proteomics
             ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, 
             double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, 
             Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, 
-            Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, 
+            Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
             string _fileOrigin = null)
         {
+
             if (_originalId != null && _target != null)
             {
                 if (_originalId.Contains(" on "))
                 {
                     this.IdWithMotif = _originalId;
+                    this.OriginalId = _originalId.Split(new[] { " on " }, StringSplitOptions.None)[0];
                 }
                 else if (_originalId.Contains(" of "))
                 {
                     this.IdWithMotif = _originalId.Replace(" of ", " on ");
+                    this.OriginalId = _originalId.Split(new[] { " of ", " on " }, StringSplitOptions.None)[0];
+
                 }
                 else
                 {
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
+                    this.OriginalId = _originalId;
                 }
             }
 
-            this.OriginalId = _originalId;
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;
@@ -123,12 +128,18 @@ namespace Proteomics
         {
             Modification m = o as Modification;
             return o != null
-                && m.ToString() == this.ToString();
+                && IdWithMotif == m.IdWithMotif
+                && OriginalId == m.OriginalId
+                && ModificationType == m.ModificationType
+                && (MonoisotopicMass == m.MonoisotopicMass
+                    || MonoisotopicMass != null && m.MonoisotopicMass != null && Math.Abs((double)m.MonoisotopicMass - (double)MonoisotopicMass) < tolForEquality);
         }
 
         public override int GetHashCode()
         {
-            return this.ToString().GetHashCode();
+            string id = IdWithMotif ?? OriginalId ?? string.Empty;
+            string mt = ModificationType ?? string.Empty;
+            return id.GetHashCode() ^ mt.GetHashCode();
         }
 
         public override string ToString()

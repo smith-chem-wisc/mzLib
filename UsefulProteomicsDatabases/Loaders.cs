@@ -167,7 +167,7 @@ namespace UsefulProteomicsDatabases
             {
                 UpdateUniprot(uniprotLocation);
             }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary).OfType<Modification>();
+            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)

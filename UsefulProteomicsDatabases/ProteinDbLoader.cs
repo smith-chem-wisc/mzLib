@@ -133,7 +133,7 @@ namespace UsefulProteomicsDatabases
                                     //This block of code does not process information in any of the entries.
                                     protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
                                         new List<Modification>() :
-                                        PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString()).ToList();
+                                        PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
                                     break;
                                 }
                             }

@@ -343,7 +343,7 @@ namespace Test
 
             List<string> myOriginalIds = ok[0].OneBasedPossibleLocalizedModifications[2].Select(i => i.OriginalId).ToList();
 
-            Assert.True(myOriginalIds.Contains("N-acetylserine on S"));
+            Assert.True(myOriginalIds.Contains("N-acetylserine"));
         }
 
         [Test]
@@ -393,7 +393,7 @@ KW   Oxidation.
 DR   RESID; AA0581.
 DR   PSI-MOD; MOD:00720.
 //";
-            var a = PtmListLoader.ReadModsFromString(aString).First();
+            var a = PtmListLoader.ReadModsFromString(aString, out var errorsA).First();
 
             string bString =
 @"ID   Oxidation of M
@@ -402,7 +402,7 @@ PP   Anywhere.
 MT   Common Variable
 CF   O1
 //";
-            var b = PtmListLoader.ReadModsFromString(bString).First();
+            var b = PtmListLoader.ReadModsFromString(bString, out var errorsB).First();
 
             Assert.IsTrue(Math.Abs((double)(a as Modification).MonoisotopicMass - (double)(b as Modification).MonoisotopicMass) < 1e-6);
             Assert.IsTrue(Math.Abs((double)(a as Modification).MonoisotopicMass - (double)(b as Modification).MonoisotopicMass) > 1e-7);
