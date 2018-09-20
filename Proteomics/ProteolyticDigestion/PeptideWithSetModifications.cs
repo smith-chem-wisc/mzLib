@@ -405,6 +405,7 @@ namespace Proteomics.ProteolyticDigestion
             StringBuilder currentModification = new StringBuilder();
             int currentModificationLocation = 1;
             bool currentlyReadingMod = false;
+            int bracketCount = 0;
 
             for (int r = 0; r < FullSequence.Length; r++)
             {
@@ -414,30 +415,50 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     case '[':
                         currentlyReadingMod = true;
+
+                        if (bracketCount > 0)
+                        {
+                            currentModification.Append(c);
+                        }
+
+                        bracketCount++;
+
                         break;
 
                     case ']':
                         string modId = null;
+                        bracketCount--;
 
-                        try
+                        if (bracketCount == 0)
                         {
-                            var split = currentModification.ToString().Split(new char[] { ':' });
-                            string modType = split[0];
-                            modId = split[1];
+                            try
+                            {
+                                string modString = currentModification.ToString();
+                                int splitIndex = modString.IndexOf(':');
+                                string modType = modString.Substring(0, splitIndex);
+                                modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+                            }
+                            catch (Exception e)
+                            {
+                                throw new MzLibUtil.MzLibException(
+                                    "Error while trying to parse string into peptide: " + e.Message);
+                            }
+
+                            if (!idToMod.TryGetValue(modId, out Modification mod))
+                            {
+                                throw new MzLibUtil.MzLibException(
+                                    "Could not find modification while reading string: " + FullSequence);
+                            }
+
+                            AllModsOneIsNterminus.Add(currentModificationLocation, mod);
+                            currentlyReadingMod = false;
+                            currentModification = new StringBuilder();
                         }
-                        catch (Exception e)
+                        else
                         {
-                            throw new MzLibUtil.MzLibException("Error while trying to parse string into peptide: " + e.Message);
+                            currentModification.Append(c);
                         }
 
-                        if (!idToMod.TryGetValue(modId, out Modification mod))
-                        {
-                            throw new MzLibUtil.MzLibException("Could not find modification while reading string: " + FullSequence);
-                        }
-
-                        AllModsOneIsNterminus.Add(currentModificationLocation, mod);
-                        currentlyReadingMod = false;
-                        currentModification = new StringBuilder();
                         break;
 
                     default:
