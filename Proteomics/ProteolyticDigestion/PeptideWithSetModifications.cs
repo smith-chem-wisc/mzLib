@@ -101,12 +101,15 @@ namespace Proteomics.ProteolyticDigestion
             {
                 if (!_monoisotopicMass.HasValue)
                 {
-                    _monoisotopicMass = WaterMonoisotopicMass;
+                    double monoMass = WaterMonoisotopicMass;
+
                     foreach (var mod in AllModsOneIsNterminus.Values)
                     {
-                        _monoisotopicMass += mod.MonoisotopicMass;
+                        monoMass += mod.MonoisotopicMass.Value;
                     }
-                    _monoisotopicMass += BaseSequence.Select(b => Residue.ResidueMonoisotopicMass[b]).Sum();
+                    monoMass += BaseSequence.Select(b => Residue.ResidueMonoisotopicMass[b]).Sum();
+
+                    _monoisotopicMass = monoMass;
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
@@ -328,12 +331,18 @@ namespace Proteomics.ProteolyticDigestion
             {
                 return compactPeptide;
             }
-            else
+
+            CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus);
+
+            lock (_compactPeptides)
             {
-                CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus);
-                _compactPeptides.Add(fragmentationTerminus, cp);
-                return cp;
+                if (!_compactPeptides.ContainsKey(fragmentationTerminus))
+                {
+                    _compactPeptides.Add(fragmentationTerminus, cp);
+                }
             }
+
+            return cp;
         }
 
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
