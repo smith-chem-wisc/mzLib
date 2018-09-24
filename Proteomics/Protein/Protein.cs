@@ -110,7 +110,7 @@ namespace Proteomics
             List<Modification> variableModifications)
         {
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-            return digestionParams.SemiProteaseDigestion ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);
+            return digestionParams.SemiSpecificDigestion ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);
         }
 
         /// <summary>
@@ -118,11 +118,6 @@ namespace Proteomics
         /// </summary>
         public List<ProteinWithAppliedVariants> GetVariantProteins()
         {
-            if (SequenceVariations.Count() > 0)
-            {
-                int i = 0;
-                int asdf = SequenceVariations.Select(v => v.Description.Split(new[] { @"\t" }, StringSplitOptions.None).Length).Max();
-            }
             List<SequenceVariation> uniqueEffects = SequenceVariations
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
