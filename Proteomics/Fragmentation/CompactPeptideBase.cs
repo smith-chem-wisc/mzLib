@@ -60,11 +60,18 @@ namespace Proteomics.Fragmentation
                 {
                     mass += Residue.ResidueMonoisotopicMass[peptide[r]];//This is a zero based indexed for residues. The index of the first amino acid in the peptide is 0.
 
+                    // side-chain mod
                     if (peptide.AllModsOneIsNterminus.TryGetValue(r + 2, out Modification currentModification))//This is a one based index. The index of the fragment from the first amino acid is 1.
                     {
                         mass += (double)currentModification.MonoisotopicMass;
                     }
 
+                    // N-terminal mod
+                    if (r == 0 && peptide.AllModsOneIsNterminus.TryGetValue(1, out currentModification))
+                    {
+                        mass += (double)currentModification.MonoisotopicMass;
+                    }
+                    
                     if (r != peptide.Length - 1)
                     {
                         yield return new NeutralTerminusFragment(FragmentationTerminus.N, mass, r + 1, r + 1);//This is a one based index. The index of the fragment from the first amino acid is 1.
@@ -80,12 +87,19 @@ namespace Proteomics.Fragmentation
                 {
                     mass += Residue.ResidueMonoisotopicMass[peptide[r]];
 
+                    // side-chain mod
                     if (peptide.AllModsOneIsNterminus.TryGetValue(r + 2, out Modification currentModification))
                     {
                         mass += (double)currentModification.MonoisotopicMass;
                     }
+                    
+                    // C-terminal mod
+                    if (r == peptide.Length - 1 && peptide.AllModsOneIsNterminus.TryGetValue(peptide.Length + 2, out currentModification))
+                    {
+                        mass += (double)currentModification.MonoisotopicMass;
+                    }
 
-                    if (r != 0)
+                    if (r != -1)
                     {
                         yield return new NeutralTerminusFragment(FragmentationTerminus.C, mass, peptide.Length - r, r + 1);
                     }

@@ -1,0 +1,852 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   N-acetylserine on S
+MT   UniProt
+PP   N-terminal.
+DR   RESID; AA0051
+DR   PSI-MOD; MOD:00060
+DR   UniProt; PTM-0207
+TG   S
+MM   42.010565
+CF   C2H2O
+//</modification>
+  <modification>ID   Phosphoserine on S
+MT   UniProt
+PP   Anywhere.
+DR   RESID; AA0037
+DR   PSI-MOD; MOD:00046
+DR   UniProt; PTM-0253
+TG   S
+MM   79.966331
+CF   HO3P
+//</modification>
+  <modification>ID   Phosphothreonine on T
+MT   UniProt
+PP   Anywhere.
+DR   RESID; AA0038
+DR   PSI-MOD; MOD:00047
+DR   UniProt; PTM-0254
+TG   T
+MM   79.966331
+CF   HO3P
+//</modification>
+  <modification>ID   Phosphotyrosine on Y
+MT   UniProt
+PP   Anywhere.
+DR   RESID; AA0039
+DR   PSI-MOD; MOD:00048
+DR   UniProt; PTM-0255
+TG   Y
+MM   79.966331
+CF   HO3P
+//</modification>
+<entry>
+    <accession>P38936</accession>
+    <name>transcript:ENST00000244741,transcript:ENST00000405375,transcript:ENST00000448526,transcript:ENST00000373711,transcript:ENST00000615513</name>
+    <protein>
+      <recommendedName>
+        <fullName>Cyclin-dependent kinase inhibitor 1</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">CDKN1A</name>
+      <name type="synonym">CAP20</name>
+      <name type="synonym">CDKN1</name>
+      <name type="synonym">CIP1</name>
+      <name type="synonym">MDA6</name>
+      <name type="synonym">PIC1</name>
+      <name type="synonym">SDI1</name>
+      <name type="synonym">WAF1</name>
+      <name type="primary">CDKN1A</name>
+      <name type="accession">gene:ENSG00000124762</name>
+      <name type="primary">CDKN1A</name>
+      <name type="accession">gene:ENSG00000124762</name>
+      <name type="primary">CDKN1A</name>
+      <name type="accession">gene:ENSG00000124762</name>
+      <name type="primary">CDKN1A</name>
+      <name type="accession">gene:ENSG00000124762</name>
+      <name type="primary">CDKN1A</name>
+      <name type="accession">gene:ENSG00000124762</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="8242751" />
+    <dbReference type="DOI" id="10.1016/0092-8674(93)90499-G" />
+    <dbReference type="PubMed" id="8242752" />
+    <dbReference type="DOI" id="10.1016/0092-8674(93)90500-P" />
+    <dbReference type="PubMed" id="8259214" />
+    <dbReference type="DOI" id="10.1038/366701a0" />
+    <dbReference type="PubMed" id="7753561" />
+    <dbReference type="PubMed" id="8125163" />
+    <dbReference type="DOI" id="10.1006/excr.1994.1063" />
+    <dbReference type="PubMed" id="7655464" />
+    <dbReference type="DOI" id="10.1093/hmg/4.6.1089" />
+    <dbReference type="PubMed" id="19054851" />
+    <dbReference type="DOI" id="10.1038/nmeth.1273" />
+    <dbReference type="PubMed" id="14574404" />
+    <dbReference type="DOI" id="10.1038/nature02055" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="15574338" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2004.11.011" />
+    <dbReference type="PubMed" id="10753973" />
+    <dbReference type="DOI" id="10.1074/jbc.275.15.11529" />
+    <dbReference type="PubMed" id="9106657" />
+    <dbReference type="DOI" id="10.1101/gad.11.7.847" />
+    <dbReference type="PubMed" id="11350925" />
+    <dbReference type="DOI" id="10.1093/emboj/20.10.2367" />
+    <dbReference type="PubMed" id="11595739" />
+    <dbReference type="DOI" id="10.1074/jbc.M106990200" />
+    <dbReference type="PubMed" id="11463845" />
+    <dbReference type="DOI" id="10.1128/MCB.21.16.5644-5657.2001" />
+    <dbReference type="PubMed" id="12431783" />
+    <dbReference type="DOI" id="10.1016/S0167-4889(02)00347-6" />
+    <dbReference type="PubMed" id="15226418" />
+    <dbReference type="DOI" id="10.1128/MCB.24.14.6140-6150.2004" />
+    <dbReference type="PubMed" id="16982699" />
+    <dbReference type="DOI" id="10.1128/MCB.00201-06" />
+    <dbReference type="PubMed" id="16964243" />
+    <dbReference type="DOI" id="10.1038/nbt1240" />
+    <dbReference type="PubMed" id="18794347" />
+    <dbReference type="DOI" id="10.1101/gad.1676108" />
+    <dbReference type="PubMed" id="18794348" />
+    <dbReference type="DOI" id="10.1101/gad.1703708" />
+    <dbReference type="PubMed" id="18703516" />
+    <dbReference type="DOI" id="10.1074/jbc.M806045200" />
+    <dbReference type="PubMed" id="18669648" />
+    <dbReference type="DOI" id="10.1073/pnas.0805139105" />
+    <dbReference type="PubMed" id="19445729" />
+    <dbReference type="DOI" id="10.1186/1747-1028-4-9" />
+    <dbReference type="PubMed" id="19536131" />
+    <dbReference type="DOI" id="10.1038/emboj.2009.164" />
+    <dbReference type="PubMed" id="19332548" />
+    <dbReference type="DOI" id="10.1074/jbc.M808810200" />
+    <dbReference type="PubMed" id="20307683" />
+    <dbReference type="DOI" id="10.1016/j.biocel.2010.03.012" />
+    <dbReference type="PubMed" id="22814378" />
+    <dbReference type="DOI" id="10.1073/pnas.1210303109" />
+    <dbReference type="PubMed" id="23645206" />
+    <dbReference type="DOI" id="10.1038/cdd.2013.33" />
+    <dbReference type="PubMed" id="25329316" />
+    <dbReference type="DOI" id="10.1371/journal.pgen.1004721" />
+    <dbReference type="PubMed" id="8861913" />
+    <dbReference type="DOI" id="10.1016/S0092-8674(00)81347-1" />
+    <dbReference type="EMBL" id="L25610">
+      <property type="protein sequence ID" value="AAA16109.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="S67388">
+      <property type="protein sequence ID" value="AAB29246.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="U09579">
+      <property type="protein sequence ID" value="AAA85641.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="U03106">
+      <property type="protein sequence ID" value="AAC04313.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="L26165">
+      <property type="protein sequence ID" value="AAA19811.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="L47232">
+      <property type="protein sequence ID" value="AAB59559.1" />
+      <property type="status" value="ALT_INIT" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="L47233">
+      <property type="protein sequence ID" value="AAB59560.1" />
+      <property type="status" value="ALT_INIT" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF497972">
+      <property type="protein sequence ID" value="AAM11787.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BT006719">
+      <property type="protein sequence ID" value="AAP35365.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AB451290">
+      <property type="protein sequence ID" value="BAG70104.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AB451422">
+      <property type="protein sequence ID" value="BAG70236.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CR536533">
+      <property type="protein sequence ID" value="CAG38770.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z85996">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471081">
+      <property type="protein sequence ID" value="EAX03904.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC000275">
+      <property type="protein sequence ID" value="AAH00275.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC000312">
+      <property type="protein sequence ID" value="AAH00312.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC001935">
+      <property type="protein sequence ID" value="AAH01935.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC013967">
+      <property type="protein sequence ID" value="AAH13967.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS4824.1" />
+    <dbReference type="PIR" id="I54380">
+      <property type="entry name" value="I54380" />
+    </dbReference>
+    <dbReference type="PIR" id="I68674">
+      <property type="entry name" value="I68674" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_000380.1">
+      <property type="nucleotide sequence ID" value="NM_000389.4" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001207706.1">
+      <property type="nucleotide sequence ID" value="NM_001220777.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001207707.1">
+      <property type="nucleotide sequence ID" value="NM_001220778.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001278478.1">
+      <property type="nucleotide sequence ID" value="NM_001291549.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_510867.1">
+      <property type="nucleotide sequence ID" value="NM_078467.2" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.370771" />
+    <dbReference type="UniGene" id="Hs.732576" />
+    <dbReference type="PDB" id="1AXC">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.60" />
+      <property type="chains" value="B/D/F=139-160" />
+    </dbReference>
+    <dbReference type="PDB" id="2ZVV">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.00" />
+      <property type="chains" value="X/Y=139-160" />
+    </dbReference>
+    <dbReference type="PDB" id="2ZVW">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.50" />
+      <property type="chains" value="I/J/K/L/M/N/O/P=139-160" />
+    </dbReference>
+    <dbReference type="PDB" id="4RJF">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.01" />
+      <property type="chains" value="B/D/F=139-160" />
+    </dbReference>
+    <dbReference type="PDB" id="5E0U">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.93" />
+      <property type="chains" value="D/E/F=139-160" />
+    </dbReference>
+    <dbReference type="PDBsum" id="1AXC" />
+    <dbReference type="PDBsum" id="2ZVV" />
+    <dbReference type="PDBsum" id="2ZVW" />
+    <dbReference type="PDBsum" id="4RJF" />
+    <dbReference type="PDBsum" id="5E0U" />
+    <dbReference type="DisProt" id="DP00016" />
+    <dbReference type="ProteinModelPortal" id="P38936" />
+    <dbReference type="SMR" id="P38936" />
+    <dbReference type="BioGrid" id="107460">
+      <property type="interactions" value="274" />
+    </dbReference>
+    <dbReference type="CORUM" id="P38936" />
+    <dbReference type="DIP" id="DIP-246N" />
+    <dbReference type="IntAct" id="P38936">
+      <property type="interactions" value="179" />
+    </dbReference>
+    <dbReference type="MINT" id="P38936" />
+    <dbReference type="STRING" id="9606.ENSP00000244741" />
+    <dbReference type="BindingDB" id="P38936" />
+    <dbReference type="ChEMBL" id="CHEMBL5021" />
+    <dbReference type="iPTMnet" id="P38936" />
+    <dbReference type="PhosphoSitePlus" id="P38936" />
+    <dbReference type="BioMuta" id="CDKN1A" />
+    <dbReference type="DMDM" id="729143" />
+    <dbReference type="SWISS-2DPAGE" id="P38936" />
+    <dbReference type="EPD" id="P38936" />
+    <dbReference type="PaxDb" id="P38936" />
+    <dbReference type="PeptideAtlas" id="P38936" />
+    <dbReference type="PRIDE" id="P38936" />
+    <dbReference type="DNASU" id="1026" />
+    <dbReference type="Ensembl" id="ENST00000244741">
+      <property type="protein sequence ID" value="ENSP00000244741" />
+      <property type="gene ID" value="ENSG00000124762" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000373711">
+      <property type="protein sequence ID" value="ENSP00000362815" />
+      <property type="gene ID" value="ENSG00000124762" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000405375">
+      <property type="protein sequence ID" value="ENSP00000384849" />
+      <property type="gene ID" value="ENSG00000124762" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000448526">
+      <property type="protein sequence ID" value="ENSP00000409259" />
+      <property type="gene ID" value="ENSG00000124762" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000615513">
+      <property type="protein sequence ID" value="ENSP00000482768" />
+      <property type="gene ID" value="ENSG00000124762" />
+    </dbReference>
+    <dbReference type="GeneID" id="1026" />
+    <dbReference type="KEGG" id="hsa:1026" />
+    <dbReference type="UCSC" id="uc003omm.5">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="1026" />
+    <dbReference type="DisGeNET" id="1026" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000124762.13" />
+    <dbReference type="GeneCards" id="CDKN1A" />
+    <dbReference type="HGNC" id="HGNC:1784">
+      <property type="gene designation" value="CDKN1A" />
+    </dbReference>
+    <dbReference type="HPA" id="CAB000064" />
+    <dbReference type="HPA" id="CAB069401" />
+    <dbReference type="HPA" id="HPA005946" />
+    <dbReference type="MalaCards" id="CDKN1A" />
+    <dbReference type="MIM" id="116899">
+      <property type="type" value="gene" />
+    </dbReference>
+    <dbReference type="neXtProt" id="NX_P38936" />
+    <dbReference type="OpenTargets" id="ENSG00000124762" />
+    <dbReference type="Orphanet" id="652">
+      <property type="disease" value="Multiple endocrine neoplasia type 1" />
+    </dbReference>
+    <dbReference type="PharmGKB" id="PA104" />
+    <dbReference type="eggNOG" id="KOG4743">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG410XXN5">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00530000063588" />
+    <dbReference type="HOGENOM" id="HOG000285999" />
+    <dbReference type="HOVERGEN" id="HBG050868" />
+    <dbReference type="InParanoid" id="P38936" />
+    <dbReference type="KO" id="K06625" />
+    <dbReference type="OMA" id="FAWERVW" />
+    <dbReference type="OrthoDB" id="EOG091G19PZ" />
+    <dbReference type="PhylomeDB" id="P38936" />
+    <dbReference type="TreeFam" id="TF101038" />
+    <dbReference type="Reactome" id="R-HSA-187577">
+      <property type="pathway name" value="SCF(Skp2)-mediated degradation of p27/p21" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-198323">
+      <property type="pathway name" value="AKT phosphorylates targets in the cytosol" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-2559582">
+      <property type="pathway name" value="Senescence-Associated Secretory Phenotype (SASP)" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-2559586">
+      <property type="pathway name" value="DNA Damage/Telomere Stress Induced Senescence" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5674400">
+      <property type="pathway name" value="Constitutive Signaling by AKT1 E17K in Cancer" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-6785807">
+      <property type="pathway name" value="Interleukin-4 and 13 signaling" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-6804116">
+      <property type="pathway name" value="TP53 Regulates Transcription of Genes Involved in G1 Cell Cycle Arrest" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-68949">
+      <property type="pathway name" value="Orc1 removal from chromatin" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69202">
+      <property type="pathway name" value="Cyclin E associated events during G1/S transition" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69231">
+      <property type="pathway name" value="Cyclin D associated events in G1" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69563">
+      <property type="pathway name" value="p53-Dependent G1 DNA Damage Response" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69656">
+      <property type="pathway name" value="Cyclin A:Cdk2-associated events at S phase entry" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69895">
+      <property type="pathway name" value="Transcriptional activation of cell cycle inhibitor p21" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8852276">
+      <property type="pathway name" value="The role of GTSE1 in G2/M progression after G2 checkpoint" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8866911">
+      <property type="pathway name" value="TFAP2 (AP-2) family regulates transcription of cell cycle factors" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8878166">
+      <property type="pathway name" value="Transcriptional regulation by RUNX2" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8941855">
+      <property type="pathway name" value="RUNX3 regulates CDKN1A transcription" />
+    </dbReference>
+    <dbReference type="SIGNOR" id="P38936" />
+    <dbReference type="ChiTaRS" id="CDKN1A">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="EvolutionaryTrace" id="P38936" />
+    <dbReference type="GeneWiki" id="P21" />
+    <dbReference type="GenomeRNAi" id="1026" />
+    <dbReference type="PRO" id="PR:P38936" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 6" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000124762" />
+    <dbReference type="CleanEx" id="HS_CDKN1A" />
+    <dbReference type="ExpressionAtlas" id="P38936">
+      <property type="expression patterns" value="baseline and differential" />
+    </dbReference>
+    <dbReference type="Genevisible" id="P38936">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000307">
+      <property type="term" value="C:cyclin-dependent protein kinase holoenzyme complex" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005829">
+      <property type="term" value="C:cytosol" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0016604">
+      <property type="term" value="C:nuclear body" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005730">
+      <property type="term" value="C:nucleolus" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005654">
+      <property type="term" value="C:nucleoplasm" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005634">
+      <property type="term" value="C:nucleus" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0070557">
+      <property type="term" value="C:PCNA-p21 complex" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0048471">
+      <property type="term" value="C:perinuclear region of cytoplasm" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0032991">
+      <property type="term" value="C:protein-containing complex" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030332">
+      <property type="term" value="F:cyclin binding" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0019912">
+      <property type="term" value="F:cyclin-dependent protein kinase activating kinase activity" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0004693">
+      <property type="term" value="F:cyclin-dependent protein serine/threonine kinase activity" />
+      <property type="evidence" value="ECO:0000269" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0004861">
+      <property type="term" value="F:cyclin-dependent protein serine/threonine kinase inhibitor activity" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046872">
+      <property type="term" value="F:metal ion binding" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-KW" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0019901">
+      <property type="term" value="F:protein kinase binding" />
+      <property type="evidence" value="ECO:0000353" />
+      <property type="project" value="CAFA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0004860">
+      <property type="term" value="F:protein kinase inhibitor activity" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="CAFA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0044877">
+      <property type="term" value="F:protein-containing complex binding" />
+      <property type="evidence" value="ECO:0000353" />
+      <property type="project" value="CAFA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031625">
+      <property type="term" value="F:ubiquitin protein ligase binding" />
+      <property type="evidence" value="ECO:0000353" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031100">
+      <property type="term" value="P:animal organ regeneration" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0007050">
+      <property type="term" value="P:cell cycle arrest" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0034198">
+      <property type="term" value="P:cellular response to amino acid starvation" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006974">
+      <property type="term" value="P:cellular response to DNA damage stimulus" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031668">
+      <property type="term" value="P:cellular response to extracellular stimulus" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0071480">
+      <property type="term" value="P:cellular response to gamma radiation" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0034605">
+      <property type="term" value="P:cellular response to heat" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0071479">
+      <property type="term" value="P:cellular response to ionizing radiation" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0071493">
+      <property type="term" value="P:cellular response to UV-B" />
+      <property type="evidence" value="ECO:0000250" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0090398">
+      <property type="term" value="P:cellular senescence" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0019221">
+      <property type="term" value="P:cytokine-mediated signaling pathway" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006977">
+      <property type="term" value="P:DNA damage response, signal transduction by p53 class mediator resulting in cell cycle arrest" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006978">
+      <property type="term" value="P:DNA damage response, signal transduction by p53 class mediator resulting in transcription of p21 class mediator" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000082">
+      <property type="term" value="P:G1/S transition of mitotic cell cycle" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000086">
+      <property type="term" value="P:G2/M transition of mitotic cell cycle" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0060574">
+      <property type="term" value="P:intestinal epithelial cell maturation" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0097193">
+      <property type="term" value="P:intrinsic apoptotic signaling pathway" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="ProtInc" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042771">
+      <property type="term" value="P:intrinsic apoptotic signaling pathway in response to DNA damage by p53 class mediator" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0071850">
+      <property type="term" value="P:mitotic cell cycle arrest" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043066">
+      <property type="term" value="P:negative regulation of apoptotic process" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030308">
+      <property type="term" value="P:negative regulation of cell growth" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0008285">
+      <property type="term" value="P:negative regulation of cell proliferation" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:1904030">
+      <property type="term" value="P:negative regulation of cyclin-dependent protein kinase activity" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="CAFA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0045736">
+      <property type="term" value="P:negative regulation of cyclin-dependent protein serine/threonine kinase activity" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:2000134">
+      <property type="term" value="P:negative regulation of G1/S transition of mitotic cell cycle" />
+      <property type="evidence" value="ECO:0000316" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0010629">
+      <property type="term" value="P:negative regulation of gene expression" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042326">
+      <property type="term" value="P:negative regulation of phosphorylation" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030890">
+      <property type="term" value="P:positive regulation of B cell proliferation" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0048146">
+      <property type="term" value="P:positive regulation of fibroblast proliferation" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043068">
+      <property type="term" value="P:positive regulation of programmed cell death" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0045860">
+      <property type="term" value="P:positive regulation of protein kinase activity" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="MGI" />
+    </dbReference>
+    <dbReference type="GO" id="GO:2000379">
+      <property type="term" value="P:positive regulation of reactive oxygen species metabolic process" />
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043491">
+      <property type="term" value="P:protein kinase B signaling" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0050821">
+      <property type="term" value="P:protein stabilization" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0007265">
+      <property type="term" value="P:Ras protein signal transduction" />
+      <property type="evidence" value="ECO:0000270" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000079">
+      <property type="term" value="P:regulation of cyclin-dependent protein serine/threonine kinase activity" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="ProtInc" />
+    </dbReference>
+    <dbReference type="GO" id="GO:2000278">
+      <property type="term" value="P:regulation of DNA biosynthetic process" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0033158">
+      <property type="term" value="P:regulation of protein import into nucleus, translocation" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006357">
+      <property type="term" value="P:regulation of transcription by RNA polymerase II" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0090399">
+      <property type="term" value="P:replicative senescence" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046685">
+      <property type="term" value="P:response to arsenic-containing substance" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0051412">
+      <property type="term" value="P:response to corticosterone" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042493">
+      <property type="term" value="P:response to drug" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0055093">
+      <property type="term" value="P:response to hyperoxia" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0010243">
+      <property type="term" value="P:response to organonitrogen compound" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0009636">
+      <property type="term" value="P:response to toxic substance" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0010165">
+      <property type="term" value="P:response to X-ray" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0090400">
+      <property type="term" value="P:stress-induced premature senescence" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006367">
+      <property type="term" value="P:transcription initiation from RNA polymerase II promoter" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR003175">
+      <property type="entry name" value="CDI" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR029841">
+      <property type="entry name" value="CDKN1A_vertebrate" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR10265">
+      <property type="entry name" value="PTHR10265" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR10265:SF16">
+      <property type="entry name" value="PTHR10265:SF16" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF02234">
+      <property type="entry name" value="CDI" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="5E0U" />
+    <dbReference type="UniProtKB" id="P39689" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="164" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N-acetylserine on S">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="80" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="114" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="130" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="145" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="146" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="160" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="6\t36684451\t.\tG\tA\t171.90\t.\tANN=A|missense_variant|MODERATE|CDKN1A|gene:ENSG00000124762|transcript|transcript:ENST00000244741|protein_coding|2/3|c.350G&gt;A|p.Cys117Tyr|496/2180|350/495|117/164||\tGT:AD:DP:GQ:PL\t1/1:0,5:5:15:200,15,0">
+      <original>C</original>
+      <variation>Y</variation>
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="6\t36684451\t.\tG\tA\t171.90\t.\tANN=A|missense_variant|MODERATE|CDKN1A|gene:ENSG00000124762|transcript|transcript:ENST00000405375|protein_coding|2/3|c.350G&gt;A|p.Cys117Tyr|585/2267|350/495|117/164||\tGT:AD:DP:GQ:PL\t1/1:0,5:5:15:200,15,0">
+      <original>C</original>
+      <variation>Y</variation>
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="6\t36684451\t.\tG\tA\t171.90\t.\tANN=A|missense_variant|MODERATE|CDKN1A|gene:ENSG00000124762|transcript|transcript:ENST00000448526|protein_coding|3/4|c.350G&gt;A|p.Cys117Tyr|422/2104|350/495|117/164||\tGT:AD:DP:GQ:PL\t1/1:0,5:5:15:200,15,0">
+      <original>C</original>
+      <variation>Y</variation>
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="6\t36684451\t.\tG\tA\t171.90\t.\tANN=A|missense_variant|MODERATE|CDKN1A|gene:ENSG00000124762|transcript|transcript:ENST00000373711|protein_coding|3/4|c.350G&gt;A|p.Cys117Tyr|524/793|350/495|117/164||\tGT:AD:DP:GQ:PL\t1/1:0,5:5:15:200,15,0">
+      <original>C</original>
+      <variation>Y</variation>
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="6\t36684451\t.\tG\tA\t171.90\t.\tANN=A|missense_variant|MODERATE|CDKN1A|gene:ENSG00000124762|transcript|transcript:ENST00000615513|protein_coding|2/3|c.350G&gt;A|p.Cys117Tyr|420/2102|350/495|117/164||\tGT:AD:DP:GQ:PL\t1/1:0,5:5:15:200,15,0">
+      <original>C</original>
+      <variation>Y</variation>
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <sequence length="164">MSEPAGDVRQNPCGSKACRRLFGPVDSEQLSRDCDALMAGCIQEARERWNFDFVTETPLEGDFAWERVRGLGLPKLYLPTGPRRGRDELGGGRRPGTSPALLQGTAEEDHVDLSLSCTLVPRSGEQAEGSPGGPGDSQGRKRRQTSMTDFYHSKRRLIFSKRKP</sequence>
+  </entry>
+  </mzLibProteinDb>

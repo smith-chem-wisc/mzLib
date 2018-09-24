@@ -13,42 +13,42 @@ namespace Test
         {
 
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD];
-            Assert.IsTrue(d.Contains(ProductType.B));
-            Assert.IsTrue(d.Contains(ProductType.Y));
+            Assert.IsTrue(d.Contains(ProductType.b));
+            Assert.IsTrue(d.Contains(ProductType.y));
         }
 
         [Test]
         public void TestECD_ProductTypes()
         {
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ECD];
-            Assert.IsTrue(d.Contains(ProductType.C));
-            Assert.IsTrue(d.Contains(ProductType.Y));
-            Assert.IsTrue(d.Contains(ProductType.Zdot));
+            Assert.IsTrue(d.Contains(ProductType.c));
+            Assert.IsTrue(d.Contains(ProductType.y));
+            Assert.IsTrue(d.Contains(ProductType.zPlusOne));
         }
 
         [Test]
         public void TestETD_ProductTypes()
         {
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD];
-            Assert.IsTrue(d.Contains(ProductType.C));
-            Assert.IsTrue(d.Contains(ProductType.Y));
-            Assert.IsTrue(d.Contains(ProductType.Zdot));
+            Assert.IsTrue(d.Contains(ProductType.c));
+            Assert.IsTrue(d.Contains(ProductType.y));
+            Assert.IsTrue(d.Contains(ProductType.zPlusOne));
         }
 
         [Test]
         public void TestEThCD_ProductTypes()
         {
-            List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.EThCD];
-            Assert.IsTrue(d.Contains(ProductType.B));
-            Assert.IsTrue(d.Contains(ProductType.Y));
+            List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.EThcD];
+            Assert.IsTrue(d.Contains(ProductType.b));
+            Assert.IsTrue(d.Contains(ProductType.y));
         }
 
         [Test]
         public void TestAny_ProductTypes()
         {
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.AnyActivationType];
-            Assert.IsTrue(d.Contains(ProductType.B));
-            Assert.IsTrue(d.Contains(ProductType.Y));
+            Assert.IsTrue(d.Contains(ProductType.b));
+            Assert.IsTrue(d.Contains(ProductType.y));
         }
 
         [Test]

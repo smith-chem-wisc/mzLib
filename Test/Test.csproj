@@ -45,11 +45,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="ModFitsTest.cs" />
     <Compile Include="MyPeptideTest.cs" />
     <Compile Include="SeqCoverageTests.cs" />
-    <Compile Include="TestCZE.cs" />
     <Compile Include="TestDissociation.cs" />
     <Compile Include="TestMetaMorpheus.cs" />
     <Compile Include="TestMgf.cs" />
@@ -74,6 +74,7 @@
     <Compile Include="TestPtmListLoader.cs" />
     <Compile Include="TestRange.cs" />
     <Compile Include="TestIsolation.cs" />
+    <Compile Include="TestRetentionTimePrediction.cs" />
     <Compile Include="TestSpectra.cs" />
     <Compile Include="TestTolerance.cs" />
   </ItemGroup>
@@ -81,10 +82,6 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Chromatography\Chromatography.csproj">
-      <Project>{edf2377d-9fa8-4f85-a3e5-63fe085f956f}</Project>
-      <Name>Chromatography</Name>
     </ProjectReference>
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj">
       <Project>{ACE491E5-AC71-4B19-99C9-A947E92EB6C1}</Project>
@@ -173,6 +170,18 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="DatabaseTests\SampleMod_NoComments.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\SeqVar.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\SeqVarLongDeletion.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\SeqVarSymbolWeirdness.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\SeqVarSymbolWeirdness2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="ModificationTests\CommonArtifacts.txt">

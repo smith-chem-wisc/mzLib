@@ -9,7 +9,8 @@ namespace Proteomics
 {
     public class Modification
     {
-        public string Id { get; private set; }
+        public string IdWithMotif { get; private set; }
+        public string OriginalId { get; private set; }
         public string Accession { get; private set; }
         public string ModificationType { get; private set; }
         public string FeatureType { get; private set; }
@@ -36,16 +37,50 @@ namespace Proteomics
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; private set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; private set; }
         public string FileOrigin { get; private set; }
+        protected const double tolForEquality = 1e-9;
 
         public bool ValidModification
         {
-            get { return (this.Id != null && (this.ChemicalFormula != null || this.MonoisotopicMass != null) && this.LocationRestriction != "Unassigned." && this.ModificationType != null && this.FeatureType != "CROSSLINK"); }
+            get
+            {
+                return this.IdWithMotif != null
+                       && (this.ChemicalFormula != null || this.MonoisotopicMass != null)
+                       && this.Target != null
+                       && this.LocationRestriction != "Unassigned."
+                       && this.ModificationType != null
+                       && this.FeatureType != "CROSSLINK"
+                       && !this.ModificationType.Contains(':');
+            }
         }
 
-        public Modification(string _id = null, string _accession = null, string _modificationType = null, string _featureType = null, ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null, double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null, Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null, Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null, string _fileOrigin = null)
-
+        public Modification(string _originalId = null, string _accession = null, string _modificationType = null, string _featureType = null,
+            ModificationMotif _target = null, string _locationRestriction = "Unassigned.", ChemicalFormula _chemicalFormula = null,
+            double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null,
+            Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null,
+            Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
+            string _fileOrigin = null)
         {
-            this.Id = _id;
+
+            if (_originalId != null && _target != null)
+            {
+                if (_originalId.Contains(" on "))
+                {
+                    this.IdWithMotif = _originalId;
+                    this.OriginalId = _originalId.Split(new[] { " on " }, StringSplitOptions.None)[0];
+                }
+                else if (_originalId.Contains(" of "))
+                {
+                    this.IdWithMotif = _originalId.Replace(" of ", " on ");
+                    this.OriginalId = _originalId.Split(new[] { " of ", " on " }, StringSplitOptions.None)[0];
+
+                }
+                else
+                {
+                    this.IdWithMotif = _originalId + " on " + _target.ToString();
+                    this.OriginalId = _originalId;
+                }
+            }
+
             this.Accession = _accession;
             this.ModificationType = _modificationType;
             this.FeatureType = _featureType;
@@ -94,19 +129,25 @@ namespace Proteomics
         {
             Modification m = o as Modification;
             return o != null
-                && m.ToString() == this.ToString();
+                && IdWithMotif == m.IdWithMotif
+                && OriginalId == m.OriginalId
+                && ModificationType == m.ModificationType
+                && (MonoisotopicMass == m.MonoisotopicMass
+                    || MonoisotopicMass != null && m.MonoisotopicMass != null && Math.Abs((double)m.MonoisotopicMass - (double)MonoisotopicMass) < tolForEquality);
         }
 
         public override int GetHashCode()
         {
-            return this.ToString().GetHashCode();
+            string id = IdWithMotif ?? OriginalId ?? string.Empty;
+            string mt = ModificationType ?? string.Empty;
+            return id.GetHashCode() ^ mt.GetHashCode();
         }
 
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            if (this.Id != null)
-            { sb.AppendLine("ID   " + this.Id); }
+            if (this.IdWithMotif != null)
+            { sb.AppendLine("ID   " + this.IdWithMotif); }
             if (this.Accession != null)
             { sb.AppendLine("AC   " + this.Accession); }
             if (this.ModificationType != null)
@@ -196,11 +237,15 @@ namespace Proteomics
                     {
                         List<double> myValues = new List<double>(this.DiagnosticIons[myKey]);
                         myValues.Sort();
+
                         for (int i = 0; i < myValues.Count; i++)
                         {
                             myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
+
                             if (i < myValues.Count - 1)
+                            {
                                 myLine.Append(" or ");
+                            }
                         }
                     }
                     sb.Append(myLine);
@@ -210,7 +255,9 @@ namespace Proteomics
             if (this.Keywords != null)
             {
                 if (this.Keywords.Count != 0)
-                { sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b))); }
+                {
+                    sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
+                }
             }
 
             return sb.ToString();
@@ -222,14 +269,33 @@ namespace Proteomics
 
             sb.Append(this.ToString());
 
-            if (this.Id == null)
-                sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.Id);
+            if (this.IdWithMotif == null)
+            {
+                sb.AppendLine("#Required field ID missing or malformed. Current value = " + this.IdWithMotif);
+            }
+
             if (this.ModificationType == null)
+            {
                 sb.AppendLine("#Required field MT missing or malformed. Current value = " + this.ModificationType);
+            }
+
             if (this.LocationRestriction == null)
-                sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.LocationRestriction + ".");
+            {
+                sb.AppendLine("#Required field PP missing or malformed. Current value = " + this.LocationRestriction +
+                              ".");
+            }
+
             if (this.ChemicalFormula == null && this.MonoisotopicMass == null)
-                sb.AppendLine("#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
+            {
+                sb.AppendLine(
+                    "#Required fields CF and MM are both missing or malformed. One of those two fields must be provided.");
+            }
+
+            if (this.ModificationType != null && this.ModificationType.Contains(':'))
+            {
+                sb.AppendLine("#Modification type cannot contain ':'!");
+            }
+
             sb.Append("#This modification can be found in file " + this.FileOrigin);
 
             return sb.ToString();
