@@ -102,12 +102,12 @@ namespace Test
         }
 
         [Test]
-        public void FilesLoading()
+        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
-            Assert.AreEqual(2633, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(2639, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -137,7 +137,7 @@ namespace Test
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            Assert.AreEqual(333, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(334, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
@@ -155,7 +155,7 @@ namespace Test
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
-            Assert.AreEqual(2966, sampleModList.Count());
+            Assert.AreEqual(2973, sampleModList.Count());
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
