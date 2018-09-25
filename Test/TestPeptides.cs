@@ -19,8 +19,9 @@
 using Chemistry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics;
 using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -761,6 +762,22 @@ namespace Test
             Assert.That(() => new Peptide("A["), Throws.TypeOf<MzLibException>()
             .With.Property("Message")
             .EqualTo("Couldn't find the closing ] for a modification in this sequence: A["));
+        }
+
+        [Test]
+        public void TestNonSpecificOverride()
+        {
+            string trypsin = "trypsin";
+            DigestionParams digestionParams = new DigestionParams(trypsin);
+            Assert.AreEqual(digestionParams.Protease.Name, trypsin);
+
+            digestionParams = new DigestionParams(trypsin, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            Assert.AreEqual(digestionParams.Protease.Name, "singleN");
+            Assert.AreEqual(digestionParams.SpecificProtease.Name, trypsin);
+
+            digestionParams = new DigestionParams(trypsin, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            Assert.AreEqual(digestionParams.Protease.Name, "singleC");
+            Assert.AreEqual(digestionParams.SpecificProtease.Name, trypsin);
         }
 
         private class OkComparer : IEqualityComparer<DigestionPointAndLength>

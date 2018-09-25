@@ -110,7 +110,7 @@ namespace Proteomics
             List<Modification> variableModifications)
         {
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-            return digestionParams.SemiSpecificDigestion ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);
+            return digestionParams.SearchModeType == CleavageSpecificity.Semi ? digestion.SemiSpecificDigestion(this) : digestion.Digestion(this);
         }
 
         /// <summary>
