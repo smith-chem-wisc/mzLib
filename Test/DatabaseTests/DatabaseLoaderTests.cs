@@ -102,7 +102,7 @@ namespace Test
         }
 
         [Test]
-        public void FilesLoading()
+        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, "elements2.dat"));
 
@@ -156,7 +156,6 @@ namespace Test
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
             Assert.AreEqual(2973, sampleModList.Count());
-            string s = "";
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
