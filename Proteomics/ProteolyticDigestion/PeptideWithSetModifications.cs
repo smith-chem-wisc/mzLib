@@ -24,7 +24,6 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
-        [NonSerialized] private Dictionary<FragmentationTerminus, CompactPeptide> _compactPeptides;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string DigestionParamString; // used to get digestion param object after deserialization
@@ -207,7 +206,7 @@ namespace Proteomics.ProteolyticDigestion
                 // we're separating the N and C terminal masses and computing a separate compact peptide for each one
                 // this speeds calculations up without producing unnecessary terminus fragment info
                 FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
-                NeutralTerminusFragment[] terminalMasses = CompactPeptide(temporaryFragmentationTerminus).TerminalMasses;
+                NeutralTerminusFragment[] terminalMasses = new CompactPeptide(this, temporaryFragmentationTerminus).TerminalMasses;
 
                 for (int f = 0; f < terminalMasses.Length; f++)
                 {
@@ -318,33 +317,7 @@ namespace Proteomics.ProteolyticDigestion
                 yield return (ProductType.zPlusOne, BaseSequence.Length - i);
             }
         }
-
-        public CompactPeptide CompactPeptide(FragmentationTerminus fragmentationTerminus)
-        {
-            // need this for deserialization
-            if (_compactPeptides == null)
-            {
-                _compactPeptides = new Dictionary<FragmentationTerminus, CompactPeptide>();
-            }
-
-            if (_compactPeptides.TryGetValue(fragmentationTerminus, out CompactPeptide compactPeptide))
-            {
-                return compactPeptide;
-            }
-
-            CompactPeptide cp = new CompactPeptide(this, fragmentationTerminus);
-
-            lock (_compactPeptides)
-            {
-                if (!_compactPeptides.ContainsKey(fragmentationTerminus))
-                {
-                    _compactPeptides.Add(fragmentationTerminus, cp);
-                }
-            }
-
-            return cp;
-        }
-
+        
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
