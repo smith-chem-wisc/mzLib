@@ -180,7 +180,7 @@ namespace Proteomics.ProteolyticDigestion
             // molecular ion
             //yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.None, this.MonoisotopicMass, Length, Length), 0);
 
-            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+            var productCollection = DissociationTypeCollection.ProductTypesToSearch(dissociationType, fragmentationTerminus);
 
             List<(ProductType, int)> skippers = new List<(ProductType, int)>();
             foreach (var product in productCollection.Where(f => f != ProductType.zPlusOne))
