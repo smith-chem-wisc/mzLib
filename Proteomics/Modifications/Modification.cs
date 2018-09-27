@@ -60,7 +60,6 @@ namespace Proteomics
             Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
             string _fileOrigin = null)
         {
-
             if (_originalId != null && _target != null)
             {
                 if (_originalId.Contains(" on "))
@@ -72,7 +71,6 @@ namespace Proteomics
                 {
                     this.IdWithMotif = _originalId.Replace(" of ", " on ");
                     this.OriginalId = _originalId.Split(new[] { " of ", " on " }, StringSplitOptions.None)[0];
-
                 }
                 else
                 {
@@ -207,48 +205,50 @@ namespace Proteomics
             {
                 if (this.NeutralLosses.Count != 0)
                 {
-                    StringBuilder myLine = new StringBuilder();
-                    myLine.Append("NL   ");
-                    List<DissociationType> myKeys = new List<DissociationType>(this.NeutralLosses.Keys);
-                    myKeys.Sort();
-                    foreach (DissociationType myKey in myKeys)
+                    List<DissociationType> allDissociationTypes = this.NeutralLosses.Keys.ToList();
+                    allDissociationTypes.Sort();
+
+                    foreach (DissociationType dissociationType in allDissociationTypes)
                     {
-                        List<double> myValues = new List<double>(this.NeutralLosses[myKey]);
+                        StringBuilder myLine = new StringBuilder();
+                        myLine.Append("NL   ");
+
+                        List<double> myValues = new List<double>(this.NeutralLosses[dissociationType]);
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
+                            myLine.Append(dissociationType + ":" + ClassExtensions.RoundedDouble(myValues[i]));
                             if (i < myValues.Count - 1)
                                 myLine.Append(" or ");
                         }
+
+                        sb.AppendLine(myLine.ToString());
                     }
-                    sb.Append(myLine);
                 }
             }
             if (this.DiagnosticIons != null)
             {
                 if (this.DiagnosticIons.Count != 0)
                 {
-                    StringBuilder myLine = new StringBuilder();
-                    myLine.Append("DI   ");
-                    List<DissociationType> myKeys = new List<DissociationType>(this.DiagnosticIons.Keys);
-                    myKeys.Sort();
-                    foreach (DissociationType myKey in myKeys)
-                    {
-                        List<double> myValues = new List<double>(this.DiagnosticIons[myKey]);
-                        myValues.Sort();
+                    List<DissociationType> allDissociationTypes = this.DiagnosticIons.Keys.ToList();
+                    allDissociationTypes.Sort();
 
+                    foreach (DissociationType dissociationType in allDissociationTypes)
+                    {
+                        StringBuilder myLine = new StringBuilder();
+                        myLine.Append("DI   ");
+
+                        List<double> myValues = new List<double>(this.DiagnosticIons[dissociationType]);
+                        myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(myKey + ":" + ClassExtensions.RoundedDouble(myValues[i]));
-
+                            myLine.Append(dissociationType + ":" + ClassExtensions.RoundedDouble(myValues[i]));
                             if (i < myValues.Count - 1)
-                            {
                                 myLine.Append(" or ");
-                            }
                         }
+
+                        sb.AppendLine(myLine.ToString());
                     }
-                    sb.Append(myLine);
                 }
             }
 
