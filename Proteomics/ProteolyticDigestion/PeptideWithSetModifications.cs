@@ -317,7 +317,7 @@ namespace Proteomics.ProteolyticDigestion
                 yield return (ProductType.zPlusOne, BaseSequence.Length - i);
             }
         }
-        
+
         public PeptideWithSetModifications Localize(int j, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
@@ -430,6 +430,11 @@ namespace Proteomics.ProteolyticDigestion
                             {
                                 throw new MzLibUtil.MzLibException(
                                     "Could not find modification while reading string: " + FullSequence);
+                            }
+
+                            if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
+                            {
+                                currentModificationLocation = baseSequenceSb.Length + 2;
                             }
 
                             AllModsOneIsNterminus.Add(currentModificationLocation, mod);
