@@ -34,9 +34,9 @@ namespace Proteomics.ProteolyticDigestion
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
-            int oneBasedEndResidueInProtein, string peptideDescription, int missedCleavages,
+            int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
-           : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
+           : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
@@ -52,8 +52,9 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
             DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
-            int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue, string peptideDescription = null)
-            : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, peptideDescription)
+            int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
+            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null)
+            : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
         {
             if (sequence.Contains("|"))
             {
@@ -358,7 +359,7 @@ namespace Proteomics.ProteolyticDigestion
             dictWithLocalizedMass.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
 
             var peptideWithLocalizedMass = new PeptideWithSetModifications(Protein, _digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
-                PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
+                CleavageSpecificity, PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
 
             return peptideWithLocalizedMass;
         }

@@ -669,7 +669,7 @@ namespace Test
         public static void Test_TerminusSpecificProductTypesFromPeptideWithSetMods()
         {
             Protein protein = new Protein("PEPTIDE", "accession");
-            PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, "", 0, new Dictionary<int, Modification>(), 0);
+            PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
 
             Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
             Assert.AreEqual(new List<ProductType> { ProductType.b }, p.Fragment(DissociationType.HCD, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
@@ -701,7 +701,7 @@ namespace Test
             //FOR CID B1 ions should always be missing whether or not there is a modification on first amino acid or not.
 
             Protein protein = new Protein("PEPTIDE", "accession");
-            PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, "", 0, new Dictionary<int, Modification>(), 0);
+            PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
 
             var f = p.Fragment(DissociationType.CID, FragmentationTerminus.Both);
             Assert.AreEqual(11, f.Count());
