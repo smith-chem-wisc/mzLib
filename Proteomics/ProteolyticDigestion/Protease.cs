@@ -322,7 +322,7 @@ namespace Proteomics.ProteolyticDigestion
             for (int i = 1; i <= maxIndexSemi; i++)
             {
                 //fixedC
-                int nTerminusProtein = oneBasedIndicesToCleaveAfter[0] + 1;
+                int nTerminusProtein = oneBasedIndicesToCleaveAfter[0];
                 int cTerminusProtein = oneBasedIndicesToCleaveAfter[i];
                 HashSet<int> localOneBasedIndicesToCleaveAfter = new HashSet<int>();
                 for (int j = 1; j < i; j++)//j starts at 1, because zero is n terminus
