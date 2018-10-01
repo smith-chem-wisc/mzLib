@@ -101,7 +101,7 @@ namespace Proteomics.ProteolyticDigestion
             int maxIndex = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex;
             for (int i = 1; i <= maxIndex; i++) //i is the difference between indexes, so if it starts at zero, then the peptide has length = 0
             {
-                if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N) //tricky, if it's N then we want the extra peptide at the C terminus |_
+                if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N) //tricky, it's N because we want the extra peptide at the C terminus |_
                 {
                     int peptideLength = oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i];
                     if (peptideLength >= MinPeptideLength)

@@ -449,7 +449,7 @@ namespace Test
             // has the same properties as before it was serialized. This peptide is unmodified
             string sequence = "PEPTIDE";
             PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0, null);
-            CompactPeptide cp = p.CompactPeptide(FragmentationTerminus.Both);
+            CompactPeptide cp = new CompactPeptide(p, FragmentationTerminus.Both);
             CompactPeptide deserializedCp = null;
 
             string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestCompactPeptideSerialization");

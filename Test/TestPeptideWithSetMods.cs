@@ -60,5 +60,30 @@ namespace Test
             Assert.That(pep.AllModsOneIsNterminus.Count == 3);
             Assert.That(pep.AllModsOneIsNterminus.Keys.ToList().SequenceEqual(new int[] { 1, 3, 8 }));
         }
+
+        [Test]
+        public static void TestCTermAndLastSideChainModParsing()
+        {
+            string fullSequence = "PEPTIDE[Mod:MyMod on E][PeptideCTermMod:MyCTermMod on E]";
+
+            ModificationMotif.TryGetMotif("E", out var motif);
+
+            Modification mod = new Modification(_originalId: "MyMod", _modificationType: "Mod",
+                _monoisotopicMass: 1, _locationRestriction: "Anywhere.", _target: motif);
+
+            Modification cTermMod = new Modification(_originalId: "MyCTermMod", _modificationType: "PeptideCTermMod",
+                _monoisotopicMass: 1, _locationRestriction: "Peptide C-terminal.", _target: motif);
+
+            Dictionary<string, Modification> mods = new Dictionary<string, Modification>
+            {
+                { "MyMod on E", mod },
+                { "MyCTermMod on E", cTermMod }
+            };
+
+            PeptideWithSetModifications pep = new PeptideWithSetModifications(fullSequence, mods);
+
+            Assert.That(pep.AllModsOneIsNterminus.Count == 2);
+            Assert.That(pep.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+        }
     }
 }
