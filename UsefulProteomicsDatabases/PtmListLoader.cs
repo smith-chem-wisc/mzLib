@@ -276,11 +276,19 @@ namespace UsefulProteomicsDatabases
                         // NOW CUSTOM FIELDS:
 
                         case "NL": // Netural Losses. when field doesn't exist, single equal to 0. these must all be on one line;
-                            _neutralLosses = DiagnosticIonsAndNeutralLosses(modValue);
+                            if (_neutralLosses.IsNullOrEmpty())
+                            {
+                                _neutralLosses = new Dictionary<DissociationType, List<double>>();
+                            }
+                            _neutralLosses = DiagnosticIonsAndNeutralLosses(modValue, _neutralLosses);
                             break;
 
                         case "DI": // Masses of diagnostic ions. Might just be "DI"!!! If field doesn't exist, create an empty list!
-                            _diagnosticIons = DiagnosticIonsAndNeutralLosses(modValue);
+                            if (_diagnosticIons.IsNullOrEmpty())
+                            {
+                                _diagnosticIons = new Dictionary<DissociationType, List<double>>();
+                            }
+                            _diagnosticIons = DiagnosticIonsAndNeutralLosses(modValue, _diagnosticIons);
                             break;
 
                         case "MT": // Modification Type. If the field doesn't exist, set to the database name
@@ -313,6 +321,11 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
+        }
+
+        private static bool IsNullOrEmpty<T, U>(this IDictionary<T, U> Dictionary)
+        {
+            return (Dictionary == null || Dictionary.Count < 1);
         }
 
         /// <summary>
@@ -373,7 +386,7 @@ namespace UsefulProteomicsDatabases
                 case "HCD":
                     return DissociationType.HCD;
 
-                case "EThCD":
+                case "EThcD":
                     return DissociationType.EThcD;
 
                 case "Custom":
@@ -389,10 +402,8 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="oneEntry"></param>
         /// <returns></returns>
-        public static Dictionary<DissociationType, List<double>> DiagnosticIonsAndNeutralLosses(string oneEntry)
+        public static Dictionary<DissociationType, List<double>> DiagnosticIonsAndNeutralLosses(string oneEntry, Dictionary<DissociationType, List<double>> dAndNDictionary)
         {
-            Dictionary<DissociationType, List<double>> dAndNDictionary = new Dictionary<DissociationType, List<double>>();
-
             try
             {
                 string[] nlOrDiEntries = oneEntry.Split(new string[] { " or " }, StringSplitOptions.None);
@@ -401,33 +412,24 @@ namespace UsefulProteomicsDatabases
                     string[] entryKeyValue = nlOrDiEntry.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
                     if (entryKeyValue.Length == 1) // assume there is no dissociation type listed and only formula or mass are supplied
                     {
-                        try // see if dictionary already contains key AnyActivationType
+                        double mm;
+                        try
                         {
-                            double mm;
-                            try
-                            {
-                                mm = ChemicalFormula.ParseFormula(entryKeyValue[0]).MonoisotopicMass; // turn chemical formula into monoisotopic mass
-                            }
-                            catch
-                            {
-                                mm = double.Parse(entryKeyValue[0], CultureInfo.InvariantCulture);
-                            }
-
-                            dAndNDictionary.TryGetValue(DissociationType.AnyActivationType, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys,
-                            val.Add(mm); // no check for redundancy. could check for that in the future.
+                            mm = ChemicalFormula.ParseFormula(entryKeyValue[0]).MonoisotopicMass; // turn chemical formula into monoisotopic mass
                         }
-                        catch // dictionary doesn't contain key AnyActiviationType so we're gonna add it.
+                        catch
                         {
-                            double mm;
-                            try
-                            {
-                                mm = ChemicalFormula.ParseFormula(entryKeyValue[0]).MonoisotopicMass; // turn chemical formula into monoisotopic mass
-                            }
-                            catch
-                            {
-                                mm = double.Parse(entryKeyValue[0], CultureInfo.InvariantCulture);
-                            }
-                            dAndNDictionary.Add(DissociationType.AnyActivationType, new List<double>() { mm });
+                            mm = double.Parse(entryKeyValue[0], CultureInfo.InvariantCulture);
+                        }
+
+                        dAndNDictionary.TryGetValue(DissociationType.AnyActivationType, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys,
+                        if (val != null)
+                        {
+                            dAndNDictionary[DissociationType.AnyActivationType].Add(mm);
+                        }
+                        else
+                        {
+                            dAndNDictionary.Add(DissociationType.AnyActivationType, new List<double> { mm });
                         }
                     }
                     else if (entryKeyValue.Length == 2)  // an entry with two values is assumed to have a dissociation type and a neutral loss formula or mass
@@ -435,33 +437,26 @@ namespace UsefulProteomicsDatabases
                         DissociationType? dt = ModDissociationType(entryKeyValue[0]);
                         if (dt != null)
                         {
-                            try // see if dictionary already contains key AnyActivationType
+                            //try // see if dictionary already contains key AnyActivationType
+                            //{
+                            double mm;
+                            try
                             {
-                                double mm;
-                                try
-                                {
-                                    mm = ChemicalFormula.ParseFormula(entryKeyValue[1]).MonoisotopicMass; // turn chemical formula into monoisotopic mass
-                                }
-                                catch
-                                {
-                                    mm = double.Parse(entryKeyValue[1], CultureInfo.InvariantCulture);
-                                }
-
-                                dAndNDictionary.TryGetValue((DissociationType)dt, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys,
-                                val.Add(mm); // no check for redundancy. could check for that in the future.
+                                mm = ChemicalFormula.ParseFormula(entryKeyValue[1]).MonoisotopicMass; // turn chemical formula into monoisotopic mass
                             }
-                            catch // dictionary doesn't contain key AnyActiviationType so we're gonna add it.
+                            catch
                             {
-                                double mm;
-                                try
-                                {
-                                    mm = ChemicalFormula.ParseFormula(entryKeyValue[1]).MonoisotopicMass; // turn chemical formula into monoisotopic mass
-                                }
-                                catch
-                                {
-                                    mm = double.Parse(entryKeyValue[1], CultureInfo.InvariantCulture);
-                                }
-                                dAndNDictionary.Add((DissociationType)dt, new List<double>() { mm });
+                                mm = double.Parse(entryKeyValue[1], CultureInfo.InvariantCulture);
+                            }
+
+                            dAndNDictionary.TryGetValue((DissociationType)dt, out List<double> val); // check the dictionary to see if AnyActivationType is already listed in the keys,
+                            if (val != null)
+                            {
+                                dAndNDictionary[(DissociationType)dt].Add(mm);
+                            }
+                            else
+                            {
+                                dAndNDictionary.Add((DissociationType)dt, new List<double> { mm });
                             }
                         }
                         else
