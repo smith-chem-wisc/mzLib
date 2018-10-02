@@ -47,7 +47,8 @@ namespace Proteomics.ProteolyticDigestion
 
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - MaximumMissedCleavages - 1; i++) //it's possible not to go through this loop, and that's okay. It will get caught in the next loop
             {
-                if (Protease.Retain(i, InitiatorMethionineBehavior, protein[0])) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
+                bool retain = Protease.Retain(i, InitiatorMethionineBehavior, protein[0]);
+                if (retain) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
                 {
                     int peptideLength = oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1] - oneBasedIndicesToCleaveAfter[i];
                     if (peptideLength >= MinPeptideLength) //if bigger than min
@@ -70,7 +71,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
 
-                if (Protease.Cleave(i, InitiatorMethionineBehavior, protein[0])) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
+                if (Protease.Cleave(i, InitiatorMethionineBehavior, protein[0]) && (DigestionParams.FragmentationTerminus == FragmentationTerminus.N || !retain)) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
                 {
                     int peptideLength = oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavages + 1] - 1;
                     if (peptideLength >= MinPeptideLength)
@@ -157,8 +158,8 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         public IEnumerable<PeptideWithSetModifications> Digestion(Protein protein)
         {
-            var intervals = Protease.GetDigestionIntervals(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength);
-            return intervals.SelectMany(peptide => peptide.GetModifiedPeptides(AllKnownFixedModifications, DigestionParams, VariableModifications));
+            var unmodifiedPeptides = Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength);
+            return unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(AllKnownFixedModifications, DigestionParams, VariableModifications));
         }
     }
 }

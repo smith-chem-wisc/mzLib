@@ -6,6 +6,7 @@
         Semi,
         Full,
         SingleN,
-        SingleC
+        SingleC,
+        Unknown
     }
 }

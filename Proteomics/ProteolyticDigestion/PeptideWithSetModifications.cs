@@ -43,6 +43,7 @@ namespace Proteomics.ProteolyticDigestion
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
             DigestionParamString = digestionParams.ToString();
+            UpdateCleavageSpecificity();
         }
 
         /// <summary>
@@ -506,6 +507,14 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             FullSequence = subsequence.ToString();
+        }
+
+        private void UpdateCleavageSpecificity()
+        {
+            if (CleavageSpecificity == CleavageSpecificity.Unknown)
+            {
+                CleavageSpecificity = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein.BaseSequence, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein);
+            }
         }
     }
 }
