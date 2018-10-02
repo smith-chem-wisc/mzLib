@@ -57,7 +57,9 @@ namespace Proteomics.ProteolyticDigestion
                 cleavableMatches++;
             }
 
-            if (cleavableMatches == 0)
+            if (cleavableMatches == 0 
+                || CleavageSpecificity == CleavageSpecificity.SingleN 
+                || CleavageSpecificity == CleavageSpecificity.SingleC)
             {
                 return CleavageSpecificity.None;
             }
