@@ -27,7 +27,7 @@ namespace Proteomics.ProteolyticDigestion
         public int OneBasedStartResidueInProtein { get; } // the residue number at which the peptide begins (the first residue in a protein is 1)
         public int OneBasedEndResidueInProtein { get; } // the residue number at which the peptide ends
         public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
-        public string PeptideDescription { get; } //unstructured explanation of source
+        public string PeptideDescription { get; internal set; } //unstructured explanation of source
         public CleavageSpecificity CleavageSpecificity { get; internal set; } //structured explanation of source
         public int Length { get { return BaseSequence.Length; } } //how many residues long the peptide is
 

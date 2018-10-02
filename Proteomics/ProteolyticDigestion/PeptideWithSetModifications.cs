@@ -514,6 +514,7 @@ namespace Proteomics.ProteolyticDigestion
             if (CleavageSpecificity == CleavageSpecificity.Unknown)
             {
                 CleavageSpecificity = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein.BaseSequence, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein);
+                PeptideDescription = CleavageSpecificity.ToString();
             }
         }
     }
