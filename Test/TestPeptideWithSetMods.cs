@@ -146,11 +146,6 @@ namespace Test
             DigestionParams modernSemiDigestionParamsC = new DigestionParams(trypsinForTestNonAndSemiSpecificDigests.Name, 3, 2, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
             var fiveCleavageProductsModernSemiTrypsinC = fiveCleavages.Digest(modernSemiDigestionParamsC, null, null).ToList();
             Assert.AreEqual(6, fiveCleavageProductsModernSemiTrypsinC.Count);
-
-
-            //check the speedy nonspecific search
-            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Variable, FragmentationTerminus.N, 16);
-            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Variable, FragmentationTerminus.C, 16);
             
             //test the maxPeptideLength for both singleN and SingleC (variable methionine)
             //Single N max peptide length
@@ -171,6 +166,10 @@ namespace Test
                 Assert.IsTrue(pep.BaseSequence.Length <= 4 && pep.BaseSequence.Length >= 2);
             }
 
+            //test speedy nonspecific with variable methionine
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Variable, FragmentationTerminus.N, 17);
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Variable, FragmentationTerminus.C, 17);
+
             //test speedy nonspecific with cleaved methionine
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Cleave, FragmentationTerminus.N, 16);
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Cleave, FragmentationTerminus.C, 16);
@@ -180,7 +179,6 @@ namespace Test
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.C, 17);
         }
 
-        [TestCase]
         private static void TestSingleProteases(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior, FragmentationTerminus fragmentationTerminus, int numSequencesExpected)
         {
             string protease = FragmentationTerminus.N == fragmentationTerminus ? "singleN" : "singleC";
