@@ -93,8 +93,10 @@ namespace UsefulProteomicsDatabases
                             {
                                 if (neutralLosses == null)
                                 {
-                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>();
-                                    neutralLosses.Add(MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0 });
+                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>
+                                    {
+                                        { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0 }}
+                                    };
                                 }
                                 else
                                 {
@@ -124,8 +126,10 @@ namespace UsefulProteomicsDatabases
                                 }
                                 if (neutralLosses == null)
                                 {
-                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>();
-                                    neutralLosses.Add(MassSpectrometry.DissociationType.AnyActivationType, new List<double> { cfnl.MonoisotopicMass });
+                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>
+                                    {
+                                        { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { cfnl.MonoisotopicMass }}
+                                    };
                                 }
                                 else
                                 {

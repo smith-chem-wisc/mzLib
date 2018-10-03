@@ -448,7 +448,7 @@ namespace Test
             // purpose of this test is to serialize/deserialize a CompactPeptide and make sure the deserialized peptide
             // has the same properties as before it was serialized. This peptide is unmodified
             string sequence = "PEPTIDE";
-            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0, null);
+            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0);
             CompactPeptide cp = new CompactPeptide(p, FragmentationTerminus.Both);
             CompactPeptide deserializedCp = null;
 
@@ -478,7 +478,7 @@ namespace Test
             // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized peptide
             // has the same properties as before it was serialized. This peptide is unmodified and generated from reading in a string
             string sequence = "PEPTIDE";
-            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0, null);
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0);
             PeptideWithSetModifications deserializedPeptide = null;
 
             string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromString");
