@@ -147,22 +147,15 @@ namespace Test
             var fiveCleavageProductsModernSemiTrypsinC = fiveCleavages.Digest(modernSemiDigestionParamsC, null, null).ToList();
             Assert.AreEqual(6, fiveCleavageProductsModernSemiTrypsinC.Count);
 
-            
+
             //check the speedy nonspecific search
-            //Fixed N
-            DigestionParams modernNonSpecificN = new DigestionParams("singleN", 50, 2, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
-            var fiveCleavageProductsModernNonSpecificN = fiveCleavages.Digest(modernNonSpecificN, null, null).ToList();
-            Assert.AreEqual(17, fiveCleavageProductsModernNonSpecificN.Count);
-
-            //Fixed C
-            DigestionParams modernNonSpecificC = new DigestionParams("singleC", 50, 2, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
-            var fiveCleavageProductsModernNonSpecificC = fiveCleavages.Digest(modernNonSpecificC, null, null).ToList();
-            Assert.AreEqual(17, fiveCleavageProductsModernNonSpecificC.Count);
-
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Variable, FragmentationTerminus.N, 16);
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Variable, FragmentationTerminus.C, 16);
+            
             //test the maxPeptideLength for both singleN and SingleC (variable methionine)
             //Single N max peptide length
-            modernNonSpecificN = new DigestionParams("singleN", 4, 2, 4, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
-            fiveCleavageProductsModernNonSpecificN = fiveCleavages.Digest(modernNonSpecificN, null, null).ToList();
+            var modernNonSpecificN = new DigestionParams("singleN", 4, 2, 4, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            var fiveCleavageProductsModernNonSpecificN = fiveCleavages.Digest(modernNonSpecificN, null, null).ToList();
             Assert.AreEqual(17, fiveCleavageProductsModernNonSpecificN.Count);
             foreach (var pep in fiveCleavageProductsModernNonSpecificN)
             {
@@ -170,8 +163,8 @@ namespace Test
             }
             
             //Single C max peptide length
-            modernNonSpecificC = new DigestionParams("singleC", 4, 2, 4, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
-            fiveCleavageProductsModernNonSpecificC = fiveCleavages.Digest(modernNonSpecificC, null, null).ToList();
+            var modernNonSpecificC = new DigestionParams("singleC", 4, 2, 4, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            var fiveCleavageProductsModernNonSpecificC = fiveCleavages.Digest(modernNonSpecificC, null, null).ToList();
             Assert.AreEqual(17, fiveCleavageProductsModernNonSpecificC.Count);
             foreach (var pep in fiveCleavageProductsModernNonSpecificC)
             {
@@ -179,27 +172,21 @@ namespace Test
             }
 
             //test speedy nonspecific with cleaved methionine
-            //Single N
-            DigestionParams modernNonSpecificNCleave = new DigestionParams("singleN", 50, 2, searchModeType: CleavageSpecificity.None, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave, fragmentationTerminus: FragmentationTerminus.N);
-            fiveCleavageProductsModernNonSpecificN = fiveCleavages.Digest(modernNonSpecificNCleave, null, null).ToList();
-            Assert.AreEqual(16, fiveCleavageProductsModernNonSpecificN.Count);
-
-            //Single C
-            DigestionParams modernNonSpecificCCleave = new DigestionParams("singleC", 50, 2, searchModeType: CleavageSpecificity.None, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave, fragmentationTerminus: FragmentationTerminus.C);
-            fiveCleavageProductsModernNonSpecificC = fiveCleavages.Digest(modernNonSpecificCCleave, null, null).ToList();
-            Assert.AreEqual(16, fiveCleavageProductsModernNonSpecificC.Count);
-
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Cleave, FragmentationTerminus.N, 16);
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Cleave, FragmentationTerminus.C, 16);
 
             //test speedy nonspecific with retained methionine
-            //Single N
-            DigestionParams modernNonSpecificNRetain = new DigestionParams("singleN", 50, 2, searchModeType: CleavageSpecificity.None, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain, fragmentationTerminus: FragmentationTerminus.N);
-            fiveCleavageProductsModernNonSpecificN = fiveCleavages.Digest(modernNonSpecificNRetain, null, null).ToList();
-            Assert.AreEqual(17, fiveCleavageProductsModernNonSpecificN.Count);
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.N, 17);
+            TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.C, 17);
+        }
 
-            //Single C
-            DigestionParams modernNonSpecificCRetain = new DigestionParams("singleC", 50, 2, searchModeType: CleavageSpecificity.None, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain, fragmentationTerminus: FragmentationTerminus.C);
-            fiveCleavageProductsModernNonSpecificC = fiveCleavages.Digest(modernNonSpecificCRetain, null, null).ToList();
-            Assert.AreEqual(17, fiveCleavageProductsModernNonSpecificC.Count);
+        [TestCase]
+        private static void TestSingleProteases(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior, FragmentationTerminus fragmentationTerminus, int numSequencesExpected)
+        {
+            string protease = FragmentationTerminus.N == fragmentationTerminus ? "singleN" : "singleC";
+            DigestionParams digestionParams = new DigestionParams(protease, 50, 2, searchModeType: CleavageSpecificity.None, initiatorMethionineBehavior: initiatorMethionineBehavior, fragmentationTerminus: fragmentationTerminus);
+            var products = protein.Digest(digestionParams, null, null).ToList();
+            Assert.AreEqual(numSequencesExpected, products.Count);
         }
 
         [Test]
