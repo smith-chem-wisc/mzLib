@@ -83,14 +83,14 @@ namespace Test
                     if ((pep.BaseSequence[0] == pep.BaseSequence[1] || pep.BaseSequence[0] == 'M') && (pep.BaseSequence[pep.BaseSequence.Length - 1] == 'K'
                         || (pep.BaseSequence[pep.BaseSequence.Length - 1] == 'G' && pep.BaseSequence[pep.BaseSequence.Length - 2] == 'G')))
                     {
-                        Assert.IsTrue(pep.CleavageSpecificity == CleavageSpecificity.Full);
+                        Assert.IsTrue(pep.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
                     }
                     else
                     {
-                        Assert.IsTrue(pep.CleavageSpecificity == CleavageSpecificity.Semi);
+                        Assert.IsTrue(pep.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
                     }
                     PeptideWithSetModifications pwsmRemake = new PeptideWithSetModifications(fiveCleavages, semiDigestionParams, pep.OneBasedStartResidueInProtein, pep.OneBasedEndResidueInProtein, CleavageSpecificity.Unknown, "", 3, pep.AllModsOneIsNterminus, 0);
-                    Assert.IsTrue(pwsmRemake.CleavageSpecificity == pep.CleavageSpecificity);
+                    Assert.IsTrue(pwsmRemake.CleavageSpecificityForFdrCategory == pep.CleavageSpecificityForFdrCategory);
 
                     sToFind = s.Substring(0, semiDigestionParams.MinPeptideLength + i);
                     peps = fiveCleavageProductsSemiTrypsin.Where(x => x.BaseSequence.Equals(sToFind)).ToArray();
@@ -98,14 +98,14 @@ namespace Test
                     pep = peps[0];
                     if ((pep.BaseSequence[0] == pep.BaseSequence[1] || pep.BaseSequence[0] == 'M') && pep.BaseSequence.Last() == 'K')
                     {
-                        Assert.IsTrue(pep.CleavageSpecificity == CleavageSpecificity.Full);
+                        Assert.IsTrue(pep.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
                     }
                     else
                     {
-                        Assert.IsTrue(pep.CleavageSpecificity == CleavageSpecificity.Semi);
+                        Assert.IsTrue(pep.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
                     }
                     pwsmRemake = new PeptideWithSetModifications(fiveCleavages, semiDigestionParams, pep.OneBasedStartResidueInProtein, pep.OneBasedEndResidueInProtein, CleavageSpecificity.Unknown, "", 3, pep.AllModsOneIsNterminus, 0);
-                    Assert.IsTrue(pwsmRemake.CleavageSpecificity == pep.CleavageSpecificity);
+                    Assert.IsTrue(pwsmRemake.CleavageSpecificityForFdrCategory == pep.CleavageSpecificityForFdrCategory);
                 }
             }
             Assert.AreEqual(85, fiveCleavageProductsSemiTrypsin.Count);

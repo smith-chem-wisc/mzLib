@@ -34,18 +34,20 @@ namespace Proteomics.ProteolyticDigestion
         public List<Modification> VariableModifications { get; set; }
 
         /// <summary>
-        /// Gets peptides for semispecific digestion of a protein
-        ///
+        /// Gets peptides for speedy semispecific digestion of a protein
+        /// This generates specific peptides of maximum missed cleavages
+        /// These peptides need to be digested post search to their actual sequences
         /// semi-specific search enters here...
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        public IEnumerable<PeptideWithSetModifications> ModernSemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
+        public IEnumerable<PeptideWithSetModifications> SpeedySemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = Protease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
 
-            for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - MaximumMissedCleavages - 1; i++) //it's possible not to go through this loop, and that's okay. It will get caught in the next loop
+            //it's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
+            for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - MaximumMissedCleavages - 1; i++)
             {
                 bool retain = Protease.Retain(i, InitiatorMethionineBehavior, protein[0]);
                 if (retain) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
@@ -98,21 +100,23 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
 
-            int lastIndex = oneBasedIndicesToCleaveAfter.Count - 1;
-            int maxIndex = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex;
-            for (int i = 1; i <= maxIndex; i++) //i is the difference between indexes, so if it starts at zero, then the peptide has length = 0
+            //wrap up the termini that weren't hit earlier
+            int lastIndex = oneBasedIndicesToCleaveAfter.Count - 1; //last cleavage index (the c-terminus)
+            int maxIndexDifference = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex; //the number of index differences allowed. 
+            //If the protein has fewer cleavage sites than allowed missed cleavages, just use the number of cleavage sites (lastIndex)
+            for (int i = 1; i <= maxIndexDifference; i++) //i is the difference (in indexes) between indexes, so it needs to start at 1, or the peptide would have length = 0
             {
                 if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N) //tricky, it's N because we want the extra peptide at the C terminus |_
                 {
-                    int peptideLength = oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i];
+                    int peptideLength = oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i]; //get C-terminus
                     if (peptideLength >= MinPeptideLength)
                     {
-                        if (peptideLength <= MaxPeptideLength)
+                        if (peptideLength <= MaxPeptideLength) //if okay length, add it up to the C-terminus
                         {
                             peptides.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[lastIndex - i] + 1, oneBasedIndicesToCleaveAfter[lastIndex],
                                 oneBasedIndicesToCleaveAfter[lastIndex] - oneBasedIndicesToCleaveAfter[lastIndex - i], CleavageSpecificity.Full, "full"));
                         }
-                        else //we already know it's N
+                        else //if not okay length, add up to the allowed length in the C-terminus direction
                         {
                             int tempIndex = oneBasedIndicesToCleaveAfter[lastIndex - i] + 1;
                             peptides.Add(new ProteolyticPeptide(protein, tempIndex, tempIndex + MaxPeptideLength,
@@ -122,15 +126,15 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 else //TerminusType.C
                 {
-                    int peptideLength = oneBasedIndicesToCleaveAfter[i] - oneBasedIndicesToCleaveAfter[0];
+                    int peptideLength = oneBasedIndicesToCleaveAfter[i] - oneBasedIndicesToCleaveAfter[0]; //get N-terminus
                     if (peptideLength >= MinPeptideLength)
                     {
-                        if (peptideLength <= MaxPeptideLength)
+                        if (peptideLength <= MaxPeptideLength) //if okay length, add it up to the N-terminus
                         {
                             peptides.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[0] + 1, oneBasedIndicesToCleaveAfter[i],
                                 oneBasedIndicesToCleaveAfter[i] - oneBasedIndicesToCleaveAfter[0], CleavageSpecificity.Full, "full"));
                         }
-                        else //we already know it's C
+                        else //if not okay length, add up to the allowed length in the N-terminus direction
                         {
                             int tempIndex = oneBasedIndicesToCleaveAfter[i];
                             peptides.Add(new ProteolyticPeptide(protein, tempIndex - MaxPeptideLength, tempIndex,

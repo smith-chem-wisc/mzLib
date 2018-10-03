@@ -13,13 +13,13 @@ namespace Proteomics.ProteolyticDigestion
     {
         protected string _baseSequence;
 
-        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificity, string peptideDescription = null)
+        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null)
         {
             _protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;
             OneBasedEndResidueInProtein = oneBasedEndResidueInProtein;
             MissedCleavages = missedCleavages;
-            CleavageSpecificity = cleavageSpecificity;
+            CleavageSpecificityForFdrCategory = cleavageSpecificityForFdrCategory;
             PeptideDescription = peptideDescription;
         }
 
@@ -28,7 +28,7 @@ namespace Proteomics.ProteolyticDigestion
         public int OneBasedEndResidueInProtein { get; } // the residue number at which the peptide ends
         public int MissedCleavages { get; } // the number of missed cleavages this peptide has with respect to the digesting protease
         public string PeptideDescription { get; internal set; } //unstructured explanation of source
-        public CleavageSpecificity CleavageSpecificity { get; internal set; } //structured explanation of source
+        public CleavageSpecificity CleavageSpecificityForFdrCategory { get; internal set; } //structured explanation of source
         public int Length { get { return BaseSequence.Length; } } //how many residues long the peptide is
 
         public virtual char PreviousAminoAcid
@@ -186,7 +186,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
                 yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
-                    CleavageSpecificity, PeptideDescription, MissedCleavages, kvp, numFixedMods);
+                    CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, kvp, numFixedMods);
                 variable_modification_isoforms++;
                 if (variable_modification_isoforms == maximumVariableModificationIsoforms)
                 {

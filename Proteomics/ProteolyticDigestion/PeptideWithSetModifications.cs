@@ -333,7 +333,7 @@ namespace Proteomics.ProteolyticDigestion
             dictWithLocalizedMass.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
 
             var peptideWithLocalizedMass = new PeptideWithSetModifications(Protein, _digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
-                CleavageSpecificity, PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
+                CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
 
             return peptideWithLocalizedMass;
         }
@@ -511,10 +511,10 @@ namespace Proteomics.ProteolyticDigestion
 
         private void UpdateCleavageSpecificity()
         {
-            if (CleavageSpecificity == CleavageSpecificity.Unknown)
+            if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)
             {
-                CleavageSpecificity = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein.BaseSequence, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein);
-                PeptideDescription = CleavageSpecificity.ToString();
+                CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein.BaseSequence, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein);
+                PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }
     }
