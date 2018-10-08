@@ -356,7 +356,7 @@ namespace Proteomics.ProteolyticDigestion
                 && q.FullSequence.Equals(this.FullSequence)
                 && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
                 && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.Protease == this.DigestionParams.Protease;
+                && q.DigestionParams.Protease.Equals(this.DigestionParams.Protease);
         }
 
         public override int GetHashCode()

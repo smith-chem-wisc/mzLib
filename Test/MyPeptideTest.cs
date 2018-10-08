@@ -279,5 +279,27 @@ namespace Test
             List<Product> theoreticalFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
             Assert.That(theoreticalFragments.Count > 0);
         }
+
+        [Test]
+        /// <summary>
+        /// Tests that a PeptideWithSetModifications object equality method
+        /// </summary>
+        public static void TestPWSMEqualityMethod()
+        {
+            // set up the test            
+            Protein pr = new Protein("PPPPPPPPPPPP", "1");
+            DigestionParams dp1 = new DigestionParams(protease: "Arg-C");
+            DigestionParams dp2 = new DigestionParams(protease: "Arg-C");
+            DigestionParams dp3 = new DigestionParams(protease: "trypsin");
+            //peptide A and Alpha are equivalent
+            PeptideWithSetModifications pepA = new PeptideWithSetModifications(protein: pr, digestionParams: dp1, oneBasedStartResidueInProtein: 2, oneBasedEndResidueInProtein: 4, CleavageSpecificity.Full, peptideDescription: "ABCK", missedCleavages: 0, allModsOneIsNterminus: new Dictionary<int, Modification>(), numFixedMods: 0);
+            PeptideWithSetModifications pepAlpha = new PeptideWithSetModifications(protein: pr, digestionParams: dp2, oneBasedStartResidueInProtein: 2, oneBasedEndResidueInProtein: 4, CleavageSpecificity.Full, peptideDescription: "ABCK", missedCleavages: 0, allModsOneIsNterminus: new Dictionary<int, Modification>(), numFixedMods: 0);
+            PeptideWithSetModifications pepB = new PeptideWithSetModifications(protein: pr, digestionParams: dp3, oneBasedStartResidueInProtein: 6, oneBasedEndResidueInProtein: 9, CleavageSpecificity.Full, peptideDescription: "XYZ", missedCleavages: 0, allModsOneIsNterminus: new Dictionary<int, Modification>(), numFixedMods: 0);
+
+            bool equalityA_Alpha = pepA.Equals(pepAlpha);
+            bool equalityB_A = pepB.Equals(pepA);
+            Assert.AreEqual(true, equalityA_Alpha);
+            Assert.AreEqual(false, equalityB_A);
+        }
     }
 }
