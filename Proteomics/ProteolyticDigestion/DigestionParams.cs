@@ -93,8 +93,8 @@ namespace Proteomics.ProteolyticDigestion
             if (SearchModeType == CleavageSpecificity.None) //nonspecific searches, which might have a specific protease
             {
                 Protease = FragmentationTerminus == FragmentationTerminus.N ?
-                    ProteaseDictionary.Dictionary["singleN"] :
-                    ProteaseDictionary.Dictionary["singleC"];
+                   ProteaseDictionary.Dictionary["singleN"] :
+                   ProteaseDictionary.Dictionary["singleC"];
             }
         }
     }
