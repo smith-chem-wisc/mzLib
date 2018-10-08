@@ -1,4 +1,6 @@
-﻿namespace Proteomics.Fragmentation
+﻿using System.Text;
+
+namespace Proteomics.Fragmentation
 {
     public class Product
     {
@@ -16,8 +18,39 @@
         {
             TerminusFragment = terminusFragment;
             ProductType = productType;
-            this.NeutralLoss = neutralLoss;
+            NeutralLoss = neutralLoss;
             NeutralMass = DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(terminusFragment.NeutralMass, productType) - neutralLoss;
+        }
+
+        public string Annotation
+        {
+            get
+            {
+                StringBuilder sb = new StringBuilder();
+                bool containsNeutralLoss = false;
+
+                if (NeutralLoss != 0)
+                {
+                    containsNeutralLoss = true;
+                }
+
+                if (containsNeutralLoss)
+                {
+                    sb.Append("(");
+                }
+
+                sb.Append(ProductType);
+                sb.Append(TerminusFragment.FragmentNumber);
+
+                if (containsNeutralLoss)
+                {
+                    sb.Append("-");
+                    sb.Append(NeutralLoss.ToString("F2"));
+                    sb.Append(")");
+                }
+
+                return sb.ToString();
+            }
         }
 
         /// <summary>
@@ -26,6 +59,20 @@
         public override string ToString()
         {
             return ProductType + "" + TerminusFragment.FragmentNumber + ";" + NeutralMass + "-" + NeutralLoss;
+        }
+
+        public override bool Equals(object obj)
+        {
+            Product other = (Product)obj;
+
+            return this.ProductType == other.ProductType 
+                && this.TerminusFragment == other.TerminusFragment 
+                && this.NeutralLoss == other.NeutralLoss;
+        }
+
+        public override int GetHashCode()
+        {
+            return NeutralMass.GetHashCode();
         }
     }
 }

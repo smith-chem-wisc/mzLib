@@ -506,7 +506,7 @@ namespace Test
 
             //evaluate N-terminal masses
             var diagnosticIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.D).ToList();
-            Assert.AreEqual("D0;97.976895573-0", diagnosticIons.First().ToString());
+            Assert.AreEqual("D99;97.976895573-0", diagnosticIons.First().ToString());
         }
 
         [Test]

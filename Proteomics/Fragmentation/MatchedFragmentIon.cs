@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using System.Text;
 
 namespace Proteomics.Fragmentation
 {
@@ -20,14 +21,58 @@ namespace Proteomics.Fragmentation
             Charge = charge;
         }
 
+        public double MassErrorDa
+        {
+            get
+            {
+                return Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
+            }
+        }
+
+        public double MassErrorPpm
+        {
+            get
+            {
+                return (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
+            }
+        }
+
+        public string Annotation
+        {
+            get
+            {
+                StringBuilder sb = new StringBuilder();
+
+                sb.Append(NeutralTheoreticalProduct.ToString());
+                sb.Append("+");
+                sb.Append(Charge);
+
+                return sb.ToString();
+            }
+        }
+
         /// <summary>
         /// Summarizes a TheoreticalFragmentIon into a string for debug purposes
-        /// TODO: Convert to a usable format for output
         /// </summary>
         public override string ToString()
         {
             // we add the blank space in the tostring because the values are treated like integers and looked up as index in the enum instead of being converted to just string and concatenated
             return NeutralTheoreticalProduct.ProductType + "" + NeutralTheoreticalProduct.TerminusFragment.FragmentNumber + "+" + Charge + "\t;" + NeutralTheoreticalProduct.NeutralMass;
+        }
+
+        public override bool Equals(object obj)
+        {
+            MatchedFragmentIon other = (MatchedFragmentIon)obj;
+
+            return this.NeutralTheoreticalProduct == other.NeutralTheoreticalProduct
+                && this.Charge == other.Charge
+                && this.Mz == other.Mz
+                && this.Intensity == other.Intensity;
+        }
+
+        public override int GetHashCode()
+        {
+            return Mz.GetHashCode();
         }
     }
 }
