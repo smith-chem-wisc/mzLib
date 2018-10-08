@@ -29,6 +29,10 @@ namespace Proteomics.Fragmentation
                 StringBuilder sb = new StringBuilder();
                 
                 sb.Append(ProductType);
+
+                // for "normal" fragments this is just the fragment number (e.g., the 3 in the b3 ion)
+                // for diagnostic ions, it's the m/z assuming z=1
+                // (e.g., a diagnostic ion with neutral mass 100 Da will be reported as the D101 fragment)
                 sb.Append(TerminusFragment.FragmentNumber);
 
                 if (NeutralLoss != 0)
