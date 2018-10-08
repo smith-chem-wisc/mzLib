@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using Chemistry;
+using NUnit.Framework;
 using Proteomics;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
@@ -7,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -33,6 +35,18 @@ namespace Test
             Assert.That(!pep1.DigestionParams.Protease.Equals(pep2.DigestionParams.Protease));
             Assert.That(!pep1.Equals(pep2));
             Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
+        }
+
+        [Test]
+        public static void TestSemiFewCleavages()
+        {
+            Protein protein = new Protein("MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGKAMQGVFEYYKSVTFVSNCGSHPSTTSKGSPINTQYVF", "P32781");
+            DigestionParams nParams = new DigestionParams("trypsin", 2, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams cParams = new DigestionParams("trypsin", 2, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
+
+            //Unit test is not crashing
+            protein.Digest(nParams, null, null).ToList();
+            protein.Digest(cParams, null, null).ToList();
         }
 
         [Test]

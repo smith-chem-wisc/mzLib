@@ -85,7 +85,7 @@ namespace Proteomics.ProteolyticDigestion
                         }
                         else if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N)
                         {
-                            peptides.Add(new ProteolyticPeptide(protein, 2, 2 + MaxPeptideLength + MaxPeptideLength, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
+                            peptides.Add(new ProteolyticPeptide(protein, 2, 2 + MaxPeptideLength, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
                         else //It has to be FragmentationTerminus.C //make something with the maximum length and fixed C
                         {
