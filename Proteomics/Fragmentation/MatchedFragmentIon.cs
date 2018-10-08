@@ -43,7 +43,20 @@ namespace Proteomics.Fragmentation
             {
                 StringBuilder sb = new StringBuilder();
 
-                sb.Append(NeutralTheoreticalProduct.ToString());
+                bool containsNeutralLoss = NeutralTheoreticalProduct.NeutralLoss != 0;
+
+                if (containsNeutralLoss)
+                {
+                    sb.Append("(");
+                }
+
+                sb.Append(NeutralTheoreticalProduct.Annotation);
+
+                if (containsNeutralLoss)
+                {
+                    sb.Append(")");
+                }
+
                 sb.Append("+");
                 sb.Append(Charge);
 
@@ -64,7 +77,7 @@ namespace Proteomics.Fragmentation
         {
             MatchedFragmentIon other = (MatchedFragmentIon)obj;
 
-            return this.NeutralTheoreticalProduct == other.NeutralTheoreticalProduct
+            return this.NeutralTheoreticalProduct.Equals(other.NeutralTheoreticalProduct)
                 && this.Charge == other.Charge
                 && this.Mz == other.Mz
                 && this.Intensity == other.Intensity;

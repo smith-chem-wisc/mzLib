@@ -27,26 +27,14 @@ namespace Proteomics.Fragmentation
             get
             {
                 StringBuilder sb = new StringBuilder();
-                bool containsNeutralLoss = false;
-
-                if (NeutralLoss != 0)
-                {
-                    containsNeutralLoss = true;
-                }
-
-                if (containsNeutralLoss)
-                {
-                    sb.Append("(");
-                }
-
+                
                 sb.Append(ProductType);
                 sb.Append(TerminusFragment.FragmentNumber);
 
-                if (containsNeutralLoss)
+                if (NeutralLoss != 0)
                 {
                     sb.Append("-");
                     sb.Append(NeutralLoss.ToString("F2"));
-                    sb.Append(")");
                 }
 
                 return sb.ToString();
@@ -66,7 +54,7 @@ namespace Proteomics.Fragmentation
             Product other = (Product)obj;
 
             return this.ProductType == other.ProductType 
-                && this.TerminusFragment == other.TerminusFragment 
+                && this.TerminusFragment.Equals(other.TerminusFragment) 
                 && this.NeutralLoss == other.NeutralLoss;
         }
 

@@ -814,5 +814,75 @@ namespace Test
 
             Assert.That(expected.SequenceEqual(ionNums));
         }
+
+        [Test]
+        public static void TestFragmentAnnotations()
+        {
+            Product p = new Product(ProductType.b, new NeutralTerminusFragment(FragmentationTerminus.N, 505.505, 2, 3), 30.3);
+            MatchedFragmentIon f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
+
+            Assert.That(p.Annotation == "b2-30.30");
+            Assert.That(f.Annotation == "(b2-30.30)+3");
+
+            p = new Product(ProductType.b, new NeutralTerminusFragment(FragmentationTerminus.N, 505.505, 2, 3), 0);
+            f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
+
+            Assert.That(p.Annotation == "b2");
+            Assert.That(f.Annotation == "b2+3");
+        }
+
+        [Test]
+        public static void TestFragmentErrors()
+        {
+            Product p = new Product(ProductType.b, new NeutralTerminusFragment(FragmentationTerminus.N, 505.505, 2, 3), 30.3);
+            MatchedFragmentIon f = new MatchedFragmentIon(p, 159.5, 1000.0, 3);
+
+            double experMass = f.Mz.ToMass(f.Charge);
+            double theorMass = p.NeutralMass;
+
+            Assert.AreEqual(0.2732, Math.Round(experMass - theorMass, 4));
+            Assert.AreEqual(574.85, Math.Round(f.MassErrorPpm, 2));
+            Assert.AreEqual(0.2732, Math.Round(f.MassErrorDa, 4));
+        }
+
+        [Test]
+        public static void TestFragmentEquality()
+        {
+            NeutralTerminusFragment n1 = new NeutralTerminusFragment(FragmentationTerminus.N, 505.505, 2, 3);
+            Product p1 = new Product(ProductType.b, n1, 30.3);
+            MatchedFragmentIon f1 = new MatchedFragmentIon(p1, 400.0, 1000.0, 3);
+
+            NeutralTerminusFragment n2 = new NeutralTerminusFragment(FragmentationTerminus.N, 505.505, 2, 3);
+            Product p2 = new Product(ProductType.b, n2, 30.3);
+            MatchedFragmentIon f2 = new MatchedFragmentIon(p2, 400.0, 1000.0, 3);
+
+            Assert.AreEqual(n1, n2);
+            Assert.AreEqual(p1, p2);
+            Assert.AreEqual(f1, f2);
+        }
+
+        [Test]
+        public static void TestThatDiagnosticIonsDontDuplicate()
+        {
+            ModificationMotif.TryGetMotif("X", out var motif);
+            Modification modWithDiagnosticIons = new Modification(
+                _originalId: "Test", 
+                _modificationType: "TestType", 
+                _target: motif, 
+                _locationRestriction: "Anywhere.", 
+                _monoisotopicMass: 1, 
+                _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { 4.0 } } });
+
+            PeptideWithSetModifications p = new PeptideWithSetModifications("P[TestType:Test]E[TestType:Test]P[TestType:Test]TIDE", 
+                new Dictionary<string, Modification> { { "Test", modWithDiagnosticIons } } );
+
+            var fragments = p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+
+            var diagnosticIons = fragments.Where(f => f.ProductType == ProductType.D).ToList();
+
+            // if there are 3 diagnostic ions (one for each mod on the peptide),
+            // diagnostic ions are being incorrectly duplicated!
+            Assert.That(diagnosticIons.Count == 1);
+        }
     }
 }
