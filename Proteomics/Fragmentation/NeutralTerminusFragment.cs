@@ -28,12 +28,7 @@ namespace Proteomics.Fragmentation
 
         public override bool Equals(object obj)
         {
-            NeutralTerminusFragment other = (NeutralTerminusFragment)obj;
-
-            return this.Terminus == other.Terminus
-                && this.FragmentNumber == other.FragmentNumber
-                && this.AminoAcidPosition == other.AminoAcidPosition
-                && this.NeutralMass == other.NeutralMass;
+            return NeutralMass.Equals(((NeutralTerminusFragment) obj).NeutralMass);
         }
 
         public override int GetHashCode()

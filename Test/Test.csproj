@@ -50,6 +50,7 @@
     <Compile Include="ModFitsTest.cs" />
     <Compile Include="MyPeptideTest.cs" />
     <Compile Include="SeqCoverageTests.cs" />
+    <Compile Include="TestDigestionMotif.cs" />
     <Compile Include="TestDissociation.cs" />
     <Compile Include="TestMetaMorpheus.cs" />
     <Compile Include="TestMgf.cs" />

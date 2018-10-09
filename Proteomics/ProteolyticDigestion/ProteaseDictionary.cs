@@ -15,50 +15,40 @@ namespace Proteomics.ProteolyticDigestion
                     && !AppDomain.CurrentDomain.BaseDirectory.Contains("Jenkins") ?
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MetaMorpheus") :
                 AppDomain.CurrentDomain.BaseDirectory;
-            Dictionary = LoadProteaseDictionary(Path.Combine(dataDirectory, "ProteolyticDigestion", "proteases.tsv"));
+
+            string path = Path.Combine(dataDirectory, "ProteolyticDigestion", "proteases.tsv");          
+            Dictionary = LoadProteaseDictionary(path);
+        
         }
 
         public static Dictionary<string, Protease> Dictionary { get; private set; }
 
-        public static Dictionary<string, Protease> LoadProteaseDictionary(string proteasesLocation)
+        public static Dictionary<string, Protease> LoadProteaseDictionary(string path)
         {
-            Dictionary<string, Protease> dict = new Dictionary<string, Protease>();
-            using (StreamReader proteases = new StreamReader(proteasesLocation))
-            {
-                proteases.ReadLine();
 
-                while (proteases.Peek() != -1)
+            Dictionary<string, Protease> dict = new Dictionary<string, Protease>();
+
+            string[] myLines = File.ReadAllLines(path);
+            myLines = myLines.Skip(1).ToArray();
+
+            foreach (string line in myLines)
+            {
+                if (line.Trim() != string.Empty) // skip empty lines
                 {
-                    string line = proteases.ReadLine();
-                    string[][] fields = line.Split('\t').Select(x => x.Split('|')).ToArray();
-                    string name = fields[0][0];
-                    string[] preventing;
-                    List<Tuple<string, FragmentationTerminus>> sequencesInducingCleavage = new List<Tuple<string, FragmentationTerminus>>();
-                    List<Tuple<string, FragmentationTerminus>> sequencePreventingCleavage = new List<Tuple<string, FragmentationTerminus>>();
-                    for (int i = 0; i < fields[1].Length; i++)
-                    {
-                        if (!fields[1][i].Equals(""))
-                        {
-                            sequencesInducingCleavage.Add(new Tuple<string, FragmentationTerminus>(fields[1][i], ((FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus), fields[3][i], true))));
-                            if (!fields[2].Contains(""))
-                            {
-                                preventing = (fields[2][i].Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
-                                for (int j = 0; j < preventing.Length; j++)
-                                {
-                                    sequencePreventingCleavage.Add(new Tuple<string, FragmentationTerminus>(preventing[j], (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus), fields[3][i], true)));
-                                }
-                            }
-                        }
-                    }
-                    var cleavageSpecificity = ((CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4][0], true));
-                    string psiMsAccessionNumber = fields[5][0];
-                    string psiMsName = fields[6][0];
-                    string siteRegexp = fields[7][0];
-                    var protease = new Protease(name, sequencesInducingCleavage, sequencePreventingCleavage, cleavageSpecificity, psiMsAccessionNumber, psiMsName, siteRegexp);
+                    string[] fields = line.Split('\t');
+                    List<DigestionMotif> motifList = DigestionMotif.ParseProteaseFromString(fields[1]);
+
+                    string name = fields[0];
+                    var cleavageSpecificity = ((CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4], true));
+                    string psiMsAccessionNumber = fields[5];
+                    string psiMsName = fields[6];
+                    var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList);
                     dict.Add(protease.Name, protease);
                 }
             }
+
             return dict;
+
         }
     }
 }

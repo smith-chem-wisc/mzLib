@@ -243,8 +243,6 @@ namespace Proteomics.ProteolyticDigestion
 
             if (AllModsOneIsNterminus != null)
             {
-                HashSet<Product> diagnosticIons = new HashSet<Product>();
-
                 foreach (Modification mod in AllModsOneIsNterminus.Values)
                 {
                     // molecular ion minus neutral losses
@@ -260,21 +258,14 @@ namespace Proteomics.ProteolyticDigestion
                     }
 
                     // diagnostic ions
-                    if (mod.DiagnosticIons != null && mod.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagIonsForThisModAndDissociationType))
+                    if (mod.DiagnosticIons != null && mod.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagnosticIons))
                     {
-                        foreach (double diagnosticIon in diagIonsForThisModAndDissociationType)
+                        foreach (double diagnosticIon in diagnosticIons)
                         {
-                            int diagnosticIonLabel = (int)Math.Round(diagnosticIon.ToMz(1), 0);
-
                             // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
-                            diagnosticIons.Add(new Product(ProductType.D, new NeutralTerminusFragment(FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0), 0));
+                            yield return new Product(ProductType.D, new NeutralTerminusFragment(FragmentationTerminus.Both, diagnosticIon, 0, 0), 0);
                         }
                     }
-                }
-
-                foreach (var diagnosticIon in diagnosticIons)
-                {
-                    yield return diagnosticIon;
                 }
             }
         }
