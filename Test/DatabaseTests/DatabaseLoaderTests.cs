@@ -167,7 +167,7 @@ namespace Test
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
-            Assert.AreEqual(2973, sampleModList.Count());
+            Assert.AreEqual(2979, sampleModList.Count());
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
