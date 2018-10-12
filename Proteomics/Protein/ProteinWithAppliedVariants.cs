@@ -14,7 +14,7 @@ namespace Proteomics
         public ProteinWithAppliedVariants(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
             IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string individual)
             : base(variantBaseSequence,
-                  protein.Accession + (appliedSequenceVariations == null ? "" : "_" + CombineSimpleStrings(appliedSequenceVariations)),
+                  GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications.ToDictionary(x => x.Key, x => x.Value),
@@ -93,7 +93,7 @@ namespace Proteomics
                         string seqBefore = BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
                         string seqVariant = variant.VariantSequence;
                         List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, ProteolysisProducts);
-                        Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, Protein.OriginalModifications);
+                        Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, Protein.OriginalModifications, variant.OneBasedModifications);
                         int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
                         if (intersectsAppliedRegionIncompletely)
                         {
@@ -164,11 +164,14 @@ namespace Proteomics
         /// <param name="variant"></param>
         /// <param name="modificationDictionary"></param>
         /// <returns></returns>
-        internal Dictionary<int, List<Modification>> AdjustModificationIndices(SequenceVariation variant, IDictionary<int, List<Modification>> modificationDictionary)
+        internal Dictionary<int, List<Modification>> AdjustModificationIndices(SequenceVariation variant, IDictionary<int, List<Modification>> modificationDictionary,
+            IDictionary<int, List<Modification>> variantModificationDictionary)
         {
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
             if (modificationDictionary == null) { return mods; }
             int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
+
+            // change modification indices for variant sequence
             foreach (KeyValuePair<int, List<Modification>> kv in modificationDictionary)
             {
                 if (variant.OneBasedBeginPosition > kv.Key)
@@ -184,7 +187,30 @@ namespace Proteomics
                     continue;
                 }
             }
+
+            // sequence variant modifications are indexed to the variant sequence
+            foreach (var kv in variantModificationDictionary)
+            {
+                if (mods.TryGetValue(kv.Key, out var modsAtPos))
+                {
+                    modsAtPos.AddRange(kv.Value);
+                }
+                else
+                {
+                    mods.Add(kv.Key, kv.Value);
+                }
+            }
             return mods;
+        }
+
+        /// <summary>
+        /// Gets the accession for a protein with applied variations
+        /// </summary>
+        /// <param name="protein"></param>
+        /// <param name="sequenceVariation"></param>
+        public static string GetAccession(Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations)
+        {
+            return protein.Accession + (appliedSequenceVariations == null ? "" : "_" + CombineSimpleStrings(appliedSequenceVariations));
         }
 
         /// <summary>

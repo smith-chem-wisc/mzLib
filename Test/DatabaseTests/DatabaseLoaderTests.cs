@@ -48,6 +48,17 @@ namespace Test
         }
 
         [Test]
+        public static void LoadOriginalMismatchedModifications()
+        {
+            var protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm.xml"), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications);
+            Assert.AreEqual(0, protein[0].OneBasedPossibleLocalizedModifications.Count);
+            var variant = protein[0].GetVariantProteins()[0];
+            protein[0].RestoreUnfilteredModifications();
+            Assert.AreEqual(1, protein[0].OneBasedPossibleLocalizedModifications.Count);
+        }
+
+        [Test]
         public void TestUpdateUnimod()
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");

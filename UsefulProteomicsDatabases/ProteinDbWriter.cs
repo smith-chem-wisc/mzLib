@@ -44,8 +44,9 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(proteinList.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values.SelectMany(list => list))
-                    .Concat(additionalModsToAddToProteins.Where(kv => proteinList.Select(p => p.Accession).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                    proteinList.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
+                    .Concat(additionalModsToAddToProteins.Where(kv => proteinList.SelectMany(p => p.SequenceVariations.Select(sv => ProteinWithAppliedVariants.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
@@ -129,57 +130,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    Dictionary<int, HashSet<string>> modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
-
-                    foreach (var mods in protein.OneBasedPossibleLocalizedModifications)
-                    {
-                        foreach (var mod in mods.Value)
-                        {
-                            if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
-                                val.Add(mod.IdWithMotif);
-                            else
-                                modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
-                        }
-                    }
-
-                    if (additionalModsToAddToProteins.ContainsKey(protein.Accession))
-                    {
-                        foreach (var ye in additionalModsToAddToProteins[protein.Accession])
-                        {
-                            int additionalModResidueIndex = ye.Item1;
-                            string additionalModId = ye.Item2.IdWithMotif;
-                            bool modAdded = false;
-
-                            // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
-                            if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
-                            {
-                                // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
-                                modAdded = val.Add(additionalModId);
-                            }
-
-                            // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
-                            else
-                            {
-                                modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
-                                modAdded = true;
-                            }
-
-                            // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
-                            if (modAdded)
-                            {
-                                if (newModResEntries.ContainsKey(additionalModId))
-                                {
-                                    newModResEntries[additionalModId]++;
-                                }
-                                else
-                                {
-                                    newModResEntries.Add(additionalModId, 1);
-                                }
-                            }
-                        }
-                    }
-
-                    foreach (var hm in modsToWriteForThisSpecificProtein.OrderBy(b => b.Key))
+                    foreach (var hm in GetModsForThisProtein(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
@@ -221,6 +172,21 @@ namespace UsefulProteomicsDatabases
                             writer.WriteStartElement("end");
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
+                        }
+                        foreach (var hmm in GetModsForThisProtein(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        {
+                            foreach (var modId in hmm.Value)
+                            {
+                                writer.WriteStartElement("subfeature");
+                                writer.WriteAttributeString("type", "modified residue");
+                                writer.WriteAttributeString("description", modId);
+                                writer.WriteStartElement("location");
+                                writer.WriteStartElement("position");
+                                writer.WriteAttributeString("position", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                                writer.WriteEndElement();
+                                writer.WriteEndElement();
+                                writer.WriteEndElement();
+                            }
                         }
                         writer.WriteEndElement(); // location
                         writer.WriteEndElement(); // feature
@@ -275,6 +241,62 @@ namespace UsefulProteomicsDatabases
                     writer.WriteLine(protein.BaseSequence);
                 }
             }
+        }
+
+        private static Dictionary<int, HashSet<string>> GetModsForThisProtein(Protein protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
+        {
+            var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
+
+            var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
+            foreach (var mods in primaryModDict)
+            {
+                foreach (var mod in mods.Value)
+                {
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
+                        val.Add(mod.IdWithMotif);
+                    else
+                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
+                }
+            }
+
+            string accession = seqvar == null ? protein.Accession : ProteinWithAppliedVariants.GetAccession(protein, new[] { seqvar });
+            if (additionalModsToAddToProteins.ContainsKey(accession))
+            {
+                foreach (var ye in additionalModsToAddToProteins[accession])
+                {
+                    int additionalModResidueIndex = ye.Item1;
+                    string additionalModId = ye.Item2.IdWithMotif;
+                    bool modAdded = false;
+
+                    // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
+                    {
+                        // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
+                        modAdded = val.Add(additionalModId);
+                    }
+
+                    // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
+                    else
+                    {
+                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
+                        modAdded = true;
+                    }
+
+                    // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
+                    if (modAdded)
+                    {
+                        if (newModResEntries.ContainsKey(additionalModId))
+                        {
+                            newModResEntries[additionalModId]++;
+                        }
+                        else
+                        {
+                            newModResEntries.Add(additionalModId, 1);
+                        }
+                    }
+                }
+            }
+            return modsToWriteForThisSpecificProtein;
         }
     }
 }
