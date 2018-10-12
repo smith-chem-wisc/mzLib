@@ -93,7 +93,7 @@ namespace Proteomics
                         string seqBefore = BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
                         string seqVariant = variant.VariantSequence;
                         List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, ProteolysisProducts);
-                        Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, OneBasedPossibleLocalizedModifications);
+                        Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, Protein.OriginalModifications);
                         int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
                         if (intersectsAppliedRegionIncompletely)
                         {

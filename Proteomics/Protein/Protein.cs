@@ -74,7 +74,7 @@ namespace Proteomics
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
-        private IDictionary<int, List<Modification>> OriginalModifications { get; set; }
+        internal IDictionary<int, List<Modification>> OriginalModifications { get; set; }
 
         public char this[int zeroBasedIndex]
         {
