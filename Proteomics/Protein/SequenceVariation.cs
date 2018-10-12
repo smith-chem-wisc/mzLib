@@ -61,7 +61,7 @@ namespace Proteomics
         public string Description { get; }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public Dictionary<int, List<Modification>> OneBasedModifications { get; }
 

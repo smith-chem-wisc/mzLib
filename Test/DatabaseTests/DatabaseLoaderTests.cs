@@ -138,7 +138,7 @@ namespace Test
 
             Assert.AreEqual(2, neutralLossCount);
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            
+
             // N6,N6,N6-trimethyllysine
             var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
             Assert.AreEqual("1+", trimethylLysine.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
@@ -177,7 +177,7 @@ namespace Test
                     myOtherList.Add(mod);
                 }
             }
-            
+
             var thisMod = myOtherList.First();
             Assert.IsTrue(thisMod.MonoisotopicMass > 42);
             Assert.IsTrue(thisMod.MonoisotopicMass < 43);
@@ -195,7 +195,7 @@ namespace Test
 
             Assert.That(testMod.ValidModification);
             Assert.That(testMod.Target.ToString().Equals("msgRgk"));
-            
+
             Protein protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "modified_start.xml"), true, DecoyType.None, allKnownMods, false, new List<string>(), out var unk).First();
 
             Assert.That(protein.BaseSequence.StartsWith("MSGRGK"));
@@ -213,7 +213,7 @@ namespace Test
         public void SampleModFileLoadingFail1()
         {
             var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt"), out var errors);
-            Assert.AreEqual(0,b.Count());
+            Assert.AreEqual(0, b.Count());
         }
 
         [Test]
@@ -252,7 +252,7 @@ namespace Test
         public void SampleModFileLoadingFail6()
         {
             var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"), out var errors);
-            Assert.AreEqual(0,b.Count());
+            Assert.AreEqual(0, b.Count());
         }
 
         [Test]
@@ -412,6 +412,7 @@ namespace Test
             new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, filename), true, DecoyType.None, new List<Modification>(), false, new List<string>(), out um);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
         }
+
         [Test]
         public void TestWritePtmWithNeutralLossAndDiagnosticIons()
         {

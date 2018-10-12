@@ -28,7 +28,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (decoyType == DecoyType.Slide)
             {
-                return GenerateSlideDecoys(proteins , maxThreads);
+                return GenerateSlideDecoys(proteins, maxThreads);
             }
             else
             {

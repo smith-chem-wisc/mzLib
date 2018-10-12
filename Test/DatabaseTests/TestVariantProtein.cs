@@ -1,11 +1,10 @@
 ﻿using NUnit.Framework;
 using Proteomics;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
-using UsefulProteomicsDatabases;
-using System;
 using Proteomics.ProteolyticDigestion;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -31,7 +30,6 @@ namespace Test
 
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
-
 
         [Test]
         public static void LoadSeqVarModifications()

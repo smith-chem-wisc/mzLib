@@ -118,8 +118,8 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// Eliminates proteolysis products that overlap sequence variations. 
-        /// Since frameshift indels are written across the remaining sequence, 
+        /// Eliminates proteolysis products that overlap sequence variations.
+        /// Since frameshift indels are written across the remaining sequence,
         /// this eliminates proteolysis products that conflict with large deletions and other structural variations.
         /// </summary>
         /// <param name="variants"></param>
