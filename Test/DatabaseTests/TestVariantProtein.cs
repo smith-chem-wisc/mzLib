@@ -1,11 +1,10 @@
 ﻿using NUnit.Framework;
 using Proteomics;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
-using UsefulProteomicsDatabases;
-using System;
 using Proteomics.ProteolyticDigestion;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -30,6 +29,27 @@ namespace Test
             Assert.AreNotEqual(proteins.First().Accession, variantProteins.First().Accession);
 
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
+        }
+
+        [Test]
+        public static void LoadSeqVarModifications()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm2.xml"), true,
+                DecoyType.None, null, false, null, out var unknownModifications);
+            Assert.AreEqual(0, proteins[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(1, proteins[0].SequenceVariations.Count());
+            Assert.AreEqual(1, proteins[0].SequenceVariations.First().OneBasedModifications.Count);
+            var variant = proteins[0].GetVariantProteins()[0];
+            Assert.AreEqual(1, variant.OneBasedPossibleLocalizedModifications.Count);
+
+            ProteinDbWriter.WriteXmlDatabase(null, proteins, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm2rewrite.xml"));
+            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oblm2rewrite.xml"), true,
+                DecoyType.None, null, false, null, out unknownModifications);
+            Assert.AreEqual(0, proteins[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(1, proteins[0].SequenceVariations.Count());
+            Assert.AreEqual(1, proteins[0].SequenceVariations.First().OneBasedModifications.Count);
+            variant = proteins[0].GetVariantProteins()[0];
+            Assert.AreEqual(1, variant.OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
