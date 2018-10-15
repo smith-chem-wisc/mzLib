@@ -53,6 +53,17 @@ namespace Test
         }
 
         [Test]
+        public static void HomozygousVariants()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "HomozygousHLA.xml"), true,
+                DecoyType.None, null, false, null, out var unknownModifications);
+            Assert.AreEqual(1, proteins.Count);
+            Assert.AreEqual(63, proteins[0].SequenceVariations.Count()); // 63 variants, some redundant
+            Assert.AreEqual(21, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // 21 unique changes
+            Assert.AreEqual(1, proteins[0].GetVariantProteins().Count);
+        }
+
+        [Test]
         public void VariantLongDeletionXml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarLongDeletion.xml");
@@ -77,10 +88,11 @@ namespace Test
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness.xml");
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            Assert.AreEqual(12, proteins.First().SequenceVariations.Count());
+            Assert.AreEqual(2, proteins.First().SequenceVariations.Count(v => v.Description.Genotypes.Any(kv => kv.Value.Any(x => x == "0"))));
 
             List<ProteinWithAppliedVariants> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
 
-            Assert.AreEqual(12, proteins.First().SequenceVariations.Count());
             Assert.AreEqual(13, variantProteins.Count); // there is only one unique amino acid change
             Assert.AreEqual(1, variantProteins.Where(v => v.BaseSequence == proteins.First().BaseSequence).Count());
             Assert.AreNotEqual(proteins.First().Name, variantProteins.First().Name);

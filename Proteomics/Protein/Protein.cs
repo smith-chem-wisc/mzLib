@@ -96,7 +96,7 @@ namespace Proteomics
         {
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
-            return String.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
+            return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
         }
 
         /// <summary>
@@ -104,7 +104,7 @@ namespace Proteomics
         /// </summary>
         public string GetEnsemblFastaHeader()
         {
-            return String.Format("{0} {1}", Accession, FullName);
+            return string.Format("{0} {1}", Accession, FullName);
         }
 
         /// <summary>
@@ -122,14 +122,8 @@ namespace Proteomics
         /// </summary>
         public List<ProteinWithAppliedVariants> GetVariantProteins()
         {
-            List<SequenceVariation> uniqueEffects = SequenceVariations
-                .GroupBy(v => v.SimpleString())
-                .Select(x => x.First())
-                .Where(v => v.Description.Split(new[] { @"\t" }, StringSplitOptions.None).Length >= 10) // likely a VCF line (should probably do more rigorous testing, eventually)
-                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
-                .ToList();
             ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, ProteolysisProducts, OneBasedPossibleLocalizedModifications, null);
-            return variantProtein.ApplyVariants(variantProtein, uniqueEffects);
+            return variantProtein.ApplyVariants(variantProtein, SequenceVariations);
         }
 
         /// <summary>

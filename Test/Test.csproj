@@ -160,6 +160,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\HomozygousHLA.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\oblm.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

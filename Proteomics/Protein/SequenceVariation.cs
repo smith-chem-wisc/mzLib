@@ -18,7 +18,7 @@ namespace Proteomics
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = description ?? "";
+            Description = new SequenceVariantDescription(description);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
@@ -58,10 +58,10 @@ namespace Proteomics
         /// <summary>
         /// Description of this variation (optional)
         /// </summary>
-        public string Description { get; }
+        public SequenceVariantDescription Description { get; }
 
         /// <summary>
-        ///
+        /// Modifications specifically for this variant
         /// </summary>
         public Dictionary<int, List<Modification>> OneBasedModifications { get; }
 
@@ -69,11 +69,11 @@ namespace Proteomics
         {
             SequenceVariation s = obj as SequenceVariation;
             return s != null
-                && OneBasedBeginPosition == s.OneBasedBeginPosition
-                && OneBasedEndPosition == s.OneBasedEndPosition
-                && OriginalSequence == s.OriginalSequence
-                && VariantSequence == s.VariantSequence
-                && Description == s.Description;
+                && OneBasedBeginPosition.Equals(s.OneBasedBeginPosition)
+                && OneBasedEndPosition.Equals(s.OneBasedEndPosition)
+                && OriginalSequence.Equals(s.OriginalSequence)
+                && VariantSequence.Equals(s.VariantSequence)
+                && Description.Equals(s.Description);
         }
 
         public override int GetHashCode()

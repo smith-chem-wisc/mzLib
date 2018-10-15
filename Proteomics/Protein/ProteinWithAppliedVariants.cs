@@ -39,83 +39,104 @@ namespace Proteomics
         /// <param name="protein"></param>
         /// <param name="uniqueEffectsToApply"></param>
         /// <returns></returns>
-        internal List<ProteinWithAppliedVariants> ApplyVariants(ProteinWithAppliedVariants protein, List<SequenceVariation> uniqueEffectsToApply)
+        internal List<ProteinWithAppliedVariants> ApplyVariants(ProteinWithAppliedVariants protein, IEnumerable<SequenceVariation> sequenceVariations)
         {
+            List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
+                .GroupBy(v => v.SimpleString())
+                .Select(x => x.First())
+                .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
+                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
+                .ToList();
+
             // If there aren't any variants to apply, just return the base protein
             if (uniqueEffectsToApply.Count == 0)
             {
                 return new List<ProteinWithAppliedVariants> { protein };
             }
 
-            bool referenceAdded = false;
-            List<ProteinWithAppliedVariants> proteins = new List<ProteinWithAppliedVariants>();
-            foreach (SequenceVariation variant in uniqueEffectsToApply)
+            HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
+            List<ProteinWithAppliedVariants> variantProteins = new List<ProteinWithAppliedVariants>();
+            
+            // loop through genotypes for this variant (e.g. tumor and normal)
+            foreach (string individual in individuals)
             {
-                // Parse description into
-                string[] vcfFields = variant.Description.Split(new[] { @"\t" }, StringSplitOptions.None);
-                if (vcfFields.Length < 10) { continue; }
-                string referenceAlleleString = vcfFields[3];
-                string alternateAlleleString = vcfFields[4];
-                string info = vcfFields[7];
-                string format = vcfFields[8];
-                string[] genotypes = Enumerable.Range(9, vcfFields.Length - 9).Select(i => vcfFields[i]).ToArray();
-
-                // loop through genotypes for this variant (e.g. tumor and normal)
-                for (int i = 0; i < genotypes.Length; i++)
-                {
-                    if (Individual != null && Individual != i.ToString()) { continue; }
-                    var genotypeFields = GenotypeDictionary(format.Trim(), genotypes[i].Trim());
-
-                    // parse genotype
-                    string[] gt = null;
-                    if (genotypeFields.TryGetValue("GT", out string gtString)) { gt = gtString.Split('/'); }
-                    if (gt == null) { continue; }
-
-                    // parse allele depth (might be null, technically, but shouldn't be in most use cases)
-                    string[] ad = null;
-                    if (genotypeFields.TryGetValue("AD", out string adString)) { ad = adString.Split(','); }
-
-                    // reference allele
-                    if (gt.Contains("0") && !referenceAdded)
-                    {
-                        proteins.Add(new ProteinWithAppliedVariants(BaseSequence, Protein, AppliedSequenceVariations, ProteolysisProducts, OneBasedPossibleLocalizedModifications, i.ToString()));
-                        referenceAdded = true; // only add the reference allele once
-                    }
-
-                    // alternate allele
-                    // TODO: recursively apply variants to create haplotypes and be wary of combinitorial explosion
-                    if (!gt.All(x => x == "0"))
-                    {
-                        // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
-                        // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
-                        //    e.g. reference sequence is wrong at that point
-                        bool intersectsAppliedRegionIncompletely = AppliedSequenceVariations.Any(x => variant.Intersects(x) && !variant.Includes(x));
-                        string seqBefore = BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
-                        string seqVariant = variant.VariantSequence;
-                        List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, ProteolysisProducts);
-                        Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, Protein.OriginalModifications, variant.OneBasedModifications);
-                        int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
-                        if (intersectsAppliedRegionIncompletely)
-                        {
-                            // use original protein sequence for the remaining sequence
-                            string seqAfter = Protein.BaseSequence.Length - afterIdx <= 0 ? "" : Protein.BaseSequence.Substring(afterIdx);
-                            proteins.Add(new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, Protein, new[] { variant }, adjustedProteolysisProducts, adjustedModifications, i.ToString()));
-                        }
-                        else
-                        {
-                            List<SequenceVariation> variations = AppliedSequenceVariations
-                                .Where(x => !variant.Includes(x))
-                                .Concat(new[] { variant })
-                                .ToList();
-                            // use this variant protein sequence for the remaining sequence
-                            string seqAfter = BaseSequence.Length - afterIdx <= 0 ? "" : BaseSequence.Substring(afterIdx);
-                            proteins.Add(new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, Protein, variations, adjustedProteolysisProducts, adjustedModifications, i.ToString()));
-                        }
-                    }
-                }
+                variantProteins.AddRange(ApplyVariantsRecursively(new List<ProteinWithAppliedVariants> { protein }, uniqueEffectsToApply, 0, individual));
             }
-            return proteins;
+           
+            return variantProteins;
         }
+
+        /// <summary>
+        /// Recursively applies variations
+        /// </summary>
+        /// <param name="variantProteins"></param>
+        /// <param name="variations"></param>
+        /// <param name="startHere"></param>
+        /// <param name="individual"></param>
+        /// <returns></returns>
+        internal List<ProteinWithAppliedVariants> ApplyVariantsRecursively(List<ProteinWithAppliedVariants> variantProteins, List<SequenceVariation> variations, int startHere, string individual)
+        {
+            // base case
+            if (startHere >= variations.Count)
+                return variantProteins;
+
+            List<ProteinWithAppliedVariants> newVariantProteins = new List<ProteinWithAppliedVariants>();
+            foreach (var protein in variantProteins)
+            {
+                var variant = variations[startHere];
+
+                // reference allele
+                if (variant.Description.Genotypes[individual].Contains("0"))
+                    newVariantProteins.Add(new ProteinWithAppliedVariants(protein.BaseSequence, protein.Protein, protein.AppliedSequenceVariations,
+                        protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, individual));
+
+                // alternate allele
+                if (!variant.Description.Genotypes[individual].All(x => x == "0"))
+                    newVariantProteins.Add(ApplyVariant(variant, protein, individual));
+
+                // recurse
+                newVariantProteins = ApplyVariantsRecursively(newVariantProteins, variations, startHere + 1, individual);
+            }
+
+            return newVariantProteins;
+        }
+
+
+        /// <summary>
+        /// Applies a variant to a protein sequence
+        /// </summary>
+        /// <param name="variant"></param>
+        /// <returns></returns>
+        internal ProteinWithAppliedVariants ApplyVariant(SequenceVariation variant, ProteinWithAppliedVariants protein, string individual)
+        {
+            string seqBefore = BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
+            string seqVariant = variant.VariantSequence;
+            List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, ProteolysisProducts);
+            Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, Protein.OriginalModifications, variant.OneBasedModifications);
+            int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
+
+            // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
+            // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
+            //    e.g. reference sequence is wrong at that point
+            bool intersectsAppliedRegionIncompletely = AppliedSequenceVariations.Any(x => variant.Intersects(x) && !variant.Includes(x));
+            if (intersectsAppliedRegionIncompletely)
+            {
+                // use original protein sequence for the remaining sequence
+                string seqAfter = Protein.BaseSequence.Length - afterIdx <= 0 ? "" : Protein.BaseSequence.Substring(afterIdx);
+                return new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, Protein, new[] { variant }, adjustedProteolysisProducts, adjustedModifications, individual);
+            }
+            else
+            {
+                List<SequenceVariation> variations = AppliedSequenceVariations
+                    .Where(x => !variant.Includes(x))
+                    .Concat(new[] { variant })
+                    .ToList();
+                // use this variant protein sequence for the remaining sequence
+                string seqAfter = BaseSequence.Length - afterIdx <= 0 ? "" : BaseSequence.Substring(afterIdx);
+                return new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, Protein, variations, adjustedProteolysisProducts, adjustedModifications, individual);
+            }
+        }
+
 
         /// <summary>
         /// Eliminates proteolysis products that overlap sequence variations.
@@ -231,24 +252,6 @@ namespace Proteomics
         internal static string CombineDescriptions(IEnumerable<SequenceVariation> variations)
         {
             return variations == null ? "" : string.Join(", variant:", variations.Select(d => d.Description));
-        }
-
-        /// <summary>
-        /// Gets a dictionary of the format (key) and fields (value) for a genotype
-        /// </summary>
-        /// <param name="format"></param>
-        /// <param name="genotype"></param>
-        /// <returns></returns>
-        private static Dictionary<string, string> GenotypeDictionary(string format, string genotype)
-        {
-            Dictionary<string, string> genotypeDict = new Dictionary<string, string>();
-            string[] formatSplit = format.Split(':');
-            string[] genotypeSplit = genotype.Split(':');
-            if (formatSplit.Length != genotypeSplit.Length)
-            {
-                throw new ArgumentException("Genotype format: " + format + " and genotype: " + genotype + " do not match -- they're not the same length");
-            }
-            return Enumerable.Range(0, formatSplit.Length).ToDictionary(x => formatSplit[x], x => genotypeSplit[x]);
         }
     }
 }
