@@ -39,6 +39,8 @@ namespace Proteomics
 
                 Genotypes.Add(individual.ToString(), gt);
                 AlleleDepths.Add(individual.ToString(), ad);
+                Homozygous.Add(individual.ToString(), gt.Distinct().Count() == 1);
+                Heterozygous.Add(individual.ToString(), gt.Distinct().Count() > 1);
             }
         }
 
@@ -47,6 +49,8 @@ namespace Proteomics
         public string AlternateAlleleString { get; }
         public string Info { get; }
         public string Format { get; }
+        public Dictionary<string, bool> Homozygous { get; } = new Dictionary<string, bool>();
+        public Dictionary<string, bool> Heterozygous { get; } = new Dictionary<string, bool>();
         public Dictionary<string, string[]> Genotypes { get; } = new Dictionary<string, string[]>();
         public Dictionary<string, string[]> AlleleDepths { get; } = new Dictionary<string, string[]>();
 

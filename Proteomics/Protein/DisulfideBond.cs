@@ -33,9 +33,9 @@
         {
             DisulfideBond bond = obj as DisulfideBond;
             return bond != null
-                && bond.OneBasedBeginPosition == OneBasedBeginPosition
-                && bond.OneBasedEndPosition == OneBasedEndPosition
-                && bond.Description == Description;
+                && bond.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
+                && bond.OneBasedEndPosition.Equals(OneBasedEndPosition)
+                && bond.Description.Equals(Description);
         }
 
         public override int GetHashCode()

@@ -15,10 +15,11 @@
 
         public override bool Equals(object obj)
         {
-            return obj as ProteolysisProduct != null &&
-                (obj as ProteolysisProduct).OneBasedBeginPosition == OneBasedBeginPosition &&
-                (obj as ProteolysisProduct).OneBasedEndPosition == OneBasedEndPosition &&
-                (obj as ProteolysisProduct).Type == Type;
+            ProteolysisProduct pp = obj as ProteolysisProduct;
+            return pp != null &&
+                pp.OneBasedBeginPosition.Equals(OneBasedBeginPosition) &&
+                pp.OneBasedEndPosition.Equals(OneBasedEndPosition) &&
+                pp.Type.Equals(Type);
         }
 
         public override int GetHashCode()

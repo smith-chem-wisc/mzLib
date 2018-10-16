@@ -65,11 +65,6 @@ namespace Proteomics
         /// </summary>
         public Dictionary<int, List<Modification>> OneBasedModifications { get; }
 
-        /// <summary>
-        ///
-        /// </summary>
-        public Dictionary<int, List<Modification>> OneBasedModifications { get; }
-
         public override bool Equals(object obj)
         {
             SequenceVariation s = obj as SequenceVariation;

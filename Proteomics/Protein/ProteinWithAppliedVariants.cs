@@ -33,13 +33,32 @@ namespace Proteomics
             Individual = individual;
         }
 
+        public override bool Equals(object obj)
+        {
+            ProteinWithAppliedVariants p = obj as ProteinWithAppliedVariants;
+            return p != null &&
+                p.Individual.Equals(Individual) &&
+                p.SequenceVariations.OrderBy(x => x).SequenceEqual(SequenceVariations.OrderBy(x => x)) &&
+                p.Protein.Equals(Protein);
+        }
+
+        public override int GetHashCode()
+        {
+            int hash = Individual.GetHashCode() ^ Protein.GetHashCode();
+            foreach (SequenceVariation sv in AppliedSequenceVariations)
+            {
+                hash ^= sv.GetHashCode();
+            }
+            return hash;
+        }
+
         /// <summary>
         /// Applies variant changes to protein sequence
         /// </summary>
         /// <param name="protein"></param>
         /// <param name="uniqueEffectsToApply"></param>
         /// <returns></returns>
-        internal List<ProteinWithAppliedVariants> ApplyVariants(ProteinWithAppliedVariants protein, IEnumerable<SequenceVariation> sequenceVariations)
+        internal List<ProteinWithAppliedVariants> ApplyVariants(IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics)
         {
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
@@ -48,22 +67,68 @@ namespace Proteomics
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
-            // If there aren't any variants to apply, just return the base protein
+            ProteinWithAppliedVariants proteinCopy = new ProteinWithAppliedVariants(BaseSequence, Protein, AppliedSequenceVariations, ProteolysisProducts, OneBasedPossibleLocalizedModifications, Individual);
+            
+                // If there aren't any variants to apply, just return the base protein
             if (uniqueEffectsToApply.Count == 0)
             {
-                return new List<ProteinWithAppliedVariants> { protein };
+                return new List<ProteinWithAppliedVariants> { proteinCopy };
             }
 
             HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
             List<ProteinWithAppliedVariants> variantProteins = new List<ProteinWithAppliedVariants>();
-            
-            // loop through genotypes for this variant (e.g. tumor and normal)
+
+            // loop through genotypes for each sample/individual (e.g. tumor and normal)
             foreach (string individual in individuals)
             {
-                variantProteins.AddRange(ApplyVariantsRecursively(new List<ProteinWithAppliedVariants> { protein }, uniqueEffectsToApply, 0, individual));
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                List<ProteinWithAppliedVariants> newVariantProteins = new List<ProteinWithAppliedVariants> { proteinCopy };
+                foreach (var variant in uniqueEffectsToApply)
+                {
+                    // homozygous alternate
+                    if (variant.Description.Homozygous[individual] && variant.Description.Genotypes[individual].All(x => x != "0"))
+                    {
+                        newVariantProteins = newVariantProteins.Select(p => ApplyVariant(variant, p, individual)).ToList();
+                    }
+
+                    // heterozygous basic
+                    // first protein with variants contains all homozygous variation, second contains all variations
+                    else if (variant.Description.Heterozygous[individual] && tooManyHeterozygousVariants)
+                    {
+                        if (newVariantProteins.Count == 1)
+                        {
+                            ProteinWithAppliedVariants variantProtein = ApplyVariant(variant, newVariantProteins[0], individual);
+                            newVariantProteins.Add(variantProtein);
+                        }
+                        else
+                        {
+                            newVariantProteins[1] = ApplyVariant(variant, newVariantProteins[1], individual);
+                        }
+                    }
+                    
+                    // heterozygous combinitorics
+                    else if (variant.Description.Heterozygous[individual] && !tooManyHeterozygousVariants)
+                    {
+                        List<ProteinWithAppliedVariants> combinitoricProteins = new List<ProteinWithAppliedVariants>();
+
+                        foreach (var protein in newVariantProteins)
+                        {
+                            // keep reference allele
+                            if (variant.Description.Genotypes[individual].Contains("0"))
+                            {
+                                combinitoricProteins.Add(protein);
+                            }
+
+                            // alternate allele (replace all, since in heterozygous with two alternates, both alternates are included)
+                            combinitoricProteins.Add(ApplyVariant(variant, proteinCopy, individual));
+                        }
+                        newVariantProteins = combinitoricProteins;
+                    }
+                }
+                variantProteins.AddRange(newVariantProteins);
             }
-           
-            return variantProteins;
+
+            return variantProteins.GroupBy(x => x.BaseSequence).Select(x => x.First()).ToList();
         }
 
         /// <summary>
@@ -74,32 +139,34 @@ namespace Proteomics
         /// <param name="startHere"></param>
         /// <param name="individual"></param>
         /// <returns></returns>
-        internal List<ProteinWithAppliedVariants> ApplyVariantsRecursively(List<ProteinWithAppliedVariants> variantProteins, List<SequenceVariation> variations, int startHere, string individual)
-        {
-            // base case
-            if (startHere >= variations.Count)
-                return variantProteins;
+        //internal List<ProteinWithAppliedVariants> ApplyVariantsRecursively(List<ProteinWithAppliedVariants> variantProteins, List<SequenceVariation> variations, 
+        //    int startHere, string individual, int maxVariants)
+        //{
+        //    // base case
+        //    if (startHere >= variations.Count)
+        //        return variantProteins;
 
-            List<ProteinWithAppliedVariants> newVariantProteins = new List<ProteinWithAppliedVariants>();
-            foreach (var protein in variantProteins)
-            {
-                var variant = variations[startHere];
+        //    List<ProteinWithAppliedVariants> newVariantProteins = new List<ProteinWithAppliedVariants>();
+        //    foreach (var protein in variantProteins)
+        //    {
+        //        var variant = variations[startHere];
 
-                // reference allele
-                if (variant.Description.Genotypes[individual].Contains("0"))
-                    newVariantProteins.Add(new ProteinWithAppliedVariants(protein.BaseSequence, protein.Protein, protein.AppliedSequenceVariations,
-                        protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, individual));
+        //        // reference allele
+        //        if (variant.Description.Genotypes[individual].Contains("0"))
+        //            newVariantProteins.Add(new ProteinWithAppliedVariants(protein.BaseSequence, protein.Protein, protein.AppliedSequenceVariations,
+        //                protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, individual));
 
-                // alternate allele
-                if (!variant.Description.Genotypes[individual].All(x => x == "0"))
-                    newVariantProteins.Add(ApplyVariant(variant, protein, individual));
+        //        // alternate allele
+        //        if (!variant.Description.Genotypes[individual].All(x => x == "0"))
+        //            newVariantProteins.Add(ApplyVariant(variant, protein, individual));
 
-                // recurse
-                newVariantProteins = ApplyVariantsRecursively(newVariantProteins, variations, startHere + 1, individual);
-            }
+        //        // recurse
+        //        if (variations.Where(v => v.Description.Heterozygous[individual]).Count() <= maxVariants)
+        //            newVariantProteins = ApplyVariantsRecursively(newVariantProteins, variations, startHere + 1, individual, maxVariants);
+        //    }
 
-            return newVariantProteins;
-        }
+        //    return newVariantProteins;
+        //}
 
 
         /// <summary>
@@ -107,33 +174,33 @@ namespace Proteomics
         /// </summary>
         /// <param name="variant"></param>
         /// <returns></returns>
-        internal ProteinWithAppliedVariants ApplyVariant(SequenceVariation variant, ProteinWithAppliedVariants protein, string individual)
+        internal static ProteinWithAppliedVariants ApplyVariant(SequenceVariation variant, ProteinWithAppliedVariants protein, string individual)
         {
-            string seqBefore = BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
+            string seqBefore = protein.BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
             string seqVariant = variant.VariantSequence;
-            List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, ProteolysisProducts);
-            Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, Protein.OriginalModifications, variant.OneBasedModifications);
+            List<ProteolysisProduct> adjustedProteolysisProducts = protein.AdjustProteolysisProductIndices(variant, protein.ProteolysisProducts);
+            Dictionary<int, List<Modification>> adjustedModifications = protein.AdjustModificationIndices(variant, protein.Protein.OriginalModifications, variant.OneBasedModifications);
             int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
 
             // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
             // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
             //    e.g. reference sequence is wrong at that point
-            bool intersectsAppliedRegionIncompletely = AppliedSequenceVariations.Any(x => variant.Intersects(x) && !variant.Includes(x));
+            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations.Any(x => variant.Intersects(x) && !variant.Includes(x));
             if (intersectsAppliedRegionIncompletely)
             {
                 // use original protein sequence for the remaining sequence
-                string seqAfter = Protein.BaseSequence.Length - afterIdx <= 0 ? "" : Protein.BaseSequence.Substring(afterIdx);
-                return new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, Protein, new[] { variant }, adjustedProteolysisProducts, adjustedModifications, individual);
+                string seqAfter = protein.Protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.Protein.BaseSequence.Substring(afterIdx);
+                return new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, protein.Protein, new[] { variant }, adjustedProteolysisProducts, adjustedModifications, individual);
             }
             else
             {
-                List<SequenceVariation> variations = AppliedSequenceVariations
+                List<SequenceVariation> variations = protein.AppliedSequenceVariations
                     .Where(x => !variant.Includes(x))
                     .Concat(new[] { variant })
                     .ToList();
                 // use this variant protein sequence for the remaining sequence
-                string seqAfter = BaseSequence.Length - afterIdx <= 0 ? "" : BaseSequence.Substring(afterIdx);
-                return new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, Protein, variations, adjustedProteolysisProducts, adjustedModifications, individual);
+                string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
+                return new ProteinWithAppliedVariants(seqBefore + seqVariant + seqAfter, protein.Protein, variations, adjustedProteolysisProducts, adjustedModifications, individual);
             }
         }
 

@@ -107,6 +107,66 @@ namespace Proteomics
             return string.Format("{0} {1}", Accession, FullName);
         }
 
+        public override bool Equals(object obj)
+        {
+            Protein p = obj as Protein;
+
+            return p != null
+                && p.BaseSequence == BaseSequence
+                && p.Name == Name
+                && p.Accession == Accession
+                && p.FullName == FullName
+                && p.FullDescription == FullDescription
+                && p.IsContaminant == IsContaminant
+                && p.IsDecoy == IsDecoy
+                && p.Organism == Organism
+                && p.GeneNames.OrderBy(x => x).SequenceEqual(GeneNames.OrderBy(x => x))
+                && p.SequenceVariations.OrderBy(x => x).SequenceEqual(SequenceVariations.OrderBy(x => x))
+                && p.DatabaseReferences.OrderBy(x => x).SequenceEqual(DatabaseReferences.OrderBy(x => x))
+                && p.DisulfideBonds.OrderBy(x => x).SequenceEqual(DisulfideBonds.OrderBy(x => x))
+                && p.ProteolysisProducts.OrderBy(x => x).SequenceEqual(ProteolysisProducts.OrderBy(x => x))
+                && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.OrderBy(mod => mod).Select(mod => mod.ToString()))}")
+                    .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.OrderBy(mod => mod).Select(mod => mod.ToString()))}"));
+           
+        }
+
+        public override int GetHashCode()
+        {
+            int hash = BaseSequence.GetHashCode() ^
+                (Name ?? "").GetHashCode() ^
+                (Accession ?? "").GetHashCode() ^
+                (FullName ?? "").GetHashCode() ^
+                (FullDescription ?? "").GetHashCode() ^
+                IsContaminant.GetHashCode() ^
+                IsDecoy.GetHashCode() ^
+                (Organism ?? "").GetHashCode();
+
+            foreach (Tuple<string, string> gn in GeneNames)
+                hash ^= gn.GetHashCode();
+
+            foreach (SequenceVariation sv in SequenceVariations)
+                hash ^= sv.GetHashCode();
+
+            foreach (DatabaseReference dr in DatabaseReferences)
+                hash ^= dr.GetHashCode();
+
+            foreach (DisulfideBond db in DisulfideBonds)
+                hash ^= db.GetHashCode();
+
+            foreach (ProteolysisProduct pp in ProteolysisProducts)
+                hash ^= pp.GetHashCode();
+
+            foreach (var kv in OneBasedPossibleLocalizedModifications)
+            {
+                foreach (Modification mod in kv.Value)
+                {
+                    hash ^= kv.Key.GetHashCode() ^ mod.GetHashCode();
+                }
+            }
+
+            return hash;
+        }
+
         /// <summary>
         /// Gets peptides for digestion of a protein
         /// </summary>
@@ -120,10 +180,10 @@ namespace Proteomics
         /// <summary>
         /// Gets proteins with applied variants from this protein
         /// </summary>
-        public List<ProteinWithAppliedVariants> GetVariantProteins()
+        public List<ProteinWithAppliedVariants> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4)
         {
             ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, ProteolysisProducts, OneBasedPossibleLocalizedModifications, null);
-            return variantProtein.ApplyVariants(variantProtein, SequenceVariations);
+            return variantProtein.ApplyVariants(SequenceVariations, maxAllowedVariantsForCombinitorics);
         }
 
         /// <summary>
