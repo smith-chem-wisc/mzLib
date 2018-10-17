@@ -69,31 +69,33 @@ namespace Test
         [Test]
         public static void HomoHetero()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"F:\ProjectsActive\Spritz\jeko\SRX277277_1-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.NoIndels.snpEffAnnotated.protein.withmods.xml"), true,
+            //var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"F:\ProjectsActive\Spritz\jeko\SRX277277_1-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.NoIndels.snpEffAnnotated.protein.withmods.xml"), true,
+            //    DecoyType.None, null, false, null, out var unknownModifications);
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"E:\ProjectsActive\MCF7PacBio\IsoSeq_MCF7_2015edition_polished.unimapped.withcds.protein.withmods.xml"), true,
                 DecoyType.None, null, false, null, out var unknownModifications);
             proteins.SelectMany(p => p.GetVariantProteins()).ToList();
-            //DataTable table = new DataTable();
-            //table.Columns.Add("protein");
-            //table.Columns.Add("heteroVariantCount");
-            //table.Columns.Add("homoVariantCount");
-            //table.Columns.Add("size_da");
-            //foreach (var p in proteins)
-            //{
-            //    DataRow row = table.NewRow();
-            //    row[0] = p.Accession;
-            //    int homo = p.SequenceVariations.Count(x => x.Description.Genotypes.First().Value.Distinct().Count() == 1);
-            //    int hetero = p.SequenceVariations.Count(x => x.Description.Genotypes.First().Value.Distinct().Count() > 1);
-            //    row[1] = hetero.ToString();
-            //    row[2] = homo.ToString();
-            //    row[3] = new Proteomics.AminoAcidPolymer.Peptide(p.BaseSequence).MonoisotopicMass.ToString();
-            //    table.Rows.Add(row);
-            //}
-            //var builder = new System.Text.StringBuilder();
-            //foreach (DataRow row in table.Rows)
-            //{
-            //    builder.AppendLine(string.Join("\t", row.ItemArray));
-            //}
-            //File.WriteAllText(@"E:\ProjectsActive\JurkatProteogenomics\180831.1WithFixedSeqVarAndTranscriptIsoforms\homoheterotable.txt", builder.ToString());
+            DataTable table = new DataTable();
+            table.Columns.Add("protein");
+            table.Columns.Add("heteroVariantCount");
+            table.Columns.Add("homoVariantCount");
+            table.Columns.Add("size_da");
+            foreach (var p in proteins)
+            {
+                DataRow row = table.NewRow();
+                row[0] = p.Accession;
+                int homo = p.SequenceVariations.Count(x => x.Description.Genotypes.First().Value.Distinct().Count() == 1);
+                int hetero = p.SequenceVariations.Count(x => x.Description.Genotypes.First().Value.Distinct().Count() > 1);
+                row[1] = hetero.ToString();
+                row[2] = homo.ToString();
+                row[3] = new Proteomics.AminoAcidPolymer.Peptide(p.BaseSequence).MonoisotopicMass.ToString();
+                table.Rows.Add(row);
+            }
+            var builder = new System.Text.StringBuilder();
+            foreach (DataRow row in table.Rows)
+            {
+                builder.AppendLine(string.Join("\t", row.ItemArray));
+            }
+            File.WriteAllText(@"E:\ProjectsActive\JurkatProteogenomics\180831.1WithFixedSeqVarAndTranscriptIsoforms\homoheterotable.txt", builder.ToString());
         }
 
         [Test]

@@ -69,7 +69,7 @@ namespace Proteomics
 
             ProteinWithAppliedVariants proteinCopy = new ProteinWithAppliedVariants(BaseSequence, Protein, AppliedSequenceVariations, ProteolysisProducts, OneBasedPossibleLocalizedModifications, Individual);
             
-                // If there aren't any variants to apply, just return the base protein
+            // If there aren't any variants to apply, just return the base protein
             if (uniqueEffectsToApply.Count == 0)
             {
                 return new List<ProteinWithAppliedVariants> { proteinCopy };
@@ -130,45 +130,7 @@ namespace Proteomics
 
             return variantProteins.GroupBy(x => x.BaseSequence).Select(x => x.First()).ToList();
         }
-
-        /// <summary>
-        /// Recursively applies variations
-        /// </summary>
-        /// <param name="variantProteins"></param>
-        /// <param name="variations"></param>
-        /// <param name="startHere"></param>
-        /// <param name="individual"></param>
-        /// <returns></returns>
-        //internal List<ProteinWithAppliedVariants> ApplyVariantsRecursively(List<ProteinWithAppliedVariants> variantProteins, List<SequenceVariation> variations, 
-        //    int startHere, string individual, int maxVariants)
-        //{
-        //    // base case
-        //    if (startHere >= variations.Count)
-        //        return variantProteins;
-
-        //    List<ProteinWithAppliedVariants> newVariantProteins = new List<ProteinWithAppliedVariants>();
-        //    foreach (var protein in variantProteins)
-        //    {
-        //        var variant = variations[startHere];
-
-        //        // reference allele
-        //        if (variant.Description.Genotypes[individual].Contains("0"))
-        //            newVariantProteins.Add(new ProteinWithAppliedVariants(protein.BaseSequence, protein.Protein, protein.AppliedSequenceVariations,
-        //                protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, individual));
-
-        //        // alternate allele
-        //        if (!variant.Description.Genotypes[individual].All(x => x == "0"))
-        //            newVariantProteins.Add(ApplyVariant(variant, protein, individual));
-
-        //        // recurse
-        //        if (variations.Where(v => v.Description.Heterozygous[individual]).Count() <= maxVariants)
-        //            newVariantProteins = ApplyVariantsRecursively(newVariantProteins, variations, startHere + 1, individual, maxVariants);
-        //    }
-
-        //    return newVariantProteins;
-        //}
-
-
+       
         /// <summary>
         /// Applies a variant to a protein sequence
         /// </summary>
@@ -179,7 +141,8 @@ namespace Proteomics
             string seqBefore = protein.BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
             string seqVariant = variant.VariantSequence;
             List<ProteolysisProduct> adjustedProteolysisProducts = protein.AdjustProteolysisProductIndices(variant, protein.ProteolysisProducts);
-            Dictionary<int, List<Modification>> adjustedModifications = protein.AdjustModificationIndices(variant, protein.Protein.OriginalModifications, variant.OneBasedModifications);
+            Dictionary<int, List<Modification>> adjustedModifications = protein.AdjustModificationIndices(variant, protein);
+            List<SequenceVariation> adjustedAppliedVariations = protein.AdjustSequenceVariations(variant, protein.AppliedSequenceVariations);
             int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
 
             // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
@@ -204,6 +167,38 @@ namespace Proteomics
             }
         }
 
+        internal List<SequenceVariation> AdjustSequenceVariations(SequenceVariation variantGettingApplied, IEnumerable<SequenceVariation> alreadyAppliedVariations)
+        {
+            List<SequenceVariation> variations = new List<SequenceVariation>();
+            if (alreadyAppliedVariations == null) { return variations; }
+            foreach (SequenceVariation v in alreadyAppliedVariations)
+            {
+                int addedIdx = alreadyAppliedVariations
+                    .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
+                    .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
+                
+                // variant was entirely before the one being applied (shouldn't happen because of order of applying variants)
+                if (v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                {
+                    variations.Add(v);
+                }
+
+                // adjust indices based on new included sequencek, minding possible overlaps to be filtered later
+                else
+                {
+                    int overlap = variantGettingApplied.OneBasedEndPosition - v.OneBasedBeginPosition + 1;
+                    int sequenceLengthChange = variantGettingApplied.VariantSequence.Length - variantGettingApplied.OriginalSequence.Length;
+                    variations.Add(new SequenceVariation(
+                        v.OneBasedBeginPosition + sequenceLengthChange - overlap,
+                        v.OneBasedEndPosition + sequenceLengthChange - overlap,
+                        v.VariantSequence,
+                        v.OriginalSequence,
+                        v.Description.Description,
+                        v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
+                }
+            }
+            return variations;
+        }
 
         /// <summary>
         /// Eliminates proteolysis products that overlap sequence variations.
@@ -252,42 +247,50 @@ namespace Proteomics
         /// <param name="variant"></param>
         /// <param name="modificationDictionary"></param>
         /// <returns></returns>
-        internal Dictionary<int, List<Modification>> AdjustModificationIndices(SequenceVariation variant, IDictionary<int, List<Modification>> modificationDictionary,
-            IDictionary<int, List<Modification>> variantModificationDictionary)
+        internal Dictionary<int, List<Modification>> AdjustModificationIndices(SequenceVariation variant, ProteinWithAppliedVariants protein)
         {
+            IDictionary<int, List<Modification>> modificationDictionary = protein.Protein.OneBasedPossibleLocalizedModifications;
+            IDictionary<int, List<Modification>> variantModificationDictionary = variant.OneBasedModifications;
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
-            if (modificationDictionary == null) { return mods; }
             int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
 
             // change modification indices for variant sequence
-            foreach (KeyValuePair<int, List<Modification>> kv in modificationDictionary)
+            if (modificationDictionary != null)
             {
-                if (variant.OneBasedBeginPosition > kv.Key)
+                foreach (KeyValuePair<int, List<Modification>> kv in modificationDictionary)
                 {
-                    mods.Add(kv.Key, kv.Value);
-                }
-                else if (variant.OneBasedEndPosition < kv.Key && kv.Key + sequenceLengthChange <= BaseSequence.Length)
-                {
-                    mods.Add(kv.Key + sequenceLengthChange, kv.Value);
-                }
-                else // sequence variant conflicts with modification site (modification site substitution)
-                {
-                    continue;
+                    if (variant.OneBasedBeginPosition > kv.Key)
+                    {
+                        mods.Add(kv.Key, kv.Value);
+                    }
+                    else if (variant.OneBasedEndPosition < kv.Key && kv.Key + sequenceLengthChange <= BaseSequence.Length)
+                    {
+                        mods.Add(kv.Key + sequenceLengthChange, kv.Value);
+                    }
+                    else // sequence variant conflicts with modification site (modification site substitution)
+                    {
+                        continue;
+                    }
                 }
             }
 
-            // sequence variant modifications are indexed to the variant sequence
-            foreach (var kv in variantModificationDictionary)
+            // sequence variant modifications are indexed to the variant sequence 
+            //    NOTE: this code assumes variants are added from end to beginning of protein, so that previously added variant mods are adjusted above
+            if (variantModificationDictionary != null)
             {
-                if (mods.TryGetValue(kv.Key, out var modsAtPos))
+                foreach (var kv in variantModificationDictionary)
                 {
-                    modsAtPos.AddRange(kv.Value);
-                }
-                else
-                {
-                    mods.Add(kv.Key, kv.Value);
+                    if (mods.TryGetValue(kv.Key, out var modsAtPos))
+                    {
+                        modsAtPos.AddRange(kv.Value);
+                    }
+                    else
+                    {
+                        mods.Add(kv.Key, kv.Value);
+                    }
                 }
             }
+
             return mods;
         }
 

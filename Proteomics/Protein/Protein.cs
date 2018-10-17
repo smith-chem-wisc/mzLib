@@ -13,7 +13,7 @@ namespace Proteomics
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
-            List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
+            List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -40,6 +40,7 @@ namespace Proteomics
             }
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
+            SpliceSites = spliceSites ?? new List<SpliceSite>();
         }
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
@@ -55,6 +56,7 @@ namespace Proteomics
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
+        public IEnumerable<SpliceSite> SpliceSites { get; }
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }

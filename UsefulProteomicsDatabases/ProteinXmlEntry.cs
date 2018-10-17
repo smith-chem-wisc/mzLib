@@ -32,6 +32,7 @@ namespace UsefulProteomicsDatabases
         public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
+        public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
         public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
@@ -185,7 +186,7 @@ namespace UsefulProteomicsDatabases
             {
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 var protein = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, proteinDbLocation);
+                    false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, SpliceSites, proteinDbLocation);
                 result.Add(protein);
             }
             Clear();
@@ -242,6 +243,17 @@ namespace UsefulProteomicsDatabases
                 else if (OneBasedFeaturePosition >= 1)
                 {
                     DisulfideBonds.Add(new DisulfideBond(OneBasedFeaturePosition, FeatureDescription));
+                }
+            }
+            else if (FeatureType == "splice site")
+            {
+                if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                {
+                    SpliceSites.Add(new SpliceSite((int)OneBasedBeginPosition, (int)OneBasedEndPosition, FeatureDescription));
+                }
+                else if (OneBasedFeaturePosition >= 1)
+                {
+                    SpliceSites.Add(new SpliceSite(OneBasedFeaturePosition, FeatureDescription));
                 }
             }
             OneBasedBeginPosition = null;
@@ -361,6 +373,7 @@ namespace UsefulProteomicsDatabases
             ProteolysisProducts = new List<ProteolysisProduct>();
             SequenceVariations = new List<SequenceVariation>();
             DisulfideBonds = new List<DisulfideBond>();
+            SpliceSites = new List<SpliceSite>();
             DatabaseReferences = new List<DatabaseReference>();
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;
