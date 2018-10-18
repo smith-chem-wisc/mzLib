@@ -206,9 +206,9 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-            /// <summary>
-            /// Finish parsing a feature element
-            /// </summary>
+        /// <summary>
+        /// Finish parsing a feature element
+        /// </summary>
         public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications)
         {
@@ -263,7 +263,7 @@ namespace UsefulProteomicsDatabases
             VariationValue = "";
         }
 
-        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude, 
+        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
         {
             foreach (var annotatedMod in annotatedMods)
@@ -336,7 +336,7 @@ namespace UsefulProteomicsDatabases
         /// Finish parsing a database reference element
         /// </summary>
         /// <param name="xml"></param>
-        public void ParseDatabaseReferenceEndElement(XmlReader xml)
+        private void ParseDatabaseReferenceEndElement(XmlReader xml)
         {
             DatabaseReferences.Add(
                 new DatabaseReference(DBReferenceType, DBReferenceId,
