@@ -10,6 +10,21 @@ namespace Proteomics
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
         /// </summary>
+        /// <param name="sequence">Base sequence of the protein.</param>
+        /// <param name="accession">Unique accession for the protein.</param>
+        /// <param name="organism">Organism with this protein.</param>
+        /// <param name="geneNames">List of gene names as tuple of (nameType, name), e.g. (primary, HLA-A)</param>
+        /// <param name="oneBasedModifications">Modifications at positions along the sequence.</param>
+        /// <param name="proteolysisProducts"></param>
+        /// <param name="name"></param>
+        /// <param name="fullName"></param>
+        /// <param name="isDecoy"></param>
+        /// <param name="isContaminant"></param>
+        /// <param name="databaseReferences"></param>
+        /// <param name="sequenceVariations"></param>
+        /// <param name="disulfideBonds"></param>
+        /// <param name="spliceSites"></param>
+        /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
@@ -17,6 +32,7 @@ namespace Proteomics
         {
             // Mandatory
             BaseSequence = sequence;
+            OriginalBaseSequence = sequence;
             Accession = accession;
 
             Name = name;
@@ -43,6 +59,40 @@ namespace Proteomics
             SpliceSites = spliceSites ?? new List<SpliceSite>();
         }
 
+        /// <summary>
+        /// Protein construction with applied variations
+        /// </summary>
+        /// <param name="variantBaseSequence"></param>
+        /// <param name="protein"></param>
+        /// <param name="appliedSequenceVariations"></param>
+        /// <param name="applicableProteolysisProducts"></param>
+        /// <param name="oneBasedModifications"></param>
+        /// <param name="individual"></param>
+        internal Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
+            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string individual)
+            : this(variantBaseSequence,
+                  VariantApplication.GetAccession(protein, appliedSequenceVariations),
+                  organism: protein.Organism,
+                  geneNames: new List<Tuple<string, string>>(protein.GeneNames),
+                  oneBasedModifications: oneBasedModifications.ToDictionary(x => x.Key, x => x.Value),
+                  proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts),
+                  name: protein.Name + (appliedSequenceVariations == null ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
+                  fullName: protein.FullName + (appliedSequenceVariations == null ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
+                  isDecoy: protein.IsDecoy,
+                  isContaminant: protein.IsContaminant,
+                  databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
+                  sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
+                  disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
+                  spliceSites: new List<SpliceSite>(protein.SpliceSites),
+                  databaseFilePath: protein.DatabaseFilePath)
+        {
+            AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
+            Individual = individual;
+        }
+
+        /// <summary>
+        /// Modifications (values) located at one-based protein positions (keys)
+        /// </summary>
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
 
         /// <summary>
@@ -50,8 +100,16 @@ namespace Proteomics
         /// </summary>
         public IEnumerable<Tuple<string, string>> GeneNames { get; }
 
+        /// <summary>
+        /// Unique accession for this protein.
+        /// </summary>
         public string Accession { get; }
+
+        /// <summary>
+        /// Base sequence, which may contain applied sequence variations.
+        /// </summary>
         public string BaseSequence { get; }
+
         public string Organism { get; }
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
@@ -60,6 +118,18 @@ namespace Proteomics
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
+
+        /// <summary>
+        /// Original base sequence.
+        /// </summary>
+        public string OriginalBaseSequence { get; }
+
+        /// <summary>
+        /// Sequence variations that have been applied to the base sequence.
+        /// </summary>
+        public List<SequenceVariation> AppliedSequenceVariations { get; } = new List<SequenceVariation>();
+
+        public string Individual { get; }
 
         public int Length
         {
@@ -122,42 +192,53 @@ namespace Proteomics
                 && p.IsContaminant == IsContaminant
                 && p.IsDecoy == IsDecoy
                 && p.Organism == Organism
+                && p.Individual == Individual
                 && p.GeneNames.OrderBy(x => x).SequenceEqual(GeneNames.OrderBy(x => x))
                 && p.SequenceVariations.OrderBy(x => x).SequenceEqual(SequenceVariations.OrderBy(x => x))
+                && p.AppliedSequenceVariations.OrderBy(x => x).SequenceEqual(AppliedSequenceVariations.OrderBy(x => x))
                 && p.DatabaseReferences.OrderBy(x => x).SequenceEqual(DatabaseReferences.OrderBy(x => x))
                 && p.DisulfideBonds.OrderBy(x => x).SequenceEqual(DisulfideBonds.OrderBy(x => x))
                 && p.ProteolysisProducts.OrderBy(x => x).SequenceEqual(ProteolysisProducts.OrderBy(x => x))
                 && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.OrderBy(mod => mod).Select(mod => mod.ToString()))}")
                     .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.OrderBy(mod => mod).Select(mod => mod.ToString()))}"));
-           
         }
 
         public override int GetHashCode()
         {
-            int hash = BaseSequence.GetHashCode() ^
-                (Name ?? "").GetHashCode() ^
-                (Accession ?? "").GetHashCode() ^
-                (FullName ?? "").GetHashCode() ^
-                (FullDescription ?? "").GetHashCode() ^
-                IsContaminant.GetHashCode() ^
-                IsDecoy.GetHashCode() ^
-                (Organism ?? "").GetHashCode();
+            int hash = (BaseSequence ?? "").GetHashCode();
+            hash ^= (Name ?? "").GetHashCode();
+            hash ^= (Accession ?? "").GetHashCode();
+            hash ^= (FullName ?? "").GetHashCode();
+            hash ^= (FullDescription ?? "").GetHashCode();
+            hash ^= IsContaminant.GetHashCode();
+            hash ^= IsDecoy.GetHashCode();
+            hash ^= (Organism ?? "").GetHashCode();
+            hash ^= (Individual ?? "").GetHashCode();
 
             foreach (Tuple<string, string> gn in GeneNames)
+            {
                 hash ^= gn.GetHashCode();
-
+            }
             foreach (SequenceVariation sv in SequenceVariations)
+            {
                 hash ^= sv.GetHashCode();
-
+            }
+            foreach (SequenceVariation sv in AppliedSequenceVariations)
+            {
+                hash ^= sv.GetHashCode();
+            }
             foreach (DatabaseReference dr in DatabaseReferences)
+            {
                 hash ^= dr.GetHashCode();
-
+            }
             foreach (DisulfideBond db in DisulfideBonds)
+            {
                 hash ^= db.GetHashCode();
-
+            }
             foreach (ProteolysisProduct pp in ProteolysisProducts)
+            {
                 hash ^= pp.GetHashCode();
-
+            }
             foreach (var kv in OneBasedPossibleLocalizedModifications)
             {
                 foreach (Modification mod in kv.Value)
@@ -182,10 +263,9 @@ namespace Proteomics
         /// <summary>
         /// Gets proteins with applied variants from this protein
         /// </summary>
-        public List<ProteinWithAppliedVariants> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4)
+        public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4)
         {
-            ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, ProteolysisProducts, OneBasedPossibleLocalizedModifications, null);
-            return variantProtein.ApplyVariants(SequenceVariations, maxAllowedVariantsForCombinitorics);
+            return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics);
         }
 
         /// <summary>

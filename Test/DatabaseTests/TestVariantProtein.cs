@@ -18,7 +18,7 @@ namespace Test
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVar.xml");
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            List<ProteinWithAppliedVariants> variantProteins = proteins.SelectMany(p => p.GetVariantProteins(4)).ToList();
+            List<Protein> variantProteins = proteins.SelectMany(p => p.GetVariantProteins(4)).ToList();
 
             Assert.AreEqual(5, proteins.First().SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change
@@ -67,44 +67,12 @@ namespace Test
         }
 
         [Test]
-        public static void HomoHetero()
-        {
-            //var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"F:\ProjectsActive\Spritz\jeko\SRX277277_1-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.NoIndels.snpEffAnnotated.protein.withmods.xml"), true,
-            //    DecoyType.None, null, false, null, out var unknownModifications);
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"E:\ProjectsActive\MCF7PacBio\IsoSeq_MCF7_2015edition_polished.unimapped.withcds.protein.withmods.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
-            proteins.SelectMany(p => p.GetVariantProteins()).ToList();
-            DataTable table = new DataTable();
-            table.Columns.Add("protein");
-            table.Columns.Add("heteroVariantCount");
-            table.Columns.Add("homoVariantCount");
-            table.Columns.Add("size_da");
-            foreach (var p in proteins)
-            {
-                DataRow row = table.NewRow();
-                row[0] = p.Accession;
-                int homo = p.SequenceVariations.Count(x => x.Description.Genotypes.First().Value.Distinct().Count() == 1);
-                int hetero = p.SequenceVariations.Count(x => x.Description.Genotypes.First().Value.Distinct().Count() > 1);
-                row[1] = hetero.ToString();
-                row[2] = homo.ToString();
-                row[3] = new Proteomics.AminoAcidPolymer.Peptide(p.BaseSequence).MonoisotopicMass.ToString();
-                table.Rows.Add(row);
-            }
-            var builder = new System.Text.StringBuilder();
-            foreach (DataRow row in table.Rows)
-            {
-                builder.AppendLine(string.Join("\t", row.ItemArray));
-            }
-            File.WriteAllText(@"E:\ProjectsActive\JurkatProteogenomics\180831.1WithFixedSeqVarAndTranscriptIsoforms\homoheterotable.txt", builder.ToString());
-        }
-
-        [Test]
         public void VariantLongDeletionXml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarLongDeletion.xml");
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            List<ProteinWithAppliedVariants> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
+            List<Protein> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
 
             Assert.AreEqual(2, proteins.First().SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change
@@ -126,7 +94,7 @@ namespace Test
             Assert.AreEqual(12, proteins.First().SequenceVariations.Count());
             Assert.AreEqual(2, proteins.First().SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
 
-            List<ProteinWithAppliedVariants> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
+            List<Protein> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
 
             Assert.AreEqual(1, variantProteins.Count); // Should be 2^2 from combinitorics of heterozygous, but the giant indels overwrite them
             Assert.AreEqual(0, variantProteins.Where(v => v.BaseSequence == proteins.First().BaseSequence).Count()); // Homozygous variations are included
@@ -143,15 +111,21 @@ namespace Test
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness2.xml");
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
-            List<ProteinWithAppliedVariants> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
+            List<Protein> variantProteins = proteins.SelectMany(p => p.GetVariantProteins()).ToList();
             Assert.AreEqual(1, proteins.First().SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.Count); // there is only one unique amino acid change
             Assert.AreEqual(1, variantProteins.Where(v => v.BaseSequence == proteins.First().BaseSequence).Count());
+            var variantProteinRef = variantProteins.First();
+            var variantProteinAlt = variantProteins.Last();
             Assert.AreEqual('R', proteins.First().BaseSequence[2386]);
-            Assert.AreNotEqual('H', variantProteins.First().BaseSequence[2386]);
-            Assert.AreNotEqual(proteins.First().Name, variantProteins.First().Name);
-            Assert.AreNotEqual(proteins.First().FullName, variantProteins.First().FullName);
-            Assert.AreNotEqual(proteins.First().Accession, variantProteins.First().Accession);
+            Assert.AreEqual('R', variantProteinRef.BaseSequence[2386]);
+            Assert.AreEqual('H', variantProteinAlt.BaseSequence[2386]);
+            Assert.AreEqual(proteins.First().Name, variantProteinRef.Name);
+            Assert.AreNotEqual(proteins.First().Name, variantProteinAlt.Name);
+            Assert.AreEqual(proteins.First().FullName, variantProteinRef.FullName);
+            Assert.AreNotEqual(proteins.First().FullName, variantProteinAlt.FullName);
+            Assert.AreEqual(proteins.First().Accession, variantProteinRef.Accession);
+            Assert.AreNotEqual(proteins.First().Accession, variantProteinAlt.Accession);
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
     }

@@ -46,7 +46,7 @@ namespace UsefulProteomicsDatabases
 
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
                     proteinList.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
-                    .Concat(additionalModsToAddToProteins.Where(kv => proteinList.SelectMany(p => p.SequenceVariations.Select(sv => ProteinWithAppliedVariants.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                    .Concat(additionalModsToAddToProteins.Where(kv => proteinList.SelectMany(p => p.SequenceVariations.Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
@@ -259,7 +259,7 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            string accession = seqvar == null ? protein.Accession : ProteinWithAppliedVariants.GetAccession(protein, new[] { seqvar });
+            string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein, new[] { seqvar });
             if (additionalModsToAddToProteins.ContainsKey(accession))
             {
                 foreach (var ye in additionalModsToAddToProteins[accession])
