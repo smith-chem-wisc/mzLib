@@ -67,9 +67,9 @@ namespace Proteomics
         /// <param name="appliedSequenceVariations"></param>
         /// <param name="applicableProteolysisProducts"></param>
         /// <param name="oneBasedModifications"></param>
-        /// <param name="individual"></param>
+        /// <param name="sampleNameForVariants"></param>
         internal Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string individual)
+            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
             : this(variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
@@ -86,8 +86,9 @@ namespace Proteomics
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
         {
+            OriginalBaseSequence = protein.BaseSequence;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
-            Individual = individual;
+            SampleNameForVariants = sampleNameForVariants;
         }
 
         /// <summary>
@@ -129,7 +130,10 @@ namespace Proteomics
         /// </summary>
         public List<SequenceVariation> AppliedSequenceVariations { get; } = new List<SequenceVariation>();
 
-        public string Individual { get; }
+        /// <summary>
+        /// Sample name from which applied variants came, e.g. tumor or normal.
+        /// </summary>
+        public string SampleNameForVariants { get; }
 
         public int Length
         {
@@ -192,7 +196,7 @@ namespace Proteomics
                 && p.IsContaminant == IsContaminant
                 && p.IsDecoy == IsDecoy
                 && p.Organism == Organism
-                && p.Individual == Individual
+                && p.SampleNameForVariants == SampleNameForVariants
                 && p.GeneNames.OrderBy(x => x).SequenceEqual(GeneNames.OrderBy(x => x))
                 && p.SequenceVariations.OrderBy(x => x).SequenceEqual(SequenceVariations.OrderBy(x => x))
                 && p.AppliedSequenceVariations.OrderBy(x => x).SequenceEqual(AppliedSequenceVariations.OrderBy(x => x))
@@ -213,7 +217,7 @@ namespace Proteomics
             hash ^= IsContaminant.GetHashCode();
             hash ^= IsDecoy.GetHashCode();
             hash ^= (Organism ?? "").GetHashCode();
-            hash ^= (Individual ?? "").GetHashCode();
+            hash ^= (SampleNameForVariants ?? "").GetHashCode();
 
             foreach (Tuple<string, string> gn in GeneNames)
             {
