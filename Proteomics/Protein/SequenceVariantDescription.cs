@@ -41,6 +41,7 @@ namespace Proteomics
                 AlleleDepths.Add(individual.ToString(), ad);
                 Homozygous.Add(individual.ToString(), gt.Distinct().Count() == 1);
                 Heterozygous.Add(individual.ToString(), gt.Distinct().Count() > 1);
+                GenotypeAlleleDepthMap.Add(individual.ToString(), Enumerable.Range(0, gt.Length).Select(x => (gt[x], ad[x])).ToArray());
             }
         }
 
@@ -53,6 +54,7 @@ namespace Proteomics
         public Dictionary<string, bool> Heterozygous { get; } = new Dictionary<string, bool>();
         public Dictionary<string, string[]> Genotypes { get; } = new Dictionary<string, string[]>();
         public Dictionary<string, string[]> AlleleDepths { get; } = new Dictionary<string, string[]>();
+        public Dictionary<string, (string, string)[]> GenotypeAlleleDepthMap { get; } = new Dictionary<string, (string, string)[]>();
 
         /// <summary>
         /// Returns original string for the description
@@ -66,7 +68,8 @@ namespace Proteomics
         public override bool Equals(object obj)
         {
             SequenceVariantDescription s = obj as SequenceVariantDescription;
-            return s != null && s.Description == this.Description;
+            return s != null
+                && (s.Description == null && Description == null || s.Description.Equals(Description));
         }
 
         public override int GetHashCode()

@@ -32,7 +32,7 @@ namespace Proteomics
         {
             // Mandatory
             BaseSequence = sequence;
-            OriginalBaseSequence = sequence;
+            NonVariantBaseSequence = sequence;
             Accession = accession;
 
             Name = name;
@@ -76,8 +76,8 @@ namespace Proteomics
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications.ToDictionary(x => x.Key, x => x.Value),
                   proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts),
-                  name: protein.Name + (appliedSequenceVariations == null ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
-                  fullName: protein.FullName + (appliedSequenceVariations == null ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
+                  name: protein.Name + (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
+                  fullName: protein.FullName + (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
@@ -86,7 +86,7 @@ namespace Proteomics
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
         {
-            OriginalBaseSequence = protein.BaseSequence;
+            NonVariantBaseSequence = protein.BaseSequence;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
@@ -123,7 +123,7 @@ namespace Proteomics
         /// <summary>
         /// Original base sequence.
         /// </summary>
-        public string OriginalBaseSequence { get; }
+        public string NonVariantBaseSequence { get; }
 
         /// <summary>
         /// Sequence variations that have been applied to the base sequence.
@@ -267,9 +267,9 @@ namespace Proteomics
         /// <summary>
         /// Gets proteins with applied variants from this protein
         /// </summary>
-        public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4)
+        public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4, int minAlleleDepth = 1)
         {
-            return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics);
+            return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics, minAlleleDepth);
         }
 
         /// <summary>

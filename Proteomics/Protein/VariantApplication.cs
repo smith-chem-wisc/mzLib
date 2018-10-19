@@ -11,7 +11,7 @@ namespace Proteomics
         /// <param name="protein"></param>
         /// <param name="uniqueEffectsToApply"></param>
         /// <returns></returns>
-        internal static List<Protein> ApplyVariants(Protein protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics)
+        internal static List<Protein> ApplyVariants(Protein protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
         {
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
@@ -38,15 +38,18 @@ namespace Proteomics
                 List<Protein> newVariantProteins = new List<Protein> { proteinCopy };
                 foreach (var variant in uniqueEffectsToApply)
                 {
+                    bool isHomozygousAlternate = variant.Description.Homozygous[individual] && variant.Description.Genotypes[individual].All(d => d != "0");
+                    bool isDeepAlternateAllele = variant.Description.GenotypeAlleleDepthMap[individual].All(d => d.Item1 != "0" || int.TryParse(d.Item2, out int depth) && depth >= minAlleleDepth);
+
                     // homozygous alternate
-                    if (variant.Description.Homozygous[individual] && variant.Description.Genotypes[individual].All(x => x != "0"))
+                    if (isHomozygousAlternate && isDeepAlternateAllele)
                     {
                         newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                     }
 
                     // heterozygous basic
                     // first protein with variants contains all homozygous variation, second contains all variations
-                    else if (variant.Description.Heterozygous[individual] && tooManyHeterozygousVariants)
+                    else if (variant.Description.Heterozygous[individual] && isDeepAlternateAllele && tooManyHeterozygousVariants)
                     {
                         if (newVariantProteins.Count == 1)
                         {
@@ -60,7 +63,7 @@ namespace Proteomics
                     }
 
                     // heterozygous combinitorics
-                    else if (variant.Description.Heterozygous[individual] && !tooManyHeterozygousVariants)
+                    else if (variant.Description.Heterozygous[individual] && isDeepAlternateAllele && !tooManyHeterozygousVariants)
                     {
                         List<Protein> combinitoricProteins = new List<Protein>();
 
@@ -105,7 +108,7 @@ namespace Proteomics
             if (intersectsAppliedRegionIncompletely)
             {
                 // use original protein sequence for the remaining sequence
-                string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.OriginalBaseSequence.Substring(afterIdx);
+                string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.NonVariantBaseSequence.Substring(afterIdx);
                 return new Protein(seqBefore + seqVariant + seqAfter, protein, new[] { variant }, adjustedProteolysisProducts, adjustedModifications, individual);
             }
             else
@@ -181,7 +184,7 @@ namespace Proteomics
                 }
                 // proteolysis product straddles the variant, but the cleavage site(s) are still intact; the ends aren't considered cleavage sites
                 else if ((p.OneBasedBeginPosition < variant.OneBasedBeginPosition || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
-                    && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.OriginalBaseSequence.Length)
+                    && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.NonVariantBaseSequence.Length)
                     && p.OneBasedEndPosition + sequenceLengthChange <= protein.BaseSequence.Length)
                 {
                     products.Add(new ProteolysisProduct(p.OneBasedBeginPosition, p.OneBasedEndPosition + sequenceLengthChange, p.Type));

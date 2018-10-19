@@ -38,8 +38,8 @@ namespace Proteomics
         {
             DatabaseReference d = obj as DatabaseReference;
             return obj != null
-                && d.Type.Equals(Type)
-                && d.Id.Equals(Id)
+                && (d.Type == null && Type == null || d.Type.Equals(Type))
+                && (d.Id == null && Id == null || d.Id.Equals(Id))
                 && d.Properties.OrderBy(x => x).SequenceEqual(Properties.OrderBy(x => x));
         }
 

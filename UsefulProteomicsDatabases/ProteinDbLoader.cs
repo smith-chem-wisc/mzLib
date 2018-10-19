@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1)
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1, int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -80,18 +80,19 @@ namespace UsefulProteomicsDatabases
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            var newProteinEntries = block.ParseEndElement(xml, modTypesToExclude, unknownModifications,
-                                isContaminant, proteinDbLocation);
-                            targets.AddRange(newProteinEntries);
+                            Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
+                            if (newProtein != null)
+                            {
+                                List<Protein> expandedProtein = newProtein.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth);
+                                targets.AddRange(expandedProtein);
+                            }
                         }
                     }
                 }
             }
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
-            List<Protein> intermediateProteinList = (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
-
-            return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
+            return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
         /// <summary>
@@ -241,7 +242,7 @@ namespace UsefulProteomicsDatabases
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
-            return (generateTargets ? targets : new List<Protein>()).Concat(decoyType != DecoyType.None ? decoys : new List<Protein>()).ToList();
+            return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
         /// <summary>

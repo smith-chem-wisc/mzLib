@@ -17,5 +17,19 @@
         public int OneBasedBeginPosition { get; }
         public int OneBasedEndPosition { get; }
         public string Description { get; }
+
+        public override bool Equals(object obj)
+        {
+            SpliceSite s = obj as SpliceSite;
+            return s != null
+                && s.OneBasedBeginPosition == OneBasedBeginPosition
+                && s.OneBasedEndPosition == OneBasedEndPosition
+                && (s.Description == null && Description == null || s.Description.Equals(Description));
+        }
+
+        public override int GetHashCode()
+        {
+            return OneBasedBeginPosition.GetHashCode() ^ OneBasedEndPosition.GetHashCode() ^ Description.GetHashCode();
+        }
     }
 }

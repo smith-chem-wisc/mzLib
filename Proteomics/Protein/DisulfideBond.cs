@@ -35,7 +35,7 @@
             return bond != null
                 && bond.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
                 && bond.OneBasedEndPosition.Equals(OneBasedEndPosition)
-                && bond.Description.Equals(Description);
+                && (bond.Description == null && Description == null || bond.Description.Equals(Description));
         }
 
         public override int GetHashCode()

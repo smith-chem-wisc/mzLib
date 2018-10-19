@@ -9,7 +9,7 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinXmlEntry
     {
-        private Regex SubstituteWhitespace = new Regex(@"\s+");
+        private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
 
         public string Accession { get; private set; }
         public string Name { get; private set; }
@@ -145,10 +145,10 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing at the end of an element
         /// </summary>
-        public List<Protein> ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications, bool isContaminant, string proteinDbLocation)
+        public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
+            bool isContaminant, string proteinDbLocation)
         {
-            List<Protein> result = new List<Protein>();
+            Protein protein = null;
             if (xml.Name == "feature")
             {
                 ParseFeatureEndElement(xml, modTypesToExclude, unknownModifications);
@@ -171,23 +171,22 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result.AddRange(ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications));
+                protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications);
             }
-            return result;
+            return protein;
         }
 
         /// <summary>
         /// Finish parsing an entry
         /// </summary>
-        public List<Protein> ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
-            List<Protein> result = new List<Protein>();
+            Protein result = null;
             if (Accession != null && Sequence != null)
             {
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                var protein = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
+                result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, SpliceSites, proteinDbLocation);
-                result.Add(protein);
             }
             Clear();
             return result;
@@ -196,8 +195,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing a subfeature element
         /// </summary>
-        public void ParseSubFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications)
+        public void ParseSubFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (SubFeatureType == "modified residue")
             {
@@ -209,8 +207,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing a feature element
         /// </summary>
-        public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications)
+        public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
             {

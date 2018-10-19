@@ -16,10 +16,10 @@
         public override bool Equals(object obj)
         {
             ProteolysisProduct pp = obj as ProteolysisProduct;
-            return pp != null &&
-                pp.OneBasedBeginPosition.Equals(OneBasedBeginPosition) &&
-                pp.OneBasedEndPosition.Equals(OneBasedEndPosition) &&
-                pp.Type.Equals(Type);
+            return pp != null
+                && pp.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
+                && pp.OneBasedEndPosition.Equals(OneBasedEndPosition)
+                && (pp.Type == null && Type == null || pp.Type.Equals(Type));
         }
 
         public override int GetHashCode()
