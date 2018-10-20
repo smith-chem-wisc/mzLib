@@ -19,7 +19,7 @@ namespace Test
         public static void TestGoodPeptide()
         {
             var prot = new Protein("MNNNKQQQQ", null);
-            var motifList = DigestionMotif.ParseProteaseFromString("K|");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
             var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
@@ -63,7 +63,7 @@ namespace Test
         public static void TestBadPeptide()
         {
             var prot = new Protein("MNNNKQQXQ", null);
-            var motifList = DigestionMotif.ParseProteaseFromString("K|");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
             var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(

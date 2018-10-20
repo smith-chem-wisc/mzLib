@@ -18,7 +18,7 @@ namespace Test
         [Test]
         public static void TestParseProtease()
         {
-            var argn = DigestionMotif.ParseProteaseFromString("|D");
+            var argn = DigestionMotif.ParseDigestionMotifsFromString("|D");
             Assert.AreEqual(argn.Count, 1);
 
             var c = argn[0];
@@ -26,7 +26,7 @@ namespace Test
             Assert.AreEqual(c.PreventingCleavage, null);
             Assert.AreEqual(c.CutIndex, 0);
 
-            var chymotrypsin = DigestionMotif.ParseProteaseFromString("F[P]|,W[P]|,Y[P]|");
+            var chymotrypsin = DigestionMotif.ParseDigestionMotifsFromString("F[P]|,W[P]|,Y[P]|");
             Assert.AreEqual(chymotrypsin.Count, 3);
         }
 
@@ -47,7 +47,7 @@ namespace Test
             Assert.AreEqual(first, "PR");
             Assert.AreEqual(last, "OTEIN");
         }
-    
+
         [Test]
         public static void TestBasicProtease2()
         {
@@ -70,6 +70,10 @@ namespace Test
         public static void TestMultiLetterProtease()
         {
             var empty = new List<Modification>();
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX[P]|");
+            Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
+            ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
+
             DigestionParams myDigestionParams = new DigestionParams("multiletter", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein

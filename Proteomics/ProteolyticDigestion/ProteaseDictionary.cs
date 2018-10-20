@@ -36,7 +36,7 @@ namespace Proteomics.ProteolyticDigestion
                 if (line.Trim() != string.Empty) // skip empty lines
                 {
                     string[] fields = line.Split('\t');
-                    List<DigestionMotif> motifList = DigestionMotif.ParseProteaseFromString(fields[1]);
+                    List<DigestionMotif> motifList = DigestionMotif.ParseDigestionMotifsFromString(fields[1]);
 
                     string name = fields[0];
                     var cleavageSpecificity = ((CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4], true));

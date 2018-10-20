@@ -65,7 +65,7 @@ namespace Test
 
             //make two identical proteases, but one is fully specific and one is semi specific
 
-            var motifList = DigestionMotif.ParseProteaseFromString("K|");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
             Protease trypsinForTestNonAndSemiSpecificDigests = new Protease("trypsinForTestNonAndSemiSpecificDigests", CleavageSpecificity.Full, "asdf", "asdf", motifList);
             Protease semiTrypsinForTestNonAndSemiSpecificDigests = new Protease("semitrypsinForTestNonAndSemiSpecificDigests", CleavageSpecificity.Semi, "asdf", "asdf", motifList);
 

@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -24,8 +22,7 @@ namespace Proteomics.ProteolyticDigestion
         public string PsiMsName { get; }
         public List<DigestionMotif> MotifList { get; }
 
-
-    public override string ToString()
+        public override string ToString()
         {
             return Name;
         }
@@ -227,18 +224,19 @@ namespace Proteomics.ProteolyticDigestion
                             indices.Add(k);
                             cutN = true;
                             continue;
-                        } 
+                        }
                         // case 2a: cuts at c terminus
                         else if (beginning == 0 || cutN && !cutC)
                         {
                             cutC = true;
                             indices.Add(k);
-                        // case 2b: cuts at c terminus
-                        } else indices.Add(k + beginning);
+                            // case 2b: cuts at c terminus
+                        }
+                        else indices.Add(k + beginning);
                         proteinSubstring = proteinSubstring.Substring(k);
                     }
                     else
-                    { 
+                    {
                         if (motif[j].CutIndex != 0) proteinSubstring = proteinSubstring.Substring(k + motif[j].PreventingCleavage.Length);
                         else proteinSubstring = proteinSubstring.Substring(0, k);
                     }
@@ -560,7 +558,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="motif"></param>
         /// <returns></returns>
         private int SequenceInducesCleavage(string substring, DigestionMotif motif)
-        {  
+        {
             Match match;
             string regex = FindWildCard(motif.InducingCleavage); // creates a regex to identify any wildcards
 

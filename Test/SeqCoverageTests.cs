@@ -16,7 +16,7 @@ namespace Test
         public static void MultipleProteaseSelectionTest()
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
-            var motifList = DigestionMotif.ParseProteaseFromString("O|,|T");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
             var protease = new Protease("TestProtease1", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
@@ -33,7 +33,7 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
-            var motifList = DigestionMotif.ParseProteaseFromString("O|,|T");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
             var protease = new Protease("TestProtease2", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 1, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
@@ -52,7 +52,7 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
-            var motifList = DigestionMotif.ParseProteaseFromString("O[A]|,|T");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O[A]|,|T");
             var protease = new Protease("TestProtease3", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
