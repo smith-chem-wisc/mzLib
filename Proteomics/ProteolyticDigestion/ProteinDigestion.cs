@@ -115,15 +115,15 @@ namespace Proteomics.ProteolyticDigestion
                     oneBasedIndicesToCleaveAfter[i];
 
                 int peptideLength = endIndex - startIndex;
-                if(peptideLength>=MinPeptideLength)
+                if (peptideLength >= MinPeptideLength)
                 {
-                    if(peptideLength<=MaxPeptideLength) //if okay length, add it up to the terminus
+                    if (peptideLength <= MaxPeptideLength) //if okay length, add it up to the terminus
                     {
                         peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, endIndex, i - 1, CleavageSpecificity.Full, "full"));
                     }
                     else //update so that not the end of terminus
                     {
-                        if(nTerminusFragmentation)
+                        if (nTerminusFragmentation)
                         {
                             endIndex = startIndex + MaxPeptideLength;
                         }
@@ -131,9 +131,9 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             startIndex = endIndex - MaxPeptideLength;
                         }
-                        peptides.Add(new ProteolyticPeptide(protein, startIndex, endIndex, i - 1, CleavageSpecificity.Semi, "semi"));
+                        peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, endIndex, i - 1, CleavageSpecificity.Semi, "semi"));
                     }
-                }        
+                }
             }
 
             // Also digest using the proteolysis product start/end indices

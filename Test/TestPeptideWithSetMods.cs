@@ -47,6 +47,10 @@ namespace Test
             //Unit test is not crashing
             protein.Digest(nParams, null, null).ToList();
             protein.Digest(cParams, null, null).ToList();
+
+            Protein protein2 = new Protein("MQFSTVASVAFVALANFVAAESAAAISQITDGQIQATTTATTEATTTAAPSSTVETVSPSSTETISQQTENGAAKAAVGMGAGALAAAAMLL", "P43497");
+            protein2.Digest(nParams, null, null).ToList();
+            protein2.Digest(cParams, null, null).ToList();
         }
 
         [Test]
