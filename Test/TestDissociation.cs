@@ -23,7 +23,7 @@ namespace Test
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ECD];
             Assert.IsTrue(d.Contains(ProductType.c));
             Assert.IsTrue(d.Contains(ProductType.y));
-            Assert.IsTrue(d.Contains(ProductType.zPlusOne));
+            Assert.IsTrue(d.Contains(ProductType.zDot));
         }
 
         [Test]
@@ -32,7 +32,7 @@ namespace Test
             List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD];
             Assert.IsTrue(d.Contains(ProductType.c));
             Assert.IsTrue(d.Contains(ProductType.y));
-            Assert.IsTrue(d.Contains(ProductType.zPlusOne));
+            Assert.IsTrue(d.Contains(ProductType.zDot));
         }
 
         [Test]

@@ -9,11 +9,13 @@ namespace Proteomics.ProteolyticDigestion
         public static FragmentationTerminus IdentifyTerminusType(List<ProductType> productTypes)
         {
             if ((productTypes.Contains(ProductType.b) || productTypes.Contains(ProductType.c) || productTypes.Contains(ProductType.aDegree))
-                && (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zPlusOne) || productTypes.Contains(ProductType.x)))
+                && (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot) || productTypes.Contains(ProductType.zPlusOne) 
+                || productTypes.Contains(ProductType.x)))
             {
                 return FragmentationTerminus.Both;
             }
-            else if (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zPlusOne) || productTypes.Contains(ProductType.x))
+            else if (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot) 
+                || productTypes.Contains(ProductType.zPlusOne) || productTypes.Contains(ProductType.x))
             {
                 return FragmentationTerminus.C;
             }
