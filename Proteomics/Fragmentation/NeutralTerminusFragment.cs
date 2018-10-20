@@ -17,7 +17,7 @@ namespace Proteomics.Fragmentation
         public readonly double NeutralMass;
         public readonly int FragmentNumber;
         public readonly int AminoAcidPosition;
-        
+
         public NeutralTerminusFragment(FragmentationTerminus terminus, double neutralMass, int fragmentNumber, int aminoAcidPosition)
         {
             this.Terminus = terminus;
@@ -28,7 +28,12 @@ namespace Proteomics.Fragmentation
 
         public override bool Equals(object obj)
         {
-            return NeutralMass.Equals(((NeutralTerminusFragment) obj).NeutralMass);
+            NeutralTerminusFragment other = (NeutralTerminusFragment)obj;
+
+            return this.Terminus == other.Terminus
+                && this.FragmentNumber == other.FragmentNumber
+                && this.AminoAcidPosition == other.AminoAcidPosition
+                && this.NeutralMass == other.NeutralMass;
         }
 
         public override int GetHashCode()
