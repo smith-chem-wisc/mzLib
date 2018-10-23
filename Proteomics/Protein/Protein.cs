@@ -32,7 +32,7 @@ namespace Proteomics
         {
             // Mandatory
             BaseSequence = sequence;
-            NonVariantBaseSequence = sequence;
+            NonVariantProtein = this;
             Accession = accession;
 
             Name = name;
@@ -68,14 +68,14 @@ namespace Proteomics
         /// <param name="applicableProteolysisProducts"></param>
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
-        internal Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
+        public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
             IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
             : this(variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
-                  oneBasedModifications: oneBasedModifications.ToDictionary(x => x.Key, x => x.Value),
-                  proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts),
+                  oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
+                  proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
                   name: protein.Name + (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
                   fullName: protein.FullName + (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
                   isDecoy: protein.IsDecoy,
@@ -86,7 +86,7 @@ namespace Proteomics
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
         {
-            NonVariantBaseSequence = protein.BaseSequence;
+            NonVariantProtein = protein;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
@@ -121,9 +121,9 @@ namespace Proteomics
         public string DatabaseFilePath { get; }
 
         /// <summary>
-        /// Original base sequence.
+        /// Protein before applying variations.
         /// </summary>
-        public string NonVariantBaseSequence { get; }
+        public Protein NonVariantProtein { get; }
 
         /// <summary>
         /// Sequence variations that have been applied to the base sequence.
@@ -183,6 +183,31 @@ namespace Proteomics
             return string.Format("{0} {1}", Accession, FullName);
         }
 
+        //public override bool Equals(object obj)
+        //{
+        //    Protein p = obj as Protein;
+
+        //    return p != null
+        //        && p.BaseSequence == BaseSequence
+        //        && p.Name == Name
+        //        && p.Accession == Accession
+        //        && p.FullName == FullName
+        //        && p.FullDescription == FullDescription
+        //        && p.IsContaminant == IsContaminant
+        //        && p.IsDecoy == IsDecoy
+        //        && p.Organism == Organism
+        //        && p.SampleNameForVariants == SampleNameForVariants
+        //        && p.GeneNames.OrderBy(x => $"{x.Item1}{x.Item2}").SequenceEqual(GeneNames.OrderBy(x => $"{x.Item1}{x.Item2}"))
+        //        && p.SequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}").SequenceEqual(SequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}"))
+        //        && p.SpliceSites.OrderBy(x => $"{x.OneBasedBeginPosition}-{x.OneBasedEndPosition}:{x.Description}").SequenceEqual(SpliceSites.OrderBy(x => $"{x.OneBasedBeginPosition}-{x.OneBasedEndPosition}:{x.Description}"))
+        //        && p.AppliedSequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}").SequenceEqual(AppliedSequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}"))
+        //        && p.DatabaseReferences.OrderBy(x => x).SequenceEqual(DatabaseReferences.OrderBy(x => x))
+        //        && p.DisulfideBonds.OrderBy(x => x).SequenceEqual(DisulfideBonds.OrderBy(x => x))
+        //        && p.ProteolysisProducts.OrderBy(x => x).SequenceEqual(ProteolysisProducts.OrderBy(x => x))
+        //        && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}")
+        //            .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}"));
+        //}
+
         public override bool Equals(object obj)
         {
             Protein p = obj as Protein;
@@ -197,14 +222,15 @@ namespace Proteomics
                 && p.IsDecoy == IsDecoy
                 && p.Organism == Organism
                 && p.SampleNameForVariants == SampleNameForVariants
-                && p.GeneNames.OrderBy(x => x).SequenceEqual(GeneNames.OrderBy(x => x))
-                && p.SequenceVariations.OrderBy(x => x).SequenceEqual(SequenceVariations.OrderBy(x => x))
-                && p.AppliedSequenceVariations.OrderBy(x => x).SequenceEqual(AppliedSequenceVariations.OrderBy(x => x))
-                && p.DatabaseReferences.OrderBy(x => x).SequenceEqual(DatabaseReferences.OrderBy(x => x))
-                && p.DisulfideBonds.OrderBy(x => x).SequenceEqual(DisulfideBonds.OrderBy(x => x))
-                && p.ProteolysisProducts.OrderBy(x => x).SequenceEqual(ProteolysisProducts.OrderBy(x => x))
-                && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.OrderBy(mod => mod).Select(mod => mod.ToString()))}")
-                    .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.OrderBy(mod => mod).Select(mod => mod.ToString()))}"));
+                && p.GeneNames.SequenceEqual(GeneNames)
+                && p.SequenceVariations.SequenceEqual(SequenceVariations)
+                && p.SpliceSites.SequenceEqual(SpliceSites)
+                && p.AppliedSequenceVariations.SequenceEqual(AppliedSequenceVariations)
+                && p.DatabaseReferences.SequenceEqual(DatabaseReferences)
+                && p.DisulfideBonds.SequenceEqual(DisulfideBonds)
+                && p.ProteolysisProducts.SequenceEqual(ProteolysisProducts)
+                && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}")
+                    .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}"));
         }
 
         public override int GetHashCode()

@@ -96,6 +96,30 @@ namespace Test
         }
 
         [Test]
+        public static void ProteinEqualsAndHash()
+        {
+            ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
+            Protein p = new Protein(
+                "ASEQUENCE",
+                "id",
+                isContaminant: false,
+                isDecoy: false,
+                name: "name",
+                fullName: "full_name",
+                geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("gene", "name") },
+                databaseReferences: new List<DatabaseReference> { new DatabaseReference("ref", "id", new List<Tuple<string, string>> { new Tuple<string, string>("type", "property") }) },
+                sequenceVariations: new List<SequenceVariation> { new SequenceVariation(1, 2, "A", "B", "var") },
+                proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null) } } },
+                disulfideBonds: new List<DisulfideBond> { new DisulfideBond(1, 2, "bond") },
+                spliceSites: new List<SpliceSite> { new SpliceSite(1, 2, "splice") },
+                databaseFilePath: "file");
+            Protein p2 = new Protein("ASEQUENCE", p, null, p.ProteolysisProducts, p.OneBasedPossibleLocalizedModifications, null);
+            Assert.AreEqual(1, new HashSet<Protein> { p, p }.Count);
+            Assert.IsTrue(p.Equals(p2));
+        }
+
+        [Test]
         public static void Merge_a_couple_proteins()
         {
             ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
@@ -126,6 +150,7 @@ namespace Test
                 proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
+
 
             List<Protein> merged = ProteinDbLoader.MergeProteins(new List<Protein> { p, p2 }).ToList();
             Assert.AreEqual(1, merged.Count);

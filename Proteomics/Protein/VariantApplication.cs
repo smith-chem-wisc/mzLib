@@ -6,6 +6,62 @@ namespace Proteomics
     public static class VariantApplication
     {
         /// <summary>
+        /// Gets the accession for a protein with applied variations
+        /// </summary>
+        /// <param name="protein"></param>
+        /// <param name="sequenceVariation"></param>
+        public static string GetAccession(Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations)
+        {
+            return protein.Accession + 
+                (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : "_" + CombineSimpleStrings(appliedSequenceVariations));
+        }
+
+        /// <summary>
+        /// Determines if the modification falls on a variant amino acid
+        /// </summary>
+        /// <param name="protein"></param>
+        /// <param name=""></param>
+        /// <returns></returns>
+        public static bool IsSequenceVariantModification(SequenceVariation appliedVariant, int variantProteinIndex)
+        {
+            return appliedVariant != null && appliedVariant.Includes(variantProteinIndex);
+        }
+
+        /// <summary>
+        /// Restores modification index on a variant protein to the index on the nonvariant protein,
+        /// or if it falls on a variant, this restores the position on the protein with only that variant
+        /// </summary>
+        /// <param name="variantProteinIndex"></param>
+        /// <param name="modification"></param>
+        /// <returns></returns>
+        public static int RestoreModificationIndex(Protein protein, int variantProteinIndex)
+        {
+            return variantProteinIndex - protein.AppliedSequenceVariations
+                .Where(v => v.OneBasedEndPosition < variantProteinIndex)
+                .Sum(v => v.VariantSequence.Length - v.OriginalSequence.Length);
+        }
+
+        /// <summary>
+        /// Format string to append to accession
+        /// </summary>
+        /// <param name="variations"></param>
+        /// <returns></returns>
+        internal static string CombineSimpleStrings(IEnumerable<SequenceVariation> variations)
+        {
+            return variations == null || variations.Count() == 0? "" : string.Join("_", variations.Select(v => v.SimpleString()));
+        }
+
+        /// <summary>
+        /// Format string to append to protein names
+        /// </summary>
+        /// <param name="variations"></param>
+        /// <returns></returns>
+        internal static string CombineDescriptions(IEnumerable<SequenceVariation> variations)
+        {
+            return variations == null || variations.Count() == 0 ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+        }
+
+        /// <summary>
         /// Applies multiple variant changes to a protein sequence
         /// </summary>
         /// <param name="protein"></param>
@@ -98,7 +154,7 @@ namespace Proteomics
             string seqVariant = variant.VariantSequence;
             List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, protein, protein.ProteolysisProducts);
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, protein);
-            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariations(variant, protein.AppliedSequenceVariations);
+            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variant, protein.AppliedSequenceVariations);
             int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
 
             // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
@@ -108,7 +164,7 @@ namespace Proteomics
             if (intersectsAppliedRegionIncompletely)
             {
                 // use original protein sequence for the remaining sequence
-                string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.NonVariantBaseSequence.Substring(afterIdx);
+                string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.NonVariantProtein.BaseSequence.Substring(afterIdx);
                 return new Protein(seqBefore + seqVariant + seqAfter, protein, new[] { variant }, adjustedProteolysisProducts, adjustedModifications, individual);
             }
             else
@@ -117,6 +173,7 @@ namespace Proteomics
                     .Where(x => !variant.Includes(x))
                     .Concat(new[] { variant })
                     .ToList();
+
                 // use this variant protein sequence for the remaining sequence
                 string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
                 return new Protein(seqBefore + seqVariant + seqAfter, protein, variations, adjustedProteolysisProducts, adjustedModifications, individual);
@@ -129,7 +186,7 @@ namespace Proteomics
         /// <param name="variantGettingApplied"></param>
         /// <param name="alreadyAppliedVariations"></param>
         /// <returns></returns>
-        internal static List<SequenceVariation> AdjustSequenceVariations(SequenceVariation variantGettingApplied, IEnumerable<SequenceVariation> alreadyAppliedVariations)
+        internal static List<SequenceVariation> AdjustSequenceVariationIndices(SequenceVariation variantGettingApplied, IEnumerable<SequenceVariation> alreadyAppliedVariations)
         {
             List<SequenceVariation> variations = new List<SequenceVariation>();
             if (alreadyAppliedVariations == null) { return variations; }
@@ -184,7 +241,7 @@ namespace Proteomics
                 }
                 // proteolysis product straddles the variant, but the cleavage site(s) are still intact; the ends aren't considered cleavage sites
                 else if ((p.OneBasedBeginPosition < variant.OneBasedBeginPosition || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
-                    && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.NonVariantBaseSequence.Length)
+                    && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.NonVariantProtein.BaseSequence.Length)
                     && p.OneBasedEndPosition + sequenceLengthChange <= protein.BaseSequence.Length)
                 {
                     products.Add(new ProteolysisProduct(p.OneBasedBeginPosition, p.OneBasedEndPosition + sequenceLengthChange, p.Type));
@@ -255,36 +312,6 @@ namespace Proteomics
             }
 
             return mods;
-        }
-
-        /// <summary>
-        /// Gets the accession for a protein with applied variations
-        /// </summary>
-        /// <param name="protein"></param>
-        /// <param name="sequenceVariation"></param>
-        public static string GetAccession(Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations)
-        {
-            return protein.Accession + (appliedSequenceVariations == null ? "" : "_" + CombineSimpleStrings(appliedSequenceVariations));
-        }
-
-        /// <summary>
-        /// Format string to append to accession
-        /// </summary>
-        /// <param name="variations"></param>
-        /// <returns></returns>
-        internal static string CombineSimpleStrings(IEnumerable<SequenceVariation> variations)
-        {
-            return variations == null ? "" : string.Join("_", variations.Select(v => v.SimpleString()));
-        }
-
-        /// <summary>
-        /// Format string to append to protein names
-        /// </summary>
-        /// <param name="variations"></param>
-        /// <returns></returns>
-        internal static string CombineDescriptions(IEnumerable<SequenceVariation> variations)
-        {
-            return variations == null ? "" : string.Join(", variant:", variations.Select(d => d.Description));
         }
     }
 }
