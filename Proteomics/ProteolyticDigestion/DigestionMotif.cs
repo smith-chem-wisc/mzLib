@@ -1,6 +1,7 @@
 ﻿using MzLibUtil;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -13,12 +14,14 @@ namespace Proteomics.ProteolyticDigestion
         public readonly string InducingCleavage;
         public readonly string PreventingCleavage;
         public readonly int CutIndex;
+        public readonly string ExcludingWC;
 
-        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex)
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludingWC)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
+            this.ExcludingWC = excludingWC;
         }
 
         // parsing cleavage rules syntax
@@ -49,12 +52,33 @@ namespace Proteomics.ProteolyticDigestion
         {
             string inducingCleavage = null;
             string preventingCleavage = null;
+            string excludingWC = null;
             int cutIndex = 0;
+
+            // find preventing cleavage
+            if (motifString.Contains("["))
+            {
+                int start = motifString.IndexOf("[") + 1;
+                int end = motifString.IndexOf("]");
+
+                preventingCleavage = motifString.Substring(start, end - start);
+                motifString = Regex.Replace(motifString, @"\[[a-zA-Z]+\]", string.Empty);
+            }
+
+            // finds wildcard exceptions
+            if (motifString.Contains("{"))
+            {
+                int start = motifString.IndexOf("{") + 1;
+                int end = motifString.IndexOf("}");
+
+                excludingWC = motifString.Substring(start, end - start);
+                motifString = Regex.Replace(motifString, @"\{[a-zA-Z]+\}", string.Empty);
+            }
 
             // finds motif cut index
             for (int j = 0; j < motifString.Length; j++)
             {
-                if (motifString[j] == '[' || motifString[j] == '|')
+                if (motifString[j] == '|')
                 {
                     cutIndex = j;
                     break;
@@ -62,71 +86,56 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             motifString = motifString.Replace("|", string.Empty);
+            inducingCleavage = motifString;
 
-            // identify inducing and preventing cleavage sequences 
-            if (!(motifString.Contains("[")))
-            {
-                inducingCleavage = motifString;
-                preventingCleavage = null;
-            }
-            else
-            {
-                int start = motifString.IndexOf("[") + 1;
-                int end = motifString.IndexOf("]");
-                inducingCleavage = motifString.Substring(0, start - 1);
-                preventingCleavage = motifString.Substring(start, end - start);
-            }
-
-            return new DigestionMotif(inducingCleavage, preventingCleavage, cutIndex);
+            return new DigestionMotif(inducingCleavage, preventingCleavage, cutIndex, excludingWC);
         }
 
-        /// <summary>
-        /// Returns non-distinct digestion sites.
-        /// </summary>
-        public IEnumerable<int> GetDigestionIndicies(string sequence)
-        {
-            yield return 0;
-            yield return sequence.Length - 1;
-
-            for (int r = 0; r < sequence.Length; r++)
-            {
-                if (MotifFits(sequence, r))
-                {
-                    yield return r;
-                }
-            }
-        }
-
-        private bool MotifFits(string sequence, int location)
+        public bool Fits(string sequence, int location)
         {
             bool fits = true;
 
             // check for inducing cleavage
-            for (int r = location; r < sequence.Length && fits; r++)
+            int m;
+            for (m = 0; m < InducingCleavage.Length && fits; m++) // handle patterns
             {
-                for (int m = 0; m < InducingCleavage.Length && fits; m++)
-                {
-                    char currentResidue = sequence[r + m];
+                char currentResidue = sequence[location + m];
 
-                    if (!MotifMatches(InducingCleavage[m], currentResidue))
-                    {
-                        fits = false;
-                    }
+                if (!MotifMatches(InducingCleavage[m], currentResidue))
+                {
+                    fits = false;
                 }
             }
 
             // check for preventing cleavage
-            if (fits)
+            if (fits && PreventingCleavage != null)
             {
-                
+                bool match = true;
+                char currentResidue;
+                for (int n = 0; n < PreventingCleavage.Length && match; n++)
+                {
+                    if (location + m + n > sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
+                    {
+                        match = false;
+                    } else
+                    {
+                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + 1 + n];                      
+                        if (!PreventingCleavage[n].Equals(currentResidue))
+                        {
+                            match = false;
+                        }
+                    }
+                }
+
+                fits = match ? false : true;
             }
 
             return fits;
         }
-
-        private static bool MotifMatches(char motifChar, char sequenceChar)
+        
+        private bool MotifMatches(char motifChar, char sequenceChar)
         {
-            return motifChar.Equals('X')
+            return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludingWC)
                 || motifChar.Equals(sequenceChar)
                 || motifChar.Equals('B') && B.Contains(sequenceChar)
                 || motifChar.Equals('J') && J.Contains(sequenceChar)

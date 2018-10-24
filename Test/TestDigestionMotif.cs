@@ -67,10 +67,10 @@ namespace Test
         }
 
         [Test]
-        public static void TestMultiLetterProtease()
+        public static void TestMultiLetterProtease1()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX[P]|");
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");
             Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
@@ -86,6 +86,24 @@ namespace Test
 
             Assert.AreEqual(first, "PRO");
             Assert.AreEqual(last, "PRPPM");
+        }
+
+        [Test]
+        public static void TestMultiLetterProtease2()
+        {
+            var empty = new List<Modification>();
+            DigestionParams myDigestionParams = new DigestionParams("collagenase", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("ABCGPXGPMFKCGPMKK", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(first, "ABCGPX");
+            Assert.AreEqual(last, "GPMFKCGPMKK");
         }
 
         [Test]

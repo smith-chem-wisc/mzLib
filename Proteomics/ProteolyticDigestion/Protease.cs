@@ -167,85 +167,19 @@ namespace Proteomics.ProteolyticDigestion
         internal List<int> GetDigestionSiteIndices(string proteinSequence)
         {
             var indices = new List<int>();
-            string proteinSubstring = proteinSequence;
-            bool done, cutN, cutC;
-            done = cutN = cutC = false;
-            while (!done)
+            for (int i = 0; i < proteinSequence.Length; ++i)
             {
-                int j = -1;
-                var index = new List<int>();
-                var motif = new List<DigestionMotif>();
-                int beginning = proteinSequence.Length - proteinSubstring.Length;
-
-                // Finds all possible sites
-                foreach (var c in MotifList)
+                foreach(var c in MotifList)
                 {
-                    int i = SequenceInducesCleavage(proteinSubstring, c);
-                    if (i != -1) // no sequences found
-                    {
-                        index.Add(i);
-                        motif.Add(c);
-                    }
-                }
-
-                if (index.Count >= 1)
-                {
-                    j = 0;
-                    Tuple<int, int> m = new Tuple<int, int>(index[0], motif[0].CutIndex);
-                    for (int i = 1; i < index.Count; ++i)
-                    {
-                        int max = index[i];
-                        int terminus = motif[i].CutIndex;
-
-                        // prioritize sequences cut at n terminus
-                        if (m.Item2 != 0 && terminus == 0 && max > m.Item1
-                            || m.Item2 == 0 && terminus == 0 && max > m.Item1
-                            || m.Item2 != 0 && terminus != 0 && max < m.Item1
-                            || m.Item2 == 0 && terminus != 0 && max > m.Item1)
-                        {
-                            m = new Tuple<int, int>(max, terminus);
-                            j = i;
-                        }
-                    }
-                }
-
-                // Ends search if no more sites found or remaining sequence has only 1 amino acid left
-                if (j == -1 || motif[j].CutIndex == 0 && index[j] - 1 < 0
-                    || motif[j].CutIndex != 0 && index[j] + 1 >= proteinSubstring.Length) done = true;
-                else
-                {
-                    int k = index[j] + motif[j].CutIndex;
-                    if (!SequencePreventsCleavage(proteinSubstring, index[j], motif[j]))
-                    {
-                        // case 1: cuts at n terminus
-                        if (motif[j].CutIndex == 0)
-                        {
-                            proteinSubstring = proteinSubstring.Substring(0, k);
-                            indices.Add(k);
-                            cutN = true;
-                            continue;
-                        }
-                        // case 2a: cuts at c terminus
-                        else if (beginning == 0 || cutN && !cutC)
-                        {
-                            cutC = true;
-                            indices.Add(k);
-                            // case 2b: cuts at c terminus
-                        }
-                        else indices.Add(k + beginning);
-                        proteinSubstring = proteinSubstring.Substring(k);
-                    }
-                    else
-                    {
-                        if (motif[j].CutIndex != 0) proteinSubstring = proteinSubstring.Substring(k + motif[j].PreventingCleavage.Length);
-                        else proteinSubstring = proteinSubstring.Substring(0, k);
+                    if (c.Fits(proteinSequence, i)) {
+                        indices.Add(i + c.CutIndex);
                     }
                 }
             }
 
             indices.Insert(0, 0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
-            indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide        
-            return indices.OrderBy(i => i).ToList();
+            indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide     
+            return indices.Distinct().OrderBy(i => i).ToList();
         }
 
         /// <summary>
@@ -550,39 +484,7 @@ namespace Proteomics.ProteolyticDigestion
 
             return intervals.Concat(fixedCTermIntervals).Concat(fixedNTermIntervals);
         }
-
-        /// <summary>
-        /// Checks if select subsequence of protein matches sequence that induces cleavage
-        /// </summary>
-        /// <param name="substring"></param>
-        /// <param name="motif"></param>
-        /// <returns></returns>
-        private int SequenceInducesCleavage(string substring, DigestionMotif motif)
-        {
-            Match match;
-            string regex = FindWildCard(motif.InducingCleavage); // creates a regex to identify any wildcards
-
-            if (motif.CutIndex == 0) match = Regex.Match(substring.ToUpper(), @"" + regex, RegexOptions.RightToLeft); // cuts at n terminus
-            else match = Regex.Match(substring.ToUpper(), @"" + regex); // cuts at c terminus
-
-            if (!match.Success) return -1;
-
-            return match.Index;
-        }
-
-        /// <summary>
-        /// Checks if select subsequence of protein matches sequence preventing cleavage
-        /// </summary>
-        /// <param name="proteinSequence"></param>
-        /// <param name="index"></param>
-        /// <param name="motif"></param>
-        /// <returns></returns>
-        private bool SequencePreventsCleavage(string proteinSubstring, int index, DigestionMotif motif)
-        {
-            if (motif.CutIndex != 0) return proteinSubstring[index + 1].ToString().Equals(motif.PreventingCleavage, StringComparison.OrdinalIgnoreCase);
-            else return proteinSubstring[index].ToString().Equals(motif.PreventingCleavage, StringComparison.OrdinalIgnoreCase);
-        }
-
+        
         /// <summary>
         /// Is length of given peptide okay, given minimum?
         /// </summary>
@@ -603,17 +505,6 @@ namespace Proteomics.ProteolyticDigestion
         private static bool OkayMaxLength(int? peptideLength, int? maxPeptidesLength)
         {
             return !maxPeptidesLength.HasValue || peptideLength <= maxPeptidesLength;
-        }
-
-        /// <summary>
-        /// Replaces any wildcards with a regex.
-        /// Only treats X as wildcards.
-        /// </summary>
-        /// <param name="s"></param>
-        /// <returns></returns>
-        private string FindWildCard(string s)
-        {
-            return s.ToUpper().Replace("X", "[a-zA-Z]{1}");
         }
     }
 }
