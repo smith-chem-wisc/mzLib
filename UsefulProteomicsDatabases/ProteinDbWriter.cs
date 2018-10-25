@@ -22,6 +22,9 @@ namespace UsefulProteomicsDatabases
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
+            // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
+            List<Protein> nonVariantProteins = proteinList.Select(p => p.NonVariantProtein).Distinct().ToList();
+
             var xmlWriterSettings = new XmlWriterSettings
             {
                 Indent = true,
@@ -36,7 +39,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("mzLibProteinDb");
 
                 List<Modification> myModificationList = new List<Modification>();
-                foreach (Protein p in proteinList)
+                foreach (Protein p in nonVariantProteins)
                 {
                     foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
                     {
@@ -45,8 +48,8 @@ namespace UsefulProteomicsDatabases
                 }
 
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    proteinList.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
-                    .Concat(additionalModsToAddToProteins.Where(kv => proteinList.SelectMany(p => p.SequenceVariations.Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                    nonVariantProteins.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
+                    .Concat(additionalModsToAddToProteins.Where(kv => nonVariantProteins.SelectMany(p => p.SequenceVariations.Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
@@ -54,7 +57,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
                     writer.WriteEndElement();
                 }
-                foreach (Protein protein in proteinList)
+                foreach (Protein protein in nonVariantProteins)
                 {
                     writer.WriteStartElement("entry");
                     writer.WriteStartElement("accession");

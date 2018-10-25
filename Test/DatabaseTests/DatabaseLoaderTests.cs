@@ -54,8 +54,8 @@ namespace Test
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             Assert.AreEqual(0, protein[0].OneBasedPossibleLocalizedModifications.Count);
             var variant = protein[0].GetVariantProteins()[0];
-            protein[0].RestoreUnfilteredModifications();
-            Assert.AreEqual(1, protein[0].OneBasedPossibleLocalizedModifications.Count);
+            protein[0].NonVariantProtein.RestoreUnfilteredModifications();
+            Assert.AreEqual(1, protein[0].NonVariantProtein.OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]

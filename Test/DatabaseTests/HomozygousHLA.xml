@@ -1,463 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
 <mzLibProteinDb>
   <entry>
-    <accession>ENST00000395363,ENST00000374949,ENST00000343139</accession>
-    <name>ENST00000395363,ENST00000374949,ENST00000343139</name>
-    <protein>
-      <recommendedName>
-        <fullName>,,</fullName>
-      </recommendedName>
-    </protein>
+    <accession>ENST00000395363</accession>
+    <name>ENST00000395363</name>
     <gene>
-      <name type="primary">HLA-DQA1</name>
-      <name type="accession">ENSG00000196735</name>
-      <name type="primary">HLA-DQA1</name>
-      <name type="accession">ENSG00000196735</name>
       <name type="primary">HLA-DQA1</name>
       <name type="accession">ENSG00000196735</name>
     </gene>
     <organism>
       <name type="scientific">Homo sapiens</name>
     </organism>
-    <feature type="sequence variant" description="6\t32637480\trs1047989\tC\tA\t13550.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|1/5|c.22C&gt;A|p.Leu8Met|80/1206|22/768|8/255||\tGT:AD:DP:GQ:PL\t1/1:0,337:337:99:13579,1011,0">
+    <feature type="sequence variant" description="6\t32637480\t.\tC\tA\t13539.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|1/5|c.22C&gt;A|p.Leu8Met|80/1206|22/768|8/255||\tGT:AD:DP:GQ:PL\t1/1:0,337:337:99:13568,1011,0">
       <original>L</original>
       <variation>M</variation>
       <location>
-        <position position="8" />
+        <position position="8"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32637480\trs1047989\tC\tA\t13550.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|1/4|c.22C&gt;A|p.Leu8Met|61/1060|22/768|8/255||\tGT:AD:DP:GQ:PL\t1/1:0,337:337:99:13579,1011,0">
-      <original>L</original>
-      <variation>M</variation>
-      <location>
-        <position position="8" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32637480\trs1047989\tC\tA\t13550.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|1/5|c.22C&gt;A|p.Leu8Met|124/1591|22/768|8/255||\tGT:AD:DP:GQ:PL\t1/1:0,337:337:99:13579,1011,0">
-      <original>L</original>
-      <variation>M</variation>
-      <location>
-        <position position="8" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641328\trs1129740\tG\tA\t11769.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.101G&gt;A|p.Cys34Tyr|159/1206|101/768|34/255||\tGT:AD:DP:GQ:PL\t1/1:0,263:263:99:11798,792,0">
+    <feature type="sequence variant" description="6\t32641328\t.\tGT\tAC\t12039.77\t.\tANN=AC|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.101_102delGTinsAC|p.Cys34Tyr|159/1206|101/768|34/255||\tGT:AD:DP:GQ:PL\t1/1:0,269:269:99:12068,810,0">
       <original>C</original>
       <variation>Y</variation>
       <location>
-        <position position="34" />
+        <position position="34"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641328\trs1129740\tG\tA\t11769.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.101G&gt;A|p.Cys34Tyr|140/1060|101/768|34/255||\tGT:AD:DP:GQ:PL\t1/1:0,263:263:99:11798,792,0">
-      <original>C</original>
-      <variation>Y</variation>
-      <location>
-        <position position="34" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641328\trs1129740\tG\tA\t11769.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.101G&gt;A|p.Cys34Tyr|203/1591|101/768|34/255||\tGT:AD:DP:GQ:PL\t1/1:0,263:263:99:11798,792,0">
-      <original>C</original>
-      <variation>Y</variation>
-      <location>
-        <position position="34" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641349\trs1071630\tT\tC\t21771.80\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.122T&gt;C|p.Phe41Ser|180/1206|122/768|41/255||\tGT:AD:DP:GQ:PL\t1/1:1,486:487:99:21800,1446,0">
+    <feature type="sequence variant" description="6\t32641349\t.\tT\tC\t21948.77\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.122T&gt;C|p.Phe41Ser|180/1206|122/768|41/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:1,490:491:99:1|1:32641349_T_C:21977,1458,0">
       <original>F</original>
       <variation>S</variation>
       <location>
-        <position position="41" />
+        <position position="41"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641349\trs1071630\tT\tC\t21771.80\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.122T&gt;C|p.Phe41Ser|161/1060|122/768|41/255||\tGT:AD:DP:GQ:PL\t1/1:1,486:487:99:21800,1446,0">
-      <original>F</original>
-      <variation>S</variation>
-      <location>
-        <position position="41" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641349\trs1071630\tT\tC\t21771.80\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.122T&gt;C|p.Phe41Ser|224/1591|122/768|41/255||\tGT:AD:DP:GQ:PL\t1/1:1,486:487:99:21800,1446,0">
-      <original>F</original>
-      <variation>S</variation>
-      <location>
-        <position position="41" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641373\t.\tC\tG\t12965.80\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.146C&gt;G|p.Thr49Ser|204/1206|146/768|49/255||\tGT:AD:DP:GQ:PL\t1/1:0,255:255:99:12994,876,0">
+    <feature type="sequence variant" description="6\t32641373\t.\tC\tG\t12965.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.146C&gt;G|p.Thr49Ser|204/1206|146/768|49/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,255:255:99:1|1:32641365_C_G:12994,876,0">
       <original>T</original>
       <variation>S</variation>
       <location>
-        <position position="49" />
+        <position position="49"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641373\t.\tC\tG\t12965.80\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.146C&gt;G|p.Thr49Ser|185/1060|146/768|49/255||\tGT:AD:DP:GQ:PL\t1/1:0,255:255:99:12994,876,0">
-      <original>T</original>
-      <variation>S</variation>
-      <location>
-        <position position="49" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641373\t.\tC\tG\t12965.80\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.146C&gt;G|p.Thr49Ser|248/1591|146/768|49/255||\tGT:AD:DP:GQ:PL\t1/1:0,255:255:99:12994,876,0">
-      <original>T</original>
-      <variation>S</variation>
-      <location>
-        <position position="49" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641396\trs10093\tC\tG\t7170.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.169C&gt;G|p.Gln57Glu|227/1206|169/768|57/255||\tGT:AD:DP:GQ:PL\t1/1:0,142:142:99:7199,454,0">
+    <feature type="sequence variant" description="6\t32641396\t.\tC\tG\t7129.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.169C&gt;G|p.Gln57Glu|227/1206|169/768|57/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,142:142:99:1|1:32641392_T_C:7158,451,0">
       <original>Q</original>
       <variation>E</variation>
       <location>
-        <position position="57" />
+        <position position="57"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641396\trs10093\tC\tG\t7170.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.169C&gt;G|p.Gln57Glu|208/1060|169/768|57/255||\tGT:AD:DP:GQ:PL\t1/1:0,142:142:99:7199,454,0">
-      <original>Q</original>
-      <variation>E</variation>
-      <location>
-        <position position="57" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641396\trs10093\tC\tG\t7170.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.169C&gt;G|p.Gln57Glu|271/1591|169/768|57/255||\tGT:AD:DP:GQ:PL\t1/1:0,142:142:99:7199,454,0">
-      <original>Q</original>
-      <variation>E</variation>
-      <location>
-        <position position="57" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641430\t.\tC\tT\t11879.80\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.203C&gt;T|p.Ala68Val|261/1206|203/768|68/255||\tGT:AD:DP:GQ:PL\t1/1:1,269:270:99:11908,776,0">
+    <feature type="sequence variant" description="6\t32641430\t.\tC\tT\t7056.77\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.203C&gt;T|p.Ala68Val|261/1206|203/768|68/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,158:158:99:1|1:32641430_C_T:7085,476,0">
       <original>A</original>
       <variation>V</variation>
       <location>
-        <position position="68" />
+        <position position="68"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641430\t.\tC\tT\t11879.80\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.203C&gt;T|p.Ala68Val|242/1060|203/768|68/255||\tGT:AD:DP:GQ:PL\t1/1:1,269:270:99:11908,776,0">
-      <original>A</original>
-      <variation>V</variation>
+    <feature type="sequence variant" description="6\t32641436\t.\tGGTG\tAGTT\t6983.77\t.\tANN=AGTT|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.209_212delGGTGinsAGTT|p.ArgTrp70GlnLeu|267/1206|209/768|70/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,155:155:99:1|1:32641430_C_T:7012,470,0">
+      <original>RW</original>
+      <variation>QL</variation>
       <location>
-        <position position="68" />
+        <position position="70"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641430\t.\tC\tT\t11879.80\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.203C&gt;T|p.Ala68Val|305/1591|203/768|68/255||\tGT:AD:DP:GQ:PL\t1/1:1,269:270:99:11908,776,0">
-      <original>A</original>
-      <variation>V</variation>
-      <location>
-        <position position="68" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641436\trs3207983\tG\tA\t11793.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.209G&gt;A|p.Arg70Gln|267/1206|209/768|70/255||\tGT:AD:DP:GQ:PL\t1/1:0,251:251:99:11822,797,0">
-      <original>R</original>
-      <variation>Q</variation>
-      <location>
-        <position position="70" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641436\trs3207983\tG\tA\t11793.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.209G&gt;A|p.Arg70Gln|248/1060|209/768|70/255||\tGT:AD:DP:GQ:PL\t1/1:0,251:251:99:11822,797,0">
-      <original>R</original>
-      <variation>Q</variation>
-      <location>
-        <position position="70" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641436\trs3207983\tG\tA\t11793.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.209G&gt;A|p.Arg70Gln|311/1591|209/768|70/255||\tGT:AD:DP:GQ:PL\t1/1:0,251:251:99:11822,797,0">
-      <original>R</original>
-      <variation>Q</variation>
-      <location>
-        <position position="70" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641439\trs1142328\tG\tT\t11266.80\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.212G&gt;T|p.Trp71Leu|270/1206|212/768|71/255||\tGT:AD:DP:GQ:PL\t1/1:0,239:239:99:11295,756,0">
-      <original>W</original>
+    <feature type="sequence variant" description="6\t32641444\t.\tGA\tCT\t6946.77\t.\tANN=CT|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.217_218delGAinsCT|p.Glu73Leu|275/1206|217/768|73/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,155:155:99:1|1:32641430_C_T:6975,467,0">
+      <original>E</original>
       <variation>L</variation>
       <location>
-        <position position="71" />
+        <position position="73"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641439\trs1142328\tG\tT\t11266.80\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.212G&gt;T|p.Trp71Leu|251/1060|212/768|71/255||\tGT:AD:DP:GQ:PL\t1/1:0,239:239:99:11295,756,0">
-      <original>W</original>
-      <variation>L</variation>
-      <location>
-        <position position="71" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641439\trs1142328\tG\tT\t11266.80\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.212G&gt;T|p.Trp71Leu|314/1591|212/768|71/255||\tGT:AD:DP:GQ:PL\t1/1:0,239:239:99:11295,756,0">
-      <original>W</original>
-      <variation>L</variation>
-      <location>
-        <position position="71" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641444\trs12722061\tG\tC\t10591.80\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.217G&gt;C|p.Glu73Gln|275/1206|217/768|73/255||\tGT:AD:DP:GQ:PL\t1/1:0,178:178:99:10620,710,0">
-      <original>E</original>
-      <variation>Q</variation>
-      <location>
-        <position position="73" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641445\trs3208105\tA\tT\t9151.77\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.218A&gt;T|p.Glu73Val|276/1206|218/768|73/255||\tGT:AD:DP:GQ:PL\t1/1:0,178:178:99:9180,614,0">
-      <original>E</original>
-      <variation>V</variation>
-      <location>
-        <position position="73" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641444\trs12722061\tG\tC\t10591.80\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.217G&gt;C|p.Glu73Gln|256/1060|217/768|73/255||\tGT:AD:DP:GQ:PL\t1/1:0,178:178:99:10620,710,0">
-      <original>E</original>
-      <variation>Q</variation>
-      <location>
-        <position position="73" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641445\trs3208105\tA\tT\t9151.77\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.218A&gt;T|p.Glu73Val|257/1060|218/768|73/255||\tGT:AD:DP:GQ:PL\t1/1:0,178:178:99:9180,614,0">
-      <original>E</original>
-      <variation>V</variation>
-      <location>
-        <position position="73" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641444\trs12722061\tG\tC\t10591.80\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.217G&gt;C|p.Glu73Gln|319/1591|217/768|73/255||\tGT:AD:DP:GQ:PL\t1/1:0,178:178:99:10620,710,0">
-      <original>E</original>
-      <variation>Q</variation>
-      <location>
-        <position position="73" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641445\trs3208105\tA\tT\t9151.77\t.\tANN=T|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.218A&gt;T|p.Glu73Val|320/1591|218/768|73/255||\tGT:AD:DP:GQ:PL\t1/1:0,178:178:99:9180,614,0">
-      <original>E</original>
-      <variation>V</variation>
-      <location>
-        <position position="73" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641450\trs3207985\tA\tC\t7981.77\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.223A&gt;C|p.Ser75Arg|281/1206|223/768|75/255||\tGT:AD:DP:GQ:PL\t1/1:0,131:131:99:8010,536,0">
+    <feature type="sequence variant" description="6\t32641450\t.\tA\tC\t6946.77\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.223A&gt;C|p.Ser75Arg|281/1206|223/768|75/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,131:131:99:1|1:32641430_C_T:6975,467,0">
       <original>S</original>
       <variation>R</variation>
       <location>
-        <position position="75" />
+        <position position="75"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641450\trs3207985\tA\tC\t7981.77\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.223A&gt;C|p.Ser75Arg|262/1060|223/768|75/255||\tGT:AD:DP:GQ:PL\t1/1:0,131:131:99:8010,536,0">
-      <original>S</original>
-      <variation>R</variation>
-      <location>
-        <position position="75" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641450\trs3207985\tA\tC\t7981.77\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.223A&gt;C|p.Ser75Arg|325/1591|223/768|75/255||\tGT:AD:DP:GQ:PL\t1/1:0,131:131:99:8010,536,0">
-      <original>S</original>
-      <variation>R</variation>
-      <location>
-        <position position="75" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641454\trs12722069\tA\tG\t5866.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.227A&gt;G|p.Lys76Arg|285/1206|227/768|76/255||\tGT:AD:DP:GQ:PL\t1/1:0,98:98:99:5895,394,0">
+    <feature type="sequence variant" description="6\t32641454\t.\tA\tG\t5866.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.227A&gt;G|p.Lys76Arg|285/1206|227/768|76/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,98:98:99:1|1:32641430_C_T:5895,394,0">
       <original>K</original>
       <variation>R</variation>
       <location>
-        <position position="76" />
+        <position position="76"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641454\trs12722069\tA\tG\t5866.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.227A&gt;G|p.Lys76Arg|266/1060|227/768|76/255||\tGT:AD:DP:GQ:PL\t1/1:0,98:98:99:5895,394,0">
-      <original>K</original>
-      <variation>R</variation>
+    <feature type="sequence variant" description="6\t32641459\t.\tGGAGGT\tAGAAGA\t3976.77\t.\tANN=AGAAGA|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.232_237delGGAGGTinsAGAAGA|p.GlyGly78ArgArg|290/1206|232/768|78/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,54:54:99:1|1:32641430_C_T:4005,268,0">
+      <original>GG</original>
+      <variation>RR</variation>
       <location>
-        <position position="76" />
+        <position position="78"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32641454\trs12722069\tA\tG\t5866.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.227A&gt;G|p.Lys76Arg|329/1591|227/768|76/255||\tGT:AD:DP:GQ:PL\t1/1:0,98:98:99:5895,394,0">
-      <original>K</original>
-      <variation>R</variation>
-      <location>
-        <position position="76" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641459\trs4193\tG\tA\t3976.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.232G&gt;A|p.Gly78Arg|290/1206|232/768|78/255||\tGT:AD:DP:GQ:PL\t1/1:0,54:54:99:4005,268,0">
-      <original>G</original>
-      <variation>R</variation>
-      <location>
-        <position position="78" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641459\trs4193\tG\tA\t3976.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.232G&gt;A|p.Gly78Arg|271/1060|232/768|78/255||\tGT:AD:DP:GQ:PL\t1/1:0,54:54:99:4005,268,0">
-      <original>G</original>
-      <variation>R</variation>
-      <location>
-        <position position="78" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641459\trs4193\tG\tA\t3976.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.232G&gt;A|p.Gly78Arg|334/1591|232/768|78/255||\tGT:AD:DP:GQ:PL\t1/1:0,54:54:99:4005,268,0">
-      <original>G</original>
-      <variation>R</variation>
-      <location>
-        <position position="78" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641462\trs12722072\tG\tA\t2401.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|2/5|c.235G&gt;A|p.Gly79Ser|293/1206|235/768|79/255||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:99:2430,163,0">
-      <original>G</original>
-      <variation>S</variation>
-      <location>
-        <position position="79" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641462\trs12722072\tG\tA\t2401.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|2/4|c.235G&gt;A|p.Gly79Ser|274/1060|235/768|79/255||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:99:2430,163,0">
-      <original>G</original>
-      <variation>S</variation>
-      <location>
-        <position position="79" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32641462\trs12722072\tG\tA\t2401.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|2/5|c.235G&gt;A|p.Gly79Ser|337/1591|235/768|79/255||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:99:2430,163,0">
-      <original>G</original>
-      <variation>S</variation>
-      <location>
-        <position position="79" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642096\trs707950\tG\tC\t335.78\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|3/5|c.456G&gt;C|p.Gln152His|514/1206|456/768|152/255||\tGT:AD:DP:GQ:PL\t1/1:0,9:9:27:364,27,0">
+    <feature type="sequence variant" description="6\t32642096\t.\tG\tC\t335.78\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|3/5|c.456G&gt;C|p.Gln152His|514/1206|456/768|152/255||\tGT:AD:DP:GQ:PL\t1/1:0,9:9:27:364,27,0">
       <original>Q</original>
       <variation>H</variation>
       <location>
-        <position position="152" />
+        <position position="152"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642096\trs707950\tG\tC\t335.78\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|3/4|c.456G&gt;C|p.Gln152His|495/1060|456/768|152/255||\tGT:AD:DP:GQ:PL\t1/1:0,9:9:27:364,27,0">
-      <original>Q</original>
-      <variation>H</variation>
-      <location>
-        <position position="152" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642096\trs707950\tG\tC\t335.78\t.\tANN=C|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|3/5|c.456G&gt;C|p.Gln152His|558/1591|456/768|152/255||\tGT:AD:DP:GQ:PL\t1/1:0,9:9:27:364,27,0">
-      <original>Q</original>
-      <variation>H</variation>
-      <location>
-        <position position="152" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642188\trs7990\tC\tA\t10879.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|3/5|c.548C&gt;A|p.Ala183Asp|606/1206|548/768|183/255||\tGT:AD:DP:GQ:PL\t1/1:0,259:259:99:10908,779,0">
+    <feature type="sequence variant" description="6\t32642188\t.\tC\tA\t10874.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|3/5|c.548C&gt;A|p.Ala183Asp|606/1206|548/768|183/255||\tGT:AD:DP:GQ:PL\t1/1:0,259:259:99:10903,779,0">
       <original>A</original>
       <variation>D</variation>
       <location>
-        <position position="183" />
+        <position position="183"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642188\trs7990\tC\tA\t10879.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|3/4|c.548C&gt;A|p.Ala183Asp|587/1060|548/768|183/255||\tGT:AD:DP:GQ:PL\t1/1:0,259:259:99:10908,779,0">
-      <original>A</original>
-      <variation>D</variation>
+    <feature type="sequence variant" description="6\t32642231\t.\tCC\tTG\t1880.77\t.\tANN=TG|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|3/5|c.591_592delCCinsTG|p.Gln198Glu|649/1206|591/768|197/255||\tGT:AD:DP:GQ:PL\t1/1:0,43:43:99:1909,129,0">
+      <original>DQ</original>
+      <variation>DE</variation>
       <location>
-        <position position="183" />
+        <position position="197"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642188\trs7990\tC\tA\t10879.80\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|3/5|c.548C&gt;A|p.Ala183Asp|650/1591|548/768|183/255||\tGT:AD:DP:GQ:PL\t1/1:0,259:259:99:10908,779,0">
-      <original>A</original>
-      <variation>D</variation>
-      <location>
-        <position position="183" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642232\trs2308891\tC\tG\t1880.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|3/5|c.592C&gt;G|p.Gln198Glu|650/1206|592/768|198/255||\tGT:AD:DP:GQ:PL\t1/1:0,43:43:99:1909,129,0">
-      <original>Q</original>
-      <variation>E</variation>
-      <location>
-        <position position="198" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642232\trs2308891\tC\tG\t1880.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|3/4|c.592C&gt;G|p.Gln198Glu|631/1060|592/768|198/255||\tGT:AD:DP:GQ:PL\t1/1:0,43:43:99:1909,129,0">
-      <original>Q</original>
-      <variation>E</variation>
-      <location>
-        <position position="198" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642232\trs2308891\tC\tG\t1880.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|3/5|c.592C&gt;G|p.Gln198Glu|694/1591|592/768|198/255||\tGT:AD:DP:GQ:PL\t1/1:0,43:43:99:1909,129,0">
-      <original>Q</original>
-      <variation>E</variation>
-      <location>
-        <position position="198" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642624\trs9272785\tG\tA\t7302.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.628G&gt;A|p.Ala210Thr|686/1206|628/768|210/255||\tGT:AD:DP:GQ:PL\t1/1:0,164:164:99:7331,494,0">
+    <feature type="sequence variant" description="6\t32642624\t.\tGCC\tACA\t7617.77\t.\tANN=ACA|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.628_630delGCCinsACA|p.Ala210Thr|686/1206|628/768|210/255||\tGT:AD:DP:GQ:PL\t1/1:0,170:170:99:7646,515,0">
       <original>A</original>
       <variation>T</variation>
       <location>
-        <position position="210" />
+        <position position="210"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642624\trs9272785\tG\tA\t7302.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|4/4|c.628G&gt;A|p.Ala210Thr|667/1060|628/768|210/255||\tGT:AD:DP:GQ:PL\t1/1:0,164:164:99:7331,494,0">
-      <original>A</original>
-      <variation>T</variation>
-      <location>
-        <position position="210" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642624\trs9272785\tG\tA\t7302.77\t.\tANN=A|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|4/5|c.628G&gt;A|p.Ala210Thr|730/1591|628/768|210/255||\tGT:AD:DP:GQ:PL\t1/1:0,164:164:99:7331,494,0">
-      <original>A</original>
-      <variation>T</variation>
-      <location>
-        <position position="210" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642684\trs9260\tA\tG\t5820.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.688A&gt;G|p.Met230Val|746/1206|688/768|230/255||\tGT:AD:DP:GQ:PL\t1/1:0,116:116:99:5849,409,0">
+    <feature type="sequence variant" description="6\t32642684\t.\tA\tG\t6751.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.688A&gt;G|p.Met230Val|746/1206|688/768|230/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,116:116:99:1|1:32642684_A_G:6780,458,0">
       <original>M</original>
       <variation>V</variation>
       <location>
-        <position position="230" />
+        <position position="230"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642684\trs9260\tA\tG\t5820.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|4/4|c.688A&gt;G|p.Met230Val|727/1060|688/768|230/255||\tGT:AD:DP:GQ:PL\t1/1:0,116:116:99:5849,409,0">
-      <original>M</original>
-      <variation>V</variation>
-      <location>
-        <position position="230" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642684\trs9260\tA\tG\t5820.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|4/5|c.688A&gt;G|p.Met230Val|790/1591|688/768|230/255||\tGT:AD:DP:GQ:PL\t1/1:0,116:116:99:5849,409,0">
-      <original>M</original>
-      <variation>V</variation>
-      <location>
-        <position position="230" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642710\t.\tC\tG\t9933.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.714C&gt;G|p.Phe238Leu|772/1206|714/768|238/255||\tGT:AD:DP:GQ:PL\t1/1:0,201:201:99:9962,671,0">
+    <feature type="sequence variant" description="6\t32642710\t.\tC\tG\t9851.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.714C&gt;G|p.Phe238Leu|772/1206|714/768|238/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,202:202:99:1|1:32642684_A_G:9880,665,0">
       <original>F</original>
       <variation>L</variation>
       <location>
-        <position position="238" />
+        <position position="238"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642710\t.\tC\tG\t9933.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|4/4|c.714C&gt;G|p.Phe238Leu|753/1060|714/768|238/255||\tGT:AD:DP:GQ:PL\t1/1:0,201:201:99:9962,671,0">
-      <original>F</original>
-      <variation>L</variation>
-      <location>
-        <position position="238" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642710\t.\tC\tG\t9933.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|4/5|c.714C&gt;G|p.Phe238Leu|816/1591|714/768|238/255||\tGT:AD:DP:GQ:PL\t1/1:0,201:201:99:9962,671,0">
-      <original>F</original>
-      <variation>L</variation>
-      <location>
-        <position position="238" />
-      </location>
-    </feature>
-    <feature type="sequence variant" description="6\t32642718\trs1048439\tA\tG\t12144.80\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.722A&gt;G|p.Gln241Arg|780/1206|722/768|241/255||\tGT:AD:DP:GQ:PL\t1/1:0,278:278:99:12173,836,0">
+    <feature type="sequence variant" description="6\t32642718\t.\tA\tG\t11833.77\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000395363.5|protein_coding|4/5|c.722A&gt;G|p.Gln241Arg|780/1206|722/768|241/255||\tGT:AD:DP:GQ:PGT:PID:PL\t1/1:0,270:270:99:1|1:32642684_A_G:11862,812,0">
       <original>Q</original>
       <variation>R</variation>
       <location>
-        <position position="241" />
+        <position position="241"></position>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642718\trs1048439\tA\tG\t12144.80\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000374949.2|protein_coding|4/4|c.722A&gt;G|p.Gln241Arg|761/1060|722/768|241/255||\tGT:AD:DP:GQ:PL\t1/1:0,278:278:99:12173,836,0">
-      <original>Q</original>
-      <variation>R</variation>
+    <feature type="splice site" description="6\t+\t32641309\t32641557\t32642609\t32642763">
       <location>
-        <position position="241" />
+        <begin position="83"></begin>
+        <end position="84"></end>
       </location>
     </feature>
-    <feature type="sequence variant" description="6\t32642718\trs1048439\tA\tG\t12144.80\t.\tANN=G|missense_variant|MODERATE|HLA-DQA1|ENSG00000196735|transcript|ENST00000343139.9|protein_coding|4/5|c.722A&gt;G|p.Gln241Arg|824/1591|722/768|241/255||\tGT:AD:DP:GQ:PL\t1/1:0,278:278:99:12173,836,0">
-      <original>Q</original>
-      <variation>R</variation>
+    <feature type="splice site" description="6\t+\t32642609\t32642763\t32637458\t32637539">
       <location>
-        <position position="241" />
+        <position position="135"></position>
+      </location>
+    </feature>
+    <feature type="splice site" description="6\t+\t32637458\t32637539\t32641971\t32642252">
+      <location>
+        <begin position="162"></begin>
+        <end position="163"></end>
       </location>
     </feature>
     <sequence length="255">MILNKALLLGALALTTVMSPCGGEDIVADHVASCGVNLYQFYGPSGQYTHEFDGDEQFYVDLERKETAWRWPEFSKFGGFDPQGALRNMAVAKHNLNIMIKRYNSTAATNEVPEVTVFSKSPVTLGQPNTLICLVDNIFPPVVNITWLSNGQSVTEGVSETSFLSKSDHSFFKISYLTFLPSADEIYDCKVEHWGLDQPLLKHWEPEIPAPMSELTETVVCALGLSVGLMGIVVGTVFIIQGLRSVGASRHQGPL</sequence>

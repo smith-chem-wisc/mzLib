@@ -45,7 +45,7 @@ namespace Proteomics
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
-            OriginalModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = SelectValidOneBaseMods(oneBasedModifications);
@@ -76,8 +76,8 @@ namespace Proteomics
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
                   proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
-                  name: protein.Name + (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
-                  fullName: protein.FullName + (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : " variant:" + VariantApplication.CombineDescriptions(appliedSequenceVariations)),
+                  name: GetName(appliedSequenceVariations, protein.Name),
+                  fullName: GetName(appliedSequenceVariations, protein.FullName),
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
@@ -86,7 +86,8 @@ namespace Proteomics
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
         {
-            NonVariantProtein = protein;
+            NonVariantProtein = protein.NonVariantProtein;
+            OriginalNonVariantModifications = NonVariantProtein.OriginalNonVariantModifications;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
@@ -154,7 +155,7 @@ namespace Proteomics
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
-        internal IDictionary<int, List<Modification>> OriginalModifications { get; set; }
+        internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
         public char this[int zeroBasedIndex]
         {
@@ -303,7 +304,7 @@ namespace Proteomics
         /// </summary>
         public void RestoreUnfilteredModifications()
         {
-            OneBasedPossibleLocalizedModifications = OriginalModifications;
+            OneBasedPossibleLocalizedModifications = OriginalNonVariantModifications;
         }
 
         /// <summary>
@@ -339,6 +340,20 @@ namespace Proteomics
                 }
             }
             return validModDictionary;
+        }
+
+        private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
+        {
+            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
+            if (name == null && emptyVars)
+            {
+                return null;
+            }
+            else
+            {
+                string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
+                return name + variantTag;
+            }
         }
     }
 }

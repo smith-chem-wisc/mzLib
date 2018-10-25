@@ -10,7 +10,7 @@ MM   42
   <entry>
     <accession>accession1</accession>
     <gene />
-    <feature type="sequence variant" description="1\t50000000\t.\tA\tG\t.\tPASS\tANN=\tGT:AD:DP\t1/1:30,30:30">
+    <feature type="sequence variant" description="1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30">
       <original>P</original>
       <variation>K</variation>
       <location>

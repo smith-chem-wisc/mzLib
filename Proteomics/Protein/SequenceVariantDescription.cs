@@ -17,16 +17,17 @@ namespace Proteomics
             // Parse description into
             string[] vcfFields = description.Split(new[] { @"\t" }, StringSplitOptions.None);
             if (vcfFields.Length < 10) { return; }
-            string referenceAlleleString = vcfFields[3];
-            string alternateAlleleString = vcfFields[4];
-            string info = vcfFields[7];
-            string format = vcfFields[8];
+            ReferenceAlleleString = vcfFields[3];
+            AlternateAlleleString = vcfFields[4];
+            Info = new SnpEffAnnotation(vcfFields[7]);
+            AlleleIndex = Info.Allele == null ? -1 : AlternateAlleleString.Split(',').ToList().IndexOf(Info.Allele) + 1; // reference is zero
+            Format = vcfFields[8];
             string[] genotypes = Enumerable.Range(9, vcfFields.Length - 9).Select(i => vcfFields[i]).ToArray();
 
             // loop through genotypes for this variant (e.g. tumor and normal)
             for (int individual = 0; individual < genotypes.Length; individual++)
             {
-                var genotypeFields = GenotypeDictionary(format.Trim(), genotypes[individual].Trim());
+                var genotypeFields = GenotypeDictionary(Format.Trim(), genotypes[individual].Trim());
 
                 // parse genotype
                 string[] gt = null;
@@ -41,20 +42,19 @@ namespace Proteomics
                 AlleleDepths.Add(individual.ToString(), ad);
                 Homozygous.Add(individual.ToString(), gt.Distinct().Count() == 1);
                 Heterozygous.Add(individual.ToString(), gt.Distinct().Count() > 1);
-                GenotypeAlleleDepthMap.Add(individual.ToString(), Enumerable.Range(0, gt.Length).Select(x => (gt[x], ad[x])).ToArray());
             }
         }
 
         public string Description { get; }
         public string ReferenceAlleleString { get; }
         public string AlternateAlleleString { get; }
-        public string Info { get; }
+        public SnpEffAnnotation Info { get; }
         public string Format { get; }
         public Dictionary<string, bool> Homozygous { get; } = new Dictionary<string, bool>();
         public Dictionary<string, bool> Heterozygous { get; } = new Dictionary<string, bool>();
         public Dictionary<string, string[]> Genotypes { get; } = new Dictionary<string, string[]>();
         public Dictionary<string, string[]> AlleleDepths { get; } = new Dictionary<string, string[]>();
-        public Dictionary<string, (string, string)[]> GenotypeAlleleDepthMap { get; } = new Dictionary<string, (string, string)[]>();
+        public int AlleleIndex { get; }
 
         /// <summary>
         /// Returns original string for the description
@@ -74,7 +74,7 @@ namespace Proteomics
 
         public override int GetHashCode()
         {
-            return Description.GetHashCode();
+            return Description != null ? Description.GetHashCode() : 0;
         }
 
         /// <summary>

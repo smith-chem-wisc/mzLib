@@ -161,6 +161,15 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\MultipleAlternateFrameshifts.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\MultipleAlternateAlleles.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\StopGained.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\HomozygousHLA.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

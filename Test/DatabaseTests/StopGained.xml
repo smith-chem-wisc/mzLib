@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <entry>
+    <accession>ENST00000619474</accession>
+    <name>ENST00000619474</name>
+    <gene>
+      <name type="primary">RHOH</name>
+      <name type="accession">ENSG00000168421</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT,*,&lt;NON_REF&gt;\t14011.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000619474.4|protein_coding|4/4|c.481C&gt;T|p.Gln161*|1333/2230|481/576|161/191||\tGT:AD:DP:GQ:PL:SB\t0/1:322,462,1,0:785:99:14040,0,9565,14672,11572,30284,15154,11501,29121,29030:152,170,203,260">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161"></position>
+      </location>
+    </feature>
+    <sequence length="191">MLSSIKCVLVGDSAVGKTSLLVRFTSETFPEAYKPTVYENTGVDVFMDGIQISLGLWDTAGNDAFRSIRPLSYQQADVVLMCYSVANHNSFLNLKNKWIGEIRSNLPCTPVLVVATQTDQREMGPHRASCVNAMEGKKLAQDVRAKGYLECSALSNRGVQQVFECAVRTAVNQARRRNRRRLFSINECKIF</sequence>
+  </entry>
+</mzLibProteinDb>
