@@ -39,6 +39,12 @@ namespace Chemistry
         public const double ElectronMass = 5.48579909070e-4;
 
         /// <summary>
+        /// The difference between the carbon 13 isotope and carbon 12 isotope in
+        /// atomic units (u)
+        /// </summary>
+        public const double C13MinusC12 = 1.00335483810;
+
+        /// <summary>
         /// The largest number of elements to consider
         /// </summary>
         internal const int MaximumNumberOfElementsAllowed = 128;
