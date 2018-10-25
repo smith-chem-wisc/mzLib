@@ -28,7 +28,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (decoyType == DecoyType.Slide)
             {
-                return GenerateSlideDecoys(proteins , maxThreads);
+                return GenerateSlideDecoys(proteins, maxThreads);
             }
             else
             {
@@ -90,6 +90,7 @@ namespace UsefulProteomicsDatabases
                 List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
                 foreach (SequenceVariation sv in protein.SequenceVariations)
                 {
+                    // reverse sequence variation
                     char[] originalArray = sv.OriginalSequence.ToArray();
                     char[] variationArray = sv.VariantSequence.ToArray();
                     if (sv.OneBasedBeginPosition == 1)
@@ -107,7 +108,23 @@ namespace UsefulProteomicsDatabases
                     int decoyBegin = decoyEnd - originalArray.Length + 1;
                     Array.Reverse(originalArray);
                     Array.Reverse(variationArray);
-                    decoyVariations.Add(new SequenceVariation(decoyBegin, decoyEnd, new string(originalArray), new string(variationArray), "DECOY VARIANT: " + sv.Description));
+
+                    // place reversed modifications (referencing variant sequence location)
+                    Dictionary<int, List<Modification>> decoyVariantModifications = new Dictionary<int, List<Modification>>(sv.OneBasedModifications.Count);
+                    int variantSeqLength = protein.BaseSequence.Length + sv.VariantSequence.Length - sv.OriginalSequence.Length;
+                    foreach (var kvp in sv.OneBasedModifications)
+                    {
+                        if (kvp.Key > 1)
+                        {
+                            decoyVariantModifications.Add(variantSeqLength - kvp.Key + 2, kvp.Value);
+                        }
+                        else if (kvp.Key == 1)
+                        {
+                            decoyVariantModifications.Add(1, kvp.Value);
+                        }
+                    }
+
+                    decoyVariations.Add(new SequenceVariation(decoyBegin, decoyEnd, new string(originalArray), new string(variationArray), "DECOY VARIANT: " + sv.Description, decoyVariantModifications));
                 }
                 var decoyProtein = new Protein(reversed_sequence, "DECOY_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPP,
                     protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariations, decoyDisulfides, protein.DatabaseFilePath);

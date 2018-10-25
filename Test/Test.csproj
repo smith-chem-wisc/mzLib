@@ -160,6 +160,12 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\oblm.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\oblm2.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

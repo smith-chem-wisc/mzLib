@@ -34,6 +34,7 @@ namespace Proteomics.Fragmentation
         yStar,
         yDegree,
         zPlusOne,//This is zDot plus H
+        zDot,
         M, //this is the molecular ion
         D //this is a diagnostic ion
     }

@@ -620,6 +620,10 @@ namespace Test
                     case ProductType.zPlusOne:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass).Value, mass);
                         break;
+
+                    case ProductType.zDot:
+                        Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("O1N-1H-1").MonoisotopicMass + Constants.ProtonMass + Constants.ElectronMass).Value, mass);
+                        break;
                 }
             }
         }
@@ -654,9 +658,9 @@ namespace Test
             Assert.AreEqual(new List<ProductType> { ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
             Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
 
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zPlusOne }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
             Assert.AreEqual(new List<ProductType> { ProductType.c }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zPlusOne }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
             Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
 
             Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
@@ -676,9 +680,9 @@ namespace Test
             Assert.AreEqual(new List<ProductType> { ProductType.y }, p.Fragment(DissociationType.HCD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
             Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.HCD, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
 
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zPlusOne }, p.Fragment(DissociationType.ETD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, p.Fragment(DissociationType.ETD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
             Assert.AreEqual(new List<ProductType> { ProductType.c }, p.Fragment(DissociationType.ETD, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zPlusOne }, p.Fragment(DissociationType.ETD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, p.Fragment(DissociationType.ETD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
             Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.ETD, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
 
             Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, p.Fragment(DissociationType.CID, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
@@ -763,7 +767,7 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications("MPEPTIDE", new Dictionary<string, Modification>());
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
-            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
             var expected = new[] { 1, 2, 3, 4, 6, 8 };
@@ -777,7 +781,7 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications("MTETTIDE", new Dictionary<string, Modification>());
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
-            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
             var expected = new[] { 1, 2, 3, 4, 5, 6, 7, 8 };
@@ -791,7 +795,7 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications("METPIPEEEE", new Dictionary<string, Modification>());
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
-            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
             var expected = new[] { 1, 2, 3, 4, 6, 8, 9, 10 };
@@ -807,7 +811,7 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications("METP[OK:TEST]IPEEEE", new Dictionary<string, Modification> { { "TEST", m } });
             var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
 
-            var z = fragments.Where(f => f.ProductType == ProductType.zPlusOne).ToList();
+            var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
             var ionNums = z.Select(f => f.TerminusFragment.FragmentNumber).ToArray();
             var expected = new[] { 1, 2, 3, 4, 6, 8, 9, 10 };

@@ -185,7 +185,7 @@ namespace Proteomics.ProteolyticDigestion
             var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
 
             List<(ProductType, int)> skippers = new List<(ProductType, int)>();
-            foreach (var product in productCollection.Where(f => f != ProductType.zPlusOne))
+            foreach (var product in productCollection.Where(f => f != ProductType.zDot))
             {
                 skippers.Add((product, BaseSequence.Length));
             }
@@ -325,7 +325,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             for (int i = BaseSequence.IndexOf('P'); i > -1; i = BaseSequence.IndexOf('P', i + 1))
             {
-                yield return (ProductType.zPlusOne, BaseSequence.Length - i);
+                yield return (ProductType.zDot, BaseSequence.Length - i);
             }
         }
 

@@ -11,12 +11,12 @@ namespace Proteomics.Fragmentation
             { DissociationType.Unknown, new List<ProductType>() },
             { DissociationType.CID, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.IRMPD, new List<ProductType>{ ProductType.b, ProductType.y } },
-            { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zPlusOne } },
+            { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
             { DissociationType.PQD, new List<ProductType>() },
-            { DissociationType.ETD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zPlusOne } },
+            { DissociationType.ETD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
             { DissociationType.HCD, new List<ProductType>{ ProductType.b, ProductType.y } },//HCD often creates a-, aStar, and aDegree-ions and we should examine what other prominent algoroithms do to see if that would benefit our search results
             { DissociationType.AnyActivationType, new List<ProductType>{ ProductType.b, ProductType.y } },
-            { DissociationType.EThcD, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.c, ProductType.zPlusOne } },
+            { DissociationType.EThcD, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.c, ProductType.zDot } },
             { DissociationType.Custom, new List<ProductType>() },
             { DissociationType.ISCID, new List<ProductType>() }
         };
@@ -34,6 +34,7 @@ namespace Proteomics.Fragmentation
             { ProductType.y, null},//+O +H2
             { ProductType.yStar, null},//+O -H -N
             { ProductType.yDegree, null},//no change
+            { ProductType.zDot, null },// +O -NH + e- + p+
             { ProductType.zPlusOne, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
             { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
@@ -59,6 +60,7 @@ namespace Proteomics.Fragmentation
                         case ProductType.y: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass; break;// 18.01056468403, +O +H2
                         case ProductType.yStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
                         case ProductType.yDegree: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
+                        case ProductType.zDot: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1N-1H-1").MonoisotopicMass + Constants.ElectronMass + Constants.ProtonMass; break; //1.991840552567, +O -NH + e- + p+
                         case ProductType.zPlusOne: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N:
                         case ProductType.M: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                         case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
