@@ -18,6 +18,8 @@ namespace UsefulProteomicsDatabases
         public string Sequence { get; private set; }
         public string FeatureType { get; private set; }
         public string FeatureDescription { get; private set; }
+        public string SubFeatureType { get; private set; }
+        public string SubFeatureDescription { get; private set; }
         public string OriginalValue { get; private set; } = ""; // if no content is found, assume it is empty, not null (e.g. <original>A</original><variation/> for a deletion event)
         public string VariationValue { get; private set; } = "";
         public string DBReferenceType { get; private set; }
@@ -31,16 +33,18 @@ namespace UsefulProteomicsDatabases
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
         public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
+        public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
 
+        private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
+        private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
+
         /// <summary>
         /// Start parsing a protein XML element
         /// </summary>
-        /// <param name="elementName"></param>
-        /// <param name="xml"></param>
         public void ParseElement(string elementName, XmlReader xml)
         {
             int outValue;
@@ -94,6 +98,11 @@ namespace UsefulProteomicsDatabases
                     FeatureDescription = xml.GetAttribute("description");
                     break;
 
+                case "subfeature":
+                    SubFeatureType = xml.GetAttribute("type");
+                    SubFeatureDescription = xml.GetAttribute("description");
+                    break;
+
                 case "original":
                     OriginalValue = xml.ReadElementString();
                     break;
@@ -135,22 +144,17 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing at the end of an element
         /// </summary>
-        /// <param name="xml"></param>
-        /// <param name="mod_dict"></param>
-        /// <param name="modTypesToExclude"></param>
-        /// <param name="unknownModifications"></param>
-        /// <param name="generateTargetProteins"></param>
-        /// <param name="decoySetting"></param>
-        /// <param name="isContaminant"></param>
-        /// <param name="proteinDbLocation"></param>
-        /// <returns></returns>
-        public List<Protein> ParseEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude,
+        public List<Protein> ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications, bool isContaminant, string proteinDbLocation)
         {
             List<Protein> result = new List<Protein>();
             if (xml.Name == "feature")
             {
-                ParseFeatureEndElement(xml, mod_dict, modTypesToExclude, unknownModifications);
+                ParseFeatureEndElement(xml, modTypesToExclude, unknownModifications);
+            }
+            if (xml.Name == "subfeature")
+            {
+                ParseSubFeatureEndElement(xml, modTypesToExclude, unknownModifications);
             }
             else if (xml.Name == "dbReference")
             {
@@ -166,7 +170,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result.AddRange(ParseEntryEndElement(xml, isContaminant, proteinDbLocation));
+                result.AddRange(ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications));
             }
             return result;
         }
@@ -174,17 +178,12 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing an entry
         /// </summary>
-        /// <param name="xml"></param>
-        /// <param name="generateTargetProteins"></param>
-        /// <param name="decoyType"></param>
-        /// <param name="isContaminant"></param>
-        /// <param name="proteinDbLocation"></param>
-        /// <returns></returns>
-        public List<Protein> ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation)
+        public List<Protein> ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             List<Protein> result = new List<Protein>();
             if (Accession != null && Sequence != null)
             {
+                ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 var protein = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, proteinDbLocation);
                 result.Add(protein);
@@ -194,49 +193,28 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Finish parsing a feature element
+        /// Finish parsing a subfeature element
         /// </summary>
-        /// <param name="xml"></param>
-        /// <param name="mod_dict"></param>
-        /// <param name="modTypesToExclude"></param>
-        /// <param name="unknownModifications"></param>
-        public void ParseFeatureEndElement(XmlReader xml, Dictionary<string, IList<Modification>> mod_dict, IEnumerable<string> modTypesToExclude,
+        public void ParseSubFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
+            Dictionary<string, Modification> unknownModifications)
+        {
+            if (SubFeatureType == "modified residue")
+            {
+                SubFeatureDescription = SubFeatureDescription.Split(';')[0];
+                AnnotatedVariantMods.Add((OneBasedFeaturePosition, SubFeatureDescription));
+            }
+        }
+
+            /// <summary>
+            /// Finish parsing a feature element
+            /// </summary>
+        public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
-
-                // Create new entry for this residue, if needed
-                if (!OneBasedModifications.TryGetValue(OneBasedFeaturePosition, out List<Modification> residue_modifications))
-                {
-                    residue_modifications = new List<Modification>();
-                    OneBasedModifications.Add(OneBasedFeaturePosition, residue_modifications);
-                }
-                if (mod_dict.ContainsKey(FeatureDescription))
-                {
-                    // Known and not of a type in the exclusion list
-                    List<Modification> mods = mod_dict[FeatureDescription].Where(m => !modTypesToExclude.Contains(m.ModificationType)).ToList();
-                    if (mods.Count == 0 && OneBasedModifications[OneBasedFeaturePosition].Count == 0)
-                    {
-                        OneBasedModifications.Remove(OneBasedFeaturePosition);
-                    }
-                    else
-                    {
-                        OneBasedModifications[OneBasedFeaturePosition].AddRange(mods);
-                    }
-                }
-                else if (unknownModifications.ContainsKey(FeatureDescription))
-                {
-                    // Not known but seen
-                    residue_modifications.Add(unknownModifications[FeatureDescription]);
-                }
-                else
-                {
-                    // Not known and not seen
-                    unknownModifications[FeatureDescription] = new Modification(_id: FeatureDescription, _modificationType: "unknown");
-                    residue_modifications.Add(unknownModifications[FeatureDescription]);
-                }
+                AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
             }
             else if (FeatureType == "peptide" || FeatureType == "propeptide" || FeatureType == "chain" || FeatureType == "signal peptide")
             {
@@ -244,14 +222,16 @@ namespace UsefulProteomicsDatabases
             }
             else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
             {
+                ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
                 if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
                 {
-                    SequenceVariations.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription));
+                    SequenceVariations.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
                 }
                 else if (OneBasedFeaturePosition >= 1)
                 {
-                    SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription));
+                    SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
                 }
+                AnnotatedVariantMods = new List<(int, string)>();
             }
             else if (FeatureType == "disulfide bond")
             {
@@ -269,6 +249,75 @@ namespace UsefulProteomicsDatabases
             OneBasedFeaturePosition = -1;
             OriginalValue = "";
             VariationValue = "";
+        }
+
+        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude, 
+            Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
+        {
+            foreach (var annotatedMod in annotatedMods)
+            {
+                string annotatedId = annotatedMod.Item2;
+                int annotatedModLocation = annotatedMod.Item1;
+
+                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod))
+                {
+                    // if the list of known mods contains this IdWithMotif
+                    if (!modTypesToExclude.Contains(foundMod.ModificationType))
+                    {
+                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
+                        {
+                            listOfModsAtThisLocation.Add(foundMod);
+                        }
+                        else
+                        {
+                            destination.Add(annotatedModLocation, new List<Modification> { foundMod });
+                        }
+                    }
+                    // else - the mod ID was found but the motif didn't fit the annotated location
+                }
+
+                // no known mod - try looking it up in the dictionary of mods without motif appended
+                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods))
+                {
+                    foreach (Modification mod in mods)
+                    {
+                        if (!modTypesToExclude.Contains(mod.ModificationType))
+                        {
+                            if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
+                            {
+                                listOfModsAtThisLocation.Add(mod);
+                            }
+                            else
+                            {
+                                destination.Add(annotatedModLocation, new List<Modification> { mod });
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // could not find the annotated mod's ID in our list of known mods - it's an unknown mod
+                    // I don't think this really does anything...
+                    if (!unknownModifications.ContainsKey(annotatedId))
+                    {
+                        unknownModifications.Add(annotatedId, new Modification(annotatedId));
+                    }
+                }
+            }
+        }
+
+        private static ModificationMotif GetMotif(string proteinSequence, int position)
+        {
+            string aminoAcid = proteinSequence.Substring(position - 1, 1);
+            if (ModificationMotif.TryGetMotif(aminoAcid, out ModificationMotif motif))
+            {
+                return motif;
+            }
+            else
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -298,6 +347,8 @@ namespace UsefulProteomicsDatabases
             Organism = null;
             FeatureType = null;
             FeatureDescription = null;
+            SubFeatureType = null;
+            SubFeatureDescription = null;
             OriginalValue = "";
             VariationValue = "";
             DBReferenceType = null;
@@ -305,6 +356,7 @@ namespace UsefulProteomicsDatabases
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;
+            AnnotatedMods = new List<(int, string)>();
             OneBasedModifications = new Dictionary<int, List<Modification>>();
             ProteolysisProducts = new List<ProteolysisProduct>();
             SequenceVariations = new List<SequenceVariation>();

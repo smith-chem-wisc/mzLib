@@ -99,11 +99,11 @@ namespace Test
             List<Modification> variableModifications = new List<Modification>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
 
-            variableModifications.Add(new Modification(_id: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new Modification(_id: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new Modification(_id: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new Modification(_id: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            variableModifications.Add(new Modification(_id: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new Modification(_originalId: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new Modification(_originalId: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new Modification(_originalId: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new Modification(_originalId: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            variableModifications.Add(new Modification(_originalId: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
 
             var ye = prot.Digest(digestionParams, new List<Modification>(), variableModifications).ToList();
             Assert.AreEqual(3 * 2 * 3, ye.Count);
@@ -127,22 +127,17 @@ namespace Test
             List<Modification> fixedMods = new List<Modification>();
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
 
-
-
-
-            fixedMods.Add(new Modification(_id: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_id: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_id: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_id: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_id: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
-
+            fixedMods.Add(new Modification(_originalId: "ProtNmod", _target: motif, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "pepNmod", _target: motif, _locationRestriction: "Peptide N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "resMod", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "PepCmod", _target: motif, _locationRestriction: "Peptide C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "ProtCmod", _target: motif, _locationRestriction: "C-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: GetElement(1).PrincipalIsotope.AtomicMass));
 
             var ok = prot.Digest(digestionParams, fixedMods, new List<Modification>()).ToList();
 
             Assert.AreEqual(1, ok.Count);
 
-
-            Assert.AreEqual("[:pepNmod]M[:resMod][:ProtCmod]", ok.First().Sequence);
+            Assert.AreEqual("[:pepNmod on M]M[:resMod on M][:ProtCmod on M]", ok.First().FullSequence);
 
             Assert.AreEqual("[H]M[H][H]", ok.First().SequenceWithChemicalFormulas);
             Assert.AreEqual(5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass, ok.Last().MonoisotopicMass, 1e-9);
@@ -151,22 +146,22 @@ namespace Test
         [Test]
         public static void TestDigestIndices()
         {
-            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
-            Modification mod = new Modification(null, null, null, null, motif, "Anywhere.", null, double.NaN, null, null, null, null, null, null);
+            ModificationMotif.TryGetMotif("N", out ModificationMotif motifN);
+            ModificationMotif.TryGetMotif("R", out ModificationMotif motifR);
+            Modification modN = new Modification("myMod", null, "myModType", null, motifN, "Anywhere.", null, 10, null, null, null, null, null, null);
+            Modification modR = new Modification("myMod", null, "myModType", null, motifR, "Anywhere.", null, 10, null, null, null, null, null, null);
             IDictionary<int, List<Modification>> modDict = new Dictionary<int, List<Modification>>
             {
-                {2, new List<Modification> {mod } },
-                {8, new List<Modification> {mod } }
+                {2, new List<Modification> { modN } },
+                {8, new List<Modification> { modR } }
             };
-            var prot = new Protein("MNNNNKRRRRR", null, null, null, modDict);
-            DigestionParams digestionParams = new DigestionParams(
-                "Custom Protease7",
-                maxMissedCleavages: 0,
-                minPeptideLength: 5,
-                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            var digestList = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            var ok1 = digestList[1];
-            var ok2 = digestList[3];
+            var prot = new Protein("MNNNNKRRRRR", null, null, null, modDict, isDecoy: true);
+
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            var digestedList = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
+            var ok1 = digestedList[1];
+            var ok2 = digestedList[3];
 
             Assert.AreEqual(1, ok1.NumMods);
             Assert.IsTrue(ok1.AllModsOneIsNterminus.ContainsKey(3));
@@ -177,19 +172,18 @@ namespace Test
         [Test]
         public static void TestDigestDecoy()
         {
-            ModificationMotif.TryGetMotif("Abcdefg", out ModificationMotif motif);
-            Modification mod = new Modification(null, null, null, null, motif, "Anywhere.", null, double.NaN, null, null, null, null, null, null);
+            ModificationMotif.TryGetMotif("N", out ModificationMotif motifN);
+            ModificationMotif.TryGetMotif("R", out ModificationMotif motifR);
+            Modification modN = new Modification("myMod", null, "myModType", null, motifN, "Anywhere.", null, 10, null, null, null, null, null, null);
+            Modification modR = new Modification("myMod", null, "myModType", null, motifR, "Anywhere.", null, 10, null, null, null, null, null, null);
             IDictionary<int, List<Modification>> modDict = new Dictionary<int, List<Modification>>
             {
-                {2, new List<Modification> { mod } },
-                {8, new List<Modification> { mod } }
+                {2, new List<Modification> { modN } },
+                {8, new List<Modification> { modR } }
             };
             var prot = new Protein("MNNNNKRRRRR", null, null, null, modDict, isDecoy: true);
-            DigestionParams digestionParams = new DigestionParams(
-                "Custom Protease7",
-                maxMissedCleavages: 0,
-                minPeptideLength: 5,
-                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             var digestedList = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
             var ok1 = digestedList[1];
@@ -206,8 +200,8 @@ namespace Test
 
             Assert.AreEqual(0, ok1.NumMods);
             Assert.IsFalse(ok1.AllModsOneIsNterminus.Any());
-            Assert.AreEqual(0, ok2.NumMods);
-            Assert.IsFalse(ok2.AllModsOneIsNterminus.Any());
+            Assert.AreEqual(2, ok2.NumMods);
+            Assert.IsTrue(ok2.AllModsOneIsNterminus.Any());
         }
 
         [Test]
@@ -215,13 +209,13 @@ namespace Test
         {
             var prot = new Protein("MNNNKQQQQMNNNKQQQQ", null);
 
-            DigestionParams digestionParams = new DigestionParams("Custom Protease7", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("Custom Protease7", maxMissedCleavages: 0, minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye1 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("Custom Protease7", maxMissedCleavages: 0, minPeptideLength: 1, maxPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1, maxPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye2 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("Custom Protease7", maxMissedCleavages: 0, minPeptideLength: 5, maxPeptideLength: 8, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 5, maxPeptideLength: 8, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye3 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
             Assert.AreEqual(3, ye.Count);
             Assert.AreEqual(2, ye1.Count);
@@ -230,27 +224,54 @@ namespace Test
         }
 
         [Test]
+        public static void Test_ProteinDigest()
+        {
+            DigestionParams d = new DigestionParams(
+                        maxMissedCleavages: 0,
+                        minPeptideLength: 5,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            ModificationMotif.TryGetMotif("D", out ModificationMotif motif);
+            Modification mod = new Modification(_originalId: "mod1", _modificationType: "mt", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 10);
+
+            IDictionary<int, List<Modification>> oneBasedModification = new Dictionary<int, List<Modification>>
+            {
+                { 3, new List<Modification>{ mod } }
+            };
+
+            Protein prot1 = new Protein("MEDEEK", "prot1", oneBasedModifications: oneBasedModification);
+
+            var pep1 = prot1.Digest(d, new List<Modification>(), new List<Modification>()).First();
+            var pep2 = prot1.Digest(d, new List<Modification>(), new List<Modification>()).Last();
+
+            Assert.AreEqual("MEDEEK", pep1.FullSequence);
+            Assert.AreEqual("MED[mt:mod1 on D]EEK", pep2.FullSequence);
+        }
+
+        [Test]
         /// <summary>
         /// Tests that a PeptideWithSetModifications object can be parsed correctly from a string, with mod info
         /// </summary>
         public static void TestReadPeptideFromString()
         {
-            // set up the test 
-            Modification carbamidomethylOfC = new Modification(_id: "Carbamidomethyl of C", _modificationType: "Common Fixed", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
-            string sequence = "HQVC[Common Fixed:Carbamidomethyl of C]TPGGTTIAGLC[Common Fixed:Carbamidomethyl of C]VMEEK";
+            // set up the test
+
+            ModificationMotif.TryGetMotif("T", out ModificationMotif target);
+
+            Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: target, _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
+            string sequence = "HQVC[Common Fixed:Carbamidomethyl on C]TPGGTTIAGLC[Common Fixed:Carbamidomethyl on C]VMEEK";
 
             // parse the peptide from the string
-            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification> { { carbamidomethylOfC.Id, carbamidomethylOfC } });
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification> { { carbamidomethylOnC.IdWithMotif, carbamidomethylOnC } });
 
             // test base sequence and full sequence
             Assert.That(peptide.BaseSequence == "HQVCTPGGTTIAGLCVMEEK");
-            Assert.That(peptide.Sequence == sequence);
+            Assert.That(peptide.FullSequence == sequence);
 
             // test peptide mass
             Assert.That(Math.Round(peptide.MonoisotopicMass, 5) == 2187.01225);
 
             // test mods (correct id, correct number of mods, correct location of mods)
-            Assert.That(peptide.AllModsOneIsNterminus.First().Value.Id == "Carbamidomethyl of C");
+            Assert.That(peptide.AllModsOneIsNterminus.First().Value.IdWithMotif == "Carbamidomethyl on C");
             Assert.That(peptide.AllModsOneIsNterminus.Count == 2);
             Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 

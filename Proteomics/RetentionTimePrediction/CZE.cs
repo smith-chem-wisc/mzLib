@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Chromatography
+namespace Proteomics.RetentionTimePrediction
 {
     /// <summary>
     /// This class will return theoretical retention times, hydrobphobicites, electrophoretic mobilities and etc. for peptides.
@@ -15,19 +15,43 @@ namespace Chromatography
     /// </summary>
     public class CZE
     {
+        private readonly double ColumnLength; //in meters
+        private readonly double VoltsPerMeter; //in volts/meter
+        public CZE(double columnLength, double voltsPerMeter)
+        {
+            ColumnLength = columnLength;
+            VoltsPerMeter = voltsPerMeter;
+        }
+
         /// <summary>
         /// This method returns calculated electrophoretic mobility for an observed peptide. The calculation requires use of an
         /// observed retention time(min), the total capillary length(m) and the applied voltage (V/m)
         /// </summary>
-        /// <param name="length"></param>
         /// <param name="timeMin"></param>
-        /// <param name="voltsPerMeter"></param>
         /// <returns></returns>
-        public double ExperimentalElectrophoreticMobility(double length, double timeMin, double voltsPerMeter)
+        public double ExperimentalElectrophoreticMobility(double timeMin)
         {
-            if (length >= 0 && timeMin >= 0)
+            if (ColumnLength >= 0 && timeMin >= 0)
             {
-                return length / (60 * timeMin * voltsPerMeter) * 1e9;
+                return ColumnLength / (60 * timeMin * VoltsPerMeter) * 1e9;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// This method returns an expected retention time for a given electrophoretic mobility and experiment. The calculation requires use of an
+        /// electrophoretic mobility, the total capillary length(m) and the applied voltage (V/m)
+        /// </summary>
+        /// <param name="electrophoreticMobility"></param>
+        /// <returns></returns>
+        public double TheoreticalElutionTime(double electrophoreticMobility)
+        {
+            if (ColumnLength >= 0)
+            {
+                return (ColumnLength * 1e9) / (60 * VoltsPerMeter *electrophoreticMobility);
             }
             else
             {
@@ -48,7 +72,7 @@ namespace Chromatography
         /// <param name="peptideSequence"></param>
         /// <param name="observedMass"></param>
         /// <returns></returns>
-        public double PredictedElectrophoreticMobility(string peptideSequence, double observedMass)
+        public static double PredictedElectrophoreticMobility(string peptideSequence, double observedMass)
         {
             double predictedMu = 0;
 
@@ -66,10 +90,10 @@ namespace Chromatography
         /// </summary>
         /// <param name="peptideSequence"></param>
         /// <returns></returns>
-        private double PredictedCharge(string peptideSequence)
+        private static double PredictedCharge(string peptideSequence)
         {
             string substitutedString = peptideSequence.Replace("R", "").Replace("K", "").Replace("H", "").ToString();
-            return (1d + (double)(peptideSequence.Length - substitutedString.Length));
+            return (1d + (peptideSequence.Length - substitutedString.Length));
         }
 
         /// <summary>
@@ -82,130 +106,134 @@ namespace Chromatography
         /// </summary>
         /// <param name="peptideSequence"></param>
         /// <returns></returns>
-        private double PredictedChargeCorrected(string peptideSequence)
+        private static double PredictedChargeCorrected(string peptideSequence)
         {
             double runningSum = 0;
             string internalString = peptideSequence.Substring(3, peptideSequence.Length - 5);
 
-            switch (peptideSequence[0])//first AA
+            char firstAA = peptideSequence[0];
+            if (firstAA == 'D')
             {
-                case 'D':
-                    runningSum -= 0.26741;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.06852;
-                    break;
-
-                case 'N':
-                    runningSum += 0.011699;
-                    break;
-
-                case 'Q':
-                    runningSum += 0;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                runningSum -= 0.26741;
             }
-            switch (peptideSequence[1])//second AA
+            else if (firstAA == 'E')
             {
-                case 'D':
-                    runningSum -= 0.10947;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.04011;
-                    break;
-
-                case 'N':
-                    runningSum += 0.012535;
-                    break;
-
-                case 'Q':
-                    runningSum += 0.011699;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                runningSum -= 0.06852;
             }
-            switch (peptideSequence[2])//third AA
+            else if (firstAA == 'N')
             {
-                case 'D':
-                    runningSum -= 0.08022;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.03426;
-                    break;
-
-                case 'N':
-                    runningSum += 0.016713;
-                    break;
-
-                case 'Q':
-                    runningSum += 0.00585;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                runningSum += 0.011699;
             }
-            switch (peptideSequence[peptideSequence.Length - 2])//second to last AA
+            else
             {
-                case 'D':
-                    runningSum -= 0.03844;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.01337;
-                    break;
-
-                case 'N':
-                    runningSum += 0.026741;
-                    break;
-
-                case 'Q':
-                    runningSum -= 0.00084;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
-            }
-            switch (peptideSequence[peptideSequence.Length - 1])//last AA
-            {
-                case 'D':
-                    runningSum -= 0.02256;
-                    break;
-
-                case 'E':
-                    runningSum -= 0.00418;
-                    break;
-
-                case 'N':
-                    runningSum += 0.010864;
-                    break;
-
-                case 'Q':
-                    runningSum -= 0.0117;
-                    break;
-
-                default:
-                    runningSum += 0;
-                    break;
+                //change nothing
             }
 
-            if (internalString.Contains("D"))
-                runningSum -= 0.05014;
-            if (internalString.Contains("E"))
-                runningSum -= 0.01922;
-            if (internalString.Contains("N"))
+            char secondAA = peptideSequence[1];
+            if (secondAA == 'D')
+            {
+                runningSum -= 0.10947;
+            }
+            else if (secondAA == 'E')
+            {
+                runningSum -= 0.04011;
+            }
+            else if (secondAA == 'N')
+            {
                 runningSum += 0.012535;
+            }
+            else if (secondAA == 'Q')
+            {
+                runningSum += 0.011699;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            char thirdAA = peptideSequence[2];
+            if (thirdAA == 'D')
+            {
+                runningSum -= 0.08022;
+            }
+            else if (thirdAA == 'E')
+            {
+                runningSum -= 0.03426;
+            }
+            else if (thirdAA == 'N')
+            {
+                runningSum += 0.016713;
+            }
+            else if (thirdAA == 'Q')
+            {
+                runningSum += 0.00585;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            char secondToLastAA = peptideSequence[peptideSequence.Length - 2];
+            if (secondToLastAA == 'D')
+            {
+                runningSum -= 0.03844;
+            }
+            else if (secondToLastAA == 'E')
+            {
+                runningSum -= 0.01337;
+            }
+            else if (secondToLastAA == 'N')
+            {
+                runningSum += 0.026741;
+            }
+            else if (secondToLastAA == 'Q')
+            {
+                runningSum -= 0.00084;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            char lastAA = peptideSequence[peptideSequence.Length - 1];
+            if (lastAA == 'D')
+            {
+                runningSum -= 0.02256;
+            }
+            else if (lastAA == 'E')
+            {
+                runningSum -= 0.00418;
+            }
+            else if (lastAA == 'N')
+            {
+                runningSum += 0.010864;
+            }
+            else if (lastAA == 'Q')
+            {
+                runningSum -= 0.0117;
+            }
+            else
+            {
+                //change nothing
+            }
+
+            //consider internal residues
+            if (internalString.Contains("D"))
+            {
+                runningSum -= 0.05014;
+            }
+            if (internalString.Contains("E"))
+            {
+                runningSum -= 0.01922;
+            }
+            if (internalString.Contains("N"))
+            {
+                runningSum += 0.012535;
+            }
             if (internalString.Contains("Q"))
+            {
                 runningSum -= 0.000251;
+            }
 
             runningSum += PredictedCharge(peptideSequence);
 
@@ -221,7 +249,7 @@ namespace Chromatography
         /// <param name="correctedCharge"></param>
         /// <param name="length"></param>
         /// <returns></returns>
-        private double Offset(double correctedCharge, int length)
+        private static double Offset(double correctedCharge, int length)
         {
             return 0;
             //should fit 5th order polynomical to plot of (ExperimentalElectrophoreticMobility - PredictedElectrophoreticMobility) vs. (Zc/N) where N is peptidelength.

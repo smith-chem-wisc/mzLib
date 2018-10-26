@@ -40,12 +40,12 @@ namespace UsefulProteomicsDatabases
                 { "ProteinCterm", "C-terminal."}
             };
 
-            foreach (var cool in deserialized.modifications)
+            foreach (var mod in deserialized.modifications)
             {
-                var id = cool.title;
-                var ac = cool.record_id;
+                var id = mod.title;
+                var ac = mod.record_id;
                 ChemicalFormula cf = new ChemicalFormula();
-                foreach (var el in cool.delta.element)
+                foreach (var el in mod.delta.element)
                 {
                     try
                     {
@@ -59,14 +59,15 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                foreach (var nice in cool.specificity)
+                //TODO Add "on motif" to the ID field
+                foreach (var target in mod.specificity)
                 {
-                    var tg = nice.site;
+                    var tg = target.site;
                     if (tg.Length > 1)
                         tg = "X"; //I think that we should allow motifs here using the trygetmotif
                     ModificationMotif.TryGetMotif(tg, out ModificationMotif motif);
 
-                    if (positionConversion.TryGetValue(nice.position.ToString(), out string pos))
+                    if (positionConversion.TryGetValue(target.position.ToString(), out string pos))
                     {
                         //do nothing, the new string value should be there
                     }
@@ -80,20 +81,22 @@ namespace UsefulProteomicsDatabases
                         { "Unimod",  new List<string>{ac.ToString() } },
                     };
 
-                    if (nice.NeutralLoss == null)
-                        yield return new Modification(_id: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
+                    if (target.NeutralLoss == null)
+                        yield return new Modification(_originalId: id, _modificationType: "Unimod", _target: motif, _locationRestriction: pos, _chemicalFormula: cf, _databaseReference: dblinks);
                     else
                     {
                         Dictionary<MassSpectrometry.DissociationType, List<double>> neutralLosses = null;
-                        foreach (var nl in nice.NeutralLoss)
+                        foreach (var nl in target.NeutralLoss)
                         {
                             ChemicalFormula cfnl = new ChemicalFormula();
                             if (nl.mono_mass == 0)
                             {
                                 if (neutralLosses == null)
                                 {
-                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>();
-                                    neutralLosses.Add(MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0 });
+                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>
+                                    {
+                                        { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 0 }}
+                                    };
                                 }
                                 else
                                 {
@@ -123,8 +126,10 @@ namespace UsefulProteomicsDatabases
                                 }
                                 if (neutralLosses == null)
                                 {
-                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>();
-                                    neutralLosses.Add(MassSpectrometry.DissociationType.AnyActivationType, new List<double> { cfnl.MonoisotopicMass });
+                                    neutralLosses = new Dictionary<MassSpectrometry.DissociationType, List<double>>
+                                    {
+                                        { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { cfnl.MonoisotopicMass }}
+                                    };
                                 }
                                 else
                                 {
@@ -138,7 +143,7 @@ namespace UsefulProteomicsDatabases
                                 }
                             }
                         }
-                        yield return new Modification(_id: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
+                        yield return new Modification(_originalId: id, _target: motif, _locationRestriction: "Anywhere.", _modificationType: "Unimod", _chemicalFormula: cf, _databaseReference: dblinks, _neutralLosses: neutralLosses);
                     }
                 }
             }

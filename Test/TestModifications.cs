@@ -56,10 +56,10 @@ namespace Test
         public static void Test_ModificationWithNoMassWritten()
         {
             ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
-            var mod1 = new Modification(_id: "mod", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
+            var mod1 = new Modification(_originalId: "mod of M", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
             var mod1string = mod1.ToString();
             Assert.IsTrue(mod1string.Contains("MM"));
-            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//").First() as Modification;
+            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//", out var errors).First() as Modification;
 
             Assert.IsTrue(modAfterWriteRead.Equals(mod1));
         }
@@ -172,7 +172,7 @@ namespace Test
         }
 
         [Test]
-        public void ChemicalFormulaModificaiton()
+        public void ChemicalFormulaModification()
         {
             OldSchoolChemicalFormulaModification a = new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("OH"));
             OldSchoolChemicalFormulaModification b = new OldSchoolChemicalFormulaModification(a);
@@ -191,8 +191,9 @@ namespace Test
         [Test]
         public void Test_modification_hash_set()
         {
-            Modification m1 = new Modification("23", null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
-            Modification m2 = new Modification("23", null, "unknown", null, null, null, null, null, null, null, null, null, null, null);
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification m1 = new Modification("23", null, "unknown", null, motif, null, null, 42.01, null, null, null, null, null, null);
+            Modification m2 = new Modification("23", null, "unknown", null, motif, null, null, 42.01, null, null, null, null, null, null);
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
         }
@@ -201,8 +202,8 @@ namespace Test
         public void Test_modification2_hash_set()
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            Modification m1 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, null, new Dictionary<string, IList<string>>(), null, null, null, null, null);
-            Modification m2 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, null, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification m1 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification m2 = new Modification("id1", null, "modificationType", null, motif, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
             m1.DatabaseReference.Add("key", new List<string> { "value" });
             m2.DatabaseReference.Add("key", new List<string> { "value" });
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
@@ -214,14 +215,45 @@ namespace Test
         public void Test_modification3_hash_set() // numerical tolerance is 1e-9 so these two mods need to evaluate as identical
         {
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            Modification m1 = new Modification(_id: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
-            Modification m2 = new Modification(_id: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<MassSpectrometry.DissociationType, List<double>> { { MassSpectrometry.DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            Modification m1 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 2.222222 } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
+            Modification m2 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.11111d - 1e-10, _databaseReference: new Dictionary<string, IList<string>>(), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 2.222222 + 1e-10 } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.AnyActivationType, new List<double> { 1.2233 } } });
             m1.DatabaseReference.Add("key", new List<string> { "value" });
             m2.DatabaseReference.Add("key", new List<string> { "value" });
 
             HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
             Assert.AreEqual(1, mods.Count);
             Assert.IsTrue(m1.Equals(m2));
+        }
+
+        [Test]
+        public void TestInvalidModificationHash()
+        {
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification m1 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.");
+            Modification m2 = new Modification(_originalId: "id1", _modificationType: "modificationType", _target: motif, _locationRestriction: "Anywhere.");
+            HashSet<Modification> mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.IsFalse(m1.ValidModification);
+            Assert.IsFalse(m2.ValidModification);
+            Assert.True(m1.Equals(m2));
+            Assert.AreEqual(1, mods.Count);
+
+            // test comparing invalid mods with null vs not-null MMs
+            m1 = new Modification(_originalId: "id1", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 1);
+            m2 = new Modification(_originalId: "id1", _target: motif, _locationRestriction: "Anywhere.");
+            mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.IsFalse(m1.ValidModification);
+            Assert.IsFalse(m2.ValidModification);
+            Assert.False(m1.Equals(m2));
+            Assert.AreEqual(2, mods.Count);
+
+            // test comparing invalid mods with null vs not-null IDs
+            m1 = new Modification(_originalId: "id1", _target: motif, _locationRestriction: "Anywhere.");
+            m2 = new Modification(_target: motif, _locationRestriction: "Anywhere.");
+            mods = new HashSet<Modification>(new Modification[] { m1, m2 });
+            Assert.IsFalse(m1.ValidModification);
+            Assert.IsFalse(m2.ValidModification);
+            Assert.False(m1.Equals(m2));
+            Assert.AreEqual(2, mods.Count);
         }
 
         [Test]
@@ -251,7 +283,7 @@ namespace Test
         {
             // Now we'll check the mass of modified peptide with no neutral losses
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
-            Modification mod = new Modification(_id: "oxidation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "oxidation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
                 protease: "trypsin",
@@ -307,7 +339,7 @@ namespace Test
         {
             // Now we'll check the mass of modified peptide with no neutral losses
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
-            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
                 protease: "trypsin",
@@ -334,11 +366,11 @@ namespace Test
         {
             // Now we'll check the mass of modified peptide with 2 neutral loss mods
             ModificationMotif.TryGetMotif("Q", out ModificationMotif motifone);
-            Modification modone = new Modification(_id: "ammonia", _modificationType: "testModType", _target: motifone, _monoisotopicMass: 0, _neutralLosses: new Dictionary<DissociationType, 
+            Modification modone = new Modification(_originalId: "ammonia", _modificationType: "testModType", _target: motifone, _monoisotopicMass: 0, _neutralLosses: new Dictionary<DissociationType,
                 List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
 
             ModificationMotif.TryGetMotif("T", out ModificationMotif motiftwo);
-            Modification modtwo = new Modification(_id: "phospho", _modificationType: "testModType", _target: motiftwo, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, 
+            Modification modtwo = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motiftwo, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType,
                 List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
 
             List<Modification> modlistone = new List<Modification> { modone };
@@ -360,7 +392,7 @@ namespace Test
             HashSet<int> expectedMasses = new HashSet<int> { 98, 227, 355, 536, 649, 764, 438, 551, 666, 338, 519, 632, 747, // b-ions with and without neutral losses
                                                              148, 263, 376, 557, 685, 814, 668, 797, 459, 587, 716, //y ions with and without neutral losses
                                                                813, 894, }; //molecular ion with neutral losses (phospho and ammonia respectively)
-            
+
             Assert.That(neutralMasses.SetEquals(expectedMasses));
         }
 
@@ -376,7 +408,7 @@ namespace Test
                 { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
             };
 
-            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+            Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
                 protease: "trypsin",
@@ -406,7 +438,7 @@ namespace Test
             148, 263, 376, 540, 637, 766, 557, 654, 783,          // y and y-17 ions
             133, 248, 361, 525, 622, 751, 542, 639, 768,         // z+1 and z+1-17 ions
             863 };//Molecular ions minus ammonia
-            
+
             Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
         }
 
@@ -416,8 +448,8 @@ namespace Test
             // purpose of this test is to serialize/deserialize a CompactPeptide and make sure the deserialized peptide
             // has the same properties as before it was serialized. This peptide is unmodified
             string sequence = "PEPTIDE";
-            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0, null);
-            CompactPeptide cp = p.CompactPeptide(FragmentationTerminus.Both);
+            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0);
+            CompactPeptide cp = new CompactPeptide(p, FragmentationTerminus.Both);
             CompactPeptide deserializedCp = null;
 
             string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestCompactPeptideSerialization");
@@ -446,7 +478,7 @@ namespace Test
             // purpose of this test is to serialize/deserialize a PeptideWithSetModifications and make sure the deserialized peptide
             // has the same properties as before it was serialized. This peptide is unmodified and generated from reading in a string
             string sequence = "PEPTIDE";
-            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0, null);
+            PeptideWithSetModifications peptide = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 1, 7, 0);
             PeptideWithSetModifications deserializedPeptide = null;
 
             string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestSerializationPeptideFromString");
@@ -455,19 +487,19 @@ namespace Test
 
             var messageTypes = typeof(PeptideWithSetModifications);
             var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
-            
+
             using (var file = System.IO.File.Create(path))
             {
                 ser.Serialize(file, peptide);
             }
-            
+
             using (var file = System.IO.File.OpenRead(path))
             {
                 deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
             }
 
             deserializedPeptide.SetNonSerializedPeptideInfo(new Dictionary<string, Modification>(), new Dictionary<string, Protein>());
-            
+
             // not asserting any protein properties - since the peptide was created from a sequence string it didn't have a protein to begin with
 
             Assert.That(peptide.Equals(deserializedPeptide));
@@ -498,7 +530,7 @@ namespace Test
 
             var messageTypes = typeof(PeptideWithSetModifications);
             var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
-            
+
             using (var file = System.IO.File.Create(path))
             {
                 ser.Serialize(file, peptide);
@@ -539,8 +571,8 @@ namespace Test
                 { DissociationType.ETD, new List<double>() { ChemicalFormula.ParseFormula("H3 N1").MonoisotopicMass } } // this makes no sense in real life, it's just for a unit test
             };
 
-            Modification mod = new Modification(_id: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
-            
+            Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
+
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mod } } };
 
             Protein protein = new Protein("PEPTIDE", "Accession1", name: "MyProtein", oneBasedModifications: mods);
@@ -565,10 +597,10 @@ namespace Test
                 deserializedPeptide = (PeptideWithSetModifications)ser.Deserialize(file);
             }
 
-            Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().Id, mods.Values.First().First() } };
+            Dictionary<string, Modification> stringToMod = new Dictionary<string, Modification> { { mods.Values.First().First().IdWithMotif, mods.Values.First().First() } };
 
             deserializedPeptide.SetNonSerializedPeptideInfo(stringToMod, new Dictionary<string, Protein> { { protein.Accession, protein } });
-            
+
             Assert.That(peptide.Equals(deserializedPeptide));
             Assert.That(deserializedPeptide.Protein.Name == peptide.Protein.Name);
             Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
@@ -580,6 +612,40 @@ namespace Test
                 .Select(v => v.NeutralMass).ToList();
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
+        }
+        
+        [Test]
+        public static void TestFragmentNterminalModifiedPeptide()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Modification nTermMod = new Modification(_originalId: "acetylation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "N-terminal.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 1, new List<Modification> { nTermMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+            Assert.That(peptide.FullSequence == "[testModType:acetylation on P]PEPTIDE");
+
+            var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
+            Assert.That(roundedFragments.SequenceEqual(new int[] { 139, 268, 365, 466, 579, 694, 147, 262, 375, 476, 573, 702  }));
+        }
+
+        [Test]
+        public static void TestFragmentCTerminalModifiedPeptide()
+        {
+            ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
+            Modification cTermMod = new Modification(_originalId: "acetylation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "C-terminal.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 7, new List<Modification> { cTermMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+            Assert.That(peptide.FullSequence == "PEPTIDE[testModType:acetylation on E]");
+
+            var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
+            Assert.That(roundedFragments.SequenceEqual(new int[] { 97, 226, 323, 424, 537, 652, 189, 304, 417, 518, 615, 744 }));
         }
     }
 }

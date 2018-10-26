@@ -3,9 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{D7C69058-1FE4-49BD-B994-B08C1DFB21A4}"
-	ProjectSection(ProjectDependencies) = postProject
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F} = {EDF2377D-9FA8-4F85-A3E5-63FE085F956F}
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestThermo", "TestThermo\TestThermo.csproj", "{0FA1E770-6D5E-421B-802C-FDCA44791EAA}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -48,8 +45,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FlashLFQ", "FlashLFQ\FlashLFQ.csproj", "{ACE491E5-AC71-4B19-99C9-A947E92EB6C1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestFlashLFQ", "TestFlashLFQ\TestFlashLFQ.csproj", "{AD596BA0-702A-45CB-B9EB-F50D78259FC8}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Chromatography", "Chromatography\Chromatography.csproj", "{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mgf", "Mgf\Mgf.csproj", "{D8BCAE00-E826-4771-A423-8B47D8D86EF4}"
 EndProject
@@ -168,12 +163,6 @@ Global
 		{AD596BA0-702A-45CB-B9EB-F50D78259FC8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{AD596BA0-702A-45CB-B9EB-F50D78259FC8}.TestAndRelease|Any CPU.ActiveCfg = Release|Any CPU
 		{AD596BA0-702A-45CB-B9EB-F50D78259FC8}.TestAndRelease|Any CPU.Build.0 = Release|Any CPU
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}.TestAndRelease|Any CPU.ActiveCfg = Release|Any CPU
-		{EDF2377D-9FA8-4F85-A3E5-63FE085F956F}.TestAndRelease|Any CPU.Build.0 = Release|Any CPU
 		{D8BCAE00-E826-4771-A423-8B47D8D86EF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D8BCAE00-E826-4771-A423-8B47D8D86EF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D8BCAE00-E826-4771-A423-8B47D8D86EF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
