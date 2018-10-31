@@ -10,7 +10,7 @@ using System.Data;
 namespace Test
 {
     [TestFixture]
-    public class VariantProteinTests
+    public class TestVariantProtein
     {
         [Test]
         public void VariantXml()
@@ -185,14 +185,121 @@ namespace Test
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
-        //[Test]
-        //public void test()
-        //{
-        //    string file = @"E:\ProjectsActive\JurkatProteogenomics\180413\combined_1-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.genotyped.NoIndels.snpEffAnnotated.protein.withmods.xml";
-        //    List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+        [Test]
+        //[TestCase("trypsin")]
+        //[TestCase("Lys-C (don't cleave before proline)")]
+        //[TestCase("Glu-C")]
+        [TestCase(@"E:\ProjectsActive\JurkatProteogenomics\180413\combined_1-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.genotyped.NoIndels.snpEffAnnotated.protein.withmods.xml", @"E:\ProjectsActive\JurkatProteogenomics\InSilicoVariantProteinDigestionTargetOnly.tsv")]
+        public void test(string inputFile, string outputFile)//string protease)
+        {
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(inputFile, true, DecoyType.None, null, false, null, out var un);
+            var proteins = variantProteins.Select(vp => vp.NonVariantProtein).Distinct().ToList();
+            var variantProteinsWithVariants = variantProteins.Where(vp => vp.AppliedSequenceVariations.Count > 0).ToList();
+            var variantProteinsWithoutVariants = variantProteins.Except(variantProteinsWithVariants).ToList();
+            double avgVariantsPerProtein = proteins.Average(p => p.SequenceVariations.Count());
+            double avgVariantsAppliedPerVariantProtein = variantProteinsWithVariants.Count == 0 ? -1 : variantProteinsWithVariants.Average(p => p.AppliedSequenceVariations.Count);
+            int proteinsUnder50kDa = proteins.Count(p => new Proteomics.AminoAcidPolymer.Peptide(p.BaseSequence).MonoisotopicMass < 50000);
+            int variantProteinsUnder50kDa = variantProteins.Count(p => new Proteomics.AminoAcidPolymer.Peptide(p.BaseSequence).MonoisotopicMass < 50000);
 
-        //    List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
-        //}
+            DataTable table = new DataTable();
+            table.Columns.Add("protease");
+            table.Columns.Add("proteins");
+            table.Columns.Add("proteins_under_50kDa");
+            table.Columns.Add("variant_proteins");
+            table.Columns.Add("variant_proteins_under_50kDa");
+            table.Columns.Add("avgVariantsPerProtein");
+            table.Columns.Add("avgVariantsAppliedPerVariantProtein");
+            table.Columns.Add("peptides");
+            table.Columns.Add("peptides_crossing_variants");
+            table.Columns.Add("unique_peptides");
+            table.Columns.Add("proteins_with_unique_peptides");
+            table.Columns.Add("unique_variant_peptides");
+            table.Columns.Add("variant_proteins_with_unique_peptides");
+            table.Columns.Add("unique_peptides_from_stop_gains");
+
+            string[] proteases = new[] 
+            {
+                "Arg-C",
+                "Asp-N",
+                "trypsin",
+                "chymotrypsin (don't cleave before proline)",
+                "Glu-C",
+                "Lys-C (don't cleave before proline)",
+                "multiprotease"
+            };
+
+            Dictionary<string, (int, PeptideWithSetModifications)> totalBaseSequenceDict = new Dictionary<string, (int, PeptideWithSetModifications)>();
+            foreach (string protease in proteases)
+            {
+                DataRow row = table.NewRow();
+                row[0] = protease;
+                row[1] = proteins.Count.ToString();
+                row[2] = proteinsUnder50kDa.ToString();
+                row[3] = variantProteins.Count.ToString();
+                row[4] = variantProteinsUnder50kDa.ToString();
+                row[5] = avgVariantsPerProtein.ToString();
+                row[6] = avgVariantsAppliedPerVariantProtein.ToString();
+
+                Dictionary<string, (int, PeptideWithSetModifications)> baseSequenceDict = new Dictionary<string, (int, PeptideWithSetModifications)>();
+                if (protease != proteases.Last())
+                {
+                    List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(protease), null, null)).ToList();
+                    foreach (var pep in peptides)
+                    {
+                        if (baseSequenceDict.TryGetValue(pep.BaseSequence, out var peps)) peps.Item1 += 1;
+                        else baseSequenceDict.Add(pep.BaseSequence, (1, pep));
+
+                        if (totalBaseSequenceDict.TryGetValue(pep.BaseSequence, out peps)) peps.Item1 += 1;
+                        else totalBaseSequenceDict.Add(pep.BaseSequence, (1, pep));
+                    }
+                    var peptidesCrossingVariants = peptides.Where(pep => pep.Protein.AppliedSequenceVariations.Any(v => pep.OneBasedStartResidueInProtein <= v.OneBasedBeginPosition && pep.OneBasedEndResidueInProtein >= v.OneBasedEndPosition)).ToList();
+                    row[7] = peptides.Count.ToString();
+                    row[8] = peptidesCrossingVariants.Count.ToString();
+                }
+                else
+                {
+                    row[7] = totalBaseSequenceDict.Keys.Count;
+                    row[8] = "-1";
+                }
+
+                // TODO: ask about splice junctions 
+                // 1) what percent of splice junction peptides are unique to a protein?
+                // 2) what percent of peptides cross splice junction events?
+                // 3) what percent of unique peptides cross splice junctions?
+                // 4) in the pacbio and stringtie databases, are these numbers any different? what about subsetting out the ones unique to the new proteins
+                // TODO: ask about variant proteins and peptides
+                // 1) how about capturing all pwsms for each base sequence; how many variant peptides aren't unique because they're covered by multiple peptides
+                // 2) considering those validating peptides of a variant, how many variant peptides can be validated? Higher than the 20% seen without that in mind?
+                // 3) how many proteins have variants annotated?
+                // 4) how many variant proteins does one with variants produce on average?
+                var uniquePeptides = (protease != proteases.Last() ? baseSequenceDict : totalBaseSequenceDict).Where(kv => kv.Value.Item1 == 1).ToList();
+                var uniquePepProteins = uniquePeptides.Select(kv => kv.Value.Item2.Protein).Distinct().ToList();
+                var uniqueVariantPeptides = uniquePeptides.Where(kv => kv.Value.Item2.Protein.AppliedSequenceVariations.Count > 0 && kv.Value.Item2.Protein.AppliedSequenceVariations.Any(v => kv.Value.Item2.OneBasedEndResidueInProtein >= v.OneBasedBeginPosition && kv.Value.Item2.OneBasedStartResidueInProtein <= v.OneBasedEndPosition)).ToList();
+                var uniqueVariantPepProteins = uniqueVariantPeptides.Select(kv => kv.Value.Item2.Protein).Distinct().ToList();
+                double avgVarLength = uniqueVariantPeptides.Count == 0 ? -1 : uniqueVariantPeptides.Average(kv => kv.Value.Item2.Protein.AppliedSequenceVariations.Average(v => v.VariantSequence.Length));
+                var stopGainUniqueVariantPeptides = uniqueVariantPeptides.Where(kv => kv.Value.Item2.OneBasedEndResidueInProtein == kv.Value.Item2.Protein.Length && kv.Value.Item2.Protein.AppliedSequenceVariations.Any(v => v.VariantSequence.EndsWith("*"))).ToList();
+
+                row[9] = uniquePeptides.Count.ToString();
+                row[10] = uniquePepProteins.Count.ToString();
+                row[11] = uniqueVariantPeptides.Count.ToString();
+                row[12] = uniqueVariantPepProteins.Count.ToString();
+                row[13] = stopGainUniqueVariantPeptides.Count.ToString();
+
+                table.Rows.Add(row);
+            }
+
+            var builder = new System.Text.StringBuilder();
+            foreach (DataColumn column in table.Columns)
+            {
+                builder.Append($"{column.ColumnName}\t");
+            }
+            builder.Append(System.Environment.NewLine);
+            foreach (DataRow row in table.Rows)
+            {
+                builder.AppendLine(string.Join("\t", row.ItemArray));
+            }
+            File.WriteAllText(outputFile, builder.ToString());
+        }
 
         [Test]
         public void VariantSymbolWeirdnessXml()

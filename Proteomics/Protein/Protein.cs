@@ -28,7 +28,8 @@ namespace Proteomics
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
-            List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
+            List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -41,10 +42,12 @@ namespace Proteomics
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
             DatabaseFilePath = databaseFilePath;
+            SampleNameForVariants = sampleNameForVariants;
 
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
+            AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
             {
@@ -129,7 +132,7 @@ namespace Proteomics
         /// <summary>
         /// Sequence variations that have been applied to the base sequence.
         /// </summary>
-        public List<SequenceVariation> AppliedSequenceVariations { get; } = new List<SequenceVariation>();
+        public List<SequenceVariation> AppliedSequenceVariations { get; }
 
         /// <summary>
         /// Sample name from which applied variants came, e.g. tumor or normal.
