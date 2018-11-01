@@ -68,13 +68,12 @@ namespace Proteomics
         public override bool Equals(object obj)
         {
             SequenceVariantDescription s = obj as SequenceVariantDescription;
-            return s != null
-                && (s.Description == null && Description == null || s.Description.Equals(Description));
+            return s != null && s.Description == Description;
         }
 
         public override int GetHashCode()
         {
-            return Description != null ? Description.GetHashCode() : 0;
+            return (Description ?? "").GetHashCode();
         }
 
         /// <summary>

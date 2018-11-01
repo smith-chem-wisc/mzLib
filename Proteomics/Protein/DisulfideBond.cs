@@ -33,14 +33,16 @@
         {
             DisulfideBond bond = obj as DisulfideBond;
             return bond != null
-                && bond.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
-                && bond.OneBasedEndPosition.Equals(OneBasedEndPosition)
-                && (bond.Description == null && Description == null || bond.Description.Equals(Description));
+                && bond.OneBasedBeginPosition == OneBasedBeginPosition
+                && bond.OneBasedEndPosition == OneBasedEndPosition
+                && bond.Description == Description;
         }
 
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition ^ OneBasedEndPosition ^ Description.GetHashCode();
+            return OneBasedBeginPosition 
+                ^ OneBasedEndPosition 
+                ^ Description.GetHashCode(); // null handled in constructor
         }
     }
 }

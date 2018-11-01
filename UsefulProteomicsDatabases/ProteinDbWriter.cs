@@ -220,6 +220,31 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // feature
                     }
 
+                    foreach (var hm in protein.SpliceSites)
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "splice site");
+                        writer.WriteAttributeString("description", hm.Description);
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
+
                     writer.WriteStartElement("sequence");
                     writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
                     writer.WriteString(protein.BaseSequence);

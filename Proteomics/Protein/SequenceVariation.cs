@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace Proteomics
 {
@@ -32,7 +33,7 @@ namespace Proteomics
         /// <param name="description"></param>
         /// <param name="oneBasedModifications"></param>
         public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
-            : this(oneBasedPosition, oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
+            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
         { }
 
         /// <summary>
@@ -73,16 +74,19 @@ namespace Proteomics
                 && OneBasedEndPosition == s.OneBasedEndPosition
                 && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
                 && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
-                && (s.Description == null && Description == null || Description.Equals(s.Description));
+                && (s.Description == null && Description == null || Description.Equals(s.Description))
+                && (s.OneBasedModifications == null && OneBasedModifications == null ||
+                    s.OneBasedModifications.Keys.SequenceEqual(OneBasedModifications.Keys)
+                    && s.OneBasedModifications.Values.SelectMany(m => m).SequenceEqual(OneBasedModifications.Values.SelectMany(m => m)));
         }
 
         public override int GetHashCode()
         {
             return OneBasedBeginPosition.GetHashCode()
                 ^ OneBasedEndPosition.GetHashCode()
-                ^ OriginalSequence.GetHashCode()
-                ^ VariantSequence.GetHashCode()
-                ^ Description.GetHashCode();
+                ^ OriginalSequence.GetHashCode() // null handled in constructor
+                ^ VariantSequence.GetHashCode() // null handled in constructor
+                ^ Description.GetHashCode(); // always constructed in constructor
         }
 
         /// <summary>

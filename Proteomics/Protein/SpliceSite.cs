@@ -6,7 +6,7 @@
         {
             OneBasedBeginPosition = oneBasedBegin;
             OneBasedEndPosition = oneBasedEnd;
-            Description = description;
+            Description = description ?? "";
         }
 
         public SpliceSite(int oneBasedPosition, string description)
@@ -24,12 +24,14 @@
             return s != null
                 && s.OneBasedBeginPosition == OneBasedBeginPosition
                 && s.OneBasedEndPosition == OneBasedEndPosition
-                && (s.Description == null && Description == null || s.Description.Equals(Description));
+                && s.Description == Description;
         }
 
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition.GetHashCode() ^ OneBasedEndPosition.GetHashCode() ^ Description.GetHashCode();
+            return OneBasedBeginPosition.GetHashCode() 
+                ^ OneBasedEndPosition.GetHashCode() 
+                ^ Description.GetHashCode(); // null handled in constructor
         }
     }
 }

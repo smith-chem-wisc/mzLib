@@ -24,7 +24,9 @@
 
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition.GetHashCode() ^ OneBasedEndPosition.GetHashCode() ^ Type.GetHashCode();
+            return (OneBasedBeginPosition ?? 0).GetHashCode() 
+                ^ (OneBasedEndPosition ?? 0).GetHashCode() 
+                ^ Type.GetHashCode(); // null handled in constructor
         }
     }
 }

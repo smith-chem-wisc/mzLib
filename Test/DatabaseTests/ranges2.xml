@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <entry>
+    <accession>accession1</accession>
+    <gene />
+    <feature type="chain" description="description" id="PRO_0000000000">
+      <location>
+        <begin position="1"/>
+        <end position="5"/>
+      </location>
+    </feature>
+    <sequence length="6">MEPTID</sequence>
+  </entry>
+</mzLibProteinDb>

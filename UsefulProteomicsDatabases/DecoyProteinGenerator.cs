@@ -50,7 +50,8 @@ namespace UsefulProteomicsDatabases
                 char[] sequence_array = protein.BaseSequence.ToCharArray();
                 List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
                 List<SpliceSite> spliceSites = new List<SpliceSite>();
-                if (protein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                if (startsWithM)
                 {
                     // Do not include the initiator methionine in reversal!!!
                     Array.Reverse(sequence_array, 1, protein.BaseSequence.Length - 1);
@@ -81,15 +82,51 @@ namespace UsefulProteomicsDatabases
                 List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
                 foreach (ProteolysisProduct pp in protein.ProteolysisProducts)
                 {
-                    decoyPP.Add(new ProteolysisProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition, pp.Type));
+                    // maintain lengths and approx position
+                    if (startsWithM)
+                    {
+                        decoyPP.Add(new ProteolysisProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"DECOY {pp.Type}"));
+                    }
+                    else
+                    {
+                        decoyPP.Add(new ProteolysisProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"DECOY {pp.Type}"));
+                    }
                 }
                 foreach (DisulfideBond disulfideBond in protein.DisulfideBonds)
                 {
-                    decoyDisulfides.Add(new DisulfideBond(protein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 2, protein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 2, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
+                    // maintain the cysteine localizations
+                    if (startsWithM)
+                    {
+                        decoyDisulfides.Add(new DisulfideBond(disulfideBond.OneBasedBeginPosition == 1 ? 1 : protein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 2, protein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 2, $"DECOY {disulfideBond.Description}"));
+                    }
+                    else
+                    {
+                        decoyDisulfides.Add(new DisulfideBond(protein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 1, protein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 1, $"DECOY {disulfideBond.Description}"));
+                    }
                 }
                 foreach (SpliceSite spliceSite in protein.SpliceSites)
                 {
-                    spliceSites.Add(new SpliceSite(protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 2, protein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 2, "DECOY SPLICE SITE: " + spliceSite.Description));
+                    // maintain the starting methionine localization
+                    if (startsWithM && spliceSite.OneBasedBeginPosition == 1 && spliceSite.OneBasedEndPosition == 1)
+                    {
+                        spliceSites.Add(new SpliceSite(1, 1, $"DECOY {spliceSite.Description}"));
+                    }
+                    // maintain length, can't maintain localization to starting methionine in this case
+                    else if (startsWithM && spliceSite.OneBasedBeginPosition == 1)
+                    {
+                        int end = protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1;
+                        int begin = end - spliceSite.OneBasedEndPosition + spliceSite.OneBasedBeginPosition;
+                        spliceSites.Add(new SpliceSite(begin, end, $"DECOY {spliceSite.Description}"));
+                    }
+                    else if (startsWithM)
+                    {
+                        spliceSites.Add(new SpliceSite(protein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 2, protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 2, $"DECOY {spliceSite.Description}"));
+                    }
+                    // maintain length and localization
+                    else
+                    {
+                        spliceSites.Add(new SpliceSite(protein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 1, protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1, $"DECOY {spliceSite.Description}"));
+                    }
                 }
 
                 List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein, reversedSequence);
@@ -148,13 +185,18 @@ namespace UsefulProteomicsDatabases
                 int variantSeqLength = protein.BaseSequence.Length + sv.VariantSequence.Length - sv.OriginalSequence.Length;
                 foreach (var kvp in sv.OneBasedModifications)
                 {
-                    if (kvp.Key > 1)
+                    bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                    if (startsWithM && kvp.Key > 1)
                     {
                         decoyVariantModifications.Add(variantSeqLength - kvp.Key + 2, kvp.Value);
                     }
-                    else if (kvp.Key == 1)
+                    else if (startsWithM && kvp.Key == 1)
                     {
                         decoyVariantModifications.Add(1, kvp.Value);
+                    }
+                    else 
+                    {
+                        decoyVariantModifications.Add(variantSeqLength - kvp.Key + 1, kvp.Value);
                     }
                 }
 

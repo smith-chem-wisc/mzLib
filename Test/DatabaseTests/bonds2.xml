@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <entry>
+    <accession>accession1</accession>
+    <gene />
+    <feature type="disulfide bond" description="Interchain (between B and A chains)" evidence="1">
+      <location>
+        <begin position="2"/>
+        <end position="4"/>
+      </location>
+    </feature>
+    <sequence length="6">MCPCID</sequence>
+  </entry>
+</mzLibProteinDb>

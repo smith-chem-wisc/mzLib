@@ -45,7 +45,7 @@ namespace Proteomics
 
         public override int GetHashCode()
         {
-            return Type.GetHashCode() ^ Id.GetHashCode();
+            return Type.GetHashCode() ^ Id.GetHashCode(); // null handled in constructor
         }
     }
 }
