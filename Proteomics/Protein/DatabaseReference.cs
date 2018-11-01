@@ -45,12 +45,7 @@ namespace Proteomics
 
         public override int GetHashCode()
         {
-            int hash = Type.GetHashCode() ^ Id.GetHashCode();
-            foreach (Tuple<string, string> property in Properties)
-            {
-                hash = hash ^ property.GetHashCode();
-            }
-            return hash;
+            return Type.GetHashCode() ^ Id.GetHashCode();
         }
     }
 }

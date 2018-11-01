@@ -69,8 +69,8 @@ namespace Proteomics
         {
             SequenceVariation s = obj as SequenceVariation;
             return s != null
-                && OneBasedBeginPosition.Equals(s.OneBasedBeginPosition)
-                && OneBasedEndPosition.Equals(s.OneBasedEndPosition)
+                && OneBasedBeginPosition == s.OneBasedBeginPosition
+                && OneBasedEndPosition == s.OneBasedEndPosition
                 && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
                 && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
                 && (s.Description == null && Description == null || Description.Equals(s.Description));

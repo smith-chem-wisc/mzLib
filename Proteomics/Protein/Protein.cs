@@ -187,101 +187,25 @@ namespace Proteomics
             return string.Format("{0} {1}", Accession, FullName);
         }
 
-        //public override bool Equals(object obj)
-        //{
-        //    Protein p = obj as Protein;
-
-        //    return p != null
-        //        && p.BaseSequence == BaseSequence
-        //        && p.Name == Name
-        //        && p.Accession == Accession
-        //        && p.FullName == FullName
-        //        && p.FullDescription == FullDescription
-        //        && p.IsContaminant == IsContaminant
-        //        && p.IsDecoy == IsDecoy
-        //        && p.Organism == Organism
-        //        && p.SampleNameForVariants == SampleNameForVariants
-        //        && p.GeneNames.OrderBy(x => $"{x.Item1}{x.Item2}").SequenceEqual(GeneNames.OrderBy(x => $"{x.Item1}{x.Item2}"))
-        //        && p.SequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}").SequenceEqual(SequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}"))
-        //        && p.SpliceSites.OrderBy(x => $"{x.OneBasedBeginPosition}-{x.OneBasedEndPosition}:{x.Description}").SequenceEqual(SpliceSites.OrderBy(x => $"{x.OneBasedBeginPosition}-{x.OneBasedEndPosition}:{x.Description}"))
-        //        && p.AppliedSequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}").SequenceEqual(AppliedSequenceVariations.OrderBy(x => $"{x.SimpleString()}{x.OneBasedEndPosition}{x.Description.ToString()}"))
-        //        && p.DatabaseReferences.OrderBy(x => x).SequenceEqual(DatabaseReferences.OrderBy(x => x))
-        //        && p.DisulfideBonds.OrderBy(x => x).SequenceEqual(DisulfideBonds.OrderBy(x => x))
-        //        && p.ProteolysisProducts.OrderBy(x => x).SequenceEqual(ProteolysisProducts.OrderBy(x => x))
-        //        && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}")
-        //            .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}"));
-        //}
-
+        /// <summary>
+        /// The protein object uses the default equals method for speed, 
+        /// but note that two protein objects with the same information will not be equal by this method.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         public override bool Equals(object obj)
         {
-            Protein p = obj as Protein;
-
-            return p != null
-                && p.BaseSequence == BaseSequence
-                && p.Name == Name
-                && p.Accession == Accession
-                && p.FullName == FullName
-                && p.FullDescription == FullDescription
-                && p.IsContaminant == IsContaminant
-                && p.IsDecoy == IsDecoy
-                && p.Organism == Organism
-                && p.SampleNameForVariants == SampleNameForVariants
-                && p.GeneNames.SequenceEqual(GeneNames)
-                && p.SequenceVariations.SequenceEqual(SequenceVariations)
-                && p.SpliceSites.SequenceEqual(SpliceSites)
-                && p.AppliedSequenceVariations.SequenceEqual(AppliedSequenceVariations)
-                && p.DatabaseReferences.SequenceEqual(DatabaseReferences)
-                && p.DisulfideBonds.SequenceEqual(DisulfideBonds)
-                && p.ProteolysisProducts.SequenceEqual(ProteolysisProducts)
-                && p.OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}")
-                    .SequenceEqual(OneBasedPossibleLocalizedModifications.OrderBy(x => x.Key).SelectMany(x => $"{x.Key.ToString()}{string.Join("", x.Value.Select(mod => mod.ToString()).OrderBy(mod => mod))}"));
+            return base.Equals(obj);
         }
 
+        /// <summary>
+        /// The protein object uses the default hash code method for speed, 
+        /// but note that two protein objects with the same information will give two different hash codes.
+        /// </summary>
+        /// <returns></returns>
         public override int GetHashCode()
         {
-            int hash = (BaseSequence ?? "").GetHashCode();
-            hash ^= (Name ?? "").GetHashCode();
-            hash ^= (Accession ?? "").GetHashCode();
-            hash ^= (FullName ?? "").GetHashCode();
-            hash ^= (FullDescription ?? "").GetHashCode();
-            hash ^= IsContaminant.GetHashCode();
-            hash ^= IsDecoy.GetHashCode();
-            hash ^= (Organism ?? "").GetHashCode();
-            hash ^= (SampleNameForVariants ?? "").GetHashCode();
-
-            foreach (Tuple<string, string> gn in GeneNames)
-            {
-                hash ^= gn.GetHashCode();
-            }
-            foreach (SequenceVariation sv in SequenceVariations)
-            {
-                hash ^= sv.GetHashCode();
-            }
-            foreach (SequenceVariation sv in AppliedSequenceVariations)
-            {
-                hash ^= sv.GetHashCode();
-            }
-            foreach (DatabaseReference dr in DatabaseReferences)
-            {
-                hash ^= dr.GetHashCode();
-            }
-            foreach (DisulfideBond db in DisulfideBonds)
-            {
-                hash ^= db.GetHashCode();
-            }
-            foreach (ProteolysisProduct pp in ProteolysisProducts)
-            {
-                hash ^= pp.GetHashCode();
-            }
-            foreach (var kv in OneBasedPossibleLocalizedModifications)
-            {
-                foreach (Modification mod in kv.Value)
-                {
-                    hash ^= kv.Key.GetHashCode() ^ mod.GetHashCode();
-                }
-            }
-
-            return hash;
+            return base.GetHashCode();
         }
 
         /// <summary>
