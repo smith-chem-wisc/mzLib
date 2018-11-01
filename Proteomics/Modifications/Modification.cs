@@ -194,13 +194,6 @@ namespace Proteomics
                     }
                 }
             }
-            if (this.Keywords != null)
-            {
-                if (this.Keywords.Count != 0)
-                {
-                    sb.Append("KW   " + String.Join(" or ", this.Keywords));
-                }
-            }
             if (this.NeutralLosses != null)
             {
                 if (this.NeutralLosses.Count != 0)
