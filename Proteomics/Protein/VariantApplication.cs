@@ -182,41 +182,47 @@ namespace Proteomics
         /// <summary>
         /// Applies a single variant to a protein sequence
         /// </summary>
-        /// <param name="variant"></param>
+        /// <param name="variantGettingApplied"></param>
         /// <returns></returns>
-        internal static Protein ApplySingleVariant(SequenceVariation variant, Protein protein, string individual)
+        internal static Protein ApplySingleVariant(SequenceVariation variantGettingApplied, Protein protein, string individual)
         {
-            string seqBefore = protein.BaseSequence.Substring(0, variant.OneBasedBeginPosition - 1);
-            string seqVariant = variant.VariantSequence;
-            int afterIdx = variant.OneBasedBeginPosition + variant.OriginalSequence.Length - 1;
+            string seqBefore = protein.BaseSequence.Substring(0, variantGettingApplied.OneBasedBeginPosition - 1);
+            string seqVariant = variantGettingApplied.VariantSequence;
+            int afterIdx = variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.OriginalSequence.Length - 1;
+
+            SequenceVariation variantAfterApplication = new SequenceVariation(
+                variantGettingApplied.OneBasedBeginPosition, 
+                variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1, 
+                variantGettingApplied.OriginalSequence, 
+                variantGettingApplied.VariantSequence, 
+                variantGettingApplied.Description.Description, 
+                variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
 
             // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
             // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
             //    e.g. reference sequence is wrong at that point
-            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations.Any(x => variant.Intersects(x) && !variant.Includes(x));
-            IEnumerable<SequenceVariation> appliedVariations = null;
+            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
+            IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
             string seqAfter = null;
             if (intersectsAppliedRegionIncompletely)
             {
                 // use original protein sequence for the remaining sequence
                 seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.NonVariantProtein.BaseSequence.Substring(afterIdx);
-                appliedVariations = new[] { variant };
             }
             else
             {
                 // use this variant protein sequence for the remaining sequence
                 seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
-                appliedVariations = protein.AppliedSequenceVariations
-                    .Where(x => !variant.Includes(x))
-                    .Concat(new[] { variant })
+                appliedVariations = appliedVariations
+                    .Concat(protein.AppliedSequenceVariations.Where(x => !variantGettingApplied.Includes(x)))
                     .ToList();
             }
             string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0]; // there may be a stop gained
 
             // adjust indices
-            List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variant, variantSequence, protein, protein.ProteolysisProducts);
-            Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variant, variantSequence, protein);
-            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variant, variantSequence, protein.AppliedSequenceVariations);
+            List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variantGettingApplied, variantSequence, protein, protein.ProteolysisProducts);
+            Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
+            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, protein.AppliedSequenceVariations);
 
             return new Protein(variantSequence, protein, appliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
         }

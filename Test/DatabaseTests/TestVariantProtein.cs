@@ -256,6 +256,35 @@ namespace Test
         }
 
         [Test]
+        public static void AppliedVariants()
+        {
+            List<Protein> proteinsWithSeqVars = new List<Protein>
+            {
+                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPPPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+            };
+            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantProteins()).ToList();
+
+            // SAV
+            Assert.AreEqual(4, proteinsWithAppliedVariants[0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(4, proteinsWithAppliedVariants[0].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+            // MNV
+            Assert.AreEqual(4, proteinsWithAppliedVariants[1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(5, proteinsWithAppliedVariants[1].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+            // insertion
+            Assert.AreEqual(4, proteinsWithAppliedVariants[2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(6, proteinsWithAppliedVariants[2].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+            // deletion
+            Assert.AreEqual(4, proteinsWithAppliedVariants[3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(4, proteinsWithAppliedVariants[3].AppliedSequenceVariations.Single().OneBasedEndPosition);
+        }
+
+        [Test]
         public static void StopGained()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,

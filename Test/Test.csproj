@@ -164,6 +164,7 @@
   <ItemGroup>
     <Content Include="DatabaseTests\oblm1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </Content>
     <Content Include="DatabaseTests\splices7.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
