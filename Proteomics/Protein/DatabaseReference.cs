@@ -38,19 +38,14 @@ namespace Proteomics
         {
             DatabaseReference d = obj as DatabaseReference;
             return obj != null
-                && d.Type == Type
-                && d.Id == Id
+                && (d.Type == null && Type == null || d.Type.Equals(Type))
+                && (d.Id == null && Id == null || d.Id.Equals(Id))
                 && d.Properties.OrderBy(x => x).SequenceEqual(Properties.OrderBy(x => x));
         }
 
         public override int GetHashCode()
         {
-            int hash = Type.GetHashCode() ^ Id.GetHashCode();
-            foreach (Tuple<string, string> property in Properties)
-            {
-                hash = hash ^ property.GetHashCode();
-            }
-            return hash;
+            return Type.GetHashCode() ^ Id.GetHashCode(); // null handled in constructor
         }
     }
 }

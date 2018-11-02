@@ -40,7 +40,9 @@
 
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition ^ OneBasedEndPosition ^ Description.GetHashCode();
+            return OneBasedBeginPosition 
+                ^ OneBasedEndPosition 
+                ^ Description.GetHashCode(); // null handled in constructor
         }
     }
 }

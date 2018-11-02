@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <mzLibProteinDb>
-  <modification>ID   acetyl on K
+  <modification>ID   acetyl on M
 MT   type
-TG   K
+TG   M
 PP   Anywhere.
 MM   42
 
@@ -12,13 +12,13 @@ MM   42
     <gene />
     <feature type="sequence variant" description="1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30">
       <original>P</original>
-      <variation>K</variation>
+      <variation>M</variation>
       <location>
-        <position position="3" />
+        <position position="1" />
       </location>
-      <subfeature type="modified residue" description="acetyl on K">
+      <subfeature type="modified residue" description="acetyl on M">
       <location>
-        <position position="3" />
+        <position position="1" />
       </location>
       </subfeature>
     </feature>
