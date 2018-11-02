@@ -113,37 +113,6 @@ namespace Test
         }
 
         [Test]
-        public static void SeqVarXmlTest()
-        {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
-
-            var target = ok.First(p => !p.IsDecoy);
-            Protein decoy = ok.Where(p => p.IsDecoy && p.SequenceVariations.Count() > 0).First();
-            
-            Assert.AreEqual('M', target[0]);
-            Assert.AreEqual('M', decoy[0]);
-            List<SequenceVariation> seqvar0 = target.SequenceVariations.ToList();
-            List<SequenceVariation> seqvar1 = decoy.SequenceVariations.ToList();
-            Assert.AreEqual(seqvar0.Count + 1, seqvar1.Count);
-            Assert.AreEqual('M', target.SequenceVariations.First().OriginalSequence[0]);
-            Assert.AreEqual('M', target.SequenceVariations.First().VariantSequence[0]);
-            Assert.AreEqual('A', decoy.SequenceVariations.First().OriginalSequence[0]);
-            Assert.AreEqual('P', decoy.SequenceVariations.First().VariantSequence[0]);
-            Assert.AreEqual('M', seqvar0[1].OriginalSequence[0]);
-            Assert.AreEqual("", seqvar1[1].VariantSequence);
-            foreach (SequenceVariation s in seqvar0)
-            {
-                Assert.AreEqual(s.OriginalSequence, target.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
-            }
-            foreach (SequenceVariation s in seqvar1)
-            {
-                Assert.AreEqual(s.OriginalSequence, decoy.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
-            }
-            Assert.AreNotEqual(target.SequenceVariations.First().Description, decoy.SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
-        }
-
-        [Test]
         public static void DisulfideXmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), 

@@ -11,6 +11,16 @@ namespace Test
     [TestFixture]
     public class TestVariantProtein
     {
+        private static List<Modification> UniProtPtms;
+
+        [OneTimeSetUp]
+        public static void SetUpModifications()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+        }
+
         [Test]
         public static void VariantProtein()
         {
@@ -38,6 +48,53 @@ namespace Test
         }
 
         [Test]
+        public static void SeqVarXmlTest()
+        {
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+
+            var target = ok.First(p => !p.IsDecoy);
+            Protein decoy = ok.Where(p => p.IsDecoy && p.SequenceVariations.Count() > 0).First();
+
+            Assert.AreEqual('M', target[0]);
+            Assert.AreEqual('M', decoy[0]);
+            List<SequenceVariation> targetVariants = target.SequenceVariations.ToList();
+            List<SequenceVariation> decoyVariants = decoy.SequenceVariations.ToList();
+            Assert.AreEqual(targetVariants.Count, decoyVariants.Count);
+
+            // starting methionine, but there's more
+            Assert.AreEqual("MPEQA", targetVariants.First().OriginalSequence);
+            Assert.AreEqual("MP", targetVariants.First().VariantSequence);
+            Assert.AreEqual(1, targetVariants.First().OneBasedBeginPosition);
+            Assert.AreEqual(5, targetVariants.First().OneBasedEndPosition);
+            Assert.AreEqual("AQEP", decoy.SequenceVariations.First().OriginalSequence); // methionine will be at the front, so clipped off of the variant
+            Assert.AreEqual("P", decoy.SequenceVariations.First().VariantSequence);
+            Assert.AreEqual(target.Length - 3, decoy.SequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual(target.Length, decoy.SequenceVariations.First().OneBasedEndPosition);
+
+            // start loss
+            Assert.AreEqual("MPEQA", targetVariants[1].OriginalSequence);
+            Assert.AreEqual("P", decoyVariants[1].VariantSequence);
+            Assert.AreEqual(1, targetVariants[1].OneBasedBeginPosition);
+            Assert.AreEqual(5, targetVariants[1].OneBasedEndPosition);
+            Assert.AreEqual("AQEP", decoy.SequenceVariations.First().OriginalSequence); // methionine will be at the front, so clipped off of the variant
+            Assert.AreEqual("P", decoy.SequenceVariations.First().VariantSequence);
+            Assert.AreEqual(target.Length - 3, decoy.SequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual(target.Length, decoy.SequenceVariations.First().OneBasedEndPosition);
+
+            foreach (SequenceVariation s in targetVariants)
+            {
+                Assert.AreEqual(s.OriginalSequence, target.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
+            }
+            foreach (SequenceVariation s in decoyVariants)
+            {
+                Assert.AreEqual(s.OriginalSequence, decoy.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
+            }
+            Assert.AreNotEqual(target.SequenceVariations.First().Description, decoy.SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+        }
+
+        [Test]
+        [TestCase("oblm1.xml", 1, 1)] // mod on starting methionine
         [TestCase("oblm2.xml", 3, 4)] // without starting methionine
         [TestCase("oblm3.xml", 3, 5)] // with starting methionine
         public static void LoadSeqVarModifications(string databaseName, int modIdx, int reversedModIdx)
@@ -46,16 +103,22 @@ namespace Test
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
             Assert.AreEqual(1, target.OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(modIdx, target.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, target.AppliedSequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, target.SequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, target.SequenceVariations.Single().OneBasedModifications.Count);
             Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedModifications.Single().Key); //PEP[mod]TID, MEP[mod]TID
             var decoy = proteins[1];
             Assert.AreEqual(1, decoy.OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(reversedModIdx, decoy.OneBasedPossibleLocalizedModifications.Single().Key); //DITP[mod]EP, MDITP[mod]E
             Assert.AreEqual(1, decoy.AppliedSequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, decoy.SequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, decoy.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key); //DITP[mod]EP, MDITP[mod]E
+            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
@@ -63,14 +126,20 @@ namespace Test
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
             Assert.AreEqual(1, target.OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(modIdx, target.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, target.AppliedSequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, target.SequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, target.SequenceVariations.Single().OneBasedModifications.Count);
             Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedModifications.Single().Key);
             decoy = proteins[1];
             Assert.AreEqual(1, decoy.OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(reversedModIdx, decoy.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, decoy.AppliedSequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, decoy.SequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedBeginPosition);
             Assert.AreEqual(1, decoy.SequenceVariations.Single().OneBasedModifications.Count);
             Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
         }

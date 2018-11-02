@@ -162,6 +162,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\oblm1.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\splices7.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -275,6 +278,7 @@
     </None>
     <Content Include="DatabaseTests\seqvartests.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </Content>
     <Content Include="DatabaseTests\xml2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
