@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using UsefulProteomicsDatabases;
+using MzLibUtil;
 
 namespace Test
 {
@@ -67,7 +68,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestMultiLetterProtease1()
+        public static void TestWildCardExclusion()
         {
             var empty = new List<Modification>();
             var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");
@@ -89,7 +90,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestMultiLetterProtease2()
+        public static void TestMultiLetterProtease()
         {
             var empty = new List<Modification>();
             DigestionParams myDigestionParams = new DigestionParams("collagenase", minPeptideLength: 1, maxMissedCleavages: 0);
@@ -105,7 +106,7 @@ namespace Test
             Assert.AreEqual(first, "ABCGPX");
             Assert.AreEqual(last, "GPMFKCGPMKK");
         }
-
+       
         [Test]
         public static void TestNTerminusProtease()
         {
@@ -122,6 +123,20 @@ namespace Test
 
             Assert.AreEqual(first, "PA");
             Assert.AreEqual(last, "DJSSM");
+        }
+
+        [Test]
+        public static void TestSyntax()
+        {
+            try
+            {
+                var protease = DigestionMotif.ParseDigestionMotifsFromString("X[Y,P]");
+                Assert.Fail("Exception shold be thrown for incorrect syntax.");
+            }
+            catch (MzLibException e)
+            {
+                // test passes
+            }
         }
     }
 }

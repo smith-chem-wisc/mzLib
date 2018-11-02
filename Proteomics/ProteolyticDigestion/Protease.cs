@@ -169,10 +169,10 @@ namespace Proteomics.ProteolyticDigestion
             var indices = new List<int>();
             for (int i = 0; i < proteinSequence.Length; ++i)
             {
-                foreach(var c in MotifList)
+                foreach(DigestionMotif motif in MotifList)
                 {
-                    if (c.Fits(proteinSequence, i)) {
-                        indices.Add(i + c.CutIndex);
+                    if (motif.Fits(proteinSequence, i)) {
+                        indices.Add(i + motif.CutIndex);
                     }
                 }
             }

@@ -25,35 +25,53 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         // parsing cleavage rules syntax
-        // TODO: add more error checking exceptions/informative messages
         public static List<DigestionMotif> ParseDigestionMotifsFromString(string motifsString)
         {
-            string[] motifStrings = motifsString.Replace("\"", string.Empty).Replace(" ", string.Empty).Split(',');
+            motifsString = motifsString.Replace("\"", string.Empty).Replace(" ", string.Empty);
+
+            // throws exception if non-supported characters are used
+            if (Regex.Match(motifsString, @"[^a-zA-Z0-9|,[\]{}]+").Success)
+            {
+                throw new MzLibException("Unrecognized syntax. Please follow syntax rules.");
+            }
+            // throws exception if user attempts separate multiple preventing cleavages using commas
+            if (Regex.Match(motifsString, @"\[([\w]*,+[\w]*)*\]").Success)
+            {
+                throw new MzLibException("Please create a separate motif for each preventing cleavage.");
+            }
+            // throws exception if user attempts separate multiple wildcard exclusions
+            if (Regex.Match(motifsString, @"\{([\w]*,+[\w]*)*\}").Success)
+            {
+                throw new MzLibException("Please create a separate motif for each wildcard exclusion.");
+            }
+
+            string[] motifStrings = motifsString.Split(',');
             var motifs = new List<DigestionMotif>();
 
             for (int i = 0; i < motifStrings.Length; i++)
             {
-                string motifString = motifStrings[i];
-
-                // error checking for syntax: missing "|" for cleavage terminus
-                if (!string.IsNullOrEmpty(motifString) && !motifString.Contains("|"))
-                {
-                    throw new MzLibException("Digestion motif " + motifString + " did not contain a | to specify the cleavage terminus.");
-                }
-
-
+                string motifString = motifStrings[i];   
                 motifs.Add(ParseDigestionMotifFromString(motifString));
             }
-
             return motifs;
         }
 
         private static DigestionMotif ParseDigestionMotifFromString(string motifString)
         {
+            // add parameter protease name
             string inducingCleavage = null;
             string preventingCleavage = null;
             string excludingWC = null;
             int cutIndex = 0;
+
+            // exception handling
+            if (motifString.Contains("{") && !motifString.Contains("}") 
+                || !motifString.Contains("{") && motifString.Contains("}")
+                || motifString.Contains("[") && !motifString.Contains("]")
+                || !motifString.Contains("[") && motifString.Contains("]"))
+            {
+                throw new MzLibException("Please close any brackets used.");
+            }
 
             // find preventing cleavage
             if (motifString.Contains("["))
@@ -71,7 +89,11 @@ namespace Proteomics.ProteolyticDigestion
                 int start = motifString.IndexOf("{") + 1;
                 int end = motifString.IndexOf("}");
 
-                excludingWC = motifString.Substring(start, end - start);
+                excludingWC = motifString.Substring(start, end - start);               
+                if (Regex.Matches(motifString.ToUpper(), "X").Count != excludingWC.Length)
+                {
+                    throw new MzLibException("Please have equal number of wildcards for multi-letter wildcard exclusions.");
+                }
                 motifString = Regex.Replace(motifString, @"\{[a-zA-Z]+\}", string.Empty);
             }
 
@@ -84,7 +106,7 @@ namespace Proteomics.ProteolyticDigestion
                     break;
                 }
             }
-
+            
             motifString = motifString.Replace("|", string.Empty);
             inducingCleavage = motifString;
 
@@ -94,13 +116,13 @@ namespace Proteomics.ProteolyticDigestion
         public bool Fits(string sequence, int location)
         {
             bool fits = true;
+            char currentResidue;
+            int m;
 
             // check for inducing cleavage
-            int m;
             for (m = 0; m < InducingCleavage.Length && fits; m++) // handle patterns
             {
-                char currentResidue = sequence[location + m];
-
+                currentResidue = sequence[location + m];
                 if (!MotifMatches(InducingCleavage[m], currentResidue))
                 {
                     fits = false;
@@ -111,13 +133,13 @@ namespace Proteomics.ProteolyticDigestion
             if (fits && PreventingCleavage != null)
             {
                 bool match = true;
-                char currentResidue;
                 for (int n = 0; n < PreventingCleavage.Length && match; n++)
                 {
                     if (location + m + n > sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
                     {
                         match = false;
-                    } else
+                    }
+                    else
                     {
                         currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + 1 + n];                      
                         if (!PreventingCleavage[n].Equals(currentResidue))
