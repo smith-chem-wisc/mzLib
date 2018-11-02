@@ -17,6 +17,8 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Chemistry
 {
@@ -53,6 +55,12 @@ namespace Chemistry
                 myNumber = Math.Round((double)myNumber, places, MidpointRounding.AwayFromZero);
             }
             return myNumber;
+        }
+
+        public static IEnumerable<List<T>> Partition<T>(this IList<T> source, Int32 size)
+        {
+            for (int i = 0; i < Math.Ceiling(source.Count / (Double)size); i++)
+                yield return new List<T>(source.Skip(size * i).Take(size));
         }
 
     }

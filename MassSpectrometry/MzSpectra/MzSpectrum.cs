@@ -38,8 +38,12 @@ namespace MassSpectrometry
         private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
 
+
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
+
+        public double[] ProcessedXArray { get; private set; }
+        public double[] ProcessedYArray { get; private set; }
 
         static MzSpectrum()
         {
@@ -489,7 +493,7 @@ namespace MassSpectrometry
             int i = 0; //iterate through mz1
             int j = 0; //iterate through mz2
 
-            //find where peaks match 
+            //find where peaks match
             while (i != mz1.Length && j != mz2.Length)
             {
                 double one = mz1[i];
@@ -573,5 +577,96 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
+
+        public void XCorrPreprocessing(double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double percentMaxThreshold = 5)
+        {
+            SortedDictionary<double, List<double>> intentensitiesInTheBin = new SortedDictionary<double, List<double>>();
+            for (int i = 0; i < this.XArray.Length; i++)
+            {
+                if ((XArray[i] < (precursorMz - precursorDiscardRange)) || (XArray[i] > (precursorMz + precursorDiscardRange))) //we're going to eliminate peaks near the precursor mz
+                {
+                    double binMass = Math.Round(XArray[i] / discreteMassBin, 0) * discreteMassBin; //this rounds all mzs to the nearest discrete mass bin
+                    if (intentensitiesInTheBin.Keys.Contains(binMass))
+                    {
+                        intentensitiesInTheBin[binMass].Add(YArray[i]);
+                    }
+                    else
+                    {
+                        intentensitiesInTheBin.Add(binMass, new List<double>() { YArray[i] });
+                    }
+                }
+            }
+
+            double[] tempXarray = intentensitiesInTheBin.Keys.ToArray();
+            double[] tempYarray = new double[tempXarray.Length];
+
+            for (int i = 0; i < tempXarray.Length; i++)
+            {
+                tempYarray[i] = Math.Sqrt(intentensitiesInTheBin[tempXarray[i]].Max());
+            }
+
+            List<double> highIntensityList = tempYarray.ToList();
+            double cutoff = percentMaxThreshold / 100 * tempYarray.Max();
+            highIntensityList = highIntensityList.Where(i => i > cutoff).ToList();
+
+            double[] finalXarray = new double[highIntensityList.Count];
+            double[] finalYarray = new double[highIntensityList.Count];
+
+            int counter = 0;
+            for (int i = 0; i < tempXarray.Length; i++)
+            {
+                if (highIntensityList.Contains(tempYarray[i]))
+                {
+                    finalXarray[counter] = tempXarray[i];
+                    finalYarray[counter] = tempYarray[i];
+                    counter++;
+                }
+            }
+
+            int segmentLength = (int)Math.Round((decimal)finalYarray.Length / 10);
+
+            int maxBins = (int)Math.Ceiling((double)finalYarray.Length / segmentLength);
+
+            double[] segmentMaximums = new double[maxBins];
+
+            IList<double> yIntensities = finalYarray.ToList();
+
+            int start = 0;
+                foreach (List<double> part in Chemistry.ClassExtensions.Partition(yIntensities, segmentLength))
+                {
+                    segmentMaximums[start] = part.Max();
+                start++;
+                }
+            
+
+            List<int> indicies = new List<int>();
+            indicies.AddRange(Enumerable.Range(0, finalXarray.Length));
+
+            int whichPart = 0;
+            foreach (List<int> part in Chemistry.ClassExtensions.Partition(indicies, segmentLength))
+            {
+                foreach (int currentIndex in part)
+                {
+                    finalYarray[currentIndex] = finalYarray[currentIndex] / segmentMaximums[whichPart] * 50;
+                }
+                whichPart++;
+            }
+
+            for (int i = 0; i < finalYarray.Length; i++)
+            {
+                double scaleValue = 0;
+                for (int j = Math.Max(0,-75); j < Math.Min(finalYarray.Length,i+75); j++)
+                {
+                    scaleValue += finalYarray[j];
+                }
+                finalYarray[i] = Math.Max(0, finalYarray[i] - 1d / 151d * scaleValue);
+            }
+
+
+            this.ProcessedXArray = finalXarray;
+            this.ProcessedYArray = finalYarray;
+        }
+
+        
     }
 }
