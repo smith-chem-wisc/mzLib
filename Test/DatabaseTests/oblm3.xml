@@ -22,6 +22,6 @@ MM   42
       </location>
       </subfeature>
     </feature>
-    <sequence length="6">PEPTID</sequence>
+    <sequence length="6">MEPTID</sequence>
   </entry>
 </mzLibProteinDb>

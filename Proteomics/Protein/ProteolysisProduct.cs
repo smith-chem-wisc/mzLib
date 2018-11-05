@@ -15,15 +15,18 @@
 
         public override bool Equals(object obj)
         {
-            return obj as ProteolysisProduct != null &&
-                (obj as ProteolysisProduct).OneBasedBeginPosition == OneBasedBeginPosition &&
-                (obj as ProteolysisProduct).OneBasedEndPosition == OneBasedEndPosition &&
-                (obj as ProteolysisProduct).Type == Type;
+            ProteolysisProduct pp = obj as ProteolysisProduct;
+            return pp != null
+                && pp.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
+                && pp.OneBasedEndPosition.Equals(OneBasedEndPosition)
+                && (pp.Type == null && Type == null || pp.Type.Equals(Type));
         }
 
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition.GetHashCode() ^ OneBasedEndPosition.GetHashCode() ^ Type.GetHashCode();
+            return (OneBasedBeginPosition ?? 0).GetHashCode() 
+                ^ (OneBasedEndPosition ?? 0).GetHashCode() 
+                ^ Type.GetHashCode(); // null handled in constructor
         }
     }
 }

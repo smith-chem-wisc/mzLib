@@ -60,7 +60,7 @@ namespace Proteomics
             Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
             string _fileOrigin = null)
         {
-            if (_originalId != null && _target != null)
+            if (_originalId != null)
             {
                 if (_originalId.Contains(" on "))
                 {
@@ -72,9 +72,13 @@ namespace Proteomics
                     this.IdWithMotif = _originalId.Replace(" of ", " on ");
                     this.OriginalId = _originalId.Split(new[] { " of ", " on " }, StringSplitOptions.None)[0];
                 }
-                else
+                else if (_target != null)
                 {
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
+                    this.OriginalId = _originalId;
+                }
+                else
+                {
                     this.OriginalId = _originalId;
                 }
             }

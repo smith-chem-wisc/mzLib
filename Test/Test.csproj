@@ -41,6 +41,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
     <Reference Include="System.ValueTuple" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -49,6 +50,7 @@
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="ModFitsTest.cs" />
     <Compile Include="MyPeptideTest.cs" />
+    <Compile Include="ProteinProperties.cs" />
     <Compile Include="SeqCoverageTests.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
     <Compile Include="TestDissociation.cs" />
@@ -161,6 +163,61 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\oblm1.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="DatabaseTests\splices7.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices5.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices3.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices1.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices8.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices6.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices4.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\splices2.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\MultipleAlternateFrameshifts.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\MultipleAlternateAlleles.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\bonds1.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\bonds2.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\ranges2.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\ranges1.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\oblm3.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\StopGained.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\HomozygousHLA.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\oblm.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -223,6 +280,7 @@
     </None>
     <Content Include="DatabaseTests\seqvartests.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
     </Content>
     <Content Include="DatabaseTests\xml2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
