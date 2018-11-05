@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
@@ -83,64 +84,100 @@ namespace MassSpectrometry
         /// <param name="intensities"></param>
         /// <param name="mArray"></param>
         /// <param name="filteringParams"></param>
-        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz)
         {
-            List<double> mzResults = new List<double>();
-            List<double> intensityResults = new List<double>();
+            var mzIntensites = new Chemistry.ClassExtensions.TupleList<double,double>();
+            var mzIntensites_reduced = new Chemistry.ClassExtensions.TupleList<double, double>();
 
-            int windowSize = intensities.Length / filteringParams.NumberOfWindows.Value;
-
-            // window must always have at least one peak in it
-            if (windowSize < 1)
+            for (int i = 0; i < mArray.Length; i++)
             {
-                windowSize = 1;
+                mzIntensites.Add(mArray[i], intensities[i]);
             }
 
-            int windowPeakIndexMinimum = 0;
-            int windowPeakIndexMaximum = windowSize - 1;
+            mzIntensites.Sort((x, y) => x.Item1.CompareTo(y.Item1)); //sort tuple in place by item 1, reverse by changing x and y
 
-            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks
-            // divided into 10 windows would have 10 peaks per window) and takes the top N peaks per window.
-            // the results of each trimmed window are concatenated into mzResults and intensityResults
-            for (int i = 0; i < filteringParams.NumberOfWindows; i++)
+            double mzRangeInOneWindow = scanRangeMaxMz - scanRangeMinMz;
+            Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
+
+
+            double scanMin = scanRangeMinMz;
+            if(filteringParams.NumberOfWindows.HasValue && (double)filteringParams.NumberOfWindows.Value > 0)
             {
-                // make the last window end at the end of the spectrum
-                // this is to prevent rounding errors in windowSize from cutting off the end of the spectrum
-                if (i == filteringParams.NumberOfWindows - 1)
+                mzRangeInOneWindow = mzRangeInOneWindow / (double)filteringParams.NumberOfWindows;
+
+                for (int i = 0; i < (int)filteringParams.NumberOfWindows; i++)
                 {
-                    windowPeakIndexMaximum = intensities.Length - 1;
+                    if(i == 0)
+                    {
+                        ranges.Add(scanMin - 0.000000001, (scanMin + mzRangeInOneWindow));
+                    }
+                    else if(i == ((int)filteringParams.NumberOfWindows - 1))
+                    {
+                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + 0.000000001);
+                    }
+                    else
+                    {
+                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow));
+                    }
+                    scanMin += mzRangeInOneWindow;
                 }
-
-                // avoid index out of range problems
-                if (windowPeakIndexMinimum >= intensities.Length)
-                {
-                    break;
-                }
-
-                // determine the valid peaks given filtering conditions for this window
-                var windowIntensities = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
-                Array.Copy(intensities, windowPeakIndexMinimum, windowIntensities, 0, windowIntensities.Length);
-
-                var windowMzs = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
-                Array.Copy(mArray, windowPeakIndexMinimum, windowMzs, 0, windowMzs.Length);
-
-                int numPeaksToTakeInThisWindow = TopNpeakHelper(ref windowIntensities, ref windowMzs, filteringParams);
-
-                // merge results of this window into the global results
-                intensityResults.AddRange(windowIntensities.Take(numPeaksToTakeInThisWindow));
-                mzResults.AddRange(windowMzs.Take(numPeaksToTakeInThisWindow));
-
-                // set up for the next window
-                windowPeakIndexMinimum = windowPeakIndexMaximum + 1;
-                windowPeakIndexMaximum = windowPeakIndexMinimum + windowSize;
             }
+            else
+            {
+                ranges.Add(scanRangeMinMz - 0.000000001, scanRangeMaxMz + 0.000000001);
+            }
+
+            foreach (Tuple<double, double> range in ranges)
+            {
+                var Temp = new Chemistry.ClassExtensions.TupleList<double, double>();
+                foreach (Tuple<double,double> mzIntensityPair in mzIntensites)
+                {
+                    if(mzIntensityPair.Item1 > range.Item1 && mzIntensityPair.Item1 <= range.Item2)
+                    {
+                        Temp.Add(mzIntensityPair);
+                    }
+                }
+                Temp.Sort((x, y) => y.Item2.CompareTo(x.Item2)); //sort tuple in place by item 1, reverse by changing x and y
+                for (int i = 0; i < Math.Min(Temp.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
+                {
+                    mzIntensites_reduced.Add(Temp[i]);
+                }
+            }
+
 
             // convert merged results to array and sort by m/z
-            mArray = mzResults.ToArray();
-            intensities = intensityResults.ToArray();
+            mArray = mzIntensites_reduced.Select(i => i.Item1).ToArray();
+            intensities = mzIntensites_reduced.Select(i => i.Item2).ToArray();
 
+            //I don't think I need this.
             Array.Sort(mArray, intensities);
+
         }
+
+        private static List<int> GetSortedIndices(double[] m)
+        {
+            List<double> A = m.ToList();
+
+            var sorted = A
+                .Select((x, i) => new KeyValuePair<double, int>(x, i))
+                .OrderBy(x => x.Key)
+                .ToList();
+
+            //List<double> B = sorted.Select(x => x.Key).ToList();
+            List<int> idx = sorted.Select(x => x.Value).ToList();
+            return (idx);
+        }
+
+        private static double[] GetIndexSortedArray(List<int> indicies, double[] arrayValues)
+        {
+            List<double> sorted = arrayValues.ToList();
+            foreach (int i in indicies)
+            {
+                sorted.Add(arrayValues[i]);
+            }
+            return (sorted.ToArray());
+        }
+
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
