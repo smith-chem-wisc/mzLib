@@ -270,31 +270,7 @@ namespace TestThermo
             Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
             Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
         }
-
-
-        [Test]
-        public static void TestXcorrProcessedSpectra()
-        {
-            var smallThermo = ThermoStaticData.LoadAllStaticData(@"small.raw");
-
-            var scans = smallThermo.GetAllScansList();
-
-            foreach (MsDataScan scan in scans)
-            {
-                if(scan.MsnOrder != 1)
-                {
-                    scan.MassSpectrum.XCorrPreprocessing((double)scan.SelectedIonMZ);
-
-                    double[] originalX = scan.MassSpectrum.XArray;
-                    double[] originalY = scan.MassSpectrum.XArray;
-                    double[] newX = scan.MassSpectrum.ProcessedXArray;
-                    double[] newY = scan.MassSpectrum.ProcessedYArray;
-                }                
-            }
-        }
-
-
-
+        
         [OneTimeSetUp]
         public void Setup()
         {
