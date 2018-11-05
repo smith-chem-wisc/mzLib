@@ -40,63 +40,7 @@ namespace Test
         }
 
         [Test]
-        public static void Compare_protein_properties()
-        {
-            DatabaseReference d = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
-            DatabaseReference dd = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
-            DatabaseReference de = new DatabaseReference("asdf", "asdefg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
-            DatabaseReference df = new DatabaseReference("asddf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "ccc") });
-            DatabaseReference dg = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("babb", "ccc") });
-            DatabaseReference dh = new DatabaseReference("asdf", "asdfg", new List<Tuple<string, string>> { new Tuple<string, string>("bbb", "cccf") });
-            Assert.True(dd.Equals(d));
-            Assert.False(de.Equals(d));
-            Assert.False(df.Equals(d));
-            Assert.False(dg.Equals(d));
-            Assert.False(dh.Equals(d));
-            Assert.AreEqual(5, new HashSet<DatabaseReference> { d, dd, de, df, dg, dh }.Count);
-
-            SequenceVariation s = new SequenceVariation(1, "hello", "hey", "hi");
-            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");
-            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");
-            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi");
-            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii");
-            Assert.True(s.Equals(sv));
-            Assert.False(s.Equals(sss));
-            Assert.False(s.Equals(ssss));
-            Assert.False(s.Equals(sssss));
-            Assert.AreEqual(4, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
-
-            DisulfideBond b = new DisulfideBond(1, "hello");
-            DisulfideBond bb = new DisulfideBond(1, "hello");
-            DisulfideBond bbb = new DisulfideBond(1, 2, "hello");
-            DisulfideBond bbbb = new DisulfideBond(1, 2, "hello");
-            DisulfideBond ba = new DisulfideBond(1, 3, "hello");
-            DisulfideBond baa = new DisulfideBond(2, 2, "hello");
-            DisulfideBond baaa = new DisulfideBond(1, 2, "hallo");
-            Assert.AreEqual(b, bb);
-            Assert.AreEqual(bbb, bbbb);
-            Assert.AreNotEqual(b, bbb);
-            Assert.AreNotEqual(ba, bbb);
-            Assert.AreNotEqual(baa, bbb);
-            Assert.AreNotEqual(baaa, bbb);
-            Assert.AreEqual(5, new HashSet<DisulfideBond> { b, bb, bbb, bbbb, ba, baa, baaa }.Count);
-
-            ProteolysisProduct pp = new ProteolysisProduct(1, 1, "hello");
-            ProteolysisProduct paaa = new ProteolysisProduct(1, 1, "hello");
-            ProteolysisProduct p = new ProteolysisProduct(null, null, "hello");
-            ProteolysisProduct ppp = new ProteolysisProduct(1, 2, "hello");
-            ProteolysisProduct pa = new ProteolysisProduct(2, 1, "hello");
-            ProteolysisProduct paa = new ProteolysisProduct(1, 1, "hallo");
-            Assert.AreEqual(pp, paaa);
-            Assert.AreNotEqual(p, pp);
-            Assert.AreNotEqual(pp, ppp);
-            Assert.AreNotEqual(pp, pa);
-            Assert.AreNotEqual(pp, paa);
-            Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
-        }
-
-        [Test]
-        public static void Merge_a_couple_proteins()
+        public static void MergeACoupleProteins()
         {
             ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
             Protein p = new Protein(
@@ -126,6 +70,7 @@ namespace Test
                 proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "prod") },
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
+
 
             List<Protein> merged = ProteinDbLoader.MergeProteins(new List<Protein> { p, p2 }).ToList();
             Assert.AreEqual(1, merged.Count);
@@ -168,37 +113,6 @@ namespace Test
         }
 
         [Test]
-        public static void SeqVarXmlTest()
-        {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
-
-            var target = ok.First(p => !p.IsDecoy);
-            Protein decoy = ok.Where(p => p.IsDecoy && p.SequenceVariations.Count() > 0).First();
-            
-            Assert.AreEqual('M', target[0]);
-            Assert.AreEqual('M', decoy[0]);
-            List<SequenceVariation> seqvar0 = target.SequenceVariations.ToList();
-            List<SequenceVariation> seqvar1 = decoy.SequenceVariations.ToList();
-            Assert.AreEqual(seqvar0.Count + 1, seqvar1.Count);
-            Assert.AreEqual('M', target.SequenceVariations.First().OriginalSequence[0]);
-            Assert.AreEqual('M', target.SequenceVariations.First().VariantSequence[0]);
-            Assert.AreEqual('A', decoy.SequenceVariations.First().OriginalSequence[0]);
-            Assert.AreEqual('P', decoy.SequenceVariations.First().VariantSequence[0]);
-            Assert.AreEqual('M', seqvar0[1].OriginalSequence[0]);
-            Assert.AreEqual("", seqvar1[1].VariantSequence);
-            foreach (SequenceVariation s in seqvar0)
-            {
-                Assert.AreEqual(s.OriginalSequence, target.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
-            }
-            foreach (SequenceVariation s in seqvar1)
-            {
-                Assert.AreEqual(s.OriginalSequence, decoy.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
-            }
-            Assert.AreNotEqual(target.SequenceVariations.First().Description, decoy.SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
-        }
-
-        [Test]
         public static void DisulfideXmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), 
@@ -208,14 +122,18 @@ namespace Test
             Assert.AreEqual('M', ok[1][0]);
 
             Assert.AreEqual(3, ok[0].DisulfideBonds.Count());
+            Assert.AreEqual('C', ok[0].BaseSequence[ok[0].DisulfideBonds.First().OneBasedBeginPosition - 1]);
+            Assert.AreEqual('C', ok[0].BaseSequence[ok[0].DisulfideBonds.First().OneBasedEndPosition - 1]);
             Assert.AreEqual(31, ok[0].DisulfideBonds.First().OneBasedBeginPosition);
             Assert.AreEqual(94, ok[0].DisulfideBonds.First().OneBasedEndPosition);
             Assert.AreEqual(93, ok[0].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
             Assert.AreEqual(93, ok[0].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
 
             Assert.AreEqual(3, ok[1].DisulfideBonds.Count());
-            Assert.AreEqual(79, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
-            Assert.AreEqual(16, ok[1].DisulfideBonds.First().OneBasedEndPosition);
+            Assert.AreEqual('C', ok[1].BaseSequence[ok[1].DisulfideBonds.First().OneBasedBeginPosition - 1]);
+            Assert.AreEqual('C', ok[1].BaseSequence[ok[1].DisulfideBonds.First().OneBasedEndPosition - 1]);
+            Assert.AreEqual(16, ok[1].DisulfideBonds.First().OneBasedBeginPosition);
+            Assert.AreEqual(79, ok[1].DisulfideBonds.First().OneBasedEndPosition);
             Assert.AreEqual(17, ok[1].DisulfideBonds.ElementAt(2).OneBasedBeginPosition);
             Assert.AreEqual(17, ok[1].DisulfideBonds.ElementAt(2).OneBasedEndPosition);
             Assert.AreNotEqual(ok[0].DisulfideBonds.First().Description, ok[1].DisulfideBonds.First().Description); //decoys and target disulfide bonds don't have the same desc.

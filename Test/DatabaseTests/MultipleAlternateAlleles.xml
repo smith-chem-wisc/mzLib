@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <entry>
+    <accession>ENST00000383750</accession>
+    <name>ENST00000383750</name>
+    <gene>
+      <name type="primary">SEC22C</name>
+      <name type="accession">ENSG00000093183</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="sequence variant" description="3\t42566831\t.\tTT\tCC,CT,&lt;NON_REF&gt;\t68.73\t.\tANN=CC|missense_variant|MODERATE|SEC22C|ENSG00000093183|transcript|ENST00000383750.8|nonsense_mediated_decay|3/5|c.187_188delAAinsGG|p.Lys63Gly|321/752|187/219|63/72||\tGT:AD:DP:GQ:PL:SB\t0/2:10,3,5,0:18:14:106,14,686,0,247,310,131,548,356,634:5,5,6,2">
+      <original>K</original>
+      <variation>G</variation>
+      <location>
+        <position position="63"></position>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="3\t42566831\t.\tTT\tCC,CT,&lt;NON_REF&gt;\t68.73\t.\tANN=CT|missense_variant|MODERATE|SEC22C|ENSG00000093183|transcript|ENST00000383750.8|nonsense_mediated_decay|3/5|c.188A&gt;G|p.Lys63Arg|321/752|188/219|63/72||\tGT:AD:DP:GQ:PL:SB\t0/2:10,3,5,0:18:14:106,14,686,0,247,310,131,548,356,634:5,5,6,2">
+      <original>K</original>
+      <variation>R</variation>
+      <location>
+        <position position="63"></position>
+      </location>
+    </feature>
+    <feature type="splice site" description="3\t-\t42566799\t42566835\t42568864\t42569045">
+      <location>
+        <position position="13"></position>
+      </location>
+    </feature>
+    <sequence length="72">MSVIFFACVVRVRDGLPLSASTDFYHTQDFLEWRRRLKSLALRLAQYPGRGSAEGCDFSIQDKVLPCCPGWS</sequence>
+  </entry>
+</mzLibProteinDb>

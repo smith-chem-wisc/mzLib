@@ -31,7 +31,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             var a = obj as Protease;
             return a != null
-                && a.Name.Equals(Name);
+                && (a.Name == null && Name == null || a.Name.Equals(Name));
         }
 
         public override int GetHashCode()

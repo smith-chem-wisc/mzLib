@@ -7,6 +7,7 @@ using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
 
 namespace TestThermo
 {
@@ -14,41 +15,19 @@ namespace TestThermo
     public sealed class TestThermo
     {
         [Test]
-        public static void ReadWriteReadEtc()
+        [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
+        [TestCase("small.raw", "a.mzML", "aa.mzML")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
+        public static void ReadWriteReadEtc(string infile, string outfile1, string outfile2)
         {
-            {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"testFileWMS2.raw");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
-
-                var aa = Mzml.LoadAllStaticData("a.mzML");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
-
-                Mzml.LoadAllStaticData("aa.mzML");
-            }
-            {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
-
-                var aa = Mzml.LoadAllStaticData("a.mzML");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
-
-                Mzml.LoadAllStaticData("aa.mzML");
-            }
-            {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
-
-                var aa = Mzml.LoadAllStaticData("a.mzML");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
-
-                Mzml.LoadAllStaticData("aa.mzML");
-            }
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(infile);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
+            var aa = Mzml.LoadAllStaticData(outfile1);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
+            Mzml.LoadAllStaticData(outfile2);
+            Console.WriteLine($"Analysis time for ReadWriteReadEtc({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
