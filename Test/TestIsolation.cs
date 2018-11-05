@@ -76,6 +76,8 @@ namespace Test
             Assert.AreEqual(2, isolatedMasses.Count(b => b.charge == 1));
             Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Item1.ToMass(b.charge)).Min(), 1e-9);
             Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.peaks.First().Item1.ToMass(b.charge)).Max(), 1e-9);
+            Assert.AreEqual(pep1.MonoisotopicMass, isolatedMasses.Select(b => b.monoisotopicMass.ToMz(b.charge).ToMass(b.charge)).Min(), 1e-9);
+            Assert.AreEqual(pep2.MonoisotopicMass, isolatedMasses.Select(b => b.monoisotopicMass.ToMz(b.charge).ToMass(b.charge)).Max(), 1e-9);
         }
 
         [Test]

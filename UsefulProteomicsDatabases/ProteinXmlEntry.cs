@@ -27,6 +27,7 @@ namespace UsefulProteomicsDatabases
         public List<string> PropertyTypes { get; private set; } = new List<string>();
         public List<string> PropertyValues { get; private set; } = new List<string>();
         public int OneBasedFeaturePosition { get; private set; } = -1;
+        public int OneBasedFeatureSubPosition { get; private set; } = -1;
         public int? OneBasedBeginPosition { get; private set; }
         public int? OneBasedEndPosition { get; private set; }
         public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
@@ -128,6 +129,10 @@ namespace UsefulProteomicsDatabases
                     OneBasedFeaturePosition = int.Parse(xml.GetAttribute("position"));
                     break;
 
+                case "subposition":
+                    OneBasedFeatureSubPosition = int.Parse(xml.GetAttribute("subposition"));
+                    break;
+
                 case "begin":
                     OneBasedBeginPosition = int.TryParse(xml.GetAttribute("position"), out outValue) ? (int?)outValue : null;
                     break;
@@ -200,7 +205,7 @@ namespace UsefulProteomicsDatabases
             if (SubFeatureType == "modified residue")
             {
                 SubFeatureDescription = SubFeatureDescription.Split(';')[0];
-                AnnotatedVariantMods.Add((OneBasedFeaturePosition, SubFeatureDescription));
+                AnnotatedVariantMods.Add((OneBasedFeatureSubPosition, SubFeatureDescription));
             }
         }
 
@@ -365,6 +370,7 @@ namespace UsefulProteomicsDatabases
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;
+            OneBasedFeatureSubPosition = -1;
             AnnotatedMods = new List<(int, string)>();
             OneBasedModifications = new Dictionary<int, List<Modification>>();
             ProteolysisProducts = new List<ProteolysisProduct>();

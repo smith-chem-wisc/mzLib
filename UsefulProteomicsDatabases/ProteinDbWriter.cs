@@ -184,8 +184,8 @@ namespace UsefulProteomicsDatabases
                                 writer.WriteAttributeString("type", "modified residue");
                                 writer.WriteAttributeString("description", modId);
                                 writer.WriteStartElement("location");
-                                writer.WriteStartElement("position");
-                                writer.WriteAttributeString("position", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                                writer.WriteStartElement("subposition");
+                                writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
                                 writer.WriteEndElement();
                                 writer.WriteEndElement();
                                 writer.WriteEndElement();
