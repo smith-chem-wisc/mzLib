@@ -14,14 +14,14 @@ namespace Proteomics.ProteolyticDigestion
         public readonly string InducingCleavage;
         public readonly string PreventingCleavage;
         public readonly int CutIndex;
-        public readonly string ExcludingWC;
+        public readonly string ExcludeFromWildcard;
 
-        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludingWC)
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
-            this.ExcludingWC = excludingWC;
+            this.ExcludeFromWildcard = excludeFromWildcard;
         }
 
         // parsing cleavage rules syntax
@@ -32,17 +32,17 @@ namespace Proteomics.ProteolyticDigestion
             // throws exception if non-supported characters are used
             if (Regex.Match(motifsString, @"[^a-zA-Z0-9|,[\]{}]+").Success)
             {
-                throw new MzLibException("Unrecognized syntax. Please follow syntax rules.");
+                throw new MzLibException("Unrecognized protease syntax. The digestion motif can only contain letters and {}[]|");
             }
             // throws exception if user attempts separate multiple preventing cleavages using commas
             if (Regex.Match(motifsString, @"\[([\w]*,+[\w]*)*\]").Success)
             {
-                throw new MzLibException("Please create a separate motif for each preventing cleavage.");
+                throw new MzLibException("Unrecognized protease syntax. Please create a separate motif for each sequence preventing cleavage (comma separated).");
             }
             // throws exception if user attempts separate multiple wildcard exclusions
             if (Regex.Match(motifsString, @"\{([\w]*,+[\w]*)*\}").Success)
             {
-                throw new MzLibException("Please create a separate motif for each wildcard exclusion.");
+                throw new MzLibException("Unrecognized protease syntax. Please create a separate motif for each wildcard exclusion (comma separated).");
             }
 
             string[] motifStrings = motifsString.Split(',');
@@ -58,19 +58,17 @@ namespace Proteomics.ProteolyticDigestion
 
         private static DigestionMotif ParseDigestionMotifFromString(string motifString)
         {
-            // add parameter protease name
-            string inducingCleavage = null;
+            string inducingCleavage;
             string preventingCleavage = null;
             string excludingWC = null;
             int cutIndex = 0;
-
-            // exception handling
+            
             if (motifString.Contains("{") && !motifString.Contains("}") 
                 || !motifString.Contains("{") && motifString.Contains("}")
                 || motifString.Contains("[") && !motifString.Contains("]")
                 || !motifString.Contains("[") && motifString.Contains("]"))
             {
-                throw new MzLibException("Please close any brackets used.");
+                throw new MzLibException("Unrecognized protease syntax. Please close any brackets used.");
             }
 
             // find preventing cleavage
@@ -92,7 +90,7 @@ namespace Proteomics.ProteolyticDigestion
                 excludingWC = motifString.Substring(start, end - start);               
                 if (Regex.Matches(motifString.ToUpper(), "X").Count != excludingWC.Length)
                 {
-                    throw new MzLibException("Please have equal number of wildcards for multi-letter wildcard exclusions.");
+                    throw new MzLibException("Unrecognized protease syntax. Please have equal number of wildcards for multi-letter wildcard exclusions.");
                 }
                 motifString = Regex.Replace(motifString, @"\{[a-zA-Z]+\}", string.Empty);
             }
@@ -157,7 +155,7 @@ namespace Proteomics.ProteolyticDigestion
         
         private bool MotifMatches(char motifChar, char sequenceChar)
         {
-            return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludingWC)
+            return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludeFromWildcard)
                 || motifChar.Equals(sequenceChar)
                 || motifChar.Equals('B') && B.Contains(sequenceChar)
                 || motifChar.Equals('J') && J.Contains(sequenceChar)

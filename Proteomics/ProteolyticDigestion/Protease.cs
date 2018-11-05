@@ -167,17 +167,18 @@ namespace Proteomics.ProteolyticDigestion
         internal List<int> GetDigestionSiteIndices(string proteinSequence)
         {
             var indices = new List<int>();
-            for (int i = 0; i < proteinSequence.Length; ++i)
+            for (int r = 0; r < proteinSequence.Length; r++)
             {
-                foreach(DigestionMotif motif in MotifList)
+                foreach (DigestionMotif motif in MotifList)
                 {
-                    if (motif.Fits(proteinSequence, i)) {
-                        indices.Add(i + motif.CutIndex);
+                    if (motif.Fits(proteinSequence, r))
+                    {
+                        indices.Add(r + motif.CutIndex);
                     }
                 }
             }
 
-            indices.Insert(0, 0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
+            indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
             indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide     
             return indices.Distinct().OrderBy(i => i).ToList();
         }
@@ -484,7 +485,7 @@ namespace Proteomics.ProteolyticDigestion
 
             return intervals.Concat(fixedCTermIntervals).Concat(fixedNTermIntervals);
         }
-        
+
         /// <summary>
         /// Is length of given peptide okay, given minimum?
         /// </summary>
