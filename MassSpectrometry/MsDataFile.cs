@@ -86,19 +86,20 @@ namespace MassSpectrometry
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null)
         {
             Array.Sort(mArray, intensities);
-            var mzIntensites = new Chemistry.ClassExtensions.TupleList<double, double>();
-            var mzIntensites_reduced = new Chemistry.ClassExtensions.TupleList<double, double>();
 
-            //make tuples of each mz/intensity pair and create a list of pairs for everything with intensity above the minimum cutoff
+            List<MzPeak> mzIntensites = new List<MzPeak>();
+            List<MzPeak> mzIntensites_reduced = new List<MzPeak>();
+
+            //make MzPeaks of each mz/intensity pair and create a list of pairs for everything with intensity above the minimum cutoff
             for (int i = 0; i < mArray.Length; i++)
             {
                 if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue && (intensities[i] > (intensities.Max() * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)))
                 {
-                    mzIntensites.Add(mArray[i], intensities[i]);
+                    mzIntensites.Add(new MzPeak(mArray[i], intensities[i]));
                 }
                 else if (!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)//don't filter on intensity and keep everything
                 {
-                    mzIntensites.Add(mArray[i], intensities[i]);
+                    mzIntensites.Add(new MzPeak(mArray[i], intensities[i]));
                 }
             }
 
@@ -134,24 +135,24 @@ namespace MassSpectrometry
 
             foreach (Tuple<double, double> range in ranges)
             {
-                var Temp = new Chemistry.ClassExtensions.TupleList<double, double>();
-                foreach (Tuple<double, double> mzIntensityPair in mzIntensites)
+                List<MzPeak> Temp = new List<MzPeak>();
+                foreach (MzPeak mzIntensityPair in mzIntensites)
                 {
-                    if (mzIntensityPair.Item1 > range.Item1 && mzIntensityPair.Item1 <= range.Item2)
+                    if (mzIntensityPair.Mz > range.Item1 && mzIntensityPair.Mz <= range.Item2)
                     {
                         Temp.Add(mzIntensityPair);
                     }
                 }
                 if (Temp.Count > 0)
                 {
-                    Temp.Sort((x, y) => y.Item2.CompareTo(x.Item2)); //sort tuple in place decending by item 2, reverse by changing x and y
-                    double maxIntensity = Temp.Select(pair => pair.Item2).ToList().Max();
+                    Temp.Sort((x, y) => y.Intensity.CompareTo(x.Intensity)); //sort tuple in place decending by item 2, reverse by changing x and y
+                    double maxIntensity = Temp.Select(pair => pair.Intensity).ToList().Max();
                     for (int i = 0; i < Math.Min(Temp.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
                     {
                         if (WindowMaxNormalizationToValue.HasValue)
                         {
-                            double normalizedIntensity = Temp[i].Item2 / maxIntensity * (double)WindowMaxNormalizationToValue.Value;
-                            mzIntensites_reduced.Add(new Tuple<double, double>(Temp[i].Item1, normalizedIntensity));
+                            double normalizedIntensity = Temp[i].Intensity / maxIntensity * (double)WindowMaxNormalizationToValue.Value;
+                            mzIntensites_reduced.Add(new MzPeak(Temp[i].Mz, normalizedIntensity));
                         }
                         else
                         {
@@ -162,8 +163,8 @@ namespace MassSpectrometry
             }
 
             // convert merged results to array and sort by m/z
-            mArray = mzIntensites_reduced.Select(i => i.Item1).ToArray();
-            intensities = mzIntensites_reduced.Select(i => i.Item2).ToArray();
+            mArray = mzIntensites_reduced.Select(i => i.Mz).ToArray();
+            intensities = mzIntensites_reduced.Select(i => i.Intensity).ToArray();
 
             Array.Sort(mArray, intensities);
         }
