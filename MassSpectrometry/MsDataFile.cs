@@ -86,18 +86,16 @@ namespace MassSpectrometry
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null)
         {
             Array.Sort(mArray, intensities);
-
+            const double littleShift = 0.000000001;
             List<MzPeak> mzIntensites = new List<MzPeak>();
             List<MzPeak> mzIntensites_reduced = new List<MzPeak>();
+            
 
             //make MzPeaks of each mz/intensity pair and create a list of pairs for everything with intensity above the minimum cutoff
+            double maximumIntensityInArray = intensities.Max();
             for (int i = 0; i < mArray.Length; i++)
             {
-                if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue && (intensities[i] > (intensities.Max() * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)))
-                {
-                    mzIntensites.Add(new MzPeak(mArray[i], intensities[i]));
-                }
-                else if (!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)//don't filter on intensity and keep everything
+                if ((!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue) || (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue && (intensities[i] > (maximumIntensityInArray * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value))))
                 {
                     mzIntensites.Add(new MzPeak(mArray[i], intensities[i]));
                 }
@@ -115,11 +113,11 @@ namespace MassSpectrometry
                 {
                     if (i == 0) // first
                     {
-                        ranges.Add(scanMin - 0.000000001, (scanMin + mzRangeInOneWindow));
+                        ranges.Add(scanMin - littleShift, (scanMin + mzRangeInOneWindow));
                     }
                     else if (i == ((int)filteringParams.NumberOfWindows - 1))//last
                     {
-                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + 0.000000001);
+                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + littleShift);
                     }
                     else//middle
                     {
@@ -130,7 +128,7 @@ namespace MassSpectrometry
             }
             else
             {
-                ranges.Add(scanRangeMinMz - 0.000000001, scanRangeMaxMz + 0.000000001);
+                ranges.Add(scanRangeMinMz - littleShift, scanRangeMaxMz + littleShift);
             }
 
             foreach (Tuple<double, double> range in ranges)
@@ -243,7 +241,7 @@ namespace MassSpectrometry
                 double scaleValue = 0;
 
                 int low = Math.Max(0, i - 75);
-                int high = Math.Min(intensities.Length-1, i + 75);
+                int high = Math.Min(intensities.Length - 1, i + 75);
                 int denominator = high - low + 1;
 
                 for (int j = low; j <= high; j++)
