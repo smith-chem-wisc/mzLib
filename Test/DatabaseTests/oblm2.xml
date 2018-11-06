@@ -18,7 +18,7 @@ MM   42
       </location>
       <subfeature type="modified residue" description="acetyl on K">
       <location>
-        <position position="3" />
+        <subposition subposition="3" />
       </location>
       </subfeature>
     </feature>
