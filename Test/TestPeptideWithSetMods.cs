@@ -64,8 +64,10 @@ namespace Test
             List<Tuple<string, FragmentationTerminus>> trypticSequencesPreventingClevage = new List<Tuple<string, FragmentationTerminus>>();
 
             //make two identical proteases, but one is fully specific and one is semi specific
-            Protease trypsinForTestNonAndSemiSpecificDigests = new Protease("trypsinForTestNonAndSemiSpecificDigests", trypticSequencesInducingClevage, trypticSequencesPreventingClevage, CleavageSpecificity.Full, "asdf", "asdf", "asdf");
-            Protease semiTrypsinForTestNonAndSemiSpecificDigests = new Protease("semitrypsinForTestNonAndSemiSpecificDigests", trypticSequencesInducingClevage, trypticSequencesPreventingClevage, CleavageSpecificity.Semi, "asdf", "asdf", "asdf");
+
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
+            Protease trypsinForTestNonAndSemiSpecificDigests = new Protease("trypsinForTestNonAndSemiSpecificDigests", CleavageSpecificity.Full, "asdf", "asdf", motifList);
+            Protease semiTrypsinForTestNonAndSemiSpecificDigests = new Protease("semitrypsinForTestNonAndSemiSpecificDigests", CleavageSpecificity.Semi, "asdf", "asdf", motifList);
 
             //add these made up proteases to the dictionary
             ProteaseDictionary.Dictionary.Add(trypsinForTestNonAndSemiSpecificDigests.Name, trypsinForTestNonAndSemiSpecificDigests);
@@ -164,7 +166,7 @@ namespace Test
             DigestionParams modernSemiDigestionParamsC = new DigestionParams(trypsinForTestNonAndSemiSpecificDigests.Name, 3, 2, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
             var fiveCleavageProductsModernSemiTrypsinC = fiveCleavages.Digest(modernSemiDigestionParamsC, null, null).ToList();
             Assert.AreEqual(6, fiveCleavageProductsModernSemiTrypsinC.Count);
-            
+
             //test the maxPeptideLength for both singleN and SingleC (variable methionine)
             //Single N max peptide length
             var modernNonSpecificN = new DigestionParams("singleN", 4, 2, 4, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
@@ -174,7 +176,7 @@ namespace Test
             {
                 Assert.IsTrue(pep.BaseSequence.Length <= 4 && pep.BaseSequence.Length >= 2);
             }
-            
+
             //Single C max peptide length
             var modernNonSpecificC = new DigestionParams("singleC", 4, 2, 4, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
             var fiveCleavageProductsModernNonSpecificC = fiveCleavages.Digest(modernNonSpecificC, null, null).ToList();
