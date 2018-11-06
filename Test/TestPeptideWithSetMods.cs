@@ -60,8 +60,10 @@ namespace Test
             List<Tuple<string, FragmentationTerminus>> trypticSequencesPreventingClevage = new List<Tuple<string, FragmentationTerminus>>();
 
             //make two identical proteases, but one is fully specific and one is semi specific
-            Protease trypsinForTestNonAndSemiSpecificDigests = new Protease("trypsinForTestNonAndSemiSpecificDigests", trypticSequencesInducingClevage, trypticSequencesPreventingClevage, CleavageSpecificity.Full, "asdf", "asdf", "asdf");
-            Protease semiTrypsinForTestNonAndSemiSpecificDigests = new Protease("semitrypsinForTestNonAndSemiSpecificDigests", trypticSequencesInducingClevage, trypticSequencesPreventingClevage, CleavageSpecificity.Semi, "asdf", "asdf", "asdf");
+
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
+            Protease trypsinForTestNonAndSemiSpecificDigests = new Protease("trypsinForTestNonAndSemiSpecificDigests", CleavageSpecificity.Full, "asdf", "asdf", motifList);
+            Protease semiTrypsinForTestNonAndSemiSpecificDigests = new Protease("semitrypsinForTestNonAndSemiSpecificDigests", CleavageSpecificity.Semi, "asdf", "asdf", motifList);
 
             //add these made up proteases to the dictionary
             ProteaseDictionary.Dictionary.Add(trypsinForTestNonAndSemiSpecificDigests.Name, trypsinForTestNonAndSemiSpecificDigests);
