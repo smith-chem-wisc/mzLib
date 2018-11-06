@@ -53,6 +53,7 @@
     <Compile Include="ProteinProperties.cs" />
     <Compile Include="SeqCoverageTests.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
+    <Compile Include="TestDigestionMotif.cs" />
     <Compile Include="TestDissociation.cs" />
     <Compile Include="TestMetaMorpheus.cs" />
     <Compile Include="TestMgf.cs" />

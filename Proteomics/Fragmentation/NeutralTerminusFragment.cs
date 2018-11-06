@@ -17,7 +17,7 @@ namespace Proteomics.Fragmentation
         public readonly double NeutralMass;
         public readonly int FragmentNumber;
         public readonly int AminoAcidPosition;
-        
+
         public NeutralTerminusFragment(FragmentationTerminus terminus, double neutralMass, int fragmentNumber, int aminoAcidPosition)
         {
             this.Terminus = terminus;

@@ -16,8 +16,8 @@ namespace Test
         public static void MultipleProteaseSelectionTest()
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
-
-            var protease = new Protease("TestProtease1", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("O", FragmentationTerminus.C), new Tuple<string, FragmentationTerminus>("T", FragmentationTerminus.N) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
+            var protease = new Protease("TestProtease1", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
@@ -33,7 +33,8 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
-            var protease = new Protease("TestProtease2", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("O", FragmentationTerminus.C), new Tuple<string, FragmentationTerminus>("T", FragmentationTerminus.N) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
+            var protease = new Protease("TestProtease2", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 1, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
@@ -51,7 +52,8 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
-            var protease = new Protease("TestProtease3", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("O", FragmentationTerminus.C), new Tuple<string, FragmentationTerminus>("T", FragmentationTerminus.N) }, new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("A", FragmentationTerminus.C) }, CleavageSpecificity.Full, null, null, null);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O[A]|,|T");
+            var protease = new Protease("TestProtease3", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();

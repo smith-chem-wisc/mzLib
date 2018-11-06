@@ -870,14 +870,14 @@ namespace Test
         {
             ModificationMotif.TryGetMotif("X", out var motif);
             Modification modWithDiagnosticIons = new Modification(
-                _originalId: "Test", 
-                _modificationType: "TestType", 
-                _target: motif, 
-                _locationRestriction: "Anywhere.", 
-                _monoisotopicMass: 1, 
+                _originalId: "Test",
+                _modificationType: "TestType",
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: 1,
                 _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { 4.0 } } });
 
-            PeptideWithSetModifications p = new PeptideWithSetModifications("P[TestType:Test]E[TestType:Test]P[TestType:Test]TIDE", 
+            PeptideWithSetModifications p = new PeptideWithSetModifications("P[TestType:Test]E[TestType:Test]P[TestType:Test]TIDE",
                 new Dictionary<string, Modification> { { "Test", modWithDiagnosticIons } } );
 
             var fragments = p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();

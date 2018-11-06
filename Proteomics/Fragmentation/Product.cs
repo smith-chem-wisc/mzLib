@@ -27,7 +27,7 @@ namespace Proteomics.Fragmentation
             get
             {
                 StringBuilder sb = new StringBuilder();
-                
+
                 sb.Append(ProductType);
 
                 // for "normal" fragments this is just the fragment number (e.g., the 3 in the b3 ion)
@@ -57,8 +57,8 @@ namespace Proteomics.Fragmentation
         {
             Product other = (Product)obj;
 
-            return this.ProductType == other.ProductType 
-                && this.TerminusFragment.Equals(other.TerminusFragment) 
+            return this.ProductType == other.ProductType
+                && this.TerminusFragment.Equals(other.TerminusFragment)
                 && this.NeutralLoss == other.NeutralLoss;
         }
 
