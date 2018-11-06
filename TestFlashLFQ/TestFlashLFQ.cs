@@ -3,17 +3,34 @@ using FlashLFQ;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    internal class Test
+    internal class TestFlashLFQ
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void TestFlashLfq()
         {
@@ -115,7 +132,6 @@ namespace Test
 
             Assert.That(int1 == int3);
             Assert.That(int1 == int5);
-
 
             // ********************************* check fraction normalization *********************************
             raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
@@ -448,7 +464,7 @@ namespace Test
                 IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
                 double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
                 double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
-                
+
                 // add the scan
                 scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
                     polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
@@ -458,7 +474,7 @@ namespace Test
             // write the .mzML
             IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
-            
+
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
@@ -559,7 +575,7 @@ namespace Test
 
                 if (s == 7)
                 {
-                    mz = new[] {401.0};
+                    mz = new[] { 401.0 };
                     intensities = new[] { 1000.0 };
                 }
 
@@ -667,12 +683,12 @@ namespace Test
 
             var proteinGroup = new ProteinGroup("Accession", "Gene", "Organism");
             string pgString = proteinGroup.ToString(new List<SpectraFileInfo> { spectraFile });
-            
+
             var identification = new Identification(
-                spectraFile, "PEPTIDE", "PEPTIDE", 1.0, 2.0, 3, 
-                new List<ProteinGroup>{ proteinGroup });
+                spectraFile, "PEPTIDE", "PEPTIDE", 1.0, 2.0, 3,
+                new List<ProteinGroup> { proteinGroup });
             string idString = identification.ToString();
-            
+
             var chromPeak = new ChromatographicPeak(identification, false, spectraFile);
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);

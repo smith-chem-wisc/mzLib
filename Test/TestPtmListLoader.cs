@@ -5,12 +5,28 @@ using System;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestPtmListLoader
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void SampleModFileLoading()
         {

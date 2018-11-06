@@ -22,18 +22,34 @@ using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestIsolation
     {
+        private static Stopwatch Stopwatch { get; set; }
+
         [OneTimeSetUp]
         public void Setup()
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
 
             UsefulProteomicsDatabases.Loaders.LoadElements(@"elements.dat");
+        }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]

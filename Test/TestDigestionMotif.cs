@@ -1,21 +1,32 @@
-﻿using NUnit.Framework;
+﻿using MzLibUtil;
+using NUnit.Framework;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
-using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.IO;
-using UsefulProteomicsDatabases;
-using MzLibUtil;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
     public class TestDigestionMotif
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setup()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void TestParseProtease()
         {
@@ -106,7 +117,7 @@ namespace Test
             Assert.AreEqual(first, "ABCGPX");
             Assert.AreEqual(last, "GPMFKCGPMKK");
         }
-       
+
         [Test]
         public static void TestNTerminusProtease()
         {

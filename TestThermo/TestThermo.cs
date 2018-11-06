@@ -7,27 +7,39 @@ using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
-using System.Diagnostics;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace TestThermo
 {
     [TestFixture]
     public sealed class TestThermo
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
         [TestCase("small.raw", "a.mzML", "aa.mzML")]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
         public static void ReadWriteReadEtc(string infile, string outfile1, string outfile2)
         {
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(infile);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var aa = Mzml.LoadAllStaticData(outfile1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
             Mzml.LoadAllStaticData(outfile2);
-            Console.WriteLine($"Analysis time for ReadWriteReadEtc({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]

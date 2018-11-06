@@ -19,13 +19,30 @@
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using System;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public sealed class ChromatogramTestFixture
+    public sealed class TestChromatogram
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setup()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public void ChromatogramTest()
         {

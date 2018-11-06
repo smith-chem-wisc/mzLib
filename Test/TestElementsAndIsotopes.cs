@@ -18,14 +18,31 @@
 
 using Chemistry;
 using NUnit.Framework;
+using System;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public class ElementsAndIsotopesTest
+    public static class TestElementsAndIsotopes
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setup()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
-        public void AddIsotopeWithExistingMassNumber()
+        public static void AddIsotopeWithExistingMassNumber()
         {
             var elementC = new Element("C", 6, 12.0106);
             elementC.AddIsotope(12, 12, 0.9893);
@@ -37,7 +54,7 @@ namespace Test
         }
 
         [Test]
-        public void AddingExistingElementsTest()
+        public static void AddingExistingElementsTest()
         {
             var elementC = new Element("GGG", 127, 12.0106);
             PeriodicTable.Add(elementC);
