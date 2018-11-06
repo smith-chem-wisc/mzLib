@@ -254,30 +254,6 @@ namespace MassSpectrometry
             intensities = scaledIntensities;
         }
 
-        private static List<int> GetSortedIndices(double[] m)
-        {
-            List<double> A = m.ToList();
-
-            var sorted = A
-                .Select((x, i) => new KeyValuePair<double, int>(x, i))
-                .OrderBy(x => x.Key)
-                .ToList();
-
-            //List<double> B = sorted.Select(x => x.Key).ToList();
-            List<int> idx = sorted.Select(x => x.Value).ToList();
-            return (idx);
-        }
-
-        private static double[] GetIndexSortedArray(List<int> indicies, double[] arrayValues)
-        {
-            List<double> sorted = arrayValues.ToList();
-            foreach (int i in indicies)
-            {
-                sorted.Add(arrayValues[i]);
-            }
-            return (sorted.ToArray());
-        }
-
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
             for (int i = 1; i <= NumSpectra; i++)
