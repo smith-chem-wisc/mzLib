@@ -105,17 +105,17 @@ namespace MassSpectrometry
             Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
 
             double scanMin = scanRangeMinMz;
-            if (filteringParams.NumberOfWindows.HasValue && (double)filteringParams.NumberOfWindows.Value > 0)
+            if (filteringParams.NumberOfWindows.HasValue && filteringParams.NumberOfWindows.Value > 0)
             {
-                mzRangeInOneWindow = mzRangeInOneWindow / (double)filteringParams.NumberOfWindows;
+                mzRangeInOneWindow = mzRangeInOneWindow / filteringParams.NumberOfWindows.Value;
 
-                for (int i = 0; i < (int)filteringParams.NumberOfWindows; i++)
+                for (int i = 0; i < filteringParams.NumberOfWindows.Value; i++)
                 {
                     if (i == 0) // first
                     {
                         ranges.Add(scanMin - littleShift, (scanMin + mzRangeInOneWindow));
                     }
-                    else if (i == ((int)filteringParams.NumberOfWindows - 1))//last
+                    else if (i == (filteringParams.NumberOfWindows.Value - 1))//last
                     {
                         ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + littleShift);
                     }
@@ -133,38 +133,37 @@ namespace MassSpectrometry
 
             foreach (Tuple<double, double> range in ranges)
             {
-                List<MzPeak> Temp = new List<MzPeak>();
+                List<MzPeak> handyLittleListofMzPeaksThatIsOnlyNeededTemporarily = new List<MzPeak>();
                 foreach (MzPeak mzIntensityPair in mzIntensites)
                 {
                     if (mzIntensityPair.Mz > range.Item1 && mzIntensityPair.Mz <= range.Item2)
                     {
-                        Temp.Add(mzIntensityPair);
+                        handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Add(mzIntensityPair);
                     }
                 }
-                if (Temp.Count > 0)
+                if (handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count > 0)
                 {
-                    Temp.Sort((x, y) => y.Intensity.CompareTo(x.Intensity)); //sort tuple in place decending by item 2, reverse by changing x and y
-                    double maxIntensity = Temp.Select(pair => pair.Intensity).ToList().Max();
-                    for (int i = 0; i < Math.Min(Temp.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
+                    handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.OrderByDescending(x=>x.Intensity); //sort tuple in place decending by item 2, reverse by changing x and y
+                    double maxIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Max(x=>x.Intensity);
+                    for (int i = 0; i < Math.Min(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
                     {
                         if (WindowMaxNormalizationToValue.HasValue)
                         {
-                            double normalizedIntensity = Temp[i].Intensity / maxIntensity * (double)WindowMaxNormalizationToValue.Value;
-                            mzIntensites_reduced.Add(new MzPeak(Temp[i].Mz, normalizedIntensity));
+                            double normalizedIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily[i].Intensity / maxIntensity * WindowMaxNormalizationToValue.Value;
+                            mzIntensites_reduced.Add(new MzPeak(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily[i].Mz, normalizedIntensity));
                         }
                         else
                         {
-                            mzIntensites_reduced.Add(Temp[i]);
+                            mzIntensites_reduced.Add(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily[i]);
                         }
                     }
                 }
             }
 
             // convert merged results to array and sort by m/z
+            mzIntensites_reduced.OrderBy(x => x.Mz);
             mArray = mzIntensites_reduced.Select(i => i.Mz).ToArray();
             intensities = mzIntensites_reduced.Select(i => i.Intensity).ToArray();
-
-            Array.Sort(mArray, intensities);
         }
 
         public static void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double percentMaxThreshold = 5)
