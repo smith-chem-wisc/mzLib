@@ -41,8 +41,18 @@ namespace UsefulProteomicsDatabases
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
 
+        private ProteinDbLoader ProteinDbLoader { get; }
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
+
+        /// <summary>
+        /// Constructs a ProteinXmlEntry object with reference to the loader that created it.
+        /// </summary>
+        /// <param name="loader"></param>
+        public ProteinXmlEntry(ProteinDbLoader loader)
+        {
+            ProteinDbLoader = loader;
+        }
 
         /// <summary>
         /// Start parsing a protein XML element
@@ -265,7 +275,7 @@ namespace UsefulProteomicsDatabases
             VariationValue = "";
         }
 
-        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
+        private void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
         {
             foreach (var annotatedMod in annotatedMods)

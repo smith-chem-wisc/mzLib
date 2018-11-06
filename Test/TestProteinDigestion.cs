@@ -18,17 +18,18 @@ namespace Test
     {
         private static Stopwatch Stopwatch { get; set; }
 
-        [SetUp]
+        [OneTimeSetUp]
         public static void Setup()
         {
             Stopwatch = new Stopwatch();
             Stopwatch.Start();
         }
 
-        [TearDown]
+        [OneTimeTearDown]
         public static void TearDown()
         {
-            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+            lock (FixtureSetUp.ConsoleLock)
+                Console.WriteLine($"TestProteinDigestion Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]

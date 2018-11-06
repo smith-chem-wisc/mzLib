@@ -12,21 +12,22 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
-    public sealed class TestCompactPeptide
+    public sealed class TestMetaMorpheus
     {
         private static Stopwatch Stopwatch { get; set; }
 
-        [SetUp]
+        [OneTimeSetUp]
         public static void Setuppp()
         {
             Stopwatch = new Stopwatch();
             Stopwatch.Start();
         }
 
-        [TearDown]
+        [OneTimeTearDown]
         public static void TearDown()
         {
-            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+            lock (FixtureSetUp.ConsoleLock)
+                Console.WriteLine($"TestMetaMorpheus Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]

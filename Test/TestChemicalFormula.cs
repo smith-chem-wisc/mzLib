@@ -22,6 +22,8 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -31,17 +33,18 @@ namespace Test
     {
         private static Stopwatch Stopwatch { get; set; }
 
-        [SetUp]
+        [OneTimeSetUp]
         public static void Setup()
         {
             Stopwatch = new Stopwatch();
             Stopwatch.Start();
         }
 
-        [TearDown]
+        [OneTimeTearDown]
         public static void TearDown()
         {
-            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+            lock (FixtureSetUp.ConsoleLock)
+                Console.WriteLine($"TestChemicalFormula Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
@@ -971,15 +974,6 @@ namespace Test
             var c = ChemicalFormula.Combine(theList);
 
             Assert.AreEqual("C3H3NO2", c.Formula);
-        }
-
-        [Test]
-        public static void ValidatePeriodicTable()
-        {
-            Assert.IsTrue(PeriodicTable.ValidateAverageMasses(1e-2));
-            Assert.IsFalse(PeriodicTable.ValidateAverageMasses(1e-3));
-            Assert.IsTrue(PeriodicTable.ValidateAbundances(1e-15));
-            Assert.IsFalse(PeriodicTable.ValidateAbundances(0));
         }
 
         [Test]

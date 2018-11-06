@@ -14,25 +14,27 @@ namespace TestThermo
     [TestFixture]
     public sealed class TestThermo
     {
+        public static object ConsoleLock = new object();
         private static Stopwatch Stopwatch { get; set; }
 
-        [SetUp]
+        [OneTimeSetUp]
         public static void Setuppp()
         {
             Stopwatch = new Stopwatch();
             Stopwatch.Start();
         }
 
-        [TearDown]
+        [OneTimeTearDown]
         public static void TearDown()
         {
-            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+            lock (ConsoleLock)
+                Console.WriteLine($"TestThermo Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
-        [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
-        [TestCase("small.raw", "a.mzML", "aa.mzML")]
-        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
+        [TestCase("testFileWMS2.raw", "a1.mzML", "aa1.mzML")]
+        [TestCase("small.raw", "a2.mzML", "aa2.mzML")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a3.mzML", "aa3.mzML")]
         public static void ReadWriteReadEtc(string infile, string outfile1, string outfile2)
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(infile);
@@ -99,7 +101,13 @@ namespace TestThermo
 
             Assert.IsTrue(Math.Abs(262.64 - sdafaf.Mass.ToMz(2)) <= 0.01);
 
-            using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS.raw"))
+            // avoid IO error with other threads
+            if (!File.Exists("05-13-16_cali_MS_60K-res_MS2.raw"))
+            {
+                File.Copy("05-13-16_cali_MS_60K-res_MS.raw", "05-13-16_cali_MS_60K-res_MS2.raw"); 
+            }
+
+            using (ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"05-13-16_cali_MS_60K-res_MS2.raw"))
             {
                 Assert.AreEqual(136, dynamicThermo.GetClosestOneBasedSpectrumNumber(1.89));
                 dynamicThermo.ClearCachedScans();
@@ -208,29 +216,21 @@ namespace TestThermo
         public static void LoadThermoTest3()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.RAW");
-
             Assert.IsTrue(a.GetAllScansList().Where(eb => eb.MsnOrder > 1).Count() > 0);
-
             Assert.IsTrue(a.GetAllScansList().Where(eb => eb.MsnOrder == 1).Count() > 0);
-
             Assert.IsFalse(a.ThermoGlobalParams.MonoisotopicselectionEnabled);
 
             var hehe = a.GetAllScansList().First(b => b.MsnOrder > 1);
-
             var prec = a.GetOneBasedScan(hehe.OneBasedPrecursorScanNumber.Value);
 
             Assert.IsNull(hehe.SelectedIonChargeStateGuess);
-
             Assert.IsNull(hehe.SelectedIonIntensity);
 
             hehe.ComputeSelectedPeakIntensity(prec.MassSpectrum);
-
             Assert.AreEqual(1017759, hehe.SelectedIonIntensity, 1);
-
             Assert.IsNull(hehe.SelectedIonMonoisotopicGuessIntensity);
 
             hehe.ComputeMonoisotopicPeakIntensity(prec.MassSpectrum);
-
             Assert.AreEqual(1017759, hehe.SelectedIonMonoisotopicGuessIntensity, 1);
         }
 
@@ -248,7 +248,12 @@ namespace TestThermo
         [Test]
         public static void ThermoDynamicTest()
         {
-            ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS2.raw");
+            // avoid IO error with other threads
+            if (!File.Exists("testFileWMS22.raw"))
+            {
+                File.Copy("testFileWMS2.raw", "testFileWMS22.raw"); 
+            }
+            ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"testFileWMS22.raw");
             var ms1scan = dynamicThermo.GetOneBasedScan(1);
             MsDataScan ms2scan = dynamicThermo.GetOneBasedScan(651);
             Assert.That(ms1scan.OneBasedScanNumber == 1);

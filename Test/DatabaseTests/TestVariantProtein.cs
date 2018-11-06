@@ -24,17 +24,18 @@ namespace Test
             UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
         }
 
-        [SetUp]
+        [OneTimeSetUp]
         public static void Setuppp()
         {
             Stopwatch = new Stopwatch();
             Stopwatch.Start();
         }
 
-        [TearDown]
+        [OneTimeTearDown]
         public static void TearDown()
         {
-            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+            lock (FixtureSetUp.ConsoleLock)
+                Console.WriteLine($"TestVariantProtein Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
@@ -49,7 +50,7 @@ namespace Test
         public void VariantXml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVar.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = new ProteinDbLoader().LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
             Assert.AreEqual(5, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change
@@ -66,7 +67,7 @@ namespace Test
         [Test]
         public static void SeqVarXmlTest()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
+            var ok = new ProteinDbLoader().LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
 
             var target = ok.First(p => !p.IsDecoy);
@@ -115,7 +116,8 @@ namespace Test
         [TestCase("oblm3.xml", 3, 5)] // with starting methionine
         public static void LoadSeqVarModifications(string databaseName, int modIdx, int reversedModIdx)
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
             Assert.AreEqual(1, target.OneBasedPossibleLocalizedModifications.Count);
@@ -138,7 +140,7 @@ namespace Test
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
+            proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
             Assert.AreEqual(1, target.OneBasedPossibleLocalizedModifications.Count);
@@ -164,7 +166,8 @@ namespace Test
         [TestCase("ranges2.xml", 1, 1, 5, 5)] // with starting methionine
         public static void ReverseDecoyProteolysisProducts(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
             Assert.AreEqual(1, target.ProteolysisProducts.Count());
@@ -177,7 +180,7 @@ namespace Test
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
+            proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
             Assert.AreEqual(1, target.ProteolysisProducts.Count());
@@ -193,7 +196,8 @@ namespace Test
         [TestCase("bonds2.xml", 2, 4, "MDICPC", 4, 6)] // with starting methionine
         public static void ReverseDecoyDisulfideBonds(string databaseName, int beginIdx, int reversedBeginIdx, string reversedSequence, int endIdx, int reversedEndIdx)
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
             Assert.AreEqual(1, target.DisulfideBonds.Count());
@@ -207,7 +211,7 @@ namespace Test
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
+            proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
             Assert.AreEqual(1, target.DisulfideBonds.Count());
@@ -230,7 +234,8 @@ namespace Test
         [TestCase("splices8.xml", 1, 5, 2, 6)] // range with start with starting methionine
         public static void ReverseDecoySpliceSites(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
                 DecoyType.Reverse, null, false, null, out var unknownModifications);
             var target = proteins[0];
             Assert.AreEqual(1, target.SpliceSites.Count());
@@ -243,7 +248,7 @@ namespace Test
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(null, proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
+            proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
                 DecoyType.Reverse, null, false, null, out unknownModifications);
             target = proteins[0];
             Assert.AreEqual(1, target.SpliceSites.Count());
@@ -260,7 +265,8 @@ namespace Test
         [TestCase("HomozygousHLA.xml", 10, 17)]
         public static void HomozygousVariantsAtVariedDepths(string filename, int minVariantDepth, int appliedCount)
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
                 DecoyType.None, null, false, null, out var unknownModifications, minAlleleDepth: minVariantDepth);
             Assert.AreEqual(1, proteins.Count);
             Assert.AreEqual(18, proteins[0].SequenceVariations.Count()); // some redundant
@@ -289,7 +295,9 @@ namespace Test
             var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantProteins()).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
-            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
+
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteinsWithAppliedVariants3 = loader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
             var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
@@ -323,7 +331,8 @@ namespace Test
         [Test]
         public static void StopGained()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
                 DecoyType.None, null, false, null, out var unknownModifications);
             Assert.AreEqual(2, proteins.Count);
             Assert.AreEqual(1, proteins[0].SequenceVariations.Count()); // some redundant
@@ -337,7 +346,7 @@ namespace Test
             Assert.AreEqual(161 - 1, proteins[1].Length);
             Assert.AreNotEqual(proteins[0].Length, proteins[1].Length);
 
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
+            proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
                 DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 400);
             Assert.AreEqual(1, proteins.Count);
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Count()); // some redundant
@@ -348,7 +357,8 @@ namespace Test
         [Test]
         public static void MultipleAlternateAlleles()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
                 DecoyType.None, null, false, null, out var unknownModifications);
             Assert.AreEqual(2, proteins.Count);
             Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // some redundant
@@ -362,7 +372,7 @@ namespace Test
             Assert.AreEqual('K', proteins[0][63 - 1]);
             Assert.AreEqual('R', proteins[1][63 - 1]);
 
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
+            proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
                 DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 10);
             Assert.AreEqual(1, proteins.Count);
             Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count()); // some redundant
@@ -373,7 +383,8 @@ namespace Test
         [Test]
         public static void MultipleAlternateFrameshifts()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateFrameshifts.xml"), true,
+            ProteinDbLoader loader = new ProteinDbLoader();
+            var proteins = loader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateFrameshifts.xml"), true,
                 DecoyType.None, null, false, null, out var unknownModifications);
             Assert.AreEqual(2, proteins.Count);
             Assert.AreEqual(3, proteins[0].SequenceVariations.Count()); // some redundant
@@ -392,8 +403,9 @@ namespace Test
         [Test]
         public void VariantSymbolWeirdnessXml()
         {
+            ProteinDbLoader loader = new ProteinDbLoader();
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = loader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
             Assert.AreEqual(12, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.First().NonVariantProtein.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
 
@@ -409,8 +421,9 @@ namespace Test
         [Test]
         public void VariantSymbolWeirdness2Xml()
         {
+            ProteinDbLoader loader = new ProteinDbLoader();
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness2.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = loader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
 
             Assert.AreEqual(1, variantProteins.First().NonVariantProtein.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.Count); // there is only one unique amino acid change

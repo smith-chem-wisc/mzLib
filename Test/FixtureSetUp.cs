@@ -22,12 +22,14 @@ using UsefulProteomicsDatabases;
 namespace Test
 {
     [SetUpFixture]
-    public class MySetUpClass
+    public class FixtureSetUp
     {
+        public static object ConsoleLock = new object();
+
         [OneTimeSetUp]
         public void Setup()
         {
-            var elementLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.dat");
+            var elementLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "SetUp.dat");
             Loaders.LoadElements(elementLocation);
         }
     }

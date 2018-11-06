@@ -38,17 +38,18 @@ namespace Test
     {
         private static Stopwatch Stopwatch { get; set; }
 
-        [SetUp]
+        [OneTimeSetUp]
         public static void Setuppp()
         {
             Stopwatch = new Stopwatch();
             Stopwatch.Start();
         }
 
-        [TearDown]
+        [OneTimeTearDown]
         public static void TearDown()
         {
-            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+            lock (FixtureSetUp.ConsoleLock)
+                Console.WriteLine($"TestModifications Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
@@ -665,7 +666,7 @@ namespace Test
         }
 
         [Test]
-        public void ModificationCollectionTest()
+        public void ModificationCollectionTesting()
         {
             OldSchoolModification mod1 = new OldSchoolModification(10, "mass 10 modification");
             OldSchoolModification mod2 = new OldSchoolModification(100, "mass 100 modification");
