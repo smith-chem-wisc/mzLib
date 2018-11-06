@@ -89,7 +89,6 @@ namespace MassSpectrometry
             const double littleShift = 0.000000001;
             List<MzPeak> mzIntensites = new List<MzPeak>();
             List<MzPeak> mzIntensites_reduced = new List<MzPeak>();
-            
 
             //make MzPeaks of each mz/intensity pair and create a list of pairs for everything with intensity above the minimum cutoff
             double maximumIntensityInArray = intensities.Max();
@@ -143,7 +142,7 @@ namespace MassSpectrometry
                 }
                 if (handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count > 0)
                 {
-                    handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.OrderByDescending(x=>x.Intensity); //sort tuple in place decending by item 2, reverse by changing x and y
+                    handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Sort((x, y) => y.Intensity.CompareTo(x.Intensity)); //sort tuple in place decending by item 2, reverse by changing x and y
                     double maxIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Max(x=>x.Intensity);
                     for (int i = 0; i < Math.Min(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
                     {
@@ -161,7 +160,7 @@ namespace MassSpectrometry
             }
 
             // convert merged results to array and sort by m/z
-            mzIntensites_reduced.OrderBy(x => x.Mz);
+            mzIntensites_reduced.Sort((x, y) => x.Mz.CompareTo(y.Mz));
             mArray = mzIntensites_reduced.Select(i => i.Mz).ToArray();
             intensities = mzIntensites_reduced.Select(i => i.Intensity).ToArray();
         }

@@ -64,7 +64,7 @@ namespace Test
         [Test]
         public static void TestPeakTrimmingWithOneWindow()
         {
-            Random rand = new Random();
+            Random rand = new Random(100);
             int numPeaks = 200;
             double minRatio = 0.01;
             int numWindows = 1;
