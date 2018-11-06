@@ -96,6 +96,10 @@ namespace MassSpectrometry
                 {
                     mzIntensites.Add(mArray[i], intensities[i]);
                 }
+                else if (!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)//don't filter on intensity and keep everything
+                {
+                    mzIntensites.Add(mArray[i], intensities[i]);
+                }
             }
 
             double mzRangeInOneWindow = scanRangeMaxMz - scanRangeMinMz;
@@ -138,18 +142,21 @@ namespace MassSpectrometry
                         Temp.Add(mzIntensityPair);
                     }
                 }
-                Temp.Sort((x, y) => y.Item2.CompareTo(x.Item2)); //sort tuple in place decending by item 2, reverse by changing x and y
-                double maxIntensity = Temp.Select(pair => pair.Item2).ToList().Max();
-                for (int i = 0; i < Math.Min(Temp.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
+                if (Temp.Count > 0)
                 {
-                    if (WindowMaxNormalizationToValue.HasValue)
+                    Temp.Sort((x, y) => y.Item2.CompareTo(x.Item2)); //sort tuple in place decending by item 2, reverse by changing x and y
+                    double maxIntensity = Temp.Select(pair => pair.Item2).ToList().Max();
+                    for (int i = 0; i < Math.Min(Temp.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
                     {
-                        double normalizedIntensity = Temp[i].Item2 / maxIntensity * (double)WindowMaxNormalizationToValue.Value;
-                        mzIntensites_reduced.Add(new Tuple<double, double>(Temp[i].Item1, normalizedIntensity));
-                    }
-                    else
-                    {
-                        mzIntensites_reduced.Add(Temp[i]);
+                        if (WindowMaxNormalizationToValue.HasValue)
+                        {
+                            double normalizedIntensity = Temp[i].Item2 / maxIntensity * (double)WindowMaxNormalizationToValue.Value;
+                            mzIntensites_reduced.Add(new Tuple<double, double>(Temp[i].Item1, normalizedIntensity));
+                        }
+                        else
+                        {
+                            mzIntensites_reduced.Add(Temp[i]);
+                        }
                     }
                 }
             }
@@ -161,41 +168,46 @@ namespace MassSpectrometry
             Array.Sort(mArray, intensities);
         }
 
-        public void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double percentMaxThreshold = 5)
+        public static void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double percentMaxThreshold = 5)
         {
+            Array.Sort(mArray, intensities);
             int numberOfWindows = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz + discreteMassBin) / discreteMassBin, 0);
 
-            FilteringParams f = new FilteringParams(1, percentMaxThreshold/100, numberOfWindows, false, false);
+            FilteringParams firstFilter = new FilteringParams(1, percentMaxThreshold / 100, numberOfWindows, false, false);
 
             for (int i = 0; i < mArray.Length; i++)
             {
-                if(intensities[i] != 0)
+                if (intensities[i] != 0)
                 {
                     intensities[i] = Math.Sqrt(intensities[i]);
-                }                
+                }
             }
 
             //set intensity of precursor ions to zero
             for (int i = 0; i < mArray.Length; i++)
             {
-                if(mArray[i] >(precursorMz -precursorDiscardRange) && mArray[i] < (precursorMz + precursorDiscardRange))
+                if (mArray[i] > (precursorMz - precursorDiscardRange) && mArray[i] < (precursorMz + precursorDiscardRange))
                 {
                     intensities[i] = 0;
                 }
             }
 
-            //filter peaks into discrete mass bins and normalize
-            MsDataFile.WindowModeHelper(ref intensities, ref mArray, f, (scanRangeMinMz - discreteMassBin / 2), (scanRangeMaxMz + discreteMassBin / 2), 50);
+            //filter peaks into discrete mass bins
+            MsDataFile.WindowModeHelper(ref intensities, ref mArray, firstFilter, (scanRangeMinMz - discreteMassBin / 2), (scanRangeMaxMz + discreteMassBin / 2));
+
+            //normalize intensity in segments to max 50
+            FilteringParams secondFilter = new FilteringParams((int)Math.Ceiling((decimal)numberOfWindows / 10), null, 10, false, false);
+            MsDataFile.WindowModeHelper(ref intensities, ref mArray, secondFilter, (scanRangeMinMz - discreteMassBin / 2), (scanRangeMaxMz + discreteMassBin / 2), 50);
 
             for (int i = 0; i < mArray.Length; i++)
             {
-                mArray[i] = Math.Round(mArray[i]/discreteMassBin,0)*discreteMassBin;
+                mArray[i] = Math.Round(mArray[i] / discreteMassBin, 0) * discreteMassBin;
             }
 
             //fill in missing mz values in array with zero intensity
             List<double> allPossibleMzValues = new List<double>();
-            double start = scanRangeMinMz;
-            while(start < (scanRangeMaxMz + discreteMassBin / 2))
+            double start = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;
+            while (start < (scanRangeMaxMz + discreteMassBin / 2))
             {
                 allPossibleMzValues.Add(start);
                 start += discreteMassBin;
@@ -204,7 +216,7 @@ namespace MassSpectrometry
             //remove any that are already in the mArray
             foreach (double remainingMzValue in mArray)
             {
-                allPossibleMzValues.RemoveAll(x => x > (remainingMzValue - discreteMassBin / 2) && x < (remainingMzValue + discreteMassBin/2));
+                allPossibleMzValues.RemoveAll(x => x > (remainingMzValue - discreteMassBin / 2) && x < (remainingMzValue + discreteMassBin / 2));
             }
 
             double[] zeroArray = new double[allPossibleMzValues.Count];
@@ -213,24 +225,33 @@ namespace MassSpectrometry
                 zeroArray[i] = 0;
             }
 
+            int original_mArray_count = mArray.Length;
             Array.Resize<double>(ref mArray, mArray.Length + allPossibleMzValues.Count);
-            Array.Copy(allPossibleMzValues.ToArray(), 0, mArray, mArray.Length, allPossibleMzValues.Count);
+            Array.Copy(allPossibleMzValues.ToArray(), 0, mArray, original_mArray_count, allPossibleMzValues.Count);
 
             Array.Resize<double>(ref intensities, intensities.Length + zeroArray.Length);
-            Array.Copy(zeroArray.ToArray(), 0, intensities, intensities.Length, zeroArray.Length);
+            Array.Copy(zeroArray.ToArray(), 0, intensities, original_mArray_count, zeroArray.Length);
 
             Array.Sort(mArray, intensities);
 
             //Scale the intensities
+
+            double[] scaledIntensities = new double[intensities.Length];
             for (int i = 0; i < intensities.Length; i++)
             {
                 double scaleValue = 0;
-                for (int j = Math.Max(0, -75); j < Math.Min(intensities.Length, i + 75); j++)
+
+                int low = Math.Max(0, i - 75);
+                int high = Math.Min(intensities.Length-1, i + 75);
+                int denominator = high - low + 1;
+
+                for (int j = low; j <= high; j++)
                 {
                     scaleValue += intensities[j];
                 }
-                intensities[i] = Math.Max(0, intensities[i] - 1d / 151d * scaleValue);
-            }          
+                scaledIntensities[i] = Math.Max(0, intensities[i] - 1d / (denominator) * scaleValue);
+            }
+            intensities = scaledIntensities;
         }
 
         private static List<int> GetSortedIndices(double[] m)
