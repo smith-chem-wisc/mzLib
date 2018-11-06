@@ -57,6 +57,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
                     writer.WriteEndElement();
                 }
+
                 foreach (Protein protein in nonVariantProteins)
                 {
                     writer.WriteStartElement("entry");
@@ -101,8 +102,6 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                         writer.WriteEndElement();
                     }
-
-                    //This code works but it's bloat.
 
                     foreach (var dbRef in protein.DatabaseReferences)
                     {
@@ -184,8 +183,8 @@ namespace UsefulProteomicsDatabases
                                 writer.WriteAttributeString("type", "modified residue");
                                 writer.WriteAttributeString("description", modId);
                                 writer.WriteStartElement("location");
-                                writer.WriteStartElement("position");
-                                writer.WriteAttributeString("position", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                                writer.WriteStartElement("subposition");
+                                writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
                                 writer.WriteEndElement();
                                 writer.WriteEndElement();
                                 writer.WriteEndElement();
