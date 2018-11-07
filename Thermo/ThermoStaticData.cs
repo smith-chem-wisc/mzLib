@@ -242,7 +242,7 @@ namespace IO.Thermo
                 //Array reference passed by value, array calues will be modified after calling
                 else
                 {
-                    WindowModeHelper(ref intensityArray, ref mzArray, filterParams);
+                    WindowModeHelper(ref intensityArray, ref mzArray, filterParams, pdLowMass, pdHighMass);
                 }
                 Array.Sort(mzArray, intensityArray);
                 thermoSpectrum = new MzSpectrum(mzArray, intensityArray, false);
