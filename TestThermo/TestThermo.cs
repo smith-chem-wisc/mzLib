@@ -5,9 +5,9 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Diagnostics;
 
 namespace TestThermo
 {
@@ -96,6 +96,48 @@ namespace TestThermo
             Mzml readCovertedMzmlFile = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "convertedThermo.mzML"));
 
             Assert.AreEqual(a.GetAllScansList().First().Polarity, readCovertedMzmlFile.GetAllScansList().First().Polarity);
+        }
+
+        [Test]
+        public static void WindowFilteringStaticTest()
+        {
+            //test window number of 1
+            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfWindows: 1, applyTrimmingToMs1: true));
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
+            var aLen = a_w.GetOneBasedScan(1).MassSpectrum.Size;
+            var bLen = b_w.GetOneBasedScan(1).MassSpectrum.Size;
+            var cLen = c_w.GetOneBasedScan(1).MassSpectrum.Size;
+            var dLen = d_w.GetOneBasedScan(1).MassSpectrum.Size;
+            Assert.AreEqual(Math.Min(bLen, cLen), dLen);
+            var aLen2 = a_w.GetOneBasedScan(2).MassSpectrum.Size;
+            var bLen2 = b_w.GetOneBasedScan(2).MassSpectrum.Size;
+            var cLen2 = c_w.GetOneBasedScan(2).MassSpectrum.Size;
+            var dLen2 = d_w.GetOneBasedScan(2).MassSpectrum.Size;
+            Assert.AreEqual(Math.Min(bLen2, cLen2), dLen2);
+            var aLen3 = a_w.GetOneBasedScan(3).MassSpectrum.Size;
+            var bLen3 = b_w.GetOneBasedScan(3).MassSpectrum.Size;
+            var cLen3 = c_w.GetOneBasedScan(3).MassSpectrum.Size;
+            var dLen3 = d_w.GetOneBasedScan(3).MassSpectrum.Size;
+            Assert.AreEqual(Math.Min(bLen3, cLen3), dLen3);
+        }
+
+        [Test]
+        public static void MultiWindowFiltering()
+        {
+            //tests for filtering with window
+            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfWindows: 1, applyTrimmingToMs1: true));
+            Assert.AreEqual(1120, a_w.GetOneBasedScan(1).MassSpectrum.Size);
+            //number of 2
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 3, applyTrimmingToMs1: true));
+            Assert.AreEqual(600, b_w.GetOneBasedScan(1).MassSpectrum.Size);
+            //number of 4
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 4, applyTrimmingToMs1: true));
+            Assert.AreEqual(742, c_w.GetOneBasedScan(1).MassSpectrum.Size);
+            //number of 6, which doesn't divide 1120
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, numberOfWindows: 6, applyTrimmingToMs1: true));
+            Assert.AreEqual(775, d_w.GetOneBasedScan(1).MassSpectrum.Size);
         }
 
         [Test]
@@ -270,7 +312,7 @@ namespace TestThermo
             Assert.AreEqual(smallMzml.GetOneBasedScan(8).OneBasedScanNumber, 8);
             Assert.AreEqual(smallThermo.GetOneBasedScan(5).RetentionTime, smallMzml.GetOneBasedScan(5).RetentionTime);
         }
-        
+
         [OneTimeSetUp]
         public void Setup()
         {

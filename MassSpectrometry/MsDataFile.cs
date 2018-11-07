@@ -86,7 +86,7 @@ namespace MassSpectrometry
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null)
         {
             Array.Sort(mArray, intensities);
-            const double littleShift = 0.000000001;
+            const double shiftToMakeRangeInclusive = 0.000000001;
             List<MzPeak> mzIntensites = new List<MzPeak>();
             List<MzPeak> mzIntensites_reduced = new List<MzPeak>();
 
@@ -112,11 +112,11 @@ namespace MassSpectrometry
                 {
                     if (i == 0) // first
                     {
-                        ranges.Add(scanMin - littleShift, (scanMin + mzRangeInOneWindow));
+                        ranges.Add(scanMin - shiftToMakeRangeInclusive, (scanMin + mzRangeInOneWindow));
                     }
                     else if (i == (filteringParams.NumberOfWindows.Value - 1))//last
                     {
-                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + littleShift);
+                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
                     }
                     else//middle
                     {
@@ -127,7 +127,7 @@ namespace MassSpectrometry
             }
             else
             {
-                ranges.Add(scanRangeMinMz - littleShift, scanRangeMaxMz + littleShift);
+                ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
             }
 
             foreach (Tuple<double, double> range in ranges)
@@ -144,7 +144,12 @@ namespace MassSpectrometry
                 {
                     handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Sort((x, y) => y.Intensity.CompareTo(x.Intensity)); //sort tuple in place decending by item 2, reverse by changing x and y
                     double maxIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Max(x=>x.Intensity);
-                    for (int i = 0; i < Math.Min(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value); i++)
+                    int countOfPeaksToKeep = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count;
+                    if(filteringParams.NumberOfPeaksToKeepPerWindow != null)
+                    {
+                        countOfPeaksToKeep = Math.Min(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value);
+                    }
+                    for (int i = 0; i < countOfPeaksToKeep; i++)
                     {
                         if (WindowMaxNormalizationToValue.HasValue)
                         {
