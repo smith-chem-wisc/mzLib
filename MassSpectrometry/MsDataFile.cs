@@ -167,6 +167,8 @@ namespace MassSpectrometry
 
         public static void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double percentMaxThreshold = 5)
         {
+            //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
+
             Array.Sort(mArray, intensities);
             int numberOfWindows = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz + discreteMassBin) / discreteMassBin, 0);
 
@@ -174,7 +176,7 @@ namespace MassSpectrometry
 
             for (int i = 0; i < mArray.Length; i++)
             {
-                if (intensities[i] != 0)
+                if (Math.Abs(intensities[i]) > 0.000001)//some small number
                 {
                     intensities[i] = Math.Sqrt(intensities[i]);
                 }
@@ -233,13 +235,15 @@ namespace MassSpectrometry
 
             //Scale the intensities
 
+            const int rangeEnd = 75; //from J. Proteome Res., 2018, 17 (11), pp 3644–3656
+
             double[] scaledIntensities = new double[intensities.Length];
             for (int i = 0; i < intensities.Length; i++)
             {
                 double scaleValue = 0;
 
-                int low = Math.Max(0, i - 75);
-                int high = Math.Min(intensities.Length - 1, i + 75);
+                int low = Math.Max(0, i - rangeEnd);
+                int high = Math.Min(intensities.Length - 1, i + rangeEnd);
                 int denominator = high - low + 1;
 
                 for (int j = low; j <= high; j++)

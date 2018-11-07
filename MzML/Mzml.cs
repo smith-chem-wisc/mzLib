@@ -357,7 +357,9 @@ namespace IO.MzML
             double high = double.NaN;
             double low = double.NaN;
 
-            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList != null)
+            var aScanWindowList = _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList;
+
+            if (aScanWindowList != null)
             {
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam)
                 {
@@ -365,7 +367,7 @@ namespace IO.MzML
                     {
                         low = double.Parse(cv.value);
                     }
-                    if (cv.accession.Equals(_scanWindowUpperLimit))
+                    else if (cv.accession.Equals(_scanWindowUpperLimit))
                     {
                         high = double.Parse(cv.value);
                     }

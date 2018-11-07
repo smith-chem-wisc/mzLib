@@ -42,9 +42,6 @@ namespace MassSpectrometry
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
 
-        //public double[] ProcessedXArray { get; private set; }
-        //public double[] ProcessedYArray { get; private set; }
-
         static MzSpectrum()
         {
             // AVERAGINE
@@ -576,10 +573,6 @@ namespace MassSpectrometry
         private MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
-        }
-
-        
-
-        
+        }    
     }
 }
