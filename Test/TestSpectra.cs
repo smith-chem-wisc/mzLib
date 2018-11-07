@@ -22,13 +22,28 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public sealed class SpectrumTestFixture
+    public sealed class TestSpectra
     {
         private MzSpectrum _mzSpectrumA;
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
 
         [SetUp]
         public void Setup()
@@ -222,7 +237,7 @@ namespace Test
             Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec3, tolerance), spec3.CalculateDotProductSimilarity(spec1, tolerance)); //comparison side shouldn't matter
             Assert.AreEqual(spec1.CalculateDotProductSimilarity(spec2, tolerance), 0); //orthogonal spectra give a score of zero
             Assert.AreEqual(spec2.CalculateDotProductSimilarity(spec2, tolerance), 1); //identical spectra give a score of 1
-            Assert.IsTrue(tolerance.Within(spec3.CalculateDotProductSimilarity(spec2, tolerance), Math.Cos(Math.PI/4)));
+            Assert.IsTrue(tolerance.Within(spec3.CalculateDotProductSimilarity(spec2, tolerance), Math.Cos(Math.PI / 4)));
         }
 
         [Test]

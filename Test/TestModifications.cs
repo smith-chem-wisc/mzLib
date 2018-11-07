@@ -29,12 +29,28 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UsefulProteomicsDatabases;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestModifications
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void Test_modificationsHashCode()
         {
@@ -161,6 +177,19 @@ namespace Test
             foreach (var b in a)
                 kk += (b as OldSchoolModification).MonoisotopicMass;
             Assert.AreEqual(3, kk);
+        }
+
+        [Test]
+        public void ModificationCollectionTestTest()
+        {
+            OldSchoolModification mod1 = new OldSchoolModification(10, "mass 10 modification");
+            OldSchoolModification mod2 = new OldSchoolModification(100, "mass 100 modification");
+            OldSchoolModification mod3 = new OldSchoolModification(1000, "mass 1000 modification");
+            ModificationCollection a = new ModificationCollection(mod1, mod2, mod3, mod1);
+            ModificationCollection b = new ModificationCollection(mod1, mod3, mod1, mod2);
+            Assert.IsTrue(a.Equals(b));
+            ModificationCollection c = new ModificationCollection(mod1);
+            Assert.IsFalse(c.Equals(b));
         }
 
         [Test]
@@ -613,7 +642,7 @@ namespace Test
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
         }
-        
+
         [Test]
         public static void TestFragmentNterminalModifiedPeptide()
         {
@@ -628,7 +657,7 @@ namespace Test
 
             var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
             var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
-            Assert.That(roundedFragments.SequenceEqual(new int[] { 139, 268, 365, 466, 579, 694, 147, 262, 375, 476, 573, 702  }));
+            Assert.That(roundedFragments.SequenceEqual(new int[] { 139, 268, 365, 466, 579, 694, 147, 262, 375, 476, 573, 702 }));
         }
 
         [Test]

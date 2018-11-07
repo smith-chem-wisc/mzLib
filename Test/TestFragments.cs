@@ -27,6 +27,7 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
@@ -34,6 +35,20 @@ namespace Test
     public sealed class TestFragments
     {
         private Peptide _mockPeptideEveryAminoAcid;
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setup()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
 
         [SetUp]
         public void SetUp()
@@ -51,7 +66,6 @@ namespace Test
         public void FragmentName()
         {
             Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.a, 1).ToArray()[0];
-
             Assert.AreEqual("a1", fragment.ToString());
         }
 
@@ -59,7 +73,6 @@ namespace Test
         public void FragmentAllBIons()
         {
             List<Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b).ToList();
-
             Assert.AreEqual(19, fragments.Count);
         }
 
@@ -67,8 +80,19 @@ namespace Test
         public void FragmentAnotherTest()
         {
             List<Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1, 2).ToList();
-
             Assert.AreEqual(2, fragments.Count);
+        }
+
+        [Test]
+        [TestCase(DissociationType.HCD, new[] { ProductType.b, ProductType.y })]
+        [TestCase(DissociationType.ECD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
+        [TestCase(DissociationType.ETD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
+        [TestCase(DissociationType.EThcD, new[] { ProductType.b, ProductType.y })]
+        [TestCase(DissociationType.AnyActivationType, new[] { ProductType.b, ProductType.y })]
+        public void TestDissociationProductTypes(DissociationType dissociationType, IEnumerable<ProductType> expectedProductTypes)
+        {
+            List<ProductType> d = DissociationTypeCollection.ProductsFromDissociationType[dissociationType];
+            Assert.IsTrue(expectedProductTypes.All(productType => d.Contains(productType)));
         }
 
         [Test]
@@ -878,7 +902,7 @@ namespace Test
                 _diagnosticIons: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { 4.0 } } });
 
             PeptideWithSetModifications p = new PeptideWithSetModifications("P[TestType:Test]E[TestType:Test]P[TestType:Test]TIDE",
-                new Dictionary<string, Modification> { { "Test", modWithDiagnosticIons } } );
+                new Dictionary<string, Modification> { { "Test", modWithDiagnosticIons } });
 
             var fragments = p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
 
