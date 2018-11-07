@@ -89,12 +89,17 @@ namespace MassSpectrometry
             const double shiftToMakeRangeInclusive = 0.000000001;
             List<MzPeak> mzIntensites = new List<MzPeak>();
             List<MzPeak> mzIntensites_reduced = new List<MzPeak>();
+            int numberOfWindows = 1;
+            if (filteringParams.NumberOfWindows != null)
+            {
+                numberOfWindows = filteringParams.NumberOfWindows.Value;
+            }
 
             //make MzPeaks of each mz/intensity pair and create a list of pairs for everything with intensity above the minimum cutoff
             double maximumIntensityInArray = intensities.Max();
             for (int i = 0; i < mArray.Length; i++)
             {
-                if ((!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue) || (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue && (intensities[i] > (maximumIntensityInArray * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value))))
+                if ((!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue) || (intensities[i] > (maximumIntensityInArray * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)))
                 {
                     mzIntensites.Add(new MzPeak(mArray[i], intensities[i]));
                 }
@@ -108,13 +113,13 @@ namespace MassSpectrometry
             {
                 mzRangeInOneWindow = mzRangeInOneWindow / filteringParams.NumberOfWindows.Value;
 
-                for (int i = 0; i < filteringParams.NumberOfWindows.Value; i++)
+                for (int i = 1; i <= numberOfWindows; i++)
                 {
-                    if (i == 0) // first
+                    if (i == 1) // first
                     {
                         ranges.Add(scanMin - shiftToMakeRangeInclusive, (scanMin + mzRangeInOneWindow));
                     }
-                    else if (i == (filteringParams.NumberOfWindows.Value - 1))//last
+                    else if (i == (numberOfWindows))//last
                     {
                         ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
                     }
@@ -143,9 +148,9 @@ namespace MassSpectrometry
                 if (handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count > 0)
                 {
                     handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Sort((x, y) => y.Intensity.CompareTo(x.Intensity)); //sort tuple in place decending by item 2, reverse by changing x and y
-                    double maxIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Max(x=>x.Intensity);
+                    double maxIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Max(x => x.Intensity);
                     int countOfPeaksToKeep = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count;
-                    if(filteringParams.NumberOfPeaksToKeepPerWindow != null)
+                    if (filteringParams.NumberOfPeaksToKeepPerWindow != null)
                     {
                         countOfPeaksToKeep = Math.Min(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value);
                     }
@@ -196,12 +201,18 @@ namespace MassSpectrometry
                 }
             }
 
-            //filter peaks into discrete mass bins
-            MsDataFile.WindowModeHelper(ref intensities, ref mArray, firstFilter, (scanRangeMinMz - discreteMassBin / 2), (scanRangeMaxMz + discreteMassBin / 2));
+            //We filter twice below: the second filter, which is 10 windows with 10 peaks, you could end up with 10 peaks that are not all separated minimally by 1.0005079 daltons.T
+            //The first pass gets one peak(maximally) at every dalton and the second pass keeps up to 10 of those in each of the 10 windows.
 
-            //normalize intensity in segments to max 50
+            //filter peaks into discrete mass bins. makes one bin for every single integer m/z.
+            double minMz = scanRangeMinMz - discreteMassBin / 2;
+            double maxMz = scanRangeMaxMz + discreteMassBin / 2;
+
+            MsDataFile.WindowModeHelper(ref intensities, ref mArray, firstFilter, minMz, maxMz);
+
+            //normalize intensity in segments to max 50 intensity keeping only 10 peaks per window.
             FilteringParams secondFilter = new FilteringParams((int)Math.Ceiling((decimal)numberOfWindows / 10), null, 10, false, false);
-            MsDataFile.WindowModeHelper(ref intensities, ref mArray, secondFilter, (scanRangeMinMz - discreteMassBin / 2), (scanRangeMaxMz + discreteMassBin / 2), 50);
+            MsDataFile.WindowModeHelper(ref intensities, ref mArray, secondFilter, minMz, maxMz, 50);
 
             for (int i = 0; i < mArray.Length; i++)
             {
@@ -210,8 +221,8 @@ namespace MassSpectrometry
 
             //fill in missing mz values in array with zero intensity
             List<double> allPossibleMzValues = new List<double>();
-            double start = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;
-            while (start < (scanRangeMaxMz + discreteMassBin / 2))
+            double start = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;//don't use minMz here, that would be WRONG
+            while (start < (maxMz))
             {
                 allPossibleMzValues.Add(start);
                 start += discreteMassBin;
