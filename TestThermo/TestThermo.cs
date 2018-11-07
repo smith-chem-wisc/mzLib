@@ -5,7 +5,6 @@ using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -13,6 +12,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace TestThermo
 {
     [TestFixture]
+    [Ignore("Takes 20 mins on appveyor")]
     public sealed class TestThermo
     {
         private static Stopwatch Stopwatch { get; set; }

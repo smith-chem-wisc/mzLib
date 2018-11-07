@@ -24,7 +24,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestModFits()
+        public static void TestModFitss()
         {
             Protein protein = new Protein("M", null);
             int peptideOneBasedIndex = 1;
