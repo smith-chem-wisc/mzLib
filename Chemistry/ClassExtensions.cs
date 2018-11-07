@@ -17,6 +17,8 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Chemistry
 {
@@ -55,5 +57,12 @@ namespace Chemistry
             return myNumber;
         }
 
+        public class TupleList<T1, T2> : List<Tuple<T1, T2>>
+        {
+            public void Add(T1 item, T2 item2)
+            {
+                Add(new Tuple<T1, T2>(item, item2));
+            }
+        }
     }
 }

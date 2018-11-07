@@ -64,7 +64,7 @@ namespace Test
         [Test]
         public static void TestPeakTrimmingWithOneWindow()
         {
-            Random rand = new Random();
+            Random rand = new Random(100);
             int numPeaks = 200;
             double minRatio = 0.01;
             int numWindows = 1;
@@ -111,83 +111,7 @@ namespace Test
             Assert.That(!myExpPeaks.Except(myPeaksOrderedByIntensity).Any());
             Assert.That(!myPeaksOrderedByIntensity.Except(myExpPeaks).Any());
         }
-
-        [Test]
-        public static void TestPeakTrimmingWithThreeWindows()
-        {
-            Random rand = new Random();
-            int numPeaksPerWindow = 200;
-            double minRatio = 0.01;
-            int numWindows = 3;
-
-            var testFilteringParams = new FilteringParams(numPeaksPerWindow, minRatio, numWindows, true, true);
-            List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
-            List<(double mz, double intensity)> myPeaksWindow1 = new List<(double mz, double intensity)>();
-            List<(double mz, double intensity)> myPeaksWindow2 = new List<(double mz, double intensity)>();
-            List<(double mz, double intensity)> myPeaksWindow3 = new List<(double mz, double intensity)>();
-
-            int peakCounter = 0;
-            for (int mz = 400; mz < 1599; mz++)
-            {
-                peakCounter++;
-
-                int intensity = rand.Next(1000, 10000);
-                myPeaks.Add((mz, intensity));
-                if (peakCounter <= 399)
-                {
-                    myPeaksWindow1.Add((mz, intensity));
-                }
-                else if (peakCounter <= 799)
-                {
-                    myPeaksWindow2.Add((mz, intensity));
-                }
-                else if (peakCounter <= 1200)
-                {
-                    myPeaksWindow3.Add((mz, intensity));
-                }
-            }
-
-            double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
-            double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
-
-            MzSpectrum massSpec1 = new MzSpectrum(mz1, intensities1, false);
-            MsDataScan[] scans = new MsDataScan[]{
-                new MsDataScan(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
-            };
-            FakeMsDataFile f = new FakeMsDataFile(scans);
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), false);
-
-            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzml.mzML"), testFilteringParams);
-
-            int expNumPeaks = ok.GetAllScansList().First().MassSpectrum.XArray.Length;
-            double expMinRatio = ok.GetAllScansList().First().MassSpectrum.YArray.Min(p => p / ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY).Value;
-            List<(double mz, double intensity)> myExpPeaks = new List<(double mz, double intensity)>();
-
-            for (int i = 0; i < ok.GetAllScansList().First().MassSpectrum.YArray.Length; i++)
-            {
-                myExpPeaks.Add((ok.GetAllScansList().First().MassSpectrum.XArray[i], ok.GetAllScansList().First().MassSpectrum.YArray[i]));
-            }
-
-            double myMaxIntensity = myPeaks.Max(p => p.intensity);
-
-            myPeaksWindow1 = myPeaksWindow1.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
-
-            myPeaksWindow2 = myPeaksWindow2.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
-
-            myPeaksWindow3 = myPeaksWindow3.OrderByDescending(p => p.intensity).Take(numPeaksPerWindow).Where(p => (p.intensity / myMaxIntensity) > minRatio).ToList();
-
-            var allWindowPeaksCombined = myPeaksWindow1.Concat(myPeaksWindow2).Concat(myPeaksWindow3).ToList();
-
-            double sumOfAllIntensities = allWindowPeaksCombined.Sum(p => p.intensity);
-
-            Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
-            Assert.That(allWindowPeaksCombined.Count == ok.GetAllScansList().First().MassSpectrum.XArray.Length);
-            Assert.That(expMinRatio >= minRatio);
-            Assert.That(Math.Round(sumOfAllIntensities, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.SumOfAllY, 0));
-            Assert.That(!myExpPeaks.Except(allWindowPeaksCombined).Any());
-            Assert.That(!allWindowPeaksCombined.Except(myExpPeaks).Any());
-        }
-
+        
         [Test]
         public static void TestPeakTrimmingWithTooManyWindows()
         {
