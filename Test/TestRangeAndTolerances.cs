@@ -18,12 +18,29 @@
 
 using MzLibUtil;
 using NUnit.Framework;
+using System;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public sealed class RangeTest
+    public sealed class TestRangeAndTolerances
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public void RangeSubRange()
         {
@@ -272,6 +289,58 @@ namespace Test
             Assert.AreEqual(0, range1.Minimum - range2.Minimum, 1e-9);
             Assert.AreEqual(0, range1.Maximum - range2.Maximum, 1e-9);
             Assert.AreEqual("[999999;1000001]", range1.ToString());
+        }
+
+        [Test]
+        public void MassToleranceConstructorDaValue()
+        {
+            var tol = new AbsoluteTolerance(10);
+
+            Assert.AreEqual(10, tol.Value);
+        }
+
+        [Test]
+        public void MassToleranceImplicitValue()
+        {
+            var tol = Tolerance.ParseToleranceString("10 ppm");
+
+            Assert.AreEqual(10, tol.Value);
+
+            Assert.AreEqual(1 + 1e-5, tol.GetMaximumValue(1));
+            Assert.AreEqual(1 - 1e-5, tol.GetMinimumValue(1));
+        }
+
+        [Test]
+        public void ToleranceWithin1()
+        {
+            var tol = new PpmTolerance(10);
+
+            Assert.IsTrue(tol.Within(500, 500.005));
+        }
+
+        [Test]
+        public void ToleranceNewTest()
+        {
+            var tol = new AbsoluteTolerance(1);
+            Assert.AreEqual(4, tol.GetRange(5).Minimum);
+            Assert.AreEqual(6, tol.GetRange(5).Maximum);
+        }
+
+        [Test]
+        public void ToleranceMinMaxTest()
+        {
+            var tol = new AbsoluteTolerance(1);
+            Assert.AreEqual(2, tol.GetMaximumValue(1));
+            Assert.AreEqual(0, tol.GetMinimumValue(1));
+        }
+
+        [Test]
+        public void TolerancePPMGetRange()
+        {
+            var tol = new PpmTolerance(1);
+            Assert.AreEqual(20, tol.GetRange(1e7).Width);
+
+            Assert.AreEqual("±1.0000 PPM", tol.ToString());
         }
     }
 }

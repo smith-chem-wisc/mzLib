@@ -1,9 +1,10 @@
 ﻿using NUnit.Framework;
 using Proteomics;
-using Proteomics.RetentionTimePrediction;
 using Proteomics.ProteolyticDigestion;
+using Proteomics.RetentionTimePrediction;
 using System;
 using System.Collections.Generic;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
@@ -12,7 +13,7 @@ namespace Test
      *                  MacCoss Lab, Department of Genome Sciences, UW
      *
      * Copyright 2009 University of Washington - Seattle, WA
-     * 
+     *
      * Licensed under the Apache License, Version 2.0 (the "License");
      * you may not use this file except in compliance with the License.
      * You may obtain a copy of the License at
@@ -594,6 +595,21 @@ namespace Test
             };
         }
 
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         /// <summary>
         ///A test for ScoreSequence with 300A column
         ///</summary>
@@ -662,14 +678,13 @@ namespace Test
         [Test]
         public void CZE_RetentionTime_Test()
         {
-            CZE testCZE = new CZE(1,1);
+            CZE testCZE = new CZE(1, 1);
 
             double expElutionTime = 1;
             double expMu = Math.Round(testCZE.ExperimentalElectrophoreticMobility(expElutionTime), 0);
             Assert.AreEqual(expMu, 16666667);
             double theoreticalElutionTime = testCZE.TheoreticalElutionTime(expMu);
             Assert.AreEqual(Math.Round(expElutionTime, 5), Math.Round(theoreticalElutionTime, 5));
-
 
             for (int i = 0; i < _peptidesCZE.GetLength(0); i++)
             {
@@ -695,6 +710,3 @@ namespace Test
         }
     }
 }
-
-
-

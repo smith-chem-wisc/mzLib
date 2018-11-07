@@ -7,12 +7,28 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestCompactPeptide
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void TestCompactPeptideMasses_UnmodifiedPeptide()
         {
@@ -21,7 +37,7 @@ namespace Test
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
 
             var aCompactPeptide = new CompactPeptide(aPeptideWithSetModifications, FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
@@ -43,7 +59,7 @@ namespace Test
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
             var aCompactPeptide = new CompactPeptide(aPeptideWithSetModifications, FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
@@ -65,7 +81,7 @@ namespace Test
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
             var aCompactPeptide = new CompactPeptide(aPeptideWithSetModifications, FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
@@ -159,9 +175,9 @@ namespace Test
             Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
-            
+
             var allFragmentNeutralMasses = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
-            
+
             //evaluate N-terminal masses
             var n = allFragmentNeutralMasses.Where(f => f.TerminusFragment.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 306, 208 };

@@ -25,6 +25,7 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
@@ -33,6 +34,20 @@ namespace Test
     {
         private Peptide _mockPeptideEveryAminoAcid;
         private Peptide _mockTrypticPeptide;
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
 
         [SetUp]
         public void SetUp()
@@ -107,8 +122,6 @@ namespace Test
 
             Assert.AreEqual(formulaA, formulaB);
         }
-
-
 
         [Test]
         public void ParseCTerminalChemicalFormula()
