@@ -1,31 +1,26 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Proteomics.Fragmentation;
+using System.Text.RegularExpressions;
 
 namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        public Protease(string name, IEnumerable<Tuple<string, FragmentationTerminus>> sequencesInducingCleavage, IEnumerable<Tuple<string, FragmentationTerminus>> sequencesPreventingCleavage, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
+        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList)
         {
             Name = name;
-            SequencesInducingCleavage = sequencesInducingCleavage;
-            SequencesPreventingCleavage = sequencesPreventingCleavage;
             CleavageSpecificity = cleavageSpecificity;
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
-            SiteRegexp = siteRegexp;
+            MotifList = motifList;
         }
 
         public string Name { get; }
-        public FragmentationTerminus CleavageTerminus { get; }
-        public IEnumerable<Tuple<string, FragmentationTerminus>> SequencesInducingCleavage { get; }
-        public IEnumerable<Tuple<string, FragmentationTerminus>> SequencesPreventingCleavage { get; }
         public CleavageSpecificity CleavageSpecificity { get; }
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
-        public string SiteRegexp { get; }
+        public List<DigestionMotif> MotifList { get; }
 
         public override string ToString()
         {
@@ -36,7 +31,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             var a = obj as Protease;
             return a != null
-                && a.Name.Equals(Name);
+                && (a.Name == null && Name == null || a.Name.Equals(Name));
         }
 
         public override int GetHashCode()
@@ -172,21 +167,20 @@ namespace Proteomics.ProteolyticDigestion
         internal List<int> GetDigestionSiteIndices(string proteinSequence)
         {
             var indices = new List<int>();
-            for (int i = 0; i < proteinSequence.Length - 1; i++)
+            for (int r = 0; r < proteinSequence.Length; r++)
             {
-                foreach (var c in SequencesInducingCleavage)
+                foreach (DigestionMotif motif in MotifList)
                 {
-                    if (SequenceInducesCleavage(proteinSequence, i, c)
-                        && !SequencesPreventingCleavage.Any(nc => SequencePreventsCleavage(proteinSequence, i, nc)))
+                    if (motif.Fits(proteinSequence, r))
                     {
-                        indices.Add(i + 1);
-                        break;
+                        indices.Add(r + motif.CutIndex);
                     }
                 }
             }
-            indices.Insert(0, 0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
-            indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
-            return indices;
+
+            indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
+            indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide     
+            return indices.Distinct().OrderBy(i => i).ToList();
         }
 
         /// <summary>
@@ -490,44 +484,6 @@ namespace Proteomics.ProteolyticDigestion
                 new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
 
             return intervals.Concat(fixedCTermIntervals).Concat(fixedNTermIntervals);
-        }
-
-        /// <summary>
-        /// Checks if select subsequence of protein matches sequence that induces cleavage
-        /// </summary>
-        /// <param name="proteinSequence"></param>
-        /// <param name="proteinSequenceIndex"></param>
-        /// <param name="sequenceInducingCleavage"></param>
-        /// <returns></returns>
-        private bool SequenceInducesCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, FragmentationTerminus> sequenceInducingCleavage)
-        {
-            return (sequenceInducingCleavage.Item2 != FragmentationTerminus.N
-                    && proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1 >= 0
-                    && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1, sequenceInducingCleavage.Item1.Length)
-                        .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (sequenceInducingCleavage.Item2 == FragmentationTerminus.N
-                    && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
-                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Item1.Length)
-                        .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
-        /// Checks if select subsequence of protein matches sequence preventing cleavage
-        /// </summary>
-        /// <param name="proteinSequence"></param>
-        /// <param name="proteinSequenceIndex"></param>
-        /// <param name="sequencePreventingCleavage"></param>
-        /// <returns></returns>
-        private bool SequencePreventsCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, FragmentationTerminus> sequencePreventingCleavage)
-        {
-            return (sequencePreventingCleavage.Item2 != FragmentationTerminus.N
-                    && proteinSequenceIndex + 1 + sequencePreventingCleavage.Item1.Length <= proteinSequence.Length
-                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequencePreventingCleavage.Item1.Length)
-                        .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (SequencesInducingCleavage.First().Item2 == FragmentationTerminus.N
-                    && proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1 >= 0
-                    && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1, sequencePreventingCleavage.Item1.Length)
-                        .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

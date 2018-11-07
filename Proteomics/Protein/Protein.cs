@@ -10,13 +10,30 @@ namespace Proteomics
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
         /// </summary>
+        /// <param name="sequence">Base sequence of the protein.</param>
+        /// <param name="accession">Unique accession for the protein.</param>
+        /// <param name="organism">Organism with this protein.</param>
+        /// <param name="geneNames">List of gene names as tuple of (nameType, name), e.g. (primary, HLA-A)</param>
+        /// <param name="oneBasedModifications">Modifications at positions along the sequence.</param>
+        /// <param name="proteolysisProducts"></param>
+        /// <param name="name"></param>
+        /// <param name="fullName"></param>
+        /// <param name="isDecoy"></param>
+        /// <param name="isContaminant"></param>
+        /// <param name="databaseReferences"></param>
+        /// <param name="sequenceVariations"></param>
+        /// <param name="disulfideBonds"></param>
+        /// <param name="spliceSites"></param>
+        /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
-            List<SequenceVariation> sequenceVariations = null, List<DisulfideBond> disulfideBonds = null, string databaseFilePath = null)
+            List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
         {
             // Mandatory
             BaseSequence = sequence;
+            NonVariantProtein = this;
             Accession = accession;
 
             Name = name;
@@ -25,11 +42,13 @@ namespace Proteomics
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
             DatabaseFilePath = databaseFilePath;
+            SampleNameForVariants = sampleNameForVariants;
 
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
-            OriginalModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
+            OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = SelectValidOneBaseMods(oneBasedModifications);
@@ -40,8 +59,45 @@ namespace Proteomics
             }
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
+            SpliceSites = spliceSites ?? new List<SpliceSite>();
         }
 
+        /// <summary>
+        /// Protein construction with applied variations
+        /// </summary>
+        /// <param name="variantBaseSequence"></param>
+        /// <param name="protein"></param>
+        /// <param name="appliedSequenceVariations"></param>
+        /// <param name="applicableProteolysisProducts"></param>
+        /// <param name="oneBasedModifications"></param>
+        /// <param name="sampleNameForVariants"></param>
+        public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
+            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            : this(variantBaseSequence,
+                  VariantApplication.GetAccession(protein, appliedSequenceVariations),
+                  organism: protein.Organism,
+                  geneNames: new List<Tuple<string, string>>(protein.GeneNames),
+                  oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
+                  proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
+                  name: GetName(appliedSequenceVariations, protein.Name),
+                  fullName: GetName(appliedSequenceVariations, protein.FullName),
+                  isDecoy: protein.IsDecoy,
+                  isContaminant: protein.IsContaminant,
+                  databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
+                  sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
+                  disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
+                  spliceSites: new List<SpliceSite>(protein.SpliceSites),
+                  databaseFilePath: protein.DatabaseFilePath)
+        {
+            NonVariantProtein = protein.NonVariantProtein;
+            OriginalNonVariantModifications = NonVariantProtein.OriginalNonVariantModifications;
+            AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
+            SampleNameForVariants = sampleNameForVariants;
+        }
+
+        /// <summary>
+        /// Modifications (values) located at one-based protein positions (keys)
+        /// </summary>
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
 
         /// <summary>
@@ -49,15 +105,39 @@ namespace Proteomics
         /// </summary>
         public IEnumerable<Tuple<string, string>> GeneNames { get; }
 
+        /// <summary>
+        /// Unique accession for this protein.
+        /// </summary>
         public string Accession { get; }
+
+        /// <summary>
+        /// Base sequence, which may contain applied sequence variations.
+        /// </summary>
         public string BaseSequence { get; }
+
         public string Organism { get; }
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
+        public IEnumerable<SpliceSite> SpliceSites { get; }
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
+
+        /// <summary>
+        /// Protein before applying variations.
+        /// </summary>
+        public Protein NonVariantProtein { get; }
+
+        /// <summary>
+        /// Sequence variations that have been applied to the base sequence.
+        /// </summary>
+        public List<SequenceVariation> AppliedSequenceVariations { get; }
+
+        /// <summary>
+        /// Sample name from which applied variants came, e.g. tumor or normal.
+        /// </summary>
+        public string SampleNameForVariants { get; }
 
         public int Length
         {
@@ -78,7 +158,7 @@ namespace Proteomics
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
-        internal IDictionary<int, List<Modification>> OriginalModifications { get; set; }
+        internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
         public char this[int zeroBasedIndex]
         {
@@ -96,7 +176,7 @@ namespace Proteomics
         {
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
-            return String.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
+            return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
         }
 
         /// <summary>
@@ -104,7 +184,28 @@ namespace Proteomics
         /// </summary>
         public string GetEnsemblFastaHeader()
         {
-            return String.Format("{0} {1}", Accession, FullName);
+            return string.Format("{0} {1}", Accession, FullName);
+        }
+
+        /// <summary>
+        /// The protein object uses the default equals method for speed, 
+        /// but note that two protein objects with the same information will not be equal by this method.
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        public override bool Equals(object obj)
+        {
+            return base.Equals(obj);
+        }
+
+        /// <summary>
+        /// The protein object uses the default hash code method for speed, 
+        /// but note that two protein objects with the same information will give two different hash codes.
+        /// </summary>
+        /// <returns></returns>
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
         }
 
         /// <summary>
@@ -120,16 +221,9 @@ namespace Proteomics
         /// <summary>
         /// Gets proteins with applied variants from this protein
         /// </summary>
-        public List<ProteinWithAppliedVariants> GetVariantProteins()
+        public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4, int minAlleleDepth = 1)
         {
-            List<SequenceVariation> uniqueEffects = SequenceVariations
-                .GroupBy(v => v.SimpleString())
-                .Select(x => x.First())
-                .Where(v => v.Description.Split(new[] { @"\t" }, StringSplitOptions.None).Length >= 10) // likely a VCF line (should probably do more rigorous testing, eventually)
-                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
-                .ToList();
-            ProteinWithAppliedVariants variantProtein = new ProteinWithAppliedVariants(BaseSequence, this, null, ProteolysisProducts, OneBasedPossibleLocalizedModifications, null);
-            return variantProtein.ApplyVariants(variantProtein, uniqueEffects);
+            return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics, minAlleleDepth);
         }
 
         /// <summary>
@@ -137,7 +231,7 @@ namespace Proteomics
         /// </summary>
         public void RestoreUnfilteredModifications()
         {
-            OneBasedPossibleLocalizedModifications = OriginalModifications;
+            OneBasedPossibleLocalizedModifications = OriginalNonVariantModifications;
         }
 
         /// <summary>
@@ -173,6 +267,20 @@ namespace Proteomics
                 }
             }
             return validModDictionary;
+        }
+
+        private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
+        {
+            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
+            if (name == null && emptyVars)
+            {
+                return null;
+            }
+            else
+            {
+                string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
+                return name + variantTag;
+            }
         }
     }
 }
