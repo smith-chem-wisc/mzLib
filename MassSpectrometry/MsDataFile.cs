@@ -108,26 +108,26 @@ namespace MassSpectrometry
             double mzRangeInOneWindow = scanRangeMaxMz - scanRangeMinMz;
             Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
 
-            double scanMin = scanRangeMinMz;
             if (filteringParams.NumberOfWindows.HasValue && filteringParams.NumberOfWindows.Value > 0)
             {
+                double scanMin = scanRangeMinMz;
                 mzRangeInOneWindow = mzRangeInOneWindow / filteringParams.NumberOfWindows.Value;
 
-                for (int i = 1; i <= numberOfWindows; i++)
+                //add the first range
+                ranges.Add(scanMin - shiftToMakeRangeInclusive, (scanMin + mzRangeInOneWindow));
+                scanMin += mzRangeInOneWindow;
+
+                //add the middle ranges
+                for (int i = 2; i < numberOfWindows; i++)
                 {
-                    if (i == 1) // first
-                    {
-                        ranges.Add(scanMin - shiftToMakeRangeInclusive, (scanMin + mzRangeInOneWindow));
-                    }
-                    else if (i == (numberOfWindows))//last
-                    {
-                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
-                    }
-                    else//middle
-                    {
-                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow));
-                    }
+                    ranges.Add(scanMin, (scanMin + mzRangeInOneWindow));
                     scanMin += mzRangeInOneWindow;
+                }
+
+                //add the last range
+                if (numberOfWindows > 1) //don't add a last if there's only one window
+                {
+                    ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
                 }
             }
             else
