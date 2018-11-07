@@ -7,12 +7,28 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
     public sealed class TestProductMassesMightHaveDuplicates
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void Test_UnmodifiedPeptide_AllProductType_fragmentMasses()
         {
@@ -30,7 +46,7 @@ namespace Test
 
             allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.IRMPD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 98, 227, 120, 249 }));
-            
+
             allFragmentIonMzs = new HashSet<int>(aPeptideWithSetModifications.Fragment(DissociationType.ECD, FragmentationTerminus.Both).Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
             Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 115, 244, 120, 249, 104, 233 }));
 

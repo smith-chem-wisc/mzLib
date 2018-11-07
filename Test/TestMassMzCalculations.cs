@@ -17,14 +17,31 @@
 
 using Chemistry;
 using NUnit.Framework;
+using System;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public class MassTestFixture
+    public static class TestMassMzCalculations
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setup()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
-        public void MassToMzToMass()
+        public static void MassToMzToMass()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
             double mz = a.ToMz(2).ToMass(2);
@@ -32,7 +49,7 @@ namespace Test
         }
 
         [Test]
-        public void MassToMzPositiveCharge()
+        public static void MassToMzPositiveCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
             double mz = a.ToMz(2);
@@ -40,16 +57,15 @@ namespace Test
         }
 
         [Test]
-        public void MassToMzPositiveCharge_plus3()
+        public static void MassToMzPositiveCharge_plus3()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
-            double mz = (double)ClassExtensions.RoundedDouble(a.ToMz(3),9);
+            double mz = (double)ClassExtensions.RoundedDouble(a.ToMz(3), 9);
             Assert.AreEqual(334.340609800, mz);
         }
 
-
         [Test]
-        public void MassToMzNegativeCharge()
+        public static void MassToMzNegativeCharge()
         {
             ObjectWithMass1000 a = new ObjectWithMass1000();
             double mz = a.ToMz(-2);
@@ -57,15 +73,14 @@ namespace Test
         }
 
         [Test]
-        public void MzToMassPostitiveCharge()
+        public static void MzToMassPostitiveCharge()
         {
             double a = 524.3;
             Assert.AreEqual(1046.5854470662418, a.ToMass(2));
         }
 
-
         [Test]
-        public void MzToMassNegativeCharge()
+        public static void MzToMassNegativeCharge()
         {
             double a = 524.3;
             Assert.AreEqual(1050.614552933758, a.ToMass(-2));
