@@ -38,6 +38,7 @@ namespace MassSpectrometry
         private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
 
+
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
 
@@ -489,7 +490,7 @@ namespace MassSpectrometry
             int i = 0; //iterate through mz1
             int j = 0; //iterate through mz2
 
-            //find where peaks match 
+            //find where peaks match
             while (i != mz1.Length && j != mz2.Length)
             {
                 double one = mz1[i];
@@ -572,6 +573,6 @@ namespace MassSpectrometry
         private MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
-        }
+        }    
     }
 }
