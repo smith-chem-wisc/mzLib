@@ -258,30 +258,50 @@ namespace Test
         [Test]
         public static void AppliedVariants()
         {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
             List<Protein> proteinsWithSeqVars = new List<Protein>
             {
                 new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPPPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-            };
+                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
+             };
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantProteins()).ToList();
+            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantProteins()).ToList(); // should be stable
+            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
+            ProteinDbWriter.WriteXmlDatabase(null, proteinsWithSeqVars, xml);
+            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
-            // SAV
-            Assert.AreEqual(4, proteinsWithAppliedVariants[0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(4, proteinsWithAppliedVariants[0].AppliedSequenceVariations.Single().OneBasedEndPosition);
+            var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
+            for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
+            {
+                // sequences
+                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence);
+                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence);
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence);
+                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence);
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence);
+                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key);
 
-            // MNV
-            Assert.AreEqual(4, proteinsWithAppliedVariants[1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(5, proteinsWithAppliedVariants[1].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                // SAV
+                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition);
 
-            // insertion
-            Assert.AreEqual(4, proteinsWithAppliedVariants[2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(6, proteinsWithAppliedVariants[2].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                // MNV
+                Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(5, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition);
 
-            // deletion
-            Assert.AreEqual(4, proteinsWithAppliedVariants[3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(4, proteinsWithAppliedVariants[3].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                // insertion
+                Assert.AreEqual(4, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition);
+
+                // deletion
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
+            }
         }
 
         [Test]
