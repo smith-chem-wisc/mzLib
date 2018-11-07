@@ -370,7 +370,15 @@ namespace Proteomics.ProteolyticDigestion
 
         public override int GetHashCode()
         {
-            return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+            unchecked
+            {
+                var result = FullSequence.GetHashCode();
+                if (DigestionParams != null)
+                {
+                    result += (result * 31) ^ DigestionParams.Protease.Name.GetHashCode();
+                }
+                return result;
+            }
         }
 
         /// <summary>
