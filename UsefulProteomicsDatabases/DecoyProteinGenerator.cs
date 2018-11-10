@@ -65,7 +65,7 @@ namespace UsefulProteomicsDatabases
                 char[] nonVariantSequenceArray = protein.NonVariantProtein.BaseSequence.ToCharArray();
                 if (protein.NonVariantProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
-                    Array.Reverse(nonVariantSequenceArray, 1, protein.BaseSequence.Length - 1);
+                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariantProtein.BaseSequence.Length - 1);
                 }
                 else
                 {

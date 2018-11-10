@@ -139,15 +139,11 @@ namespace Test
         [Test]
         public static void TestSyntax()
         {
-            try
+            Assert.Throws<MzLibException>(() =>
             {
                 var protease = DigestionMotif.ParseDigestionMotifsFromString("X[Y,P]");
                 Assert.Fail("Exception shold be thrown for incorrect syntax.");
-            }
-            catch (MzLibException e)
-            {
-                // test passes
-            }
+            });
         }
     }
 }
