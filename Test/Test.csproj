@@ -160,6 +160,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="DatabaseTests\IndelDecoy.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\oblm1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <SubType>Designer</SubType>
