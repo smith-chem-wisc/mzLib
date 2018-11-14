@@ -104,12 +104,18 @@ namespace FlashLFQ
                     {
                         string seq = id.BaseSequence;
                         if (!sumByBaseSequenceNotModifiedSequence)
+                        {
                             seq = id.ModifiedSequence;
+                        }
 
                         if (sequenceToPeaksMatch.TryGetValue(seq, out HashSet<ChromatographicPeak> featuresForThisBaseSeq))
+                        {
                             featuresForThisBaseSeq.Add(peak);
+                        }
                         else
-                            sequenceToPeaksMatch.Add(seq, new HashSet<ChromatographicPeak>() { peak });
+                        {
+                            sequenceToPeaksMatch.Add(seq, new HashSet<ChromatographicPeak> {peak});
+                        }
                     }
                 }
 
@@ -117,11 +123,11 @@ namespace FlashLFQ
                 foreach (var sequence in sequenceToPeaksMatch)
                 {
                     // calculate intensity and detection type for this peptide and file
-                    double intensity = 0;
-                    DetectionType detectionType = DetectionType.NotDetected;
+                    double intensity;
+                    DetectionType detectionType;
                     var pgs = new HashSet<ProteinGroup>(sequence.Value.SelectMany(p => p.Identifications).SelectMany(v => v.proteinGroups));
 
-                    if (sequence.Value.First().IsMbrFeature)
+                    if (sequence.Value.First().IsMbrPeak)
                     {
                         intensity = sequence.Value.Max(p => p.Intensity);
                         detectionType = DetectionType.MBR;
@@ -132,14 +138,18 @@ namespace FlashLFQ
                         detectionType = DetectionType.MSMS;
 
                         if (intensity == 0)
+                        {
                             detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
+                        }
 
                         if (sequence.Value.Max(p => p.NumIdentificationsByBaseSeq) > 1)
                         {
                             double ambigPeakIntensity = sequence.Value.Where(p => p.NumIdentificationsByBaseSeq > 1).Sum(v => v.Intensity);
 
                             if ((ambigPeakIntensity / intensity) < 0.3)
+                            {
                                 intensity = sequence.Value.Select(p => (p.Intensity / p.NumIdentificationsByBaseSeq)).Sum();
+                            }
                             else
                             {
                                 detectionType = DetectionType.MSMSAmbiguousPeakfinding;
@@ -147,12 +157,14 @@ namespace FlashLFQ
                             }
                         }
                     }
-
+                    
                     // store intensity and detection type for this peptide and file
                     if (sumByBaseSequenceNotModifiedSequence)
                     {
                         if (!PeptideBaseSequences.ContainsKey(sequence.Key))
+                        {
                             PeptideBaseSequences.Add(sequence.Key, new Peptide(sequence.Key));
+                        }
 
                         PeptideBaseSequences[sequence.Key].SetIntensity(file.Key, intensity);
                         PeptideBaseSequences[sequence.Key].SetDetectionType(file.Key, detectionType);
@@ -161,7 +173,9 @@ namespace FlashLFQ
                     else
                     {
                         if (!PeptideModifiedSequences.ContainsKey(sequence.Key))
+                        {
                             PeptideModifiedSequences.Add(sequence.Key, new Peptide(sequence.Key));
+                        }
 
                         PeptideModifiedSequences[sequence.Key].SetIntensity(file.Key, intensity);
                         PeptideModifiedSequences[sequence.Key].SetDetectionType(file.Key, detectionType);
@@ -237,13 +251,13 @@ namespace FlashLFQ
                 {
                     int numProteinGroupsClaimingThisFeature = feature.Identifications.SelectMany(p => p.proteinGroups).Distinct().Count();
 
-                    if (fileToPepIntensities.TryGetValue(feature.RawFileInfo, out var featureIntensitiesForThisProtein))
+                    if (fileToPepIntensities.TryGetValue(feature.SpectraFileInfo, out var featureIntensitiesForThisProtein))
                     {
                         featureIntensitiesForThisProtein.Add(feature.Intensity / numProteinGroupsClaimingThisFeature);
                     }
                     else
                     {
-                        fileToPepIntensities.Add(feature.RawFileInfo, new List<double> { feature.Intensity / numProteinGroupsClaimingThisFeature });
+                        fileToPepIntensities.Add(feature.SpectraFileInfo, new List<double> { feature.Intensity / numProteinGroupsClaimingThisFeature });
                     }
                 }
 
