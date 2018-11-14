@@ -220,8 +220,8 @@ namespace UsefulProteomicsDatabases
                 Array.Reverse(variationArray);
 
                 // start loss, so the variant is at the end
-                bool originalInitMet = sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
-                bool variantInitMet = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
+                bool originalInitMet = sv.OneBasedBeginPosition == 1 && sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
+                bool variantInitMet = sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                 bool startLoss = originalInitMet && !variantInitMet;
                 if (startLoss)
                 {
