@@ -12,7 +12,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace TestThermo
 {
     [TestFixture]
-    [Ignore("Takes 20 mins on appveyor")]
+    //[Ignore("Takes 20 mins on appveyor")]
     public sealed class TestThermo
     {
         private static Stopwatch Stopwatch { get; set; }
