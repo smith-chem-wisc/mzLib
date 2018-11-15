@@ -428,5 +428,40 @@ namespace Test
             Assert.AreNotEqual(variantProteins.First().NonVariantProtein.Accession, variantProteinAlt.Accession);
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
+
+        [Test]
+        public void IndelDecoyError()
+        {
+            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IndelDecoy.xml");
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            Assert.AreEqual(8, variantProteins.Count);
+            var indelProtein = variantProteins[2];
+            Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
+            Assert.AreNotEqual(indelProtein.NonVariantProtein.Length, variantProteins[2].Length);
+            var decoyIndelProtein = variantProteins[5];
+            Assert.AreNotEqual(decoyIndelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
+            Assert.AreNotEqual(decoyIndelProtein.NonVariantProtein.Length, variantProteins[2].Length);
+            Assert.AreEqual(indelProtein.Length - indelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition, decoyIndelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            var variantSeq = indelProtein.AppliedSequenceVariations.Single().VariantSequence.ToCharArray();
+            Array.Reverse(variantSeq);
+            Assert.AreEqual(new string(variantSeq), decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence);
+        }
+
+        [Test]
+        public void IndelDecoyVariants()
+        {
+            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            int i = 0;
+            Assert.AreEqual(4, variantProteins.Count);
+            Assert.AreEqual(3, variantProteins[0].AppliedSequenceVariations.Count); // homozygous variations
+            Assert.AreEqual(4, variantProteins[1].AppliedSequenceVariations.Count); // plus one heterozygous variation
+            Assert.AreEqual("M", variantProteins[0].AppliedSequenceVariations.Last().OriginalSequence);
+            Assert.AreEqual(1646, variantProteins[0].AppliedSequenceVariations.Last().OneBasedBeginPosition);
+            Assert.AreEqual("V", variantProteins[0].AppliedSequenceVariations.Last().VariantSequence);
+            Assert.AreEqual("M", variantProteins[2].AppliedSequenceVariations.First().OriginalSequence);
+            Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
+            Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
+        }
     }
 }

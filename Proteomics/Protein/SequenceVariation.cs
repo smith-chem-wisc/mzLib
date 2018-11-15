@@ -76,8 +76,8 @@ namespace Proteomics
                 && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
                 && (s.Description == null && Description == null || Description.Equals(s.Description))
                 && (s.OneBasedModifications == null && OneBasedModifications == null ||
-                    s.OneBasedModifications.Keys.SequenceEqual(OneBasedModifications.Keys)
-                    && s.OneBasedModifications.Values.SelectMany(m => m).SequenceEqual(OneBasedModifications.Values.SelectMany(m => m)));
+                    s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
+                    && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
         }
 
         public override int GetHashCode()
