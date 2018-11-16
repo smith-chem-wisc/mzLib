@@ -84,8 +84,7 @@ namespace UsefulProteomicsDatabases
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
-                                List<Protein> expandedProtein = newProtein.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth);
-                                targets.AddRange(expandedProtein);
+                                targets.Add(newProtein);
                             }
                         }
                     }
@@ -93,7 +92,8 @@ namespace UsefulProteomicsDatabases
             }
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
-            return generateTargets ? targets.Concat(decoys).ToList() : decoys;
+            IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
+            return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
 
         /// <summary>

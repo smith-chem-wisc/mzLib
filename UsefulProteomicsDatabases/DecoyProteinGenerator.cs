@@ -65,7 +65,7 @@ namespace UsefulProteomicsDatabases
                 char[] nonVariantSequenceArray = protein.NonVariantProtein.BaseSequence.ToCharArray();
                 if (protein.NonVariantProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
-                    Array.Reverse(nonVariantSequenceArray, 1, protein.BaseSequence.Length - 1);
+                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariantProtein.BaseSequence.Length - 1);
                 }
                 else
                 {
@@ -220,8 +220,8 @@ namespace UsefulProteomicsDatabases
                 Array.Reverse(variationArray);
 
                 // start loss, so the variant is at the end
-                bool originalInitMet = sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
-                bool variantInitMet = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
+                bool originalInitMet = sv.OneBasedBeginPosition == 1 && sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
+                bool variantInitMet = sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                 bool startLoss = originalInitMet && !variantInitMet;
                 if (startLoss)
                 {
