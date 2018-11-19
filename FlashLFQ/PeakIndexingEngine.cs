@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Chemistry;
+﻿using Chemistry;
 using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NetSerializer;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace FlashLFQ
 {
@@ -227,7 +227,7 @@ namespace FlashLFQ
         {
             string dir = Path.GetDirectoryName(file.FullFilePathWithExtension);
             string indexPath = Path.Combine(dir, file.FilenameWithoutExtension + ".ind");
-            
+
             using (var indexFile = File.OpenRead(indexPath))
             {
                 _indexedPeaks = (List<IndexedMassSpectralPeak>[])_serializer.Deserialize(indexFile);

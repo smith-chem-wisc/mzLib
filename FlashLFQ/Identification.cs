@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using Chemistry;
+﻿using Chemistry;
+using System.Collections.Generic;
 
 namespace FlashLFQ
 {
@@ -13,7 +13,7 @@ namespace FlashLFQ
         public readonly int precursorChargeState;
         public readonly HashSet<ProteinGroup> proteinGroups;
         public readonly ChemicalFormula OptionalChemicalFormula;
-        //public readonly bool UseForProteinQuant; // TODO: implement this
+        public readonly bool UseForProteinQuant;
         public double massToLookFor;
 
         public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence,
@@ -29,7 +29,7 @@ namespace FlashLFQ
             this.precursorChargeState = chargeState;
             this.proteinGroups = new HashSet<ProteinGroup>(proteinGroups);
             this.OptionalChemicalFormula = optionalChemicalFormula;
-            //UseForProteinQuant = useForProteinQuant;
+            UseForProteinQuant = useForProteinQuant;
         }
 
         public override string ToString()

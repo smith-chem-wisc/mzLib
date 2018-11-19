@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
@@ -7,7 +8,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using MathNet.Numerics.Statistics;
 using UsefulProteomicsDatabases;
 
 namespace FlashLFQ
@@ -86,6 +86,11 @@ namespace FlashLFQ
             if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
             {
                 MaxThreads = Environment.ProcessorCount - 1;
+            }
+
+            if (MaxThreads <= 0)
+            {
+                MaxThreads = 1;
             }
 
             PeakfindingPpmTolerance = 20.0;
@@ -173,8 +178,7 @@ namespace FlashLFQ
             }
 
             // calculate intensities for proteins/peptides
-            _results.CalculatePeptideResults(true);
-            _results.CalculatePeptideResults(false);
+            _results.CalculatePeptideResults();
 
             if (AdvancedProteinQuant)
             {
@@ -395,7 +399,7 @@ namespace FlashLFQ
                 }
 
                 RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(idDonorFile, idAcceptorFile);
-                
+
                 ChromatographicPeak[] matchedPeaks = new ChromatographicPeak[donorPeaksToMatch.Count];
                 double[] donorRts = rtCalibrationCurve.Select(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
 
@@ -495,17 +499,15 @@ namespace FlashLFQ
                                     start = scan;
                                 }
 
-                                if (scan.RetentionTime <= upperBoundRt)
+                                if (scan.RetentionTime >= upperBoundRt)
                                 {
                                     end = scan;
-                                }
-                                else
-                                {
                                     break;
                                 }
                             }
 
                             IsotopicEnvelope bestEnv = null;
+                            List<IsotopicEnvelope> allEnvs = new List<IsotopicEnvelope>();
                             foreach (int chargeState in donorPeak.IsotopicEnvelopes.Select(p => p.ChargeState).Distinct())
                             {
                                 List<IndexedMassSpectralPeak> binPeaks = new List<IndexedMassSpectralPeak>();
@@ -518,34 +520,35 @@ namespace FlashLFQ
                                     {
                                         binPeaks.Add(peak);
                                     }
+                                }
 
-                                    List<IsotopicEnvelope> envs = GetIsotopicEnvelopes(binPeaks, identification, chargeState, true);
+                                List<IsotopicEnvelope> envsForThisCharge = GetIsotopicEnvelopes(binPeaks, identification, chargeState, true);
 
-                                    if (envs.Any())
-                                    {
-                                        double intensity = envs.Max(p => p.Intensity);
-
-                                        if (bestEnv == null || bestEnv.Intensity < intensity)
-                                        {
-                                            bestEnv = envs.First(p => p.Intensity == intensity);
-                                        }
-                                    }
+                                if (envsForThisCharge.Any())
+                                {
+                                    allEnvs.AddRange(envsForThisCharge);
                                 }
                             }
 
-                            if (bestEnv == null)
+                            if (!allEnvs.Any())
                             {
                                 continue;
                             }
-                            
+
+                            double maxIntensity = allEnvs.Max(p => p.Intensity);
+                            bestEnv = allEnvs.First(p => p.Intensity == maxIntensity);
+
                             var bestChargeXic = Peakfind(bestEnv.IndexedPeak.RetentionTime, identification.massToLookFor, bestEnv.ChargeState, idAcceptorFile, mbrTol);
                             List<IsotopicEnvelope> envs2 = GetIsotopicEnvelopes(bestChargeXic, identification, bestEnv.ChargeState, true);
+                            double maxRt = envs2.Max(p => p.IndexedPeak.RetentionTime);
+                            double minRt = envs2.Min(p => p.IndexedPeak.RetentionTime);
                             acceptorPeak.IsotopicEnvelopes.AddRange(envs2);
-                            //CutPeak(acceptorPeak, acceptorFileRtHypothesis);
+                            acceptorPeak.IsotopicEnvelopes.AddRange(allEnvs.Where(p => p.ChargeState != bestEnv.ChargeState && p.IndexedPeak.RetentionTime < maxRt && p.IndexedPeak.RetentionTime > minRt));
                             acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+                            CutPeak(acceptorPeak, bestEnv.IndexedPeak.RetentionTime);
                         }
                     });
-                
+
                 // save MBR results
                 foreach (var peak in matchedPeaks.Where(p => p != null && p.IsotopicEnvelopes.Any()))
                 {
@@ -693,11 +696,10 @@ namespace FlashLFQ
             peaks.AddRange(peaksGroupedByApex.Values.Where(p => p != null));
             _results.Peaks[spectraFile] = peaks;
 
-            // condense multiple peaks for the same peptide within a time window
+            // merge multiple peaks for the same peptide within a time window
             peaks = new List<ChromatographicPeak>();
             var temp = _results.Peaks[spectraFile].Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
 
-            //TODO: check for closeness in RT before merging
             foreach (var sequence in temp)
             {
                 if (sequence.Count() == 1)
@@ -706,12 +708,24 @@ namespace FlashLFQ
                     continue;
                 }
 
-                var temp2 = sequence.ToList();
-                for (int i = 1; i < temp2.Count; i++)
+                var temp2 = sequence.Where(p => p.Apex != null).ToList();
+                var merged = new HashSet<ChromatographicPeak>();
+                foreach (ChromatographicPeak peak in temp2)
                 {
-                    temp2[0].MergeFeatureWith(temp2[i], Integrate);
+                    if (merged.Contains(peak))
+                    {
+                        continue;
+                    }
+
+                    var toMerge = temp2.Where(p => Math.Abs(p.Apex.IndexedPeak.RetentionTime - peak.Apex.IndexedPeak.RetentionTime) < RtTol && !merged.Contains(p) && p != peak);
+                    foreach (ChromatographicPeak peakToMerge in toMerge)
+                    {
+                        peak.MergeFeatureWith(peakToMerge, Integrate);
+                        merged.Add(peakToMerge);
+                    }
+
+                    peaks.Add(peak);
                 }
-                peaks.Add(temp2[0]);
             }
 
             _results.Peaks[spectraFile] = peaks;
@@ -808,6 +822,7 @@ namespace FlashLFQ
                 {
                     double corr = Correlation.Pearson(experimentalIsotopeAbundances, theoreticalIsotopeAbundances);
 
+                    //TODO: include isotope imputation, more tolerance, etc
                     if (corr > 0.7)
                     {
                         isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeAbundances.Sum()));
@@ -869,6 +884,7 @@ namespace FlashLFQ
                 }
             }
 
+            // go right
             int missedScans = 0;
             for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
             {
@@ -890,6 +906,7 @@ namespace FlashLFQ
                 }
             }
 
+            // go left
             missedScans = 0;
             for (int t = precursorScanIndex - 1; t >= 0; t--)
             {
@@ -911,6 +928,7 @@ namespace FlashLFQ
                 }
             }
 
+            // sort by RT
             xic.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
 
             return xic;

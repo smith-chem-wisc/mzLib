@@ -20,10 +20,10 @@ namespace FlashLFQ
 
         public override bool Equals(object obj)
         {
-            var otherPeak = (IndexedMassSpectralPeak) obj;
-            
-            return otherPeak != null 
-                && otherPeak.Mz == this.Mz 
+            var otherPeak = (IndexedMassSpectralPeak)obj;
+
+            return otherPeak != null
+                && otherPeak.Mz == this.Mz
                 && otherPeak.ZeroBasedMs1ScanIndex == this.ZeroBasedMs1ScanIndex;
         }
 

@@ -10,13 +10,15 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, double> intensities;
         private Dictionary<SpectraFileInfo, DetectionType> detectionTypes;
         public HashSet<ProteinGroup> proteinGroups;
+        public readonly bool UseForProteinQuant;
 
-        public Peptide(string sequence)
+        public Peptide(string sequence, bool useForProteinQuant)
         {
             Sequence = sequence;
             intensities = new Dictionary<SpectraFileInfo, double>();
             detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             proteinGroups = new HashSet<ProteinGroup>();
+            this.UseForProteinQuant = useForProteinQuant;
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
@@ -52,9 +54,13 @@ namespace FlashLFQ
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
         {
             if (intensities.ContainsKey(fileInfo))
+            {
                 intensities[fileInfo] = intensity;
+            }
             else
+            {
                 intensities.Add(fileInfo, intensity);
+            }
         }
 
         public DetectionType GetDetectionType(SpectraFileInfo fileInfo)

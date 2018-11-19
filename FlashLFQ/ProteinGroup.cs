@@ -33,9 +33,13 @@ namespace FlashLFQ
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
         {
             if (intensities.ContainsKey(fileInfo))
+            {
                 intensities[fileInfo] = intensity;
+            }
             else
+            {
                 intensities.Add(fileInfo, intensity);
+            }
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)

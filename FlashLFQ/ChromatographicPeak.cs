@@ -8,11 +8,11 @@ namespace FlashLFQ
     public class ChromatographicPeak
     {
         public double Intensity;
-        public readonly bool IsMbrPeak;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public double SplitRT;
-        
+        public readonly bool IsMbrPeak;
+
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
@@ -119,15 +119,24 @@ namespace FlashLFQ
 
             var t = Identifications.SelectMany(p => p.proteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
             if (t.Any())
+            {
                 sb.Append(string.Join(";", t) + '\t');
+            }
             else
+            {
                 sb.Append("" + '\t');
+            }
 
             sb.Append("" + Identifications.First().monoisotopicMass + '\t');
             if (!IsMbrPeak)
+            {
                 sb.Append("" + Identifications.First().ms2RetentionTimeInMinutes + '\t');
+            }
             else
+            {
                 sb.Append("" + '\t');
+            }
+
             sb.Append("" + Identifications.First().precursorChargeState + '\t');
             sb.Append("" + ClassExtensions.ToMz(Identifications.First().monoisotopicMass, Identifications.First().precursorChargeState) + '\t');
             sb.Append("" + Intensity + "\t");
@@ -154,9 +163,13 @@ namespace FlashLFQ
             sb.Append("" + NumChargeStatesObserved + "\t");
 
             if (IsMbrPeak)
+            {
                 sb.Append("" + "MBR" + "\t");
+            }
             else
+            {
                 sb.Append("" + "MSMS" + "\t");
+            }
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");

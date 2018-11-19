@@ -55,7 +55,6 @@ namespace Test
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
             Assert.That(!results.Peaks[raw].First().IsMbrPeak);
-            Assert.That(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
@@ -63,7 +62,6 @@ namespace Test
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
             Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
-            Assert.That(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -76,7 +74,6 @@ namespace Test
             results.WriteResults(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, @"baseSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
         }
 
@@ -146,8 +143,8 @@ namespace Test
 
             results = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true).Run();
 
-            int int7 = (int)System.Math.Round(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw2));
-            int int8 = (int)System.Math.Round(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
+            int int7 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw2));
+            int int8 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
             Assert.That(int7 > 0);
             Assert.That(int7 == int8);
         }
@@ -189,7 +186,6 @@ namespace Test
 
             resultsA.MergeResultsWith(resultsB);
             Assert.AreEqual(4, resultsA.Peaks.Count);
-            Assert.AreEqual(1, resultsA.PeptideBaseSequences.Count);
             Assert.AreEqual(1, resultsA.PeptideModifiedSequences.Count);
             Assert.AreEqual(1, resultsA.ProteinGroups.Count);
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
@@ -698,7 +694,7 @@ namespace Test
         [Test]
         public static void TestNotFound()
         {
-            Peptide p = new Peptide("Seq");
+            Peptide p = new Peptide("Seq", true);
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
