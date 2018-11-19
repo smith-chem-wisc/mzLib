@@ -46,7 +46,7 @@ namespace Test
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true);
 
             // run the engine
             var results = engine.Run();
@@ -54,16 +54,14 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrFeature);
-            Assert.That(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
+            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrFeature);
-            Assert.That(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -76,7 +74,6 @@ namespace Test
             results.WriteResults(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, @"baseSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
         }
 
@@ -94,7 +91,7 @@ namespace Test
             Identification id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            var results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
+            var results = new FlashLfqEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             // check that biorep normalization worked
             int int1 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
@@ -109,7 +106,7 @@ namespace Test
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
+            results = new FlashLfqEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             int int3 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
             int int4 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
@@ -123,7 +120,7 @@ namespace Test
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            results = new FlashLFQEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
+            results = new FlashLfqEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
 
             int int5 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
             int int6 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
@@ -144,10 +141,10 @@ namespace Test
             var id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             var id4 = new Identification(mzml2, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
-            results = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true).Run();
+            results = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true).Run();
 
-            int int7 = (int)System.Math.Round(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(raw2));
-            int int8 = (int)System.Math.Round(results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideBaseSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
+            int int7 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw2));
+            int int8 = (int)System.Math.Round(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) + results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml2));
             Assert.That(int7 > 0);
             Assert.That(int7 == int8);
         }
@@ -166,7 +163,7 @@ namespace Test
             Identification id4A = new Identification(mzmlA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgA });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engineA = new FlashLFQEngine(new List<Identification> { id1A, id2A, id3A, id4A });
+            FlashLfqEngine engineA = new FlashLfqEngine(new List<Identification> { id1A, id2A, id3A, id4A });
 
             // run the engine
             var resultsA = engineA.Run();
@@ -182,14 +179,13 @@ namespace Test
             Identification id4 = new Identification(mzmlB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgB });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engineB = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4 });
+            FlashLfqEngine engineB = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 });
 
             // run the engine
             var resultsB = engineB.Run();
 
             resultsA.MergeResultsWith(resultsB);
             Assert.AreEqual(4, resultsA.Peaks.Count);
-            Assert.AreEqual(1, resultsA.PeptideBaseSequences.Count);
             Assert.AreEqual(1, resultsA.PeptideModifiedSequences.Count);
             Assert.AreEqual(1, resultsA.ProteinGroups.Count);
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
@@ -243,7 +239,7 @@ namespace Test
             Identification id6 = new Identification(file2, "VVVVVPEPTIDE", "VVVVVPEPTIDE", 1294.70203, 1.21, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4, id5, id6 }, normalize: false, advancedProteinQuant: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6 }, normalize: false, advancedProteinQuant: true);
 
             // run the engine
             var results = engine.Run();
@@ -267,7 +263,7 @@ namespace Test
             double intensity = 1e6;
 
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
-            double[] file2Rt = new double[] { 1.015, 1.030, 1.036, 1.050, 1.065 };
+            double[] file2Rt = new double[] { 1.015, 1.030, 1.039, 1.050, 1.065 };
 
             Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
 
@@ -332,15 +328,15 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
 
             // run the engine
             var results = engine.Run();
 
             Assert.That(results.Peaks[file2].Count == 5);
-            Assert.That(results.Peaks[file2].Where(p => p.IsMbrFeature == true).Count() == 1);
+            Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
 
-            var peak = results.Peaks[file2].Where(p => p.IsMbrFeature == true).First();
+            var peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
             var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence ==
                 peak.Identifications.First().BaseSequence).First();
 
@@ -348,7 +344,7 @@ namespace Test
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
 
             Assert.That(results.Peaks[file1].Count == 5);
-            Assert.That(results.Peaks[file1].Where(p => p.IsMbrFeature == true).Count() == 0);
+            Assert.That(results.Peaks[file1].Where(p => p.IsMbrPeak).Count() == 0);
 
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file1) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file2) > 0);
@@ -401,7 +397,7 @@ namespace Test
 
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
-            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
+            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "b", 0, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -429,14 +425,14 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // test with top3 protein quant engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
 
             Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
             Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
 
             // test with advanced protein quant engine
-            engine = new FlashLFQEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true, advancedProteinQuant: true);
+            engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true, advancedProteinQuant: true);
             results = engine.Run();
 
             Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
@@ -485,15 +481,15 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.7 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.RetentionTime == 1.6);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
             Assert.That(peak.SplitRT == 1.3);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.RetentionTime < 1.3));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -539,15 +535,15 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.RetentionTime == 1.3);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
             Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.RetentionTime > 1.6));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -599,15 +595,15 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.RetentionTime == 1.3);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
             Assert.That(peak.SplitRT == 1.6);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.RetentionTime > 1.6));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime > 1.6));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -659,15 +655,15 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
-            Assert.That(peak.Apex.RetentionTime == 1.6);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.6);
             Assert.That(peak.SplitRT == 1.3);
-            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.RetentionTime < 1.3));
+            Assert.That(!peak.IsotopicEnvelopes.Any(p => p.IndexedPeak.RetentionTime < 1.3));
             Assert.That(peak.IsotopicEnvelopes.Count == 6);
         }
 
@@ -675,8 +671,8 @@ namespace Test
         public static void TestToString()
         {
             // many of these are just to check that the ToString methods don't cause crashes
-            var indexedPeak = new IndexedMassSpectralPeak(1.0, 2.0, 3, 4);
-            Assert.That(indexedPeak.ToString().Equals("1.000; 4; 3"));
+            var indexedPeak = new IndexedMassSpectralPeak(1.0, 2.0, 4, 5.0);
+            Assert.That(indexedPeak.ToString().Equals("1.000; 4"));
 
             var spectraFile = new SpectraFileInfo("myFullPath", "", 0, 0, 0);
             string spectraString = spectraFile.ToString();
@@ -698,7 +694,7 @@ namespace Test
         [Test]
         public static void TestNotFound()
         {
-            Peptide p = new Peptide("Seq");
+            Peptide p = new Peptide("Seq", true);
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
@@ -751,14 +747,107 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.4 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLFQEngine engine = new FlashLFQEngine(new List<Identification> { id1, id2 });
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2 });
 
             // run the engine
             var results = engine.Run();
             ChromatographicPeak peak = results.Peaks.First().Value.First();
 
             Assert.That(results.Peaks.First().Value.Count == 1);
-            Assert.That(peak.Apex.RetentionTime == 1.1);
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.1);
+        }
+
+        [Test]
+        public static void TestAmbiguous()
+        {
+            // get the raw file paths
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id3 = new Identification(mzml, "EGFQVADGPLRY", "EGFQVADGPLRY", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id3, id4 });
+
+            // run the engine
+            var results = engine.Run();
+            
+            Assert.That(results.Peaks[mzml].Count == 1);
+            Assert.That(results.Peaks[mzml].First().Intensity > 0);
+            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) == 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) == 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) == 0);
+            
+            // test peak output
+            results.WriteResults(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
+        }
+
+        [Test]
+        public static void TestPeakMerging()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+
+            // generate mzml file
+
+            // 1 MS1 scan per peptide
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 5, 10, 5, 3, 1, 1, 1, 1 };
+
+            for (int s = 0; s < scans.Length; s++)
+            {
+                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                if (s == 7 || s == 8)
+                {
+                    mz = new[] { 401.0 };
+                    intensities = new[] { 1000.0 };
+                }
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+
+            Identification id1 = new Identification(file1, peptide, peptide, 
+                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(file1, peptide, peptide,
+                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.9 + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2 });
+
+            // run the engine
+            var results = engine.Run();
+            ChromatographicPeak peak = results.Peaks.First().Value.First();
+
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
+            Assert.That(peak.IsotopicEnvelopes.Count == 8);
+            Assert.That(results.Peaks.First().Value.Count == 1);
         }
     }
 }

@@ -6,6 +6,7 @@
         MBR,
         NotDetected,
         MSMSAmbiguousPeakfinding,
-        MSMSIdentifiedButNotQuantified
+        MSMSIdentifiedButNotQuantified,
+        Imputed
     }
 }

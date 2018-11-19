@@ -1,17 +1,17 @@
-﻿using System;
+﻿using Accord.Math;
+using Accord.Math.Decompositions;
+using MathNet.Numerics.Statistics;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Accord.Math.Decompositions;
-using Accord.Math;
-using MathNet.Numerics.Statistics;
-using System.Collections.Concurrent;
 
 namespace FlashLFQ
 {
     /// <summary>
     /// This is the "advanced" protein quantification engine used by FlashLFQ. It weights peptides by how well they co-vary with other peptides assigned to the same protein.
-    /// The protein intensity is simply a weighted average of the peptide intensities. For a peptide to be used in protein quant, it must have a weight of at least 0.5.
+    /// The protein intensity is simply a weighted sum of the peptide intensities. For a peptide to be used in protein quant, it must have a weight of at least 0.5.
     /// This uses a C# translation of a portion of Diffacto, which in turn is a python translation of an R program called FARMS.
     /// 
     /// Diffacto: 
@@ -50,7 +50,7 @@ namespace FlashLFQ
         {
             // link proteins to peptides
             Dictionary<ProteinGroup, List<Peptide>> proteinsToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
-            foreach (var peptide in results.PeptideModifiedSequences)
+            foreach (var peptide in results.PeptideModifiedSequences.Where(p => p.Value.UseForProteinQuant))
             {
                 foreach (var protein in peptide.Value.proteinGroups)
                 {
@@ -140,7 +140,7 @@ namespace FlashLFQ
 
                     double[] proteinIntensitiesPerFile = new double[results.SpectraFiles.Count];
 
-                    // calculate weighted-average peptide intensity
+                    // calculate weighted-sum peptide intensity
                     for (int p = 0; p < peptides.Count; p++)
                     {
                         if (weights[p] >= MIN_WEIGHT && !double.IsNaN(weights[p]))
@@ -234,7 +234,9 @@ namespace FlashLFQ
                 for (int f = 0; f < C.GetLength(1); f++)
                 {
                     if (C[p, f] < 0)
+                    {
                         C[p, f] = 0;
+                    }
                 }
             }
 

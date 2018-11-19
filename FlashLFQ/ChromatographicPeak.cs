@@ -8,12 +8,12 @@ namespace FlashLFQ
     public class ChromatographicPeak
     {
         public double Intensity;
-        public readonly bool IsMbrFeature;
-        public readonly SpectraFileInfo RawFileInfo;
+        public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public double SplitRT;
+        public readonly bool IsMbrPeak;
 
-        public ChromatographicPeak(Identification id, bool isMbrFeature, SpectraFileInfo fileInfo)
+        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -22,8 +22,8 @@ namespace FlashLFQ
             NumIdentificationsByFullSeq = 1;
             Identifications = new List<Identification>() { id };
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
-            IsMbrFeature = isMbrFeature;
-            RawFileInfo = fileInfo;
+            IsMbrPeak = isMbrPeak;
+            SpectraFileInfo = fileInfo;
         }
 
         public IsotopicEnvelope Apex { get; private set; }
@@ -58,7 +58,8 @@ namespace FlashLFQ
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
                 sb.Append("Peak Split Valley RT" + "\t");
-                sb.Append("Peak Apex Mass Error (ppm)");
+                sb.Append("Peak Apex Mass Error (ppm)" + "\t");
+                //sb.Append("Timepoints");
                 return sb.ToString();
             }
         }
@@ -68,7 +69,7 @@ namespace FlashLFQ
             if (IsotopicEnvelopes.Any())
             {
                 double maxIntensity = IsotopicEnvelopes.Max(p => p.Intensity);
-                Apex = IsotopicEnvelopes.Where(p => p.Intensity == maxIntensity).First();
+                Apex = IsotopicEnvelopes.First(p => p.Intensity == maxIntensity);
 
                 if (integrate)
                 {
@@ -91,21 +92,16 @@ namespace FlashLFQ
             }
         }
 
-        public void MergeFeatureWith(IEnumerable<ChromatographicPeak> otherFeatures, bool integrate)
+        public void MergeFeatureWith(ChromatographicPeak otherFeature, bool integrate)
         {
-            var thisFeaturesPeaks = this.IsotopicEnvelopes.Select(p => p.IndexedPeak);
-
-            foreach (var otherFeature in otherFeatures)
+            if (otherFeature != this)
             {
-                if (otherFeature != this)
-                {
-                    this.Identifications = this.Identifications.Union(otherFeature.Identifications).Distinct().ToList();
-                    ResolveIdentifications();
-                    this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes.Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
-                    otherFeature.Intensity = -1;
-                }
+                var thisFeaturesPeaks = new HashSet<IndexedMassSpectralPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
+                this.Identifications = this.Identifications.Union(otherFeature.Identifications).Distinct().ToList();
+                ResolveIdentifications();
+                this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes.Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
+                this.CalculateIntensityForThisFeature(integrate);
             }
-            this.CalculateIntensityForThisFeature(integrate);
         }
 
         public void ResolveIdentifications()
@@ -114,33 +110,42 @@ namespace FlashLFQ
             this.NumIdentificationsByFullSeq = Identifications.Select(v => v.ModifiedSequence).Distinct().Count();
         }
 
-        override public string ToString()
+        public override string ToString()
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append(RawFileInfo.FilenameWithoutExtension + "\t");
+            sb.Append(SpectraFileInfo.FilenameWithoutExtension + "\t");
             sb.Append(string.Join("|", Identifications.Select(p => p.BaseSequence).Distinct()) + '\t');
             sb.Append(string.Join("|", Identifications.Select(p => p.ModifiedSequence).Distinct()) + '\t');
 
             var t = Identifications.SelectMany(p => p.proteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
             if (t.Any())
+            {
                 sb.Append(string.Join(";", t) + '\t');
+            }
             else
+            {
                 sb.Append("" + '\t');
+            }
 
             sb.Append("" + Identifications.First().monoisotopicMass + '\t');
-            if (!IsMbrFeature)
+            if (!IsMbrPeak)
+            {
                 sb.Append("" + Identifications.First().ms2RetentionTimeInMinutes + '\t');
+            }
             else
+            {
                 sb.Append("" + '\t');
+            }
+
             sb.Append("" + Identifications.First().precursorChargeState + '\t');
             sb.Append("" + ClassExtensions.ToMz(Identifications.First().monoisotopicMass, Identifications.First().precursorChargeState) + '\t');
             sb.Append("" + Intensity + "\t");
 
             if (Apex != null)
             {
-                sb.Append("" + IsotopicEnvelopes.Select(p => p.RetentionTime).Min() + "\t");
-                sb.Append("" + Apex.RetentionTime + "\t");
-                sb.Append("" + IsotopicEnvelopes.Select(p => p.RetentionTime).Max() + "\t");
+                sb.Append("" + IsotopicEnvelopes.Select(p => p.IndexedPeak.RetentionTime).Min() + "\t");
+                sb.Append("" + Apex.IndexedPeak.RetentionTime + "\t");
+                sb.Append("" + IsotopicEnvelopes.Select(p => p.IndexedPeak.RetentionTime).Max() + "\t");
 
                 sb.Append("" + Apex.IndexedPeak.Mz + "\t");
                 sb.Append("" + Apex.ChargeState + "\t");
@@ -157,16 +162,21 @@ namespace FlashLFQ
 
             sb.Append("" + NumChargeStatesObserved + "\t");
 
-            if (IsMbrFeature)
+            if (IsMbrPeak)
+            {
                 sb.Append("" + "MBR" + "\t");
+            }
             else
+            {
                 sb.Append("" + "MSMS" + "\t");
+            }
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
-            sb.Append("" + MassError);
+            sb.Append("" + MassError + "\t");
+            //sb.Append(string.Join(",", IsotopicEnvelopes.OrderBy(p => p.ChargeState).ThenBy(p => p.IndexedPeak.ZeroBasedMs1ScanIndex).Select(p => p.ToString())));
 
             return sb.ToString();
         }
