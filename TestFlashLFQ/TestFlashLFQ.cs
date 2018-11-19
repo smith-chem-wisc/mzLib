@@ -788,5 +788,66 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
         }
+
+        [Test]
+        public static void TestPeakMerging()
+        {
+            string fileToWrite = "myMzml.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+
+            // generate mzml file
+
+            // 1 MS1 scan per peptide
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 5, 10, 5, 3, 1, 1, 1, 1 };
+
+            for (int s = 0; s < scans.Length; s++)
+            {
+                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+                IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                if (s == 7 || s == 8)
+                {
+                    mz = new[] { 401.0 };
+                    intensities = new[] { 1000.0 };
+                }
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+
+            Identification id1 = new Identification(file1, peptide, peptide, 
+                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(file1, peptide, peptide,
+                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.9 + 0.001, 1, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2 });
+
+            // run the engine
+            var results = engine.Run();
+            ChromatographicPeak peak = results.Peaks.First().Value.First();
+
+            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
+            Assert.That(peak.IsotopicEnvelopes.Count == 8);
+            Assert.That(results.Peaks.First().Value.Count == 1);
+        }
     }
 }
