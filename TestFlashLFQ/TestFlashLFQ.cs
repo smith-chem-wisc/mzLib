@@ -397,7 +397,7 @@ namespace Test
 
             // set up spectra file info
             SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
-            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
+            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "b", 0, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -755,6 +755,38 @@ namespace Test
 
             Assert.That(results.Peaks.First().Value.Count == 1);
             Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.1);
+        }
+
+        [Test]
+        public static void TestAmbiguous()
+        {
+            // get the raw file paths
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id3 = new Identification(mzml, "EGFQVADGPLRY", "EGFQVADGPLRY", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id3, id4 });
+
+            // run the engine
+            var results = engine.Run();
+            
+            Assert.That(results.Peaks[mzml].Count == 1);
+            Assert.That(results.Peaks[mzml].First().Intensity > 0);
+            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) == 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) == 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) == 0);
+            
+            // test peak output
+            results.WriteResults(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
         }
     }
 }

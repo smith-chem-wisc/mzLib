@@ -372,8 +372,16 @@ namespace FlashLFQ
 
             var thisFilesIds = new HashSet<string>(acceptorFileIdentifiedPeaks.Where(p => p.IsotopicEnvelopes.Any())
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
-            var thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>(acceptorFileIdentifiedPeaks.Where(p => !p.IsMbrPeak)
-                .SelectMany(p => p.Identifications.SelectMany(v => v.proteinGroups)));
+            var thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
+
+            // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
+            foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
+            {
+                foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.proteinGroups)))
+                {
+                    thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
+                }
+            }
 
             Tolerance mbrTol = new PpmTolerance(MbrPpmTolerance);
 
@@ -697,7 +705,7 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = peaks;
 
             // merge multiple peaks for the same peptide within a time window
-            peaks = new List<ChromatographicPeak>();
+            peaks = _results.Peaks[spectraFile].Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
             var temp = _results.Peaks[spectraFile].Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
 
             foreach (var sequence in temp)
