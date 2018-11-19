@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Proteomics
@@ -12,8 +13,10 @@ namespace Proteomics
         /// <param name="sequenceVariation"></param>
         public static string GetAccession(Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations)
         {
-            return protein.Accession + 
-                (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : "_" + CombineSimpleStrings(appliedSequenceVariations));
+            string[] accSplit = protein.Accession.Split('_');
+            string baseAcc = protein.Accession.StartsWith("DECOY_") ? $"{accSplit[0]}_{accSplit[1]}" : accSplit[0];
+            return baseAcc + 
+                (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
         }
 
         /// <summary>
@@ -222,9 +225,9 @@ namespace Proteomics
             // adjust indices
             List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variantGettingApplied, variantSequence, protein, protein.ProteolysisProducts);
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
-            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, protein.AppliedSequenceVariations);
+            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
-            return new Protein(variantSequence, protein, appliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            return new Protein(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
         }
 
         /// <summary>
@@ -244,14 +247,19 @@ namespace Proteomics
                     .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
 
                 // variant was entirely before the one being applied (shouldn't happen because of order of applying variants)
-                if (v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                // or it's the current variation
+                if (v.Description.Equals(variantGettingApplied.Description) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
                 }
+
                 // adjust indices based on new included sequence, minding possible overlaps to be filtered later
                 else
                 {
-                    int overlap = variantGettingApplied.OneBasedEndPosition - v.OneBasedBeginPosition + 1;
+                    int intersectOneBasedStart = Math.Max(variantGettingApplied.OneBasedBeginPosition, v.OneBasedBeginPosition);
+                    int intersectOneBasedEnd = Math.Min(variantGettingApplied.OneBasedEndPosition, v.OneBasedEndPosition);
+                    int overlap = intersectOneBasedEnd < intersectOneBasedStart ? 0 : // no overlap
+                        intersectOneBasedEnd - intersectOneBasedStart + 1; // there's some overlap
                     int sequenceLengthChange = variantGettingApplied.VariantSequence.Length - variantGettingApplied.OriginalSequence.Length;
                     int begin = v.OneBasedBeginPosition + sequenceLengthChange - overlap;
                     if (begin > variantAppliedProteinSequence.Length)
@@ -266,8 +274,8 @@ namespace Proteomics
                     variations.Add(new SequenceVariation(
                         begin,
                         end,
-                        v.VariantSequence,
                         v.OriginalSequence,
+                        v.VariantSequence,
                         v.Description.Description,
                         v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
                 }
