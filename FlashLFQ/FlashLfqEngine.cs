@@ -416,7 +416,7 @@ namespace FlashLFQ
                             {
                                 rtHypothesisIndex = ~rtHypothesisIndex;
                             }
-                            if (rtHypothesisIndex >= donorRts.Length)
+                            if (rtHypothesisIndex >= donorRts.Length && rtHypothesisIndex >= 1)
                             {
                                 rtHypothesisIndex = donorRts.Length - 1;
                             }
