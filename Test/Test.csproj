@@ -48,6 +48,7 @@
   <ItemGroup>
     <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
+    <Compile Include="SpectrumProcessingAndFiltering.cs" />
     <Compile Include="TestModFits.cs" />
     <Compile Include="TestProteinDigestion.cs" />
     <Compile Include="TestProteinProperties.cs" />

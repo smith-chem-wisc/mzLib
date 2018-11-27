@@ -10,10 +10,11 @@ namespace Test
     public sealed class SpectrumProcessingAndFiltering
     {
         [Test]
-        [TestCase(10, null, 100)]
-        [TestCase(10, 1, 100)]
-        [TestCase(10, 5, 100)]
-        public static void TestFilteringPeaksTopN_MultipleWindows(int peaksToKeep, int? windows, int peakCount)
+        [TestCase(10, null, 100, null)]
+        [TestCase(10, 1, 100, null)]
+        [TestCase(10, 5, 100, null)]
+        [TestCase(10, 5, 100, 500)]
+        public static void TestFilteringPeaksTopN_MultipleWindows(int peaksToKeep, int? windows, int peakCount, double? normalizationMax)
         {
             double[] mzArray = new double[100];
             double[] intArray = new double[100];
@@ -31,7 +32,7 @@ namespace Test
 
             FilteringParams f = new FilteringParams(peaksToKeep, null, windows, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000);
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, normalizationMax);
 
             if (windows.HasValue)
             {
@@ -41,6 +42,79 @@ namespace Test
             {
                 Assert.LessOrEqual((decimal)mzArray.Count(), (decimal)peaksToKeep * (decimal)1.0);
             }
+            if (normalizationMax.HasValue)
+            {
+                Assert.AreEqual(normalizationMax.Value, intArray.Max());
+            }
+        }
+
+        [Test]
+        public static void TestFilterLowIntensity()
+        {
+            double[] mzArray = new double[100];
+            double[] intArray = new double[100];
+
+            for (int i = 0; i < 100; i++)
+            {
+                mzArray[i] = (double)i;
+                intArray[i] = (double)i;
+            }
+
+            FilteringParams f = new FilteringParams(null, 0.05, null, false, false);
+
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+
+            //The first five intensities are below 5% and therefore removed.
+            Assert.AreEqual(95, intArray.Count());
+            Assert.AreEqual(95, mzArray.Count());
+        }
+
+        [Test]
+        public static void TestFilterNumberPeaksPerWindowOneWindow()
+        {
+            double[] mzArray = new double[200];
+            double[] intArray = new double[200];
+
+            for (int i = 0; i < 200; i++)
+            {
+                mzArray[i] = (double)(i + 1);
+                intArray[i] = (double)(i + 1);
+            }
+
+            FilteringParams f = new FilteringParams(100, null, null, false, false);
+
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+
+            Assert.AreEqual(100, intArray.Count());
+            Assert.AreEqual(100, mzArray.Count());
+            Assert.AreEqual(101, intArray.Min());
+            Assert.AreEqual(200, intArray.Max());
+            Assert.AreEqual(101, mzArray.Min());
+            Assert.AreEqual(200, mzArray.Max());
+        }
+
+        [Test]
+        public static void TestFilterNumberPeaksPerWindowTenWindows()
+        {
+            double[] mzArray = new double[200];
+            double[] intArray = new double[200];
+
+            for (int i = 0; i < 200; i++)
+            {
+                mzArray[i] = (double)(i + 1);
+                intArray[i] = (double)(i + 1);
+            }
+
+            FilteringParams f = new FilteringParams(10, null, 10, false, false);
+
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+
+            Assert.AreEqual(100, intArray.Count());
+            Assert.AreEqual(100, mzArray.Count());
+            Assert.AreEqual(11, intArray.Min());
+            Assert.AreEqual(200, intArray.Max());
+            Assert.AreEqual(11, mzArray.Min());
+            Assert.AreEqual(200, mzArray.Max());
         }
 
         [Test]
@@ -50,14 +124,17 @@ namespace Test
             List<double> intensities = new List<double>();
 
             int startMass = 1;
-            int incrementMass = 2;
+            int incrementMass = 5;
 
-            double startIntensity = 0.25;
-            double incrementIntensity = 0.25;
+            double startIntensity = 0.5;
+            double incrementIntensity = 5;
 
-            for (int i = 0; i < 100; i++)
+            Random r = new Random();
+
+            while (startMass < 1969)
             {
-                masses.Add(startMass);
+                double smallDouble = (double)r.Next(0, 10000) / 100000d;
+                masses.Add(startMass * 1.0005079 + smallDouble);
                 intensities.Add(startIntensity);
                 startMass = startMass + incrementMass;
                 startIntensity = startIntensity + incrementIntensity * startMass;
@@ -66,34 +143,33 @@ namespace Test
             double[] mzArray = masses.ToArray();
             double[] intArray = intensities.ToArray();
 
-            MsDataFile.XCorrPrePreprocessing(ref intArray, ref mzArray, 1, 200, 197);
+            MsDataFile.XCorrPrePreprocessing(ref intArray, ref mzArray, mzArray.Min(), mzArray.Max(), 241.122);
+
+            Array.Sort(mzArray, intArray);
 
             //first mz rounded to nearest discrete mass bin 1.0005079
-            Assert.AreEqual(1.0005079, mzArray[0]);
+            Assert.AreEqual(Math.Round(1.0005079, 5), Math.Round(mzArray.Min(), 5));
 
             //last mz rounded to nearest discrete mass bin 1.0005079
-            Assert.AreEqual(Math.Round(200.10158,5), Math.Round(mzArray[199],5));
-            
-            //peaks within 1.5 thomson of precursor are absent
-            Assert.AreEqual(0, intArray[195] + intArray[196] + intArray[197]);
+            Assert.AreEqual(Math.Round(1966.998531, 5), Math.Round(mzArray.Max(), 5));
+
+            //peaks within 1.5 thomson of precursor 241.122 are absent
+            Assert.AreEqual(0, intArray[239] + intArray[240] + intArray[241]);
 
             //not zero intensities
-            Assert.AreEqual(94, intArray.Where(i => i > 0).ToList().Count);
+            Assert.AreEqual(374, intArray.Where(i => i > 0).ToList().Count);
 
             //zero intensities
-            Assert.AreEqual(106, intArray.Where(i => i == 0).ToList().Count);
+            Assert.AreEqual(1592, intArray.Where(i => i == 0).ToList().Count);
+
+            //Low intensity peaks are zerod
+            Assert.AreEqual(0, intArray.Take(95).Sum());
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(11.60174419,5), Math.Round(intArray[10],5));
-
-            //middle peak with intensity
-            Assert.AreEqual(Math.Round(19.98981657,5), Math.Round(intArray[100],5));
-
-            //middle peak with 0 intensity
-            Assert.AreEqual(0, intArray[101]);
+            Assert.AreEqual(Math.Round(21.170981, 5), Math.Round(intArray[95], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(27.20941558,5), Math.Round(intArray[198],5));
+            Assert.AreEqual(Math.Round(39.674212, 5), Math.Round(intArray[1965], 5));
         }
     }
 }

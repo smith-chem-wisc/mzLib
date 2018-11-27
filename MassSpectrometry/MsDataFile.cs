@@ -83,27 +83,26 @@ namespace MassSpectrometry
         /// <param name="intensities"></param>
         /// <param name="mArray"></param>
         /// <param name="filteringParams"></param>
-        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null)
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null, bool keepZeroPeaks = false)
         {
-            Array.Sort(mArray, intensities);
-            const double shiftToMakeRangeInclusive = 0.000000001;
-            List<MzPeak> mzIntensites = new List<MzPeak>();
-            List<MzPeak> mzIntensites_reduced = new List<MzPeak>();
-            int numberOfWindows = 1;
-            if (filteringParams.NumberOfWindows != null)
-            {
-                numberOfWindows = filteringParams.NumberOfWindows.Value;
-            }
+            Array.Sort(intensities, mArray);
 
-            //make MzPeaks of each mz/intensity pair and create a list of pairs for everything with intensity above the minimum cutoff
-            double maximumIntensityInArray = intensities.Max();
-            for (int i = 0; i < mArray.Length; i++)
+            //filter low intensites based on a percent for the whole spectrum.
+            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
             {
-                if ((!filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue) || (intensities[i] > (maximumIntensityInArray * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)))
+                double maxIntensity = intensities.Max();
+                for (int i = 0; i < intensities.Length; i++)
                 {
-                    mzIntensites.Add(new MzPeak(mArray[i], intensities[i]));
+                    if (intensities[i] <= maxIntensity * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)
+                    {
+                        intensities[i] = 0;
+                    }
                 }
             }
+
+            const double shiftToMakeRangeInclusive = 0.000000001;
+
+            int numberOfWindows = filteringParams.NumberOfWindows ?? 1;
 
             double mzRangeInOneWindow = scanRangeMaxMz - scanRangeMinMz;
             Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
@@ -135,140 +134,119 @@ namespace MassSpectrometry
                 ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
             }
 
-            foreach (Tuple<double, double> range in ranges)
+            Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
+            for (int i = 0; i < ranges.Count; i++)
             {
-                List<MzPeak> handyLittleListofMzPeaksThatIsOnlyNeededTemporarily = new List<MzPeak>();
-                foreach (MzPeak mzIntensityPair in mzIntensites)
+                mzInRange.Add(i, new List<int>());
+            }
+
+            //we're going to keep track of the array indicies b/c that's easier than the m/zs b/c rounding issues
+            //we're only keeping peaks with intensity greater than 1 (assuming those <= 1 has "zero" intensity)
+            for (int j = mArray.Length - 1; j >= 0; j--)
+            {
+                foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
                 {
-                    if (mzIntensityPair.Mz > range.Item1 && mzIntensityPair.Mz <= range.Item2)
+                    if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 1 || keepZeroPeaks))
                     {
-                        handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Add(mzIntensityPair);
-                    }
-                }
-                if (handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count > 0)
-                {
-                    handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Sort((x, y) => y.Intensity.CompareTo(x.Intensity)); //sort tuple in place decending by item 2, reverse by changing x and y
-                    double maxIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Max(x => x.Intensity);
-                    int countOfPeaksToKeep = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count;
-                    if (filteringParams.NumberOfPeaksToKeepPerWindow != null)
-                    {
-                        countOfPeaksToKeep = Math.Min(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily.Count, filteringParams.NumberOfPeaksToKeepPerWindow.Value);
-                    }
-                    for (int i = 0; i < countOfPeaksToKeep; i++)
-                    {
-                        if (WindowMaxNormalizationToValue.HasValue)
-                        {
-                            double normalizedIntensity = handyLittleListofMzPeaksThatIsOnlyNeededTemporarily[i].Intensity / maxIntensity * WindowMaxNormalizationToValue.Value;
-                            mzIntensites_reduced.Add(new MzPeak(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily[i].Mz, normalizedIntensity));
-                        }
-                        else
-                        {
-                            mzIntensites_reduced.Add(handyLittleListofMzPeaksThatIsOnlyNeededTemporarily[i]);
-                        }
+                        mzInRange[rangeIndex].Add(j);
+                        break;
                     }
                 }
             }
 
-            // convert merged results to array and sort by m/z
-            mzIntensites_reduced.Sort((x, y) => x.Mz.CompareTo(y.Mz));
-            mArray = mzIntensites_reduced.Select(i => i.Mz).ToArray();
-            intensities = mzIntensites_reduced.Select(i => i.Intensity).ToArray();
+            int countOfPeaksToKeepPerWindow = filteringParams.NumberOfPeaksToKeepPerWindow ?? int.MaxValue;
+
+            List<double> reducedMzList = new List<double>();
+            List<double> reducedIntensityList = new List<double>();
+
+            foreach (int rangeIndex in mzInRange.Keys)
+            {
+                List<double> tempIntList = new List<double>();
+                List<double> tempMzList = new List<double>();
+                foreach (int arrayIndex in mzInRange[rangeIndex])
+                {
+                    tempIntList.Add(intensities[arrayIndex]);
+                    tempMzList.Add(mArray[arrayIndex]);
+                }
+                if (WindowMaxNormalizationToValue.HasValue)
+                {
+                    double max = tempIntList.Max();
+                    tempIntList = tempIntList.Select(x => x / max * WindowMaxNormalizationToValue.Value).ToList();
+                }
+                if (tempMzList.Count > 0 && tempIntList.Count > 0)
+                {
+                    reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
+                    reducedIntensityList.AddRange(tempIntList.GetRange(0, Math.Min(tempIntList.Count, countOfPeaksToKeepPerWindow)));
+                }
+            }
+            intensities = reducedIntensityList.ToArray();
+            mArray = reducedMzList.ToArray();
+            Array.Sort(mArray, intensities);
         }
 
-        public static void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double percentMaxThreshold = 5)
+        public static void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
         {
             //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
 
             Array.Sort(mArray, intensities);
-            int numberOfWindows = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz + discreteMassBin) / discreteMassBin, 0);
+            int numberOfNominalMasses = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz) / 1.0005079, 0) + 1;
 
-            FilteringParams firstFilter = new FilteringParams(1, percentMaxThreshold / 100, numberOfWindows, false, false);
+            double[] genericIntensityArray = new double[numberOfNominalMasses];
+            double[] genericMzArray = new double[numberOfNominalMasses];
 
+            double lowestMz = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;
+
+            for (int i = 0; i < numberOfNominalMasses; i++)
+            {
+                genericMzArray[i] = i * discreteMassBin + lowestMz;
+            }
+
+            int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / 1.0005079, 0);
+            int hiTheortetical = (int)Math.Round((precursorMz + precursorDiscardRange) / 1.0005079, 0);
+
+            //this leaves you with one intensity per nominal mass, even if they come in as more than one. Intensity is Square-rooted
             for (int i = 0; i < mArray.Length; i++)
             {
-                if (Math.Abs(intensities[i]) > 0.000001)//some small number
+                //the nominalMass is really just the integer index
+                int nominalMass = (int)Math.Round((mArray[i] - scanRangeMinMz) / 1.0005079, 0);
+
+                //this might have be be exclusive (i.e. get rid of the = sign) should eliminate unfragmented precursors
+                if (nominalMass < numberOfNominalMasses && (mArray[i] <= lowTheortetical || mArray[i] >= hiTheortetical))
                 {
-                    intensities[i] = Math.Sqrt(intensities[i]);
+                    genericIntensityArray[nominalMass] = Math.Max(genericIntensityArray[nominalMass], Math.Sqrt(intensities[i]));
                 }
             }
 
-            //set intensity of precursor ions to zero
-            for (int i = 0; i < mArray.Length; i++)
-            {
-                if (mArray[i] > (precursorMz - precursorDiscardRange) && mArray[i] < (precursorMz + precursorDiscardRange))
-                {
-                    intensities[i] = 0;
-                }
-            }
+            //we've already filtered for when multiple mzs appear in a single nominal mass bin
+            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, 10, false, false);
 
-            //We filter twice below: the second filter, which is 10 windows with 10 peaks, you could end up with 10 peaks that are not all separated minimally by 1.0005079 daltons.T
-            //The first pass gets one peak(maximally) at every dalton and the second pass keeps up to 10 of those in each of the 10 windows.
+            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), 50, true);
 
-            //filter peaks into discrete mass bins. makes one bin for every single integer m/z.
-            double minMz = scanRangeMinMz - discreteMassBin / 2;
-            double maxMz = scanRangeMaxMz + discreteMassBin / 2;
-
-            MsDataFile.WindowModeHelper(ref intensities, ref mArray, firstFilter, minMz, maxMz);
-
-            //normalize intensity in segments to max 50 intensity keeping only 10 peaks per window.
-            FilteringParams secondFilter = new FilteringParams((int)Math.Ceiling((decimal)numberOfWindows / 10), null, 10, false, false);
-            MsDataFile.WindowModeHelper(ref intensities, ref mArray, secondFilter, minMz, maxMz, 50);
-
-            for (int i = 0; i < mArray.Length; i++)
-            {
-                mArray[i] = Math.Round(mArray[i] / discreteMassBin, 0) * discreteMassBin;
-            }
-
-            //fill in missing mz values in array with zero intensity
-            List<double> allPossibleMzValues = new List<double>();
-            double start = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;//don't use minMz here, that would be WRONG
-            while (start < (maxMz))
-            {
-                allPossibleMzValues.Add(start);
-                start += discreteMassBin;
-            }
-
-            //remove any that are already in the mArray
-            foreach (double remainingMzValue in mArray)
-            {
-                allPossibleMzValues.RemoveAll(x => x > (remainingMzValue - discreteMassBin / 2) && x < (remainingMzValue + discreteMassBin / 2));
-            }
-
-            double[] zeroArray = new double[allPossibleMzValues.Count];
-            for (int i = 0; i < zeroArray.Length; i++)
-            {
-                zeroArray[i] = 0;
-            }
-
-            int original_mArray_count = mArray.Length;
-            Array.Resize<double>(ref mArray, mArray.Length + allPossibleMzValues.Count);
-            Array.Copy(allPossibleMzValues.ToArray(), 0, mArray, original_mArray_count, allPossibleMzValues.Count);
-
-            Array.Resize<double>(ref intensities, intensities.Length + zeroArray.Length);
-            Array.Copy(zeroArray.ToArray(), 0, intensities, original_mArray_count, zeroArray.Length);
-
-            Array.Sort(mArray, intensities);
+            Array.Sort(genericMzArray, genericIntensityArray);
 
             //Scale the intensities
 
             const int rangeEnd = 75; //from J. Proteome Res., 2018, 17 (11), pp 3644–3656
 
-            double[] scaledIntensities = new double[intensities.Length];
-            for (int i = 0; i < intensities.Length; i++)
+            double[] scaledIntensities = new double[genericIntensityArray.Length];
+            for (int i = 0; i < genericIntensityArray.Length; i++)
             {
                 double scaleValue = 0;
 
                 int low = Math.Max(0, i - rangeEnd);
-                int high = Math.Min(intensities.Length - 1, i + rangeEnd);
+                int high = Math.Min(genericIntensityArray.Length - 1, i + rangeEnd);
                 int denominator = high - low + 1;
 
                 for (int j = low; j <= high; j++)
                 {
-                    scaleValue += intensities[j];
+                    scaleValue += genericIntensityArray[j];
                 }
-                scaledIntensities[i] = Math.Max(0, intensities[i] - 1d / (denominator) * scaleValue);
+                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (denominator) * scaleValue);
             }
-            intensities = scaledIntensities;
+            genericIntensityArray = scaledIntensities;
+
+            intensities = genericIntensityArray;
+            mArray = genericMzArray;
         }
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()

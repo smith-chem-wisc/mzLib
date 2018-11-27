@@ -582,6 +582,49 @@ namespace Test
         }
 
         [Test]
+        [TestCase("AAAAAAAAAA", DissociationType.CID, 0, 0, 0, 0, 0, 0, 17)]
+        [TestCase("AAAAAAAAAA", DissociationType.LowCID, 0, 0, 0, 0, 0, 0, 17)]
+        [TestCase("RAAAAAAAAA", DissociationType.LowCID, 8, 8, 0, 0, 0, 0, 33)]
+        [TestCase("KAAAAAAAAA", DissociationType.LowCID, 8, 8, 0, 0, 0, 0, 33)]
+        [TestCase("NAAAAAAAAA", DissociationType.LowCID, 8, 8, 0, 0, 0, 0, 33)]
+        [TestCase("QAAAAAAAAA", DissociationType.LowCID, 8, 8, 0, 0, 0, 0, 33)]
+        [TestCase("AAAAAAAAAR", DissociationType.LowCID, 0, 0, 0, 0, 9, 0, 26)]
+        [TestCase("AAAAAAAAAK", DissociationType.LowCID, 0, 0, 0, 0, 9, 0, 26)]
+        [TestCase("AAAAAAAAAN", DissociationType.LowCID, 0, 0, 0, 0, 9, 0, 26)]
+        [TestCase("AAAAAAAAAQ", DissociationType.LowCID, 0, 0, 0, 0, 9, 0, 26)]
+        [TestCase("AARAAAAAAA", DissociationType.LowCID, 7, 7, 0, 0, 2, 0, 33)]
+        [TestCase("AAKAAAAAAA", DissociationType.LowCID, 7, 7, 0, 0, 2, 0, 33)]
+        [TestCase("AANAAAAAAA", DissociationType.LowCID, 7, 7, 0, 0, 2, 0, 33)]
+        [TestCase("AAQAAAAAAA", DissociationType.LowCID, 7, 7, 0, 0, 2, 0, 33)]
+        [TestCase("SAAAAAAAAA", DissociationType.LowCID, 0, 0, 8, 8, 0, 0, 33)]
+        [TestCase("TAAAAAAAAA", DissociationType.LowCID, 0, 0, 8, 8, 0, 0, 33)]
+        [TestCase("EAAAAAAAAA", DissociationType.LowCID, 0, 0, 8, 8, 0, 0, 33)]
+        [TestCase("DAAAAAAAAA", DissociationType.LowCID, 0, 0, 8, 8, 0, 0, 33)]
+        [TestCase("AAAAAAAAAS", DissociationType.LowCID, 0, 0, 0, 0, 0, 9, 26)]
+        [TestCase("AAAAAAAAAT", DissociationType.LowCID, 0, 0, 0, 0, 0, 9, 26)]
+        [TestCase("AAAAAAAAAE", DissociationType.LowCID, 0, 0, 0, 0, 0, 9, 26)]
+        [TestCase("AAAAAAAAAE", DissociationType.LowCID, 0, 0, 0, 0, 0, 9, 26)]
+        [TestCase("AASAAAAAAA", DissociationType.LowCID, 0, 0, 7, 7, 0, 2, 33)]
+        [TestCase("AATAAAAAAA", DissociationType.LowCID, 0, 0, 7, 7, 0, 2, 33)]
+        [TestCase("AAEAAAAAAA", DissociationType.LowCID, 0, 0, 7, 7, 0, 2, 33)]
+        [TestCase("AADAAAAAAA", DissociationType.LowCID, 0, 0, 7, 7, 0, 2, 33)]
+        [TestCase("AARAAAASAA", DissociationType.LowCID, 7, 7, 2, 2, 2, 7, 44)]
+        public static void Test_Fragment_ProductTypesWithAminoAcidSpecificities(string fullSequence, DissociationType dissociationType, int aStarCount, int bStarCount, int aDegreeCount, int bDegreeCount, int yStarCount, int yDegreeCount, int totalFragmentCount)
+        {
+            PeptideWithSetModifications myPeptide = new PeptideWithSetModifications(fullSequence, new Dictionary<string, Modification>());
+
+            var theseTheoreticalFragments = myPeptide.Fragment(dissociationType, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+
+            Assert.AreEqual(aStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aStar).Count());
+            Assert.AreEqual(bStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bStar).Count());
+            Assert.AreEqual(aDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aDegree).Count());
+            Assert.AreEqual(bDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bDegree).Count());
+            Assert.AreEqual(yStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yStar).Count());
+            Assert.AreEqual(yDegreeCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.yDegree).Count());
+            Assert.AreEqual(totalFragmentCount, theseTheoreticalFragments.Count());
+        }
+
+        [Test]
         public static void Test_NeutralMassShiftFromProductType()
         {
             foreach (ProductType p in Enum.GetValues(typeof(ProductType)))

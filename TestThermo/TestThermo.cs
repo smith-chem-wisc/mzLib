@@ -36,11 +36,14 @@ namespace TestThermo
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
         public static void ReadWriteReadEtc(string infile, string outfile1, string outfile2)
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(infile);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var aa = Mzml.LoadAllStaticData(outfile1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
             Mzml.LoadAllStaticData(outfile2);
+            Console.WriteLine($"Analysis time for ReadWriteReadEtc({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
