@@ -10,6 +10,7 @@ namespace Proteomics.Fragmentation
         {
             { DissociationType.Unknown, new List<ProductType>() },
             { DissociationType.CID, new List<ProductType>{ ProductType.b, ProductType.y } },
+            { DissociationType.LowCID, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.aStar, ProductType.bStar, ProductType.yStar, ProductType.aDegree, ProductType.bDegree, ProductType.yDegree } },
             { DissociationType.IRMPD, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
             { DissociationType.PQD, new List<ProductType>() },
@@ -38,6 +39,20 @@ namespace Proteomics.Fragmentation
             { ProductType.zPlusOne, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
             { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
+        };
+
+        //From http://www.matrixscience.com/help/fragmentation_help.html
+        //Low Energy CID -- In low energy CID(i.e.collision induced dissociation in a triple quadrupole or an ion trap) a peptide carrying a positive charge fragments mainly along its backbone, 
+        //generating predominantly b and y ions. In addition, for fragments containing RKNQ, peaks are seen for ions that have lost ammonia (-17 Da) denoted a*, b* and y*. For fragments containing 
+        //STED, loss of water(-18 Da) is denoted a°, b° and y°. Satellite ions from side chain cleavage are not observed.
+        public static Dictionary<ProductType, List<char>> ProductTypeAminoAcidSpecificites = new Dictionary<ProductType, List<char>>
+        {
+            {ProductType.aStar, new List<char>{ 'R', 'K', 'N', 'Q'} },
+            {ProductType.bStar, new List<char>{ 'R', 'K', 'N', 'Q'} },
+            {ProductType.yStar, new List<char>{ 'R', 'K', 'N', 'Q'} },
+            {ProductType.aDegree, new List<char>{ 'S', 'T', 'E', 'D'} },
+            {ProductType.bDegree, new List<char>{ 'S', 'T', 'E', 'D'} },
+            {ProductType.yDegree, new List<char>{ 'S', 'T', 'E', 'D'} }
         };
 
         public static double GetMassShiftFromProductType(ProductType productType)
