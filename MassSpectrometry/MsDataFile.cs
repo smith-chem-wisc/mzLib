@@ -130,6 +130,7 @@ namespace MassSpectrometry
                 foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
                 {
                     if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
+
                     {
                         mzInRange[rangeIndex].Add(j);
                         break;
