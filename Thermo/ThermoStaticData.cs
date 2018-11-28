@@ -17,7 +17,6 @@
 // License along with MassSpecFiles. If not, see <http://www.gnu.org/licenses/>.
 
 using MassSpectrometry;
-using MSFileReaderLib;
 using MzLibUtil;
 using System;
 using System.Globalization;
@@ -25,6 +24,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using MSFileReaderLib;
 
 namespace IO.Thermo
 {
@@ -232,18 +232,9 @@ namespace IO.Thermo
                 var intensityArray = new double[count];
                 Buffer.BlockCopy(data, 0, mzArray, 0, sizeof(double) * count);
                 Buffer.BlockCopy(data, sizeof(double) * count, intensityArray, 0, sizeof(double) * count);
-                if (filterParams.NumberOfWindows == null)
-                {
-                    int numPeaks = TopNpeakHelper(ref intensityArray, ref mzArray, filterParams);
-                    //the following arrays are modified after TopN helper
-                    Array.Resize(ref intensityArray, numPeaks);
-                    Array.Resize(ref mzArray, numPeaks);
-                }
-                //Array reference passed by value, array calues will be modified after calling
-                else
-                {
-                    WindowModeHelper(ref intensityArray, ref mzArray, filterParams, pdLowMass, pdHighMass);
-                }
+
+                WindowModeHelper(ref intensityArray, ref mzArray, filterParams, pdLowMass, pdHighMass);
+
                 Array.Sort(mzArray, intensityArray);
                 thermoSpectrum = new MzSpectrum(mzArray, intensityArray, false);
             }
