@@ -59,23 +59,6 @@ namespace MassSpectrometry
             return Scans.ToList();
         }
 
-        public static int TopNpeakHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
-        {
-            IComparer<double> c = new ReverseComparer();
-            Array.Sort(intensities, mArray, c);
-
-            int numPeaks = intensities.Length;
-            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
-            {
-                double minIntensity = filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value * intensities[0];
-                numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
-            }
-
-            if (filteringParams.NumberOfPeaksToKeepPerWindow.HasValue)
-                numPeaks = Math.Min(filteringParams.NumberOfPeaksToKeepPerWindow.Value, numPeaks);
-            return numPeaks;
-        }
-
         /// <summary>
         /// This method is designed to break a scan up into windows and take the top N peaks (by intensity)
         /// from each window, then merge the results as the scan's new mass spectrum
@@ -146,7 +129,8 @@ namespace MassSpectrometry
             {
                 foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
                 {
-                    if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 1 || keepZeroPeaks))
+                    if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
+
                     {
                         mzInRange[rangeIndex].Add(j);
                         break;

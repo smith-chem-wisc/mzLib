@@ -377,16 +377,7 @@ namespace IO.MzML
             if (filterParams != null && intensities.Length > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
                 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
             {
-                if (filterParams.NumberOfWindows == null)
-                {
-                    int numPeaks = TopNpeakHelper(ref intensities, ref masses, filterParams);
-                    Array.Resize(ref intensities, numPeaks);
-                    Array.Resize(ref masses, numPeaks);
-                }
-                else
-                {
-                    WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
-                }
+                WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
             }
             Array.Sort(masses, intensities);
             var mzmlMzSpectrum = new MzSpectrum(masses, intensities, false);
@@ -421,7 +412,7 @@ namespace IO.MzML
                     }
                 }
             }
-            
+
             if (msOrder.Value == 1)
             {
                 return new MsDataScan(
