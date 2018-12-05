@@ -182,6 +182,7 @@ namespace MassSpectrometry
             for (int i = 0; i < numberOfNominalMasses; i++)
             {
                 genericMzArray[i] = i * discreteMassBin + lowestMz;
+                genericIntensityArray[i] = 0;
             }
 
             int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / 1.0005079, 0);
@@ -196,7 +197,10 @@ namespace MassSpectrometry
                 //this might have be be exclusive (i.e. get rid of the = sign) should eliminate unfragmented precursors
                 if (nominalMass < numberOfNominalMasses && (mArray[i] <= lowTheortetical || mArray[i] >= hiTheortetical))
                 {
-                    genericIntensityArray[nominalMass] = Math.Max(genericIntensityArray[nominalMass], Math.Sqrt(intensities[i]));
+                    if(!Double.IsNaN(Math.Sqrt(intensities[i])) && !Double.IsInfinity(Math.Sqrt(intensities[i])))
+                    {
+                        genericIntensityArray[nominalMass] = Math.Max(genericIntensityArray[nominalMass], Math.Sqrt(intensities[i]));
+                    }
                 }
             }
 

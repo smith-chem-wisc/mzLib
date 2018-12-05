@@ -541,6 +541,16 @@ namespace MassSpectrometry
             return numerator / denominator;
         }
 
+        public void ReplaceXAndYArrays(bool doYouReallyWantToDoThis, double[] newXArray, double[] newYArray)
+        {
+            if (doYouReallyWantToDoThis)
+            {
+                this.XArray = newXArray;
+                this.YArray = newYArray;
+                peakList = new MzPeak[Size];
+            }
+        }
+
         private double ScoreIsotopeEnvelope(IsotopicEnvelope b)
         {
             if (b == null)
@@ -573,6 +583,6 @@ namespace MassSpectrometry
         private MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
-        }    
+        }
     }
 }
