@@ -119,6 +119,7 @@ namespace MassSpectrometry
 
             Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
             for (int i = 0; i < ranges.Count; i++)
+
             {
                 mzInRange.Add(i, new List<int>());
             }
@@ -130,6 +131,7 @@ namespace MassSpectrometry
                 foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
                 {
                     if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
+
                     {
                         mzInRange[rangeIndex].Add(j);
                         break;
@@ -152,12 +154,14 @@ namespace MassSpectrometry
                     tempMzList.Add(mArray[arrayIndex]);
                 }
                 if (WindowMaxNormalizationToValue.HasValue)
+
                 {
                     double max = tempIntList.Max();
                     tempIntList = tempIntList.Select(x => x / max * WindowMaxNormalizationToValue.Value).ToList();
                 }
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)
                 {
+
                     reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
                     reducedIntensityList.AddRange(tempIntList.GetRange(0, Math.Min(tempIntList.Count, countOfPeaksToKeepPerWindow)));
                 }
@@ -183,6 +187,7 @@ namespace MassSpectrometry
             {
                 genericMzArray[i] = i * discreteMassBin + lowestMz;
                 genericIntensityArray[i] = 0;
+
             }
 
             int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / 1.0005079, 0);
@@ -197,10 +202,12 @@ namespace MassSpectrometry
                 //this might have be be exclusive (i.e. get rid of the = sign) should eliminate unfragmented precursors
                 if (nominalMass < numberOfNominalMasses && (mArray[i] <= lowTheortetical || mArray[i] >= hiTheortetical))
                 {
+
                     if(!Double.IsNaN(Math.Sqrt(intensities[i])) && !Double.IsInfinity(Math.Sqrt(intensities[i])))
                     {
                         genericIntensityArray[nominalMass] = Math.Max(genericIntensityArray[nominalMass], Math.Sqrt(intensities[i]));
                     }
+
                 }
             }
 

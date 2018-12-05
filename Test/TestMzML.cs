@@ -81,7 +81,7 @@ namespace Test
 
             var scans = MyMsDataFiles[origDataFile].GetAllScansList();
 
-            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
+            Assert.AreEqual(6,scans[0].MassSpectrum.XArray.Count());
             Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
         }
 
@@ -130,6 +130,7 @@ namespace Test
         }
 
         [Test]
+
         public void LoadBadMzml()
         {
             File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")); // just to be sure
