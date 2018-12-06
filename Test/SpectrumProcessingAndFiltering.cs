@@ -1,4 +1,5 @@
-﻿using MassSpectrometry;
+﻿using IO.MzML;
+using MassSpectrometry;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -142,34 +143,58 @@ namespace Test
 
             double[] mzArray = masses.ToArray();
             double[] intArray = intensities.ToArray();
-
-            MsDataFile.XCorrPrePreprocessing(ref intArray, ref mzArray, mzArray.Min(), mzArray.Max(), 241.122);
-
             Array.Sort(mzArray, intArray);
 
+            var spectrum = new MzSpectrum(mzArray, intArray, false);
+            spectrum.XCorrPrePreprocessing(mzArray.Min(), mzArray.Max(), 241.122);
+
+            //MsDataFile.XCorrPrePreprocessing(ref intArray, ref mzArray, mzArray.Min(), mzArray.Max(), 241.122);
+
+            
+
             //first mz rounded to nearest discrete mass bin 1.0005079
-            Assert.AreEqual(Math.Round(1.0005079, 5), Math.Round(mzArray.Min(), 5));
+            Assert.AreEqual(Math.Round(1.0005079, 5), Math.Round(spectrum.XArray.Min(), 5));
 
             //last mz rounded to nearest discrete mass bin 1.0005079
-            Assert.AreEqual(Math.Round(1966.998531, 5), Math.Round(mzArray.Max(), 5));
+            Assert.AreEqual(Math.Round(1966.998531, 5), Math.Round(spectrum.XArray.Max(), 5));
 
             //peaks within 1.5 thomson of precursor 241.122 are absent
-            Assert.AreEqual(0, intArray[239] + intArray[240] + intArray[241]);
+            Assert.AreEqual(0, spectrum.YArray[239] + spectrum.YArray[240] + spectrum.YArray[241]);
 
             //not zero intensities
-            Assert.AreEqual(374, intArray.Where(i => i > 0).ToList().Count);
+            Assert.AreEqual(374, spectrum.YArray.Where(i => i > 0).ToList().Count);
 
             //zero intensities
-            Assert.AreEqual(1592, intArray.Where(i => i == 0).ToList().Count);
+            Assert.AreEqual(1592, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //Low intensity peaks are zerod
-            Assert.AreEqual(0, intArray.Take(95).Sum());
+            Assert.AreEqual(0, spectrum.YArray.Take(95).Sum());
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(21.170981, 5), Math.Round(intArray[95], 5));
+            Assert.AreEqual(Math.Round(21.170981, 5), Math.Round(spectrum.YArray[95], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(39.674212, 5), Math.Round(intArray[1965], 5));
+            Assert.AreEqual(Math.Round(39.674212, 5), Math.Round(spectrum.YArray[1965], 5));
+        }
+
+        [Test]
+        public static void ProcessXcorrInMzSpectrum()
+        {
+            Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
+            string origDataFile = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
+            FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
+
+            MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+
+            var scans = MyMsDataFiles[origDataFile].GetAllScansList();
+
+            foreach (MsDataScan scan in scans.Where(s => s.MsnOrder > 1))
+            {
+                scan.MassSpectrum.XCorrPrePreprocessing(0, 1968 * 1.0005079, scan.IsolationMz.Value);
+            }
+
+            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
+            Assert.AreEqual(1969, scans[1].MassSpectrum.XArray.Count());
         }
     }
 }

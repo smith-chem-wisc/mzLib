@@ -76,11 +76,12 @@ namespace Test
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
+
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
 
             var scans = MyMsDataFiles[origDataFile].GetAllScansList();
 
-            Assert.AreEqual(6,scans[0].MassSpectrum.XArray.Count());
+            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
             Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
         }
 
@@ -141,7 +142,7 @@ namespace Test
             Assert.That(!myExpPeaks.Except(myPeaksOrderedByIntensity).Any());
             Assert.That(!myPeaksOrderedByIntensity.Except(myExpPeaks).Any());
         }
-        
+
         [Test]
         public static void TestPeakTrimmingWithTooManyWindows()
         {
