@@ -194,7 +194,7 @@ namespace Test
             }
 
             Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
-            Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
+            Assert.AreEqual(1969, scans[1].MassSpectrum.XArray.Count());
         }
     }
 }
