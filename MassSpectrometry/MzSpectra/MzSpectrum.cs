@@ -38,9 +38,10 @@ namespace MassSpectrometry
         private int? indexOfpeakWithHighestY;
         private double? sumOfAllY;
 
-
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
+
+        public bool XcorrProcessed { get; private set; }
 
         static MzSpectrum()
         {
@@ -328,6 +329,76 @@ namespace MassSpectrometry
                 }
                 yield return ok;
             }
+        }
+
+        public void XCorrPrePreprocessing(double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
+        {
+            //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
+
+            Array.Sort(XArray, YArray);
+            int numberOfNominalMasses = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz) / 1.0005079, 0) + 1;
+
+            double[] genericIntensityArray = new double[numberOfNominalMasses];
+            double[] genericMzArray = new double[numberOfNominalMasses];
+
+            double lowestMz = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;
+
+            for (int i = 0; i < numberOfNominalMasses; i++)
+            {
+                genericMzArray[i] = i * discreteMassBin + lowestMz;
+                genericIntensityArray[i] = 0;
+            }
+
+            int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / 1.0005079, 0);
+            int hiTheortetical = (int)Math.Round((precursorMz + precursorDiscardRange) / 1.0005079, 0);
+
+            //this leaves you with one intensity per nominal mass, even if they come in as more than one. Intensity is Square-rooted
+            for (int i = 0; i < XArray.Length; i++)
+            {
+                //the nominalMass is really just the integer index
+                int nominalMass = (int)Math.Round((XArray[i] - scanRangeMinMz) / 1.0005079, 0);
+
+                //this might have be be exclusive (i.e. get rid of the = sign) should eliminate unfragmented precursors
+                if (nominalMass < numberOfNominalMasses && (XArray[i] <= lowTheortetical || XArray[i] >= hiTheortetical))
+                {
+                    if (!Double.IsNaN(Math.Sqrt(YArray[i])) && !Double.IsInfinity(Math.Sqrt(YArray[i])))
+                    {
+                        genericIntensityArray[nominalMass] = Math.Max(genericIntensityArray[nominalMass], Math.Sqrt(YArray[i]));
+                    }
+                }
+            }
+
+            //we've already filtered for when multiple mzs appear in a single nominal mass bin
+            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, 10, false, false);
+
+            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), 50, true);
+
+            Array.Sort(genericMzArray, genericIntensityArray);
+
+            //Scale the intensities
+
+            const int rangeEnd = 75; //from J. Proteome Res., 2018, 17 (11), pp 3644–3656
+
+            double[] scaledIntensities = new double[genericIntensityArray.Length];
+            for (int i = 0; i < genericIntensityArray.Length; i++)
+            {
+                double scaleValue = 0;
+
+                int low = Math.Max(0, i - rangeEnd);
+                int high = Math.Min(genericIntensityArray.Length - 1, i + rangeEnd);
+                int denominator = high - low + 1;
+
+                for (int j = low; j <= high; j++)
+                {
+                    scaleValue += genericIntensityArray[j];
+                }
+                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (denominator) * scaleValue);
+            }
+            genericIntensityArray = scaledIntensities;
+
+            YArray = genericIntensityArray;
+            XArray = genericMzArray;
+            XcorrProcessed = true;
         }
 
         public IEnumerable<int> ExtractIndices(double minX, double maxX)

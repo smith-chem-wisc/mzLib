@@ -81,56 +81,11 @@ namespace Test
 
             var scans = MyMsDataFiles[origDataFile].GetAllScansList();
 
-            Assert.AreEqual(6,scans[0].MassSpectrum.XArray.Count());
+            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
             Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
         }
 
         [Test]
-        public static void CheckXcorrArrayReplacement()
-        {
-            Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
-
-            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
-            MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
-
-            var scans = MyMsDataFiles[origDataFile].GetAllScansList();
-
-            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
-            Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
-
-            // call xcorr filtering on each ms2 scan
-
-            foreach (var scan in MyMsDataFiles[origDataFile].GetAllScansList().Where(p => p.MsnOrder > 1))
-            {
-                var yArray = scan.MassSpectrum.YArray;
-                var xArray = scan.MassSpectrum.XArray;
-
-                MsDataFile.XCorrPrePreprocessing(ref yArray, ref xArray, 0, 1.0005079*1968, scan.IsolationMz.Value);
-
-                scan.MassSpectrum.ReplaceXAndYArrays(false, xArray, yArray);
-            }
-
-            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
-            Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
-
-            foreach (var scan in MyMsDataFiles[origDataFile].GetAllScansList().Where(p => p.MsnOrder > 1))
-            {
-                var yArray = scan.MassSpectrum.YArray;
-                var xArray = scan.MassSpectrum.XArray;
-
-                MsDataFile.XCorrPrePreprocessing(ref yArray, ref xArray, 0, 1.0005079 * 1968, scan.IsolationMz.Value);
-
-                scan.MassSpectrum.ReplaceXAndYArrays(true, xArray, yArray);
-            }
-
-            Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count()); //msnorder 1
-            Assert.AreEqual(1969, scans[1].MassSpectrum.XArray.Count());//msnorder 2
-
-        }
-
-        [Test]
-
         public void LoadBadMzml()
         {
             File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")); // just to be sure
