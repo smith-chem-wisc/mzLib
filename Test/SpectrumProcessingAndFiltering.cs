@@ -147,34 +147,36 @@ namespace Test
 
             var spectrum = new MzSpectrum(mzArray, intArray, false);
             spectrum.XCorrPrePreprocessing(mzArray.Min(), mzArray.Max(), 241.122);
-
-            //MsDataFile.XCorrPrePreprocessing(ref intArray, ref mzArray, mzArray.Min(), mzArray.Max(), 241.122);
-
-            
+  
 
             //first mz rounded to nearest discrete mass bin 1.0005079
-            Assert.AreEqual(Math.Round(1.0005079, 5), Math.Round(spectrum.XArray.Min(), 5));
+            Assert.AreEqual(Math.Round(96.0487584, 5), Math.Round(spectrum.XArray.Min(), 5));
 
             //last mz rounded to nearest discrete mass bin 1.0005079
             Assert.AreEqual(Math.Round(1966.998531, 5), Math.Round(spectrum.XArray.Max(), 5));
 
             //peaks within 1.5 thomson of precursor 241.122 are absent
-            Assert.AreEqual(0, spectrum.YArray[239] + spectrum.YArray[240] + spectrum.YArray[241]);
+            double precursorIntensity = 0;
+            for (int i = 0; i < spectrum.XArray.Length; i++)
+            {
+                if(spectrum.XArray[i] > (241.122 - 1.5) && spectrum.XArray[i] < (241.122 + 1.5))
+                {
+                    precursorIntensity += spectrum.YArray[i];
+                }
+            }
+            Assert.AreEqual(0, precursorIntensity);
 
             //not zero intensities
             Assert.AreEqual(374, spectrum.YArray.Where(i => i > 0).ToList().Count);
 
-            //zero intensities
-            Assert.AreEqual(1592, spectrum.YArray.Where(i => i == 0).ToList().Count);
-
-            //Low intensity peaks are zerod
-            Assert.AreEqual(0, spectrum.YArray.Take(95).Sum());
+            //zero intensities. there shouldn't be any.
+            Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(21.170981, 5), Math.Round(spectrum.YArray[95], 5));
+            Assert.AreEqual(Math.Round(21.170981, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(39.674212, 5), Math.Round(spectrum.YArray[1965], 5));
+            Assert.AreEqual(Math.Round(39.674212, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]
@@ -194,7 +196,7 @@ namespace Test
             }
 
             Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
-            Assert.AreEqual(1969, scans[1].MassSpectrum.XArray.Count());
+            Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
         }
     }
 }
