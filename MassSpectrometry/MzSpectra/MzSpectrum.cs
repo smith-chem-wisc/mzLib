@@ -396,8 +396,23 @@ namespace MassSpectrometry
             }
             genericIntensityArray = scaledIntensities;
 
-            YArray = genericIntensityArray;
-            XArray = genericMzArray;
+            List<double> intensites = new List<double>();
+            List<double> masses = new List<double>();
+
+            for (int i = 0; i < genericIntensityArray.Count(); i++)
+            {
+                if(genericIntensityArray[i] > 0.0001)
+                {
+                    intensites.Add(genericIntensityArray[i]);
+                    masses.Add(genericMzArray[i]);
+                }
+            }
+
+            YArray = intensites.ToArray();
+            XArray = masses.ToArray();
+
+            //YArray = genericIntensityArray;
+            //XArray = genericMzArray;
             XcorrProcessed = true;
         }
 
