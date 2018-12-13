@@ -336,7 +336,7 @@ namespace MassSpectrometry
             //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
 
             Array.Sort(XArray, YArray);
-            int numberOfNominalMasses = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz) / 1.0005079, 0) + 1;
+            int numberOfNominalMasses = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz) / discreteMassBin, 0) + 1;
 
             double[] genericIntensityArray = new double[numberOfNominalMasses];
             double[] genericMzArray = new double[numberOfNominalMasses];
@@ -349,14 +349,14 @@ namespace MassSpectrometry
                 genericIntensityArray[i] = 0;
             }
 
-            int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / 1.0005079, 0);
-            int hiTheortetical = (int)Math.Round((precursorMz + precursorDiscardRange) / 1.0005079, 0);
+            int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / discreteMassBin, 0);
+            int hiTheortetical = (int)Math.Round((precursorMz + precursorDiscardRange) / discreteMassBin, 0);
 
             //this leaves you with one intensity per nominal mass, even if they come in as more than one. Intensity is Square-rooted
             for (int i = 0; i < XArray.Length; i++)
             {
                 //the nominalMass is really just the integer index
-                int nominalMass = (int)Math.Round((XArray[i] - scanRangeMinMz) / 1.0005079, 0);
+                int nominalMass = (int)Math.Round((XArray[i] - scanRangeMinMz) / discreteMassBin, 0);
 
                 //this might have be be exclusive (i.e. get rid of the = sign) should eliminate unfragmented precursors
                 if (nominalMass < numberOfNominalMasses && (XArray[i] <= lowTheortetical || XArray[i] >= hiTheortetical))
