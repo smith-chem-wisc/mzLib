@@ -1,31 +1,25 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        public Protease(string name, IEnumerable<Tuple<string, FragmentationTerminus>> sequencesInducingCleavage, IEnumerable<Tuple<string, FragmentationTerminus>> sequencesPreventingCleavage, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, string siteRegexp)
+        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList)
         {
             Name = name;
-            SequencesInducingCleavage = sequencesInducingCleavage;
-            SequencesPreventingCleavage = sequencesPreventingCleavage;
             CleavageSpecificity = cleavageSpecificity;
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
-            SiteRegexp = siteRegexp;
+            DigestionMotifs = motifList ?? new List<DigestionMotif>();
         }
 
         public string Name { get; }
-        public FragmentationTerminus CleavageTerminus { get; }
-        public IEnumerable<Tuple<string, FragmentationTerminus>> SequencesInducingCleavage { get; }
-        public IEnumerable<Tuple<string, FragmentationTerminus>> SequencesPreventingCleavage { get; }
         public CleavageSpecificity CleavageSpecificity { get; }
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
-        public string SiteRegexp { get; }
+        public List<DigestionMotif> DigestionMotifs { get; }
 
         public override string ToString()
         {
@@ -36,12 +30,12 @@ namespace Proteomics.ProteolyticDigestion
         {
             var a = obj as Protease;
             return a != null
-                && a.Name.Equals(Name);
+                && (a.Name == null && Name == null || a.Name.Equals(Name));
         }
 
         public override int GetHashCode()
         {
-            return Name.GetHashCode();
+            return (Name ?? "").GetHashCode();
         }
 
         public CleavageSpecificity GetCleavageSpecificity(string proteinSequence, int startIndex, int endIndex)
@@ -88,7 +82,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
 
-            // proteolytic cleavage in one spot
+            // proteolytic cleavage in one spot (N)
             if (CleavageSpecificity == CleavageSpecificity.SingleN)
             {
                 bool maxTooBig = protein.Length + maxPeptidesLength < 0; //when maxPeptidesLength is too large, it becomes negative and causes issues
@@ -105,6 +99,8 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
             }
+
+            // proteolytic cleavage in one spot (C)
             else if (CleavageSpecificity == CleavageSpecificity.SingleC)
             {
                 int startIndex = initiatorMethionineBehavior == InitiatorMethionineBehavior.Cleave ? 2 : 1; //where does the protein start
@@ -119,6 +115,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
             }
+
             //top-down
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
@@ -156,6 +153,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 peptides.AddRange(SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptidesLength, maxPeptidesLength));
             }
+
             else
             {
                 throw new NotImplementedException();
@@ -172,21 +170,20 @@ namespace Proteomics.ProteolyticDigestion
         internal List<int> GetDigestionSiteIndices(string proteinSequence)
         {
             var indices = new List<int>();
-            for (int i = 0; i < proteinSequence.Length - 1; i++)
+            for (int r = 0; r < proteinSequence.Length; r++)
             {
-                foreach (var c in SequencesInducingCleavage)
+                foreach (DigestionMotif motif in DigestionMotifs)
                 {
-                    if (SequenceInducesCleavage(proteinSequence, i, c)
-                        && !SequencesPreventingCleavage.Any(nc => SequencePreventsCleavage(proteinSequence, i, nc)))
+                    if (motif.Fits(proteinSequence, r) && r + motif.CutIndex < proteinSequence.Length)
                     {
-                        indices.Add(i + 1);
-                        break;
+                        indices.Add(r + motif.CutIndex);
                     }
                 }
             }
-            indices.Insert(0, 0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
+
+            indices.Add(0); // The start of the protein is treated as a cleavage site to retain the n-terminal peptide
             indices.Add(proteinSequence.Length); // The end of the protein is treated as a cleavage site to retain the c-terminal peptide
-            return indices;
+            return indices.Distinct().OrderBy(i => i).ToList();
         }
 
         /// <summary>
@@ -315,7 +312,8 @@ namespace Proteomics.ProteolyticDigestion
         {
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
-            //it's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
+            
+            // It's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1; i++)
             {
                 bool retain = Retain(i, initiatorMethionineBehavior, protein[0]);
@@ -337,13 +335,13 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
 
-            //finish C-term of protein caused by loop being "i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1"
+            // Finish C-term of protein caused by loop being "i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1"
             int last = oneBasedIndicesToCleaveAfter.Count - 1;
             int maxIndexSemi = maximumMissedCleavages < last ? maximumMissedCleavages : last;
-            //Fringe C-term peptides
+            // Fringe C-term peptides
             for (int i = 1; i <= maxIndexSemi; i++)
             {
-                //fixedN
+                // FixedN
                 int nTerminusProtein = oneBasedIndicesToCleaveAfter[last - i];
                 int cTerminusProtein = oneBasedIndicesToCleaveAfter[last];
                 HashSet<int> localOneBasedIndicesToCleaveAfter = new HashSet<int>();
@@ -362,11 +360,11 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
 
-            //Fringe N-term peptides
+            // Fringe N-term peptides
             for (int i = 1; i <= maxIndexSemi; i++)
             {
                 bool retain = initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain;
-                //fixedC
+                // FixedC
                 int nTerminusProtein = retain ? oneBasedIndicesToCleaveAfter[0] : oneBasedIndicesToCleaveAfter[0] + 1; // +1 start after M (since already covered earlier)
                 int cTerminusProtein = oneBasedIndicesToCleaveAfter[i];
                 HashSet<int> localOneBasedIndicesToCleaveAfter = new HashSet<int>();
@@ -395,7 +393,7 @@ namespace Proteomics.ProteolyticDigestion
                     int i = 0;
                     while (oneBasedIndicesToCleaveAfter[i] < proteolysisProduct.OneBasedBeginPosition)//"<" to prevent additions if same index as residues
                     {
-                        i++; //last position in protein is an index to cleave after
+                        i++; // Last position in protein is an index to cleave after
                     }
 
                     // Start peptide
@@ -412,19 +410,19 @@ namespace Proteomics.ProteolyticDigestion
                         i++;
                     }
 
-                    //Now that we've obtained an index to cleave after that is past the proteolysis product
-                    //we need to backtrack to get the index to cleave that is immediately before the the proteolysis product
-                    //to do this, we will do i--
-                    //In the nitch case that the proteolysis product is already an index to cleave
-                    //no new peptides will be generated using this, so we will forgo i--
-                    //this makes peptides of length 0, which are not generated due to the for loop
-                    //removing this if statement will result in crashes from c-terminal proteolysis product end positions
+                    // Now that we've obtained an index to cleave after that is past the proteolysis product
+                    // we need to backtrack to get the index to cleave that is immediately before the the proteolysis product
+                    // to do this, we will do i--
+                    // In the nitch case that the proteolysis product is already an index to cleave
+                    // no new peptides will be generated using this, so we will forgo i--
+                    // this makes peptides of length 0, which are not generated due to the for loop
+                    // removing this if statement will result in crashes from c-terminal proteolysis product end positions
                     if (oneBasedIndicesToCleaveAfter[i] != proteolysisProduct.OneBasedEndPosition)
                     {
                         i--;
                     }
 
-                    // End
+                    // Fin (End)
                     for (int j = oneBasedIndicesToCleaveAfter[i] + 1; j < proteolysisProduct.OneBasedEndPosition.Value; j++)
                     {
                         if (OkayLength(proteolysisProduct.OneBasedEndPosition - j + 1, minPeptidesLength, maxPeptidesLength))
@@ -439,7 +437,7 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Get protein intervals for fixed termini. 
+        /// Get protein intervals for fixed termini.
         /// This is used for the classic, slow semi-proteolytic cleavage that generates each semi-specific peptides pre-search.
         /// </summary>
         /// <param name="nTerminusProtein"></param>
@@ -490,44 +488,6 @@ namespace Proteomics.ProteolyticDigestion
                 new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
 
             return intervals.Concat(fixedCTermIntervals).Concat(fixedNTermIntervals);
-        }
-
-        /// <summary>
-        /// Checks if select subsequence of protein matches sequence that induces cleavage
-        /// </summary>
-        /// <param name="proteinSequence"></param>
-        /// <param name="proteinSequenceIndex"></param>
-        /// <param name="sequenceInducingCleavage"></param>
-        /// <returns></returns>
-        private bool SequenceInducesCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, FragmentationTerminus> sequenceInducingCleavage)
-        {
-            return (sequenceInducingCleavage.Item2 != FragmentationTerminus.N
-                    && proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1 >= 0
-                    && proteinSequence.Substring(proteinSequenceIndex - sequenceInducingCleavage.Item1.Length + 1, sequenceInducingCleavage.Item1.Length)
-                        .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (sequenceInducingCleavage.Item2 == FragmentationTerminus.N
-                    && proteinSequenceIndex + 1 + sequenceInducingCleavage.Item1.Length <= proteinSequence.Length
-                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequenceInducingCleavage.Item1.Length)
-                        .Equals(sequenceInducingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
-        /// Checks if select subsequence of protein matches sequence preventing cleavage
-        /// </summary>
-        /// <param name="proteinSequence"></param>
-        /// <param name="proteinSequenceIndex"></param>
-        /// <param name="sequencePreventingCleavage"></param>
-        /// <returns></returns>
-        private bool SequencePreventsCleavage(string proteinSequence, int proteinSequenceIndex, Tuple<string, FragmentationTerminus> sequencePreventingCleavage)
-        {
-            return (sequencePreventingCleavage.Item2 != FragmentationTerminus.N
-                    && proteinSequenceIndex + 1 + sequencePreventingCleavage.Item1.Length <= proteinSequence.Length
-                    && proteinSequence.Substring(proteinSequenceIndex + 1, sequencePreventingCleavage.Item1.Length)
-                        .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase))
-                || (SequencesInducingCleavage.First().Item2 == FragmentationTerminus.N
-                    && proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1 >= 0
-                    && proteinSequence.Substring(proteinSequenceIndex - sequencePreventingCleavage.Item1.Length + 1, sequencePreventingCleavage.Item1.Length)
-                        .Equals(sequencePreventingCleavage.Item1, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

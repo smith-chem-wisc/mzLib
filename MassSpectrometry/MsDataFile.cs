@@ -59,23 +59,6 @@ namespace MassSpectrometry
             return Scans.ToList();
         }
 
-        public static int TopNpeakHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
-        {
-            IComparer<double> c = new ReverseComparer();
-            Array.Sort(intensities, mArray, c);
-
-            int numPeaks = intensities.Length;
-            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
-            {
-                double minIntensity = filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value * intensities[0];
-                numPeaks = Math.Min(intensities.Count(b => b >= minIntensity), numPeaks);
-            }
-
-            if (filteringParams.NumberOfPeaksToKeepPerWindow.HasValue)
-                numPeaks = Math.Min(filteringParams.NumberOfPeaksToKeepPerWindow.Value, numPeaks);
-            return numPeaks;
-        }
-
         /// <summary>
         /// This method is designed to break a scan up into windows and take the top N peaks (by intensity)
         /// from each window, then merge the results as the scan's new mass spectrum
@@ -83,62 +66,111 @@ namespace MassSpectrometry
         /// <param name="intensities"></param>
         /// <param name="mArray"></param>
         /// <param name="filteringParams"></param>
-        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams)
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null, bool keepZeroPeaks = false)
         {
-            List<double> mzResults = new List<double>();
-            List<double> intensityResults = new List<double>();
+            Array.Sort(intensities, mArray);
 
-            int windowSize = intensities.Length / filteringParams.NumberOfWindows.Value;
-
-            // window must always have at least one peak in it
-            if (windowSize < 1)
+            //filter low intensites based on a percent for the whole spectrum.
+            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
             {
-                windowSize = 1;
+                double maxIntensity = intensities.Max();
+                for (int i = 0; i < intensities.Length; i++)
+                {
+                    if (intensities[i] <= maxIntensity * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)
+                    {
+                        intensities[i] = 0;
+                    }
+                }
             }
 
-            int windowPeakIndexMinimum = 0;
-            int windowPeakIndexMaximum = windowSize - 1;
+            const double shiftToMakeRangeInclusive = 0.000000001;
 
-            // this loop breaks a scan up into "windows" (e.g., a scan with 100 peaks
-            // divided into 10 windows would have 10 peaks per window) and takes the top N peaks per window.
-            // the results of each trimmed window are concatenated into mzResults and intensityResults
-            for (int i = 0; i < filteringParams.NumberOfWindows; i++)
+            int numberOfWindows = filteringParams.NumberOfWindows ?? 1;
+
+            double mzRangeInOneWindow = scanRangeMaxMz - scanRangeMinMz;
+            Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
+
+            double scanMin = scanRangeMinMz;
+            if (filteringParams.NumberOfWindows.HasValue && filteringParams.NumberOfWindows.Value > 0)
             {
-                // make the last window end at the end of the spectrum
-                // this is to prevent rounding errors in windowSize from cutting off the end of the spectrum
-                if (i == filteringParams.NumberOfWindows - 1)
+                mzRangeInOneWindow = mzRangeInOneWindow / filteringParams.NumberOfWindows.Value;
+
+                for (int i = 1; i <= numberOfWindows; i++)
                 {
-                    windowPeakIndexMaximum = intensities.Length - 1;
+                    if (i == 1) // first
+                    {
+                        ranges.Add(scanMin - shiftToMakeRangeInclusive, (scanMin + mzRangeInOneWindow));
+                    }
+                    else if (i == (numberOfWindows))//last
+                    {
+                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
+                    }
+                    else//middle
+                    {
+                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow));
+                    }
+                    scanMin += mzRangeInOneWindow;
                 }
-
-                // avoid index out of range problems
-                if (windowPeakIndexMinimum >= intensities.Length)
-                {
-                    break;
-                }
-
-                // determine the valid peaks given filtering conditions for this window
-                var windowIntensities = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
-                Array.Copy(intensities, windowPeakIndexMinimum, windowIntensities, 0, windowIntensities.Length);
-
-                var windowMzs = new double[windowPeakIndexMaximum - windowPeakIndexMinimum + 1];
-                Array.Copy(mArray, windowPeakIndexMinimum, windowMzs, 0, windowMzs.Length);
-
-                int numPeaksToTakeInThisWindow = TopNpeakHelper(ref windowIntensities, ref windowMzs, filteringParams);
-
-                // merge results of this window into the global results
-                intensityResults.AddRange(windowIntensities.Take(numPeaksToTakeInThisWindow));
-                mzResults.AddRange(windowMzs.Take(numPeaksToTakeInThisWindow));
-
-                // set up for the next window
-                windowPeakIndexMinimum = windowPeakIndexMaximum + 1;
-                windowPeakIndexMaximum = windowPeakIndexMinimum + windowSize;
+            }
+            else
+            {
+                ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
             }
 
-            // convert merged results to array and sort by m/z
-            mArray = mzResults.ToArray();
-            intensities = intensityResults.ToArray();
+            Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
+            for (int i = 0; i < ranges.Count; i++)
 
+            {
+                mzInRange.Add(i, new List<int>());
+            }
+
+            //we're going to keep track of the array indicies b/c that's easier than the m/zs b/c rounding issues
+            //we're only keeping peaks with intensity greater than 1 (assuming those <= 1 has "zero" intensity)
+            for (int j = mArray.Length - 1; j >= 0; j--)
+            {
+                foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
+                {
+                    if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
+
+                    {
+                        mzInRange[rangeIndex].Add(j);
+                        break;
+                    }
+                }
+            }
+
+            int countOfPeaksToKeepPerWindow = filteringParams.NumberOfPeaksToKeepPerWindow ?? int.MaxValue;
+
+            List<double> reducedMzList = new List<double>();
+            List<double> reducedIntensityList = new List<double>();
+
+            foreach (int rangeIndex in mzInRange.Keys)
+            {
+                List<double> tempIntList = new List<double>();
+                List<double> tempMzList = new List<double>();
+                foreach (int arrayIndex in mzInRange[rangeIndex])
+                {
+                    tempIntList.Add(intensities[arrayIndex]);
+                    tempMzList.Add(mArray[arrayIndex]);
+                }
+                if (WindowMaxNormalizationToValue.HasValue)
+
+                {
+                    double max = tempIntList.Max();
+                    if (max == 0)
+                    {
+                        max = 1;
+                    }
+                    tempIntList = tempIntList.Select(x => x / max * WindowMaxNormalizationToValue.Value).ToList();
+                }
+                if (tempMzList.Count > 0 && tempIntList.Count > 0)
+                {
+                    reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
+                    reducedIntensityList.AddRange(tempIntList.GetRange(0, Math.Min(tempIntList.Count, countOfPeaksToKeepPerWindow)));
+                }
+            }
+            intensities = reducedIntensityList.ToArray();
+            mArray = reducedMzList.ToArray();
             Array.Sort(mArray, intensities);
         }
 

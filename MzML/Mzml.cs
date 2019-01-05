@@ -354,19 +354,30 @@ namespace IO.MzML
                 }
             }
 
+            double high = double.NaN;
+            double low = double.NaN;
+
+            var aScanWindowList = _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList;
+
+            if (aScanWindowList != null)
+            {
+                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam)
+                {
+                    if (cv.accession.Equals(_scanWindowLowerLimit))
+                    {
+                        low = double.Parse(cv.value);
+                    }
+                    else if (cv.accession.Equals(_scanWindowUpperLimit))
+                    {
+                        high = double.Parse(cv.value);
+                    }
+                }
+            }
+
             if (filterParams != null && intensities.Length > 0 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
                 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
             {
-                if (filterParams.NumberOfWindows == null)
-                {
-                    int numPeaks = TopNpeakHelper(ref intensities, ref masses, filterParams);
-                    Array.Resize(ref intensities, numPeaks);
-                    Array.Resize(ref masses, numPeaks);
-                }
-                else
-                {
-                    WindowModeHelper(ref intensities, ref masses, filterParams);
-                }
+                WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
             }
             Array.Sort(masses, intensities);
             var mzmlMzSpectrum = new MzSpectrum(masses, intensities, false);
@@ -398,24 +409,6 @@ namespace IO.MzML
                     if (cv.accession.Equals(_oneBasedScanNumber)) //get the real one based spectrum number (if available), the other assumes they are in order. This is present in .mgf->.mzml conversions from MSConvert
                     {
                         oneBasedScanNumber = int.Parse(cv.value);
-                    }
-                }
-            }
-
-            double high = double.NaN;
-            double low = double.NaN;
-
-            if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList != null)
-            {
-                foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].scanWindowList.scanWindow[0].cvParam)
-                {
-                    if (cv.accession.Equals(_scanWindowLowerLimit))
-                    {
-                        low = double.Parse(cv.value);
-                    }
-                    if (cv.accession.Equals(_scanWindowUpperLimit))
-                    {
-                        high = double.Parse(cv.value);
                     }
                 }
             }

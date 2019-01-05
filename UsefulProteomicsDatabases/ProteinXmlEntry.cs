@@ -9,7 +9,7 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinXmlEntry
     {
-        private Regex SubstituteWhitespace = new Regex(@"\s+");
+        private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
 
         public string Accession { get; private set; }
         public string Name { get; private set; }
@@ -27,11 +27,13 @@ namespace UsefulProteomicsDatabases
         public List<string> PropertyTypes { get; private set; } = new List<string>();
         public List<string> PropertyValues { get; private set; } = new List<string>();
         public int OneBasedFeaturePosition { get; private set; } = -1;
+        public int OneBasedFeatureSubPosition { get; private set; } = -1;
         public int? OneBasedBeginPosition { get; private set; }
         public int? OneBasedEndPosition { get; private set; }
         public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
+        public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
         public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
@@ -127,6 +129,10 @@ namespace UsefulProteomicsDatabases
                     OneBasedFeaturePosition = int.Parse(xml.GetAttribute("position"));
                     break;
 
+                case "subposition":
+                    OneBasedFeatureSubPosition = int.Parse(xml.GetAttribute("subposition"));
+                    break;
+
                 case "begin":
                     OneBasedBeginPosition = int.TryParse(xml.GetAttribute("position"), out outValue) ? (int?)outValue : null;
                     break;
@@ -144,10 +150,10 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing at the end of an element
         /// </summary>
-        public List<Protein> ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications, bool isContaminant, string proteinDbLocation)
+        public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
+            bool isContaminant, string proteinDbLocation)
         {
-            List<Protein> result = new List<Protein>();
+            Protein protein = null;
             if (xml.Name == "feature")
             {
                 ParseFeatureEndElement(xml, modTypesToExclude, unknownModifications);
@@ -170,23 +176,22 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result.AddRange(ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications));
+                protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications);
             }
-            return result;
+            return protein;
         }
 
         /// <summary>
         /// Finish parsing an entry
         /// </summary>
-        public List<Protein> ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
-            List<Protein> result = new List<Protein>();
+            Protein result = null;
             if (Accession != null && Sequence != null)
             {
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                var protein = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, DisulfideBonds, proteinDbLocation);
-                result.Add(protein);
+                result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
+                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
             }
             Clear();
             return result;
@@ -195,21 +200,19 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing a subfeature element
         /// </summary>
-        public void ParseSubFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications)
+        public void ParseSubFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (SubFeatureType == "modified residue")
             {
                 SubFeatureDescription = SubFeatureDescription.Split(';')[0];
-                AnnotatedVariantMods.Add((OneBasedFeaturePosition, SubFeatureDescription));
+                AnnotatedVariantMods.Add((OneBasedFeatureSubPosition, SubFeatureDescription));
             }
         }
 
-            /// <summary>
-            /// Finish parsing a feature element
-            /// </summary>
-        public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications)
+        /// <summary>
+        /// Finish parsing a feature element
+        /// </summary>
+        public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
             {
@@ -244,6 +247,17 @@ namespace UsefulProteomicsDatabases
                     DisulfideBonds.Add(new DisulfideBond(OneBasedFeaturePosition, FeatureDescription));
                 }
             }
+            else if (FeatureType == "splice site")
+            {
+                if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                {
+                    SpliceSites.Add(new SpliceSite((int)OneBasedBeginPosition, (int)OneBasedEndPosition, FeatureDescription));
+                }
+                else if (OneBasedFeaturePosition >= 1)
+                {
+                    SpliceSites.Add(new SpliceSite(OneBasedFeaturePosition, FeatureDescription));
+                }
+            }
             OneBasedBeginPosition = null;
             OneBasedEndPosition = null;
             OneBasedFeaturePosition = -1;
@@ -251,7 +265,7 @@ namespace UsefulProteomicsDatabases
             VariationValue = "";
         }
 
-        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude, 
+        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
         {
             foreach (var annotatedMod in annotatedMods)
@@ -324,7 +338,7 @@ namespace UsefulProteomicsDatabases
         /// Finish parsing a database reference element
         /// </summary>
         /// <param name="xml"></param>
-        public void ParseDatabaseReferenceEndElement(XmlReader xml)
+        private void ParseDatabaseReferenceEndElement(XmlReader xml)
         {
             DatabaseReferences.Add(
                 new DatabaseReference(DBReferenceType, DBReferenceId,
@@ -356,11 +370,13 @@ namespace UsefulProteomicsDatabases
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;
+            OneBasedFeatureSubPosition = -1;
             AnnotatedMods = new List<(int, string)>();
             OneBasedModifications = new Dictionary<int, List<Modification>>();
             ProteolysisProducts = new List<ProteolysisProduct>();
             SequenceVariations = new List<SequenceVariation>();
             DisulfideBonds = new List<DisulfideBond>();
+            SpliceSites = new List<SpliceSite>();
             DatabaseReferences = new List<DatabaseReference>();
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;

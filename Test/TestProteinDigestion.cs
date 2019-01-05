@@ -9,17 +9,34 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static Chemistry.PeriodicTable;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public static class MyPeptideTest
+    public static class TestProteinDigestion
     {
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setup()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
+
         [Test]
         public static void TestGoodPeptide()
         {
             var prot = new Protein("MNNNKQQQQ", null);
-            var protease = new Protease("CustomizedProtease", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("K", FragmentationTerminus.C) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
+            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -62,7 +79,8 @@ namespace Test
         public static void TestBadPeptide()
         {
             var prot = new Protein("MNNNKQQXQ", null);
-            var protease = new Protease("Custom Protease7", new List<Tuple<string, FragmentationTerminus>> { new Tuple<string, FragmentationTerminus>("K", FragmentationTerminus.C) }, new List<Tuple<string, FragmentationTerminus>>(), CleavageSpecificity.Full, null, null, null);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
+            var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,

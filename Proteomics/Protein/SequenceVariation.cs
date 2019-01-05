@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace Proteomics
 {
@@ -18,7 +19,7 @@ namespace Proteomics
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = description ?? "";
+            Description = new SequenceVariantDescription(description);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
@@ -32,7 +33,7 @@ namespace Proteomics
         /// <param name="description"></param>
         /// <param name="oneBasedModifications"></param>
         public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
-            : this(oneBasedPosition, oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
+            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
         { }
 
         /// <summary>
@@ -58,10 +59,10 @@ namespace Proteomics
         /// <summary>
         /// Description of this variation (optional)
         /// </summary>
-        public string Description { get; }
+        public SequenceVariantDescription Description { get; }
 
         /// <summary>
-        ///
+        /// Modifications specifically for this variant
         /// </summary>
         public Dictionary<int, List<Modification>> OneBasedModifications { get; }
 
@@ -71,18 +72,21 @@ namespace Proteomics
             return s != null
                 && OneBasedBeginPosition == s.OneBasedBeginPosition
                 && OneBasedEndPosition == s.OneBasedEndPosition
-                && OriginalSequence == s.OriginalSequence
-                && VariantSequence == s.VariantSequence
-                && Description == s.Description;
+                && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
+                && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
+                && (s.Description == null && Description == null || Description.Equals(s.Description))
+                && (s.OneBasedModifications == null && OneBasedModifications == null ||
+                    s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
+                    && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
         }
 
         public override int GetHashCode()
         {
             return OneBasedBeginPosition.GetHashCode()
                 ^ OneBasedEndPosition.GetHashCode()
-                ^ OriginalSequence.GetHashCode()
-                ^ VariantSequence.GetHashCode()
-                ^ Description.GetHashCode();
+                ^ OriginalSequence.GetHashCode() // null handled in constructor
+                ^ VariantSequence.GetHashCode() // null handled in constructor
+                ^ Description.GetHashCode(); // always constructed in constructor
         }
 
         /// <summary>

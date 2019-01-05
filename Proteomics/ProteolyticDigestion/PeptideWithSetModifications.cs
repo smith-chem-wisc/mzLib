@@ -195,6 +195,14 @@ namespace Proteomics.ProteolyticDigestion
                 case DissociationType.CID:
                     skippers.Add((ProductType.b, 1));
                     break;
+                //for LowCID I assume we don't have the first ion on the b-side from any ion type
+                case DissociationType.LowCID:
+                    skippers.Add((ProductType.b, 1));
+                    skippers.Add((ProductType.aDegree, 1));
+                    skippers.Add((ProductType.bDegree, 1));
+                    skippers.Add((ProductType.aStar, 1));
+                    skippers.Add((ProductType.bStar, 1));
+                    break;
 
                 case DissociationType.ETD:
                 case DissociationType.ECD:
@@ -210,33 +218,65 @@ namespace Proteomics.ProteolyticDigestion
                 FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
                 NeutralTerminusFragment[] terminalMasses = new CompactPeptide(this, temporaryFragmentationTerminus).TerminalMasses;
 
+                int firstUsableIndex = FullSequence.Length;
+                bool completeFragmentationSeries = true;
+                switch (productType)
+                {
+                    case ProductType.aStar:
+                    case ProductType.bStar:
+                    case ProductType.yStar:
+                    case ProductType.aDegree:
+                    case ProductType.bDegree:
+                    case ProductType.yDegree:
+                        {
+                            firstUsableIndex = GetFirstUsableIndex(FullSequence, productType, temporaryFragmentationTerminus);
+                            completeFragmentationSeries = false;
+                        };
+                        break;
+
+                    default:
+                        break;
+                }
+
                 for (int f = 0; f < terminalMasses.Length; f++)
                 {
-                    // fragments with neutral loss
-                    if (AllModsOneIsNterminus.TryGetValue(terminalMasses[f].AminoAcidPosition + 1, out Modification mod) && mod.NeutralLosses != null
-                        && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
+                    if (completeFragmentationSeries)
                     {
-                        foreach (double neutralLoss in neutralLosses)
+                        // fragments with neutral loss
+                        if (AllModsOneIsNterminus.TryGetValue(terminalMasses[f].AminoAcidPosition + 1, out Modification mod) && mod.NeutralLosses != null
+                            && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
                         {
-                            if (neutralLoss == 0)
+                            foreach (double neutralLoss in neutralLosses)
                             {
-                                continue;
-                            }
-
-                            for (int n = f; n < terminalMasses.Length; n++)
-                            {
-                                if (!skippers.Contains((productType, terminalMasses[n].FragmentNumber)))
+                                if (neutralLoss == 0)
                                 {
-                                    yield return new Product(productType, terminalMasses[n], neutralLoss);
+                                    continue;
+                                }
+
+                                for (int n = f; n < terminalMasses.Length; n++)
+                                {
+                                    if (!skippers.Contains((productType, terminalMasses[n].FragmentNumber)))
+                                    {
+                                        yield return new Product(productType, terminalMasses[n], neutralLoss);
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // "normal" fragment without neutral loss
-                    if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
+                        // "normal" fragment without neutral loss
+                        if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
+                        {
+                            yield return new Product(productType, terminalMasses[f], 0);
+                        }
+                    }
+                    //for certain fragmentation types, we only want to return standard fragments that contain specific amino acids
+                    else if (f >= firstUsableIndex)
                     {
-                        yield return new Product(productType, terminalMasses[f], 0);
+                        // "normal" fragment without neutral loss
+                        if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
+                        {
+                            yield return new Product(productType, terminalMasses[f], 0);
+                        }
                     }
                 }
             }
@@ -276,6 +316,30 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     yield return diagnosticIon;
                 }
+            }
+        }
+
+        //we want to return products for all peptide fragments containing specific amino acids specified in the dictionary
+        private int GetFirstUsableIndex(string fullSequence, ProductType productType, FragmentationTerminus temporaryFragmentationTerminus)
+        {
+            char[] charArray = fullSequence.ToCharArray();
+            if (temporaryFragmentationTerminus == FragmentationTerminus.C)
+            {
+                Array.Reverse(charArray);
+                fullSequence = new string(charArray);
+            }
+
+            char[] chars = DissociationTypeCollection.ProductTypeAminoAcidSpecificites[productType].ToArray();
+
+            int firstUsableIndex = fullSequence.IndexOfAny(chars);
+
+            if (firstUsableIndex == -1)
+            {
+                return fullSequence.Length;
+            }
+            else
+            {
+                return firstUsableIndex;
             }
         }
 

@@ -30,7 +30,7 @@ namespace FlashLFQ
         /// </summary>
         public void NormalizeResults()
         {
-            results.CalculatePeptideResults(false);
+            results.CalculatePeptideResults();
 
             // run normalization functions, recalculating intensity between each function
             if (!silent)
@@ -38,21 +38,21 @@ namespace FlashLFQ
                 Console.WriteLine("Normalizing fractions");
             }
             NormalizeFractions();
-            results.CalculatePeptideResults(false);
+            results.CalculatePeptideResults();
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing bioreps and conditions");
             }
             NormalizeBioreps();
-            results.CalculatePeptideResults(false);
+            results.CalculatePeptideResults();
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing techreps");
             }
             NormalizeTechreps();
-            results.CalculatePeptideResults(false);
+            results.CalculatePeptideResults();
         }
 
         /// <summary>
@@ -144,7 +144,9 @@ namespace FlashLFQ
                 {
                     // condition 1 biorep 1 is the reference, don't normalize it
                     if (b == 0 && conditions.IndexOf(condition) == 0)
+                    {
                         continue;
+                    }
 
                     // run the normalization function
                     if (!silent)

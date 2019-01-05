@@ -37,6 +37,7 @@ namespace MassSpectrometry
         Custom = 8,
 
         ISCID = 9,
+        LowCID = 10,
         //NPTR = 10,
         // The values above are identical to thermo names
 

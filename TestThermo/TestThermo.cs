@@ -7,48 +7,43 @@ using NUnit.Framework;
 using System;
 using System.IO;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace TestThermo
 {
     [TestFixture]
+    [Ignore("Takes 20 mins on appveyor")]
     public sealed class TestThermo
     {
-        [Test]
-        public static void ReadWriteReadEtc()
+        private static Stopwatch Stopwatch { get; set; }
+
+        [SetUp]
+        public static void Setuppp()
         {
-            {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"testFileWMS2.raw");
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
 
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+        }
 
-                var aa = Mzml.LoadAllStaticData("a.mzML");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
-
-                Mzml.LoadAllStaticData("aa.mzML");
-            }
-            {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
-
-                var aa = Mzml.LoadAllStaticData("a.mzML");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
-
-                Mzml.LoadAllStaticData("aa.mzML");
-            }
-            {
-                ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, "a.mzML", false);
-
-                var aa = Mzml.LoadAllStaticData("a.mzML");
-
-                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, "aa.mzML", true);
-
-                Mzml.LoadAllStaticData("aa.mzML");
-            }
+        [Test]
+        [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
+        [TestCase("small.raw", "a.mzML", "aa.mzML")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
+        public static void ReadWriteReadEtc(string infile, string outfile1, string outfile2)
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            ThermoStaticData a = ThermoStaticData.LoadAllStaticData(infile);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
+            var aa = Mzml.LoadAllStaticData(outfile1);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
+            Mzml.LoadAllStaticData(outfile2);
+            Console.WriteLine($"Analysis time for ReadWriteReadEtc({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
@@ -127,26 +122,20 @@ namespace TestThermo
             ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
             ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfWindows: 1, applyTrimmingToMs1: true));
             ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
-
             var aLen = a_w.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b_w.GetOneBasedScan(1).MassSpectrum.Size;
             var cLen = c_w.GetOneBasedScan(1).MassSpectrum.Size;
             var dLen = d_w.GetOneBasedScan(1).MassSpectrum.Size;
-
             Assert.AreEqual(Math.Min(bLen, cLen), dLen);
-
             var aLen2 = a_w.GetOneBasedScan(2).MassSpectrum.Size;
             var bLen2 = b_w.GetOneBasedScan(2).MassSpectrum.Size;
             var cLen2 = c_w.GetOneBasedScan(2).MassSpectrum.Size;
             var dLen2 = d_w.GetOneBasedScan(2).MassSpectrum.Size;
-
             Assert.AreEqual(Math.Min(bLen2, cLen2), dLen2);
-
             var aLen3 = a_w.GetOneBasedScan(3).MassSpectrum.Size;
             var bLen3 = b_w.GetOneBasedScan(3).MassSpectrum.Size;
             var cLen3 = c_w.GetOneBasedScan(3).MassSpectrum.Size;
             var dLen3 = d_w.GetOneBasedScan(3).MassSpectrum.Size;
-
             Assert.AreEqual(Math.Min(bLen3, cLen3), dLen3);
         }
 
@@ -161,10 +150,10 @@ namespace TestThermo
             Assert.AreEqual(600, b_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 4
             ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 4, applyTrimmingToMs1: true));
-            Assert.AreEqual(800, c_w.GetOneBasedScan(1).MassSpectrum.Size);
+            Assert.AreEqual(742, c_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 6, which doesn't divide 1120
             ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, numberOfWindows: 6, applyTrimmingToMs1: true));
-            Assert.AreEqual(900, d_w.GetOneBasedScan(1).MassSpectrum.Size);
+            Assert.AreEqual(775, d_w.GetOneBasedScan(1).MassSpectrum.Size);
         }
 
         [Test]

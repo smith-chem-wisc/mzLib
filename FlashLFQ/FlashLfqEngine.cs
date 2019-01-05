@@ -1,6 +1,5 @@
 ﻿using Chemistry;
-using IO.MzML;
-using MassSpectrometry;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
@@ -13,7 +12,7 @@ using UsefulProteomicsDatabases;
 
 namespace FlashLFQ
 {
-    public class FlashLFQEngine
+    public class FlashLfqEngine
     {
         // settings
         public readonly bool Silent;
@@ -26,7 +25,6 @@ namespace FlashLFQ
         public readonly int MissedScansAllowed;
         public readonly int NumIsotopesRequired;
         public readonly double MbrRtWindow;
-        public readonly double InitialMbrRtWindow;
         public readonly double MbrPpmTolerance;
         public readonly bool ErrorCheckAmbiguousMatches;
         public readonly bool MatchBetweenRuns;
@@ -37,47 +35,65 @@ namespace FlashLFQ
         public readonly bool AdvancedProteinQuant;
 
         // structures used in the FlashLFQ engine
-        private List<SpectraFileInfo> spectraFileInfo;
-        private Stopwatch globalStopwatch;
-        private List<Identification> allIdentifications;
-        private Dictionary<string, List<KeyValuePair<double, double>>> baseSequenceToIsotopicDistribution;
-        private IEnumerable<int> chargeStates;
-        private FlashLfqResults results;
-        private int binsPerDalton = 100;
-        private MsDataScan[] ms1Scans;
-        private List<IndexedMassSpectralPeak>[] indexedPeaks;
+        private List<SpectraFileInfo> _spectraFileInfo;
+        private Stopwatch _globalStopwatch;
+        private List<Identification> _allIdentifications;
+        private Dictionary<string, List<KeyValuePair<double, double>>> _baseSequenceToIsotopicDistribution;
+        private IEnumerable<int> _chargeStates;
+        private FlashLfqResults _results;
+        private Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
+        private PeakIndexingEngine _peakIndexingEngine;
 
-        public FlashLFQEngine(List<Identification> allIdentifications, bool normalize = false, bool advancedProteinQuant = false, bool matchBetweenRuns = false, double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, double matchBetweenRunsPpmTolerance = 5.0, bool integrate = false, int numIsotopesRequired = 2, bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false, string optionalPeriodicTablePath = null, double maxMbrWindow = 1.5, int maxThreads = -1)
+        public FlashLfqEngine(List<Identification> allIdentifications, bool normalize = false,
+            bool advancedProteinQuant = false, bool matchBetweenRuns = false,
+            double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, double matchBetweenRunsPpmTolerance = 5.0,
+            bool integrate = false, int numIsotopesRequired = 2,
+            bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false,
+            string optionalPeriodicTablePath = null, double maxMbrWindow = 2.5,
+            int maxThreads = -1)
         {
             if (optionalPeriodicTablePath == null)
+            {
                 optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
+            }
+
             Loaders.LoadElements(optionalPeriodicTablePath);
 
-            globalStopwatch = new Stopwatch();
-            chargeStates = new List<int>();
+            _globalStopwatch = new Stopwatch();
+            _chargeStates = new List<int>();
+            _peakIndexingEngine = new PeakIndexingEngine();
 
-            this.spectraFileInfo = allIdentifications.Select(p => p.fileInfo).Distinct()
+            _spectraFileInfo = allIdentifications.Select(p => p.fileInfo).Distinct()
                 .OrderBy(p => p.Condition)
                 .ThenBy(p => p.BiologicalReplicate)
                 .ThenBy(p => p.Fraction)
                 .ThenBy(p => p.TechnicalReplicate).ToList();
 
-            this.allIdentifications = allIdentifications;
-            this.PpmTolerance = ppmTolerance;
-            this.IsotopePpmTolerance = isotopeTolerancePpm;
-            this.MatchBetweenRuns = matchBetweenRuns;
-            this.MbrPpmTolerance = matchBetweenRunsPpmTolerance;
-            this.Integrate = integrate;
-            this.NumIsotopesRequired = numIsotopesRequired;
-            this.Silent = silent;
-            this.IdSpecificChargeState = idSpecificChargeState;
-            this.RequireMonoisotopicMass = requireMonoisotopicMass;
-            this.MbrRtWindow = maxMbrWindow;
-            this.Normalize = normalize;
-            this.MaxThreads = maxThreads;
+            _allIdentifications = allIdentifications;
+            PpmTolerance = ppmTolerance;
+            IsotopePpmTolerance = isotopeTolerancePpm;
+            MatchBetweenRuns = matchBetweenRuns;
+            MbrPpmTolerance = matchBetweenRunsPpmTolerance;
+            Integrate = integrate;
+            NumIsotopesRequired = numIsotopesRequired;
+            Silent = silent;
+            IdSpecificChargeState = idSpecificChargeState;
+            RequireMonoisotopicMass = requireMonoisotopicMass;
+            MbrRtWindow = maxMbrWindow;
+            Normalize = normalize;
+            MaxThreads = maxThreads;
+
+            if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
+            {
+                MaxThreads = Environment.ProcessorCount - 1;
+            }
+
+            if (MaxThreads <= 0)
+            {
+                MaxThreads = 1;
+            }
 
             PeakfindingPpmTolerance = 20.0;
-            InitialMbrRtWindow = 10.0;
             MissedScansAllowed = 1;
             RtTol = 5.0;
             ErrorCheckAmbiguousMatches = true;
@@ -87,37 +103,36 @@ namespace FlashLFQ
 
         public FlashLfqResults Run()
         {
-            globalStopwatch.Start();
+            _globalStopwatch.Start();
+            _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
 
-            results = new FlashLfqResults(spectraFileInfo);
+            _results = new FlashLfqResults(_spectraFileInfo);
 
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
 
             // quantify each file
-            foreach (var spectraFile in spectraFileInfo)
+            foreach (var spectraFile in _spectraFileInfo)
             {
-                // fill lookup-table with peaks from the raw file
-                IndexMassSpectralPeaks(spectraFile);
-
-                if (indexedPeaks == null || indexedPeaks.Length == 0)
+                // fill lookup-table with peaks from the spectra file
+                if (!_peakIndexingEngine.IndexMassSpectralPeaks(spectraFile, Silent, _ms1Scans))
                 {
-                    // no MS1 peaks found
-                    return results;
+                    // something went wrong finding/opening/indexing the file...
+                    continue;
                 }
 
-                // quantify features using this file's IDs first
-                QuantifyMS2IdentifiedPeptides(spectraFile);
+                // quantify peaks using this file's IDs first
+                QuantifyMs2IdentifiedPeptides(spectraFile);
 
-                // find unidentified features based on other files' identification results (initial MBR peak-finding)
+                // write the indexed peaks for MBR later
                 if (MatchBetweenRuns)
                 {
-                    MatchBetweenRunsInitialPeakfinding(spectraFile);
+                    _peakIndexingEngine.SerializeIndex(spectraFile);
                 }
 
                 // error checking function
                 // handles features with multiple identifying scans and scans that are associated with more than one feature
-                RunErrorChecking(spectraFile, false);
+                RunErrorChecking(spectraFile);
 
                 if (!Silent)
                 {
@@ -125,14 +140,28 @@ namespace FlashLFQ
                 }
 
                 // some memory-saving stuff
-                ms1Scans = new MsDataScan[0];
-                GC.Collect();
+                _peakIndexingEngine.ClearIndex();
             }
 
-            // filter initial MBR peaks with retention time calibration
+            // do MBR
             if (MatchBetweenRuns)
             {
-                RetentionTimeCalibrationAndErrorCheckMatchedFeatures();
+                foreach (var spectraFile in _spectraFileInfo)
+                {
+                    if (!Silent)
+                    {
+                        Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);
+                    }
+
+                    QuantifyMatchBetweenRunsPeaks(spectraFile);
+
+                    _peakIndexingEngine.ClearIndex();
+
+                    if (!Silent)
+                    {
+                        Console.WriteLine("Finished MBR for " + spectraFile.FilenameWithoutExtension);
+                    }
+                }
             }
 
             // normalize
@@ -140,7 +169,7 @@ namespace FlashLFQ
             {
                 try
                 {
-                    new IntensityNormalizationEngine(results, Integrate, Silent, MaxThreads).NormalizeResults();
+                    new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
                 }
                 catch (Exception e)
                 {
@@ -149,1013 +178,771 @@ namespace FlashLFQ
             }
 
             // calculate intensities for proteins/peptides
-            results.CalculatePeptideResults(true);
-            results.CalculatePeptideResults(false);
+            _results.CalculatePeptideResults();
 
             if (AdvancedProteinQuant)
             {
-                new ProteinQuantificationEngine(results, MaxThreads).Run();
+                new ProteinQuantificationEngine(_results, MaxThreads).Run();
             }
             else
             {
-                results.CalculateProteinResultsTop3();
+                _results.CalculateProteinResultsTop3();
             }
 
             // done
             if (!Silent)
             {
-                Console.WriteLine("All done");
+                Console.WriteLine("Done quantifying");
             }
 
             if (!Silent)
             {
                 Console.WriteLine("Analysis time: " +
-                    globalStopwatch.Elapsed.Hours + "h " +
-                    globalStopwatch.Elapsed.Minutes + "m " +
-                    globalStopwatch.Elapsed.Seconds + "s");
+                                  _globalStopwatch.Elapsed.Hours + "h " +
+                                  _globalStopwatch.Elapsed.Minutes + "m " +
+                                  _globalStopwatch.Elapsed.Seconds + "s");
             }
 
-            return results;
-        }
-
-        private void RetentionTimeCalibrationAndErrorCheckMatchedFeatures()
-        {
-            if (!Silent)
-                Console.WriteLine("Running retention time calibration");
-
-            // get all unambiguous peaks for all files
-            var allFeatures = results.Peaks.SelectMany(p => p.Value).Where(p => !p.IsMbrFeature);
-            var allAmbiguousFeatures = allFeatures.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
-            var ambiguousFeatureSeqs = new HashSet<string>(allAmbiguousFeatures.SelectMany(p => p.Identifications.Select(v => v.ModifiedSequence)));
-
-            foreach (var feature in allFeatures)
-                if (ambiguousFeatureSeqs.Contains(feature.Identifications.First().ModifiedSequence))
-                    allAmbiguousFeatures.Add(feature);
-
-            var unambiguousPeaksGroupedByFile = allFeatures.Except(allAmbiguousFeatures).Where(v => v.Apex != null).GroupBy(p => p.RawFileInfo);
-
-            foreach (var file in unambiguousPeaksGroupedByFile)
-            {
-                var allMbrFeaturesForThisFile = results.Peaks[file.Key].Where(p => p.IsMbrFeature);
-
-                // get the best (most intense) peak for each peptide in the file
-                Dictionary<string, ChromatographicPeak> pepToBestFeatureForThisFile = new Dictionary<string, ChromatographicPeak>();
-                foreach (var testPeak in file)
-                {
-                    if (pepToBestFeatureForThisFile.TryGetValue(testPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
-                    {
-                        if (currentBestPeak.Intensity > testPeak.Intensity)
-                            pepToBestFeatureForThisFile[testPeak.Identifications.First().ModifiedSequence] = testPeak;
-                    }
-                    else
-                        pepToBestFeatureForThisFile.Add(testPeak.Identifications.First().ModifiedSequence, testPeak);
-                }
-
-                foreach (var otherFile in unambiguousPeaksGroupedByFile)
-                {
-                    // get the other files' best peak for the same peptides (to make an RT calibration curve)
-                    if (otherFile.Key.Equals(file.Key))
-                        continue;
-
-                    var featuresInCommon = otherFile.Where(p => pepToBestFeatureForThisFile.ContainsKey(p.Identifications.First().ModifiedSequence));
-
-                    Dictionary<string, ChromatographicPeak> pepToBestFeatureForOtherFile = new Dictionary<string, ChromatographicPeak>();
-                    foreach (var testPeak in featuresInCommon)
-                    {
-                        if (pepToBestFeatureForOtherFile.TryGetValue(testPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
-                        {
-                            if (currentBestPeak.Intensity > testPeak.Intensity)
-                                pepToBestFeatureForOtherFile[testPeak.Identifications.First().ModifiedSequence] = testPeak;
-                        }
-                        else
-                            pepToBestFeatureForOtherFile.Add(testPeak.Identifications.First().ModifiedSequence, testPeak);
-                    }
-
-                    // create a rt-to-rt correlation for the two files' peptides
-                    Dictionary<string, Tuple<double, double>> rtCalPoints = new Dictionary<string, Tuple<double, double>>();
-
-                    foreach (var kvp in pepToBestFeatureForOtherFile)
-                        rtCalPoints.Add(kvp.Key, new Tuple<double, double>(pepToBestFeatureForThisFile[kvp.Key].Apex.RetentionTime, kvp.Value.Apex.RetentionTime));
-
-                    if (!rtCalPoints.Any())
-                        continue;
-
-                    var differencesInRt = rtCalPoints.Select(p => (p.Value.Item1 - p.Value.Item2));
-                    double average = differencesInRt.Average();
-                    double sd = MathNet.Numerics.Statistics.Statistics.StandardDeviation(differencesInRt);
-
-                    // remove extreme outliers
-                    if (sd > 1.0)
-                    {
-                        var pointsToRemove = rtCalPoints.Where(p => (p.Value.Item1 - p.Value.Item2) > (average + sd) || (p.Value.Item1 - p.Value.Item2) < (average - sd)).ToList();
-                        foreach (var point in pointsToRemove)
-                            rtCalPoints.Remove(point.Key);
-
-                        differencesInRt = rtCalPoints.Select(p => (p.Value.Item1 - p.Value.Item2));
-                        average = differencesInRt.Average();
-                        sd = MathNet.Numerics.Statistics.Statistics.StandardDeviation(differencesInRt);
-                    }
-
-                    // find rt differences between files
-                    List<Tuple<double, double>> rtCalPoints2 = rtCalPoints.Values.OrderBy(p => p.Item1).ToList();
-
-                    int minRt = (int)Math.Floor(rtCalPoints2.First().Item1);
-                    int maxRt = (int)Math.Ceiling(rtCalPoints2.Last().Item1);
-                    var rtCalibrationDictionary = new Dictionary<int, List<double>>();
-                    foreach (var rt in rtCalPoints2)
-                    {
-                        int intRt = (int)Math.Round(rt.Item1);
-                        if (rtCalibrationDictionary.TryGetValue(intRt, out List<double> points))
-                            points.Add(rt.Item1 - rt.Item2);
-                        else
-                            rtCalibrationDictionary.Add(intRt, new List<double> { rt.Item1 - rt.Item2 });
-                    }
-
-                    // create spline
-                    // index is minute of source, double is rt calibration factor (in minutes) for destination file
-                    double[] rtCalRunningSpline = new double[maxRt + 1];
-                    double[] stdevRunningSpline = new double[maxRt + 1];
-                    for (int i = 0; i < rtCalRunningSpline.Length; i++)
-                    {
-                        rtCalRunningSpline[i] = double.NaN;
-                        stdevRunningSpline[i] = double.NaN;
-                    }
-
-                    // calculate stdev for each element in spline
-                    for (int i = 1; i <= maxRt; i++)
-                    {
-                        if (rtCalibrationDictionary.TryGetValue(i, out List<double> rtDifferencesForThisTime))
-                        {
-                            if (rtDifferencesForThisTime.Count > 3)
-                            {
-                                rtDifferencesForThisTime.Sort();
-                                rtCalRunningSpline[i] = rtDifferencesForThisTime[rtDifferencesForThisTime.Count / 2]; // median rt difference for this timepoint
-
-                                average = rtDifferencesForThisTime.Average();
-                                sd = MathNet.Numerics.Statistics.Statistics.StandardDeviation(rtDifferencesForThisTime);
-                                var rtError = 3 * sd;
-
-                                if (rtError > (MbrRtWindow / 2.0))
-                                    stdevRunningSpline[i] = MbrRtWindow / 2.0;
-                                else
-                                    stdevRunningSpline[i] = rtError;
-                            }
-                        }
-                    }
-
-                    // fill gaps in spline (linear interpolation)
-                    for (int i = minRt; i <= maxRt; i++)
-                    {
-                        if (double.IsNaN(rtCalRunningSpline[i]))
-                        {
-                            KeyValuePair<int, double> prevCalPoint = new KeyValuePair<int, double>(0, double.NaN);
-                            KeyValuePair<int, double> nextCalPoint = new KeyValuePair<int, double>(0, double.NaN);
-
-                            for (int j = i; j >= minRt; j--)
-                            {
-                                if (j < i - 3)
-                                    break;
-                                if (!double.IsNaN(rtCalRunningSpline[j]))
-                                {
-                                    prevCalPoint = new KeyValuePair<int, double>(j, rtCalRunningSpline[j]);
-                                    break;
-                                }
-                            }
-                            for (int j = i; j <= maxRt; j++)
-                            {
-                                if (j > i + 3)
-                                    break;
-                                if (!double.IsNaN(rtCalRunningSpline[j]))
-                                {
-                                    nextCalPoint = new KeyValuePair<int, double>(j, rtCalRunningSpline[j]);
-                                    break;
-                                }
-                            }
-
-                            if (!double.IsNaN(prevCalPoint.Value) && !double.IsNaN(nextCalPoint.Value))
-                            {
-                                var slope = (prevCalPoint.Value - nextCalPoint.Value) / (prevCalPoint.Key - nextCalPoint.Key);
-                                var yint = prevCalPoint.Value - slope * prevCalPoint.Key;
-                                double interpolatedRtCalPoint = slope * i + yint;
-
-                                rtCalRunningSpline[i] = interpolatedRtCalPoint;
-                                stdevRunningSpline[i] = stdevRunningSpline[i] = MbrRtWindow / 2.0;
-                            }
-                        }
-                    }
-
-                    // finished rt calibration for these 2 files; now use rt cal spline to find matched features
-                    var allMatchedFeaturesToLookForNow = allMbrFeaturesForThisFile.Where(p => p.Identifications.First().fileInfo.Equals(otherFile.Key)).ToList();
-
-                    // filter peak candidates with rt cal to get apex peak
-                    foreach (var mbrFeature in allMatchedFeaturesToLookForNow)
-                    {
-                        if (mbrFeature.IsotopicEnvelopes.Any())
-                        {
-                            // shift = thisFileRt - otherFileRt
-                            int rtSplineLookupTime = (int)Math.Round(mbrFeature.Identifications.First().ms2RetentionTimeInMinutes);
-
-                            if (rtSplineLookupTime < rtCalRunningSpline.Length)
-                            {
-                                double rtShift = rtCalRunningSpline[rtSplineLookupTime];
-                                double rtToleranceHere = stdevRunningSpline[rtSplineLookupTime];
-                                double theoreticalRt = mbrFeature.Identifications.First().ms2RetentionTimeInMinutes + rtShift;
-
-                                if (!double.IsNaN(rtShift))
-                                    mbrFeature.IsotopicEnvelopes = mbrFeature.IsotopicEnvelopes.Where(p => Math.Abs(p.RetentionTime - theoreticalRt) < rtToleranceHere).ToList();
-                                else
-                                    mbrFeature.IsotopicEnvelopes = new List<IsotopicEnvelope>();
-                            }
-                            else
-                                mbrFeature.IsotopicEnvelopes = new List<IsotopicEnvelope>();
-                        }
-                    }
-
-                    foreach (var feature in allMatchedFeaturesToLookForNow)
-                        if (feature.IsotopicEnvelopes.Any())
-                            feature.CalculateIntensityForThisFeature(Integrate);
-                }
-            }
-
-            foreach (var file in spectraFileInfo)
-                RunErrorChecking(file, true);
+            return _results;
         }
 
         private void CalculateTheoreticalIsotopeDistributions()
         {
-            baseSequenceToIsotopicDistribution = new Dictionary<string, List<KeyValuePair<double, double>>>();
+            _baseSequenceToIsotopicDistribution = new Dictionary<string, List<KeyValuePair<double, double>>>();
 
             // calculate monoisotopic masses and isotopic envelope
-            foreach (var id in allIdentifications)
+            foreach (Identification id in _allIdentifications)
             {
-                if (baseSequenceToIsotopicDistribution.ContainsKey(id.BaseSequence))
+                if (_baseSequenceToIsotopicDistribution.ContainsKey(id.BaseSequence))
+                {
                     continue;
+                }
+
+                var formula = id.OptionalChemicalFormula;
 
                 var isotopicMassesAndNormalizedAbundances = new List<KeyValuePair<double, double>>();
 
                 Proteomics.AminoAcidPolymer.Peptide p = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
-                int numCarbonsInThisPeptide = p.ElementCountWithIsotopes("C");
 
-                var isotopicDistribution = IsotopicDistribution.GetDistribution(p.GetChemicalFormula(), 0.125, 1e-8);
+                if (formula == null)
+                {
+                    formula = p.GetChemicalFormula();
+                }
 
-                var masses = isotopicDistribution.Masses.ToArray();
-                var abundances = isotopicDistribution.Intensities.ToArray();
+                var isotopicDistribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
 
-                var monoisotopicMass = masses.Min();
-                var highestAbundance = abundances.Max();
+                double[] masses = isotopicDistribution.Masses.ToArray();
+                double[] abundances = isotopicDistribution.Intensities.ToArray();
+
+                double unmodifiedMonoisotopicMass = p.MonoisotopicMass;
+                double highestAbundance = abundances.Max();
 
                 for (int i = 0; i < masses.Length; i++)
                 {
-                    // expected isotopic mass shifts for peptide of this length
-                    masses[i] -= monoisotopicMass;
+                    // expected isotopic mass shifts for this peptide
+                    masses[i] -= unmodifiedMonoisotopicMass;
 
-                    // normalized abundance of each mass shift
+                    // normalized abundance of each isotope
                     abundances[i] /= highestAbundance;
 
                     // look for these isotopes
-                    if (i < (NumIsotopesRequired - 1) || abundances[i] > 0.1)
-                        isotopicMassesAndNormalizedAbundances.Add(new KeyValuePair<double, double>(masses[i], abundances[i]));
+                    if (isotopicMassesAndNormalizedAbundances.Count < NumIsotopesRequired || abundances[i] > 0.1)
+                    {
+                        isotopicMassesAndNormalizedAbundances.Add(
+                            new KeyValuePair<double, double>(masses[i], abundances[i]));
+                    }
                 }
 
-                baseSequenceToIsotopicDistribution.Add(id.BaseSequence, isotopicMassesAndNormalizedAbundances);
+                _baseSequenceToIsotopicDistribution.Add(id.BaseSequence, isotopicMassesAndNormalizedAbundances);
             }
 
-            var minChargeState = allIdentifications.Min(p => p.precursorChargeState);
-            var maxChargeState = allIdentifications.Max(p => p.precursorChargeState);
-            chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1);
+            var minChargeState = _allIdentifications.Min(p => p.precursorChargeState);
+            var maxChargeState = _allIdentifications.Max(p => p.precursorChargeState);
+            _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1);
 
-            var peptideModifiedSequences = allIdentifications.GroupBy(p => p.ModifiedSequence);
+            var peptideModifiedSequences = _allIdentifications.GroupBy(p => p.ModifiedSequence);
             foreach (var identifications in peptideModifiedSequences)
             {
-                double lowestCommonMassShift = baseSequenceToIsotopicDistribution[identifications.First().BaseSequence].Select(p => p.Key).Min();
-                var mostCommonIsotopeShift = baseSequenceToIsotopicDistribution[identifications.First().BaseSequence].Where(p => p.Value == 1).First().Key;
+                // isotope where normalized abundance is 1
+                double mostAbundantIsotopeShift = _baseSequenceToIsotopicDistribution[identifications.First().BaseSequence].First(p => p.Value == 1.0).Key;
 
-                var thisPeptidesLowestCommonMass = identifications.First().monoisotopicMass + lowestCommonMassShift;
-                var thisPeptidesMostAbundantMass = identifications.First().monoisotopicMass + mostCommonIsotopeShift;
+                double thisPeptidesMostAbundantMass = identifications.First().monoisotopicMass + mostAbundantIsotopeShift;
 
-                foreach (var identification in identifications)
+                foreach (Identification identification in identifications)
                 {
-                    identification.massToLookFor = RequireMonoisotopicMass ? identifications.First().monoisotopicMass : thisPeptidesMostAbundantMass;
+                    identification.massToLookFor = RequireMonoisotopicMass ? identification.monoisotopicMass : thisPeptidesMostAbundantMass;
                 }
             }
         }
 
-        private void IndexMassSpectralPeaks(SpectraFileInfo fileInfo)
-        {
-            if (!Silent)
-            {
-                Console.WriteLine("Reading spectra file");
-            }
-
-            ms1Scans = new MsDataScan[0];
-
-            if (indexedPeaks != null)
-            {
-                for (int i = 0; i < indexedPeaks.Length; i++)
-                {
-                    if (indexedPeaks[i] == null)
-                        continue;
-
-                    indexedPeaks[i].Clear();
-                }
-            }
-
-            // read spectra file
-            var ext = Path.GetExtension(fileInfo.FullFilePathWithExtension).ToUpperInvariant();
-            if (ext == ".MZML")
-            {
-                try
-                {
-                    ms1Scans = Mzml.LoadAllStaticData(fileInfo.FullFilePathWithExtension).GetAllScansList().OrderBy(p => p.OneBasedScanNumber).ToArray();
-                }
-                catch (FileNotFoundException)
-                {
-                    if (!Silent)
-                    {
-                        Console.WriteLine("\nCan't find mzml file" + fileInfo.FullFilePathWithExtension + "\n");
-                    }
-                    return;
-                }
-                catch (Exception e)
-                {
-                    if (!Silent)
-                    {
-                        Console.WriteLine("Problem opening mzml file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
-                    }
-                    return;
-                }
-
-                for (int i = 0; i < ms1Scans.Length; i++)
-                {
-                    if (ms1Scans[i].MsnOrder > 1)
-                    {
-                        ms1Scans[i] = null;
-                    }
-                }
-            }
-            else if (ext == ".RAW")
-            {
-#if NETFRAMEWORK
-                using (var thermoDynamicConnection = IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.FullFilePathWithExtension))
-                {
-                    var tempList = new List<MsDataScan>();
-
-                    try
-                    {
-                        // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.MsOrderByScan;
-                        for (int i = 0; i < msOrders.Length; i++)
-                        {
-                            if (msOrders[i] == 1)
-                            {
-                                tempList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1));
-                            }
-                            else
-                            {
-                                tempList.Add(null);
-                            }
-                        }
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        thermoDynamicConnection.Dispose();
-
-                        if (!Silent)
-                        {
-                            Console.WriteLine("\nCan't find raw file" + fileInfo.FullFilePathWithExtension + "\n");
-                        }
-                        return;
-                    }
-                    catch (Exception e)
-                    {
-                        thermoDynamicConnection.Dispose();
-
-                        if (!Silent)
-                        {
-                            throw new MzLibException("FlashLFQ Error: Problem opening raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
-                        }
-                    }
-
-                    ms1Scans = tempList.ToArray();
-                }
-#else
-                if (!Silent)
-                {
-                    Console.WriteLine("Cannot open RAW with .NETStandard code - are you on Linux? " + fileInfo.FullFilePathWithExtension);
-                }
-                return;
-#endif
-            }
-            else
-            {
-                if (!Silent)
-                {
-                    Console.WriteLine("Unsupported file type " + ext);
-                    return;
-                }
-            }
-
-            if (!Silent)
-            {
-                Console.WriteLine("Indexing MS1 peaks");
-            }
-
-            if (!ms1Scans.Where(p => p != null).Any())
-            {
-                indexedPeaks = new List<IndexedMassSpectralPeak>[0];
-                return;
-            }
-
-            indexedPeaks = new List<IndexedMassSpectralPeak>[(int)Math.Ceiling(ms1Scans.Where(p => p != null && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * binsPerDalton) + 1];
-
-            for (int i = 0; i < ms1Scans.Length; i++)
-            {
-                if (ms1Scans[i] == null)
-                {
-                    continue;
-                }
-
-                for (int j = 0; j < ms1Scans[i].MassSpectrum.XArray.Length; j++)
-                {
-                    int roundedMz = (int)Math.Round(ms1Scans[i].MassSpectrum.XArray[j] * binsPerDalton, 0);
-                    if (indexedPeaks[roundedMz] == null)
-                    {
-                        indexedPeaks[roundedMz] = new List<IndexedMassSpectralPeak>();
-                    }
-
-                    indexedPeaks[roundedMz].Add(new IndexedMassSpectralPeak(ms1Scans[i].MassSpectrum.XArray[j], ms1Scans[i].MassSpectrum.YArray[j], j, ms1Scans[i].OneBasedScanNumber));
-                }
-            }
-        }
-
-        private void QuantifyMS2IdentifiedPeptides(SpectraFileInfo fileInfo)
+        private void QuantifyMs2IdentifiedPeptides(SpectraFileInfo fileInfo)
         {
             if (!Silent)
             {
                 Console.WriteLine("Quantifying peptides for " + fileInfo.FilenameWithoutExtension);
             }
 
-            var identifications = allIdentifications.Where(p => p.fileInfo.Equals(fileInfo)).ToList();
+            var ms2IdsForThisFile = _allIdentifications.Where(p => p.fileInfo.Equals(fileInfo)).ToList();
 
-            if (!identifications.Any())
+            if (!ms2IdsForThisFile.Any())
             {
                 return;
             }
 
             Tolerance peakfindingTol = new PpmTolerance(PeakfindingPpmTolerance);
-            Tolerance tol = new PpmTolerance(PpmTolerance);
+            Tolerance ppmTolerance = new PpmTolerance(PpmTolerance);
 
-            var chromatographicPeaks = new ChromatographicPeak[identifications.Count];
+            var chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
-            Parallel.ForEach(Partitioner.Create(0, identifications.Count),
+            Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                 (range, loopState) =>
-            {
-                List<IndexedMassSpectralPeak> binPeaks = new List<IndexedMassSpectralPeak>();
-                List<IsotopicEnvelope> isotopicEnvelopes = new List<IsotopicEnvelope>();
-
-                for (int i = range.Item1; i < range.Item2; i++)
                 {
-                    //// Stop loop if canceled
-                    //if (GlobalVariables.StopLoops)
-                    //{
-                    //    loopState.Stop();
-                    //    return;
-                    //}
-
-                    binPeaks.Clear();
-                    isotopicEnvelopes.Clear();
-                    var identification = identifications[i];
-                    ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
-                    chromatographicPeaks[i] = msmsFeature;
-
-                    foreach (var chargeState in chargeStates)
+                    for (int i = range.Item1; i < range.Item2; i++)
                     {
-                        if (IdSpecificChargeState && chargeState != identification.precursorChargeState)
+                        //// Stop loop if canceled
+                        //if (GlobalVariables.StopLoops)
+                        //{
+                        //    loopState.Stop();
+                        //    return;
+                        //}
+
+                        var identification = ms2IdsForThisFile[i];
+                        ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
+                        chromatographicPeaks[i] = msmsFeature;
+
+                        foreach (var chargeState in _chargeStates)
+                        {
+                            if (IdSpecificChargeState && chargeState != identification.precursorChargeState)
+                            {
+                                continue;
+                            }
+
+                            // get XIC (peakfinding)
+                            List<IndexedMassSpectralPeak> xic = Peakfind(identification.ms2RetentionTimeInMinutes,
+                                identification.massToLookFor, chargeState, identification.fileInfo, peakfindingTol).OrderBy(p => p.RetentionTime).ToList();
+
+                            // filter by smaller mass tolerance
+                            xic.RemoveAll(p => !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.massToLookFor));
+
+                            // filter by isotopic distribution
+                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState, true);
+
+                            // add isotopic envelopes to the chromatographic peak
+                            msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
+                        }
+
+                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
+                        CutPeak(msmsFeature, identification.ms2RetentionTimeInMinutes);
+
+                        if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
                             continue;
                         }
 
-                        // get indexed mass spectral peaks for this ID and charge
-                        double theoreticalMz = identification.massToLookFor.ToMz(chargeState);
-                        int ceilingMz = (int)Math.Ceiling(peakfindingTol.GetMaximumValue(identification.massToLookFor).ToMz(chargeState) * binsPerDalton);
-                        int floorMz = (int)Math.Floor(peakfindingTol.GetMinimumValue(identification.massToLookFor).ToMz(chargeState) * binsPerDalton);
+                        var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.precursorChargeState).ToList();
 
-                        for (int j = floorMz; j <= ceilingMz; j++)
+                        if (!precursorXic.Any())
                         {
-                            if (j < indexedPeaks.Length && indexedPeaks[j] != null)
-                            {
-                                foreach (var peak in indexedPeaks[j])
-                                {
-                                    if (peakfindingTol.Within(peak.Mz.ToMass(chargeState), identification.massToLookFor) &&
-                                      Math.Abs(ms1Scans[peak.OneBasedScanNumber - 1].RetentionTime - identification.ms2RetentionTimeInMinutes) < RtTol)
-                                    {
-                                        binPeaks.Add(peak);
-                                    }
-                                }
-                            }
+                            msmsFeature.IsotopicEnvelopes.Clear();
+                            continue;
                         }
 
-                        // do peakfinding, isotopic envelope filtering, error checking, etc
-                        if (binPeaks.Any())
-                        {
-                            // do peakfinding
-                            Peakfind(binPeaks, identification, chargeState);
-
-                            // filter again by smaller mz tolerance
-                            binPeaks.RemoveAll(p => !tol.Within(p.Mz.ToMass(chargeState), identification.massToLookFor));
-
-                            // filter by isotopic distribution
-                            isotopicEnvelopes = GetIsotopicEnvelopes(binPeaks, identification, chargeState, true);
-
-                            // if multiple mass spectral peaks in the same scan are valid, pick the one with the smallest mass error
-                            var peaksInSameScan = isotopicEnvelopes.GroupBy(p => p.IndexedPeak.OneBasedScanNumber).Where(v => v.Count() > 1);
-                            if (peaksInSameScan.Any())
-                            {
-                                foreach (var group in peaksInSameScan)
-                                {
-                                    var smallestMzError = group.Min(p => Math.Abs(p.IndexedPeak.Mz - theoreticalMz));
-                                    var peakToUse = group.Where(p => Math.Abs(p.IndexedPeak.Mz - theoreticalMz) == smallestMzError).First();
-                                    isotopicEnvelopes.RemoveAll(p => group.Contains(p) && p != peakToUse);
-                                }
-                            }
-
-                            // sort isotope envelopes by scan number (sets up for peak cutting)
-                            msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
-                            msmsFeature.IsotopicEnvelopes.Sort((x, y) => x.IndexedPeak.OneBasedScanNumber.CompareTo(y.IndexedPeak.OneBasedScanNumber));
-                        }
+                        int min = precursorXic.Min(p => p.IndexedPeak.ZeroBasedMs1ScanIndex);
+                        int max = precursorXic.Max(p => p.IndexedPeak.ZeroBasedMs1ScanIndex);
+                        msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex < min);
+                        msmsFeature.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.ZeroBasedMs1ScanIndex > max);
+                        msmsFeature.CalculateIntensityForThisFeature(Integrate);
                     }
+                });
 
-                    msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                    CutPeak(msmsFeature);
-                }
-            });
-
-            results.Peaks.Add(fileInfo, chromatographicPeaks.ToList());
+            _results.Peaks.Add(fileInfo, chromatographicPeaks.ToList());
         }
 
-        private void MatchBetweenRunsInitialPeakfinding(SpectraFileInfo fileInfo)
+        private void QuantifyMatchBetweenRunsPeaks(SpectraFileInfo idAcceptorFile)
         {
-            if (!Silent)
-            {
-                Console.WriteLine("Finding possible matched peptides for " + fileInfo.FilenameWithoutExtension);
-            }
+            var acceptorFileIdentifiedPeaks = _results.Peaks[idAcceptorFile];
 
-            if (!results.Peaks.ContainsKey(fileInfo) || results.Peaks[fileInfo].Count == 0)
+            if (!acceptorFileIdentifiedPeaks.Any())
             {
                 return;
             }
 
-            Tolerance mbrTol = new PpmTolerance(MbrPpmTolerance);
+            _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
 
-            // ignore IDs from proteins that have no MS/MS evidence in this biorep (or no evidence in this spectra file, if bioreps are not defined)
-            var allowedFilesMatchingFrom = new HashSet<SpectraFileInfo>(spectraFileInfo.Where(
-                f => f.Condition == fileInfo.Condition && f.BiologicalReplicate == fileInfo.BiologicalReplicate));
+            var thisFilesIds = new HashSet<string>(acceptorFileIdentifiedPeaks.Where(p => p.IsotopicEnvelopes.Any())
+                .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
+            var thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
 
-            if(spectraFileInfo.Max(p => p.BiologicalReplicate) == 0)
+            // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
+            foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
             {
-                allowedFilesMatchingFrom = new HashSet<SpectraFileInfo> { fileInfo };
-            }
-
-            var allowedProteins = new HashSet<ProteinGroup>(allIdentifications.Where(p => allowedFilesMatchingFrom.Contains(p.fileInfo)).SelectMany(v => v.proteinGroups));
-
-            // get IDs to look for
-            var concurrentBagOfMatchedFeatures = new ConcurrentBag<ChromatographicPeak>();
-            var identificationsFromOtherRunsToLookFor = new List<Identification>();
-            var idsGroupedByFullSeq = allIdentifications.GroupBy(p => p.ModifiedSequence);
-
-            foreach (var fullSequenceGroup in idsGroupedByFullSeq)
-            {
-                // look for peptides with no ID's in this file
-                var seqsByFilename = fullSequenceGroup.GroupBy(p => p.fileInfo);
-
-                if (!seqsByFilename.Where(p => p.Key.Equals(fileInfo)).Any())
+                foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.proteinGroups)))
                 {
-                    // ignore proteins that have no IDs in this file
-                    identificationsFromOtherRunsToLookFor.AddRange(fullSequenceGroup.Where(
-                        id => id.proteinGroups.Any(pg => allowedProteins.Contains(pg))));
+                    thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
                 }
             }
 
-            if (identificationsFromOtherRunsToLookFor.Any())
+            Tolerance mbrTol = new PpmTolerance(MbrPpmTolerance);
+
+            Dictionary<string, ChromatographicPeak> bestMbrHits = new Dictionary<string, ChromatographicPeak>();
+
+            foreach (SpectraFileInfo idDonorFile in _spectraFileInfo)
             {
-                Parallel.ForEach(Partitioner.Create(0, identificationsFromOtherRunsToLookFor.Count),
+                if (idAcceptorFile.Equals(idDonorFile))
+                {
+                    continue;
+                }
+
+                // these peaks have no IDs in the acceptor file
+                // match their IDs to this file
+                var donorPeaksToMatch = _results.Peaks[idDonorFile].Where(p => p.NumIdentificationsByFullSeq == 1
+                    && p.IsotopicEnvelopes.Any()
+                    && !p.Identifications.Any(v => thisFilesIds.Contains(v.ModifiedSequence))
+                    && p.Identifications.Any(v => v.proteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g)))).ToList();
+
+                if (!donorPeaksToMatch.Any())
+                {
+                    continue;
+                }
+
+                RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(idDonorFile, idAcceptorFile);
+
+                ChromatographicPeak[] matchedPeaks = new ChromatographicPeak[donorPeaksToMatch.Count];
+                double[] donorRts = rtCalibrationCurve.Select(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
+
+                Parallel.ForEach(Partitioner.Create(0, donorPeaksToMatch.Count),
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                     (range, loopState) =>
                     {
                         for (int i = range.Item1; i < range.Item2; i++)
                         {
-                            //// Stop loop if canceled
-                            //if (GlobalVariables.StopLoops)
-                            //{
-                            //    loopState.Stop();
-                            //    return;
-                            //}
+                            ChromatographicPeak donorPeak = donorPeaksToMatch[i];
+                            Identification identification = donorPeak.Identifications.First();
 
-                            var identification = identificationsFromOtherRunsToLookFor[i];
+                            var acceptorPeak = new ChromatographicPeak(identification, true, idAcceptorFile);
+                            matchedPeaks[i] = acceptorPeak;
 
-                            ChromatographicPeak mbrFeature = new ChromatographicPeak(identification, true, fileInfo);
-
-                            foreach (var chargeState in chargeStates)
+                            int rtHypothesisIndex = Array.BinarySearch(donorRts, donorPeak.Apex.IndexedPeak.RetentionTime);
+                            if (rtHypothesisIndex < 0)
                             {
-                                double theorMzHere = identification.massToLookFor.ToMz(chargeState);
-                                double mzTolHere = ((MbrPpmTolerance / 1e6) * identification.monoisotopicMass) / chargeState;
+                                rtHypothesisIndex = ~rtHypothesisIndex;
+                            }
+                            if (rtHypothesisIndex >= donorRts.Length && rtHypothesisIndex >= 1)
+                            {
+                                rtHypothesisIndex = donorRts.Length - 1;
+                            }
 
-                                int floorMz = (int)Math.Floor(theorMzHere * binsPerDalton);
-                                int ceilingMz = (int)Math.Ceiling(theorMzHere * binsPerDalton);
+                            List<RetentionTimeCalibDataPoint> nearbyDataPoints = new List<RetentionTimeCalibDataPoint>();
 
+                            // calculate accepted range of RTs
+                            for (int r = rtHypothesisIndex; r < rtCalibrationCurve.Length; r++)
+                            {
+                                RetentionTimeCalibDataPoint rightDataPoint = rtCalibrationCurve[r];
+                                if (Math.Abs(rightDataPoint.DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < 0.5)
+                                {
+                                    nearbyDataPoints.Add(rtCalibrationCurve[r]);
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+
+                            for (int l = rtHypothesisIndex - 1; l >= 0; l--)
+                            {
+                                RetentionTimeCalibDataPoint leftDataPoint = rtCalibrationCurve[l];
+                                if (Math.Abs(leftDataPoint.DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime) < 0.5)
+                                {
+                                    nearbyDataPoints.Add(rtCalibrationCurve[l]);
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+
+                            double acceptorFileRtHypothesis;
+                            double lowerRange;
+                            double upperRange;
+
+                            if (nearbyDataPoints.Count >= 4)
+                            {
+                                List<double> nearbyRts = nearbyDataPoints.Select(p => p.RtDiff).ToList();
+
+                                acceptorFileRtHypothesis = donorPeak.Apex.IndexedPeak.RetentionTime + Statistics.Median(nearbyRts);
+                                double firstQuartile = Statistics.LowerQuartile(nearbyRts);
+                                double thirdQuartile = Statistics.UpperQuartile(nearbyRts);
+                                double iqr = Statistics.InterquartileRange(nearbyRts);
+
+                                lowerRange = firstQuartile - 1.5 * iqr;
+                                upperRange = thirdQuartile + 1.5 * iqr;
+                            }
+                            else
+                            {
+                                continue;
+                            }
+
+                            double lowerBoundRt = acceptorFileRtHypothesis + lowerRange;
+                            double upperBoundRt = acceptorFileRtHypothesis + upperRange;
+
+                            if (upperBoundRt - acceptorFileRtHypothesis > MbrRtWindow)
+                            {
+                                upperBoundRt = acceptorFileRtHypothesis + MbrRtWindow;
+                            }
+
+                            if (acceptorFileRtHypothesis - lowerBoundRt > MbrRtWindow)
+                            {
+                                lowerBoundRt = acceptorFileRtHypothesis - MbrRtWindow;
+                            }
+
+                            Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
+                            Ms1ScanInfo start = ms1ScanInfos[0];
+                            Ms1ScanInfo end = ms1ScanInfos[0];
+                            for (int j = 0; j < ms1ScanInfos.Length; j++)
+                            {
+                                Ms1ScanInfo scan = ms1ScanInfos[j];
+                                if (scan.RetentionTime <= lowerBoundRt)
+                                {
+                                    start = scan;
+                                }
+
+                                if (scan.RetentionTime >= upperBoundRt)
+                                {
+                                    end = scan;
+                                    break;
+                                }
+                            }
+
+                            IsotopicEnvelope bestEnv = null;
+                            List<IsotopicEnvelope> allEnvs = new List<IsotopicEnvelope>();
+                            foreach (int chargeState in donorPeak.IsotopicEnvelopes.Select(p => p.ChargeState).Distinct())
+                            {
                                 List<IndexedMassSpectralPeak> binPeaks = new List<IndexedMassSpectralPeak>();
 
-                                for (int j = floorMz; j <= ceilingMz && j < indexedPeaks.Length; j++)
+                                for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                                 {
-                                    if (indexedPeaks[j] != null)
+                                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(identification.massToLookFor, j, mbrTol, chargeState);
+
+                                    if (peak != null)
                                     {
-                                        foreach (var peak in indexedPeaks[j])
-                                        {
-                                            if (mbrTol.Within(peak.Mz.ToMass(chargeState), identification.massToLookFor) &&
-                                              Math.Abs(ms1Scans[peak.OneBasedScanNumber - 1].RetentionTime - identification.ms2RetentionTimeInMinutes) < InitialMbrRtWindow)
-                                            {
-                                                binPeaks.Add(peak);
-                                            }
-                                        }
+                                        binPeaks.Add(peak);
                                     }
                                 }
 
-                                // filter by isotopic distribution
-                                var validIsotopeClusters = GetIsotopicEnvelopes(binPeaks, identification, chargeState, true);
+                                List<IsotopicEnvelope> envsForThisCharge = GetIsotopicEnvelopes(binPeaks, identification, chargeState, true);
 
-                                if (validIsotopeClusters.Any())
+                                if (envsForThisCharge.Any())
                                 {
-                                    mbrFeature.IsotopicEnvelopes.AddRange(validIsotopeClusters);
+                                    allEnvs.AddRange(envsForThisCharge);
                                 }
                             }
 
-                            if (mbrFeature.IsotopicEnvelopes.Any())
+                            if (!allEnvs.Any())
                             {
-                                concurrentBagOfMatchedFeatures.Add(mbrFeature);
+                                continue;
                             }
+
+                            double maxIntensity = allEnvs.Max(p => p.Intensity);
+                            bestEnv = allEnvs.First(p => p.Intensity == maxIntensity);
+
+                            var bestChargeXic = Peakfind(bestEnv.IndexedPeak.RetentionTime, identification.massToLookFor, bestEnv.ChargeState, idAcceptorFile, mbrTol);
+                            List<IsotopicEnvelope> envs2 = GetIsotopicEnvelopes(bestChargeXic, identification, bestEnv.ChargeState, true);
+                            double maxRt = envs2.Max(p => p.IndexedPeak.RetentionTime);
+                            double minRt = envs2.Min(p => p.IndexedPeak.RetentionTime);
+                            acceptorPeak.IsotopicEnvelopes.AddRange(envs2);
+                            acceptorPeak.IsotopicEnvelopes.AddRange(allEnvs.Where(p => p.ChargeState != bestEnv.ChargeState && p.IndexedPeak.RetentionTime < maxRt && p.IndexedPeak.RetentionTime > minRt));
+                            acceptorPeak.CalculateIntensityForThisFeature(Integrate);
+                            CutPeak(acceptorPeak, bestEnv.IndexedPeak.RetentionTime);
+                        }
+                    });
+
+                // save MBR results
+                foreach (var peak in matchedPeaks.Where(p => p != null && p.IsotopicEnvelopes.Any()))
+                {
+                    if (bestMbrHits.TryGetValue(peak.Identifications.First().ModifiedSequence, out var oldPeak))
+                    {
+                        if (peak.Intensity > oldPeak.Intensity)
+                        {
+                            bestMbrHits[peak.Identifications.First().ModifiedSequence] = peak;
                         }
                     }
-                );
+                    else
+                    {
+                        bestMbrHits.Add(peak.Identifications.First().ModifiedSequence, peak);
+                    }
+                }
             }
 
-            results.Peaks[fileInfo].AddRange(concurrentBagOfMatchedFeatures);
+            // save MBR results
+            foreach (var peak in bestMbrHits)
+            {
+                _results.Peaks[idAcceptorFile].Add(peak.Value);
+            }
+
+            RunErrorChecking(idAcceptorFile);
         }
 
-        private void RunErrorChecking(SpectraFileInfo rawFile, bool postRtCal)
+        private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor)
+        {
+            var donorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
+            var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
+            var rtCalibrationCurve = new List<RetentionTimeCalibDataPoint>();
+
+            // get all peaks, not counting ambiguous peaks
+            IEnumerable<ChromatographicPeak> donorPeaks = _results.Peaks[donor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
+            IEnumerable<ChromatographicPeak> acceptorPeaks = _results.Peaks[acceptor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
+
+            // get the best (most intense) peak for each peptide in the acceptor file
+            foreach (ChromatographicPeak acceptorPeak in acceptorPeaks)
+            {
+                if (acceptorFileBestMsmsPeaks.TryGetValue(acceptorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
+                {
+                    if (currentBestPeak.Intensity > acceptorPeak.Intensity)
+                    {
+                        acceptorFileBestMsmsPeaks[acceptorPeak.Identifications.First().ModifiedSequence] = acceptorPeak;
+                    }
+                }
+                else
+                {
+                    acceptorFileBestMsmsPeaks.Add(acceptorPeak.Identifications.First().ModifiedSequence, acceptorPeak);
+                }
+            }
+
+            // get the best (most intense) peak for each peptide in the donor file
+            foreach (ChromatographicPeak donorPeak in donorPeaks)
+            {
+                if (donorFileBestMsmsPeaks.TryGetValue(donorPeak.Identifications.First().ModifiedSequence, out ChromatographicPeak currentBestPeak))
+                {
+                    if (currentBestPeak.Intensity > donorPeak.Intensity)
+                    {
+                        donorFileBestMsmsPeaks[donorPeak.Identifications.First().ModifiedSequence] = donorPeak;
+                    }
+                }
+                else
+                {
+                    donorFileBestMsmsPeaks.Add(donorPeak.Identifications.First().ModifiedSequence, donorPeak);
+                }
+            }
+
+            // create RT calibration curve
+            foreach (var peak in acceptorFileBestMsmsPeaks)
+            {
+                ChromatographicPeak acceptorFilePeak = peak.Value;
+
+                if (donorFileBestMsmsPeaks.TryGetValue(peak.Key, out ChromatographicPeak donorFilePeak))
+                {
+                    rtCalibrationCurve.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
+                }
+            }
+
+            return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
+        }
+
+        private void RunErrorChecking(SpectraFileInfo spectraFile)
         {
             if (!Silent)
             {
                 Console.WriteLine("Checking errors");
             }
 
-            // remove all MBR features with intensities lower than the least-intense MS/MS-identified peak in this file
-            // this is to remove MBR peaks that matched to noise
-            if (MatchBetweenRuns && postRtCal)
+            _results.Peaks[spectraFile].RemoveAll(p => p == null || p.IsMbrPeak && !p.IsotopicEnvelopes.Any());
+
+            // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
+            var peaksGroupedByApex = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
+            var peaks = new List<ChromatographicPeak>();
+            foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.IsMbrPeak))
             {
-                double minMsmsIdentifiedPeakIntensity = 0;
-                var msmsIdent = results.Peaks[rawFile].Where(v => !v.IsMbrFeature && v.Intensity > 0);
-                if (msmsIdent.Any())
-                {
-                    minMsmsIdentifiedPeakIntensity = msmsIdent.Min(v => v.Intensity);
-                }
+                tryPeak.CalculateIntensityForThisFeature(Integrate);
+                tryPeak.ResolveIdentifications();
 
-                foreach (var peak in results.Peaks[rawFile])
+                if (tryPeak.Apex == null)
                 {
-                    if (peak.IsMbrFeature && peak.Intensity < minMsmsIdentifiedPeakIntensity)
+                    if (tryPeak.IsMbrPeak)
                     {
-                        peak.IsotopicEnvelopes = new List<IsotopicEnvelope>();
-                    }
-                }
-
-                results.Peaks[rawFile].RemoveAll(p => p.IsMbrFeature && !p.IsotopicEnvelopes.Any());
-            }
-
-            // condense duplicate features (features with same sequence and apex peak)
-            var featuresWithSamePeak = results.Peaks[rawFile].Where(v => v.Apex != null).GroupBy(p => p.Apex.IndexedPeak);
-            featuresWithSamePeak = featuresWithSamePeak.Where(p => p.Count() > 1);
-
-            foreach (var duplicateFeature in featuresWithSamePeak)
-            {
-                duplicateFeature.First().MergeFeatureWith(duplicateFeature, Integrate);
-            }
-            results.Peaks[rawFile].RemoveAll(p => p.Intensity == -1);
-
-            // condense multiple peaks for the same peptide within a time window
-            var featuresToMaybeMerge = results.Peaks[rawFile].Where(p => p.NumIdentificationsByFullSeq == 1 && p.Apex != null).GroupBy(p => p.Identifications.First().ModifiedSequence).Where(p => p.Count() > 1);
-            if (featuresToMaybeMerge.Any())
-            {
-                foreach (var group in featuresToMaybeMerge)
-                {
-                    if (IdSpecificChargeState)
-                    {
-                        var group2 = group.ToList().GroupBy(p => p.Apex.ChargeState).Where(v => v.Count() > 1);
-
-                        foreach (var group3 in group2)
-                        {
-                            foreach (var feature in group3)
-                            {
-                                if (feature.Intensity != -1)
-                                {
-                                    var featuresToMerge = group3.Where(p => Math.Abs(p.Apex.RetentionTime - feature.Apex.RetentionTime) < RtTol && p.Intensity != -1);
-                                    if (featuresToMerge.Any())
-                                        feature.MergeFeatureWith(featuresToMerge, Integrate);
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        foreach (var feature in group)
-                        {
-                            if (feature.Intensity != -1)
-                            {
-                                var featuresToMerge = group.Where(p => Math.Abs(p.Apex.RetentionTime - feature.Apex.RetentionTime) < RtTol && p.Intensity != -1);
-                                if (featuresToMerge.Any())
-                                    feature.MergeFeatureWith(featuresToMerge, Integrate);
-                            }
-                        }
-                    }
-                }
-
-                results.Peaks[rawFile].RemoveAll(p => p.Intensity == -1);
-            }
-
-            if (postRtCal || !MatchBetweenRuns)
-            {
-                // check for multiple peptides per feature
-                var scansWithMultipleDifferentIds = results.Peaks[rawFile].Where(p => p.NumIdentificationsByFullSeq > 1);
-                var ambiguousFeatures = scansWithMultipleDifferentIds.Where(p => p.NumIdentificationsByBaseSeq > 1).ToList();
-
-                // handle ambiguous features
-                foreach (var ambiguousFeature in ambiguousFeatures)
-                {
-                    var msmsIdentsForThisFile = ambiguousFeature.Identifications.Where(p => p.fileInfo.Equals(ambiguousFeature.RawFileInfo));
-
-                    if (!msmsIdentsForThisFile.Any())
-                    {
-                        // mbr matched more than one identification to this peak - cannot resolve
-                        ambiguousFeature.Intensity = -1;
-                    }
-                    else
-                    {
-                        // msms identifications take precident over mbr features
-                        ambiguousFeature.Identifications.RemoveAll(p => p.fileInfo != ambiguousFeature.RawFileInfo);
-                        ambiguousFeature.ResolveIdentifications();
-                    }
-                }
-
-                results.Peaks[rawFile].RemoveAll(p => p.Intensity == -1);
-            }
-        }
-
-        private List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool lookForBadIsotope)
-        {
-            var isotopeClusters = new List<IsotopicEnvelope>();
-            var isotopeMassShifts = baseSequenceToIsotopicDistribution[identification.BaseSequence];
-
-            if (isotopeMassShifts.Count < NumIsotopesRequired)
-            {
-                return isotopeClusters;
-            }
-
-            double isotopeMzTol = ((IsotopePpmTolerance / 1e6) * identification.monoisotopicMass) / chargeState;
-
-            foreach (var peak in peaks)
-            {
-                // calculate theoretical isotopes relative to observed peak
-                var theorIsotopeMzs = new double[isotopeMassShifts.Count];
-                int isotopicPeakUnitOfPeakZeroIsMono = Convert.ToInt32(peak.Mz.ToMass(chargeState) - identification.monoisotopicMass);
-                var mainpeakMz = peak.Mz;
-
-                // left of main peak
-                for (int i = 0; i < isotopicPeakUnitOfPeakZeroIsMono; i++)
-                    theorIsotopeMzs[i] = mainpeakMz + (isotopeMassShifts[i].Key / chargeState);
-
-                // main peak and right of main peak
-                for (int i = isotopicPeakUnitOfPeakZeroIsMono; i < isotopeMassShifts.Count; i++)
-                    theorIsotopeMzs[i] = mainpeakMz + (isotopeMassShifts[i].Key / chargeState);
-                theorIsotopeMzs = theorIsotopeMzs.OrderBy(p => p).ToArray();
-
-                var lowestMzIsotopePossible = theorIsotopeMzs.First();
-                lowestMzIsotopePossible -= isotopeMzTol;
-                var highestMzIsotopePossible = theorIsotopeMzs.Last();
-                highestMzIsotopePossible += isotopeMzTol;
-
-                // get possible isotope peaks from the peak's scan
-                List<Tuple<double, double>> possibleIsotopePeaks = new List<Tuple<double, double>>();
-
-                // go backwards from the peak to find the lowest-mass isotope possible
-                int earliestIsotopicPeakIndexPossible = peak.ZeroBasedIndexOfPeakInScan;
-                var massSpectrum = ms1Scans[peak.OneBasedScanNumber - 1].MassSpectrum;
-                for (int i = earliestIsotopicPeakIndexPossible; i >= 0; i--)
-                {
-                    if (massSpectrum.XArray[i] < lowestMzIsotopePossible)
-                        break;
-                    earliestIsotopicPeakIndexPossible = i;
-                }
-
-                // find the highest-mass isotope possible
-                for (int i = earliestIsotopicPeakIndexPossible; i < massSpectrum.Size; i++)
-                {
-                    if (massSpectrum.XArray[i] > highestMzIsotopePossible)
-                        break;
-                    possibleIsotopePeaks.Add(new Tuple<double, double>(massSpectrum.XArray[i], massSpectrum.YArray[i]));
-                }
-
-                if (lookForBadIsotope)
-                {
-                    bool badPeak = false;
-                    double prevIsotopePeakMz = (theorIsotopeMzs[0] - (1.003322 / chargeState));
-
-                    for (int i = earliestIsotopicPeakIndexPossible; i > 0; i--)
-                    {
-                        if (Math.Abs(massSpectrum.XArray[i] - prevIsotopePeakMz) < isotopeMzTol)
-                            if (massSpectrum.YArray[i] / peak.Intensity > 1.0)
-                                badPeak = true;
-                        if (massSpectrum.XArray[i] < (prevIsotopePeakMz - isotopeMzTol))
-                            break;
-                    }
-
-                    if (badPeak)
                         continue;
+                    }
+
+                    peaks.Add(tryPeak);
+                    continue;
                 }
 
-                // isotopic distribution check
-                bool isotopeDistributionCheck = false;
-                Tuple<double, double>[] isotopePeaks = new Tuple<double, double>[isotopeMassShifts.Count];
-                int isotopeIndex = 0;
-                double theorIsotopeMz = theorIsotopeMzs[isotopeIndex];
-                foreach (var possibleIsotopePeak in possibleIsotopePeaks)
+                IndexedMassSpectralPeak apexPeak = tryPeak.Apex.IndexedPeak;
+                if (peaksGroupedByApex.TryGetValue(apexPeak, out ChromatographicPeak storedPeak))
                 {
-                    if (Math.Abs(possibleIsotopePeak.Item1 - theorIsotopeMz) < isotopeMzTol && possibleIsotopePeak.Item2 > 0)
+                    if (tryPeak.IsMbrPeak && storedPeak == null)
                     {
-                        // store the good isotope peak
-                        isotopePeaks[isotopeIndex] = possibleIsotopePeak;
+                        continue;
+                    }
 
-                        if (isotopeIndex < isotopePeaks.Length - 1)
+                    if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
+                    {
+                        storedPeak.MergeFeatureWith(tryPeak, Integrate);
+                    }
+                    else if (tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
+                    {
+                        continue;
+                    }
+                    else if (tryPeak.IsMbrPeak && storedPeak.IsMbrPeak)
+                    {
+                        if (tryPeak.Identifications.First().ModifiedSequence == storedPeak.Identifications.First().ModifiedSequence)
                         {
-                            // look for the next isotope
-                            isotopeIndex++;
-                            theorIsotopeMz = theorIsotopeMzs[isotopeIndex];
+                            storedPeak.MergeFeatureWith(tryPeak, Integrate);
+                        }
+                        else
+                        {
+                            peaksGroupedByApex[tryPeak.Apex.IndexedPeak] = null;
                         }
                     }
-                }
-
-                // all isotopes have been looked for - check to see if they've been observed
-                if (isotopePeaks.Where(p => p != null).Count() < NumIsotopesRequired)
-                    continue;
-
-                if (isotopePeaks[0] == null && RequireMonoisotopicMass)
-                    continue;
-
-                if (RequireMonoisotopicMass)
-                {
-                    bool[] requiredIsotopesSeen = new bool[NumIsotopesRequired];
-
-                    for (int i = 0; i < NumIsotopesRequired; i++)
-                    {
-                        if (isotopePeaks[i] != null)
-                            requiredIsotopesSeen[i] = true;
-                        else
-                            requiredIsotopesSeen[i] = false;
-                    }
-
-                    if (requiredIsotopesSeen.Where(p => p == false).Any())
-                        isotopeDistributionCheck = false;
-                    else
-                        isotopeDistributionCheck = true;
                 }
                 else
                 {
-                    // need to look for continuous isotope distribution when monoisotopic mass observation is not required
-                    isotopeDistributionCheck = true;
-                }
-
-                if (isotopeDistributionCheck)
-                {
-                    double isotopeClusterIntensity = 0;
-
-                    if (RequireMonoisotopicMass)
-                    {
-                        for (int i = 0; i < isotopePeaks.Length; i++)
-                        {
-                            if (isotopePeaks[i] != null)
-                            {
-                                double relIsotopeAbundance = isotopePeaks[i].Item2 / isotopePeaks[0].Item2;
-                                double theorIsotopeAbundance = isotopeMassShifts[i].Value / isotopeMassShifts[0].Value;
-
-                                // impute isotope intensity if it is very different from expected
-                                if ((relIsotopeAbundance / theorIsotopeAbundance) < 2.0)
-                                    isotopeClusterIntensity += isotopePeaks[i].Item2;
-                                else
-                                    isotopeClusterIntensity += theorIsotopeAbundance * isotopePeaks[0].Item2 * 2.0;
-                            }
-                            else
-                                isotopeClusterIntensity += (isotopeMassShifts[i].Value / isotopeMassShifts[0].Value) * isotopePeaks[0].Item2;
-                        }
-                    }
-                    else
-                    {
-                        isotopeClusterIntensity = isotopePeaks.Where(p => p != null).Sum(p => p.Item2);
-                    }
-
-                    isotopeClusters.Add(new IsotopicEnvelope(peak, chargeState, isotopeClusterIntensity, ms1Scans[peak.OneBasedScanNumber - 1].RetentionTime));
+                    peaksGroupedByApex.Add(apexPeak, tryPeak);
                 }
             }
 
-            return isotopeClusters;
+            peaks.AddRange(peaksGroupedByApex.Values.Where(p => p != null));
+            _results.Peaks[spectraFile] = peaks;
+
+            // merge multiple peaks for the same peptide within a time window
+            peaks = _results.Peaks[spectraFile].Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
+            var temp = _results.Peaks[spectraFile].Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
+
+            foreach (var sequence in temp)
+            {
+                if (sequence.Count() == 1)
+                {
+                    peaks.Add(sequence.First());
+                    continue;
+                }
+
+                var temp2 = sequence.Where(p => p.Apex != null).ToList();
+                var merged = new HashSet<ChromatographicPeak>();
+                foreach (ChromatographicPeak peak in temp2)
+                {
+                    if (merged.Contains(peak))
+                    {
+                        continue;
+                    }
+
+                    var toMerge = temp2.Where(p => Math.Abs(p.Apex.IndexedPeak.RetentionTime - peak.Apex.IndexedPeak.RetentionTime) < RtTol && !merged.Contains(p) && p != peak);
+                    foreach (ChromatographicPeak peakToMerge in toMerge)
+                    {
+                        peak.MergeFeatureWith(peakToMerge, Integrate);
+                        merged.Add(peakToMerge);
+                    }
+
+                    peaks.Add(peak);
+                }
+            }
+
+            _results.Peaks[spectraFile] = peaks;
         }
 
-        private void Peakfind(List<IndexedMassSpectralPeak> possibleMonoisotopicPeaks, Identification identification, int chargeState)
+        private List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
         {
-            // sort peaks by scan number
-            double theorMz = identification.massToLookFor.ToMz(chargeState);
-            HashSet<int> scanNumbers = new HashSet<int>(possibleMonoisotopicPeaks.Select(p => p.OneBasedScanNumber));
+            var isotopicEnvelopes = new List<IsotopicEnvelope>();
+            var isotopeMassShifts = _baseSequenceToIsotopicDistribution[identification.BaseSequence];
 
-            // get precursor scan to start at
-            int precursorScanNumber = 0;
-            foreach (var ms1Scan in ms1Scans)
+            if (isotopeMassShifts.Count < NumIsotopesRequired)
             {
-                if (ms1Scan == null)
+                return isotopicEnvelopes;
+            }
+
+            PpmTolerance isotopeTolerance = new PpmTolerance(IsotopePpmTolerance);
+
+            var theorIsotopeMasses = new double[isotopeMassShifts.Count];
+            var expIsotopeMasses = new double[isotopeMassShifts.Count];
+            var experimentalIsotopeAbundances = new double[isotopeMassShifts.Count];
+            var theoreticalIsotopeAbundances = isotopeMassShifts.Select(p => p.Value).ToArray();
+
+            foreach (IndexedMassSpectralPeak peak in peaks)
+            {
+                // calculate theoretical isotopes relative to observed peak
+                Array.Clear(theorIsotopeMasses, 0, theorIsotopeMasses.Length);
+                Array.Clear(expIsotopeMasses, 0, expIsotopeMasses.Length);
+                Array.Clear(experimentalIsotopeAbundances, 0, experimentalIsotopeAbundances.Length);
+
+                double observedMass = peak.Mz.ToMass(chargeState);
+                double theorMass = identification.massToLookFor;
+                double mainPeakError = observedMass - theorMass;
+                for (int i = 0; i < theorIsotopeMasses.Length; i++)
+                {
+                    theorIsotopeMasses[i] = mainPeakError + identification.massToLookFor + isotopeMassShifts[i].Key;
+                }
+
+                if (matchBetweenRuns)
+                {
+                    double unexpectedIsotopeMass = observedMass - Constants.C13MinusC12;
+                    var unexpectedPeak = _peakIndexingEngine.GetIndexedPeak(unexpectedIsotopeMass, peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+                    bool unexpectedIsotopePeakObserved = unexpectedPeak != null && unexpectedPeak.Intensity / peak.Intensity > 0.3;
+
+                    if (unexpectedIsotopePeakObserved)
+                    {
+                        continue;
+                    }
+                }
+
+                for (int t = 0; t < theorIsotopeMasses.Length; t++)
+                {
+                    var isotopePeak = _peakIndexingEngine.GetIndexedPeak(theorIsotopeMasses[t], peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+
+                    if (isotopePeak == null)
+                    {
+                        continue;
+                    }
+
+                    expIsotopeMasses[t] = isotopePeak.Mz.ToMass(chargeState);
+                    experimentalIsotopeAbundances[t] = isotopePeak.Intensity;
+                }
+
+                if (expIsotopeMasses[0] == 0 && RequireMonoisotopicMass)
                 {
                     continue;
                 }
 
-                if (ms1Scan.RetentionTime < identification.ms2RetentionTimeInMinutes)
+                int numIsotopePeaksObserved = 0;
+                int mainPeakIndex = (int)Math.Round(observedMass - identification.monoisotopicMass, 0);
+                for (int i = mainPeakIndex; i < expIsotopeMasses.Length; i++)
                 {
-                    precursorScanNumber = ms1Scan.OneBasedScanNumber;
+                    if (expIsotopeMasses[i] > 0)
+                    {
+                        numIsotopePeaksObserved++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                for (int i = mainPeakIndex - 1; i >= 0; i--)
+                {
+                    if (expIsotopeMasses[i] > 0)
+                    {
+                        numIsotopePeaksObserved++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (numIsotopePeaksObserved >= NumIsotopesRequired)
+                {
+                    double corr = Correlation.Pearson(experimentalIsotopeAbundances, theoreticalIsotopeAbundances);
+
+                    //TODO: include isotope imputation, more tolerance, etc
+                    if (corr > 0.7)
+                    {
+                        isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeAbundances.Sum()));
+                    }
+                    //else
+                    //{
+                    //    for (int i = theoreticalIsotopeAbundances.Length - 1; i >= NumIsotopesRequired - 1 && i >= 0; i--)
+                    //    {
+                    //        if (experimentalIsotopeAbundances[i] > 0)
+                    //        {
+                    //            double relIsotopeAbundance = experimentalIsotopeAbundances[i] / experimentalIsotopeAbundances[0];
+                    //            double theorIsotopeAbundance = isotopeMassShifts[i].Value / isotopeMassShifts[0].Value;
+
+                    //            // impute isotope intensity if it is much higher than expected
+                    //            if (relIsotopeAbundance / theorIsotopeAbundance < 2.0)
+                    //            {
+                    //                experimentalIsotopeAbundances[i] = experimentalIsotopeAbundances[i];
+                    //            }
+                    //            else
+                    //            {
+                    //                experimentalIsotopeAbundances[i] = theorIsotopeAbundance * experimentalIsotopeAbundances[0] * 2.0;
+                    //            }
+                    //        }
+                    //        else
+                    //        {
+                    //            experimentalIsotopeAbundances[i] = (isotopeMassShifts[i].Value / isotopeMassShifts[0].Value) * experimentalIsotopeAbundances[0];
+                    //        }
+                    //    }
+
+                    //    corr = Correlation.Pearson(experimentalIsotopeAbundances, theoreticalIsotopeAbundances);
+
+                    //    if (corr > 0.7)
+                    //    {
+                    //        isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeAbundances.Sum()));
+                    //    }
+                    //}
+                }
+            }
+
+            return isotopicEnvelopes;
+        }
+
+        private List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        {
+            var xic = new List<IndexedMassSpectralPeak>();
+
+            // get precursor scan to start at
+            Ms1ScanInfo[] ms1Scans = _ms1Scans[spectraFileInfo];
+            int precursorScanIndex = -1;
+            foreach (Ms1ScanInfo ms1Scan in ms1Scans)
+            {
+                if (ms1Scan.RetentionTime < idRetentionTime)
+                {
+                    precursorScanIndex = ms1Scan.ZeroBasedMs1ScanIndex;
                 }
                 else
                 {
                     break;
                 }
             }
-            if (precursorScanNumber == 0)
-            {
-                throw new MzLibException("FlashLFQ error getting precursor scan number");
-            }
 
-            // look right
+            // go right
             int missedScans = 0;
-            for (int i = precursorScanNumber - 1; i < ms1Scans.Length; i++)
+            for (int t = precursorScanIndex; t < ms1Scans.Length; t++)
             {
-                // the "ms1Scans[i].ScanWindowRange.Contains(theorMz)" part is for BoxCar compatibility
-                if (ms1Scans[i] != null && (ms1Scans[i].ScanWindowRange == null || ms1Scans[i].ScanWindowRange.Contains(theorMz)))
-                {
-                    if (scanNumbers.Contains(ms1Scans[i].OneBasedScanNumber))
-                    {
-                        missedScans = 0;
-                    }
-                    else
-                    {
-                        if (i != precursorScanNumber - 1)
-                        {
-                            missedScans++;
-                        }
+                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
-                        if (missedScans > MissedScansAllowed)
-                        {
-                            possibleMonoisotopicPeaks.RemoveAll(p => p.OneBasedScanNumber >= ms1Scans[i].OneBasedScanNumber);
-                            break;
-                        }
-                    }
+                if (peak == null && t != precursorScanIndex)
+                {
+                    missedScans++;
+                }
+                else if (peak != null)
+                {
+                    missedScans = 0;
+                    xic.Add(peak);
+                }
+
+                if (missedScans > MissedScansAllowed)
+                {
+                    break;
                 }
             }
 
-            if (!possibleMonoisotopicPeaks.Any())
-            {
-                return;
-            }
-
-            // look left
+            // go left
             missedScans = 0;
-            for (int i = precursorScanNumber - 1; i >= 0; i--)
+            for (int t = precursorScanIndex - 1; t >= 0; t--)
             {
-                if (ms1Scans[i] != null && (ms1Scans[i].ScanWindowRange == null || ms1Scans[i].ScanWindowRange.Contains(theorMz)))
-                {
-                    if (scanNumbers.Contains(ms1Scans[i].OneBasedScanNumber))
-                    {
-                        missedScans = 0;
-                    }
-                    else
-                    {
-                        if (i != precursorScanNumber - 1)
-                        {
-                            missedScans++;
-                        }
+                var peak = _peakIndexingEngine.GetIndexedPeak(mass, t, tolerance, charge);
 
-                        if (missedScans > MissedScansAllowed)
-                        {
-                            possibleMonoisotopicPeaks.RemoveAll(p => p.OneBasedScanNumber <= ms1Scans[i].OneBasedScanNumber);
-                            break;
-                        }
-                    }
+                if (peak == null && t != precursorScanIndex)
+                {
+                    missedScans++;
+                }
+                else if (peak != null)
+                {
+                    missedScans = 0;
+                    xic.Add(peak);
+                }
+
+                if (missedScans > MissedScansAllowed)
+                {
+                    break;
                 }
             }
+
+            // sort by RT
+            xic.Sort((x, y) => x.RetentionTime.CompareTo(y.RetentionTime));
+
+            return xic;
         }
 
-        private void CutPeak(ChromatographicPeak peak)
+        private void CutPeak(ChromatographicPeak peak, double identificationTime)
         {
             // find out if we need to split this peak by using the discrimination factor
             // this method assumes that the isotope envelopes in a chromatographic peak are already sorted by MS1 scan number
@@ -1167,7 +954,7 @@ namespace FlashLFQ
             }
 
             var timePointsForApexZ = peak.IsotopicEnvelopes.Where(p => p.ChargeState == peak.Apex.ChargeState).ToList();
-            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.OneBasedScanNumber));
+            HashSet<int> scanNumbers = new HashSet<int>(timePointsForApexZ.Select(p => p.IndexedPeak.ZeroBasedMs1ScanIndex));
             int apexIndex = timePointsForApexZ.IndexOf(peak.Apex);
             IsotopicEnvelope valleyTimePoint = null;
 
@@ -1189,13 +976,16 @@ namespace FlashLFQ
                         indexOfValley = timePointsForApexZ.IndexOf(valleyTimePoint);
                     }
 
-                    double discriminationFactor = (timepoint.Intensity - valleyTimePoint.Intensity) / timepoint.Intensity;
+                    double discriminationFactor =
+                        (timepoint.Intensity - valleyTimePoint.Intensity) / timepoint.Intensity;
 
-                    if (discriminationFactor > MinDiscFactorToCutAt && (indexOfValley + iter < timePointsForApexZ.Count && indexOfValley + iter >= 0))
+                    if (discriminationFactor > MinDiscFactorToCutAt &&
+                        (indexOfValley + iter < timePointsForApexZ.Count && indexOfValley + iter >= 0))
                     {
                         IsotopicEnvelope secondValleyTimepoint = timePointsForApexZ[indexOfValley + iter];
 
-                        discriminationFactor = (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
+                        discriminationFactor =
+                            (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
 
                         if (discriminationFactor > MinDiscFactorToCutAt)
                         {
@@ -1204,9 +994,13 @@ namespace FlashLFQ
                         }
 
                         int nextMs1ScanNum = -1;
-                        for (int j = valleyTimePoint.IndexedPeak.OneBasedScanNumber - 1; j < ms1Scans.Length && j >= 0; j += iter)
+                        for (int j = valleyTimePoint.IndexedPeak.ZeroBasedMs1ScanIndex - 1;
+                            j < _ms1Scans[peak.SpectraFileInfo].Length && j >= 0;
+                            j += iter)
                         {
-                            if (ms1Scans[j] != null && ms1Scans[j].OneBasedScanNumber != valleyTimePoint.IndexedPeak.OneBasedScanNumber)
+                            if (_ms1Scans[peak.SpectraFileInfo][j].OneBasedScanNumber >= 0 &&
+                                _ms1Scans[peak.SpectraFileInfo][j].OneBasedScanNumber !=
+                                valleyTimePoint.IndexedPeak.ZeroBasedMs1ScanIndex)
                             {
                                 nextMs1ScanNum = j + 1;
                                 break;
@@ -1221,7 +1015,7 @@ namespace FlashLFQ
                     }
                 }
 
-                if (cutThisPeak == true)
+                if (cutThisPeak)
                 {
                     break;
                 }
@@ -1230,23 +1024,23 @@ namespace FlashLFQ
             // cut
             if (cutThisPeak)
             {
-                if (peak.Identifications.First().ms2RetentionTimeInMinutes > valleyTimePoint.RetentionTime)
+                if (identificationTime > valleyTimePoint.IndexedPeak.RetentionTime)
                 {
                     // MS2 identification is to the right of the valley; remove all peaks left of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => p.RetentionTime <= valleyTimePoint.RetentionTime);
+                    peak.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.RetentionTime <= valleyTimePoint.IndexedPeak.RetentionTime);
                 }
                 else
                 {
                     // MS2 identification is to the left of the valley; remove all peaks right of the valley
-                    peak.IsotopicEnvelopes.RemoveAll(p => p.RetentionTime >= valleyTimePoint.RetentionTime);
+                    peak.IsotopicEnvelopes.RemoveAll(p => p.IndexedPeak.RetentionTime >= valleyTimePoint.IndexedPeak.RetentionTime);
                 }
 
                 // recalculate intensity for the peak
                 peak.CalculateIntensityForThisFeature(Integrate);
-                peak.SplitRT = valleyTimePoint.RetentionTime;
+                peak.SplitRT = valleyTimePoint.IndexedPeak.RetentionTime;
 
                 // recursively cut
-                CutPeak(peak);
+                CutPeak(peak, identificationTime);
             }
         }
     }

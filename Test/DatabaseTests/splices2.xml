@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <entry>
+    <accession>accession1</accession>
+    <gene />
+    <feature type="splice site" description="6\t+\t32641309\t32641557\t32642609\t32642763">
+      <location>
+        <begin position="2"></begin>
+        <end position="3"></end>
+      </location>
+    </feature>
+    <sequence length="6">MEPTID</sequence>
+  </entry>
+</mzLibProteinDb>

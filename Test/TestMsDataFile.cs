@@ -24,14 +24,16 @@ using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
-    public sealed class TestDataFile
+    public sealed class TestMsDataFile
     {
         private MzSpectrum _mzSpectrumA;
         private FakeMsDataFile myMsDataFile;
+        private static Stopwatch Stopwatch { get; set; }
 
         [OneTimeSetUp]
         public void Setup()
@@ -56,6 +58,19 @@ namespace Test
             Scans[1] = new MsDataScan(MS2, 2, 2, false, Polarity.Positive, 2.0, new MzRange(100, 1500), "second spectrum", MZAnalyzerType.Unknown, MS2.SumOfAllY, 1, null, "scan=2", 693.9892, 3, .3872, 693.99, 1, DissociationType.Unknown, 1, 693.6550);
 
             myMsDataFile = new FakeMsDataFile(Scans);
+        }
+
+        [SetUp]
+        public static void Setuppp()
+        {
+            Stopwatch = new Stopwatch();
+            Stopwatch.Start();
+        }
+
+        [TearDown]
+        public static void TearDown()
+        {
+            Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
