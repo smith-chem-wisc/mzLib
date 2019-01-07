@@ -31,6 +31,8 @@ namespace UsefulProteomicsDatabases
 
         public static void Load(string elementLocation)
         {
+            bool ok = File.Exists(elementLocation);
+
             using (StreamReader sr = new StreamReader(elementLocation))
             {
                 string line = sr.ReadLine();
