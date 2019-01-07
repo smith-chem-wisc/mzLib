@@ -32,6 +32,7 @@
     <file src="Proteomics\bin\Release\netstandard2.0\ProteolyticDigestion\proteases.tsv" target="lib\netstandard2.0\ProteolyticDigestion" /> 
     <file src="Spectra\bin\Release\netstandard2.0\Spectra.dll" target="lib\netstandard2.0" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\netstandard2.0\UsefulProteomicsDatabases.dll" target="lib\netstandard2.0" /> 
+	<file src="Chemistry\bin\Release\netstandard2.0\elements.dat" target="lib\netstandard2.0" /> 
 
     <file src="Chemistry\bin\Release\net471\Chemistry.dll" target="lib\net471" />
     <file src="FlashLFQ\bin\Release\net471\FlashLFQ.dll" target="lib\net471" />
@@ -45,6 +46,7 @@
     <file src="Proteomics\bin\Release\net471\ProteolyticDigestion\proteases.tsv" target="lib\net471\ProteolyticDigestion" /> 
     <file src="Spectra\bin\Release\net471\Spectra.dll" target="lib\net471" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\net471\UsefulProteomicsDatabases.dll" target="lib\net471" /> 
+	<file src="Chemistry\bin\Release\net471\elements.dat" target="lib\net471" /> 
 
     <file src="Thermo\bin\x64\Release\Thermo.dll" target="lib\net471" /> 
     <file src="x64\Release\ManagedThermoHelperLayer.dll" target="lib\net471" /> 

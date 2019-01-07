@@ -17,4 +17,10 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="elements.dat">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

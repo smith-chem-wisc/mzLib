@@ -105,24 +105,33 @@ namespace UsefulProteomicsDatabases
 
         public static void UpdateElements(string elementLocation)
         {
-            DownloadElements(elementLocation);
+            // A lot of this code is commented out because of difficulty accessing the NIST 
+            // periodic table of the elements database during government shutdowns.
+            // We're just using a version of the periodic table downloaded from NIST at an earlier date,
+            // included in mzLib (Chemistry/elements.dat).
+
+            //DownloadElements(elementLocation);
             if (!File.Exists(elementLocation))
             {
-                Console.WriteLine("Element database did not exist, writing to disk");
-                File.Move(elementLocation + ".temp", elementLocation);
-                return;
+                string dataDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                string path = Path.Combine(dataDirectory, "elements.dat");
+                File.Copy(path, elementLocation);
+
+                //Console.WriteLine("Element database did not exist, writing to disk");
+                //File.Move(elementLocation + ".temp", elementLocation);
+                //return;
             }
-            if (FilesAreEqual_Hash(elementLocation + ".temp", elementLocation))
-            {
-                Console.WriteLine("Element database is up to date, doing nothing");
-                File.Delete(elementLocation + ".temp");
-            }
-            else
-            {
-                Console.WriteLine("Element database updated, saving old version as backup");
-                File.Move(elementLocation, elementLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
-                File.Move(elementLocation + ".temp", elementLocation);
-            }
+            //if (FilesAreEqual_Hash(elementLocation + ".temp", elementLocation))
+            //{
+            //    Console.WriteLine("Element database is up to date, doing nothing");
+            //    File.Delete(elementLocation + ".temp");
+            //}
+            //else
+            //{
+            //    Console.WriteLine("Element database updated, saving old version as backup");
+            //    File.Move(elementLocation, elementLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
+            //    File.Move(elementLocation + ".temp", elementLocation);
+            //}
         }
 
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
