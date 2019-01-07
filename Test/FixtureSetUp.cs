@@ -27,8 +27,7 @@ namespace Test
         [OneTimeSetUp]
         public void Setup()
         {
-            var elementLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.dat");
-            Loaders.LoadElements(elementLocation);
+            Loaders.LoadElements();
         }
     }
 }

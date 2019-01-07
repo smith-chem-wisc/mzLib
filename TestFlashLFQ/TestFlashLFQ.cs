@@ -198,7 +198,7 @@ namespace Test
             List<string> pepSequences = new List<string> { "PEPTIDE", "MYPEPTIDE", "VVVVVPEPTIDE" };
             double[,] amounts = new double[2, 3] { { 1000000, 1000000, 1000000 },
                                                    { 2000000, 2000000, 900000 } };
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml files (3 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)
@@ -265,7 +265,7 @@ namespace Test
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
             double[] file2Rt = new double[] { 1.015, 1.030, 1.039, 1.050, 1.065 };
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml files (5 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)
@@ -360,7 +360,7 @@ namespace Test
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
             double[] file2Rt = new double[] { 1.015, 1.030, 1.036, 1.050, 1.065 };
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml files (5 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)
@@ -446,7 +446,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -500,7 +500,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -554,7 +554,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -614,7 +614,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -706,7 +706,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml file
             MsDataScan[] scans = new MsDataScan[5];
@@ -796,7 +796,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -860,7 +860,7 @@ namespace Test
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
             double[] file2Rt = new double[] { 1.015, 1.030, 1.036, 1.050, 1.065 };
 
-            Loaders.LoadElements(Path.Combine(TestContext.CurrentContext.TestDirectory, @"elements.dat"));
+            Loaders.LoadElements();
 
             // generate mzml files (5 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)

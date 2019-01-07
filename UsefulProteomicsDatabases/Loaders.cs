@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with UsefulProteomicsDatabases. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -103,37 +104,6 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        public static void UpdateElements(string elementLocation)
-        {
-            // A lot of this code is commented out because of difficulty accessing the NIST 
-            // periodic table of the elements database during government shutdowns.
-            // We're just using a version of the periodic table downloaded from NIST at an earlier date,
-            // included in mzLib (Chemistry/elements.dat).
-
-            //DownloadElements(elementLocation);
-            if (!File.Exists(elementLocation))
-            {
-                string dataDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                string path = Path.Combine(dataDirectory, "elements.dat");
-                File.Copy(path, elementLocation);
-
-                //Console.WriteLine("Element database did not exist, writing to disk");
-                //File.Move(elementLocation + ".temp", elementLocation);
-                //return;
-            }
-            //if (FilesAreEqual_Hash(elementLocation + ".temp", elementLocation))
-            //{
-            //    Console.WriteLine("Element database is up to date, doing nothing");
-            //    File.Delete(elementLocation + ".temp");
-            //}
-            //else
-            //{
-            //    Console.WriteLine("Element database updated, saving old version as backup");
-            //    File.Move(elementLocation, elementLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
-            //    File.Move(elementLocation + ".temp", elementLocation);
-            //}
-        }
-
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
         {
             var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
@@ -141,13 +111,17 @@ namespace UsefulProteomicsDatabases
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
-        public static void LoadElements(string elementLocation)
+        public static void LoadElements()
         {
-            if (!File.Exists(elementLocation))
+            // has the periodic table already been loaded?
+            if (PeriodicTable.GetElement(1) != null)
             {
-                UpdateElements(elementLocation);
+                return;
             }
-            PeriodicTableLoader.Load(elementLocation);
+
+            // periodic table has not been loaded yet - load it
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "elements.dat");
+            PeriodicTableLoader.Load(path);
         }
 
         public static IEnumerable<Modification> LoadUnimod(string unimodLocation)

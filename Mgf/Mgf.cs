@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace IO.Mgf
 {
@@ -26,6 +27,8 @@ namespace IO.Mgf
             {
                 throw new FileNotFoundException();
             }
+
+            Loaders.LoadElements();
 
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
