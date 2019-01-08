@@ -70,6 +70,10 @@
       <Project>{B208FF5F-5A33-490D-9DDB-7C76F5600FC4}</Project>
       <Name>MzLibUtil</Name>
     </ProjectReference>
+    <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
+      <Project>{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}</Project>
+      <Name>UsefulProteomicsDatabases</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <None Include="RawFileReaderLicense.doc">

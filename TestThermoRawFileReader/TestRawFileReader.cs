@@ -17,9 +17,6 @@ namespace TestThermoRawFileReader
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
         public static void TestRawFileReader1(string infile, string outfile1, string outfile2)
         {
-            var elementLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.dat");
-            Loaders.LoadElements(elementLocation);
-
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, infile);
             outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, outfile1);
             outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, outfile2);

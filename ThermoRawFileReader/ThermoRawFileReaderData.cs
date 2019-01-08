@@ -9,6 +9,7 @@ using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
 using ThermoFisher.CommonCore.RawFileReader;
+using UsefulProteomicsDatabases;
 
 // This .cs file uses:
 // RawFileReader reading tool. Copyright © 2016 by Thermo Fisher Scientific, Inc. All rights reserved.
@@ -31,6 +32,8 @@ namespace ThermoRawFileReader
             {
                 throw new FileNotFoundException();
             }
+
+            Loaders.LoadElements();
 
             var rawFile = RawFileReaderAdapter.FileFactory(filePath);
 
