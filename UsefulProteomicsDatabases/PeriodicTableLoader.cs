@@ -35,7 +35,7 @@ namespace UsefulProteomicsDatabases
 
             int? atomicNumber = null;
             string atomicSymbol = null;
-            int? massNumber = null;
+            int? isotopeNumber = null;
             double? atomicMass = null;
             double? abundance = null;
             double? averageMass = null;
@@ -61,7 +61,7 @@ namespace UsefulProteomicsDatabases
                         break;
 
                     case "Mass Number":
-                        massNumber = int.Parse(value);
+                        isotopeNumber = int.Parse(value);
                         break;
 
                     case "Relative Atomic Mass":
@@ -99,21 +99,21 @@ namespace UsefulProteomicsDatabases
                     case "Notes":
                         if (PeriodicTable.GetElement(atomicNumber.Value) == null)
                         {
-                            if (atomicSymbol != null && atomicNumber.HasValue && averageMass.HasValue && massNumber.HasValue && atomicMass.HasValue && abundance.HasValue)
+                            if (atomicSymbol != null && atomicNumber.HasValue && averageMass.HasValue && isotopeNumber.HasValue && atomicMass.HasValue && abundance.HasValue)
                             {
                                 var element = new Element(atomicSymbol, atomicNumber.Value, averageMass.Value);
-                                element.AddIsotope(massNumber.Value, atomicMass.Value, abundance.Value);
+                                element.AddIsotope(isotopeNumber.Value, atomicMass.Value, abundance.Value);
                                 PeriodicTable.Add(element);
                             }
                         }
                         else if (abundance.HasValue)
                         {
-                            PeriodicTable.GetElement(atomicNumber.Value).AddIsotope(massNumber.Value, atomicMass.Value, abundance.Value);
+                            PeriodicTable.GetElement(atomicNumber.Value).AddIsotope(isotopeNumber.Value, atomicMass.Value, abundance.Value);
                         }
 
                         atomicNumber = null;
                         atomicSymbol = null;
-                        massNumber = null;
+                        isotopeNumber = null;
                         atomicMass = null;
                         abundance = null;
                         averageMass = null;
