@@ -20,16 +20,16 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ThermoFisher.CommonCore.BackgroundSubtraction">
-      <HintPath>..\..\..\..\..\..\NuGetPackages\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
+      <HintPath>..\dll\ThermoFisher.CommonCore.BackgroundSubtraction.dll</HintPath>
     </Reference>
     <Reference Include="ThermoFisher.CommonCore.Data">
-      <HintPath>..\..\..\..\..\..\NuGetPackages\ThermoFisher.CommonCore.Data.dll</HintPath>
+      <HintPath>..\dll\NuGetPackages\ThermoFisher.CommonCore.Data.dll</HintPath>
     </Reference>
     <Reference Include="ThermoFisher.CommonCore.MassPrecisionEstimator">
-      <HintPath>..\..\..\..\..\..\NuGetPackages\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
+      <HintPath>..\dll\NuGetPackages\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
     </Reference>
     <Reference Include="ThermoFisher.CommonCore.RawFileReader">
-      <HintPath>..\..\..\..\..\..\NuGetPackages\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
+      <HintPath>..\dll\NuGetPackages\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
