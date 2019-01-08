@@ -120,8 +120,7 @@ namespace UsefulProteomicsDatabases
             }
 
             // periodic table has not been loaded yet - load it
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "elements.dat");
-            PeriodicTableLoader.Load(path);
+            PeriodicTableLoader.Load();
         }
 
         public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
