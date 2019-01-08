@@ -15,7 +15,7 @@ namespace ConsoleApp1
     {
         private static void Main(string[] args)
         {
-            Loaders.LoadElements("elements.dat");
+            Loaders.LoadElements();
 
             DoFileDecon(args);
         }

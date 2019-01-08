@@ -17,7 +17,7 @@ namespace MS2decon
     {
         private static void Main(string[] args)
         {
-            Loaders.LoadElements("elements.dat");
+            Loaders.LoadElements();
 
             var p = new FluentCommandLineParser<ApplicationArguments>();
 

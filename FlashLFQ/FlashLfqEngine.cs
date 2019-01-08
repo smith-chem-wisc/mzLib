@@ -57,7 +57,7 @@ namespace FlashLFQ
                 optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
             }
 
-            Loaders.LoadElements(optionalPeriodicTablePath);
+            Loaders.LoadElements();
 
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
