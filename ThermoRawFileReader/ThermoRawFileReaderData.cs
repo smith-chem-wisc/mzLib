@@ -1,10 +1,12 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
@@ -26,7 +28,6 @@ namespace ThermoRawFileReader
         public static ThermoRawFileReaderData LoadAllStaticData(string filePath, FilteringParams filterParams = null, int maxThreads = -1)
         {
             //TODO: implement peak filtering
-            //TODO: implement multithreaded file reading
 
             if (!File.Exists(filePath))
             {
@@ -35,41 +36,50 @@ namespace ThermoRawFileReader
 
             Loaders.LoadElements();
 
-            var rawFile = RawFileReaderAdapter.FileFactory(filePath);
+            // I don't know why this line needs to be here, but it does...
+            var temp = RawFileReaderAdapter.FileFactory(filePath);
 
-            if (!rawFile.IsOpen)
+            var threadManager = RawFileReaderFactory.CreateThreadManager(filePath);
+            var rawFileAccessor = threadManager.CreateThreadAccessor();
+            
+            if (!rawFileAccessor.IsOpen)
             {
                 throw new MzLibException("Unable to access RAW file!");
             }
 
-            if (rawFile.IsError)
+            if (rawFileAccessor.IsError)
             {
                 throw new MzLibException("Error opening RAW file!");
             }
 
-            if (rawFile.InAcquisition)
+            if (rawFileAccessor.InAcquisition)
             {
                 throw new MzLibException("RAW file still being acquired!");
             }
 
-            rawFile.SelectInstrument(Device.MS, 1);
+            rawFileAccessor.SelectInstrument(Device.MS, 1);
+            var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
 
-            List<MsDataScan> msDataScans = new List<MsDataScan>();
-
-            for (int s = rawFile.RunHeaderEx.FirstSpectrum; s <= rawFile.RunHeaderEx.LastSpectrum; s++)
+            Parallel.ForEach(Partitioner.Create(0, msDataScans.Length), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
             {
-                try
-                {
-                    var scan = GetOneBasedScan(rawFile, s);
-                    msDataScans.Add(scan);
-                }
-                catch (Exception ex)
-                {
-                    throw new MzLibException("Error reading scan " + s + ": " + ex.Message);
-                }
-            }
+                IRawDataPlus myThreadDataReader = threadManager.CreateThreadAccessor();
+                myThreadDataReader.SelectInstrument(Device.MS, 1);
 
-            rawFile.Dispose();
+                for (int s = fff.Item1; s < fff.Item2; s++)
+                {
+                    try
+                    {
+                        var scan = GetOneBasedScan(myThreadDataReader, s + 1);
+                        msDataScans[s] = scan;
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new MzLibException("Error reading scan " + s + ": " + ex.Message);
+                    }
+                }
+            });
+
+            rawFileAccessor.Dispose();
 
             string sendCheckSum;
             using (FileStream stream = File.OpenRead(filePath))
@@ -90,7 +100,7 @@ namespace ThermoRawFileReader
                 filePath,
                 Path.GetFileNameWithoutExtension(filePath));
 
-            return new ThermoRawFileReaderData(msDataScans.ToArray(), sourceFile);
+            return new ThermoRawFileReaderData(msDataScans, sourceFile);
         }
 
         private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, int scanNumber)
@@ -235,19 +245,10 @@ namespace ThermoRawFileReader
 
             var scanStatistics = rawFile.GetScanStatsForScanNumber(scanNumber);
 
-            if (scanStatistics.IsCentroidScan)
-            {
-                var centroidStream = rawFile.GetCentroidStream(scanNumber, false);
+            bool isCentroid = scanStatistics.IsCentroidScan;
+            var centroidStream = rawFile.GetCentroidStream(scanNumber, false);
 
-                if (centroidStream.Masses == null || centroidStream.Intensities == null)
-                {
-                    var segmentedScan = rawFile.GetSegmentedScanFromScanNumber(scanNumber, scanStatistics);
-                    return new MzSpectrum(segmentedScan.Positions, segmentedScan.Intensities, false);
-                }
-
-                return new MzSpectrum(centroidStream.Masses, centroidStream.Intensities, false);
-            }
-            else
+            if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
                 var segmentedScan = rawFile.GetSegmentedScanFromScanNumber(scanNumber, scanStatistics);
                 var masses = new List<double>();
@@ -263,6 +264,8 @@ namespace ThermoRawFileReader
 
                 return new MzSpectrum(masses.ToArray(), intensities.ToArray(), false);
             }
+
+            return new MzSpectrum(centroidStream.Masses, centroidStream.Intensities, false);
         }
 
         private static MZAnalyzerType GetMassAnalyzerType(MassAnalyzerType massAnalyzerType)
