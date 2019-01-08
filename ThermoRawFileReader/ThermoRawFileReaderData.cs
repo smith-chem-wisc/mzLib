@@ -21,11 +21,16 @@ namespace ThermoRawFileReader
 {
     public class ThermoRawFileReaderData : MsDataFile
     {
+        private static IRawDataPlus dynamicConnection;
+
         private ThermoRawFileReaderData(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
-        public static ThermoRawFileReaderData LoadAllStaticData(string filePath, FilteringParams filterParams = null, int maxThreads = -1)
+        /// <summary>
+        /// Loads all scan data from a Thermo .raw file.
+        /// </summary>
+        public static ThermoRawFileReaderData LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
         {
             //TODO: implement peak filtering
 
@@ -41,7 +46,7 @@ namespace ThermoRawFileReader
 
             var threadManager = RawFileReaderFactory.CreateThreadManager(filePath);
             var rawFileAccessor = threadManager.CreateThreadAccessor();
-            
+
             if (!rawFileAccessor.IsOpen)
             {
                 throw new MzLibException("Unable to access RAW file!");
@@ -69,7 +74,7 @@ namespace ThermoRawFileReader
                 {
                     try
                     {
-                        var scan = GetOneBasedScan(myThreadDataReader, s + 1);
+                        var scan = GetOneBasedScan(myThreadDataReader, filterParams, s + 1);
                         msDataScans[s] = scan;
                     }
                     catch (Exception ex)
@@ -103,7 +108,67 @@ namespace ThermoRawFileReader
             return new ThermoRawFileReaderData(msDataScans, sourceFile);
         }
 
-        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, int scanNumber)
+        public static void InitiateDynamicConnection(string filePath)
+        {
+            Loaders.LoadElements();
+
+            if (dynamicConnection != null)
+            {
+                dynamicConnection.Dispose();
+            }
+
+            dynamicConnection = RawFileReaderAdapter.FileFactory(filePath);
+
+            if (!File.Exists(filePath))
+            {
+                throw new FileNotFoundException();
+            }
+
+            if (!dynamicConnection.IsOpen)
+            {
+                throw new MzLibException("Unable to access RAW file!");
+            }
+
+            if (dynamicConnection.IsError)
+            {
+                throw new MzLibException("Error opening RAW file!");
+            }
+
+            if (dynamicConnection.InAcquisition)
+            {
+                throw new MzLibException("RAW file still being acquired!");
+            }
+
+            dynamicConnection.SelectInstrument(Device.MS, 1);
+        }
+
+        public static void CloseDynamicConnection()
+        {
+            if (dynamicConnection != null)
+            {
+                dynamicConnection.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Allows access to a raw file one scan at a time. Returns null if the raw file does not contain the scan number specified.
+        /// </summary>
+        public static MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        {
+            if (dynamicConnection == null)
+            {
+                throw new MzLibException("The dynamic connection has not been created yet!");
+            }
+
+            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+            {
+                return null;
+            }
+
+            return GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+        }
+
+        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {
             var scan = Scan.FromFile(rawFile, scanNumber);
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
@@ -116,7 +181,7 @@ namespace ThermoRawFileReader
             }
 
             string nativeId = "controllerType=0 controllerNumber=1 scan=" + scanNumber;
-            MzSpectrum spectrum = GetSpectrum(rawFile, scanNumber, scanFilterString);
+            MzSpectrum spectrum = GetSpectrum(rawFile, filteringParams, scanNumber, scanFilterString);
 
             var scanStats = rawFile.GetScanStatsForScanNumber(scanNumber);
             double scanRangeHigh = scanStats.HighMass;
@@ -236,7 +301,7 @@ namespace ThermoRawFileReader
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz);
         }
 
-        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, int scanNumber, string scanFilter)
+        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber, string scanFilter)
         {
             if (string.IsNullOrEmpty(scanFilter))
             {

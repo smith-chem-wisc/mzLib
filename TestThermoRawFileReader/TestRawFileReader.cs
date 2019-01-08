@@ -4,7 +4,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using ThermoRawFileReader;
-using UsefulProteomicsDatabases;
 
 namespace TestThermoRawFileReader
 {
@@ -29,6 +28,27 @@ namespace TestThermoRawFileReader
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
             Mzml.LoadAllStaticData(outfile2);
             Console.WriteLine($"Analysis time for TestRawFileReader1({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        [Test]
+        public static void TestSingleScanRawReader()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "small.raw");
+
+            ThermoRawFileReaderData.InitiateDynamicConnection(path);
+
+            var a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(1);
+            Assert.That(a != null);
+
+            a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(10000);
+            Assert.That(a == null);
+
+            ThermoRawFileReaderData.CloseDynamicConnection();
+            
+            Console.WriteLine($"Analysis time for TestSingleScanRawReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
     }
 }
