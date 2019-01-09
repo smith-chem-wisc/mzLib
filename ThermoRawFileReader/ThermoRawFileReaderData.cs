@@ -180,7 +180,7 @@ namespace ThermoRawFileReader
             }
 
             string nativeId = "controllerType=0 controllerNumber=1 scan=" + scanNumber;
-            MzSpectrum spectrum = GetSpectrum(rawFile, filteringParams, scanNumber, scanFilterString);
+            MzSpectrum spectrum = GetSpectrum(rawFile, filteringParams, scanNumber, scanFilterString, msOrder);
 
             var scanStats = rawFile.GetScanStatsForScanNumber(scanNumber);
             double scanRangeHigh = scanStats.HighMass;
@@ -300,8 +300,12 @@ namespace ThermoRawFileReader
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz);
         }
 
-        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber, string scanFilter)
+        private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams, int scanNumber, string scanFilter, int scanOrder)
         {
+            MzSpectrum spectrum;
+            double[] xArray;
+            double[] yArray;
+
             if (string.IsNullOrEmpty(scanFilter))
             {
                 return new MzSpectrum(new double[0], new double[0], false);
@@ -328,7 +332,36 @@ namespace ThermoRawFileReader
                 //return new MzSpectrum(masses.ToArray(), intensities.ToArray(), false);
             }
 
-            return new MzSpectrum(centroidStream.Masses, centroidStream.Intensities, false);
+            xArray = centroidStream.Masses;
+            yArray = centroidStream.Intensities;
+
+            if (filterParams != null 
+                && xArray.Length > 0 
+                && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue) 
+                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder > 1)))
+            {
+                var count = xArray.Length;
+
+                var mzArray = new double[count];
+                var intensityArray = new double[count];
+                Array.Copy(xArray, mzArray, count);
+                Array.Copy(yArray, intensityArray, count);
+
+                var scanStats = rawFile.GetScanStatsForScanNumber(scanNumber);
+                double scanRangeHigh = scanStats.HighMass;
+                double scanRangeLow = scanStats.LowMass;
+
+                WindowModeHelper(ref intensityArray, ref mzArray, filterParams, scanRangeLow, scanRangeHigh);
+
+                Array.Sort(mzArray, intensityArray);
+                spectrum = new MzSpectrum(mzArray, intensityArray, false);
+            }
+            else
+            {
+                spectrum = new MzSpectrum(xArray, yArray, false);
+            }
+            
+            return spectrum;
         }
 
         private static MZAnalyzerType GetMassAnalyzerType(MassAnalyzerType massAnalyzerType)

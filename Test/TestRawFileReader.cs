@@ -1,4 +1,5 @@
 ﻿using IO.MzML;
+using MassSpectrometry;
 using NUnit.Framework;
 using System;
 using System.Diagnostics;
@@ -49,6 +50,23 @@ namespace Test
             ThermoRawFileReaderData.CloseDynamicConnection();
             
             Console.WriteLine($"Analysis time for TestSingleScanRawReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        [Test]
+        public static void TestPeakFilteringRawFileReader()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var a = ThermoRawFileReaderData.LoadAllStaticData(path, new FilteringParams(200, null, 1, true, true), maxThreads: 1);
+            foreach(var scan in a.GetAllScansList())
+            {
+                Assert.That(scan.MassSpectrum.XArray.Length <= 200);
+            }
+
+            Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
     }
 }
