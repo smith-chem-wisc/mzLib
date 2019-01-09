@@ -2,7 +2,6 @@
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
@@ -79,7 +78,7 @@ namespace ThermoRawFileReader
                     }
                     catch (Exception ex)
                     {
-                        throw new MzLibException("Error reading scan " + s + ": " + ex.Message);
+                        throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
                     }
                 }
             });
@@ -305,29 +304,28 @@ namespace ThermoRawFileReader
         {
             if (string.IsNullOrEmpty(scanFilter))
             {
-                return null;
+                return new MzSpectrum(new double[0], new double[0], false);
             }
 
-            var scanStatistics = rawFile.GetScanStatsForScanNumber(scanNumber);
-
-            bool isCentroid = scanStatistics.IsCentroidScan;
             var centroidStream = rawFile.GetCentroidStream(scanNumber, false);
 
             if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
-                var segmentedScan = rawFile.GetSegmentedScanFromScanNumber(scanNumber, scanStatistics);
-                var masses = new List<double>();
-                var intensities = new List<double>();
-                for (int i = 0; i < segmentedScan.Positions.Length; i++)
-                {
-                    if (segmentedScan.Intensities[i] > 0)
-                    {
-                        masses.Add(segmentedScan.Positions[i]);
-                        intensities.Add(segmentedScan.Intensities[i]);
-                    }
-                }
+                throw new MzLibException("Could not centroid data from scan " + scanNumber);
 
-                return new MzSpectrum(masses.ToArray(), intensities.ToArray(), false);
+                //var segmentedScan = rawFile.GetSegmentedScanFromScanNumber(scanNumber, scanStatistics);
+                //var masses = new List<double>();
+                //var intensities = new List<double>();
+                //for (int i = 0; i < segmentedScan.Positions.Length; i++)
+                //{
+                //    if (segmentedScan.Intensities[i] > 0)
+                //    {
+                //        masses.Add(segmentedScan.Positions[i]);
+                //        intensities.Add(segmentedScan.Intensities[i]);
+                //    }
+                //}
+
+                //return new MzSpectrum(masses.ToArray(), intensities.ToArray(), false);
             }
 
             return new MzSpectrum(centroidStream.Masses, centroidStream.Intensities, false);

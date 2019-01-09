@@ -22,7 +22,7 @@ namespace TestThermoRawFileReader
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            var a = ThermoRawFileReaderData.LoadAllStaticData(path);
+            var a = ThermoRawFileReaderData.LoadAllStaticData(path, maxThreads: 1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var aa = Mzml.LoadAllStaticData(outfile1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
