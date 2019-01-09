@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using ThermoRawFileReader;
 
-namespace TestThermoRawFileReader
+namespace Test
 {
     [TestFixture]
     public sealed class TestRawFileReader
@@ -16,9 +16,9 @@ namespace TestThermoRawFileReader
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
         public static void TestRawFileReader1(string infile, string outfile1, string outfile2)
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, infile);
-            outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, outfile1);
-            outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, outfile2);
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
+            outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile1);
+            outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile2);
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -36,7 +36,7 @@ namespace TestThermoRawFileReader
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "small.raw");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
 
             ThermoRawFileReaderData.InitiateDynamicConnection(path);
 
