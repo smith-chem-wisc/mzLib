@@ -547,7 +547,7 @@ namespace Test
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
 
-            UsefulProteomicsDatabases.Loaders.LoadElements(@"elements.dat");
+            UsefulProteomicsDatabases.Loaders.LoadElements();
         }
 
         [Test]

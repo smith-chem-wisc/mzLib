@@ -27,6 +27,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using UsefulProteomicsDatabases;
 
 namespace IO.MzML
 {
@@ -94,6 +95,8 @@ namespace IO.MzML
             {
                 throw new FileNotFoundException();
             }
+
+            Loaders.LoadElements();
 
             Generated.mzMLType _mzMLConnection;
 
