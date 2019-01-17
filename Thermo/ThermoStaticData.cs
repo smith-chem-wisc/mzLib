@@ -25,6 +25,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using MSFileReaderLib;
+using UsefulProteomicsDatabases;
 
 namespace IO.Thermo
 {
@@ -56,6 +57,8 @@ namespace IO.Thermo
             {
                 throw new FileNotFoundException();
             }
+
+            Loaders.LoadElements();
 
             if (CheckForMsFileReader() == false)
             {

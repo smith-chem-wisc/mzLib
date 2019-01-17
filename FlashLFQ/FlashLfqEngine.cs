@@ -57,7 +57,7 @@ namespace FlashLFQ
                 optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
             }
 
-            Loaders.LoadElements(optionalPeriodicTablePath);
+            Loaders.LoadElements();
 
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
@@ -499,7 +499,7 @@ namespace FlashLFQ
                             Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
                             Ms1ScanInfo start = ms1ScanInfos[0];
                             Ms1ScanInfo end = ms1ScanInfos[0];
-                            for (int j = 0; i < ms1ScanInfos.Length; j++)
+                            for (int j = 0; j < ms1ScanInfos.Length; j++)
                             {
                                 Ms1ScanInfo scan = ms1ScanInfos[j];
                                 if (scan.RetentionTime <= lowerBoundRt)
