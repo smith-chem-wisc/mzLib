@@ -234,7 +234,8 @@ namespace FlashLFQ
                 double[] masses = isotopicDistribution.Masses.ToArray();
                 double[] abundances = isotopicDistribution.Intensities.ToArray();
 
-                double unmodifiedMonoisotopicMass = p.MonoisotopicMass;
+                double unmodifiedMonoisotopicMass = formula.MonoisotopicMass;
+
                 double highestAbundance = abundances.Max();
 
                 for (int i = 0; i < masses.Length; i++)
