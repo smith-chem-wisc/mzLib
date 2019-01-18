@@ -26,15 +26,15 @@ namespace Proteomics
             {
                 return false;
             }
-            if (attemptToLocalize.LocationRestriction == "Peptide N-terminal." && peptideOneBasedIndex > 1)
+            else if (attemptToLocalize.LocationRestriction == "Peptide N-terminal." && peptideOneBasedIndex > 1)
             {
                 return false;
             }
-            if (attemptToLocalize.LocationRestriction == "C-terminal." && proteinOneBasedIndex < proteinSequence.Length)
+            else if (attemptToLocalize.LocationRestriction == "C-terminal." && proteinOneBasedIndex < proteinSequence.Length)
             {
                 return false;
             }
-            if (attemptToLocalize.LocationRestriction == "Peptide C-terminal." && peptideOneBasedIndex < peptideLength)
+            else if (attemptToLocalize.LocationRestriction == "Peptide C-terminal." && peptideOneBasedIndex < peptideLength)
             {
                 return false;
             }

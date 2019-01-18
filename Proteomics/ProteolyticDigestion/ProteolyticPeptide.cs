@@ -81,52 +81,45 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="digestionParams"></param>
         /// <param name="variableModifications"></param>
         /// <returns></returns>
-        internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(IEnumerable<Modification> allKnownFixedModifications,
+        internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(IEnumerable<Modification> allKnownFixedModifications, 
             DigestionParams digestionParams, List<Modification> variableModifications)
         {
             int peptideLength = OneBasedEndResidueInProtein - OneBasedStartResidueInProtein + 1;
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
-            var twoBasedPossibleVariableAndLocalizeableModifications = new Dictionary<int, List<Modification>>(peptideLength + 4);
+            var possibleVariableAndLocalizeableModifications = new Dictionary<int, List<Modification>>(); // possible mods at each index in peptide
 
-            var pepNTermVariableMods = new List<Modification>();
-            twoBasedPossibleVariableAndLocalizeableModifications.Add(1, pepNTermVariableMods);
+            for (int r = -1; r <= peptideLength; r++)
+            {
+                possibleVariableAndLocalizeableModifications.Add(r + 1, new List<Modification>());
+            }
 
-            var pepCTermVariableMods = new List<Modification>();
-            twoBasedPossibleVariableAndLocalizeableModifications.Add(peptideLength + 2, pepCTermVariableMods);
-
+            // Haven't changed this part much
+            // FIXME: VARIABLE MODS
             foreach (Modification variableModification in variableModifications)
             {
-                // Check if can be a n-term mod
                 if (CanBeNTerminalMod(variableModification, peptideLength))
                 {
-                    pepNTermVariableMods.Add(variableModification);
+                    possibleVariableAndLocalizeableModifications[0].Add(variableModification);
                 }
-
-                for (int r = 0; r < peptideLength; r++)
+                else if (CanBeCTerminalMod(variableModification, peptideLength))
                 {
-                    if (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
-                        && variableModification.LocationRestriction == "Anywhere.")
+                    possibleVariableAndLocalizeableModifications[peptideLength + 1].Add(variableModification);
+                }
+                else
+                {
+                    for (int r = 0; r < peptideLength; ++r)
                     {
-                        if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
+                        if (variableModification.LocationRestriction == "Anywhere."
+                            && ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r))
                         {
-                            residueVariableMods = new List<Modification> { variableModification };
-                            twoBasedPossibleVariableAndLocalizeableModifications.Add(r + 2, residueVariableMods);
-                        }
-                        else
-                        {
-                            residueVariableMods.Add(variableModification);
+                            possibleVariableAndLocalizeableModifications[r + 1].Add(variableModification);
                         }
                     }
                 }
-                // Check if can be a c-term mod
-                if (CanBeCTerminalMod(variableModification, peptideLength))
-                {
-                    pepCTermVariableMods.Add(variableModification);
-                }
             }
 
-            // LOCALIZED MODS
+            // FIXME: LOCALIZED MODS
             foreach (var kvp in Protein.OneBasedPossibleLocalizedModifications)
             {
                 bool inBounds = kvp.Key >= OneBasedStartResidueInProtein && kvp.Key <= OneBasedEndResidueInProtein;
@@ -143,54 +136,108 @@ namespace Proteomics.ProteolyticDigestion
                         // Check if can be a n-term mod
                         if (locInPeptide == 1 && CanBeNTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
                         {
-                            pepNTermVariableMods.Add(variableModification);
+                            possibleVariableAndLocalizeableModifications[0].Add(variableModification);
                         }
-
-                        int r = locInPeptide - 1;
-                        if (r >= 0 && r < peptideLength
-                            && (Protein.IsDecoy ||
-                            (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
-                                && variableModification.LocationRestriction == "Anywhere.")))
+                        // check if can be a c-term mod
+                        else if (locInPeptide == peptideLength && CanBeCTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
                         {
-                            if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
-                            {
-                                residueVariableMods = new List<Modification> { variableModification };
-                                twoBasedPossibleVariableAndLocalizeableModifications.Add(r + 2, residueVariableMods);
-                            }
-                            else
-                            {
-                                residueVariableMods.Add(variableModification);
-                            }
+                            possibleVariableAndLocalizeableModifications[peptideLength + 1].Add(variableModification);
                         }
-
-                        // Check if can be a c-term mod
-                        if (locInPeptide == peptideLength && CanBeCTerminalMod(variableModification, peptideLength) && !Protein.IsDecoy)
+                        else
                         {
-                            pepCTermVariableMods.Add(variableModification);
+                            int r = locInPeptide - 1;
+                            if (r >= 0 && r < peptideLength && (Protein.IsDecoy || (variableModification.LocationRestriction == "Anywhere."
+                                && ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r))))
+                            {
+                                possibleVariableAndLocalizeableModifications[r + 1].Add(variableModification);
+                            }
                         }
                     }
                 }
             }
 
             int variable_modification_isoforms = 0;
+            var allFixedMods = GetFixedModsOneIsNterminus(peptideLength, allKnownFixedModifications);
+            int totalAvailableMods = possibleVariableAndLocalizeableModifications.Sum(b => b.Value == null ? 0 : b.Value.Count);
 
-            foreach (Dictionary<int, Modification> kvp in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
+            foreach (Dictionary<int, Modification> kvp in GetModificationPatterns(peptideLength, Math.Min(maxModsForPeptide, totalAvailableMods), possibleVariableAndLocalizeableModifications))
             {
                 int numFixedMods = 0;
-                foreach (var ok in GetFixedModsOneIsNterminus(peptideLength, allKnownFixedModifications))
+                allFixedMods.Where(ok => !kvp.ContainsKey(ok.Key)).ToList().ForEach(ok =>
                 {
-                    if (!kvp.ContainsKey(ok.Key))
-                    {
-                        numFixedMods++;
-                        kvp.Add(ok.Key, ok.Value);
-                    }
-                }
+                    numFixedMods++;
+                    kvp.Add(ok.Key, ok.Value);
+                });
+
                 yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
                     CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, kvp, numFixedMods);
+
                 variable_modification_isoforms++;
                 if (variable_modification_isoforms == maximumVariableModificationIsoforms)
                 {
                     yield break;
+                }
+            }
+        }
+
+        // gets all modification patterns for a peptide
+        private IEnumerable<Dictionary<int, Modification>> GetModificationPatterns(int peptideLength, int numMods, Dictionary<int, List<Modification>> allMods)
+        {
+            for (int i = 0; i <= numMods; ++i)
+            {
+                foreach (var modPattern in GeneratePatterns(peptideLength + 2, i, allMods))
+                {
+                    yield return modPattern; 
+                }
+            }
+        }
+
+        private List<Dictionary<int, Modification>> GeneratePatterns(int n, int k, Dictionary<int, List<Modification>> possibleMods)
+        {
+            var allPatterns = new List<Dictionary<int, Modification>>();
+
+            if (n <= 0 || n < k)
+            {
+                return allPatterns;
+            }
+
+            var pattern = new Dictionary<int, Modification>();
+            GeneratePatterns(n, k, 0, pattern, allPatterns, possibleMods);
+
+            return allPatterns;
+        }
+
+        // a recursive method that generates all unique modification patterns for a peptide
+        private void GeneratePatterns(int n, int desiredNumMods, int start, Dictionary<int, Modification> pattern,
+                List<Dictionary<int, Modification>> allPatterns, Dictionary<int, List<Modification>> possibleMods)
+        {
+            if (pattern.Count == desiredNumMods)
+            {
+                allPatterns.Add(new Dictionary<int, Modification>(pattern));
+                return;
+            }
+
+            for (int i = start; i < n; i++) // n is peptideLength + 2
+            {
+                int j = 0;
+                while (j < possibleMods[i].Count)
+                {
+                    if (i == 0) // n-term mod
+                    {
+                        pattern.Add(1, possibleMods[i][j]);
+                    }
+                    else if (i + 1 == n) // c-term mod
+                    {
+                        pattern.Add(n, possibleMods[i][j]);
+                    }
+                    else
+                    {
+                        pattern.Add(i + 1, possibleMods[i][j]);
+                    }
+
+                    GeneratePatterns(n, desiredNumMods, i + 1, pattern, allPatterns, possibleMods); 
+                    pattern.Remove(pattern.Keys.Last());
+                    ++j;
                 }
             }
         }
@@ -217,90 +264,6 @@ namespace Proteomics.ProteolyticDigestion
         {
             return ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1)
                 && (variableModification.LocationRestriction == "C-terminal." || variableModification.LocationRestriction == "Peptide C-terminal.");
-        }
-
-        private static IEnumerable<Dictionary<int, Modification>> GetVariableModificationPatterns(Dictionary<int, List<Modification>> possibleVariableModifications, int maxModsForPeptide, int peptideLength)
-        {
-            if (possibleVariableModifications.Count == 0)
-            {
-                yield return null;
-            }
-            else
-            {
-                var possible_variable_modifications = new Dictionary<int, List<Modification>>(possibleVariableModifications);
-
-                int[] base_variable_modification_pattern = new int[peptideLength + 4];
-                var totalAvailableMods = possible_variable_modifications.Sum(b => b.Value == null ? 0 : b.Value.Count);
-                for (int variable_modifications = 0; variable_modifications <= Math.Min(totalAvailableMods, maxModsForPeptide); variable_modifications++)
-                {
-                    foreach (int[] variable_modification_pattern in GetVariableModificationPatterns(new List<KeyValuePair<int, List<Modification>>>(possible_variable_modifications),
-                        possible_variable_modifications.Count - variable_modifications, base_variable_modification_pattern, 0))
-                    {
-                        yield return GetNewVariableModificationPattern(variable_modification_pattern, possible_variable_modifications);
-                    }
-                }
-            }
-        }
-
-        private static IEnumerable<int[]> GetVariableModificationPatterns(List<KeyValuePair<int, List<Modification>>> possibleVariableModifications,
-            int unmodifiedResiduesDesired, int[] variableModificationPattern, int index)
-        {
-            if (index < possibleVariableModifications.Count - 1)
-            {
-                if (unmodifiedResiduesDesired > 0)
-                {
-                    variableModificationPattern[possibleVariableModifications[index].Key] = 0;
-                    foreach (int[] new_variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications,
-                        unmodifiedResiduesDesired - 1, variableModificationPattern, index + 1))
-                    {
-                        yield return new_variable_modification_pattern;
-                    }
-                }
-                if (unmodifiedResiduesDesired < possibleVariableModifications.Count - index)
-                {
-                    for (int i = 1; i <= possibleVariableModifications[index].Value.Count; i++)
-                    {
-                        variableModificationPattern[possibleVariableModifications[index].Key] = i;
-                        foreach (int[] new_variable_modification_pattern in GetVariableModificationPatterns(possibleVariableModifications,
-                            unmodifiedResiduesDesired, variableModificationPattern, index + 1))
-                        {
-                            yield return new_variable_modification_pattern;
-                        }
-                    }
-                }
-            }
-            else
-            {
-                if (unmodifiedResiduesDesired > 0)
-                {
-                    variableModificationPattern[possibleVariableModifications[index].Key] = 0;
-                    yield return variableModificationPattern;
-                }
-                else
-                {
-                    for (int i = 1; i <= possibleVariableModifications[index].Value.Count; i++)
-                    {
-                        variableModificationPattern[possibleVariableModifications[index].Key] = i;
-                        yield return variableModificationPattern;
-                    }
-                }
-            }
-        }
-
-        private static Dictionary<int, Modification> GetNewVariableModificationPattern(int[] variableModificationArray,
-            IEnumerable<KeyValuePair<int, List<Modification>>> possibleVariableModifications)
-        {
-            var modification_pattern = new Dictionary<int, Modification>();
-
-            foreach (KeyValuePair<int, List<Modification>> kvp in possibleVariableModifications)
-            {
-                if (variableModificationArray[kvp.Key] > 0)
-                {
-                    modification_pattern.Add(kvp.Key, kvp.Value[variableModificationArray[kvp.Key] - 1]);
-                }
-            }
-
-            return modification_pattern;
         }
 
         private Dictionary<int, Modification> GetFixedModsOneIsNterminus(int peptideLength,
