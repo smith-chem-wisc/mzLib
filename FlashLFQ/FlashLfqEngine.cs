@@ -740,7 +740,7 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = peaks;
         }
 
-        private List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
+        public List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
         {
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _baseSequenceToIsotopicDistribution[identification.BaseSequence];
@@ -874,7 +874,7 @@ namespace FlashLFQ
             return isotopicEnvelopes;
         }
 
-        private List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
             var xic = new List<IndexedMassSpectralPeak>();
 

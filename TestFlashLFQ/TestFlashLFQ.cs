@@ -115,8 +115,6 @@ namespace Test
             // run the engine
             var results = engine.Run();
 
-            //results.WriteResults(Path.Combine(TestContext.CurrentContext.TestDirectory, @"1.tsv"), Path.Combine(TestContext.CurrentContext.TestDirectory, @"2.tsv"), null);
-
             Assert.IsTrue(results.Peaks.First().Value.First().Intensity > 0);
         }
 
