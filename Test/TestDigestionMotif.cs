@@ -145,5 +145,28 @@ namespace Test
                 Assert.Fail("Exception shold be thrown for incorrect syntax.");
             });
         }
+
+        [Test]
+        public static void TestMultiplePreventingCleavage()
+        {
+            var empty = new List<Modification>();
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,H[M]|,H[F]|");
+            Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            ProteaseDictionary.Dictionary.Add(customProtease.Name, customProtease);
+
+            DigestionParams myDigestionParams = new DigestionParams("custom", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("PRONFNMMHFHAA", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(myPeptides.Count, 4);
+            Assert.AreEqual(first, "PRON");
+            Assert.AreEqual(last, "A");
+        }
     }
 }
