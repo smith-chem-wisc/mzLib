@@ -57,7 +57,7 @@ namespace FlashLFQ
                 optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
             }
 
-            Loaders.LoadElements(optionalPeriodicTablePath);
+            Loaders.LoadElements();
 
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
@@ -234,7 +234,8 @@ namespace FlashLFQ
                 double[] masses = isotopicDistribution.Masses.ToArray();
                 double[] abundances = isotopicDistribution.Intensities.ToArray();
 
-                double unmodifiedMonoisotopicMass = p.MonoisotopicMass;
+                double unmodifiedMonoisotopicMass = formula.MonoisotopicMass;
+
                 double highestAbundance = abundances.Max();
 
                 for (int i = 0; i < masses.Length; i++)
@@ -499,7 +500,7 @@ namespace FlashLFQ
                             Ms1ScanInfo[] ms1ScanInfos = _ms1Scans[idAcceptorFile];
                             Ms1ScanInfo start = ms1ScanInfos[0];
                             Ms1ScanInfo end = ms1ScanInfos[0];
-                            for (int j = 0; i < ms1ScanInfos.Length; j++)
+                            for (int j = 0; j < ms1ScanInfos.Length; j++)
                             {
                                 Ms1ScanInfo scan = ms1ScanInfos[j];
                                 if (scan.RetentionTime <= lowerBoundRt)
@@ -739,7 +740,7 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = peaks;
         }
 
-        private List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
+        public List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
         {
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _baseSequenceToIsotopicDistribution[identification.BaseSequence];
@@ -873,7 +874,7 @@ namespace FlashLFQ
             return isotopicEnvelopes;
         }
 
-        private List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
             var xic = new List<IndexedMassSpectralPeak>();
 

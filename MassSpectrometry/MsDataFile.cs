@@ -119,6 +119,7 @@ namespace MassSpectrometry
 
             Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
             for (int i = 0; i < ranges.Count; i++)
+
             {
                 mzInRange.Add(i, new List<int>());
             }
@@ -153,8 +154,13 @@ namespace MassSpectrometry
                     tempMzList.Add(mArray[arrayIndex]);
                 }
                 if (WindowMaxNormalizationToValue.HasValue)
+
                 {
                     double max = tempIntList.Max();
+                    if (max == 0)
+                    {
+                        max = 1;
+                    }
                     tempIntList = tempIntList.Select(x => x / max * WindowMaxNormalizationToValue.Value).ToList();
                 }
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)
@@ -166,71 +172,6 @@ namespace MassSpectrometry
             intensities = reducedIntensityList.ToArray();
             mArray = reducedMzList.ToArray();
             Array.Sort(mArray, intensities);
-        }
-
-        public static void XCorrPrePreprocessing(ref double[] intensities, ref double[] mArray, double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
-        {
-            //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
-
-            Array.Sort(mArray, intensities);
-            int numberOfNominalMasses = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz) / 1.0005079, 0) + 1;
-
-            double[] genericIntensityArray = new double[numberOfNominalMasses];
-            double[] genericMzArray = new double[numberOfNominalMasses];
-
-            double lowestMz = Math.Round(scanRangeMinMz / discreteMassBin, 0) * discreteMassBin;
-
-            for (int i = 0; i < numberOfNominalMasses; i++)
-            {
-                genericMzArray[i] = i * discreteMassBin + lowestMz;
-            }
-
-            int lowTheortetical = (int)Math.Round((precursorMz - precursorDiscardRange) / 1.0005079, 0);
-            int hiTheortetical = (int)Math.Round((precursorMz + precursorDiscardRange) / 1.0005079, 0);
-
-            //this leaves you with one intensity per nominal mass, even if they come in as more than one. Intensity is Square-rooted
-            for (int i = 0; i < mArray.Length; i++)
-            {
-                //the nominalMass is really just the integer index
-                int nominalMass = (int)Math.Round((mArray[i] - scanRangeMinMz) / 1.0005079, 0);
-
-                //this might have be be exclusive (i.e. get rid of the = sign) should eliminate unfragmented precursors
-                if (nominalMass < numberOfNominalMasses && (mArray[i] <= lowTheortetical || mArray[i] >= hiTheortetical))
-                {
-                    genericIntensityArray[nominalMass] = Math.Max(genericIntensityArray[nominalMass], Math.Sqrt(intensities[i]));
-                }
-            }
-
-            //we've already filtered for when multiple mzs appear in a single nominal mass bin
-            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, 10, false, false);
-
-            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), 50, true);
-
-            Array.Sort(genericMzArray, genericIntensityArray);
-
-            //Scale the intensities
-
-            const int rangeEnd = 75; //from J. Proteome Res., 2018, 17 (11), pp 3644–3656
-
-            double[] scaledIntensities = new double[genericIntensityArray.Length];
-            for (int i = 0; i < genericIntensityArray.Length; i++)
-            {
-                double scaleValue = 0;
-
-                int low = Math.Max(0, i - rangeEnd);
-                int high = Math.Min(genericIntensityArray.Length - 1, i + rangeEnd);
-                int denominator = high - low + 1;
-
-                for (int j = low; j <= high; j++)
-                {
-                    scaleValue += genericIntensityArray[j];
-                }
-                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (denominator) * scaleValue);
-            }
-            genericIntensityArray = scaledIntensities;
-
-            intensities = genericIntensityArray;
-            mArray = genericMzArray;
         }
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
