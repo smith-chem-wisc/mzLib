@@ -172,12 +172,27 @@ namespace Proteomics.ProteolyticDigestion
             var indices = new List<int>();
             for (int r = 0; r < proteinSequence.Length; r++)
             {
+                var indice = -1;
+                var preventing = new List<DigestionMotif>();
+
                 foreach (DigestionMotif motif in DigestionMotifs)
                 {
-                    if (motif.Fits(proteinSequence, r) && r + motif.CutIndex < proteinSequence.Length)
+                    var fits = motif.Fits(proteinSequence, r);
+                    if (fits.Item1 && r + motif.CutIndex < proteinSequence.Length)
                     {
-                        indices.Add(r + motif.CutIndex);
+                        indice = Math.Max(r + motif.CutIndex, indice);
                     }
+
+                    if (fits.Item2) // if any motif prevents cleave
+                    {
+                        preventing.Add(motif);
+                    }
+                }
+
+                // if no motif prevents cleave
+                if (preventing.Count == 0 && indice != -1)
+                {
+                    indices.Add(indice);
                 }
             }
 
@@ -312,7 +327,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
-            
+
             // It's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1; i++)
             {
