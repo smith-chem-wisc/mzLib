@@ -120,10 +120,17 @@ namespace Proteomics.ProteolyticDigestion
             // check for inducing cleavage
             for (m = 0; m < InducingCleavage.Length && fits; m++) // handle patterns
             {
-                currentResidue = sequence[location + m];
-                if (!MotifMatches(InducingCleavage[m], currentResidue))
+                if (location + m >= sequence.Length)
                 {
                     fits = false;
+                }
+                else
+                {
+                    currentResidue = sequence[location + m];
+                    if (!MotifMatches(InducingCleavage[m], currentResidue))
+                    {
+                        fits = false;
+                    }
                 }
             }
 
@@ -134,7 +141,7 @@ namespace Proteomics.ProteolyticDigestion
                 prevents = true;
                 for (int n = 0; n < PreventingCleavage.Length && prevents; n++)
                 {
-                    if (location + m + n > sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
+                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
                     {
                         prevents = false;
                     }
