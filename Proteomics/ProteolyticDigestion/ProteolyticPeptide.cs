@@ -94,32 +94,39 @@ namespace Proteomics.ProteolyticDigestion
                 possibleVariableAndLocalizeableModifications.Add(r + 1, new List<Modification>());
             }
 
-            // Haven't changed this part much
-            // FIXME: VARIABLE MODS
             foreach (Modification variableModification in variableModifications)
             {
-                if (CanBeNTerminalMod(variableModification, peptideLength))
+                switch (variableModification.LocationRestriction)
                 {
-                    possibleVariableAndLocalizeableModifications[0].Add(variableModification);
-                }
-                else if (CanBeCTerminalMod(variableModification, peptideLength))
-                {
-                    possibleVariableAndLocalizeableModifications[peptideLength + 1].Add(variableModification);
-                }
-                else
-                {
-                    for (int r = 0; r < peptideLength; ++r)
-                    {
-                        if (variableModification.LocationRestriction == "Anywhere."
-                            && ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r))
+                    case "N-terminal.":
+                    case "Peptide N-terminal.":
+                        if (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
                         {
-                            possibleVariableAndLocalizeableModifications[r + 1].Add(variableModification);
+                            possibleVariableAndLocalizeableModifications[0].Add(variableModification);
                         }
-                    }
+                        break;
+                    case "Anywhere.":
+                        for (int r = 0; r < peptideLength; ++r)
+                        {
+                            if (variableModification.LocationRestriction == "Anywhere."
+                                && ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r))
+                            {
+                                possibleVariableAndLocalizeableModifications[r + 1].Add(variableModification);
+                            }
+                        }
+                        break;
+                    case "C-terminal.":
+                    case "Peptide C-terminal.":
+                        if (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
+                        {
+                            possibleVariableAndLocalizeableModifications[peptideLength + 1].Add(variableModification);
+                        }
+                        break;
+                    default: // unassigned
+                        break;
                 }
             }
 
-            // FIXME: LOCALIZED MODS
             foreach (var kvp in Protein.OneBasedPossibleLocalizedModifications)
             {
                 bool inBounds = kvp.Key >= OneBasedStartResidueInProtein && kvp.Key <= OneBasedEndResidueInProtein;
@@ -160,7 +167,7 @@ namespace Proteomics.ProteolyticDigestion
             var allFixedMods = GetFixedModsOneIsNterminus(peptideLength, allKnownFixedModifications);
             int totalAvailableMods = possibleVariableAndLocalizeableModifications.Sum(b => b.Value == null ? 0 : b.Value.Count);
 
-            foreach (Dictionary<int, Modification> kvp in GetModificationPatterns(peptideLength, Math.Min(maxModsForPeptide, totalAvailableMods), possibleVariableAndLocalizeableModifications))
+            foreach (Dictionary<int, Modification> kvp in GenerateVariableModIsoforms(peptideLength, Math.Min(maxModsForPeptide, totalAvailableMods), possibleVariableAndLocalizeableModifications))
             {
                 int numFixedMods = 0;
                 allFixedMods.Where(ok => !kvp.ContainsKey(ok.Key)).ToList().ForEach(ok =>
@@ -181,18 +188,18 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         // gets all modification patterns for a peptide
-        private IEnumerable<Dictionary<int, Modification>> GetModificationPatterns(int peptideLength, int numMods, Dictionary<int, List<Modification>> allMods)
+        private IEnumerable<Dictionary<int, Modification>> GenerateVariableModIsoforms(int peptideLength, int numMods, Dictionary<int, List<Modification>> allMods)
         {
             for (int i = 0; i <= numMods; ++i)
             {
-                foreach (var modPattern in GeneratePatterns(peptideLength + 2, i, allMods))
+                foreach (var modPattern in GenerateIsoforms(peptideLength + 2, i, allMods))
                 {
                     yield return modPattern; 
                 }
             }
         }
 
-        private List<Dictionary<int, Modification>> GeneratePatterns(int n, int k, Dictionary<int, List<Modification>> possibleMods)
+        private List<Dictionary<int, Modification>> GenerateIsoforms(int n, int k, Dictionary<int, List<Modification>> possibleMods)
         {
             var allPatterns = new List<Dictionary<int, Modification>>();
 
@@ -202,13 +209,13 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             var pattern = new Dictionary<int, Modification>();
-            GeneratePatterns(n, k, 0, pattern, allPatterns, possibleMods);
+            GenerateIsoforms(n, k, 0, pattern, allPatterns, possibleMods);
 
             return allPatterns;
         }
 
         // a recursive method that generates all unique modification patterns for a peptide
-        private void GeneratePatterns(int n, int desiredNumMods, int start, Dictionary<int, Modification> pattern,
+        private void GenerateIsoforms(int n, int desiredNumMods, int start, Dictionary<int, Modification> pattern,
                 List<Dictionary<int, Modification>> allPatterns, Dictionary<int, List<Modification>> possibleMods)
         {
             if (pattern.Count == desiredNumMods)
@@ -235,7 +242,7 @@ namespace Proteomics.ProteolyticDigestion
                         pattern.Add(i + 1, possibleMods[i][j]);
                     }
 
-                    GeneratePatterns(n, desiredNumMods, i + 1, pattern, allPatterns, possibleMods); 
+                    GenerateIsoforms(n, desiredNumMods, i + 1, pattern, allPatterns, possibleMods); 
                     pattern.Remove(pattern.Keys.Last());
                     ++j;
                 }

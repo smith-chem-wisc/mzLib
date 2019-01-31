@@ -7,16 +7,16 @@ namespace Proteomics
         public static bool ModFits(Modification attemptToLocalize, string proteinSequence, int peptideOneBasedIndex, int peptideLength, int proteinOneBasedIndex)
         {
             // First find the capital letter...
-            var motif = attemptToLocalize.Target;
-            var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
+            var motif = attemptToLocalize.Target.ToString();
+            var motifStartLocation = motif.IndexOf(motif.First(b => char.IsUpper(b)));
 
             // Look up starting at and including the capital letter
             var proteinToMotifOffset = proteinOneBasedIndex - motifStartLocation - 1;
             var indexUp = 0;
-            while (indexUp < motif.ToString().Length)
+            while (indexUp < motif.Length)
             {
                 if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= proteinSequence.Length
-                    || !MotifMatches(motif.ToString()[indexUp], proteinSequence[indexUp + proteinToMotifOffset]))
+                    || !MotifMatches(motif[indexUp], proteinSequence[indexUp + proteinToMotifOffset]))
                 {
                     return false;
                 }
