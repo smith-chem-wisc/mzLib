@@ -148,7 +148,7 @@ namespace Proteomics.ProteolyticDigestion
                     else
                     {
                         currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + 1 + n];
-                        if (!PreventingCleavage[n].Equals(currentResidue))
+                        if (!MotifMatches(PreventingCleavage[n], currentResidue))
                         {
                             prevents = false;
                         }

@@ -74,8 +74,8 @@ namespace Test
             string first = myPeptides.First().ToString();
             string last = myPeptides.Last().ToString();
 
-            Assert.AreEqual(first, "MKPKPKPMK");
-            Assert.AreEqual(last, "A");
+            Assert.AreEqual("MKPKPKPMK", first);
+            Assert.AreEqual("A", last);
         }
 
         [Test]

@@ -170,29 +170,33 @@ namespace Proteomics.ProteolyticDigestion
         internal List<int> GetDigestionSiteIndices(string proteinSequence)
         {
             var indices = new List<int>();
+
             for (int r = 0; r < proteinSequence.Length; r++)
             {
-                var indice = -1;
-                var preventing = new List<DigestionMotif>();
+                var cutSiteIndex = -1;
+                bool cleavagePrevented = false;
 
                 foreach (DigestionMotif motif in DigestionMotifs)
                 {
-                    var fits = motif.Fits(proteinSequence, r);
-                    if (fits.Item1 && r + motif.CutIndex < proteinSequence.Length)
+                    var motifResults = motif.Fits(proteinSequence, r);
+                    bool motifFits = motifResults.Item1;
+                    bool motifPreventsCleavage = motifResults.Item2;
+
+                    if (motifFits && r + motif.CutIndex < proteinSequence.Length)
                     {
-                        indice = Math.Max(r + motif.CutIndex, indice);
+                        cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
                     }
 
-                    if (fits.Item2) // if any motif prevents cleave
+                    if (motifPreventsCleavage) // if any motif prevents cleave
                     {
-                        preventing.Add(motif);
+                        cleavagePrevented = true;
                     }
                 }
 
                 // if no motif prevents cleave
-                if (preventing.Count == 0 && indice != -1)
+                if (!cleavagePrevented && cutSiteIndex != -1)
                 {
-                    indices.Add(indice);
+                    indices.Add(cutSiteIndex);
                 }
             }
 
