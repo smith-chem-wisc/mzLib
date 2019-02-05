@@ -65,20 +65,20 @@ namespace UsefulProteomicsDatabases
                         break;
 
                     case "Relative Atomic Mass":
-                        atomicMass = double.Parse(Regex.Match(line, @"[\d\.]+").Value);
+                        atomicMass = double.Parse(Regex.Match(line, @"[\d\.]+").Value, CultureInfo.InvariantCulture);
                         break;
 
                     case "Isotopic Composition":
                         if (Regex.Match(line, @"[\d\.]+").Success)
                         {
-                            abundance = double.Parse(Regex.Match(line, @"[\d\.]+").Value);
+                            abundance = double.Parse(Regex.Match(line, @"[\d\.]+").Value, CultureInfo.InvariantCulture);
                         }
                         break;
 
                     case "Standard Atomic Weight":
                         if (Regex.Match(line, @"\[").Success)
                         {
-                            double averageMass1 = double.Parse(Regex.Match(line, @"(?<=\[)[\d\.]+").Value);
+                            double averageMass1 = double.Parse(Regex.Match(line, @"(?<=\[)[\d\.]+").Value, CultureInfo.InvariantCulture);
                             string averageMass2StringRep = Regex.Match(line, @"(?<=,)[\d\.]+").Value;
 
                             if (double.TryParse(averageMass2StringRep, out double averageMass2))

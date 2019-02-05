@@ -21,6 +21,7 @@ using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -316,7 +317,7 @@ namespace IO.MzML
                 }
                 if (cv.accession.Equals(_totalIonCurrent))
                 {
-                    tic = double.Parse(cv.value);
+                    tic = double.Parse(cv.value, CultureInfo.InvariantCulture);
                 }
                 if (polarity.Equals(Polarity.Unknown))
                 {
@@ -368,11 +369,11 @@ namespace IO.MzML
                 {
                     if (cv.accession.Equals(_scanWindowLowerLimit))
                     {
-                        low = double.Parse(cv.value);
+                        low = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                     else if (cv.accession.Equals(_scanWindowUpperLimit))
                     {
-                        high = double.Parse(cv.value);
+                        high = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                 }
             }
@@ -395,7 +396,7 @@ namespace IO.MzML
                 {
                     if (cv.accession.Equals(_retentionTime))
                     {
-                        rtInMinutes = double.Parse(cv.value);
+                        rtInMinutes = double.Parse(cv.value, CultureInfo.InvariantCulture);
                         if (cv.unitName == "second")
                         {
                             rtInMinutes /= 60;
@@ -407,7 +408,7 @@ namespace IO.MzML
                     }
                     if (cv.accession.Equals(_ionInjectionTime))
                     {
-                        injectionTime = double.Parse(cv.value);
+                        injectionTime = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                     if (cv.accession.Equals(_oneBasedScanNumber)) //get the real one based spectrum number (if available), the other assumes they are in order. This is present in .mgf->.mzml conversions from MSConvert
                     {
@@ -441,15 +442,15 @@ namespace IO.MzML
             {
                 if (cv.accession.Equals(_selectedIonMz))
                 {
-                    selectedIonMz = double.Parse(cv.value);
+                    selectedIonMz = double.Parse(cv.value, CultureInfo.InvariantCulture);
                 }
                 if (cv.accession.Equals(_precursorCharge))
                 {
-                    selectedIonCharge = int.Parse(cv.value);
+                    selectedIonCharge = int.Parse(cv.value, CultureInfo.InvariantCulture);
                 }
                 if (cv.accession.Equals(_peakIntensity))
                 {
-                    selectedIonIntensity = double.Parse(cv.value);
+                    selectedIonIntensity = double.Parse(cv.value, CultureInfo.InvariantCulture);
                 }
             }
 
@@ -462,15 +463,15 @@ namespace IO.MzML
                 {
                     if (cv.accession.Equals(_isolationWindowTargetMZ))
                     {
-                        isolationMz = double.Parse(cv.value);
+                        isolationMz = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                     if (cv.accession.Equals(_isolationWindowLowerOffset))
                     {
-                        lowIsolation = double.Parse(cv.value);
+                        lowIsolation = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                     if (cv.accession.Equals(_isolationWindowUpperOffset))
                     {
-                        highIsolation = double.Parse(cv.value);
+                        highIsolation = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                 }
             }
@@ -490,7 +491,7 @@ namespace IO.MzML
                 {
                     if (userParam.name.EndsWith("Monoisotopic M/Z:"))
                     {
-                        monoisotopicMz = double.Parse(userParam.value);
+                        monoisotopicMz = double.Parse(userParam.value, CultureInfo.InvariantCulture);
                     }
                 }
             }

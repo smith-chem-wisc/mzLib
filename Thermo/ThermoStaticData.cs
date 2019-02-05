@@ -336,7 +336,7 @@ namespace IO.Thermo
                 {
                     matcher = mFindParentIonOnlyNonMsx;
                 }
-                double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value);
+                double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value, CultureInfo.InvariantCulture);
 
                 //   int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
                 // double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
