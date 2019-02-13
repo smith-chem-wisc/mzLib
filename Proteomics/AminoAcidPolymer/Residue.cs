@@ -18,13 +18,12 @@
 
 using Chemistry;
 using System.Collections.Generic;
-using MzLibUtil;
 
 namespace Proteomics.AminoAcidPolymer
 {
     public class Residue : IHasChemicalFormula
     {
-        public static double[] ResidueMonoisotopicMass { get; private set; }
+        public static readonly double[] ResidueMonoisotopicMass;
 
         private static readonly Dictionary<string, Residue> ResiduesDictionary;
         private static readonly Residue[] ResiduesByLetter;
@@ -133,7 +132,7 @@ namespace Proteomics.AminoAcidPolymer
         }
 
         /// <summary>
-        /// Adds a list of new residues to the dictionary using arbitrary lowercase letters as indexes.
+        /// Adds a list of new residues to the dictionary at their specified index.
         /// </summary>
         /// <param name="residuesToAdd"></param>
         /// <returns></returns>

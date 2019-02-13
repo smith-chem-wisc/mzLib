@@ -244,9 +244,9 @@ namespace Proteomics
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null)
         {
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-            IEnumerable<ProteolyticPeptide> unmodifiedPeptides = 
-                digestionParams.SearchModeType == CleavageSpecificity.Semi ? 
-                digestion.SpeedySemiSpecificDigestion(this) : 
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
+                digestionParams.SearchModeType == CleavageSpecificity.Semi ?
+                digestion.SpeedySemiSpecificDigestion(this) :
                 digestion.Digestion(this);
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
@@ -262,14 +262,14 @@ namespace Proteomics
         /// </summary>
         internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels)
         {
-            foreach(PeptideWithSetModifications pwsm in originalPeptides)
+            foreach (PeptideWithSetModifications pwsm in originalPeptides)
             {
                 yield return pwsm;
             }
-            foreach(SilacLabel label in silacLabels)
+            foreach (SilacLabel label in silacLabels)
             {
                 Protein silacProtein = new Protein(BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel), this);
-                foreach(PeptideWithSetModifications pwsm in originalPeptides)
+                foreach (PeptideWithSetModifications pwsm in originalPeptides)
                 {
                     //duplicate the peptides with the updated protein sequence that contains only silac labels
                     yield return new PeptideWithSetModifications(silacProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);

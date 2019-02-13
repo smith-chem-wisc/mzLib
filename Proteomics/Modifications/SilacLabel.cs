@@ -15,6 +15,10 @@ namespace Proteomics
             OriginalAminoAcid = originalAminoAcid;
             AminoAcidLabel = aminoAcidLabel;
             MassDifference = Math.Round(massDifference, 3).ToString();
+            if (MassDifference[0] != '-')//if not negative, add a plus
+            {
+                MassDifference = "+" + MassDifference;
+            }
         }
     }
 }
