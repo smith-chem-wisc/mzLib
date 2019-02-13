@@ -18,12 +18,13 @@
 
 using Chemistry;
 using System.Collections.Generic;
+using MzLibUtil;
 
 namespace Proteomics.AminoAcidPolymer
 {
     public class Residue : IHasChemicalFormula
     {
-        public static readonly double[] ResidueMonoisotopicMass;
+        public static double[] ResidueMonoisotopicMass { get; private set; }
 
         private static readonly Dictionary<string, Residue> ResiduesDictionary;
         private static readonly Residue[] ResiduesByLetter;
@@ -57,12 +58,12 @@ namespace Proteomics.AminoAcidPolymer
 
             ResiduesByLetter = new Residue[]
         {
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            ResiduesDictionary["Alanine"],
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //12
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //25
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //38
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //51
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //64
+            ResiduesDictionary["Alanine"], //65
             null, // B
             ResiduesDictionary["Cysteine"],
             ResiduesDictionary["Aspartic Acid"],
@@ -87,10 +88,10 @@ namespace Proteomics.AminoAcidPolymer
             ResiduesDictionary["Tryptophan"],
             null, // X
             ResiduesDictionary["Tyrosine"],
-            null, // Z
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null,null,null,null,null,null,null,null,
-            null,null,null,null,null,null
+            null, // Z  //90
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //103
+            null,null,null,null,null,null,null,null,null,null,null,null,null, //116
+            null,null,null,null,null,null //122
         };
             ResidueMonoisotopicMass = new double[]
         {
@@ -131,7 +132,23 @@ namespace Proteomics.AminoAcidPolymer
         };
         }
 
-        internal Residue(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, ChemicalFormula chemicalFormula, ModificationSites site)
+        /// <summary>
+        /// Adds a list of new residues to the dictionary using arbitrary lowercase letters as indexes.
+        /// </summary>
+        /// <param name="residuesToAdd"></param>
+        /// <returns></returns>
+        public static void AddNewResiduesToDictionary(List<Residue> residuesToAdd)
+        {
+            foreach (Residue residue in residuesToAdd)
+            {
+                ResiduesDictionary[residue.Name] = residue;
+                ResiduesByLetter[residue.Letter] = residue;
+                ResidueMonoisotopicMass[residue.Letter] = residue.MonoisotopicMass;
+            }
+        }
+
+
+        public Residue(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, ChemicalFormula chemicalFormula, ModificationSites site)
         {
             Name = name;
             Letter = oneLetterAbbreviation;

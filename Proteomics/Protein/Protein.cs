@@ -63,6 +63,35 @@ namespace Proteomics
         }
 
         /// <summary>
+        /// Protein construction that clones a protein but assigns a different base sequence
+        /// For use in SILAC experiments
+        /// </summary>
+        /// <param name="silacSequence"></param>
+        /// <param name="originalProtein"></param>
+        public Protein(string silacSequence, Protein p)
+        {
+            BaseSequence = silacSequence;
+            NonVariantProtein = this;
+            Accession = p.Accession;
+            Name = p.Name;
+            Organism = p.Organism;
+            FullName = p.FullName;
+            IsDecoy = p.IsDecoy;
+            IsContaminant = p.IsContaminant;
+            DatabaseFilePath = p.DatabaseFilePath;
+            SampleNameForVariants = p.SampleNameForVariants;
+            GeneNames = p.GeneNames;
+            ProteolysisProducts = p.ProteolysisProducts;
+            SequenceVariations = p.SequenceVariations;
+            AppliedSequenceVariations = p.AppliedSequenceVariations;
+            OriginalNonVariantModifications = p.OriginalNonVariantModifications;
+            OneBasedPossibleLocalizedModifications = p.OneBasedPossibleLocalizedModifications;
+            DatabaseReferences = p.DatabaseReferences;
+            DisulfideBonds = p.DisulfideBonds;
+            SpliceSites = p.SpliceSites;
+        }
+
+        /// <summary>
         /// Protein construction with applied variations
         /// </summary>
         /// <param name="variantBaseSequence"></param>
@@ -212,10 +241,40 @@ namespace Proteomics
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications)
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null)
         {
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-            return digestionParams.SearchModeType == CleavageSpecificity.Semi ? digestion.SpeedySemiSpecificDigestion(this) : digestion.Digestion(this);
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides = 
+                digestionParams.SearchModeType == CleavageSpecificity.Semi ? 
+                digestion.SpeedySemiSpecificDigestion(this) : 
+                digestion.Digestion(this);
+            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
+
+            if (silacLabels != null)
+            {
+                return GetSilacPeptides(modifiedPeptides, silacLabels);
+            }
+            return modifiedPeptides;
+        }
+
+        /// <summary>
+        /// Add additional peptides with SILAC amino acids
+        /// </summary>
+        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels)
+        {
+            foreach(PeptideWithSetModifications pwsm in originalPeptides)
+            {
+                yield return pwsm;
+            }
+            foreach(SilacLabel label in silacLabels)
+            {
+                Protein silacProtein = new Protein(BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel), this);
+                foreach(PeptideWithSetModifications pwsm in originalPeptides)
+                {
+                    //duplicate the peptides with the updated protein sequence that contains only silac labels
+                    yield return new PeptideWithSetModifications(silacProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);
+                }
+            }
         }
 
         /// <summary>

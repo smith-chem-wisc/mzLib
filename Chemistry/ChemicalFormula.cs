@@ -173,7 +173,8 @@ namespace Chemistry
 
         /// <summary>
         /// Parses a string representation of chemical formula and adds the elements
-        /// to this chemical formula
+        /// to this chemical formula.
+        /// Use brackets for isotopes (C6H12N2O -> C{13}6H12N2O)
         /// </summary>
         /// <param name="formula">the Chemical Formula to parse</param>
         public static ChemicalFormula ParseFormula(string formula)
