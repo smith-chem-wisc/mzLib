@@ -66,29 +66,29 @@ namespace Proteomics
         /// Protein construction that clones a protein but assigns a different base sequence
         /// For use in SILAC experiments
         /// </summary>
-        /// <param name="silacSequence"></param>
         /// <param name="originalProtein"></param>
-        public Protein(string silacSequence, Protein p)
+        /// <param name="silacSequence"></param>
+        public Protein(Protein originalProtein, string silacSequence)
         {
             BaseSequence = silacSequence;
             NonVariantProtein = this;
-            Accession = p.Accession;
-            Name = p.Name;
-            Organism = p.Organism;
-            FullName = p.FullName;
-            IsDecoy = p.IsDecoy;
-            IsContaminant = p.IsContaminant;
-            DatabaseFilePath = p.DatabaseFilePath;
-            SampleNameForVariants = p.SampleNameForVariants;
-            GeneNames = p.GeneNames;
-            ProteolysisProducts = p.ProteolysisProducts;
-            SequenceVariations = p.SequenceVariations;
-            AppliedSequenceVariations = p.AppliedSequenceVariations;
-            OriginalNonVariantModifications = p.OriginalNonVariantModifications;
-            OneBasedPossibleLocalizedModifications = p.OneBasedPossibleLocalizedModifications;
-            DatabaseReferences = p.DatabaseReferences;
-            DisulfideBonds = p.DisulfideBonds;
-            SpliceSites = p.SpliceSites;
+            Accession = originalProtein.Accession;
+            Name = originalProtein.Name;
+            Organism = originalProtein.Organism;
+            FullName = originalProtein.FullName;
+            IsDecoy = originalProtein.IsDecoy;
+            IsContaminant = originalProtein.IsContaminant;
+            DatabaseFilePath = originalProtein.DatabaseFilePath;
+            SampleNameForVariants = originalProtein.SampleNameForVariants;
+            GeneNames = originalProtein.GeneNames;
+            ProteolysisProducts = originalProtein.ProteolysisProducts;
+            SequenceVariations = originalProtein.SequenceVariations;
+            AppliedSequenceVariations = originalProtein.AppliedSequenceVariations;
+            OriginalNonVariantModifications = originalProtein.OriginalNonVariantModifications;
+            OneBasedPossibleLocalizedModifications = originalProtein.OneBasedPossibleLocalizedModifications;
+            DatabaseReferences = originalProtein.DatabaseReferences;
+            DisulfideBonds = originalProtein.DisulfideBonds;
+            SpliceSites = originalProtein.SpliceSites;
         }
 
         /// <summary>
@@ -268,7 +268,7 @@ namespace Proteomics
             }
             foreach (SilacLabel label in silacLabels)
             {
-                Protein silacProtein = new Protein(BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel), this);
+                Protein silacProtein = new Protein(this, BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel));
                 foreach (PeptideWithSetModifications pwsm in originalPeptides)
                 {
                     //duplicate the peptides with the updated protein sequence that contains only silac labels
