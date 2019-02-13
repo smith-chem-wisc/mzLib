@@ -20,8 +20,8 @@ namespace Proteomics.ProteolyticDigestion
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
             MinPeptideLength = digestionParams.MinPeptideLength;
             MaxPeptideLength = digestionParams.MaxPeptideLength;
-            AllKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            VariableModifications = variableModifications ?? new List<Modification>();
+            AllKnownFixedModifications = allKnownFixedModifications;
+            VariableModifications = variableModifications;
         }
 
         public Protease Protease { get; set; }
