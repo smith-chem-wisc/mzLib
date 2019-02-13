@@ -141,13 +141,17 @@ namespace Test
                 new SilacLabel('K','b', heavierLabel.MonoisotopicMass-lysine.MonoisotopicMass)
             };
             List<PeptideWithSetModifications> silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
-            Assert.IsTrue(originalDigest.Count*3 == silacDigest.Count); //check that each peptide now has a heavy and heavier compliment
+            Assert.IsTrue(originalDigest.Count * 3 == silacDigest.Count); //check that each peptide now has a light, heavy, and heavier compliment
 
+            double silacPeptideLightMonoisotopicMass = silacDigest.Where(x => x.BaseSequence.Contains("K")).First().MonoisotopicMass;
             double silacPeptideHeavyMonoisotopicMass = silacDigest.Where(x => x.BaseSequence.Contains("a")).First().MonoisotopicMass;
             double silacPeptideHeavierMonoisotopicMass = silacDigest.Where(x => x.BaseSequence.Contains("b")).First().MonoisotopicMass;
-            Assert.IsTrue(silacPeptideHeavyMonoisotopicMass != double.NaN); //if both NaN, then the bottom statement will always be true, because NaN + double = NaN
-            Assert.IsTrue(silacPeptideHeavierMonoisotopicMass != double.NaN); //if both NaN, then the bottom statement will always be true, because NaN + double = NaN
-            Assert.IsTrue(Math.Round(silacPeptideHeavyMonoisotopicMass + heavierLabel.MonoisotopicMass,5).Equals(Math.Round(silacPeptideHeavierMonoisotopicMass + heavyLabel.MonoisotopicMass,5))); //check that the residue masses were succesfully added
+            Assert.IsTrue(silacPeptideLightMonoisotopicMass != double.NaN); //if both NaN, then the mass comparison statements will always be true, because NaN + double = NaN
+            Assert.IsTrue(silacPeptideHeavyMonoisotopicMass != double.NaN); //if both NaN, then the mass comparison statements will always be true, because NaN + double = NaN
+            Assert.IsTrue(silacPeptideHeavierMonoisotopicMass != double.NaN); //if both NaN, then the mass comparison statements will always be true, because NaN + double = NaN
+
+            Assert.IsTrue(Math.Round(silacPeptideLightMonoisotopicMass + heavyLabel.MonoisotopicMass, 5).Equals(Math.Round(silacPeptideHeavyMonoisotopicMass + lysine.MonoisotopicMass, 5))); //check that the residue masses were succesfully added
+            Assert.IsTrue(Math.Round(silacPeptideHeavyMonoisotopicMass + heavierLabel.MonoisotopicMass, 5).Equals(Math.Round(silacPeptideHeavierMonoisotopicMass + heavyLabel.MonoisotopicMass, 5))); //check that the residue masses were succesfully added
         }
 
         [Test]
