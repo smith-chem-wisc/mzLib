@@ -137,8 +137,8 @@ namespace Test
             Residue.AddNewResiduesToDictionary(residuesToAdd);
             List<SilacLabel> silacLabels = new List<SilacLabel>
             {
-                new SilacLabel('K','a', heavyLabel.MonoisotopicMass-lysine.MonoisotopicMass),
-                new SilacLabel('K','b', heavierLabel.MonoisotopicMass-lysine.MonoisotopicMass)
+                new SilacLabel('K','a', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass),
+                new SilacLabel('K','b', heavierLabel.ThisChemicalFormula.Formula, heavierLabel.MonoisotopicMass - lysine.MonoisotopicMass)
             };
             List<PeptideWithSetModifications> silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
             Assert.IsTrue(originalDigest.Count * 3 == silacDigest.Count); //check that each peptide now has a light, heavy, and heavier compliment

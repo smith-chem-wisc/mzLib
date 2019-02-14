@@ -8,13 +8,15 @@ namespace Proteomics
     {
         public char OriginalAminoAcid { get; private set; }
         public char AminoAcidLabel { get; private set; }
+        public string LabelChemicalFormula { get; private set; }
         public string MassDifference { get; private set; }
 
-        public SilacLabel(char originalAminoAcid, char aminoAcidLabel, double massDifference)
+        public SilacLabel(char originalAminoAcid, char aminoAcidLabel, string labelChemicalFormula, double massDifference)
         {
             OriginalAminoAcid = originalAminoAcid;
             AminoAcidLabel = aminoAcidLabel;
-            MassDifference = Math.Round(massDifference, 3).ToString();
+            LabelChemicalFormula = labelChemicalFormula;
+            MassDifference = Math.Round(massDifference, 3).ToString("F3");
             if (massDifference > 0)//if not negative, add a plus
             {
                 MassDifference = "+" + MassDifference;
