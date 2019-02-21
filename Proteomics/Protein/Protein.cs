@@ -71,7 +71,7 @@ namespace Proteomics
         public Protein(Protein originalProtein, string silacSequence)
         {
             BaseSequence = silacSequence;
-            NonVariantProtein = this;
+            NonVariantProtein = originalProtein.NonVariantProtein;
             Accession = originalProtein.Accession;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
@@ -89,6 +89,7 @@ namespace Proteomics
             DatabaseReferences = originalProtein.DatabaseReferences;
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
+            DatabaseFilePath = originalProtein.DatabaseFilePath;
         }
 
         /// <summary>
