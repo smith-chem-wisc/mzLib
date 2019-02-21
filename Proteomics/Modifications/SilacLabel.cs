@@ -22,5 +22,12 @@ namespace Proteomics
                 MassDifference = "+" + MassDifference;
             }
         }
+            
+        // this parameterless constructor needs to exist to read the toml.
+        // if you can figure out a way to get rid of it, feel free...
+        // this is also encountered in MetaMorpheus's "CommonParameters.cs" if you find a solution.
+        public SilacLabel()
+        {
+        }
     }
 }
