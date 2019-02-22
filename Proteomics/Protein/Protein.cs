@@ -68,6 +68,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="silacSequence"></param>
+        /// <param name="silacAccession"></param>
         public Protein(Protein originalProtein, string silacSequence, string silacAccession)
         {
             BaseSequence = silacSequence;
@@ -274,7 +275,7 @@ namespace Proteomics
             }
             foreach (SilacLabel label in silacLabels)
             {
-                Protein silacProtein = new Protein(this, BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel));
+                Protein silacProtein = new Protein(this, BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel), Accession + label.MassDifference);
                 foreach (PeptideWithSetModifications pwsm in originalPeptides)
                 {
                     //duplicate the peptides with the updated protein sequence that contains only silac labels
