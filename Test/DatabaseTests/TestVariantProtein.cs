@@ -452,7 +452,6 @@ namespace Test
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
-            int i = 0;
             Assert.AreEqual(4, variantProteins.Count);
             Assert.AreEqual(3, variantProteins[0].AppliedSequenceVariations.Count); // homozygous variations
             Assert.AreEqual(4, variantProteins[1].AppliedSequenceVariations.Count); // plus one heterozygous variation
