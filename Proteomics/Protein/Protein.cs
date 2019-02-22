@@ -68,11 +68,11 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="silacSequence"></param>
-        public Protein(Protein originalProtein, string silacSequence)
+        public Protein(Protein originalProtein, string silacSequence, string silacAccession)
         {
             BaseSequence = silacSequence;
             NonVariantProtein = originalProtein.NonVariantProtein;
-            Accession = originalProtein.Accession;
+            Accession = silacAccession;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
