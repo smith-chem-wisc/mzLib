@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Proteomics
 {
-    public class Protein// : IEquatable<Protein>
+    public class Protein
     {
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
@@ -186,17 +186,6 @@ namespace Proteomics
         {
             return string.Format("{0} {1}", Accession, FullName);
         }
-
-        ///// <summary>
-        ///// The protein object uses the default equals method for speed, 
-        ///// but note that two protein objects with the same information will not be equal by this method.
-        ///// </summary>
-        ///// <param name="obj"></param>
-        ///// <returns></returns>
-        //public override bool Equals(object obj)
-        //{
-        //    return base.Equals(obj);
-        //}
 
         /// <summary>
         /// Gets peptides for digestion of a protein
