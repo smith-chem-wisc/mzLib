@@ -63,6 +63,38 @@ namespace Proteomics
         }
 
         /// <summary>
+        /// Protein construction that clones a protein but assigns a different base sequence
+        /// For use in SILAC experiments
+        /// </summary>
+        /// <param name="originalProtein"></param>
+        /// <param name="silacSequence"></param>
+        /// <param name="silacAccession"></param>
+        public Protein(Protein originalProtein, string silacSequence, string silacAccession)
+        {
+            BaseSequence = silacSequence;
+            Accession = silacAccession;
+          
+            NonVariantProtein = originalProtein.NonVariantProtein;
+            Name = originalProtein.Name;
+            Organism = originalProtein.Organism;
+            FullName = originalProtein.FullName;
+            IsDecoy = originalProtein.IsDecoy;
+            IsContaminant = originalProtein.IsContaminant;
+            DatabaseFilePath = originalProtein.DatabaseFilePath;
+            SampleNameForVariants = originalProtein.SampleNameForVariants;
+            GeneNames = originalProtein.GeneNames;
+            ProteolysisProducts = originalProtein.ProteolysisProducts;
+            SequenceVariations = originalProtein.SequenceVariations;
+            AppliedSequenceVariations = originalProtein.AppliedSequenceVariations;
+            OriginalNonVariantModifications = originalProtein.OriginalNonVariantModifications;
+            OneBasedPossibleLocalizedModifications = originalProtein.OneBasedPossibleLocalizedModifications;
+            DatabaseReferences = originalProtein.DatabaseReferences;
+            DisulfideBonds = originalProtein.DisulfideBonds;
+            SpliceSites = originalProtein.SpliceSites;
+            DatabaseFilePath = originalProtein.DatabaseFilePath;
+        }
+
+        /// <summary>
         /// Protein construction with applied variations
         /// </summary>
         /// <param name="variantBaseSequence"></param>
@@ -191,10 +223,45 @@ namespace Proteomics
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications)
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null)
         {
+            //can't be null
+            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
+            variableModifications = variableModifications ?? new List<Modification>();
+
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-            return digestionParams.SearchModeType == CleavageSpecificity.Semi ? digestion.SpeedySemiSpecificDigestion(this) : digestion.Digestion(this);
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
+                digestionParams.SearchModeType == CleavageSpecificity.Semi ?
+                digestion.SpeedySemiSpecificDigestion(this) :
+                digestion.Digestion(this);
+
+            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
+
+            if (silacLabels != null)
+            {
+                return GetSilacPeptides(modifiedPeptides, silacLabels);
+            }
+            return modifiedPeptides;
+        }
+
+        /// <summary>
+        /// Add additional peptides with SILAC amino acids
+        /// </summary>
+        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels)
+        {
+            foreach (PeptideWithSetModifications pwsm in originalPeptides)
+            {
+                yield return pwsm;
+            }
+            foreach (SilacLabel label in silacLabels)
+            {
+                Protein silacProtein = new Protein(this, BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel), Accession + label.MassDifference);
+                foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                {
+                    //duplicate the peptides with the updated protein sequence that contains only silac labels
+                    yield return new PeptideWithSetModifications(silacProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);
+                }
+            }
         }
 
         /// <summary>

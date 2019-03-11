@@ -25,6 +25,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using MSFileReaderLib;
+using UsefulProteomicsDatabases;
 
 namespace IO.Thermo
 {
@@ -56,6 +57,8 @@ namespace IO.Thermo
             {
                 throw new FileNotFoundException();
             }
+
+            Loaders.LoadElements();
 
             if (CheckForMsFileReader() == false)
             {
@@ -333,7 +336,7 @@ namespace IO.Thermo
                 {
                     matcher = mFindParentIonOnlyNonMsx;
                 }
-                double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value);
+                double selectedIonGuessMZ = double.Parse(matcher.Match(pbstrFilter).Groups["ParentMZ"].Value, CultureInfo.InvariantCulture);
 
                 //   int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)
                 // double TotalIonCurrent, double selectedIonMZ, int? selectedIonChargeStateGuess, double? selectedIonIntensity, double? isolationMZ, double? isolationWidth, DissociationType dissociationType, int? oneBasedPrecursorScanNumber, double? selectedIonMonoisotopicGuessMz, double? injectionTime, double[,] noiseData, string nativeId)

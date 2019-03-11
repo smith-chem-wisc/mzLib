@@ -4,6 +4,7 @@ using MzLibUtil;
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using UsefulProteomicsDatabases;
 
 namespace IO.Thermo
 {
@@ -25,6 +26,8 @@ namespace IO.Thermo
             {
                 throw new FileNotFoundException();
             }
+
+            Loaders.LoadElements();
 
             if (!ThermoStaticData.CheckForMsFileReader())
             {
