@@ -152,7 +152,6 @@ namespace Proteomics.ProteolyticDigestion
             {
                 peptides.AddRange(SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptidesLength, maxPeptidesLength));
             }
-
             else
             {
                 throw new NotImplementedException();

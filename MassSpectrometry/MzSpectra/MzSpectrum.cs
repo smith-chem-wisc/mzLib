@@ -403,7 +403,7 @@ namespace MassSpectrometry
 
             for (int i = 0; i < genericIntensityArray.Count(); i++)
             {
-                if(genericIntensityArray[i] > 0.0001)
+                if (genericIntensityArray[i] > 0.0001)
                 {
                     intensites.Add(genericIntensityArray[i]);
                     masses.Add(genericMzArray[i]);

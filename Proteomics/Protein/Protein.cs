@@ -73,7 +73,7 @@ namespace Proteomics
         {
             BaseSequence = silacSequence;
             Accession = silacAccession;
-          
+
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
@@ -349,7 +349,7 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// The protein object uses the default hash code method for speed, 
+        /// The protein object uses the default hash code method for speed,
         /// but note that two protein objects with the same information will give two different hash codes.
         /// </summary>
         /// <returns></returns>
@@ -362,6 +362,5 @@ namespace Proteomics
         {
             return this.Accession.ToString();
         }
-
     }
 }

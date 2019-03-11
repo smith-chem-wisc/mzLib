@@ -147,7 +147,6 @@ namespace Test
 
             var spectrum = new MzSpectrum(mzArray, intArray, false);
             spectrum.XCorrPrePreprocessing(mzArray.Min(), mzArray.Max(), 241.122);
-  
 
             //first mz rounded to nearest discrete mass bin 1.0005079
             Assert.AreEqual(Math.Round(96.0487584, 5), Math.Round(spectrum.XArray.Min(), 5));
@@ -159,7 +158,7 @@ namespace Test
             double precursorIntensity = 0;
             for (int i = 0; i < spectrum.XArray.Length; i++)
             {
-                if(spectrum.XArray[i] > (241.122 - 1.5) && spectrum.XArray[i] < (241.122 + 1.5))
+                if (spectrum.XArray[i] > (241.122 - 1.5) && spectrum.XArray[i] < (241.122 + 1.5))
                 {
                     precursorIntensity += spectrum.YArray[i];
                 }
