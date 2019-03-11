@@ -369,7 +369,9 @@ namespace MassSpectrometry
             }
 
             //we've already filtered for when multiple mzs appear in a single nominal mass bin
-            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, 10, false, false);
+
+            int nominalWindowWidthDaltons = (int)(Math.Round((genericMzArray.Max() - genericMzArray.Min()) / 10d, 0));
+            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, false, false);
 
             MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), 50, true);
 

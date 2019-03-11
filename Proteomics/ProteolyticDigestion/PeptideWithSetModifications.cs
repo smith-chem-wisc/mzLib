@@ -426,15 +426,22 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             return q != null
-                && q.FullSequence.Equals(this.FullSequence)
+                && q.FullSequence == this.FullSequence
                 && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
-                && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.Protease == this.DigestionParams.Protease;
+                && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession == this.Protein.Accession)
+                && q.DigestionParams.Protease.Equals(this.DigestionParams.Protease);
         }
 
         public override int GetHashCode()
         {
-            return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+            if(DigestionParams == null)
+            {
+                return FullSequence.GetHashCode();
+            }
+            else
+            {
+                return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+            }            
         }
 
         /// <summary>

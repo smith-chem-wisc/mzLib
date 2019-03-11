@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Proteomics
 {
-    public class Protein
+    public class Protein// : IEquatable<Protein>
     {
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
@@ -187,26 +187,16 @@ namespace Proteomics
             return string.Format("{0} {1}", Accession, FullName);
         }
 
-        /// <summary>
-        /// The protein object uses the default equals method for speed, 
-        /// but note that two protein objects with the same information will not be equal by this method.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public override bool Equals(object obj)
-        {
-            return base.Equals(obj);
-        }
-
-        /// <summary>
-        /// The protein object uses the default hash code method for speed, 
-        /// but note that two protein objects with the same information will give two different hash codes.
-        /// </summary>
-        /// <returns></returns>
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
+        ///// <summary>
+        ///// The protein object uses the default equals method for speed, 
+        ///// but note that two protein objects with the same information will not be equal by this method.
+        ///// </summary>
+        ///// <param name="obj"></param>
+        ///// <returns></returns>
+        //public override bool Equals(object obj)
+        //{
+        //    return base.Equals(obj);
+        //}
 
         /// <summary>
         /// Gets peptides for digestion of a protein
@@ -282,5 +272,40 @@ namespace Proteomics
                 return name + variantTag;
             }
         }
+
+        public int CompareTo(Protein other)
+        {
+            //permits sorting of proteins
+            return this.Accession.CompareTo(other.Accession);
+        }
+
+        //not sure if we require any additional fields for equality
+        public override bool Equals(object obj)
+        {
+            Protein otherProtein = (Protein)obj;
+
+            if (otherProtein == null)
+            {
+                return false;
+            }
+
+            return otherProtein != null && otherProtein.Accession == this.Accession && otherProtein.BaseSequence == this.BaseSequence;
+        }
+
+        /// <summary>
+        /// The protein object uses the default hash code method for speed, 
+        /// but note that two protein objects with the same information will give two different hash codes.
+        /// </summary>
+        /// <returns></returns>
+        public override int GetHashCode()
+        {
+            return this.BaseSequence.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return this.Accession.ToString();
+        }
+
     }
 }
