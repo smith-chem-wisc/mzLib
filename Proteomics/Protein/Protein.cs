@@ -73,7 +73,7 @@ namespace Proteomics
         {
             BaseSequence = silacSequence;
             Accession = silacAccession;
-          
+
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
@@ -220,27 +220,6 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// The protein object uses the default equals method for speed, 
-        /// but note that two protein objects with the same information will not be equal by this method.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public override bool Equals(object obj)
-        {
-            return base.Equals(obj);
-        }
-
-        /// <summary>
-        /// The protein object uses the default hash code method for speed, 
-        /// but note that two protein objects with the same information will give two different hash codes.
-        /// </summary>
-        /// <returns></returns>
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-
-        /// <summary>
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
@@ -348,6 +327,40 @@ namespace Proteomics
                 string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
                 return name + variantTag;
             }
+        }
+
+        public int CompareTo(Protein other)
+        {
+            //permits sorting of proteins
+            return this.Accession.CompareTo(other.Accession);
+        }
+
+        //not sure if we require any additional fields for equality
+        public override bool Equals(object obj)
+        {
+            Protein otherProtein = (Protein)obj;
+
+            if (otherProtein == null)
+            {
+                return false;
+            }
+
+            return otherProtein != null && otherProtein.Accession == this.Accession && otherProtein.BaseSequence == this.BaseSequence;
+        }
+
+        /// <summary>
+        /// The protein object uses the default hash code method for speed,
+        /// but note that two protein objects with the same information will give two different hash codes.
+        /// </summary>
+        /// <returns></returns>
+        public override int GetHashCode()
+        {
+            return this.BaseSequence.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return this.Accession.ToString();
         }
     }
 }

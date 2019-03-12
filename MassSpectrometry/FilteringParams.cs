@@ -21,18 +21,18 @@ namespace MassSpectrometry
     public class FilteringParams : IFilteringParams
     {
         //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
-        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, int? numberOfWindows = null, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
+        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, int? nominalWindowWidthDaltons = null, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
         {
             NumberOfPeaksToKeepPerWindow = numberOfPeaksToKeepPerWindow;
             MinimumAllowedIntensityRatioToBasePeakM = minimumAllowedIntensityRatioToBasePeak;
-            NumberOfWindows = numberOfWindows;
+            NominalWindowWidthDaltons = nominalWindowWidthDaltons;
             ApplyTrimmingToMs1 = applyTrimmingToMs1;
             ApplyTrimmingToMsMs = applyTrimmingToMsMs;
         }
 
         public double? MinimumAllowedIntensityRatioToBasePeakM { get; }
         public int? NumberOfPeaksToKeepPerWindow { get; }
-        public int? NumberOfWindows { get; }
+        public int? NominalWindowWidthDaltons { get; }
         public bool ApplyTrimmingToMs1 { get; }
         public bool ApplyTrimmingToMsMs { get; }
     }

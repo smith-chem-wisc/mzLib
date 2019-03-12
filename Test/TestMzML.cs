@@ -98,9 +98,8 @@ namespace Test
             Random rand = new Random(100);
             int numPeaks = 200;
             double minRatio = 0.01;
-            int numWindows = 1;
 
-            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, null, true, true);
             List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
 
             for (int mz = 400; mz < 1600; mz++)

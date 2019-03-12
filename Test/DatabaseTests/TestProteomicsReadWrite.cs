@@ -460,10 +460,12 @@ namespace Test
             Modification meOnK = new Modification(_originalId: "Methyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: K, _monoisotopicMass: 14);
             Modification meOnR = new Modification(_originalId: "Methyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: R, _monoisotopicMass: 14);
 
-            Dictionary<int, List<Modification>> obm = new Dictionary<int, List<Modification>>();
-            obm.Add(1, new List<Modification>() { acOnK });
-            obm.Add(2, new List<Modification>() { meOnK });
-            obm.Add(3, new List<Modification>() { meOnR });
+            Dictionary<int, List<Modification>> obm = new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification>() { acOnK } },
+                { 2, new List<Modification>() { meOnK } },
+                { 3, new List<Modification>() { meOnR } }
+            };
 
             Protein p = new Protein("KKR", "accession", null, null, obm, null, null, null, false, false, null, null, null, null);
             List<Protein> pList = new List<Protein>() { p };
