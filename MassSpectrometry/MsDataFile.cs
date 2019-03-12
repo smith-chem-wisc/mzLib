@@ -66,7 +66,7 @@ namespace MassSpectrometry
         /// <param name="intensities"></param>
         /// <param name="mArray"></param>
         /// <param name="filteringParams"></param>
-        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null, bool keepZeroPeaks = false)
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
         {
             Array.Sort(intensities, mArray);
 
@@ -127,6 +127,27 @@ namespace MassSpectrometry
                     }
                 }
             }
+            else if (filteringParams.NumberOfWindows.HasValue && filteringParams.NumberOfWindows.Value > 0)
+            {
+                double mzRangeInOneWindow = (scanRangeMaxMz - scanRangeMinMz) / filteringParams.NumberOfWindows.Value;
+
+                for (int i = 1; i <= filteringParams.NumberOfWindows.Value; i++)
+                {
+                    if (i == 1) // first
+                    {
+                        ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, (scanRangeMinMz + mzRangeInOneWindow));
+                    }
+                    else if (i == (filteringParams.NumberOfWindows.Value))//last
+                    {
+                        ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
+                    }
+                    else//middle
+                    {
+                        ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow));
+                    }
+                    scanRangeMinMz += mzRangeInOneWindow;
+                }
+            }
             else
             {
                 ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
@@ -168,14 +189,14 @@ namespace MassSpectrometry
                     tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
-                if (WindowMaxNormalizationToValue.HasValue)
+                if (filteringParams.WindowMaxNormalizationValue.HasValue)
                 {
                     double max = tempIntList.Max();
                     if (max == 0)
                     {
                         max = 1;
                     }
-                    tempIntList = tempIntList.Select(x => x / max * WindowMaxNormalizationToValue.Value).ToList();
+                    tempIntList = tempIntList.Select(x => x / max * filteringParams.WindowMaxNormalizationValue.Value).ToList();
                 }
 
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)

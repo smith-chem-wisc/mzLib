@@ -31,9 +31,9 @@ namespace Test
                 intArray[i] = randomInst;
             }
 
-            FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, false, false);
+            FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, null, normalizationMax, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, normalizationMax);
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, false);
 
             if (nominalWindowWidthDaltons.HasValue)
             {
@@ -61,7 +61,7 @@ namespace Test
                 intArray[i] = (double)i;
             }
 
-            FilteringParams f = new FilteringParams(null, 0.05, null, false, false);
+            FilteringParams f = new FilteringParams(null, 0.05, null, null, null, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -82,7 +82,7 @@ namespace Test
                 intArray[i] = (double)(i + 1);
             }
 
-            FilteringParams f = new FilteringParams(100, null, null, false, false);
+            FilteringParams f = new FilteringParams(100, null, null, null, null, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -106,7 +106,7 @@ namespace Test
                 intArray[i] = (double)(i + 1);
             }
 
-            FilteringParams f = new FilteringParams(10, null, 20, false, false);
+            FilteringParams f = new FilteringParams(10, null, 20, 10, null, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -183,7 +183,7 @@ namespace Test
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
+            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, null, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
 

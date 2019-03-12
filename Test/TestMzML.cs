@@ -75,7 +75,7 @@ namespace Test
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
+            FilteringParams filter = new FilteringParams(200, 0.01, 1, null, null, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
 
@@ -99,7 +99,7 @@ namespace Test
             int numPeaks = 200;
             double minRatio = 0.01;
 
-            var testFilteringParams = new FilteringParams(numPeaks, minRatio, null, true, true);
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, null, 1, null, true, true);
             List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
 
             for (int mz = 400; mz < 1600; mz++)
@@ -150,7 +150,7 @@ namespace Test
             double minRatio = 0.01;
             int numWindows = 10;
 
-            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio,null, numWindows, null, true, true);
             // only 1 peak but 10 windows
             List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>
             {
@@ -192,7 +192,7 @@ namespace Test
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
 
-            var testFilteringParams = new FilteringParams(200, 0.01, 5, true, true);
+            var testFilteringParams = new FilteringParams(200, 0.01,null, 5, null, true, true);
             ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), testFilteringParams);
         }
 
