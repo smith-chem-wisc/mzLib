@@ -87,16 +87,14 @@ namespace MassSpectrometry
 
             Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
 
-            if (filteringParams.NominalWindowWidthDaltons.HasValue && filteringParams.NominalWindowWidthDaltons.Value > 0)
+            if (filteringParams.WindowWidthDaltons != null && filteringParams.WindowWidthDaltons > 0)
             {
-                double mzRangeInOneWindow = Convert.ToDouble(filteringParams.NominalWindowWidthDaltons.Value);
-
                 List<double> ends = new List<double>();
                 double end = 0;
                 bool first = true;
                 while (end < scanRangeMaxMz)
                 {
-                    if ((end + mzRangeInOneWindow) > scanRangeMinMz)
+                    if ((end + filteringParams.WindowWidthDaltons) > scanRangeMinMz)
                     {
                         if (first)
                         {
@@ -108,7 +106,7 @@ namespace MassSpectrometry
                             ends.Add(end);
                         }
                     }
-                    end += mzRangeInOneWindow;
+                    end += filteringParams.WindowWidthDaltons.Value;
                 }
 
                 for (int i = 0; i < ends.Count; i++)
@@ -127,26 +125,20 @@ namespace MassSpectrometry
                     }
                 }
             }
-            else if (filteringParams.NumberOfWindows.HasValue && filteringParams.NumberOfWindows.Value > 0)
+            else if (filteringParams.NumberOfWindows != null && filteringParams.NumberOfWindows > 0)
             {
                 double mzRangeInOneWindow = (scanRangeMaxMz - scanRangeMinMz) / filteringParams.NumberOfWindows.Value;
 
-                for (int i = 1; i <= filteringParams.NumberOfWindows.Value; i++)
+                ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, (scanRangeMinMz + mzRangeInOneWindow));
+                scanRangeMinMz += mzRangeInOneWindow;
+
+                for (int i = 2; i < filteringParams.NumberOfWindows; i++)
                 {
-                    if (i == 1) // first
-                    {
-                        ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, (scanRangeMinMz + mzRangeInOneWindow));
-                    }
-                    else if (i == (filteringParams.NumberOfWindows.Value))//last
-                    {
-                        ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
-                    }
-                    else//middle
-                    {
-                        ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow));
-                    }
+                    ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow));
                     scanRangeMinMz += mzRangeInOneWindow;
                 }
+                ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
+                scanRangeMinMz += mzRangeInOneWindow;
             }
             else
             {
@@ -167,7 +159,6 @@ namespace MassSpectrometry
                 foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
                 {
                     if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
-
                     {
                         mzInRange[rangeIndex].Add(j);
                         break;
