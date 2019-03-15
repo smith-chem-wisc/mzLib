@@ -69,7 +69,7 @@ namespace Proteomics.ProteolyticDigestion
         public override string ToString()
         {
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinPeptideLength + "," + MaxPeptideLength + ","
-                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + Protease.Name + "," + SearchModeType + "," + FragmentationTerminus
+                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + Protease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
                 + GeneratehUnlabeledProteinsForSilac;
         }
 
