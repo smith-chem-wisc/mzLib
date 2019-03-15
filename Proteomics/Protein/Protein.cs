@@ -72,8 +72,9 @@ namespace Proteomics
         public Protein(Protein originalProtein, string silacSequence, string silacAccession)
         {
             BaseSequence = silacSequence;
-            NonVariantProtein = originalProtein.NonVariantProtein;
             Accession = silacAccession;
+          
+            NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
