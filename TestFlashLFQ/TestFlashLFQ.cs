@@ -3,6 +3,7 @@ using FlashLFQ;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -735,7 +736,7 @@ namespace Test
         [Test]
         public static void TestNotFound()
         {
-            Peptide p = new Peptide("Seq", true);
+            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", true);
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
@@ -969,6 +970,33 @@ namespace Test
             var results = engine.Run();
 
             // no assertions - just don't crash
+        }
+
+        [Test]
+        public static void TestFlashLfqDoesNotRemovePeptides()
+        {
+            Loaders.LoadElements();
+
+            Residue x = new Residue("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
+            Residue lightLysine = Residue.GetResidue('K');
+
+            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
+
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory,@"SilacTest.mzML"), "", 0, 0, 0);
+            FlashLfqEngine engine = new FlashLfqEngine(
+                new List<Identification>
+                {
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                },
+                ppmTolerance: 5,
+                silent: true,
+                maxThreads: 7
+                );
+            var results = engine.Run();
+            Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
         }
     }
 }
