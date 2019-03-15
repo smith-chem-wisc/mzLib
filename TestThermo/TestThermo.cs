@@ -12,7 +12,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace TestThermo
 {
     [TestFixture]
-    //[Ignore("Takes 20 mins on appveyor")]
+    [Ignore("Takes 20 mins on appveyor")]
     public sealed class TestThermo
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -147,13 +147,13 @@ namespace TestThermo
             ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams());
             Assert.AreEqual(1120, a_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 2
-            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, windowWidthDaltons: 617));
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, windowWidthThomsons: 617));
             Assert.AreEqual(651, b_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 4
-            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, windowWidthDaltons: 463));
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, windowWidthThomsons: 463));
             Assert.AreEqual(843, c_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 6, which doesn't divide 1120
-            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, windowWidthDaltons: 309));
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, windowWidthThomsons: 309));
             Assert.AreEqual(873, d_w.GetOneBasedScan(1).MassSpectrum.Size);
         }
 

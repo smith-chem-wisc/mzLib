@@ -87,14 +87,17 @@ namespace MassSpectrometry
 
             Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
 
-            if (filteringParams.WindowWidthDaltons != null && filteringParams.WindowWidthDaltons > 0)
+            if (filteringParams.WindowWidthThomsons != null && filteringParams.WindowWidthThomsons > 0)
             {
+
+                double scanRangeToUse = Math.Min(scanRangeMaxMz - scanRangeMinMz, filteringParams.WindowWidthThomsons.Value);
+
                 List<double> ends = new List<double>();
                 double end = 0;
                 bool first = true;
                 while (end < scanRangeMaxMz)
                 {
-                    if ((end + filteringParams.WindowWidthDaltons) > scanRangeMinMz)
+                    if ((end + scanRangeToUse) > scanRangeMinMz)
                     {
                         if (first)
                         {
@@ -106,7 +109,7 @@ namespace MassSpectrometry
                             ends.Add(end);
                         }
                     }
-                    end += filteringParams.WindowWidthDaltons.Value;
+                    end += scanRangeToUse;
                 }
 
                 for (int i = 0; i < ends.Count; i++)
