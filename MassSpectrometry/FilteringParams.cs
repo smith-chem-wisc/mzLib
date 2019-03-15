@@ -21,19 +21,35 @@ namespace MassSpectrometry
     public class FilteringParams : IFilteringParams
     {
         //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
-        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, int? numberOfWindows = null, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
+        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, double? windowWidthThomsons = 0, int? numberOfWindows = 0, double? windowMaxNormalizationValue = null, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
         {
             NumberOfPeaksToKeepPerWindow = numberOfPeaksToKeepPerWindow;
             MinimumAllowedIntensityRatioToBasePeakM = minimumAllowedIntensityRatioToBasePeak;
-            NumberOfWindows = numberOfWindows;
+
+            //one can define only one, either window width or window number, not both. window width takes precendent
+            if(windowWidthThomsons != null && windowWidthThomsons > 0)
+            {
+                WindowWidthThomsons = windowWidthThomsons.Value;
+                NumberOfWindows = 0;
+            }
+            else if (numberOfWindows != null && numberOfWindows > 0)
+            {
+                WindowWidthThomsons = 0;
+                NumberOfWindows = numberOfWindows.Value;
+            }
+            WindowMaxNormalizationValue = windowMaxNormalizationValue;
             ApplyTrimmingToMs1 = applyTrimmingToMs1;
             ApplyTrimmingToMsMs = applyTrimmingToMsMs;
         }
 
         public double? MinimumAllowedIntensityRatioToBasePeakM { get; }
         public int? NumberOfPeaksToKeepPerWindow { get; }
+        public double? WindowWidthThomsons { get; }
         public int? NumberOfWindows { get; }
+        public double? WindowMaxNormalizationValue { get; }
         public bool ApplyTrimmingToMs1 { get; }
         public bool ApplyTrimmingToMsMs { get; }
+
+
     }
 }

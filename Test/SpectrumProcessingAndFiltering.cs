@@ -12,10 +12,10 @@ namespace Test
     {
         [Test]
         [TestCase(10, null, 100, null)]
-        [TestCase(10, 1, 100, null)]
-        [TestCase(10, 5, 100, null)]
-        [TestCase(10, 5, 100, 500)]
-        public static void TestFilteringPeaksTopN_MultipleWindows(int peaksToKeep, int? windows, int peakCount, double? normalizationMax)
+        [TestCase(10, 1900, 100, null)]
+        [TestCase(10, 400, 100, null)]
+        [TestCase(10, 400, 100, 500)]
+        public static void TestFilteringPeaksTopN_MultipleWindows(int peaksToKeep, int? nominalWindowWidthDaltons, int peakCount, double? normalizationMax)
         {
             double[] mzArray = new double[100];
             double[] intArray = new double[100];
@@ -31,13 +31,13 @@ namespace Test
                 intArray[i] = randomInst;
             }
 
-            FilteringParams f = new FilteringParams(peaksToKeep, null, windows, false, false);
+            FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, null, normalizationMax, false, false);
 
-            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, normalizationMax);
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, false);
 
-            if (windows.HasValue)
+            if (nominalWindowWidthDaltons.HasValue)
             {
-                Assert.LessOrEqual((decimal)mzArray.Count(), (decimal)peaksToKeep * (decimal)windows);
+                Assert.LessOrEqual((decimal)mzArray.Count(), (decimal)peaksToKeep * (decimal)nominalWindowWidthDaltons);
             }
             else
             {
@@ -61,7 +61,7 @@ namespace Test
                 intArray[i] = (double)i;
             }
 
-            FilteringParams f = new FilteringParams(null, 0.05, null, false, false);
+            FilteringParams f = new FilteringParams(null, 0.05, null, null, null, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -82,7 +82,7 @@ namespace Test
                 intArray[i] = (double)(i + 1);
             }
 
-            FilteringParams f = new FilteringParams(100, null, null, false, false);
+            FilteringParams f = new FilteringParams(100, null, null, null, null, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -106,7 +106,7 @@ namespace Test
                 intArray[i] = (double)(i + 1);
             }
 
-            FilteringParams f = new FilteringParams(10, null, 10, false, false);
+            FilteringParams f = new FilteringParams(10, null, 20, 10, null, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -147,7 +147,6 @@ namespace Test
 
             var spectrum = new MzSpectrum(mzArray, intArray, false);
             spectrum.XCorrPrePreprocessing(mzArray.Min(), mzArray.Max(), 241.122);
-  
 
             //first mz rounded to nearest discrete mass bin 1.0005079
             Assert.AreEqual(Math.Round(96.0487584, 5), Math.Round(spectrum.XArray.Min(), 5));
@@ -159,7 +158,7 @@ namespace Test
             double precursorIntensity = 0;
             for (int i = 0; i < spectrum.XArray.Length; i++)
             {
-                if(spectrum.XArray[i] > (241.122 - 1.5) && spectrum.XArray[i] < (241.122 + 1.5))
+                if (spectrum.XArray[i] > (241.122 - 1.5) && spectrum.XArray[i] < (241.122 + 1.5))
                 {
                     precursorIntensity += spectrum.YArray[i];
                 }
@@ -184,7 +183,7 @@ namespace Test
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
+            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, null, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
 

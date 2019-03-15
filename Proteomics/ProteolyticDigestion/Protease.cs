@@ -28,8 +28,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public override bool Equals(object obj)
         {
-            var a = obj as Protease;
-            return a != null
+            return obj is Protease a
                 && (a.Name == null && Name == null || a.Name.Equals(Name));
         }
 
@@ -153,7 +152,6 @@ namespace Proteomics.ProteolyticDigestion
             {
                 peptides.AddRange(SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptidesLength, maxPeptidesLength));
             }
-
             else
             {
                 throw new NotImplementedException();

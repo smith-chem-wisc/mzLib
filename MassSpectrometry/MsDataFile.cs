@@ -66,7 +66,7 @@ namespace MassSpectrometry
         /// <param name="intensities"></param>
         /// <param name="mArray"></param>
         /// <param name="filteringParams"></param>
-        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, double? WindowMaxNormalizationToValue = null, bool keepZeroPeaks = false)
+        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
         {
             Array.Sort(intensities, mArray);
 
@@ -85,32 +85,63 @@ namespace MassSpectrometry
 
             const double shiftToMakeRangeInclusive = 0.000000001;
 
-            int numberOfWindows = filteringParams.NumberOfWindows ?? 1;
-
-            double mzRangeInOneWindow = scanRangeMaxMz - scanRangeMinMz;
             Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
 
-            double scanMin = scanRangeMinMz;
-            if (filteringParams.NumberOfWindows.HasValue && filteringParams.NumberOfWindows.Value > 0)
+            if (filteringParams.WindowWidthThomsons != null && filteringParams.WindowWidthThomsons > 0)
             {
-                mzRangeInOneWindow = mzRangeInOneWindow / filteringParams.NumberOfWindows.Value;
 
-                for (int i = 1; i <= numberOfWindows; i++)
+                double scanRangeToUse = Math.Min(scanRangeMaxMz - scanRangeMinMz, filteringParams.WindowWidthThomsons.Value);
+
+                List<double> ends = new List<double>();
+                double end = 0;
+                bool first = true;
+                while (end < scanRangeMaxMz)
                 {
-                    if (i == 1) // first
+                    if ((end + scanRangeToUse) > scanRangeMinMz)
                     {
-                        ranges.Add(scanMin - shiftToMakeRangeInclusive, (scanMin + mzRangeInOneWindow));
+                        if (first)
+                        {
+                            ends.Add(scanRangeMinMz - shiftToMakeRangeInclusive);
+                            first = false;
+                        }
+                        else
+                        {
+                            ends.Add(end);
+                        }
                     }
-                    else if (i == (numberOfWindows))//last
-                    {
-                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
-                    }
-                    else//middle
-                    {
-                        ranges.Add(scanMin, (scanMin + mzRangeInOneWindow));
-                    }
-                    scanMin += mzRangeInOneWindow;
+                    end += scanRangeToUse;
                 }
+
+                for (int i = 0; i < ends.Count; i++)
+                {
+                    if (i == 0)
+                    {
+                        ranges.Add(ends[i], ends[i + 1]);
+                    }
+                    else if (i != (ends.Count - 1))
+                    {
+                        ranges.Add(ends[i] + shiftToMakeRangeInclusive, ends[i + 1]);
+                    }
+                    else
+                    {
+                        ranges.Add(ends[i] + shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
+                    }
+                }
+            }
+            else if (filteringParams.NumberOfWindows != null && filteringParams.NumberOfWindows > 0)
+            {
+                double mzRangeInOneWindow = (scanRangeMaxMz - scanRangeMinMz) / filteringParams.NumberOfWindows.Value;
+
+                ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, (scanRangeMinMz + mzRangeInOneWindow));
+                scanRangeMinMz += mzRangeInOneWindow;
+
+                for (int i = 2; i < filteringParams.NumberOfWindows; i++)
+                {
+                    ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow));
+                    scanRangeMinMz += mzRangeInOneWindow;
+                }
+                ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
+                scanRangeMinMz += mzRangeInOneWindow;
             }
             else
             {
@@ -131,7 +162,6 @@ namespace MassSpectrometry
                 foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
                 {
                     if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
-
                     {
                         mzInRange[rangeIndex].Add(j);
                         break;
@@ -153,16 +183,16 @@ namespace MassSpectrometry
                     tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
-                if (WindowMaxNormalizationToValue.HasValue)
-
+                if (filteringParams.WindowMaxNormalizationValue.HasValue)
                 {
                     double max = tempIntList.Max();
                     if (max == 0)
                     {
                         max = 1;
                     }
-                    tempIntList = tempIntList.Select(x => x / max * WindowMaxNormalizationToValue.Value).ToList();
+                    tempIntList = tempIntList.Select(x => x / max * filteringParams.WindowMaxNormalizationValue.Value).ToList();
                 }
+
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)
                 {
                     reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
