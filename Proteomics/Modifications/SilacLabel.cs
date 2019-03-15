@@ -4,6 +4,9 @@ using System.Text;
 
 namespace Proteomics
 {
+    /// <summary>
+    /// Silac labels used to modify unlabeled proteins
+    /// </summary>
     public class SilacLabel
     {
         public char OriginalAminoAcid { get; private set; }

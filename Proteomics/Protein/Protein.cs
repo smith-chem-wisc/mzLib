@@ -259,7 +259,7 @@ namespace Proteomics
 
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels);
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac);
             }
             return modifiedPeptides;
         }
@@ -267,15 +267,32 @@ namespace Proteomics
         /// <summary>
         /// Add additional peptides with SILAC amino acids
         /// </summary>
-        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels)
+        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels, bool generateUnlabeledProteins)
         {
-            foreach (PeptideWithSetModifications pwsm in originalPeptides)
+            //unlabeled peptides
+            if (generateUnlabeledProteins)
             {
-                yield return pwsm;
+                foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                {
+                    yield return pwsm;
+                }
             }
+
+            //labeled peptides
             foreach (SilacLabel label in silacLabels)
             {
-                Protein silacProtein = new Protein(this, BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel), Accession + label.MassDifference);
+                string updatedBaseSequence = BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel);
+                string updatedAccession = Accession + label.MassDifference;
+                if (label.AdditionalLabels != null) //if there is more than one label per replicate (i.e both R and K were labeled in a sample before pooling)
+                {
+                    foreach (SilacLabel additionalLabel in label.AdditionalLabels)
+                    {
+                        updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
+                        updatedAccession += additionalLabel.MassDifference;
+                    }
+                }
+                Protein silacProtein = new Protein(this, updatedBaseSequence, updatedAccession);
+
                 foreach (PeptideWithSetModifications pwsm in originalPeptides)
                 {
                     //duplicate the peptides with the updated protein sequence that contains only silac labels
