@@ -715,14 +715,11 @@ namespace FlashLFQ
 
             foreach (var sequence in temp)
             {
-                if(sequence.Count()==0)
-                { }
                 if (sequence.Count() == 1)
                 {
                     peaks.Add(sequence.First());
                     continue;
                 }
-
                 var temp2 = sequence.Where(p => p.Apex != null).ToList();
                 if (temp2.Count == 0)
                 {
