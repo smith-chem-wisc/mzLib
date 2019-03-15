@@ -22,7 +22,7 @@ namespace MassSpectrometry
     {
         double? MinimumAllowedIntensityRatioToBasePeakM { get; }
         int? NumberOfPeaksToKeepPerWindow { get; }
-        double? WindowWidthDaltons { get; }
+        double? WindowWidthThomsons { get; }
         int? NumberOfWindows { get; }
         double? WindowMaxNormalizationValue { get; }
         bool ApplyTrimmingToMs1 { get; }
