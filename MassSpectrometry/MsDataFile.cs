@@ -89,7 +89,6 @@ namespace MassSpectrometry
 
             if (filteringParams.WindowWidthThomsons != null && filteringParams.WindowWidthThomsons > 0)
             {
-
                 double scanRangeToUse = Math.Min(scanRangeMaxMz - scanRangeMinMz, filteringParams.WindowWidthThomsons.Value);
 
                 List<double> ends = new List<double>();

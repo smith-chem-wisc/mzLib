@@ -40,7 +40,6 @@ namespace Proteomics.ProteolyticDigestion
 
         public override bool Equals(object obj)
         {
-
             return obj is DigestionParams a
                 && MaxMissedCleavages.Equals(a.MaxMissedCleavages)
                 && MinPeptideLength.Equals(a.MinPeptideLength)

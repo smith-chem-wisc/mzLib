@@ -27,7 +27,7 @@ namespace MassSpectrometry
             MinimumAllowedIntensityRatioToBasePeakM = minimumAllowedIntensityRatioToBasePeak;
 
             //one can define only one, either window width or window number, not both. window width takes precendent
-            if(windowWidthThomsons != null && windowWidthThomsons > 0)
+            if (windowWidthThomsons != null && windowWidthThomsons > 0)
             {
                 WindowWidthThomsons = windowWidthThomsons.Value;
                 NumberOfWindows = 0;
@@ -49,7 +49,5 @@ namespace MassSpectrometry
         public bool NormalizePeaksAccrossAllWindows { get; }
         public bool ApplyTrimmingToMs1 { get; }
         public bool ApplyTrimmingToMsMs { get; }
-
-
     }
 }
