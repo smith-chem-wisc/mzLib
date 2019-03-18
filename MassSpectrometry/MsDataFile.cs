@@ -89,7 +89,6 @@ namespace MassSpectrometry
 
             if (filteringParams.WindowWidthThomsons != null && filteringParams.WindowWidthThomsons > 0)
             {
-
                 double scanRangeToUse = Math.Min(scanRangeMaxMz - scanRangeMinMz, filteringParams.WindowWidthThomsons.Value);
 
                 List<double> ends = new List<double>();
@@ -183,14 +182,15 @@ namespace MassSpectrometry
                     tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
-                if (filteringParams.WindowMaxNormalizationValue.HasValue)
+                if (filteringParams.NormalizePeaksAcrossAllWindows)
                 {
                     double max = tempIntList.Max();
                     if (max == 0)
                     {
                         max = 1;
                     }
-                    tempIntList = tempIntList.Select(x => x / max * filteringParams.WindowMaxNormalizationValue.Value).ToList();
+
+                    tempIntList = tempIntList.Select(x => x / max).ToList();
                 }
 
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)
