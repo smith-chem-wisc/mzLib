@@ -45,7 +45,7 @@ namespace Test
             }
             if (normalize)
             {
-                Assert.AreEqual(100, intArray.Max());
+                Assert.AreEqual(1, intArray.Max());
             }
         }
 
@@ -172,10 +172,10 @@ namespace Test
             Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(42.34196294907629, 5), Math.Round(spectrum.YArray[0], 5));
+            Assert.AreEqual(Math.Round(.4234196294907629, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(79.3484230348385, 5), Math.Round(spectrum.YArray[373], 5));
+            Assert.AreEqual(Math.Round(.793484230348385, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]

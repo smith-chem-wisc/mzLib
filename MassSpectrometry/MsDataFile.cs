@@ -189,8 +189,7 @@ namespace MassSpectrometry
                     {
                         max = 1;
                     }
-                    //currently normalizing all peaks to 100
-                    tempIntList = tempIntList.Select(x => x / max * 100d).ToList();
+                    tempIntList = tempIntList.Select(x => x / max).ToList();
                 }
 
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)
