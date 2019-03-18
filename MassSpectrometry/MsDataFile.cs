@@ -183,14 +183,15 @@ namespace MassSpectrometry
                     tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
-                if (filteringParams.WindowMaxNormalizationValue.HasValue)
+                if (filteringParams.NormalizePeaksAccrossAllWindows)
                 {
                     double max = tempIntList.Max();
                     if (max == 0)
                     {
                         max = 1;
                     }
-                    tempIntList = tempIntList.Select(x => x / max * filteringParams.WindowMaxNormalizationValue.Value).ToList();
+                    //currently normalizing all peaks to 100
+                    tempIntList = tempIntList.Select(x => x / max * 100d).ToList();
                 }
 
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)

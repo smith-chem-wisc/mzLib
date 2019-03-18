@@ -187,7 +187,7 @@ namespace MassSpectrometry
             SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak.Value];
         }
 
-        public void setOneBasedPrecursorScanNumber(int value)
+        public void SetOneBasedPrecursorScanNumber(int value)
         {
             this.OneBasedPrecursorScanNumber = value;
         }

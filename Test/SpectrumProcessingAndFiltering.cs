@@ -11,11 +11,11 @@ namespace Test
     public sealed class SpectrumProcessingAndFiltering
     {
         [Test]
-        [TestCase(10, null, 100, null)]
-        [TestCase(10, 1900, 100, null)]
-        [TestCase(10, 400, 100, null)]
-        [TestCase(10, 400, 100, 500)]
-        public static void TestFilteringPeaksTopN_MultipleWindows(int peaksToKeep, int? nominalWindowWidthDaltons, int peakCount, double? normalizationMax)
+        [TestCase(10, null, 100, false)]
+        [TestCase(10, 1900, 100, false)]
+        [TestCase(10, 400, 100, false)]
+        [TestCase(10, 400, 100, true)]
+        public static void TestFilteringPeaksTopN_MultipleWindows(int peaksToKeep, int? nominalWindowWidthDaltons, int peakCount, bool normalize)
         {
             double[] mzArray = new double[100];
             double[] intArray = new double[100];
@@ -31,7 +31,7 @@ namespace Test
                 intArray[i] = randomInst;
             }
 
-            FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, null, normalizationMax, false, false);
+            FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, null, normalize, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, 100, 2000, false);
 
@@ -43,9 +43,9 @@ namespace Test
             {
                 Assert.LessOrEqual((decimal)mzArray.Count(), (decimal)peaksToKeep * (decimal)1.0);
             }
-            if (normalizationMax.HasValue)
+            if (normalize)
             {
-                Assert.AreEqual(normalizationMax.Value, intArray.Max());
+                Assert.AreEqual(100, intArray.Max());
             }
         }
 
@@ -61,7 +61,7 @@ namespace Test
                 intArray[i] = (double)i;
             }
 
-            FilteringParams f = new FilteringParams(null, 0.05, null, null, null, false, false);
+            FilteringParams f = new FilteringParams(null, 0.05, null, null, false, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -82,7 +82,7 @@ namespace Test
                 intArray[i] = (double)(i + 1);
             }
 
-            FilteringParams f = new FilteringParams(100, null, null, null, null, false, false);
+            FilteringParams f = new FilteringParams(100, null, null, null, false, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -106,7 +106,7 @@ namespace Test
                 intArray[i] = (double)(i + 1);
             }
 
-            FilteringParams f = new FilteringParams(10, null, 20, 10, null, false, false);
+            FilteringParams f = new FilteringParams(10, null, 20, 10, false, false, false);
 
             MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
 
@@ -172,10 +172,10 @@ namespace Test
             Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(21.170981, 5), Math.Round(spectrum.YArray[0], 5));
+            Assert.AreEqual(Math.Round(42.34196294907629, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(39.674212, 5), Math.Round(spectrum.YArray[373], 5));
+            Assert.AreEqual(Math.Round(79.3484230348385, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]
@@ -183,7 +183,7 @@ namespace Test
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
-            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, null, false, true);
+            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
 
