@@ -20,15 +20,10 @@ namespace Test
             double[] mzArray = new double[100];
             double[] intArray = new double[100];
 
-            Random r = new Random();
-
             for (int i = 0; i < 100; i++)
             {
-                double randomMz = r.Next(100, 2000);
-                double randomInst = r.Next(0, 100);
-
-                mzArray[i] = randomMz;
-                intArray[i] = randomInst;
+                mzArray[i] = 100d + ((double)i / 100d) * 1900;
+                intArray[i] = i;
             }
 
             FilteringParams f = new FilteringParams(peaksToKeep, null, nominalWindowWidthDaltons, null, normalize, false, false);
@@ -45,7 +40,7 @@ namespace Test
             }
             if (normalize)
             {
-                Assert.AreEqual(1, intArray.Max());
+                Assert.AreEqual(123.75, intArray.Max());
             }
         }
 
@@ -130,12 +125,9 @@ namespace Test
             double startIntensity = 0.5;
             double incrementIntensity = 5;
 
-            Random r = new Random();
-
             while (startMass < 1969)
             {
-                double smallDouble = (double)r.Next(0, 10000) / 100000d;
-                masses.Add(startMass * 1.0005079 + smallDouble);
+                masses.Add(startMass * 1.0005079);
                 intensities.Add(startIntensity);
                 startMass = startMass + incrementMass;
                 startIntensity = startIntensity + incrementIntensity * startMass;
@@ -172,10 +164,10 @@ namespace Test
             Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(.4234196294907629, 5), Math.Round(spectrum.YArray[0], 5));
+            Assert.AreEqual(Math.Round(739.97202397641865, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(.793484230348385, 5), Math.Round(spectrum.YArray[373], 5));
+            Assert.AreEqual(Math.Round(586.8555892195734, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]
