@@ -69,6 +69,7 @@ namespace MassSpectrometry
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
         {
             Array.Sort(intensities, mArray);
+            double TIC = intensities.Sum();
 
             //filter low intensites based on a percent for the whole spectrum.
             if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
@@ -182,7 +183,8 @@ namespace MassSpectrometry
                     tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
-                if (filteringParams.NormalizePeaksAcrossAllWindows)
+                //There is no need to do any normalization unless there are multiple windows
+                if (filteringParams.NormalizePeaksAcrossAllWindows && mzInRange.Keys.Count > 1)
                 {
                     double max = tempIntList.Max();
                     if (max == 0)
@@ -191,6 +193,11 @@ namespace MassSpectrometry
                     }
 
                     tempIntList = tempIntList.Select(x => x / max).ToList();
+
+                    double sum = tempIntList.Sum();
+                    double normalizationFactor = TIC / sum / (double)mzInRange.Keys.Count;
+
+                    tempIntList = tempIntList.Select(x => x * normalizationFactor).ToList();
                 }
 
                 if (tempMzList.Count > 0 && tempIntList.Count > 0)
@@ -199,6 +206,7 @@ namespace MassSpectrometry
                     reducedIntensityList.AddRange(tempIntList.GetRange(0, Math.Min(tempIntList.Count, countOfPeaksToKeepPerWindow)));
                 }
             }
+
             intensities = reducedIntensityList.ToArray();
             mArray = reducedMzList.ToArray();
             Array.Sort(mArray, intensities);
