@@ -24,7 +24,7 @@ namespace MassSpectrometry
         int? NumberOfPeaksToKeepPerWindow { get; }
         double? WindowWidthThomsons { get; }
         int? NumberOfWindows { get; }
-        double? WindowMaxNormalizationValue { get; }
+        bool NormalizePeaksAcrossAllWindows { get; }
         bool ApplyTrimmingToMs1 { get; }
         bool ApplyTrimmingToMsMs { get; }
     }

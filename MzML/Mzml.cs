@@ -244,7 +244,7 @@ namespace IO.MzML
                     {
                         if (scans[i].MsnOrder - scans[j].MsnOrder == 1)
                         {
-                            scans[i].setOneBasedPrecursorScanNumber(scans[j].OneBasedScanNumber);
+                            scans[i].SetOneBasedPrecursorScanNumber(scans[j].OneBasedScanNumber);
                             break;
                         }
                     }
