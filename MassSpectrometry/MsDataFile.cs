@@ -68,16 +68,17 @@ namespace MassSpectrometry
         /// <param name="filteringParams"></param>
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
         {
-            Array.Sort(intensities, mArray);
             double TIC = intensities.Sum();
 
             //filter low intensites based on a percent for the whole spectrum.
             if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
             {
                 double maxIntensity = intensities.Max();
+                double cutOff = maxIntensity * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value;
                 for (int i = 0; i < intensities.Length; i++)
                 {
-                    if (intensities[i] <= maxIntensity * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value)
+                    
+                    if (intensities[i] <= cutOff && intensities[i]>0)
                     {
                         intensities[i] = 0;
                     }
@@ -209,7 +210,6 @@ namespace MassSpectrometry
 
             intensities = reducedIntensityList.ToArray();
             mArray = reducedMzList.ToArray();
-            Array.Sort(mArray, intensities);
         }
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()

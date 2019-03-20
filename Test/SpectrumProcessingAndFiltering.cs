@@ -1,4 +1,5 @@
-﻿using IO.MzML;
+﻿using Chemistry;
+using IO.MzML;
 using MassSpectrometry;
 using NUnit.Framework;
 using System;
@@ -164,10 +165,10 @@ namespace Test
             Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(739.97202397641865, 5), Math.Round(spectrum.YArray[0], 5));
+            Assert.AreEqual(Math.Round(866.8223617654503, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(586.8555892195734, 5), Math.Round(spectrum.YArray[373], 5));
+            Assert.AreEqual(Math.Round(739.5932595440305, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]
@@ -188,6 +189,33 @@ namespace Test
 
             Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
             Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
+        }
+
+        [Test]
+        public static void XcorrTestBorrowedFromMM()
+        {
+            double[] mzs = new double[] { 130.0499, 148.0604, 199.1077, 209.0921, 227.1026, 245.0768, 263.0874, 296.1605, 306.1448, 324.1554, 358.1609, 376.1714, 397.2082, 407.1925, 425.2031, 459.2086, 477.2191, 510.2922, 520.2766, 538.2871, 556.2613, 574.2719, 625.3192, 635.3035, 653.3141, 685.3039, 703.3145, 782.3567, 800.3672 };
+            double[] intensities = new double[] { 20, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 };
+
+            double precursorMass = 799.359968;
+
+            var ms2 = new MzSpectrum(mzs, intensities, false);
+
+            double rt = 1;
+            int precursorZ = 1;
+
+            var myScan = new MsDataScan(ms2, 1, 2, true, Polarity.Positive, rt + 0.01, new MzLibUtil.MzRange(0, 10000), "ff", MZAnalyzerType.Unknown, 1000, 1, null, "scan=2", precursorMass.ToMz(precursorZ), precursorZ, 1, precursorMass.ToMz(precursorZ), 1.0, DissociationType.HCD, 1, precursorMass.ToMz(precursorZ));
+
+            ms2.XCorrPrePreprocessing(0, 1969, precursorMass.ToMz(1));
+
+            List<double> X = new List<double>() { 130.07, 148.08, 199.1, 209.11, 227.12, 245.12, 263.13, 296.15, 306.16, 324.16, 358.18, 376.19, 397.2, 407.21, 425.22, 459.23, 477.24, 510.26, 520.26, 538.27, 556.28, 574.29, 625.32, 635.32, 653.33, 685.35, 703.36, 782.4 };
+            List<double> Y = new List<double>() { 5.26, 3.72, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 1.50, 1.50, 1.50, 1.50, 1.50, 1.49 };
+
+            for (int i = 0; i < X.Count; i++)
+            {
+                Assert.AreEqual(X[i], Math.Round(ms2.XArray[i], 2));
+                Assert.AreEqual(Y[i], Math.Round(ms2.YArray[i], 2));
+            }
         }
     }
 }
