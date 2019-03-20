@@ -95,7 +95,6 @@ namespace Test
         [Test]
         public static void TestPeakTrimmingWithOneWindow()
         {
-            Random rand = new Random(100);
             int numPeaks = 200;
             double minRatio = 0.01;
 
@@ -104,7 +103,7 @@ namespace Test
 
             for (int mz = 400; mz < 1600; mz++)
             {
-                myPeaks.Add((mz, rand.Next(1000, 1000000)));
+                myPeaks.Add((mz, 10d*(double)mz));
             }
 
             double myMaxIntensity = myPeaks.Max(p => p.intensity);

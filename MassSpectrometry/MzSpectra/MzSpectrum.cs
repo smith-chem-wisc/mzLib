@@ -392,9 +392,16 @@ namespace MassSpectrometry
 
                 for (int j = low; j <= high; j++)
                 {
-                    scaleValue += genericIntensityArray[j];
+                    if (!double.IsNaN(genericIntensityArray[j]))
+                    {
+                        scaleValue += genericIntensityArray[j];
+                    }
+                    else
+                    {
+                        denominator--;
+                    }
                 }
-                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (denominator) * scaleValue);
+                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (((double)Math.Max(1,denominator)) * scaleValue));
             }
             genericIntensityArray = scaledIntensities;
 
@@ -412,9 +419,6 @@ namespace MassSpectrometry
 
             YArray = intensites.ToArray();
             XArray = masses.ToArray();
-
-            //YArray = genericIntensityArray;
-            //XArray = genericMzArray;
             XcorrProcessed = true;
         }
 
