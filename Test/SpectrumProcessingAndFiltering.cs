@@ -115,6 +115,34 @@ namespace Test
         }
 
         [Test]
+        public static void TestFilterKeepsPeaksWithHighestIntensity()
+        {
+            double[] mzArray = new double[200];
+            double[] intArray = new double[200];
+
+            Random r = new Random();
+
+            for (int i = 0; i < 200; i++)
+            {
+                mzArray[i] = (double)(i + 1);
+                intArray[i] = (double)(i * Math.Abs(r.Next(1, 100) + 1d));
+            }
+
+            List<double> l = intArray.ToList();
+
+            l.Sort((x, y) => y.CompareTo(x));
+            l = l.Take(100).ToList();
+
+            FilteringParams f = new FilteringParams(100, null, null, null, false, false, false);
+
+            MsDataFile.WindowModeHelper(ref intArray, ref mzArray, f, mzArray.Min(), mzArray.Max());
+
+            List<double> myOut = intArray.ToList();
+            myOut.Sort((x, y) => y.CompareTo(x));
+            Assert.IsTrue(l.SequenceEqual(myOut));
+        }
+
+        [Test]
         public static void TestXcorrFilteringPeaksTopN_MultipleWindows()
         {
             List<double> masses = new List<double>();
