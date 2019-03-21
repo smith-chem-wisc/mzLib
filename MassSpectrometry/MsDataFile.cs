@@ -68,6 +68,7 @@ namespace MassSpectrometry
         /// <param name="filteringParams"></param>
         public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
         {
+            Array.Sort(intensities, mArray);
             double TIC = intensities.Sum();
 
             //filter low intensites based on a percent for the whole spectrum.
@@ -210,6 +211,7 @@ namespace MassSpectrometry
 
             intensities = reducedIntensityList.ToArray();
             mArray = reducedMzList.ToArray();
+            Array.Sort(mArray, intensities);
         }
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()

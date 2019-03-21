@@ -125,7 +125,7 @@ namespace Test
             for (int i = 0; i < 200; i++)
             {
                 mzArray[i] = (double)(i + 1);
-                intArray[i] = (double)(i * Math.Abs(r.Next(1, 100) + 1d));
+                intArray[i] = (double)((i * Math.Abs(r.Next(1, 100)) + 1d));
             }
 
             List<double> l = intArray.ToList();
