@@ -369,9 +369,11 @@ namespace MassSpectrometry
             }
 
             //we've already filtered for when multiple mzs appear in a single nominal mass bin
-            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, 10, false, false);
 
-            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), 50, true);
+            int nominalWindowWidthDaltons = (int)(Math.Round((scanRangeMaxMz - scanRangeMinMz) / 10d, 0));
+            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, 10, true, false, false);
+
+            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), true);
 
             Array.Sort(genericMzArray, genericIntensityArray);
 
@@ -390,9 +392,16 @@ namespace MassSpectrometry
 
                 for (int j = low; j <= high; j++)
                 {
-                    scaleValue += genericIntensityArray[j];
+                    if (!double.IsNaN(genericIntensityArray[j]))
+                    {
+                        scaleValue += genericIntensityArray[j];
+                    }
+                    else
+                    {
+                        denominator--;
+                    }
                 }
-                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (denominator) * scaleValue);
+                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (((double)Math.Max(1,denominator)) * scaleValue));
             }
             genericIntensityArray = scaledIntensities;
 
@@ -401,7 +410,7 @@ namespace MassSpectrometry
 
             for (int i = 0; i < genericIntensityArray.Count(); i++)
             {
-                if(genericIntensityArray[i] > 0.0001)
+                if (genericIntensityArray[i] > 0.0001)
                 {
                     intensites.Add(genericIntensityArray[i]);
                     masses.Add(genericMzArray[i]);
@@ -410,9 +419,6 @@ namespace MassSpectrometry
 
             YArray = intensites.ToArray();
             XArray = masses.ToArray();
-
-            //YArray = genericIntensityArray;
-            //XArray = genericMzArray;
             XcorrProcessed = true;
         }
 

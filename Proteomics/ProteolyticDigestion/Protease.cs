@@ -28,8 +28,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public override bool Equals(object obj)
         {
-            var a = obj as Protease;
-            return a != null
+            return obj is Protease a
                 && (a.Name == null && Name == null || a.Name.Equals(Name));
         }
 
@@ -153,7 +152,6 @@ namespace Proteomics.ProteolyticDigestion
             {
                 peptides.AddRange(SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptidesLength, maxPeptidesLength));
             }
-
             else
             {
                 throw new NotImplementedException();
@@ -170,14 +168,33 @@ namespace Proteomics.ProteolyticDigestion
         internal List<int> GetDigestionSiteIndices(string proteinSequence)
         {
             var indices = new List<int>();
+
             for (int r = 0; r < proteinSequence.Length; r++)
             {
+                var cutSiteIndex = -1;
+                bool cleavagePrevented = false;
+
                 foreach (DigestionMotif motif in DigestionMotifs)
                 {
-                    if (motif.Fits(proteinSequence, r) && r + motif.CutIndex < proteinSequence.Length)
+                    var motifResults = motif.Fits(proteinSequence, r);
+                    bool motifFits = motifResults.Item1;
+                    bool motifPreventsCleavage = motifResults.Item2;
+
+                    if (motifFits && r + motif.CutIndex < proteinSequence.Length)
                     {
-                        indices.Add(r + motif.CutIndex);
+                        cutSiteIndex = Math.Max(r + motif.CutIndex, cutSiteIndex);
                     }
+
+                    if (motifPreventsCleavage) // if any motif prevents cleave
+                    {
+                        cleavagePrevented = true;
+                    }
+                }
+
+                // if no motif prevents cleave
+                if (!cleavagePrevented && cutSiteIndex != -1)
+                {
+                    indices.Add(cutSiteIndex);
                 }
             }
 
@@ -312,7 +329,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
-            
+
             // It's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1; i++)
             {
