@@ -156,6 +156,13 @@ namespace Test
             //code coverage
             SilacLabel testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage = new SilacLabel();
             Assert.IsTrue(testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage != null);
+
+            Assert.IsTrue(silacLabels[0].AdditionalLabels == null);
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('Y', 'c', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass));
+            Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 1);
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('M', 'd', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass));
+            Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 2);
+
         }
 
         [Test]
