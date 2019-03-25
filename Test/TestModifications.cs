@@ -158,11 +158,14 @@ namespace Test
             Assert.IsTrue(testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage != null);
 
             Assert.IsTrue(silacLabels[0].AdditionalLabels == null);
-            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('Y', 'c', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass));
+            //The zero index label is K to a with a mass diff of 6
+            //the one index label is K to b with a mass diff of 8
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('D', 'c', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass - 1));
             Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 1);
-            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('M', 'd', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass));
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('E', 'd', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass + 1));
             Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 2);
-
+            silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
+            Assert.IsTrue(silacDigest.Count == 9);
         }
 
         [Test]
