@@ -197,11 +197,9 @@ namespace MassSpectrometry
 
             foreach (int rangeIndex in mzInRange.Keys)
             {
-                //List<double> tempIntList = new List<double>();
                 List<double> tempMzList = new List<double>();
                 foreach (int arrayIndex in mzInRange[rangeIndex])
                 {
-                    //tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
                 //There is no need to do any normalization unless there are multiple windows
