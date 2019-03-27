@@ -4,6 +4,7 @@ using MassSpectrometry;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Test
@@ -140,6 +141,50 @@ namespace Test
             List<double> myOut = intArray.ToList();
             myOut.Sort((x, y) => y.CompareTo(x));
             Assert.IsTrue(l.SequenceEqual(myOut));
+        }
+
+        [Test]
+        public static void TestXCcorrFromMM()
+        {
+            var expectedResultsUnprocessed = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\unprocessedMzAndIntensities.tsv"));
+
+            List<double> mzsList = new List<double>();
+            List<double> intList = new List<double>();
+
+            foreach (string item in expectedResultsUnprocessed)
+            {
+                double originalMz = double.Parse(item.Split(new char[] { '\t' })[0]);
+                double originalIntensity = double.Parse(item.Split(new char[] { '\t' })[1]);
+
+                mzsList.Add(originalMz);
+                intList.Add(originalIntensity);
+            }
+
+            var mzArray = mzsList.ToArray();
+            var intArray = intList.ToArray();
+
+            var spectrum = new MzSpectrum(mzArray, intArray, false);
+            spectrum.XCorrPrePreprocessing(0, 1969, 827.421691894531);
+
+            Assert.AreEqual(430, spectrum.XArray.Count());
+            Assert.AreEqual(430, spectrum.YArray.Count());
+
+
+            var expectedResultsProcessed = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\mzlibReducedMzXCorr.tsv"));
+            List<double> processed_mzsList = new List<double>();
+            List<double> processed_intList = new List<double>();
+
+            foreach (string item in expectedResultsProcessed)
+            {
+                double processedMz = double.Parse(item.Split(new char[] { '\t' })[0]);
+                double processedIntensity = double.Parse(item.Split(new char[] { '\t' })[1]);
+
+                processed_mzsList.Add(processedMz);
+                processed_intList.Add(processedIntensity);
+            }
+
+            Assert.That(spectrum.XArray.Select(p => Math.Round(p, 3)).SequenceEqual(processed_mzsList.Select(p => Math.Round(p, 3))));
+            Assert.That(spectrum.YArray.Select(p => Math.Round(p, 3)).SequenceEqual(processed_intList.Select(p => Math.Round(p, 3))));
         }
 
         [Test]

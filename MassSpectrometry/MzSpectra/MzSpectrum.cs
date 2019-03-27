@@ -369,7 +369,6 @@ namespace MassSpectrometry
             }
 
             //we've already filtered for when multiple mzs appear in a single nominal mass bin
-
             int nominalWindowWidthDaltons = (int)(Math.Round((scanRangeMaxMz - scanRangeMinMz) / 10d, 0));
             FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, 10, true, false, false);
 
@@ -401,8 +400,14 @@ namespace MassSpectrometry
                         denominator--;
                     }
                 }
-                scaledIntensities[i] = Math.Max(0, genericIntensityArray[i] - 1d / (((double)Math.Max(1,denominator)) * scaleValue));
+                if(i>200 && genericIntensityArray[i] == 0)
+                {
+                    int w = 0;
+                    w++;
+                }
+                scaledIntensities[i] = Math.Max(0, (genericIntensityArray[i] - (scaleValue/ (double)Math.Max(1, denominator))));
             }
+
             genericIntensityArray = scaledIntensities;
 
             List<double> intensites = new List<double>();
@@ -417,8 +422,9 @@ namespace MassSpectrometry
                 }
             }
 
-            YArray = intensites.ToArray();
-            XArray = masses.ToArray();
+            this.YArray = intensites.ToArray();
+            this.XArray = masses.ToArray();
+            Array.Sort(this.XArray, this.YArray);
             XcorrProcessed = true;
         }
 

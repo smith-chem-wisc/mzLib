@@ -78,8 +78,7 @@ namespace MassSpectrometry
                 double cutOff = maxIntensity * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value;
                 for (int i = 0; i < intensities.Length; i++)
                 {
-                    
-                    if (intensities[i] <= cutOff && intensities[i]>0)
+                    if (intensities[i] <= cutOff && intensities[i] > 0)
                     {
                         intensities[i] = 0;
                     }
@@ -151,10 +150,11 @@ namespace MassSpectrometry
             }
 
             Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
+            Dictionary<int, List<double>> mzRangeIntensities = new Dictionary<int, List<double>>(); //index of range and  list of index values in mArray
             for (int i = 0; i < ranges.Count; i++)
-
             {
                 mzInRange.Add(i, new List<int>());
+                mzRangeIntensities.Add(i, new List<double>());
             }
 
             //we're going to keep track of the array indicies b/c that's easier than the m/zs b/c rounding issues
@@ -173,39 +173,52 @@ namespace MassSpectrometry
 
             int countOfPeaksToKeepPerWindow = filteringParams.NumberOfPeaksToKeepPerWindow ?? int.MaxValue;
 
+            foreach (int rangeIndex in mzInRange.Keys)
+            {
+                List<double> tempIntList = new List<double>();
+                foreach (int arrayIndex in mzInRange[rangeIndex])
+                {
+                    tempIntList.Add(intensities[arrayIndex]);
+                }
+                mzRangeIntensities[rangeIndex] = tempIntList;
+            }
+
+            int countOfRangesWithIntensities = 0;
+            foreach (int range in mzRangeIntensities.Keys)
+            {
+                if (mzRangeIntensities[range].Sum() > 0)
+                {
+                    countOfRangesWithIntensities++;
+                }
+            }
+
             List<double> reducedMzList = new List<double>();
             List<double> reducedIntensityList = new List<double>();
 
             foreach (int rangeIndex in mzInRange.Keys)
             {
-                List<double> tempIntList = new List<double>();
+                //List<double> tempIntList = new List<double>();
                 List<double> tempMzList = new List<double>();
                 foreach (int arrayIndex in mzInRange[rangeIndex])
                 {
-                    tempIntList.Add(intensities[arrayIndex]);
+                    //tempIntList.Add(intensities[arrayIndex]);
                     tempMzList.Add(mArray[arrayIndex]);
                 }
                 //There is no need to do any normalization unless there are multiple windows
                 if (filteringParams.NormalizePeaksAcrossAllWindows && mzInRange.Keys.Count > 1)
                 {
-                    double max = tempIntList.Max();
-                    if (max == 0)
+                    double sum = mzRangeIntensities[rangeIndex].Sum();
+                    if (sum > 0)
                     {
-                        max = 1;
+                        double normalizationFactor = TIC / sum / countOfRangesWithIntensities;
+                        mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x * normalizationFactor).ToList();
                     }
-
-                    tempIntList = tempIntList.Select(x => x / max).ToList();
-
-                    double sum = tempIntList.Sum();
-                    double normalizationFactor = TIC / sum / (double)mzInRange.Keys.Count;
-
-                    tempIntList = tempIntList.Select(x => x * normalizationFactor).ToList();
                 }
 
-                if (tempMzList.Count > 0 && tempIntList.Count > 0)
+                if (tempMzList.Count > 0 && mzRangeIntensities[rangeIndex].Count > 0)
                 {
                     reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
-                    reducedIntensityList.AddRange(tempIntList.GetRange(0, Math.Min(tempIntList.Count, countOfPeaksToKeepPerWindow)));
+                    reducedIntensityList.AddRange(mzRangeIntensities[rangeIndex].GetRange(0, Math.Min(mzRangeIntensities[rangeIndex].Count, countOfPeaksToKeepPerWindow)));
                 }
             }
 
