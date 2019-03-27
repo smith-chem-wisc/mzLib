@@ -400,11 +400,6 @@ namespace MassSpectrometry
                         denominator--;
                     }
                 }
-                if(i>200 && genericIntensityArray[i] == 0)
-                {
-                    int w = 0;
-                    w++;
-                }
                 scaledIntensities[i] = Math.Max(0, (genericIntensityArray[i] - (scaleValue/ (double)Math.Max(1, denominator))));
             }
 
