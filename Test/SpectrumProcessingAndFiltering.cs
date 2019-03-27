@@ -238,10 +238,10 @@ namespace Test
             Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(866.8223617654503, 5), Math.Round(spectrum.YArray[0], 5));
+            Assert.AreEqual(Math.Round(739.97202397641854, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(739.5932595440305, 5), Math.Round(spectrum.YArray[373], 5));
+            Assert.AreEqual(Math.Round(586.85558921957283, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]
@@ -282,7 +282,7 @@ namespace Test
             ms2.XCorrPrePreprocessing(0, 1969, precursorMass.ToMz(1));
 
             List<double> X = new List<double>() { 130.07, 148.08, 199.1, 209.11, 227.12, 245.12, 263.13, 296.15, 306.16, 324.16, 358.18, 376.19, 397.2, 407.21, 425.22, 459.23, 477.24, 510.26, 520.26, 538.27, 556.28, 574.29, 625.32, 635.32, 653.33, 685.35, 703.36, 782.4 };
-            List<double> Y = new List<double>() { 5.26, 3.72, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 0.90, 1.50, 1.50, 1.50, 1.50, 1.50, 1.49 };
+            List<double> Y = new List<double>() { 13.00, 9.13, 2.02, 2.11, 2.16, 2.14, 2.13, 2.14, 2.14, 2.14, 2.13, 2.14, 2.14, 2.14, 2.14, 2.14, 2.14, 2.14, 2.14, 2.16, 2.15, 2.12, 3.61, 3.61, 3.62, 3.62, 3.64, 3.72, 13.00};
 
             for (int i = 0; i < X.Count; i++)
             {
