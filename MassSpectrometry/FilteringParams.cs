@@ -30,12 +30,18 @@ namespace MassSpectrometry
             if (windowWidthThomsons != null && windowWidthThomsons > 0)
             {
                 WindowWidthThomsons = windowWidthThomsons.Value;
-                NumberOfWindows = 0;
+                NumberOfWindows = null;
             }
             else if (numberOfWindows != null && numberOfWindows > 0)
             {
-                WindowWidthThomsons = 0;
+                WindowWidthThomsons = null;
                 NumberOfWindows = numberOfWindows.Value;
+            }
+            else
+            {
+                //shouldn't happen, but worst case is we leave everything in one window
+                NumberOfWindows = 1;
+                WindowWidthThomsons = null;
             }
             NormalizePeaksAcrossAllWindows = normalizePeaksAcrossAllWindows;
             ApplyTrimmingToMs1 = applyTrimmingToMs1;

@@ -129,7 +129,7 @@ namespace MassSpectrometry
                     }
                 }
             }
-            else if (filteringParams.NumberOfWindows != null && filteringParams.NumberOfWindows > 0)
+            else if (filteringParams.NumberOfWindows != null && filteringParams.NumberOfWindows > 1)
             {
                 double mzRangeInOneWindow = (scanRangeMaxMz - scanRangeMinMz) / filteringParams.NumberOfWindows.Value;
 
@@ -203,14 +203,23 @@ namespace MassSpectrometry
                     tempMzList.Add(mArray[arrayIndex]);
                 }
                 //There is no need to do any normalization unless there are multiple windows
-                if (filteringParams.NormalizePeaksAcrossAllWindows && mzInRange.Keys.Count > 1)
+                if (filteringParams.NormalizePeaksAcrossAllWindows)
                 {
-                    double sum = mzRangeIntensities[rangeIndex].Sum();
-                    if (sum > 0)
+
+                    double max = mzRangeIntensities[rangeIndex].Max();
+                    if (max == 0)
                     {
-                        double normalizationFactor = TIC / sum / countOfRangesWithIntensities;
-                        mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x * normalizationFactor).ToList();
+                        max = 1;
                     }
+                    mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x / max * 50.0000).ToList();
+
+
+                    //double sum = mzRangeIntensities[rangeIndex].Sum();
+                    //if (sum > 0)
+                    //{
+                    //    double normalizationFactor = TIC / sum / countOfRangesWithIntensities;
+                    //    mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x * normalizationFactor).ToList();
+                    //}
                 }
 
                 if (tempMzList.Count > 0 && mzRangeIntensities[rangeIndex].Count > 0)
