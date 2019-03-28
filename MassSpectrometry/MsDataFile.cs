@@ -213,6 +213,7 @@ namespace MassSpectrometry
                     }
                     mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x / max * 50.0000).ToList();
 
+                    //Saving b/c I might want to put it back.
 
                     //double sum = mzRangeIntensities[rangeIndex].Sum();
                     //if (sum > 0)
