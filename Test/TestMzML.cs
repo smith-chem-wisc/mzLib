@@ -188,7 +188,7 @@ namespace Test
 
             if (normalize)
             {
-                Assert.AreEqual(1000.0d, Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+                Assert.AreEqual(50.0d, Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
             }
             else
             {

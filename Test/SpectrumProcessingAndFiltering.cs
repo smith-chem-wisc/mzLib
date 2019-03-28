@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace Test
 {
@@ -42,7 +43,7 @@ namespace Test
             }
             if (normalize)
             {
-                Assert.AreEqual(123.75, intArray.Max());
+                Assert.That(50, Is.EqualTo(intArray.Max()).Within(0.1));
             }
         }
 
@@ -144,50 +145,6 @@ namespace Test
         }
 
         [Test]
-        public static void TestXCcorrFromMM()
-        {
-            var expectedResultsUnprocessed = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\unprocessedMzAndIntensities.tsv"));
-
-            List<double> mzsList = new List<double>();
-            List<double> intList = new List<double>();
-
-            foreach (string item in expectedResultsUnprocessed)
-            {
-                double originalMz = double.Parse(item.Split(new char[] { '\t' })[0]);
-                double originalIntensity = double.Parse(item.Split(new char[] { '\t' })[1]);
-
-                mzsList.Add(originalMz);
-                intList.Add(originalIntensity);
-            }
-
-            var mzArray = mzsList.ToArray();
-            var intArray = intList.ToArray();
-
-            var spectrum = new MzSpectrum(mzArray, intArray, false);
-            spectrum.XCorrPrePreprocessing(0, 1969, 827.421691894531);
-
-            Assert.AreEqual(430, spectrum.XArray.Count());
-            Assert.AreEqual(430, spectrum.YArray.Count());
-
-
-            var expectedResultsProcessed = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\mzlibReducedMzXCorr.tsv"));
-            List<double> processed_mzsList = new List<double>();
-            List<double> processed_intList = new List<double>();
-
-            foreach (string item in expectedResultsProcessed)
-            {
-                double processedMz = double.Parse(item.Split(new char[] { '\t' })[0]);
-                double processedIntensity = double.Parse(item.Split(new char[] { '\t' })[1]);
-
-                processed_mzsList.Add(processedMz);
-                processed_intList.Add(processedIntensity);
-            }
-
-            Assert.That(spectrum.XArray.Select(p => Math.Round(p, 3)).SequenceEqual(processed_mzsList.Select(p => Math.Round(p, 3))));
-            Assert.That(spectrum.YArray.Select(p => Math.Round(p, 3)).SequenceEqual(processed_intList.Select(p => Math.Round(p, 3))));
-        }
-
-        [Test]
         public static void TestXcorrFilteringPeaksTopN_MultipleWindows()
         {
             List<double> masses = new List<double>();
@@ -238,17 +195,17 @@ namespace Test
             Assert.AreEqual(0, spectrum.YArray.Where(i => i == 0).ToList().Count);
 
             //first peak with intensity
-            Assert.AreEqual(Math.Round(739.97202397641854, 5), Math.Round(spectrum.YArray[0], 5));
+            Assert.AreEqual(Math.Round(21.170981474538145, 5), Math.Round(spectrum.YArray[0], 5));
 
             //last peak with intensity
-            Assert.AreEqual(Math.Round(586.85558921957283, 5), Math.Round(spectrum.YArray[373], 5));
+            Assert.AreEqual(Math.Round(39.674211517419245, 5), Math.Round(spectrum.YArray[373], 5));
         }
 
         [Test]
         public static void ProcessXcorrInMzSpectrum()
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
-            string origDataFile = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
@@ -262,6 +219,39 @@ namespace Test
 
             Assert.AreEqual(6, scans[0].MassSpectrum.XArray.Count());
             Assert.AreEqual(20, scans[1].MassSpectrum.XArray.Count());
+        }
+
+        [Test]
+        public static void ProcessXcorrInB6MzSpectrum()
+        {
+            Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\sliced_b6.mzML");
+            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, false);
+
+            string expectedResultFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\Working_86.tsv");
+
+            List<string> expectedResults = File.ReadAllLines(expectedResultFile, Encoding.UTF8).ToList();
+
+            MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+
+            var scans = MyMsDataFiles[origDataFile].GetAllScansList();
+
+            List<double> xArrayProcessed = new List<double>();
+            foreach (MsDataScan scan in scans.Where(s => s.MsnOrder > 1))
+            {
+                if(scan.OneBasedScanNumber == 86)
+                {
+                    scan.MassSpectrum.XCorrPrePreprocessing(0, 1969, scan.IsolationMz.Value);
+                    xArrayProcessed = scan.MassSpectrum.XArray.ToList();
+                }
+                
+            }
+
+            for (int i = 0; i < expectedResults.Count; i++)
+            {
+                Assert.That(double.Parse(expectedResults[i]), Is.EqualTo(xArrayProcessed[i]).Within(0.001));
+            }
+            
         }
 
         [Test]
@@ -282,7 +272,7 @@ namespace Test
             ms2.XCorrPrePreprocessing(0, 1969, precursorMass.ToMz(1));
 
             List<double> X = new List<double>() { 130.07, 148.08, 199.1, 209.11, 227.12, 245.12, 263.13, 296.15, 306.16, 324.16, 358.18, 376.19, 397.2, 407.21, 425.22, 459.23, 477.24, 510.26, 520.26, 538.27, 556.28, 574.29, 625.32, 635.32, 653.33, 685.35, 703.36, 782.4 };
-            List<double> Y = new List<double>() { 13.00, 9.13, 2.02, 2.11, 2.16, 2.14, 2.13, 2.14, 2.14, 2.14, 2.13, 2.14, 2.14, 2.14, 2.14, 2.14, 2.14, 2.14, 2.14, 2.16, 2.15, 2.12, 3.61, 3.61, 3.62, 3.62, 3.64, 3.72, 13.00};
+            List<double> Y = new List<double>() { 49.10, 34.13, 47.78, 48.11, 48.01, 47.68, 47.35, 47.68, 47.68, 47.68, 47.35, 47.68, 47.68, 47.68, 47.68, 47.68, 47.68, 47.68, 47.68, 48.01, 48.01, 47.68, 48.01, 48.01, 48.34, 48.34, 48.68, 49.67, 49.67 };
 
             for (int i = 0; i < X.Count; i++)
             {
