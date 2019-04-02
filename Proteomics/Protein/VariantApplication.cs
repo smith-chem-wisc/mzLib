@@ -13,14 +13,7 @@ namespace Proteomics
         /// <param name="sequenceVariation"></param>
         public static string GetAccession(Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations)
         {
-            if (protein.Accession.Contains("DECOY_"))
-            {
-                string[] accSplit = protein.Accession.Split('_');
-                string baseAcc = protein.Accession.StartsWith("DECOY_") ? $"{accSplit[0]}_{accSplit[1]}" : accSplit[0];
-                return baseAcc +
-                    (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
-            }
-            
+                        
             return protein.Accession + 
                 (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
         }

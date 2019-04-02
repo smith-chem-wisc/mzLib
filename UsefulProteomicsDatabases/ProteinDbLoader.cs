@@ -57,8 +57,7 @@ namespace UsefulProteomicsDatabases
                 //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
-            }
-            List<Protein> potentialTargets = new List<Protein>();
+            }            
             List<Protein> targets = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -84,32 +83,13 @@ namespace UsefulProteomicsDatabases
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
-                                potentialTargets.Add(newProtein);
+                                targets.Add(newProtein);
                             }
                         }
                     }
                 }
             }
-            HashSet<string> unique_accessions = new HashSet<string>();
-            int unique_identifier = 1;
-            foreach (var protein in potentialTargets)
-            {
-                if (unique_accessions.Contains(protein.Accession))
-                {
-                    unique_identifier++;
-                    string accession = protein.Accession + "_" + unique_identifier.ToString();
-                    Protein newProtein = new Protein(protein.BaseSequence, accession, protein.Organism, protein.GeneNames.ToList(), name: protein.Name, fullName: protein.FullName, isContaminant: isContaminant, databaseFilePath: proteinDbLocation);
-                    targets.Add(newProtein);
-                }
-                else
-                {
-                    unique_accessions.Add(protein.Accession);
-                    unique_identifier = 1;
-                    targets.Add(protein);
-
-                }
-            }
-
+            
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
