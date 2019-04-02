@@ -112,7 +112,7 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList(); ;
+            return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
         }
 
         /// <summary>
