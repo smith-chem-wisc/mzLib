@@ -144,6 +144,7 @@
     <None Include="DatabaseTests\fasta.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="DatabaseTests\Isoform.fasta" />
     <None Include="DatabaseTests\mzlibReducedMzXCorr.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
