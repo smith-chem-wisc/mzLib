@@ -174,11 +174,6 @@ namespace UsefulProteomicsDatabases
         {
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 1;
-            //string accession = null;
-            //string name = null;
-            //string fullName = null;
-            //string organism = null;
-            //List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
 
