@@ -210,11 +210,13 @@ namespace UsefulProteomicsDatabases
                             accession = proteinDetails[0].Substring(0).TrimEnd();
                         }
                         string sequence = "";
+                        StringBuilder sb = new StringBuilder();
                         int numberOfLines = proteinDetails.Count();
                         for (int i = 1; i < numberOfLines; i++)
                         {
-                            sequence = sequence + proteinDetails[i];
+                            sb.Append( proteinDetails[i]);
                         }
+                        sequence = sb.ToString();
                         if (unique_accessions.Contains(accession))
                         {
                             unique_identifier++;
