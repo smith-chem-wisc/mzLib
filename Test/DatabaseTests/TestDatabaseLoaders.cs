@@ -51,7 +51,30 @@ namespace Test
         {
             List<string> errors = new List<string>();
             var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out errors);
-            int stop = 0;
+            Assert.AreEqual("Q13409", protein[0].Accession);
+            Assert.AreEqual("Q13409_2", protein[1].Accession);
+            Assert.AreEqual("Q13409_3", protein[2].Accession);
+            Assert.AreEqual("Q13813", protein[3].Accession);
+            Assert.AreEqual("Q13813_2", protein[4].Accession);
+            Assert.AreEqual("Q13813_3", protein[5].Accession);
+            Assert.AreEqual("Q14103", protein[6].Accession);
+            Assert.AreEqual("Q14103_2", protein[7].Accession);
+            Assert.AreEqual("Q14103_3", protein[8].Accession);
+            Assert.AreEqual("Q14103_4", protein[9].Accession);
+            Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            var xml = ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));
+            Dictionary<string, Modification> unknownMod = new Dictionary<string, Modification>();
+            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"), true, DecoyType.None, null, false, null, out unknownMod);
+            Assert.AreEqual("Q13409", proteinXml[0].Accession);
+            Assert.AreEqual("Q13409_2", proteinXml[1].Accession);
+            Assert.AreEqual("Q13409_3", proteinXml[2].Accession);
+            Assert.AreEqual("Q13813", proteinXml[3].Accession);
+            Assert.AreEqual("Q13813_2", proteinXml[4].Accession);
+            Assert.AreEqual("Q13813_3", proteinXml[5].Accession);
+            Assert.AreEqual("Q14103", proteinXml[6].Accession);
+            Assert.AreEqual("Q14103_2", proteinXml[7].Accession);
+            Assert.AreEqual("Q14103_3", proteinXml[8].Accession);
+            Assert.AreEqual("Q14103_4", proteinXml[9].Accession);
         }
 
         [Test]
