@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1, 
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
@@ -57,7 +57,7 @@ namespace UsefulProteomicsDatabases
                 //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
-            }            
+            }
             List<Protein> targets = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -89,7 +89,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
             }
-            
+
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
@@ -153,74 +153,95 @@ namespace UsefulProteomicsDatabases
             FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors, int maxThreads = -1)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
-            int unique_identifier = 1;
+            int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
+            string accession = null;
+            string name = null;
+            string fullName = null;
+            string organism = null;
+            List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
 
             List<Protein> targets = new List<Protein>();
-            
 
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Stream fastaFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
-                    stream;               
-                StreamReader fasta = new StreamReader(fastaFileStream);
-                string file = fasta.ReadToEnd();
-                List<string> allProteins = file.Split('>').ToList();
+                    stream;
 
-                foreach (var proteinEntry in allProteins)
+                StringBuilder sb = null;
+                StreamReader fasta = new StreamReader(fastaFileStream);
+
+                while (true)
                 {
-                    if (proteinEntry != "")
+                    string line = "";
+                    line = fasta.ReadLine();
+                    if (line == null) { break; }
+
+                    if (line.StartsWith(">"))
                     {
-                        var proteinDetails = proteinEntry.Split('\n', '\r');
-                        
-                        var accession = ApplyRegex(accessionRegex, proteinDetails[0]);
-                        var fullName = ApplyRegex(fullNameRegex, proteinDetails[0]);
-                        var name = ApplyRegex(nameRegex, proteinDetails[0]);
-                        var organism = ApplyRegex(organismRegex, proteinDetails[0]);
-                        var geneNameString = ApplyRegex(geneNameRegex, proteinDetails[0]);
-                        List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
+                        accession = ApplyRegex(accessionRegex, line);
+                        fullName = ApplyRegex(fullNameRegex, line);
+                        name = ApplyRegex(nameRegex, line);
+                        organism = ApplyRegex(organismRegex, line);
+                        string geneNameString = ApplyRegex(geneNameRegex, line);
                         if (geneNameString != null)
                         {
                             geneName.Add(new Tuple<string, string>("primary", geneNameString));
                         }
+
                         if (accession == null || accession == "")
                         {
-                            accession = proteinDetails[0].Substring(0).TrimEnd();
+                            accession = line.Substring(1).TrimEnd();
                         }
-                        string sequence = "";
-                        StringBuilder sb = new StringBuilder();
-                        int numberOfLines = proteinDetails.Count();
-                        for (int i = 1; i < numberOfLines; i++)
+
+                        sb = new StringBuilder();
+                    }
+                    else if (sb != null)
+                    {
+                        sb.Append(line.Trim());
+                    }
+
+                    if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
+                    {
+                        string sequence = substituteWhitespace.Replace(sb.ToString(), "");
+                        if (unique_accessions.Contains(accession)) //this will happen for isoforms
                         {
-                            sb.Append( proteinDetails[i]);
-                        }
-                        sequence = sb.ToString();
-                        if (unique_accessions.Contains(accession))
-                        {
-                            unique_identifier++;
-                            accession += "_" + unique_identifier.ToString();  
-                        }
-                        else
-                        {
-                            unique_identifier = 1;
+                            string originalAccession = accession; //save the original
+                            accession += "_" + unique_identifier.ToString(); //add a number onto it
+                            while (unique_accessions.Contains(accession)) //if that number was already added
+                            {
+                                unique_identifier++; //keep increasing it
+                                accession = originalAccession + "_" + unique_identifier.ToString(); //try the new number
+                            }
+                            unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
-                        isContaminant: isContaminant, databaseFilePath: proteinDbLocation);
+                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation);
                         if (protein.Length == 0)
                         {
-                            errors.Add("Line" + proteinEntry + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
+                            errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
                         }
                         else
                         {
                             targets.Add(protein);
                         }
+
+                        accession = null;
+                        name = null;
+                        fullName = null;
+                        organism = null;
+                        geneName = new List<Tuple<string, string>>();
                     }
-                       
+
+                    // no input left
+                    if (fasta.Peek() == -1)
+                    {
+                        break;
+                    }
                 }
-              
             }
             if (!targets.Any())
             {
