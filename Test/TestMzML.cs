@@ -75,7 +75,7 @@ namespace Test
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
-            FilteringParams filter = new FilteringParams(200, 0.01, 1, false, true);
+            FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
 
@@ -95,17 +95,15 @@ namespace Test
         [Test]
         public static void TestPeakTrimmingWithOneWindow()
         {
-            Random rand = new Random(100);
             int numPeaks = 200;
             double minRatio = 0.01;
-            int numWindows = 1;
 
-            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, null, 1, false, true, false);
             List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
 
             for (int mz = 400; mz < 1600; mz++)
             {
-                myPeaks.Add((mz, rand.Next(1000, 1000000)));
+                myPeaks.Add((mz, 10d*(double)mz));
             }
 
             double myMaxIntensity = myPeaks.Max(p => p.intensity);
@@ -144,6 +142,70 @@ namespace Test
         }
 
         [Test]
+        [TestCase(null, null, null, null, null, true, false, 1000)] // no filtering return all peaks
+        [TestCase(200, null, null, null, null, true, false, 200)] // top 200 peaks only
+        [TestCase(null, 0.01, null, null, null, true, false, 990)] // peaks above intensity ratio
+        [TestCase(200, null, null, 2, null, true, false, 400)] // top 200 peaks in each of two windows
+        [TestCase(200, null, null, 20, null, true, false, 1000)] // top 200 peaks in each of twenty windows exceeds actual peak count so return all peaks
+        [TestCase(200, null, 500, null, null, true, false, 400)] // top 200 peaks in each 500 Da Window
+        [TestCase(200, null, 100, null, null, true, false, 1000)] // top 200 peaks in each 100 Da Window exceeds actual peak count so return all peaks
+        [TestCase(null, null, null, null, true, true, false, 1000)] // no filtering return all peaks max intensity of 100
+        [TestCase(200, null, 500, 20, null, true, false, 400)] // nominal width takes precedent over number of windows
+        public static void TestPeakTrimmingVarietyPack(int? numberOfPeaksToKeepPerWindow, double? minimumAllowedIntensityRatioToBasePeak, int? nominalWindowWidthDaltons, int? numberOfWindows, bool normalize, bool applyTrimminToMs1, bool applyTrimmingToMsMs, int expectedPeakCount)
+        {
+            var testFilteringParams = new FilteringParams(numberOfPeaksToKeepPerWindow, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, numberOfWindows, normalize, applyTrimminToMs1, applyTrimmingToMsMs);
+            List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>();
+
+            for (int mz = 1; mz <= 1000; mz++)
+            {
+                myPeaks.Add((mz, mz));
+            }
+
+            double myMaxIntensity = myPeaks.Max(p => p.intensity);
+
+            double[] intensities1 = myPeaks.Select(p => p.intensity).ToArray();
+            double[] mz1 = myPeaks.Select(p => p.mz).ToArray();
+
+            MzSpectrum massSpec1 = new MzSpectrum(mz1, intensities1, false);
+            MsDataScan[] scans = new MsDataScan[]{
+                new MsDataScan(massSpec1, 1, 1, true, Polarity.Positive, 1, new MzRange(1, 1000), "f", MZAnalyzerType.Orbitrap, massSpec1.SumOfAllY, null, null, "1")
+            };
+            FakeMsDataFile f = new FakeMsDataFile(scans);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(f, Path.Combine(TestContext.CurrentContext.TestDirectory, "variety_mzml.mzML"), false);
+
+            Mzml ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "variety_mzml.mzML"), testFilteringParams);
+
+            int expNumPeaks = ok.GetAllScansList().First().MassSpectrum.XArray.Length;
+            double expMinRatio = ok.GetAllScansList().First().MassSpectrum.YArray.Min(p => p / ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY).Value;
+            List<(double mz, double intensity)> myExpPeaks = new List<(double mz, double intensity)>();
+
+            for (int i = 0; i < ok.GetAllScansList().First().MassSpectrum.YArray.Length; i++)
+            {
+                myExpPeaks.Add((ok.GetAllScansList().First().MassSpectrum.XArray[i], ok.GetAllScansList().First().MassSpectrum.YArray[i]));
+            }
+
+            Assert.AreEqual(expectedPeakCount, myExpPeaks.Count());
+
+            if (normalize)
+            {
+                Assert.AreEqual(50.0d, Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            }
+            else
+            {
+                Assert.That(Math.Round(myMaxIntensity, 0) == Math.Round(ok.GetAllScansList().First().MassSpectrum.YofPeakWithHighestY.Value, 0));
+            }
+
+            if (minimumAllowedIntensityRatioToBasePeak != null && minimumAllowedIntensityRatioToBasePeak > 0)
+            {
+                Assert.That(expMinRatio >= minimumAllowedIntensityRatioToBasePeak.Value);
+            }
+            else
+            {
+                Assert.That(expMinRatio >= 0);
+            }
+        }
+
+        [Test]
         public static void TestPeakTrimmingWithTooManyWindows()
         {
             Random rand = new Random();
@@ -151,7 +213,7 @@ namespace Test
             double minRatio = 0.01;
             int numWindows = 10;
 
-            var testFilteringParams = new FilteringParams(numPeaks, minRatio, numWindows, true, true);
+            var testFilteringParams = new FilteringParams(numPeaks, minRatio, null, numWindows, false, true, true);
             // only 1 peak but 10 windows
             List<(double mz, double intensity)> myPeaks = new List<(double mz, double intensity)>
             {
@@ -193,7 +255,7 @@ namespace Test
 
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), false);
 
-            var testFilteringParams = new FilteringParams(200, 0.01, 5, true, true);
+            var testFilteringParams = new FilteringParams(200, 0.01, null, 5, false, true, true);
             ok = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "mzmlWithEmptyScan2.mzML"), testFilteringParams);
         }
 

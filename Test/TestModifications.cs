@@ -152,6 +152,20 @@ namespace Test
 
             Assert.IsTrue(Math.Round(silacPeptideLightMonoisotopicMass + heavyLabel.MonoisotopicMass, 5).Equals(Math.Round(silacPeptideHeavyMonoisotopicMass + lysine.MonoisotopicMass, 5))); //check that the residue masses were succesfully added
             Assert.IsTrue(Math.Round(silacPeptideHeavyMonoisotopicMass + heavierLabel.MonoisotopicMass, 5).Equals(Math.Round(silacPeptideHeavierMonoisotopicMass + heavyLabel.MonoisotopicMass, 5))); //check that the residue masses were succesfully added
+
+            //code coverage
+            SilacLabel testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage = new SilacLabel();
+            Assert.IsTrue(testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage != null);
+
+            Assert.IsTrue(silacLabels[0].AdditionalLabels == null);
+            //The zero index label is K to a with a mass diff of 6
+            //the one index label is K to b with a mass diff of 8
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('D', 'c', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass - 1));
+            Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 1);
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('E', 'd', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass + 1));
+            Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 2);
+            silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
+            Assert.IsTrue(silacDigest.Count == 9);
         }
 
         [Test]

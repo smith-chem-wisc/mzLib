@@ -68,11 +68,12 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="silacSequence"></param>
-        public Protein(Protein originalProtein, string silacSequence)
+        /// <param name="silacAccession"></param>
+        public Protein(Protein originalProtein, string silacSequence, string silacAccession)
         {
             BaseSequence = silacSequence;
-            NonVariantProtein = this;
-            Accession = originalProtein.Accession;
+            Accession = silacAccession;
+            NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
@@ -89,6 +90,7 @@ namespace Proteomics
             DatabaseReferences = originalProtein.DatabaseReferences;
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
+            DatabaseFilePath = originalProtein.DatabaseFilePath;
         }
 
         /// <summary>
@@ -217,27 +219,6 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// The protein object uses the default equals method for speed, 
-        /// but note that two protein objects with the same information will not be equal by this method.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <returns></returns>
-        public override bool Equals(object obj)
-        {
-            return base.Equals(obj);
-        }
-
-        /// <summary>
-        /// The protein object uses the default hash code method for speed, 
-        /// but note that two protein objects with the same information will give two different hash codes.
-        /// </summary>
-        /// <returns></returns>
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-
-        /// <summary>
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
@@ -257,7 +238,7 @@ namespace Proteomics
 
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels);
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac);
             }
             return modifiedPeptides;
         }
@@ -265,15 +246,32 @@ namespace Proteomics
         /// <summary>
         /// Add additional peptides with SILAC amino acids
         /// </summary>
-        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels)
+        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels, bool generateUnlabeledProteins)
         {
-            foreach (PeptideWithSetModifications pwsm in originalPeptides)
+            //unlabeled peptides
+            if (generateUnlabeledProteins)
             {
-                yield return pwsm;
+                foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                {
+                    yield return pwsm;
+                }
             }
+
+            //labeled peptides
             foreach (SilacLabel label in silacLabels)
             {
-                Protein silacProtein = new Protein(this, BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel));
+                string updatedBaseSequence = BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel);
+                string updatedAccession = Accession + label.MassDifference;
+                if (label.AdditionalLabels != null) //if there is more than one label per replicate (i.e both R and K were labeled in a sample before pooling)
+                {
+                    foreach (SilacLabel additionalLabel in label.AdditionalLabels)
+                    {
+                        updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
+                        updatedAccession += additionalLabel.MassDifference;
+                    }
+                }
+                Protein silacProtein = new Protein(this, updatedBaseSequence, updatedAccession);
+
                 foreach (PeptideWithSetModifications pwsm in originalPeptides)
                 {
                     //duplicate the peptides with the updated protein sequence that contains only silac labels
@@ -345,6 +343,40 @@ namespace Proteomics
                 string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
                 return name + variantTag;
             }
+        }
+
+        public int CompareTo(Protein other)
+        {
+            //permits sorting of proteins
+            return this.Accession.CompareTo(other.Accession);
+        }
+
+        //not sure if we require any additional fields for equality
+        public override bool Equals(object obj)
+        {
+            Protein otherProtein = (Protein)obj;
+
+            if (otherProtein == null)
+            {
+                return false;
+            }
+
+            return otherProtein != null && otherProtein.Accession == this.Accession && otherProtein.BaseSequence == this.BaseSequence;
+        }
+
+        /// <summary>
+        /// The protein object uses the default hash code method for speed,
+        /// but note that two protein objects with the same information will give two different hash codes.
+        /// </summary>
+        /// <returns></returns>
+        public override int GetHashCode()
+        {
+            return this.BaseSequence.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return this.Accession.ToString();
         }
     }
 }
