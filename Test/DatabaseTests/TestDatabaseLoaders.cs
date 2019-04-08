@@ -453,5 +453,21 @@ namespace Test
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
         }
+        
+        [Test]
+        public static void IsoformReadTest()
+        {
+            string filepath = @"D:\mzlib\mzLib\Test\DatabaseTests\isoformTest.fasta";
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
+            //List<FastaHeaderFieldRegex> headers = new List<FastaHeaderFieldRegex>();
+            //headers.Add(ProteinDbLoader.UniprotAccessionRegex);
+            //headers.Add(ProteinDbLoader.UniprotFullNameRegex);
+            //headers.Add(ProteinDbLoader.UniprotFullNameRegex);
+            //headers.Add(ProteinDbLoader.UniprotGeneNameRegex);
+            //headers.Add(ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
+        }
     }
 }
