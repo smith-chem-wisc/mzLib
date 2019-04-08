@@ -206,11 +206,15 @@ namespace FlashLFQ
             return _results;
         }
 
+        /// <summary>
+        /// Creates a theoretical isotope distribution for each of the identified BASE sequences
+        /// If the sequence is modified, it simply shifts the distribution by the mass shift
+        /// </summary>
         private void CalculateTheoreticalIsotopeDistributions()
         {
             _baseSequenceToIsotopicDistribution = new Dictionary<string, List<KeyValuePair<double, double>>>();
 
-            // calculate monoisotopic masses and isotopic envelope
+            // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
             {
                 if (_baseSequenceToIsotopicDistribution.ContainsKey(id.BaseSequence))
@@ -716,8 +720,12 @@ namespace FlashLFQ
                     peaks.Add(sequence.First());
                     continue;
                 }
-
                 var temp2 = sequence.Where(p => p.Apex != null).ToList();
+                if (temp2.Count == 0)
+                {
+                    peaks.Add(sequence.First());
+                    continue;
+                }
                 var merged = new HashSet<ChromatographicPeak>();
                 foreach (ChromatographicPeak peak in temp2)
                 {

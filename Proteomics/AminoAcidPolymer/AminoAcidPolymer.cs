@@ -962,9 +962,7 @@ namespace Proteomics.AminoAcidPolymer
                     if (_modifications[i] == null)
                         continue;
 
-                    IHasChemicalFormula chemMod = _modifications[i] as IHasChemicalFormula;
-
-                    if (chemMod == null)
+                    if (!(_modifications[i] is IHasChemicalFormula chemMod))
                         throw new MzLibException("Modification " + _modifications[i] + " does not have a chemical formula!");
 
                     formula.Add(chemMod.ThisChemicalFormula);

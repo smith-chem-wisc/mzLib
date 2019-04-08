@@ -46,6 +46,34 @@ namespace Test
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
+        [Test]
+        public static void LoadIsoforms()
+        {            
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
+            Assert.AreEqual("Q13409", protein[0].Accession);
+            Assert.AreEqual("Q13409_2", protein[1].Accession);
+            Assert.AreEqual("Q13409_3", protein[2].Accession);
+            Assert.AreEqual("Q13813", protein[3].Accession);
+            Assert.AreEqual("Q13813_2", protein[4].Accession);
+            Assert.AreEqual("Q13813_3", protein[5].Accession);
+            Assert.AreEqual("Q14103", protein[6].Accession);
+            Assert.AreEqual("Q14103_2", protein[7].Accession);
+            Assert.AreEqual("Q14103_3", protein[8].Accession);
+            Assert.AreEqual("Q14103_4", protein[9].Accession);
+            Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));           
+            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"), true, DecoyType.None, null, false, null, out var unknownMod);
+            Assert.AreEqual("Q13409", proteinXml[0].Accession);
+            Assert.AreEqual("Q13409_2", proteinXml[1].Accession);
+            Assert.AreEqual("Q13409_3", proteinXml[2].Accession);
+            Assert.AreEqual("Q13813", proteinXml[3].Accession);
+            Assert.AreEqual("Q13813_2", proteinXml[4].Accession);
+            Assert.AreEqual("Q13813_3", proteinXml[5].Accession);
+            Assert.AreEqual("Q14103", proteinXml[6].Accession);
+            Assert.AreEqual("Q14103_2", proteinXml[7].Accession);
+            Assert.AreEqual("Q14103_3", proteinXml[8].Accession);
+            Assert.AreEqual("Q14103_4", proteinXml[9].Accession);
+        }
 
         [Test]
         public static void LoadModWithNl()
@@ -161,7 +189,7 @@ namespace Test
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            Assert.AreEqual(340, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(341, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
@@ -179,7 +207,7 @@ namespace Test
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
-            Assert.AreEqual(2982, sampleModList.Count());
+            Assert.AreEqual(2983, sampleModList.Count());
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
