@@ -107,6 +107,8 @@ namespace Test
                 Assert.AreEqual(s.OriginalSequence, decoy.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
             }
             Assert.AreNotEqual(target.SequenceVariations.First().Description, decoy.SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+
+            List<PeptideWithSetModifications> peptides = ok.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
         [Test]
@@ -253,6 +255,8 @@ namespace Test
             Assert.AreEqual(1, decoy.SpliceSites.Count());
             Assert.AreEqual(reversedBeginIdx, decoy.SpliceSites.Single().OneBasedBeginPosition);
             Assert.AreEqual(reversedEndIdx, decoy.SpliceSites.Single().OneBasedEndPosition);
+
+            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
         [Test]
@@ -269,6 +273,7 @@ namespace Test
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(1, proteins[0].GetVariantProteins().Count);
             var variantProteins = proteins[0].GetVariantProteins();
+            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
         [Test]
@@ -343,6 +348,19 @@ namespace Test
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(161 - 1, proteins[0].Length);
+        }
+
+        [Test]
+        public static void StopGainedDecoysAndDigestion()
+        {
+            // test decoys and digestion
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGain.xml"), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, minAlleleDepth: 400);
+            Assert.AreEqual(2, proteins.Count);
+            var targetPeps = proteins[0].Digest(new DigestionParams(), null, null).ToList();
+            var decoyPeps = proteins[1].Digest(new DigestionParams(), null, null).ToList();
+            //Assert.AreEqual(targetPeps.Sum(p => p.Length), decoyPeps.Sum(p => p.Length));
+            //Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
         }
 
         [Test]
@@ -461,6 +479,14 @@ namespace Test
             Assert.AreEqual("M", variantProteins[2].AppliedSequenceVariations.First().OriginalSequence);
             Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
+        }
+
+        [Test]
+        public void VariantsDigestion()
+        {
+            string file = @"E:\ProjectsActive\MichDataTest\Sample_82552\Sample_82552\82552_ATTCCT_S15_L001_R1_001-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.recal.g.gt.snpEffAnnotated.protein.withmods.xml";
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            foreach (var p in variantProteins) { p.Digest(new DigestionParams(), null, null, null); }
         }
     }
 }
