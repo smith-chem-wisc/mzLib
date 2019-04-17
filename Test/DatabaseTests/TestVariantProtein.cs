@@ -480,13 +480,5 @@ namespace Test
             Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
         }
-
-        [Test]
-        public void VariantsDigestion()
-        {
-            string file = @"E:\ProjectsActive\MichDataTest\Sample_82552\Sample_82552\82552_ATTCCT_S15_L001_R1_001-trimmed-pair1Aligned.sortedByCoord.outProcessed.out.fixedQuals.split.recal.g.gt.snpEffAnnotated.protein.withmods.xml";
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
-            foreach (var p in variantProteins) { p.Digest(new DigestionParams(), null, null, null); }
-        }
     }
 }
