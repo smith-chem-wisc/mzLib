@@ -269,5 +269,26 @@ namespace Test
             Assert.That(pep.AllModsOneIsNterminus.Count == 2);
             Assert.That(pep.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
         }
+
+        [Test]
+        public static void TestPeptideWithSetMod_GetHashCode()
+        {
+            PeptideWithSetModifications pep1 = new PeptideWithSetModifications("SEQUENCEK", new Dictionary<string, Modification>());
+            int oneHashCode = pep1.GetHashCode();
+
+            //if digestion params is not defined, the peptidewithsetmods should still return a hashcode.
+            Assert.IsNotNull(oneHashCode);
+
+            Protein myProtein = new Protein("SEQUENCEK", "accession");
+
+            DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            PeptideWithSetModifications pep2 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
+
+            int twoHashCode = pep2.GetHashCode();
+
+            //if digestion params IS defined, the peptidewithsetmods should  return a hashcode.
+            Assert.IsNotNull(twoHashCode);
+        }
     }
 }

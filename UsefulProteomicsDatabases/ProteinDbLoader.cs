@@ -44,7 +44,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1, 
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
@@ -58,7 +58,6 @@ namespace UsefulProteomicsDatabases
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
-
             List<Protein> targets = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -154,7 +153,7 @@ namespace UsefulProteomicsDatabases
             FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors, int maxThreads = -1)
         {
             HashSet<string> unique_accessions = new HashSet<string>();
-            int unique_identifier = 1;
+            int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
             string accession = null;
             string name = null;
             string fullName = null;
@@ -207,10 +206,16 @@ namespace UsefulProteomicsDatabases
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                     {
                         string sequence = substituteWhitespace.Replace(sb.ToString(), "");
-                        while (unique_accessions.Contains(accession))
+                        if (unique_accessions.Contains(accession)) //this will happen for isoforms
                         {
-                            accession += "_" + unique_identifier.ToString();
-                            unique_identifier++;
+                            string originalAccession = accession; //save the original
+                            accession += "_" + unique_identifier.ToString(); //add a number onto it
+                            while (unique_accessions.Contains(accession)) //if that number was already added
+                            {
+                                unique_identifier++; //keep increasing it
+                                accession = originalAccession + "_" + unique_identifier.ToString(); //try the new number
+                            }
+                            unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,

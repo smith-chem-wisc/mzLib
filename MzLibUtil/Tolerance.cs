@@ -17,6 +17,7 @@
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
 using System;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace MzLibUtil
@@ -61,11 +62,11 @@ namespace MzLibUtil
             Match m = StringRegex.Match(s);
             if (m.Groups[3].Value.Equals("PPM", StringComparison.OrdinalIgnoreCase))
             {
-                return new PpmTolerance(double.Parse(m.Groups[2].Value));
+                return new PpmTolerance(double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture));
             }
             else
             {
-                return new AbsoluteTolerance(double.Parse(m.Groups[2].Value));
+                return new AbsoluteTolerance(double.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture));
             }
         }
 
