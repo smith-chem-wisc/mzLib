@@ -12,6 +12,8 @@ namespace FlashLFQ
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public double SplitRT;
         public readonly bool IsMbrPeak;
+        public double MbrScore;
+        public double MbrQValue;
 
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
@@ -176,7 +178,6 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError + "\t");
-            //sb.Append(string.Join(",", IsotopicEnvelopes.OrderBy(p => p.ChargeState).ThenBy(p => p.IndexedPeak.ZeroBasedMs1ScanIndex).Select(p => p.ToString())));
 
             return sb.ToString();
         }

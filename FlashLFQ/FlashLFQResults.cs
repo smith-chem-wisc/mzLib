@@ -75,6 +75,17 @@ namespace FlashLFQ
 
         public void CalculatePeptideResults()
         {
+            foreach (var sequence in PeptideModifiedSequences)
+            {
+                sequence.Value.proteinGroups.Clear();
+
+                foreach (var file in SpectraFiles)
+                {
+                    sequence.Value.SetDetectionType(file, DetectionType.NotDetected);
+                    sequence.Value.SetIntensity(file, 0);
+                }
+            }
+
             foreach (var file in Peaks)
             {
                 var groupedPeaks = file.Value.Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
@@ -121,7 +132,7 @@ namespace FlashLFQ
                     foreach (Identification id in ambiguousPeak.Identifications)
                     {
                         string sequence = id.ModifiedSequence;
-                        
+
                         if (!PeptideModifiedSequences.ContainsKey(sequence))
                         {
                             bool useForProteinQuant = id.UseForProteinQuant;

@@ -23,5 +23,19 @@
         {
             return "+" + ChargeState + "|" + Intensity.ToString("F0") + "|" + IndexedPeak.RetentionTime.ToString("F3") + "|" + IndexedPeak.ZeroBasedMs1ScanIndex;
         }
+
+        public override bool Equals(object obj)
+        {
+            var otherEnv = (IsotopicEnvelope)obj;
+
+            return otherEnv != null
+                && otherEnv.ChargeState == this.ChargeState
+                && otherEnv.IndexedPeak.Equals(this.IndexedPeak);
+        }
+
+        public override int GetHashCode()
+        {
+            return ChargeState.GetHashCode() + IndexedPeak.GetHashCode();
+        }
     }
 }
