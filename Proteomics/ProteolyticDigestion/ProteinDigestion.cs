@@ -20,8 +20,8 @@ namespace Proteomics.ProteolyticDigestion
             InitiatorMethionineBehavior = digestionParams.InitiatorMethionineBehavior;
             MinPeptideLength = digestionParams.MinPeptideLength;
             MaxPeptideLength = digestionParams.MaxPeptideLength;
-            AllKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            VariableModifications = variableModifications ?? new List<Modification>();
+            AllKnownFixedModifications = allKnownFixedModifications;
+            VariableModifications = variableModifications;
         }
 
         public Protease Protease { get; set; }
@@ -41,7 +41,7 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        public IEnumerable<PeptideWithSetModifications> SpeedySemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
+        public IEnumerable<ProteolyticPeptide> SpeedySemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = Protease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
@@ -144,7 +144,7 @@ namespace Proteomics.ProteolyticDigestion
                     .Select(proteolysisProduct => new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value,
                         0, CleavageSpecificity.Full, proteolysisProduct.Type + " start")));
 
-            return peptides.SelectMany(peptide => peptide.GetModifiedPeptides(AllKnownFixedModifications, DigestionParams, VariableModifications));
+            return peptides;
         }
 
         /// <summary>
@@ -152,10 +152,9 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         /// <param name="protein"></param>
         /// <returns></returns>
-        public IEnumerable<PeptideWithSetModifications> Digestion(Protein protein)
+        public IEnumerable<ProteolyticPeptide> Digestion(Protein protein)
         {
-            var unmodifiedPeptides = Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength);
-            return unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(AllKnownFixedModifications, DigestionParams, VariableModifications));
+            return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength);
         }
     }
 }

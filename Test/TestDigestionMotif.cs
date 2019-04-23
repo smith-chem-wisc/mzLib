@@ -74,8 +74,8 @@ namespace Test
             string first = myPeptides.First().ToString();
             string last = myPeptides.Last().ToString();
 
-            Assert.AreEqual(first, "MKPKPKPMK");
-            Assert.AreEqual(last, "A");
+            Assert.AreEqual("MKPKPKPMK", first);
+            Assert.AreEqual("A", last);
         }
 
         [Test]
@@ -98,6 +98,28 @@ namespace Test
 
             Assert.AreEqual(first, "PRO");
             Assert.AreEqual(last, "PRPPM");
+        }
+
+        [Test]
+        public static void TestMultiLetterNTerm()
+        {
+            var empty = new List<Modification>();
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("|AAA");
+            Protease multiletter = new Protease("multi-custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
+
+            DigestionParams myDigestionParams = new DigestionParams("multi-custom", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("FAAAMAAM", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(first, "F");
+            Assert.AreEqual(last, "AAAMAAM");
         }
 
         [Test]
@@ -137,13 +159,107 @@ namespace Test
         }
 
         [Test]
-        public static void TestSyntax()
+        public static void TestWrongSyntax()
         {
             Assert.Throws<MzLibException>(() =>
             {
                 var protease = DigestionMotif.ParseDigestionMotifsFromString("X[Y,P]");
                 Assert.Fail("Exception shold be thrown for incorrect syntax.");
             });
+        }
+
+        [Test]
+        public static void TestCutIndexDifferentSyntax()
+        {
+            var empty = new List<Modification>();
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|
+            Protease protease = new Protease("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs);
+            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+
+            DigestionParams myDigestionParams = new DigestionParams("lys-c", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("PROKPKMKP", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(first, "PROKPK");
+            Assert.AreEqual(last, "MKP");
+        }
+
+        [Test]
+        public static void TestEndSequenceCTerm()
+        {
+            var empty = new List<Modification>();
+            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("AASFPWDJSSMF", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(first, "AASFPW");
+            Assert.AreEqual(last, "DJSSMF");
+        }
+
+        [Test]
+        public static void TestNonSpecificProtease()
+        {
+            var empty = new List<Modification>();
+            DigestionParams myDigestionParams = new DigestionParams("non-specific", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("PRO", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            Assert.AreEqual(myPeptides.Count(), 3);
+        }
+
+        [Test]
+        public static void TestEndSequenceNTerm()
+        {
+            var empty = new List<Modification>();
+            DigestionParams myDigestionParams = new DigestionParams("Lys-N", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("KKPROTEIN", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(first, "K");
+            Assert.AreEqual(myPeptides.Count(), 2);
+        }
+
+        [Test]
+        public static void TestOneMotifMultiplePreventing()
+        {
+            var empty = new List<Modification>();
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");
+            Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            ProteaseDictionary.Dictionary.Add(customProtease.Name, customProtease);
+
+            DigestionParams myDigestionParams = new DigestionParams("custom", minPeptideLength: 1, maxMissedCleavages: 0);
+
+            // create a protein
+            Protein myProtein = new Protein("PRONFNMMHFHAA", "myAccession");
+
+            // digest it into peptides
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
+            string first = myPeptides.First().ToString();
+            string last = myPeptides.Last().ToString();
+
+            Assert.AreEqual(myPeptides.Count, 2);
+            Assert.AreEqual(first, "PRON");
         }
     }
 }

@@ -125,6 +125,50 @@ namespace Test
         }
 
         [Test]
+        public void SilacLabelTest()
+        {
+            Protein originalProtein = new Protein("ACDEFGHIKAKAK", "TEST");
+            List<PeptideWithSetModifications> originalDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
+            //Multiple SILAC labels
+            Residue lysine = Residue.GetResidue('K');
+            Residue heavyLabel = new Residue("heavy", 'a', "aaa", ChemicalFormula.ParseFormula("C{13}6H12N2O"), ModificationSites.All); //Lysine +6
+            Residue heavierLabel = new Residue("heavier", 'b', "bbb", ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //Lysine +8
+            List<Residue> residuesToAdd = new List<Residue> { heavyLabel, heavierLabel };
+            Residue.AddNewResiduesToDictionary(residuesToAdd);
+            List<SilacLabel> silacLabels = new List<SilacLabel>
+            {
+                new SilacLabel('K','a', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass),
+                new SilacLabel('K','b', heavierLabel.ThisChemicalFormula.Formula, heavierLabel.MonoisotopicMass - lysine.MonoisotopicMass)
+            };
+            List<PeptideWithSetModifications> silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
+            Assert.IsTrue(originalDigest.Count * 3 == silacDigest.Count); //check that each peptide now has a light, heavy, and heavier compliment
+
+            double silacPeptideLightMonoisotopicMass = silacDigest.Where(x => x.BaseSequence.Contains("K")).First().MonoisotopicMass;
+            double silacPeptideHeavyMonoisotopicMass = silacDigest.Where(x => x.BaseSequence.Contains("a")).First().MonoisotopicMass;
+            double silacPeptideHeavierMonoisotopicMass = silacDigest.Where(x => x.BaseSequence.Contains("b")).First().MonoisotopicMass;
+            Assert.IsTrue(silacPeptideLightMonoisotopicMass != double.NaN); //if both NaN, then the mass comparison statements will always be true, because NaN + double = NaN
+            Assert.IsTrue(silacPeptideHeavyMonoisotopicMass != double.NaN); //if both NaN, then the mass comparison statements will always be true, because NaN + double = NaN
+            Assert.IsTrue(silacPeptideHeavierMonoisotopicMass != double.NaN); //if both NaN, then the mass comparison statements will always be true, because NaN + double = NaN
+
+            Assert.IsTrue(Math.Round(silacPeptideLightMonoisotopicMass + heavyLabel.MonoisotopicMass, 5).Equals(Math.Round(silacPeptideHeavyMonoisotopicMass + lysine.MonoisotopicMass, 5))); //check that the residue masses were succesfully added
+            Assert.IsTrue(Math.Round(silacPeptideHeavyMonoisotopicMass + heavierLabel.MonoisotopicMass, 5).Equals(Math.Round(silacPeptideHeavierMonoisotopicMass + heavyLabel.MonoisotopicMass, 5))); //check that the residue masses were succesfully added
+
+            //code coverage
+            SilacLabel testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage = new SilacLabel();
+            Assert.IsTrue(testParameterlessConstructorForTomlsWithoutAnyRealTestAndMoreJustForCodeCoverage != null);
+
+            Assert.IsTrue(silacLabels[0].AdditionalLabels == null);
+            //The zero index label is K to a with a mass diff of 6
+            //the one index label is K to b with a mass diff of 8
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('D', 'c', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass - 1));
+            Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 1);
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('E', 'd', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass + 1));
+            Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 2);
+            silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
+            Assert.IsTrue(silacDigest.Count == 9);
+        }
+
+        [Test]
         public void ModificationCollectionTest()
         {
             ModificationCollection a = new ModificationCollection(new OldSchoolModification(1, "Mod1"), new OldSchoolModification(2, "Mod2"));

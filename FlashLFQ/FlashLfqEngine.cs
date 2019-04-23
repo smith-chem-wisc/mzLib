@@ -209,11 +209,15 @@ namespace FlashLFQ
             return _results;
         }
 
+        /// <summary>
+        /// Creates a theoretical isotope distribution for each of the identified BASE sequences
+        /// If the sequence is modified, it simply shifts the distribution by the mass shift
+        /// </summary>
         private void CalculateTheoreticalIsotopeDistributions()
         {
             _baseSequenceToIsotopicDistribution = new Dictionary<string, List<KeyValuePair<double, double>>>();
 
-            // calculate monoisotopic masses and isotopic envelope
+            // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
             {
                 if (_baseSequenceToIsotopicDistribution.ContainsKey(id.BaseSequence))
@@ -237,7 +241,8 @@ namespace FlashLFQ
                 double[] masses = isotopicDistribution.Masses.ToArray();
                 double[] abundances = isotopicDistribution.Intensities.ToArray();
 
-                double unmodifiedMonoisotopicMass = p.MonoisotopicMass;
+                double unmodifiedMonoisotopicMass = formula.MonoisotopicMass;
+
                 double highestAbundance = abundances.Max();
 
                 for (int i = 0; i < masses.Length; i++)
@@ -916,8 +921,12 @@ namespace FlashLFQ
                     peaks.Add(sequence.First());
                     continue;
                 }
-
                 var temp2 = sequence.Where(p => p.Apex != null).ToList();
+                if (temp2.Count == 0)
+                {
+                    peaks.Add(sequence.First());
+                    continue;
+                }
                 var merged = new HashSet<ChromatographicPeak>();
                 foreach (ChromatographicPeak peak in temp2)
                 {
@@ -940,7 +949,7 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = peaks;
         }
 
-        private List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
+        public List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> peaks, Identification identification, int chargeState, bool matchBetweenRuns)
         {
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _baseSequenceToIsotopicDistribution[identification.BaseSequence];
@@ -1060,7 +1069,7 @@ namespace FlashLFQ
             return isotopicEnvelopes;
         }
 
-        private List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
+        public List<IndexedMassSpectralPeak> Peakfind(double idRetentionTime, double mass, int charge, SpectraFileInfo spectraFileInfo, Tolerance tolerance)
         {
             var xic = new List<IndexedMassSpectralPeak>();
 

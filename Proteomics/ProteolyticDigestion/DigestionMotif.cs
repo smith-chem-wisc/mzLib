@@ -50,7 +50,7 @@ namespace Proteomics.ProteolyticDigestion
 
             for (int i = 0; i < motifStrings.Length; i++)
             {
-                string motifString = motifStrings[i];   
+                string motifString = motifStrings[i];
                 motifs.Add(ParseDigestionMotifFromString(motifString));
             }
             return motifs;
@@ -62,8 +62,8 @@ namespace Proteomics.ProteolyticDigestion
             string preventingCleavage = null;
             string excludingWC = null;
             int cutIndex = 0;
-            
-            if (motifString.Contains("{") && !motifString.Contains("}") 
+
+            if (motifString.Contains("{") && !motifString.Contains("}")
                 || !motifString.Contains("{") && motifString.Contains("}")
                 || motifString.Contains("[") && !motifString.Contains("]")
                 || !motifString.Contains("[") && motifString.Contains("]"))
@@ -87,7 +87,7 @@ namespace Proteomics.ProteolyticDigestion
                 int start = motifString.IndexOf("{") + 1;
                 int end = motifString.IndexOf("}");
 
-                excludingWC = motifString.Substring(start, end - start);               
+                excludingWC = motifString.Substring(start, end - start);
                 if (Regex.Matches(motifString.ToUpper(), "X").Count != excludingWC.Length)
                 {
                     throw new MzLibException("Unrecognized protease syntax. Please have equal number of wildcards for multi-letter wildcard exclusions.");
@@ -104,14 +104,14 @@ namespace Proteomics.ProteolyticDigestion
                     break;
                 }
             }
-            
+
             motifString = motifString.Replace("|", string.Empty);
             inducingCleavage = motifString;
 
             return new DigestionMotif(inducingCleavage, preventingCleavage, cutIndex, excludingWC);
         }
 
-        public bool Fits(string sequence, int location)
+        public (bool, bool) Fits(string sequence, int location)
         {
             bool fits = true;
             char currentResidue;
@@ -120,39 +120,47 @@ namespace Proteomics.ProteolyticDigestion
             // check for inducing cleavage
             for (m = 0; m < InducingCleavage.Length && fits; m++) // handle patterns
             {
-                currentResidue = sequence[location + m];
-                if (!MotifMatches(InducingCleavage[m], currentResidue))
+                if (location + m >= sequence.Length)
                 {
                     fits = false;
                 }
+                else
+                {
+                    currentResidue = sequence[location + m];
+                    if (!MotifMatches(InducingCleavage[m], currentResidue))
+                    {
+                        fits = false;
+                    }
+                }
             }
 
+            bool prevents = false;
             // check for preventing cleavage
             if (fits && PreventingCleavage != null)
             {
-                bool match = true;
-                for (int n = 0; n < PreventingCleavage.Length && match; n++)
+                prevents = true;
+                for (int n = 0; n < PreventingCleavage.Length && prevents; n++)
                 {
-                    if (location + m + n > sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
+                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
                     {
-                        match = false;
+                        prevents = false;
                     }
                     else
                     {
-                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + 1 + n];                      
-                        if (!PreventingCleavage[n].Equals(currentResidue))
+                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + 1 + n];
+                        if (!MotifMatches(PreventingCleavage[n], currentResidue))
                         {
-                            match = false;
+                            prevents = false;
                         }
                     }
                 }
 
-                fits = match ? false : true;
+                fits = prevents ? false : true;
             }
 
-            return fits;
+            return (fits, prevents);
         }
-        
+
         private bool MotifMatches(char motifChar, char sequenceChar)
         {
             return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludeFromWildcard)
