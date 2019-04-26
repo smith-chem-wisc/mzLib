@@ -30,7 +30,7 @@ namespace Test
         {
             Protein p1 = new Protein("MSEQ", "accession");
             Protein p11 = new Protein("MSEQ", "accession");
-            Assert.AreNotEqual(p1, p11); // default object hash and equals are used
+            Assert.AreEqual(p1, p11); // default object hash and equals are used
         }
 
         [Test]

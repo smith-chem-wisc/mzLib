@@ -3,6 +3,7 @@ using FlashLFQ;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -75,6 +76,47 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
+        }
+
+        [Test]
+        public static void TestEvelopQuantification()
+        {
+            Loaders.LoadElements();
+            
+            double monoIsotopicMass = 1350.65681;
+            double massOfAveragine = 111.1254;
+            double numberOfAveragines = monoIsotopicMass / massOfAveragine;
+
+            double averageC = 4.9384 * numberOfAveragines;
+            double averageH = 7.7583 * numberOfAveragines;
+            double averageO = 1.4773 * numberOfAveragines;
+            double averageN = 1.3577 * numberOfAveragines;
+            double averageS = 0.0417 * numberOfAveragines;
+
+            ChemicalFormula myFormula = ChemicalFormula.ParseFormula(
+                "C" + (int)Math.Round(averageC) + 
+                "H" + (int)Math.Round(averageH) + 
+                "O" + (int)Math.Round(averageO) + 
+                "N" + (int)Math.Round(averageN) + 
+                "S" + (int)Math.Round(averageS));
+
+
+            // get the raw file paths
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+
+            Identification id3 = new Identification(mzml, "", "1", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg }, myFormula);
+            Identification id4 = new Identification(mzml, "", "2", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg }, myFormula);
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id3, id4 }, normalize: true);
+
+            // run the engine
+            var results = engine.Run();
+
+            Assert.IsTrue(results.Peaks.First().Value.First().Intensity > 0);
         }
 
         [Test]
@@ -694,7 +736,7 @@ namespace Test
         [Test]
         public static void TestNotFound()
         {
-            Peptide p = new Peptide("Seq", true);
+            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", true);
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
@@ -928,6 +970,33 @@ namespace Test
             var results = engine.Run();
 
             // no assertions - just don't crash
+        }
+
+        [Test]
+        public static void TestFlashLfqDoesNotRemovePeptides()
+        {
+            Loaders.LoadElements();
+
+            Residue x = new Residue("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
+            Residue lightLysine = Residue.GetResidue('K');
+
+            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
+
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory,@"SilacTest.mzML"), "", 0, 0, 0);
+            FlashLfqEngine engine = new FlashLfqEngine(
+                new List<Identification>
+                {
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                },
+                ppmTolerance: 5,
+                silent: true,
+                maxThreads: 7
+                );
+            var results = engine.Run();
+            Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
         }
     }
 }
