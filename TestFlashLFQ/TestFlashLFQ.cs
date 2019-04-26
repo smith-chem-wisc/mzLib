@@ -263,7 +263,7 @@ namespace Test
             double intensity = 1e6;
 
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
-            double[] file2Rt = new double[] { 1.015, 1.030, 1.039, 1.050, 1.065 };
+            double[] file2Rt = new double[] { 1.00, 1.025, 1.04, 1.055, 1.070 };
 
             Loaders.LoadElements();
 
