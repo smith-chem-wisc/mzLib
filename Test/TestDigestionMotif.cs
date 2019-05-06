@@ -223,6 +223,19 @@ namespace Test
         }
 
         [Test]
+        public static void TestCleavageSpecificity()
+        {
+            DigestionParams dp = new DigestionParams();
+            Protein protein = new Protein("MAAAAPRTEINKSEQNCE", "PROTEIN");
+            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 2, 12).Equals(CleavageSpecificity.Full));
+            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 1, 12).Equals(CleavageSpecificity.Full));
+            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 3, 12).Equals(CleavageSpecificity.Semi));
+            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 2, 11).Equals(CleavageSpecificity.Semi));
+            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 2, 13).Equals(CleavageSpecificity.Semi));
+            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 3, 13).Equals(CleavageSpecificity.None));
+        }
+
+        [Test]
         public static void TestEndSequenceNTerm()
         {
             var empty = new List<Modification>();
