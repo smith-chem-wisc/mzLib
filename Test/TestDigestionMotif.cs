@@ -246,6 +246,15 @@ namespace Test
         }
 
         [Test]
+        public static void TestDigestionParamsSerializeDeserialize()
+        {
+            DigestionParams weirdDigestionParams = new DigestionParams("Asp-N", 77, 88, 99, 69, InitiatorMethionineBehavior.Cleave, 420, CleavageSpecificity.Unknown, Proteomics.Fragmentation.FragmentationTerminus.None, false);
+            string serializedString = weirdDigestionParams.ToString();
+            DigestionParams deserializedDigestionParams = DigestionParams.FromString(serializedString);
+            Assert.AreEqual(weirdDigestionParams, deserializedDigestionParams);
+        }
+
+        [Test]
         public static void TestEndSequenceNTerm()
         {
             var empty = new List<Modification>();
