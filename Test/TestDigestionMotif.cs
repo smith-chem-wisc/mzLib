@@ -231,18 +231,18 @@ namespace Test
 
             //check for nonspecific
             DigestionParams dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.None);
-            string dpString = dp.ToString();
-            Assert.IsTrue(dpString.Contains("Arg-C"));
+            string proteaseString = dp.ToString().Split(',')[6];
+            Assert.IsTrue(proteaseString.Equals("Arg-C"));
 
             //Check for semi
             dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.Semi);
-            dpString = dp.ToString();
-            Assert.IsTrue(dpString.Contains("Arg-C"));
+            proteaseString = dp.ToString().Split(',')[6];
+            Assert.IsTrue(proteaseString.Equals("Arg-C"));
 
             //check for normal
             dp = new DigestionParams(protease: "Arg-C"); //default searchModeType is Full
-            dpString = dp.ToString();
-            Assert.IsTrue(dpString.Contains("Arg-C"));
+            proteaseString = dp.ToString().Split(',')[6];
+            Assert.IsTrue(proteaseString.Equals("Arg-C"));
         }
 
         [Test]
