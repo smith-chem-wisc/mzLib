@@ -119,9 +119,9 @@ namespace TestThermo
         {
             //test window number of 1
             ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
-            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
-            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfWindows: 1, applyTrimmingToMs1: true));
-            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400, numberOfWindows: 1, applyTrimmingToMs1: true));
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400));
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001));
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400));
             var aLen = a_w.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b_w.GetOneBasedScan(1).MassSpectrum.Size;
             var cLen = c_w.GetOneBasedScan(1).MassSpectrum.Size;
@@ -143,26 +143,27 @@ namespace TestThermo
         public static void MultiWindowFiltering()
         {
             //tests for filtering with window
-            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfWindows: 1, applyTrimmingToMs1: true));
+
+            ThermoStaticData a_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams());
             Assert.AreEqual(1120, a_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 2
-            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 3, applyTrimmingToMs1: true));
-            Assert.AreEqual(600, b_w.GetOneBasedScan(1).MassSpectrum.Size);
+            ThermoStaticData b_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, windowWidthThomsons: 617));
+            Assert.AreEqual(651, b_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 4
-            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, numberOfWindows: 4, applyTrimmingToMs1: true));
-            Assert.AreEqual(742, c_w.GetOneBasedScan(1).MassSpectrum.Size);
+            ThermoStaticData c_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 200, windowWidthThomsons: 463));
+            Assert.AreEqual(843, c_w.GetOneBasedScan(1).MassSpectrum.Size);
             //number of 6, which doesn't divide 1120
-            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, numberOfWindows: 6, applyTrimmingToMs1: true));
-            Assert.AreEqual(775, d_w.GetOneBasedScan(1).MassSpectrum.Size);
+            ThermoStaticData d_w = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 150, windowWidthThomsons: 309));
+            Assert.AreEqual(873, d_w.GetOneBasedScan(1).MassSpectrum.Size);
         }
 
         [Test]
         public static void LoadThermoFiltered()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw");
-            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400, applyTrimmingToMs1: true));
-            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, applyTrimmingToMs1: true));
-            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400, applyTrimmingToMs1: true));
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 400));
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001));
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"05-13-16_cali_MS_60K-res_MS.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.001, numberOfPeaksToKeepPerWindow: 400));
 
             var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
@@ -176,9 +177,9 @@ namespace TestThermo
         public static void LoadThermoFiltered2()
         {
             ThermoStaticData a = ThermoStaticData.LoadAllStaticData(@"small.raw");
-            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 40, applyTrimmingToMs1: true, applyTrimmingToMsMs: true));
-            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.1, applyTrimmingToMs1: true, applyTrimmingToMsMs: true));
-            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.1, numberOfPeaksToKeepPerWindow: 40, applyTrimmingToMs1: true, applyTrimmingToMsMs: true));
+            ThermoStaticData b = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(numberOfPeaksToKeepPerWindow: 40));
+            ThermoStaticData c = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.1));
+            ThermoStaticData d = ThermoStaticData.LoadAllStaticData(@"small.raw", filterParams: new FilteringParams(minimumAllowedIntensityRatioToBasePeak: 0.1, numberOfPeaksToKeepPerWindow: 40));
 
             var aLen = a.GetOneBasedScan(1).MassSpectrum.Size;
             var bLen = b.GetOneBasedScan(1).MassSpectrum.Size;
