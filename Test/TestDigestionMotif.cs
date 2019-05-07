@@ -228,8 +228,20 @@ namespace Test
             //check that the specific protease is the one written for indexing
             //This is needed for speedy non-specific searches to have the stratified full/semi/none peptide cleavages
             //If the protease is written instead of the specific protease, then the specific protease information is lost upon deserialization.
+
+            //check for nonspecific
             DigestionParams dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.None);
             string dpString = dp.ToString();
+            Assert.IsTrue(dpString.Contains("Arg-C"));
+
+            //Check for semi
+            dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.Semi);
+            dpString = dp.ToString();
+            Assert.IsTrue(dpString.Contains("Arg-C"));
+
+            //check for normal
+            dp = new DigestionParams(protease: "Arg-C"); //default searchModeType is Full
+            dpString = dp.ToString();
             Assert.IsTrue(dpString.Contains("Arg-C"));
         }
 
