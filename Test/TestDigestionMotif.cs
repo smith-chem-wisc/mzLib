@@ -225,14 +225,12 @@ namespace Test
         [Test]
         public static void TestCleavageSpecificity()
         {
-            DigestionParams dp = new DigestionParams();
-            Protein protein = new Protein("MAAAAPRTEINKSEQNCE", "PROTEIN");
-            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 2, 12).Equals(CleavageSpecificity.Full));
-            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 1, 12).Equals(CleavageSpecificity.Full));
-            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 3, 12).Equals(CleavageSpecificity.Semi));
-            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 2, 11).Equals(CleavageSpecificity.Semi));
-            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 2, 13).Equals(CleavageSpecificity.Semi));
-            Assert.IsTrue(dp.Protease.GetCleavageSpecificity(protein.BaseSequence, 3, 13).Equals(CleavageSpecificity.None));
+            //check that the specific protease is the one written for indexing
+            //This is needed for speedy non-specific searches to have the stratified full/semi/none peptide cleavages
+            //If the protease is written instead of the specific protease, then the specific protease information is lost upon deserialization.
+            DigestionParams dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.None);
+            string dpString = dp.ToString();
+            Assert.IsTrue(dpString.Contains("Arg-C"));
         }
 
         [Test]

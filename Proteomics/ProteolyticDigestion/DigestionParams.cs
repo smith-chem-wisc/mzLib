@@ -66,7 +66,7 @@ namespace Proteomics.ProteolyticDigestion
         public override string ToString()
         {
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinPeptideLength + "," + MaxPeptideLength + ","
-                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + Protease.Name + "," + SearchModeType + "," + FragmentationTerminus;
+                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus;
         }
 
         /// <summary>
