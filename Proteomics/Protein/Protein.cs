@@ -222,7 +222,7 @@ namespace Proteomics
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications, List<SilacLabel> silacLabels = null)
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, bool FilterNGlycanMotif = false)
         {
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
@@ -236,11 +236,61 @@ namespace Proteomics
 
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
+            if (FilterNGlycanMotif)
+            {
+                return FilterNGlycanPeptides(modifiedPeptides);
+            }
+
             if (silacLabels != null)
             {
                 return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac);
             }
+
             return modifiedPeptides;
+        }
+
+        internal IEnumerable<PeptideWithSetModifications> FilterNGlycanPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides)
+        {
+            List<Modification> modifications = new List<Modification>();
+
+            //N-glycan motif avoid u be proline. u is anything except P defined in 'ModificationLocalization.MotifMatches'
+            string[] motifs = new string[] {"Nut", "Nus" };
+
+            foreach (var mtf in motifs)
+            {
+                if (ModificationMotif.TryGetMotif(mtf, out ModificationMotif aMotif))
+                {
+                    Modification modWithMotif = new Modification(_target: aMotif, _locationRestriction: "Anywhere.");
+                    modifications.Add(modWithMotif);
+                }
+            }
+
+            foreach (PeptideWithSetModifications pwsm in originalPeptides)
+            {
+                bool hasMotif = false;
+                foreach (var modWithMotif in modifications)
+                {
+                    for (int r = 0; r < pwsm.Length; r++)
+                    {
+                        //Skip postion already modified.
+                        if (pwsm.AllModsOneIsNterminus.Keys.Contains(r + 2))
+                        {
+                            continue;
+                        }
+
+                        if (ModificationLocalization.ModFits(modWithMotif, pwsm.BaseSequence, r + 1, pwsm.Length, r + 1))
+                        {
+                            hasMotif = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasMotif)
+                {
+                    yield return pwsm;
+                }
+            }
+            
         }
 
         /// <summary>
