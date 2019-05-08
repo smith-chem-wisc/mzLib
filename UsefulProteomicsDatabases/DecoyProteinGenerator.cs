@@ -191,16 +191,25 @@ namespace UsefulProteomicsDatabases
                 Dictionary<int, List<Modification>> decoyVariantModifications = new Dictionary<int, List<Modification>>(sv.OneBasedModifications.Count);
                 int variantSeqLength = protein.BaseSequence.Length + sv.VariantSequence.Length - sv.OriginalSequence.Length;
                 bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                bool stopGain = sv.VariantSequence.EndsWith("*");
                 foreach (var kvp in sv.OneBasedModifications)
                 {
+                    // keeping positions for stop gain to make decoys with same length
+                    if (stopGain)
+                    {
+                        decoyVariantModifications.Add(kvp.Key, kvp.Value);
+                    }
+                    // methionine retention but rest reversed
                     if (startsWithM && kvp.Key > 1)
                     {
                         decoyVariantModifications.Add(variantSeqLength - kvp.Key + 2, kvp.Value);
                     }
+                    // on starting methionine
                     else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && kvp.Key == 1)
                     {
                         decoyVariantModifications.Add(1, kvp.Value);
                     }
+                    // on starting non-methionine
                     else if (kvp.Key == 1)
                     {
                         decoyVariantModifications.Add(protein.BaseSequence.Length, kvp.Value);
@@ -219,11 +228,20 @@ namespace UsefulProteomicsDatabases
                 Array.Reverse(originalArray);
                 Array.Reverse(variationArray);
 
-                // start loss, so the variant is at the end
                 bool originalInitMet = sv.OneBasedBeginPosition == 1 && sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
                 bool variantInitMet = sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                 bool startLoss = originalInitMet && !variantInitMet;
-                if (startLoss)
+                
+                // stop gains should still produce decoys with the same length
+                if (stopGain)
+                {
+                    decoyVariations.Add(new SequenceVariation(sv.OneBasedBeginPosition,
+                        reversedSequence.Substring(sv.OneBasedBeginPosition - 1, sv.OneBasedEndPosition - sv.OneBasedBeginPosition + 1),
+                        new string(variationArray).Substring(1, variationArray.Length - 1) + variationArray[0], 
+                        "DECOY VARIANT: " + sv.Description, decoyVariantModifications));
+                }
+                // start loss, so the variant is at the end
+                else if (startLoss)
                 {
                     decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, new string(originalArray).Substring(0, originalArray.Length - 1), new string(variationArray), "DECOY VARIANT: " + sv.Description, decoyVariantModifications));
                 }

@@ -223,6 +223,38 @@ namespace Test
         }
 
         [Test]
+        public static void TestCleavageSpecificity()
+        {
+            //check that the specific protease is the one written for indexing
+            //This is needed for speedy non-specific searches to have the stratified full/semi/none peptide cleavages
+            //If the protease is written instead of the specific protease, then the specific protease information is lost upon deserialization.
+
+            //check for nonspecific
+            DigestionParams dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.None);
+            string proteaseString = dp.ToString().Split(',')[6];
+            Assert.IsTrue(proteaseString.Equals("Arg-C"));
+
+            //Check for semi
+            dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.Semi);
+            proteaseString = dp.ToString().Split(',')[6];
+            Assert.IsTrue(proteaseString.Equals("Arg-C"));
+
+            //check for normal
+            dp = new DigestionParams(protease: "Arg-C"); //default searchModeType is Full
+            proteaseString = dp.ToString().Split(',')[6];
+            Assert.IsTrue(proteaseString.Equals("Arg-C"));
+        }
+
+        [Test]
+        public static void TestDigestionParamsSerializeDeserialize()
+        {
+            DigestionParams weirdDigestionParams = new DigestionParams("Asp-N", 77, 88, 99, 69, InitiatorMethionineBehavior.Cleave, 420, CleavageSpecificity.Unknown, Proteomics.Fragmentation.FragmentationTerminus.None, false);
+            string serializedString = weirdDigestionParams.ToString();
+            DigestionParams deserializedDigestionParams = DigestionParams.FromString(serializedString);
+            Assert.AreEqual(weirdDigestionParams, deserializedDigestionParams);
+        }
+
+        [Test]
         public static void TestEndSequenceNTerm()
         {
             var empty = new List<Modification>();

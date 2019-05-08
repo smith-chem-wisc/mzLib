@@ -68,7 +68,7 @@ namespace Proteomics.ProteolyticDigestion
         public override string ToString()
         {
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinPeptideLength + "," + MaxPeptideLength + ","
-                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + Protease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
+                + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
                 + GeneratehUnlabeledProteinsForSilac;
         }
 
@@ -88,7 +88,7 @@ namespace Proteomics.ProteolyticDigestion
                 maxModsForPeptides: int.Parse(split[5]),
                 searchModeType: (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), split[7]),
                 fragmentationTerminus: (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus), split[8]),
-                generateUnlabeledProteinsForSilac: bool.Parse(split[9])
+                generateUnlabeledProteinsForSilac: split.Length >= 10 ? bool.Parse(split[9]) : true
                 );
         }
 
