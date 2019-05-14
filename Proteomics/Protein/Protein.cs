@@ -240,7 +240,7 @@ namespace Proteomics
             //Remove terminal modifications (if needed)
             if (searchModeType == CleavageSpecificity.SingleN || searchModeType == CleavageSpecificity.SingleC)
             {
-                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, searchModeType);
+                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, searchModeType, allKnownFixedModifications);
             }
 
             //add silac labels (if needed)
@@ -256,12 +256,13 @@ namespace Proteomics
         /// Remove terminal modifications from the C-terminus of SingleN peptides and the N-terminus of SingleC peptides/
         /// These terminal modifications create redundant entries and increase search time
         /// </summary>
-        internal IEnumerable<PeptideWithSetModifications> RemoveTerminalModifications(IEnumerable<PeptideWithSetModifications> modifiedPeptides, CleavageSpecificity searchModeType)
+        internal static IEnumerable<PeptideWithSetModifications> RemoveTerminalModifications(IEnumerable<PeptideWithSetModifications> modifiedPeptides, CleavageSpecificity searchModeType, IEnumerable<Modification> allFixedMods)
         {
             string terminalStringToLookFor = searchModeType == CleavageSpecificity.SingleN ? "C-terminal" : "N-terminal";
+            List<Modification> fixedTerminalMods = allFixedMods.Where(x => x.LocationRestriction.Contains(terminalStringToLookFor)).ToList();
             foreach (PeptideWithSetModifications pwsm in modifiedPeptides)
             {
-                if (!pwsm.AllModsOneIsNterminus.Any(x => x.Value.LocationRestriction.Contains(terminalStringToLookFor)))
+                if (!pwsm.AllModsOneIsNterminus.Values.Any(x => x.LocationRestriction.Contains(terminalStringToLookFor) && !fixedTerminalMods.Contains(x)))
                 {
                     yield return pwsm;
                 }

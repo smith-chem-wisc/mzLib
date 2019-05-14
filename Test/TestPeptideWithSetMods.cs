@@ -239,10 +239,25 @@ namespace Test
             DigestionParams singleC = new DigestionParams(protease: "singleC", searchModeType: CleavageSpecificity.SingleC, fragmentationTerminus: FragmentationTerminus.C);
 
             List<Modification> empty = new List<Modification>();
+            List<Modification> allMods = new List<Modification> { nTermMod, cTermMod };
             List<PeptideWithSetModifications> nPeps = proteinWithMods.Digest(singleN, empty, empty).ToList();
             List<PeptideWithSetModifications> cPeps = proteinWithMods.Digest(singleC, empty, empty).ToList();
             Assert.IsTrue(nPeps.Count == cPeps.Count);
             Assert.IsTrue(cPeps.Count == 17);
+
+            Protein proteinWithoutMods = new Protein("MAGIAAKLAKDREAAEGLGSHA", "testProtein");
+
+            //Test that variable mods are removed
+            nPeps = proteinWithoutMods.Digest(singleN, empty, allMods).ToList();
+            cPeps = proteinWithoutMods.Digest(singleC, empty, allMods).ToList();
+            Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(cPeps.Count == 17);
+
+            //Test that fixed mods are NOT removed
+            nPeps = proteinWithoutMods.Digest(singleN, allMods, empty).ToList();
+            cPeps = proteinWithoutMods.Digest(singleC, allMods, empty).ToList();
+            Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(cPeps.Count == 16);
         }
 
         [Test]
