@@ -258,7 +258,7 @@ namespace Proteomics
         /// </summary>
         internal IEnumerable<PeptideWithSetModifications> RemoveTerminalModifications(IEnumerable<PeptideWithSetModifications> modifiedPeptides, CleavageSpecificity searchModeType)
         {
-            string terminalStringToLookFor = searchModeType == CleavageSpecificity.SingleN ? "N-terminal" : "C-terminal";
+            string terminalStringToLookFor = searchModeType == CleavageSpecificity.SingleN ? "C-terminal" : "N-terminal";
             foreach (PeptideWithSetModifications pwsm in modifiedPeptides)
             {
                 if (!pwsm.AllModsOneIsNterminus.Any(x => x.Value.LocationRestriction.Contains(terminalStringToLookFor)))

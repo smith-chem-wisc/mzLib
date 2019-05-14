@@ -241,8 +241,8 @@ namespace Test
             List<Modification> empty = new List<Modification>();
             List<PeptideWithSetModifications> nPeps = proteinWithMods.Digest(singleN, empty, empty).ToList();
             List<PeptideWithSetModifications> cPeps = proteinWithMods.Digest(singleC, empty, empty).ToList();
-            Assert.IsTrue(nPeps.Count == cPeps.Count * 2);
-            Assert.IsTrue(cPeps.Count == 16);
+            Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(cPeps.Count == 17);
         }
 
         [Test]
