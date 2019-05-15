@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using Chemistry;
+using NUnit.Framework;
 using Proteomics;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
@@ -216,6 +217,47 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(protease, 50, 2, searchModeType: CleavageSpecificity.None, initiatorMethionineBehavior: initiatorMethionineBehavior, fragmentationTerminus: fragmentationTerminus);
             var products = protein.Digest(digestionParams, null, null).ToList();
             Assert.AreEqual(numSequencesExpected, products.Count);
+        }
+
+        [Test]
+        public static void TestSingleProteasesWithTerminalMods()
+        {
+            //we actually don't want C-terminal mods on SingleN or N-terminal mods on SingleC, because they don't influence the fragment ion series and just create a redundant peptide
+            //the modified peptides are found using precursor mass matching after scoring, but that happens downstream in MetaMorpheus
+            ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
+            Modification nTermMod = new Modification(_originalId: "acetylation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "N-terminal.");
+            Modification cTermMod = new Modification(_originalId: "amide", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "C-terminal.");
+
+            Protein proteinWithMods = new Protein("MAGIAAKLAKDREAAEGLGSHA", "testProtein",
+                oneBasedModifications: new Dictionary<int, List<Modification>>
+                {
+                    { 2, new List<Modification>{nTermMod } },
+                    { 22, new List<Modification>{cTermMod } }
+                });
+
+            DigestionParams singleN = new DigestionParams(protease: "singleN", searchModeType: CleavageSpecificity.SingleN, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams singleC = new DigestionParams(protease: "singleC", searchModeType: CleavageSpecificity.SingleC, fragmentationTerminus: FragmentationTerminus.C);
+
+            List<Modification> empty = new List<Modification>();
+            List<Modification> allMods = new List<Modification> { nTermMod, cTermMod };
+            List<PeptideWithSetModifications> nPeps = proteinWithMods.Digest(singleN, empty, empty).ToList();
+            List<PeptideWithSetModifications> cPeps = proteinWithMods.Digest(singleC, empty, empty).ToList();
+            Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(cPeps.Count == 17);
+
+            Protein proteinWithoutMods = new Protein("MAGIAAKLAKDREAAEGLGSHA", "testProtein");
+
+            //Test that variable mods are removed
+            nPeps = proteinWithoutMods.Digest(singleN, empty, allMods).ToList();
+            cPeps = proteinWithoutMods.Digest(singleC, empty, allMods).ToList();
+            Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(cPeps.Count == 17);
+
+            //Test that fixed mods are NOT removed
+            nPeps = proteinWithoutMods.Digest(singleN, allMods, empty).ToList();
+            cPeps = proteinWithoutMods.Digest(singleC, allMods, empty).ToList();
+            Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(cPeps.Count == 16);
         }
 
         [Test]

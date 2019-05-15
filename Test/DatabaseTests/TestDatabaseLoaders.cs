@@ -188,6 +188,9 @@ namespace Test
 
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
+            string ptmlistfilename = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
+            if (File.Exists(ptmlistfilename))
+                File.Delete(ptmlistfilename); // refresh the ptmlist in case this test has been updated
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
             Assert.AreEqual(341, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
@@ -480,6 +483,16 @@ namespace Test
             new_proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, filename), true, DecoyType.None, new List<Modification>(), false, new List<string>(), out um);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
+        }
+        
+        [Test]
+        public static void IsoformReadTest()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\isoformTest.fasta");
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
+
+            Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }
     }
 }
