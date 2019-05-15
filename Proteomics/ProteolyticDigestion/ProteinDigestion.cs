@@ -45,20 +45,20 @@ namespace Proteomics.ProteolyticDigestion
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = Protease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
-            int MaximumMissedCleavagesIndexShift = MaximumMissedCleavages + 1;
+            int maximumMissedCleavagesIndexShift = MaximumMissedCleavages + 1;
 
             //it's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
-            for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - MaximumMissedCleavagesIndexShift; i++)
+            for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavagesIndexShift; i++)
             {
                 bool retain = Protease.Retain(i, InitiatorMethionineBehavior, protein[0]);
                 if (retain) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
                 {
-                    int peptideLength = oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavagesIndexShift] - oneBasedIndicesToCleaveAfter[i];
+                    int peptideLength = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift] - oneBasedIndicesToCleaveAfter[i];
                     if (peptideLength >= MinPeptideLength) //if bigger than min
                     {
                         if (peptideLength <= MaxPeptideLength) //if an acceptable length (bigger than min, smaller than max), add it
                         {
-                            peptides.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavagesIndexShift],
+                            peptides.Add(new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift],
                                 MaximumMissedCleavages, CleavageSpecificity.Full, "full"));
                         }
                         else if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N) //make something with the maximum length and fixed N
@@ -68,7 +68,7 @@ namespace Proteomics.ProteolyticDigestion
                         }
                         else //It has to be FragmentationTerminus.C //make something with the maximum length and fixed C
                         {
-                            int tempIndex = oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavagesIndexShift];
+                            int tempIndex = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift];
                             peptides.Add(new ProteolyticPeptide(protein, tempIndex - MaxPeptideLength, tempIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
                     }
@@ -76,12 +76,12 @@ namespace Proteomics.ProteolyticDigestion
 
                 if (Protease.Cleave(i, InitiatorMethionineBehavior, protein[0]) && (DigestionParams.FragmentationTerminus == FragmentationTerminus.N || !retain)) //it's okay to use i instead of oneBasedIndicesToCleaveAfter[i], because the index of zero is zero and it only checks if it's the N-terminus or not
                 {
-                    int peptideLength = oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavagesIndexShift] - 1;
+                    int peptideLength = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift] - 1;
                     if (peptideLength >= MinPeptideLength)
                     {
                         if (peptideLength <= MaxPeptideLength)
                         {
-                            peptides.Add(new ProteolyticPeptide(protein, 2, oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavagesIndexShift], //two is hardcoded, since M=1, so the next aa is 2 (one based)
+                            peptides.Add(new ProteolyticPeptide(protein, 2, oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift], //two is hardcoded, since M=1, so the next aa is 2 (one based)
                                 MaximumMissedCleavages, CleavageSpecificity.Full, "full:M cleaved"));
                         }
                         else if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N)
@@ -93,7 +93,7 @@ namespace Proteomics.ProteolyticDigestion
                             //kinda tricky, because we'll be creating a duplication if cleavage is variable
                             if (!Protease.Retain(i, InitiatorMethionineBehavior, protein[0])) //only if cleave, because then not made earlier during retain
                             {
-                                int tempIndex = oneBasedIndicesToCleaveAfter[i + MaximumMissedCleavagesIndexShift];
+                                int tempIndex = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift];
                                 peptides.Add(new ProteolyticPeptide(protein, tempIndex - MaxPeptideLength, tempIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                             }
                         }
