@@ -77,7 +77,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptidesLength"></param>
         /// <returns></returns>
         internal List<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int minPeptidesLength, int maxPeptidesLength)
+            int minPeptidesLength, int maxPeptidesLength, Protease specificProtease)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
 
@@ -238,7 +238,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="minPeptidesLength"></param>
         /// <param name="maxPeptidesLength"></param>
         /// <returns></returns>
-        internal static bool OkayLength(int? peptideLength, int? minPeptidesLength, int? maxPeptidesLength)
+        internal static bool OkayLength(int peptideLength, int minPeptidesLength, int maxPeptidesLength)
         {
             return OkayMinLength(peptideLength, minPeptidesLength) && OkayMaxLength(peptideLength, maxPeptidesLength);
         }
@@ -407,22 +407,23 @@ namespace Proteomics.ProteolyticDigestion
                 if (proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue
                     && (proteolysisProduct.OneBasedBeginPosition != 1 || proteolysisProduct.OneBasedEndPosition != protein.Length)) //if at least one side is not a terminus
                 {
+                    int start = proteolysisProduct.OneBasedBeginPosition.Value;
+                    int end = proteolysisProduct.OneBasedEndPosition.Value;  
                     int i = 0;
-                    while (oneBasedIndicesToCleaveAfter[i] < proteolysisProduct.OneBasedBeginPosition)//"<" to prevent additions if same index as residues
+                    while (oneBasedIndicesToCleaveAfter[i] < start)//"<" to prevent additions if same index as residues
                     {
                         i++; // Last position in protein is an index to cleave after
                     }
 
                     // Start peptide
-                    for (int j = proteolysisProduct.OneBasedBeginPosition.Value; j < oneBasedIndicesToCleaveAfter[i]; j++)
+                    for (int j = start; j < oneBasedIndicesToCleaveAfter[i]; j++)
                     {
-                        if (OkayLength(j - proteolysisProduct.OneBasedBeginPosition + 1, minPeptidesLength, maxPeptidesLength))
+                        if (OkayLength(j - start + 1, minPeptidesLength, maxPeptidesLength))
                         {
-                            intervals.Add(new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, j,
-                                j - proteolysisProduct.OneBasedBeginPosition.Value, CleavageSpecificity.Full, proteolysisProduct.Type + " start"));
+                            intervals.Add(new ProteolyticPeptide(protein, start, j, j - start, CleavageSpecificity.Full, proteolysisProduct.Type + " start"));
                         }
                     }
-                    while (oneBasedIndicesToCleaveAfter[i] < proteolysisProduct.OneBasedEndPosition) //"<" to prevent additions if same index as residues, since i-- is below
+                    while (oneBasedIndicesToCleaveAfter[i] < end) //"<" to prevent additions if same index as residues, since i-- is below
                     {
                         i++;
                     }
@@ -434,18 +435,17 @@ namespace Proteomics.ProteolyticDigestion
                     // no new peptides will be generated using this, so we will forgo i--
                     // this makes peptides of length 0, which are not generated due to the for loop
                     // removing this if statement will result in crashes from c-terminal proteolysis product end positions
-                    if (oneBasedIndicesToCleaveAfter[i] != proteolysisProduct.OneBasedEndPosition)
+                    if (oneBasedIndicesToCleaveAfter[i] != end)
                     {
                         i--;
                     }
 
                     // Fin (End)
-                    for (int j = oneBasedIndicesToCleaveAfter[i] + 1; j < proteolysisProduct.OneBasedEndPosition.Value; j++)
+                    for (int j = oneBasedIndicesToCleaveAfter[i] + 1; j < end; j++)
                     {
-                        if (OkayLength(proteolysisProduct.OneBasedEndPosition - j + 1, minPeptidesLength, maxPeptidesLength))
+                        if (OkayLength(end - j + 1, minPeptidesLength, maxPeptidesLength))
                         {
-                            intervals.Add(new ProteolyticPeptide(protein, j, proteolysisProduct.OneBasedEndPosition.Value,
-                                proteolysisProduct.OneBasedEndPosition.Value - j, CleavageSpecificity.Full, proteolysisProduct.Type + " end"));
+                            intervals.Add(new ProteolyticPeptide(protein, j, end, end - j, CleavageSpecificity.Full, proteolysisProduct.Type + " end"));
                         }
                     }
                 }
@@ -513,9 +513,9 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="peptideLength"></param>
         /// <param name="minPeptidesLength"></param>
         /// <returns></returns>
-        private static bool OkayMinLength(int? peptideLength, int? minPeptidesLength)
+        private static bool OkayMinLength(int peptideLength, int minPeptidesLength)
         {
-            return !minPeptidesLength.HasValue || peptideLength >= minPeptidesLength;
+            return peptideLength >= minPeptidesLength;
         }
 
         /// <summary>
@@ -524,9 +524,9 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="peptideLength"></param>
         /// <param name="maxPeptidesLength"></param>
         /// <returns></returns>
-        private static bool OkayMaxLength(int? peptideLength, int? maxPeptidesLength)
+        private static bool OkayMaxLength(int? peptideLength, int maxPeptidesLength)
         {
-            return !maxPeptidesLength.HasValue || peptideLength <= maxPeptidesLength;
+            return !peptideLength.HasValue || peptideLength <= maxPeptidesLength;
         }
     }
 }
