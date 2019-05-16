@@ -209,6 +209,11 @@ namespace Test
             //test speedy nonspecific with retained methionine
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.N, 17);
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.C, 17);
+
+            //test classic nonspecific
+            DigestionParams classicNonspecificDigest = new DigestionParams("non-specific", 50);
+            List<PeptideWithSetModifications> classicNonspecificPeptides = fiveCleavages.Digest(classicNonspecificDigest, null, null).ToList();
+            Assert.IsTrue(classicNonspecificPeptides.Count == 78);
         }
 
         private static void TestSingleProteases(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior, FragmentationTerminus fragmentationTerminus, int numSequencesExpected)

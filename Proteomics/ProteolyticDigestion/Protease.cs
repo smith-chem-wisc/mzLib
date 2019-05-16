@@ -234,17 +234,19 @@ namespace Proteomics.ProteolyticDigestion
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength)
         {
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
+            char firstResidueInProtein = protein[0];
+
             for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
             {
                 for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {
-                    if (Retain(i, initiatorMethionineBehavior, protein[0])
+                    if (Retain(i, initiatorMethionineBehavior, firstResidueInProtein)
                         && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptideLength, maxPeptideLength))
                     {
                         yield return new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
                             missedCleavages, CleavageSpecificity.Full, "full");
                     }
-                    if (Cleave(i, initiatorMethionineBehavior, protein[0])
+                    if (Cleave(i, initiatorMethionineBehavior, firstResidueInProtein) && oneBasedIndicesToCleaveAfter[1] != 1 //prevent duplicates if that bond is cleaved by the protease
                         && OkayLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - 1, minPeptideLength, maxPeptideLength))
                     {
                         yield return new ProteolyticPeptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
@@ -312,7 +314,7 @@ namespace Proteomics.ProteolyticDigestion
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1; i++)
             {
                 bool retain = Retain(i, initiatorMethionineBehavior, protein[0]);
-                bool cleave = Cleave(i, initiatorMethionineBehavior, protein[0]);
+                bool cleave = Cleave(i, initiatorMethionineBehavior, protein[0]) && oneBasedIndicesToCleaveAfter[1] != 1;
                 int cTerminusProtein = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavages + 1];
                 HashSet<int> localOneBasedIndicesToCleaveAfter = new HashSet<int>();
                 for (int j = i; j < i + maximumMissedCleavages + 1; j++)
