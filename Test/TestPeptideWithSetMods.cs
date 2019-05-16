@@ -70,8 +70,8 @@ namespace Test
                 new ProteolysisProduct(5, 25, "asdf")
             };
             Protein protein3 = new Protein("MQFSTVASVAFVALANFVAAESAAAISQITDGQIQATTTATTEATTTAAPSSTVETVSPSSTETISQQTENGAAKAAVGMGAGALAAAAMLL", "P43497", proteolysisProducts: proteolysisProducts);
-            protein2.Digest(nParams, null, null).ToList();
-            protein2.Digest(cParams, null, null).ToList();
+            protein3.Digest(nParams, null, null).ToList();
+            protein3.Digest(cParams, null, null).ToList();
         }
 
         [Test]
