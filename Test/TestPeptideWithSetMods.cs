@@ -69,9 +69,18 @@ namespace Test
             {
                 new ProteolysisProduct(5, 25, "asdf")
             };
+
+            //speedy
             Protein protein3 = new Protein("MQFSTVASVAFVALANFVAAESAAAISQITDGQIQATTTATTEATTTAAPSSTVETVSPSSTETISQQTENGAAKAAVGMGAGALAAAAMLL", "P43497", proteolysisProducts: proteolysisProducts);
             protein3.Digest(nParams, null, null).ToList();
             protein3.Digest(cParams, null, null).ToList();
+            cParams = new DigestionParams("trypsin", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior:InitiatorMethionineBehavior.Cleave);
+            protein3.Digest(cParams, null, null).ToList();
+
+            //classic
+            DigestionParams classicSemi = new DigestionParams("semi-trypsin", 2, 7, 50);
+            protein3.Digest(classicSemi, null, null).ToList();
+
         }
 
         [Test]
