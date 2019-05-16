@@ -292,7 +292,7 @@ namespace Test
 
             //Methionine cleavage fringe test
             Protein methionineProtein = new Protein("MDBCEFGDHIKLMNODPQRST", "tiny");
-            dpN = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N, initiatorMethionineBehavior:InitiatorMethionineBehavior.Cleave);
+            dpN = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
             dpC = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
             peptides = methionineProtein.Digest(dpN, empty, empty).ToList();
             Assert.IsTrue(peptides.Count == 16);
