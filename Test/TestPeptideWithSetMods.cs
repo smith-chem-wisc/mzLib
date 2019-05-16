@@ -375,5 +375,18 @@ namespace Test
             //if digestion params IS defined, the peptidewithsetmods should  return a hashcode.
             Assert.IsNotNull(twoHashCode);
         }
+
+        [Test]
+        public static void TestTopDownDigestion()
+        {
+            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            {
+                new ProteolysisProduct(5, 20, "asdf")
+            };
+            Protein protein = new Protein("MACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWY", "testProtein", "Mus", proteolysisProducts: proteolysisProducts);
+            DigestionParams topdownParams = new DigestionParams("top-down");
+            List<PeptideWithSetModifications> peptides = protein.Digest(topdownParams, null, null).ToList();
+            Assert.IsTrue(peptides.Count == 3);
+        }
     }
 }
