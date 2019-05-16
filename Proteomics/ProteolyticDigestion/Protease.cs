@@ -500,7 +500,7 @@ namespace Proteomics.ProteolyticDigestion
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, Protease specificProtease)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
-            int proteinStart = Retain(0, initiatorMethionineBehavior, protein[0]) ? 1 : 2; //where does the protein start ? 2 : 1;
+            int proteinStart = Retain(0, initiatorMethionineBehavior, protein[0]) ? 1 : 2; //where does the protein start?
 
             if (Equals(specificProtease))
             {
@@ -519,6 +519,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             else //if there's a specific protease, then we need to adhere to the specified missed cleavage rules
             {
+                //generate only peptides with the maximum number of missed cleavages, unless the protein has fewer than the max or we're near the unselected terminus (where we run to the end of the protein)
                 List<int> oneBasedIndicesToCleaveAfter = specificProtease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
                 oneBasedIndicesToCleaveAfter[0] = proteinStart - 1;//update the first cleavage to represent the initiator methionine rules
                 int maximumMissedCleavagesIndexShift = maximumMissedCleavages + 1;
@@ -578,7 +579,7 @@ namespace Proteomics.ProteolyticDigestion
             int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, Protease specificProtease)
         {
             List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
-            int proteinStart = Retain(0, initiatorMethionineBehavior, protein[0]) ? 1 : 2; //where does the protein start
+            int proteinStart = Retain(0, initiatorMethionineBehavior, protein[0]) ? 1 : 2; //where does the protein start?
             if (Equals(specificProtease))
             {
                 int lengthDifference = proteinStart - 1; //take it back one for zero based index
@@ -594,6 +595,7 @@ namespace Proteomics.ProteolyticDigestion
             }
             else //if there's a specific protease, then we need to adhere to the specified missed cleavage rules
             {
+                //generate only peptides with the maximum number of missed cleavages, unless the protein has fewer than the max or we're near the unselected terminus (where we run to the end of the protein)
                 List<int> oneBasedIndicesToCleaveAfter = specificProtease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
                 oneBasedIndicesToCleaveAfter[0] = proteinStart - 1;//update the first cleavage to represent the initiator methionine rules
                 int maximumMissedCleavagesIndexShift = maximumMissedCleavages + 1;
