@@ -261,6 +261,46 @@ namespace Test
         }
 
         [Test]
+        public static void TestSingleProteasesWithSpecificProteases()
+        {
+            Protein tinyProteinWithCleavages = new Protein("ACDREFGHIKLMNPQRST", "tiny");
+            Protein tinyProteinWithoutCleavages = new Protein("ACDEFGHILMNPQST", "tinier");
+            Protein bigProteinWithStretchOfNoCleavages = new Protein("ACDREFGHIKLMNPQRSTGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGACDREFGHIKLMNPQRST", "big");
+            List<Protein> proteins = new List<Protein> { tinyProteinWithCleavages, tinyProteinWithoutCleavages, bigProteinWithStretchOfNoCleavages };
+
+            DigestionParams dpN = new DigestionParams("trypsin", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams dpC = new DigestionParams("trypsin", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            List<DigestionParams> dps = new List<DigestionParams> { dpN, dpC };
+            List<Modification> empty = new List<Modification>();
+
+            //SingleN tests
+
+            List<PeptideWithSetModifications> peptides = tinyProteinWithCleavages.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 14);
+            peptides = tinyProteinWithoutCleavages.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 11);
+            peptides = bigProteinWithStretchOfNoCleavages.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 63);
+
+            //SingleC tests
+            peptides = tinyProteinWithCleavages.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 14);
+            peptides = tinyProteinWithoutCleavages.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 11);
+            peptides = bigProteinWithStretchOfNoCleavages.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 63);
+
+            //Methionine cleavage fringe test
+            Protein methionineProtein = new Protein("MDBCEFGDHIKLMNODPQRST", "tiny");
+            dpN = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N, initiatorMethionineBehavior:InitiatorMethionineBehavior.Cleave);
+            dpC = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
+            peptides = methionineProtein.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 16);
+            peptides = methionineProtein.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 16);
+        }
+
+        [Test]
         public static void TestHardToParseModifiedSequence()
         {
             string fullSequence = "PE[Metal:Cation:Fe[III] on X]PTIDE";
