@@ -194,7 +194,7 @@ namespace Proteomics.ProteolyticDigestion
                         int beginIndex = oneBasedIndicesToCleaveAfter[proteaseClevageIndex] + 1;
 
                         //set to product end value if cleavages extend past
-                        if (product.OneBasedBeginPosition.HasValue && product.OneBasedBeginPosition.Value < beginIndex)
+                        if (product.OneBasedBeginPosition.HasValue && product.OneBasedBeginPosition.Value > beginIndex)
                         {
                             beginIndex = product.OneBasedBeginPosition.Value;
                         }
