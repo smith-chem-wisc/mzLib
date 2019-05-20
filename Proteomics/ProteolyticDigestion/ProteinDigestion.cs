@@ -138,12 +138,91 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // Also digest using the proteolysis product start/end indices
-            peptides.AddRange(
-                protein.ProteolysisProducts
-                    .Where(proteolysisProduct => proteolysisProduct.OneBasedEndPosition.HasValue && proteolysisProduct.OneBasedBeginPosition.HasValue &&
-                    (proteolysisProduct.OneBasedBeginPosition != 1 || proteolysisProduct.OneBasedEndPosition != protein.Length))
-                    .Select(proteolysisProduct => new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value,
-                        0, CleavageSpecificity.Full, proteolysisProduct.Type + " start")));
+            foreach (ProteolysisProduct product in protein.ProteolysisProducts)
+            {
+                //if fixed N, we care if the start position is novel
+                if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N)
+                {
+                    //if has value and not a duplicate
+                    if (product.OneBasedBeginPosition.HasValue && !oneBasedIndicesToCleaveAfter.Contains(product.OneBasedBeginPosition.Value - 1))
+                    {
+                        int proteaseClevageIndex = 0;
+
+                        //get the first cleavage index after the start of the proteolysis product
+                        while (oneBasedIndicesToCleaveAfter[proteaseClevageIndex] < product.OneBasedBeginPosition.Value)
+                        {
+                            proteaseClevageIndex++;
+                        }
+                        //add max missed cleavages
+                        proteaseClevageIndex += MaximumMissedCleavages;
+
+                        //set to the end if we overshot
+                        if (proteaseClevageIndex >= oneBasedIndicesToCleaveAfter.Count)
+                        {
+                            proteaseClevageIndex = oneBasedIndicesToCleaveAfter.Count - 1;
+                        }
+                        int endIndex = oneBasedIndicesToCleaveAfter[proteaseClevageIndex];
+
+                        //set to product end value if cleavages extend past
+                        if (product.OneBasedEndPosition.HasValue && product.OneBasedEndPosition.Value < endIndex)
+                        {
+                            endIndex = product.OneBasedEndPosition.Value;
+                        }
+
+                        //limit length to the maximum allowed if necessary
+                        if (endIndex - product.OneBasedBeginPosition.Value >= MaxPeptideLength)
+                        {
+                            endIndex = product.OneBasedBeginPosition.Value + MaxPeptideLength - 1;
+                        }
+
+                        //if it's bigger than the minimum allowed, then add it
+                        if (endIndex - product.OneBasedBeginPosition.Value + 1 >= MinPeptideLength)
+                        {
+                            peptides.Add(new ProteolyticPeptide(protein, product.OneBasedBeginPosition.Value, endIndex, MaximumMissedCleavages, CleavageSpecificity.Full, product.Type + " start"));
+                        }
+                    }
+                }
+                else //if fixed C, we care if the end position is novel
+                {
+                    //if has value and not a duplicate
+                    if (product.OneBasedEndPosition.HasValue && !oneBasedIndicesToCleaveAfter.Contains(product.OneBasedEndPosition.Value))
+                    {
+                        int proteaseClevageIndex = 0;
+
+                        //get the first cleavage index after the start of the proteolysis product
+                        while (oneBasedIndicesToCleaveAfter[proteaseClevageIndex] < product.OneBasedEndPosition.Value)
+                        {
+                            proteaseClevageIndex++;
+                        }
+                        //subtract max missed cleavages
+                        proteaseClevageIndex -= (MaximumMissedCleavages + 1); //+1 because we overshot in the while loop
+
+                        //set to the beginning if we overshot
+                        if (proteaseClevageIndex < 0)
+                        {
+                            proteaseClevageIndex = 0;
+                        }
+                        int beginIndex = oneBasedIndicesToCleaveAfter[proteaseClevageIndex] + 1;
+
+                        //set to product end value if cleavages extend past
+                        if (product.OneBasedBeginPosition.HasValue && product.OneBasedBeginPosition.Value > beginIndex)
+                        {
+                            beginIndex = product.OneBasedBeginPosition.Value;
+                        }
+
+                        //limit length to the maximum allowed if necessary
+                        if (product.OneBasedEndPosition.Value - beginIndex >= MaxPeptideLength)
+                        {
+                            beginIndex = product.OneBasedEndPosition.Value - MaxPeptideLength + 1;
+                        }
+                        //if it's bigger than the minimum allowed, then add it
+                        if (product.OneBasedEndPosition.Value - beginIndex + 1 >= MinPeptideLength)
+                        {
+                            peptides.Add(new ProteolyticPeptide(protein, beginIndex, product.OneBasedEndPosition.Value, MaximumMissedCleavages, CleavageSpecificity.Full, product.Type + " start"));
+                        }
+                    }
+                }
+            }
 
             return peptides;
         }
