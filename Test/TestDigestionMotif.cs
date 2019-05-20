@@ -321,16 +321,17 @@ namespace Test
             //check that there are no duplicates
             Assert.IsTrue(pwsms.Count == hashset.Count);
 
-
             //Speedy semi specific test
-            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 1, 25, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.N);
-            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 1, 25, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.C);
+            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.N);
+            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.C);
             List<PeptideWithSetModifications> pwsmsN = humanInsulin.Digest(speedySemiN, null, null).ToList();
             List<PeptideWithSetModifications> pwsmsC = humanInsulin.Digest(speedySemiC, null, null).ToList();
-            Assert.IsTrue(pwsmsN.Count == 9);
-            Assert.IsTrue(pwsmsC.Count == 11);
+            Assert.IsTrue(pwsmsN.Count == 7);
+            Assert.IsTrue(pwsmsC.Count == 9);
             Assert.IsFalse(pwsmsN.Any(x => x.Length > speedySemiN.MaxPeptideLength));
             Assert.IsFalse(pwsmsC.Any(x => x.Length > speedySemiC.MaxPeptideLength));
+            Assert.IsFalse(pwsmsN.Any(x => x.Length < speedySemiN.MinPeptideLength));
+            Assert.IsFalse(pwsmsC.Any(x => x.Length < speedySemiC.MinPeptideLength));
         }
     }
 }
