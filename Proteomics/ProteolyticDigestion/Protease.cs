@@ -290,12 +290,12 @@ namespace Proteomics.ProteolyticDigestion
                             cleavageIndexWithinProteolysisProduct++;
                         }
 
-                        bool end = cleavageIndexWithinProteolysisProduct - missedCleavages - 1 >= 0 //if we're not going to go out of bounds (-1 to get in front of the end)
+                        bool endPeptide = cleavageIndexWithinProteolysisProduct - missedCleavages - 1 >= 0 //if we're not going to go out of bounds (-1 to get in front of the end)
                             && oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition //and it's not before the beginning
                             && proteolysisProduct.OneBasedEndPosition.HasValue //and the proteolytic peptide even has an end
                             && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedEndPosition.Value) //and we haven't already cleaved here
                             && OkayLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 - 1, minPeptideLength, maxPeptideLength); //and it's the correct size
-                        if (end)
+                        if (endPeptide)
                         {
                             yield return new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
                                 missedCleavages, CleavageSpecificity.Full, proteolysisProduct.Type + " end");
