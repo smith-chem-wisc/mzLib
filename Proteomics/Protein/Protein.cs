@@ -382,13 +382,7 @@ namespace Proteomics
         public override bool Equals(object obj)
         {
             Protein otherProtein = (Protein)obj;
-
-            if (otherProtein == null)
-            {
-                return false;
-            }
-
-            return otherProtein != null && otherProtein.Accession == this.Accession && otherProtein.BaseSequence == this.BaseSequence;
+            return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
         }
 
         /// <summary>
