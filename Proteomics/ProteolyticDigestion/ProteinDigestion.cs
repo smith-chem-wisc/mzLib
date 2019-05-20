@@ -168,6 +168,13 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             endIndex = product.OneBasedEndPosition.Value;
                         }
+
+                        //limit length to the maximum allowed if necessary
+                        if (endIndex - product.OneBasedBeginPosition.Value > MaxPeptideLength)
+                        {
+                            endIndex = product.OneBasedBeginPosition.Value + MaxPeptideLength-1;
+                        }
+
                         peptides.Add(new ProteolyticPeptide(protein, product.OneBasedBeginPosition.Value, endIndex, MaximumMissedCleavages, CleavageSpecificity.Full, product.Type + " start"));
                     }
                 }
@@ -198,6 +205,13 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             beginIndex = product.OneBasedBeginPosition.Value;
                         }
+
+                        //limit length to the maximum allowed if necessary
+                        if (product.OneBasedEndPosition.Value - beginIndex > MaxPeptideLength)
+                        {
+                            beginIndex = product.OneBasedEndPosition.Value - MaxPeptideLength + 1;
+                        }
+
                         peptides.Add(new ProteolyticPeptide(protein, beginIndex, product.OneBasedEndPosition.Value, MaximumMissedCleavages, CleavageSpecificity.Full, product.Type + " start"));
                     }
                 }
