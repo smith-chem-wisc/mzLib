@@ -151,6 +151,7 @@ namespace Proteomics
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
+        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }

@@ -258,6 +258,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
 
+                //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete all of the code below
                 // Also digest using the proteolysis product start/end indices
                 foreach (var proteolysisProduct in protein.ProteolysisProducts)
                 {
