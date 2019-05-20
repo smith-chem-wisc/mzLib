@@ -39,25 +39,25 @@ namespace Proteomics.ProteolyticDigestion
 
         public CleavageSpecificity GetCleavageSpecificity(Protein protein, int startIndex, int endIndex, bool retainMethionine)
         {
-            List<int> indicesToCleave = GetDigestionSiteIndices(protein.BaseSequence);
             int cleavableMatches = 0;
-            //if the start index is a cleavable index (-1 because one based) OR if the start index is after a cleavable methionine
-            if (indicesToCleave.Contains(startIndex - 1) ||
-                (startIndex == 2 && protein.BaseSequence[0] == 'M' && !retainMethionine) ||
-                protein.ProteolysisProducts.Any(x => x.OneBasedBeginPosition == startIndex))
+            if (CleavageSpecificity == CleavageSpecificity.SingleN || CleavageSpecificity == CleavageSpecificity.SingleC) //if it's single protease, don't bother
             {
-                cleavableMatches++;
+                List<int> indicesToCleave = GetDigestionSiteIndices(protein.BaseSequence);
+                //if the start index is a cleavable index (-1 because one based) OR if the start index is after a cleavable methionine
+                if (indicesToCleave.Contains(startIndex - 1) ||
+                    (startIndex == 2 && protein.BaseSequence[0] == 'M' && !retainMethionine) ||
+                    protein.ProteolysisProducts.Any(x => x.OneBasedBeginPosition == startIndex))
+                {
+                    cleavableMatches++;
+                }
+                //if the end index is a cleavable index
+                if (indicesToCleave.Contains(endIndex) ||
+                    protein.ProteolysisProducts.Any(x => x.OneBasedEndPosition == endIndex))
+                {
+                    cleavableMatches++;
+                }
             }
-            //if the end index is a cleavable index
-            if (indicesToCleave.Contains(endIndex) ||
-                protein.ProteolysisProducts.Any(x => x.OneBasedEndPosition == endIndex))
-            {
-                cleavableMatches++;
-            }
-
-            if (cleavableMatches == 0  //if neither were cleavable, (or it's singleN/C) then it's nonspecific
-                || CleavageSpecificity == CleavageSpecificity.SingleN
-                || CleavageSpecificity == CleavageSpecificity.SingleC)
+            if (cleavableMatches == 0) //if neither were cleavable, (or it's singleN/C) then it's nonspecific
             {
                 return CleavageSpecificity.None;
             }
