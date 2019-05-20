@@ -172,7 +172,7 @@ namespace Proteomics.ProteolyticDigestion
                         //limit length to the maximum allowed if necessary
                         if (endIndex - product.OneBasedBeginPosition.Value > MaxPeptideLength)
                         {
-                            endIndex = product.OneBasedBeginPosition.Value + MaxPeptideLength-1;
+                            endIndex = product.OneBasedBeginPosition.Value + MaxPeptideLength - 1;
                         }
 
                         peptides.Add(new ProteolyticPeptide(protein, product.OneBasedBeginPosition.Value, endIndex, MaximumMissedCleavages, CleavageSpecificity.Full, product.Type + " start"));
