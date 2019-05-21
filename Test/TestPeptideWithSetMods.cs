@@ -64,6 +64,23 @@ namespace Test
             Protein protein2 = new Protein("MQFSTVASVAFVALANFVAAESAAAISQITDGQIQATTTATTEATTTAAPSSTVETVSPSSTETISQQTENGAAKAAVGMGAGALAAAAMLL", "P43497");
             protein2.Digest(nParams, null, null).ToList();
             protein2.Digest(cParams, null, null).ToList();
+
+            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            {
+                new ProteolysisProduct(5, 25, "asdf")
+            };
+
+            //speedy
+            Protein protein3 = new Protein("MQFSTVASVAFVALANFVAAESAAAISQITDGQIQATTTATTEATTTAAPSSTVETVSPSSTETISQQTENGAAKAAVGMGAGALAAAAMLL", "P43497", proteolysisProducts: proteolysisProducts);
+            protein3.Digest(nParams, null, null).ToList();
+            protein3.Digest(cParams, null, null).ToList();
+            cParams = new DigestionParams("trypsin", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
+            protein3.Digest(cParams, null, null).ToList();
+
+            //classic
+            DigestionParams classicSemi = new DigestionParams("semi-trypsin", 2, 7, 50);
+            protein3.Digest(classicSemi, null, null).ToList();
+
         }
 
         [Test]
@@ -209,6 +226,11 @@ namespace Test
             //test speedy nonspecific with retained methionine
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.N, 17);
             TestSingleProteases(fiveCleavages, InitiatorMethionineBehavior.Retain, FragmentationTerminus.C, 17);
+
+            //test classic nonspecific
+            DigestionParams classicNonspecificDigest = new DigestionParams("non-specific", 50);
+            List<PeptideWithSetModifications> classicNonspecificPeptides = fiveCleavages.Digest(classicNonspecificDigest, null, null).ToList();
+            Assert.IsTrue(classicNonspecificPeptides.Count == 78);
         }
 
         private static void TestSingleProteases(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior, FragmentationTerminus fragmentationTerminus, int numSequencesExpected)
@@ -258,6 +280,44 @@ namespace Test
             cPeps = proteinWithoutMods.Digest(singleC, allMods, empty).ToList();
             Assert.IsTrue(nPeps.Count == cPeps.Count);
             Assert.IsTrue(cPeps.Count == 16);
+        }
+
+        [Test]
+        public static void TestSingleProteasesWithSpecificProteases()
+        {
+            Protein tinyProteinWithCleavages = new Protein("ACDREFGHIKLMNPQRST", "tiny");
+            Protein tinyProteinWithoutCleavages = new Protein("ACDEFGHILMNPQST", "tinier");
+            Protein bigProteinWithStretchOfNoCleavages = new Protein("ACDREFGHIKLMNPQRSTGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGACDREFGHIKLMNPQRST", "big");
+
+            DigestionParams dpN = new DigestionParams("trypsin", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams dpC = new DigestionParams("trypsin", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            List<Modification> empty = new List<Modification>();
+
+            //SingleN tests
+
+            List<PeptideWithSetModifications> peptides = tinyProteinWithCleavages.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 14);
+            peptides = tinyProteinWithoutCleavages.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 11);
+            peptides = bigProteinWithStretchOfNoCleavages.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 63);
+
+            //SingleC tests
+            peptides = tinyProteinWithCleavages.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 14);
+            peptides = tinyProteinWithoutCleavages.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 11);
+            peptides = bigProteinWithStretchOfNoCleavages.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 63);
+
+            //Methionine cleavage fringe test
+            Protein methionineProtein = new Protein("MDBCEFGDHIKLMNODPQRST", "tiny");
+            dpN = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
+            dpC = new DigestionParams("Asp-N", 2, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
+            peptides = methionineProtein.Digest(dpN, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 16);
+            peptides = methionineProtein.Digest(dpC, empty, empty).ToList();
+            Assert.IsTrue(peptides.Count == 16);
         }
 
         [Test]
@@ -331,6 +391,53 @@ namespace Test
 
             //if digestion params IS defined, the peptidewithsetmods should  return a hashcode.
             Assert.IsNotNull(twoHashCode);
+        }
+
+        [Test]
+        public static void TestTopDownDigestion()
+        {
+            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            {
+                new ProteolysisProduct(5, 20, "asdf")
+            };
+            Protein protein = new Protein("MACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWY", "testProtein", "Mus", proteolysisProducts: proteolysisProducts);
+            DigestionParams topdownParams = new DigestionParams("top-down");
+            List<PeptideWithSetModifications> peptides = protein.Digest(topdownParams, null, null).ToList();
+            Assert.IsTrue(peptides.Count == 3);
+        }
+
+        [Test]
+        public static void TestUpdateCleavageSpecificity()
+        {
+            Protein protein = new Protein("MACDEFGHIKLMNPQRST", "test");
+            DigestionParams dpVariable = new DigestionParams();
+            DigestionParams dpRetain = new DigestionParams(initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            Dictionary<int, Modification> empty = new Dictionary<int, Modification>();
+
+            //Test with varying Methionine
+            PeptideWithSetModifications fullCleavageVariableMet = new PeptideWithSetModifications(protein, dpVariable, 2, 10, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(fullCleavageVariableMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
+            PeptideWithSetModifications fullCleavageRetainMet = new PeptideWithSetModifications(protein, dpRetain, 2, 10, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(fullCleavageRetainMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
+            PeptideWithSetModifications semiCleavageVariableMet = new PeptideWithSetModifications(protein, dpVariable, 2, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(semiCleavageVariableMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
+            PeptideWithSetModifications semiCleavageRetainMet = new PeptideWithSetModifications(protein, dpRetain, 2, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(semiCleavageRetainMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.None);
+            PeptideWithSetModifications noneCleavageVariableMet = new PeptideWithSetModifications(protein, dpVariable, 3, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(noneCleavageVariableMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.None);
+            PeptideWithSetModifications noneCleavageRetainMet = new PeptideWithSetModifications(protein, dpRetain, 3, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(noneCleavageRetainMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.None);
+
+            //Test with proteolytic cleavages
+            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(3, 9, "chain") });
+            PeptideWithSetModifications fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(fullProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
+            fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 10, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(fullProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
+            PeptideWithSetModifications semiProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 6, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(semiProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
+            semiProteolytic = new PeptideWithSetModifications(protein, dpVariable, 5, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
+            Assert.IsTrue(semiProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
         }
     }
 }
