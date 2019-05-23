@@ -118,6 +118,10 @@ namespace Test
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxPeptideLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MinPeptideLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
+
+            Protein Q86V81 = new Protein("MADKMDMSLDDIIKLNRSQRGGRGGGRGRGRAGSQGGRGGGAQAAARVNRGGGPIRNRPAIARGAAGGGGRNRPAPYSRPKQLPDKWQHDLFDSGFGGGAGVETGGKLLVSNLDFGVSDADIQELFAEFGTLKKAAVHYDRSGRSLGTADVHFERKADALKAMKQYNGVPLDGRPMNIQLVTSQIDAQRRPAQSVNRGGMTRNRGAGGFGGGGGTRRGTRGGARGRGRGAGRNSKQQLSAEELDAQLDAYNARMDTS", "Q86V81");
+            cPwsms = Q86V81.Digest(nonCParams, null, null).ToList();
+            var asdf = cPwsms.Where(x => x.BaseSequence.Contains("DSGFGGGAGVETGGKLLVSNLDFGVSDA")).ToList();
         }
 
         [Test]
@@ -475,6 +479,18 @@ namespace Test
             Assert.IsTrue(semiProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
             semiProteolytic = new PeptideWithSetModifications(protein, dpVariable, 5, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
             Assert.IsTrue(semiProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
+        }
+
+        [Test]
+        public static void TestSingleProteasesTinyProtein()
+        {
+            Protein P56381 = new Protein("MVAYWRQAGLSYIRYSQICAKAVRDALKTEFKANAEKTSGSNVKIVKVKKE", "P56381");
+            DigestionParams singleN = new DigestionParams("Asp-N", 3, 7, 50, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams singleC = new DigestionParams("Asp-N", 3, 7, 50, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            List<PeptideWithSetModifications> nPwsms = P56381.Digest(singleN, null, null).ToList();
+            List<PeptideWithSetModifications> cPwsms = P56381.Digest(singleC, null, null).ToList();
+            Assert.IsTrue(nPwsms.Count == cPwsms.Count);
+            Assert.IsTrue(nPwsms.Count == P56381.Length-singleN.MinPeptideLength+1);
         }
     }
 }
