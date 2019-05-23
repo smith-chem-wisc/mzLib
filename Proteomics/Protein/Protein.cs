@@ -1,4 +1,5 @@
-﻿using Proteomics.ProteolyticDigestion;
+﻿using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -239,9 +240,11 @@ namespace Proteomics
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
             //Remove terminal modifications (if needed)
-            if (searchModeType == CleavageSpecificity.SingleN || searchModeType == CleavageSpecificity.SingleC)
+            if (searchModeType == CleavageSpecificity.SingleN || 
+                searchModeType == CleavageSpecificity.SingleC || 
+                (searchModeType == CleavageSpecificity.None && (digestionParams.FragmentationTerminus==FragmentationTerminus.N || digestionParams.FragmentationTerminus==FragmentationTerminus.C)))
             {
-                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, searchModeType, allKnownFixedModifications);
+                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, digestionParams.FragmentationTerminus, allKnownFixedModifications);
             }
 
             //add silac labels (if needed)
@@ -257,9 +260,9 @@ namespace Proteomics
         /// Remove terminal modifications from the C-terminus of SingleN peptides and the N-terminus of SingleC peptides/
         /// These terminal modifications create redundant entries and increase search time
         /// </summary>
-        internal static IEnumerable<PeptideWithSetModifications> RemoveTerminalModifications(IEnumerable<PeptideWithSetModifications> modifiedPeptides, CleavageSpecificity searchModeType, IEnumerable<Modification> allFixedMods)
+        internal static IEnumerable<PeptideWithSetModifications> RemoveTerminalModifications(IEnumerable<PeptideWithSetModifications> modifiedPeptides, FragmentationTerminus fragmentationTerminus, IEnumerable<Modification> allFixedMods)
         {
-            string terminalStringToLookFor = searchModeType == CleavageSpecificity.SingleN ? "C-terminal" : "N-terminal";
+            string terminalStringToLookFor = fragmentationTerminus == FragmentationTerminus.N ? "C-terminal" : "N-terminal";
             List<Modification> fixedTerminalMods = allFixedMods.Where(x => x.LocationRestriction.Contains(terminalStringToLookFor)).ToList();
             foreach (PeptideWithSetModifications pwsm in modifiedPeptides)
             {

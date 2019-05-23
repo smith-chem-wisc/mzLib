@@ -320,7 +320,25 @@ namespace Test
             nPeps = proteinWithoutMods.Digest(singleN, allMods, empty).ToList();
             cPeps = proteinWithoutMods.Digest(singleC, allMods, empty).ToList();
             Assert.IsTrue(nPeps.Count == cPeps.Count);
+            Assert.IsTrue(nPeps.All(x => x.FullSequence.Contains("testModType:amide on A")));
+            Assert.IsTrue(nPeps.Last().FullSequence.Contains("testModType:amide on A"));
             Assert.IsTrue(cPeps.Count == 16);
+
+            //Test single proteases with specific protease
+            DigestionParams specificNonN = new DigestionParams(protease: "Asp-N", searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams specificNonC = new DigestionParams(protease: "Asp-N", searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            List<PeptideWithSetModifications> nSpecificPeps = proteinWithMods.Digest(specificNonN, empty, empty).ToList();
+            List<PeptideWithSetModifications> cSpecificPeps = proteinWithMods.Digest(specificNonC, empty, empty).ToList();
+            Assert.IsTrue(nSpecificPeps.Count == cSpecificPeps.Count);
+            Assert.IsTrue(cSpecificPeps.Count == 17);
+
+            //try again with no missed cleavages
+            specificNonN = new DigestionParams(protease: "Asp-N", 0, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            specificNonC = new DigestionParams(protease: "Asp-N", 0, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            nSpecificPeps = proteinWithMods.Digest(specificNonN, empty, empty).ToList();
+            cSpecificPeps = proteinWithMods.Digest(specificNonC, empty, empty).ToList();
+            Assert.IsTrue(nSpecificPeps.Count == 11);
+            Assert.IsTrue(cSpecificPeps.Count == 10);
         }
 
         [Test]
