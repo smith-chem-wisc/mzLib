@@ -329,8 +329,8 @@ namespace Test
             Assert.IsTrue(cSpecificPeps.Count == 17);
 
             //try again with no missed cleavages
-            specificNonN = new DigestionParams(protease: "Asp-N", 0, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
-            specificNonC = new DigestionParams(protease: "Asp-N", 0, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            specificNonN = new DigestionParams(protease: "Asp-N", maxMissedCleavages: 0, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            specificNonC = new DigestionParams(protease: "Asp-N", maxMissedCleavages: 0, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
             nSpecificPeps = proteinWithMods.Digest(specificNonN, empty, empty).ToList();
             cSpecificPeps = proteinWithMods.Digest(specificNonC, empty, empty).ToList();
             Assert.IsTrue(nSpecificPeps.Count == 11);
