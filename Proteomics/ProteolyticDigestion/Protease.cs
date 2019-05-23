@@ -605,20 +605,21 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
                 //wrap up the terminus
-                if (oneBasedIndicesToCleaveAfter.Count >= maximumMissedCleavagesIndexShift)
+                if (oneBasedIndicesToCleaveAfter.Count < maximumMissedCleavagesIndexShift)
                 {
-                    int lastStartIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavagesIndexShift] + 1;
-                    int proteinEndIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - 1]; //end of protein
-                    int lastEndIndex = Math.Min(proteinEndIndex, lastStartIndex + maxPeptideLength - 1); //end of protein
-                    for (; lastStartIndex + minPeptideLength - 1 <= lastEndIndex; lastStartIndex++)
-                    {
-                        peptides.Add(new ProteolyticPeptide(protein, lastStartIndex, lastEndIndex, maximumMissedCleavages, CleavageSpecificity.SingleN, "SingleN"));
+                    maximumMissedCleavagesIndexShift = oneBasedIndicesToCleaveAfter.Count;
+                }
+                int lastStartIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavagesIndexShift] + 1;
+                int proteinEndIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - 1]; //end of protein
+                int lastEndIndex = Math.Min(proteinEndIndex, lastStartIndex + maxPeptideLength - 1); //end of protein
+                for (; lastStartIndex + minPeptideLength - 1 <= lastEndIndex; lastStartIndex++)
+                {
+                    peptides.Add(new ProteolyticPeptide(protein, lastStartIndex, lastEndIndex, maximumMissedCleavages, CleavageSpecificity.SingleN, "SingleN"));
 
-                        //update the end if needed
-                        if (lastEndIndex != proteinEndIndex)
-                        {
-                            lastEndIndex++;
-                        }
+                    //update the end if needed
+                    if (lastEndIndex != proteinEndIndex)
+                    {
+                        lastEndIndex++;
                     }
                 }
             }
