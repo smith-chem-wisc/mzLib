@@ -240,9 +240,9 @@ namespace Proteomics
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
             //Remove terminal modifications (if needed)
-            if (searchModeType == CleavageSpecificity.SingleN || 
-                searchModeType == CleavageSpecificity.SingleC || 
-                (searchModeType == CleavageSpecificity.None && (digestionParams.FragmentationTerminus==FragmentationTerminus.N || digestionParams.FragmentationTerminus==FragmentationTerminus.C)))
+            if (searchModeType == CleavageSpecificity.SingleN ||
+                searchModeType == CleavageSpecificity.SingleC ||
+                (searchModeType == CleavageSpecificity.None && (digestionParams.FragmentationTerminus == FragmentationTerminus.N || digestionParams.FragmentationTerminus == FragmentationTerminus.C)))
             {
                 modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, digestionParams.FragmentationTerminus, allKnownFixedModifications);
             }

@@ -504,7 +504,7 @@ namespace Test
             List<PeptideWithSetModifications> nPwsms = P56381.Digest(singleN, null, null).ToList();
             List<PeptideWithSetModifications> cPwsms = P56381.Digest(singleC, null, null).ToList();
             Assert.IsTrue(nPwsms.Count == cPwsms.Count);
-            Assert.IsTrue(nPwsms.Count == P56381.Length-singleN.MinPeptideLength+1);
+            Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinPeptideLength + 1);
         }
     }
 }
