@@ -118,10 +118,6 @@ namespace Test
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MaxPeptideLength));
             Assert.IsTrue(nPwsms.Any(x => x.Length == nonNParams.MinPeptideLength));
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
-
-            Protein Q86V81 = new Protein("MADKMDMSLDDIIKLNRSQRGGRGGGRGRGRAGSQGGRGGGAQAAARVNRGGGPIRNRPAIARGAAGGGGRNRPAPYSRPKQLPDKWQHDLFDSGFGGGAGVETGGKLLVSNLDFGVSDADIQELFAEFGTLKKAAVHYDRSGRSLGTADVHFERKADALKAMKQYNGVPLDGRPMNIQLVTSQIDAQRRPAQSVNRGGMTRNRGAGGFGGGGGTRRGTRGGARGRGRGAGRNSKQQLSAEELDAQLDAYNARMDTS", "Q86V81");
-            cPwsms = Q86V81.Digest(nonCParams, null, null).ToList();
-            var asdf = cPwsms.Where(x => x.BaseSequence.Contains("DSGFGGGAGVETGGKLLVSNLDFGVSDA")).ToList();
         }
 
         [Test]
