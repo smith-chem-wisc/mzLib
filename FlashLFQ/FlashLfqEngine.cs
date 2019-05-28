@@ -768,7 +768,7 @@ namespace FlashLFQ
                 {
                     if (bestMbrHits.TryGetValue(peak.Identifications.First().ModifiedSequence, out var oldPeak))
                     {
-                        if (peak.MbrQValue < oldPeak.MbrQValue)
+                        if (peak.MbrScore > oldPeak.MbrScore)
                         {
                             bestMbrHits[peak.Identifications.First().ModifiedSequence] = peak;
                         }
@@ -895,7 +895,7 @@ namespace FlashLFQ
                         {
                             storedPeak.MergeFeatureWith(tryPeak, Integrate);
                         }
-                        else if (storedPeak.MbrQValue > tryPeak.MbrQValue)
+                        else if (storedPeak.MbrScore < tryPeak.MbrScore)
                         {
                             peaksGroupedByApex[tryPeak.Apex.IndexedPeak] = tryPeak;
                         }
