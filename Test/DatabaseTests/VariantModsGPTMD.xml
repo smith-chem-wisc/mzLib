@@ -1,0 +1,4518 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<mzLibProteinDb>
+<modification>ID   (3R)-3-hydroxyarginine on R
+AC   PTM-0476
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:01956
+DR   RESID; AA0601
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (3R)-3-hydroxyasparagine on N
+AC   PTM-0369
+MT   UniProt
+FT   MOD_RES
+TG   N
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00035
+DR   RESID; AA0026
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (3R)-3-hydroxyaspartate on D
+AC   PTM-0371
+MT   UniProt
+FT   MOD_RES
+TG   D
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00036
+DR   RESID; AA0027
+TR   Bacteria; taxId:68215 (Streptomyces griseoverticillatus)
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (3S)-3-hydroxyasparagine on N
+AC   PTM-0370
+MT   UniProt
+FT   MOD_RES
+TG   N
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:01401
+DR   RESID; AA0478
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (3S)-3-hydroxyaspartate on D
+AC   PTM-0473
+MT   UniProt
+FT   MOD_RES
+TG   D
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:01919
+DR   RESID; AA0579
+TR   Eukaryota; taxId:33208 (Metazoa)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (3S)-3-hydroxyhistidine on H
+AC   PTM-0477
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:01920
+DR   RESID; AA0580
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (3S)-3-hydroxylysine on K
+AC   PTM-0663
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   O
+MM   15.994915
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (4R)-5-hydroxyleucine on L
+AC   PTM-0491
+MT   UniProt
+FT   MOD_RES
+TG   L
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:01373
+DR   RESID; AA0443
+TR   Eukaryota; taxId:33208 (Metazoa)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   (4R)-5-oxoleucine on L
+AC   PTM-0492
+MT   UniProt
+FT   MOD_RES
+TG   L
+PP   Anywhere.
+CF   H-2O
+MM   13.979265
+DR   PSI-MOD; MOD:01374
+DR   RESID; AA0444
+TR   Eukaryota; taxId:33208 (Metazoa)
+KW   Oxidation
+
+//</modification>
+  <modification>ID   2',4',5'-topaquinone on Y
+AC   PTM-0009
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   H-2O2
+MM   29.974179
+DR   PSI-MOD; MOD:00156
+DR   RESID; AA0147
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   TPQ
+
+//</modification>
+  <modification>ID   3-hydroxyasparagine on N
+AC   PTM-0028
+MT   UniProt
+FT   MOD_RES
+TG   N
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00035
+DR   RESID; AA0026
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   3-hydroxyproline on P
+AC   PTM-0030
+MT   UniProt
+FT   MOD_RES
+TG   P
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00038
+DR   RESID; AA0029
+TR   Eukaryota; taxId:33208 (Metazoa)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   3'-nitrotyrosine on Y
+AC   PTM-0434
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   H-1NO2
+MM   44.985078
+DR   PSI-MOD; MOD:01786
+DR   RESID; AA0537
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Nitration
+
+//</modification>
+  <modification>ID   3-oxoalanine (Cys) on C
+AC   PTM-0033
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   H-2OS-1
+MM   -17.992806
+DR   PSI-MOD; MOD:00193
+DR   RESID; AA0185
+TR   Bacteria; taxId:1224 (Proteobacteria), taxId:1239 (Firmicutes)
+TR   Eukaryota; taxId:3041 (Chlorophyta), taxId:33208 (Metazoa)
+
+//</modification>
+  <modification>ID   4-carboxyglutamate on E
+AC   PTM-0039
+MT   UniProt
+FT   MOD_RES
+TG   E
+PP   Anywhere.
+CF   CO2
+MM   43.989829
+DR   PSI-MOD; MOD:00041
+DR   RESID; AA0032
+TR   Eukaryota; taxId:6447 (Mollusca), taxId:7742 (Vertebrata)
+KW   Gamma-carboxyglutamic acid
+
+//</modification>
+  <modification>ID   4-hydroxylysine on K
+AC   PTM-0664
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00240
+DR   RESID; AA0235
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   4-hydroxyproline on P
+AC   PTM-0043
+MT   UniProt
+FT   MOD_RES
+TG   P
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00039
+DR   RESID; AA0030
+TR   Bacteria; taxId:415003 (Microbispora sp. (strain 107891))
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   5-glutamyl glutamate on E
+AC   PTM-0479
+MT   UniProt
+FT   MOD_RES
+TG   E
+PP   Anywhere.
+CF   C5H7NO3
+MM   129.042593
+DR   PSI-MOD; MOD:01970
+DR   RESID; AA0612
+TR   Archaea; taxId:2267 (Thermoproteaceae)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Isopeptide bond
+
+//</modification>
+  <modification>ID   5-glutamyl glycerylphosphorylethanolamine on E
+AC   PTM-0403
+MT   UniProt
+FT   MOD_RES
+TG   E
+PP   Anywhere.
+CF   C5H12NO5P
+MM   197.045309
+DR   PSI-MOD; MOD:00179
+DR   RESID; AA0170
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Phosphoprotein
+
+//</modification>
+  <modification>ID   5-hydroxylysine on K
+AC   PTM-0044
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00037
+DR   RESID; AA0028
+TR   Eukaryota; taxId:33208 (Metazoa)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   Acetylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C2H2O
+MM   42.010564684
+NL   ETD:45.0204
+DI   HCD:125.084063979
+
+//</modification>
+  <modification>ID   Acetylation on X
+MT   Common Biological
+TG   X
+PP   N-terminal.
+CF   C2H2O
+MM   42.010564684
+
+//</modification>
+  <modification>ID   ADP-ribosyl aspartic acid on D
+AC   PTM-0497
+MT   UniProt
+FT   MOD_RES
+TG   D
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   ADP-ribosyl glutamic acid on E
+AC   PTM-0646
+MT   UniProt
+FT   MOD_RES
+TG   E
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   ADP-ribosylarginine on R
+AC   PTM-0053
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+DR   PSI-MOD; MOD:00177
+DR   RESID; AA0168
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   ADP-ribosylasparagine on N
+AC   PTM-0054
+MT   UniProt
+FT   MOD_RES
+TG   N
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+DR   PSI-MOD; MOD:00236
+DR   RESID; AA0231
+TR   Eukaryota; taxId:9606 (Homo sapiens)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   ADP-ribosylation on S
+MT   Common Biological
+TG   S
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.06110975
+
+//</modification>
+  <modification>ID   ADP-ribosylcysteine on C
+AC   PTM-0055
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+DR   PSI-MOD; MOD:00178
+DR   RESID; AA0169
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   ADP-ribosylserine on S
+AC   PTM-0056
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+DR   PSI-MOD; MOD:00242
+DR   RESID; AA0237
+TR   Eukaryota; taxId:9606 (Homo sapiens)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   Allysine on K
+AC   PTM-0059
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   H-3N-1O
+MM   -1.031634
+DR   PSI-MOD; MOD:00130
+DR   RESID; AA0121
+TR   Eukaryota; taxId:6052 (Ephydatia muelleri), taxId:7742 (Vertebrata)
+
+//</modification>
+  <modification>ID   Ammonia loss on C
+MT   Common Artifact
+TG   C
+PP   Peptide N-terminal.
+CF   H-3N-1
+MM   -17.026549101
+
+//</modification>
+  <modification>ID   Ammonia loss on N
+MT   Common Artifact
+TG   N
+PP   Anywhere.
+CF   H-3N-1
+MM   -17.026549101
+
+//</modification>
+  <modification>ID   Asymmetric dimethylarginine on R
+AC   PTM-0066
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:00077
+DR   RESID; AA0068
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Beta-decarboxylated aspartate on D
+AC   PTM-0314
+MT   UniProt
+FT   MOD_RES
+TG   D
+PP   Anywhere.
+CF   C-1O-2
+MM   -43.989829
+DR   PSI-MOD; MOD:00869
+DR   RESID; AA0001
+TR   Eukaryota; taxId:9606 (Homo sapiens)
+
+//</modification>
+  <modification>ID   Butyrylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C4H6O
+MM   70.041864813
+DI   HCD:153.115323533
+
+//</modification>
+  <modification>ID   Calcium on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-2Ca
+MM   37.946940799
+
+//</modification>
+  <modification>ID   Calcium on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-2Ca
+MM   37.946940799
+
+//</modification>
+  <modification>ID   Carbamyl on C
+MT   Common Artifact
+TG   C
+PP   Anywhere.
+CF   CHNO
+MM   43.005813656
+
+//</modification>
+  <modification>ID   Carbamyl on K
+MT   Common Artifact
+TG   K
+PP   Anywhere.
+CF   CHNO
+MM   43.005813656
+
+//</modification>
+  <modification>ID   Carbamyl on M
+MT   Common Artifact
+TG   M
+PP   Anywhere.
+CF   CHNO
+MM   43.005813656
+
+//</modification>
+  <modification>ID   Carbamyl on R
+MT   Common Artifact
+TG   R
+PP   Anywhere.
+CF   CHNO
+MM   43.005813656
+
+//</modification>
+  <modification>ID   Carbamyl on X
+MT   Common Artifact
+TG   X
+PP   Peptide N-terminal.
+CF   CHNO
+MM   43.005813656
+
+//</modification>
+  <modification>ID   Carboxylation on D
+MT   Common Biological
+TG   D
+PP   Anywhere.
+CF   CO2
+MM   43.989829239
+
+//</modification>
+  <modification>ID   Carboxylation on E
+MT   Common Biological
+TG   E
+PP   Anywhere.
+CF   CO2
+MM   43.989829239
+
+//</modification>
+  <modification>ID   Carboxylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   CO2
+MM   43.989829239
+
+//</modification>
+  <modification>ID   Citrullination on R
+MT   Common Biological
+TG   R
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984015583
+NL   HCD:43.0058
+DI   HCD:129.090223533
+
+//</modification>
+  <modification>ID   Citrulline on R
+AC   PTM-0092
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984016
+DR   PSI-MOD; MOD:00219
+DR   RESID; AA0214
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Citrullination
+
+//</modification>
+  <modification>ID   Crotonylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C4H4O
+MM   68.026214748
+DI   HCD:151.099723533
+
+//</modification>
+  <modification>ID   Cu[I] on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-1Cu
+MM   61.921772688
+
+//</modification>
+  <modification>ID   Cu[I] on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-1Cu
+MM   61.921772688
+
+//</modification>
+  <modification>ID   Cysteine methyl ester on C
+AC   PTM-0105
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   C-terminal.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00114
+DR   RESID; AA0105
+TR   Bacteria; taxId:201174 (Actinobacteria)
+TR   Eukaryota; taxId:4751 (Fungi), taxId:33208 (Metazoa)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Cysteine persulfide on C
+AC   PTM-0106
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   S
+MM   31.972071
+DR   PSI-MOD; MOD:00274
+DR   RESID; AA0269
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   Cysteine sulfenic acid (-SOH) on C
+AC   PTM-0107
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00210
+DR   RESID; AA0205
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Oxidation
+
+//</modification>
+  <modification>ID   Cysteine sulfinic acid (-SO2H) on C
+AC   PTM-0108
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   O2
+MM   31.989829
+DR   PSI-MOD; MOD:00267
+DR   RESID; AA0262
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Oxidation
+
+//</modification>
+  <modification>ID   Cysteine sulfonic acid (-SO3H) on C
+AC   PTM-0634
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   O3
+MM   47.984744
+DR   PSI-MOD; MOD:00460
+DR   RESID; AA0556
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Oxidation
+
+//</modification>
+  <modification>ID   Deamidated asparagine on N
+AC   PTM-0116
+MT   UniProt
+FT   MOD_RES
+TG   N
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984016
+DR   PSI-MOD; MOD:00684
+DR   RESID; AA0004
+TR   Eukaryota; taxId:3702 (Arabidopsis thaliana), taxId:7742 (Vertebrata)
+
+//</modification>
+  <modification>ID   Deamidated glutamine on Q
+AC   PTM-0117
+MT   UniProt
+FT   MOD_RES
+TG   Q
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984016
+DR   PSI-MOD; MOD:00685
+DR   RESID; AA0006
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:7742 (Vertebrata)
+
+//</modification>
+  <modification>ID   Deamidation on N
+MT   Common Artifact
+TG   N
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984015583
+
+//</modification>
+  <modification>ID   Deamidation on Q
+MT   Common Artifact
+TG   Q
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984015583
+
+//</modification>
+  <modification>ID   Diiodotyrosine on Y
+AC   PTM-0408
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   H-2I2
+MM   251.793295
+DR   PSI-MOD; MOD:01613
+DR   RESID; AA0510
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Iodination
+
+//</modification>
+  <modification>ID   Dimethylated arginine on R
+AC   PTM-0341
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:00783
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Dimethylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C2H4
+MM   28.031300129
+
+//</modification>
+  <modification>ID   Dimethylation on R
+MT   Common Biological
+TG   R
+PP   Anywhere.
+CF   C2H4
+MM   28.031300129
+NL   ETD:31.0422 or ETD:45.0579
+
+//</modification>
+  <modification>ID   Diphthamide on H
+AC   PTM-0118
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   C7H14N2O
+MM   142.110613533
+DR   PSI-MOD; MOD:00049
+DR   RESID; AA0040
+TR   Archaea; taxId:2157 (Archaea)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   Fe[II] on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-2Fe
+MM   53.919286266
+
+//</modification>
+  <modification>ID   Fe[II] on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-2Fe
+MM   53.919286266
+
+//</modification>
+  <modification>ID   Fe[III] on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-3Fe
+MM   52.911461233
+
+//</modification>
+  <modification>ID   Fe[III] on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-3Fe
+MM   52.911461233
+
+//</modification>
+  <modification>ID   Formylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   CO
+MM   27.99491462
+DI   HCD:111.068423533
+
+//</modification>
+  <modification>ID   Glutarylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C5H6O3
+MM   114.031694052
+NL   ETD:115.0395
+DI   HCD:181.110323533
+
+//</modification>
+  <modification>ID   Glycyl adenylate on G
+AC   PTM-0409
+MT   UniProt
+FT   MOD_RES
+TG   G
+PP   C-terminal.
+CF   C10H12N5O6P
+MM   329.05252
+DR   PSI-MOD; MOD:01614
+DR   RESID; AA0511
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Nucleotide-binding or Phosphoprotein
+
+//</modification>
+  <modification>ID   HexNAc on Nxs
+MT   Common Biological
+TG   Nxs
+PP   Anywhere.
+CF   C8H13NO5
+MM   203.079372521
+NL   AnyActivationType:203.079372521
+
+//</modification>
+  <modification>ID   HexNAc on Nxt
+MT   Common Biological
+TG   Nxt
+PP   Anywhere.
+CF   C8H13NO5
+MM   203.079372521
+NL   AnyActivationType:203.079372521
+
+//</modification>
+  <modification>ID   HexNAc on S
+MT   Common Biological
+TG   S
+PP   Anywhere.
+CF   C8H13NO5
+MM   203.079372521
+NL   AnyActivationType:203.079372521
+
+//</modification>
+  <modification>ID   HexNAc on T
+MT   Common Biological
+TG   T
+PP   Anywhere.
+CF   C8H13NO5
+MM   203.079372521
+NL   AnyActivationType:203.079372521
+
+//</modification>
+  <modification>ID   Hydroxybutyrylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C4H7O2
+MM   87.044604465
+DI   HCD:169.110323533
+
+//</modification>
+  <modification>ID   Hydroxylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   O
+MM   15.99491462
+
+//</modification>
+  <modification>ID   Hydroxylation on N
+MT   Common Biological
+TG   N
+PP   Anywhere.
+CF   O
+MM   15.99491462
+
+//</modification>
+  <modification>ID   Hydroxylation on P
+MT   Common Biological
+TG   P
+PP   Anywhere.
+CF   O
+MM   15.99491462
+DI   HCD:170.060123533
+
+//</modification>
+  <modification>ID   Hydroxyproline on P
+AC   PTM-0149
+MT   UniProt
+FT   MOD_RES
+TG   P
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00678
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   Hypusine on K
+AC   PTM-0150
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H9NO
+MM   87.068414
+DR   PSI-MOD; MOD:00125
+DR   RESID; AA0116
+TR   Archaea; taxId:2157 (Archaea)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Hypusine
+
+//</modification>
+  <modification>ID   Iodotyrosine on Y
+AC   PTM-0411
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   H-1I
+MM   125.896648
+DR   PSI-MOD; MOD:01612
+DR   RESID; AA0509
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Iodination
+
+//</modification>
+  <modification>ID   Leucine methyl ester on L
+AC   PTM-0167
+MT   UniProt
+FT   MOD_RES
+TG   L
+PP   C-terminal.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00304
+DR   RESID; AA0299
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Magnesium on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-2Mg
+MM   21.969391633
+
+//</modification>
+  <modification>ID   Magnesium on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-2Mg
+MM   21.969391633
+
+//</modification>
+  <modification>ID   Malonylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C3H2O3
+MM   86.000393923
+NL   ETD:87.0082
+NL   HCD:43.9898
+DI   HCD:125.084063979 or HCD:169.073923533
+
+//</modification>
+  <modification>ID   Methionine (R)-sulfoxide on M
+AC   PTM-0480
+MT   UniProt
+FT   MOD_RES
+TG   M
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00720
+DR   RESID; AA0581
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Oxidation
+
+//</modification>
+  <modification>ID   Methionine sulfoxide on M
+AC   PTM-0469
+MT   UniProt
+FT   MOD_RES
+TG   M
+PP   Anywhere.
+CF   O
+MM   15.994915
+DR   PSI-MOD; MOD:00719
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Oxidation
+
+//</modification>
+  <modification>ID   Methylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   Methylation on R
+MT   Common Biological
+TG   R
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   Methylhistidine on H
+AC   PTM-0176
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00661
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Eukaryota; taxId:5791 (Physarum polycephalum), taxId:7742 (Vertebrata)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N,N,N-trimethylalanine on A
+AC   PTM-0177
+MT   UniProt
+FT   MOD_RES
+TG   A
+PP   N-terminal.
+CF   C3H6
+MM   42.046950533
+DR   PSI-MOD; MOD:00071
+DR   RESID; AA0062
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:5908 (Tetrahymena pyriformis), taxId:9986 (Oryctolagus cuniculus)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N,N,N-trimethylglycine on G
+AC   PTM-0485
+MT   UniProt
+FT   MOD_RES
+TG   G
+PP   N-terminal.
+CF   C3H7
+MM   43.054775
+DR   PSI-MOD; MOD:01982
+DR   RESID; AA0619
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N,N,N-trimethylserine on S
+AC   PTM-0430
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   N-terminal.
+CF   C3H6
+MM   42.046950533
+DR   PSI-MOD; MOD:01784
+DR   RESID; AA0535
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N,N-dimethylglycine on G
+AC   PTM-0484
+MT   UniProt
+FT   MOD_RES
+TG   G
+PP   N-terminal.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:01983
+DR   RESID; AA0620
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N,N-dimethylproline on P
+AC   PTM-0179
+MT   UniProt
+FT   MOD_RES
+TG   P
+PP   N-terminal.
+CF   C2H4
+MM   28.031300533
+DR   PSI-MOD; MOD:00075
+DR   RESID; AA0066
+TR   Eukaryota; taxId:6446 (Sipunculus nudus), taxId:7586 (Echinodermata), taxId:33682 (Euglenozoa)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N,N-dimethylserine on S
+AC   PTM-0431
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   N-terminal.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:01783
+DR   RESID; AA0534
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N5-methylglutamine on Q
+AC   PTM-0185
+MT   UniProt
+FT   MOD_RES
+TG   Q
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00080
+DR   RESID; AA0071
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:4932 (Saccharomyces cerevisiae)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N6-(2-hydroxyisobutyryl)lysine on K
+AC   PTM-0638
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H6O2
+MM   86.03678
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   N6-(ADP-ribosyl)lysine on K
+AC   PTM-0355
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C15H21N5O13P2
+MM   541.061109
+DR   PSI-MOD; MOD:01399
+DR   RESID; AA0476
+TR   Eukaryota; taxId:10090 (Mus musculus)
+KW   ADP-ribosylation
+
+//</modification>
+  <modification>ID   N6-(beta-hydroxybutyryl)lysine on K
+AC   PTM-0499
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H7O2
+MM   87.044604
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Hydroxylation
+
+//</modification>
+  <modification>ID   N6-(pyridoxal phosphate)lysine on K
+AC   PTM-0387
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C8H8NO5P
+MM   229.014009
+DR   PSI-MOD; MOD:00128
+DR   RESID; AA0119
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Pyridoxal phosphate
+
+//</modification>
+  <modification>ID   N6-(retinylidene)lysine on K
+AC   PTM-0388
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C20H26
+MM   266.203451
+DR   PSI-MOD; MOD:00129
+DR   RESID; AA0120
+TR   Archaea; taxId:28890 (Euryarchaeota), taxId:2236 (Halobacteriaceae)
+TR   Bacteria; taxId:1236 (Gammaproteobacteria)
+TR   Eukaryota; taxId:33154 (Opisthokonta)
+KW   Retinal protein
+
+//</modification>
+  <modification>ID   N6,N6,N6-trimethyllysine on K
+AC   PTM-0187
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C3H6
+MM   42.046950533
+DR   PSI-MOD; MOD:00083
+DR   RESID; AA0074
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N6,N6-dimethyllysine on K
+AC   PTM-0188
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:00084
+DR   RESID; AA0075
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N6-1-carboxyethyl lysine on K
+AC   PTM-0189
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C3H4O2
+MM   72.021129
+DR   PSI-MOD; MOD:00124
+DR   RESID; AA0115
+TR   Eukaryota; taxId:40674 (Mammalia)
+
+//</modification>
+  <modification>ID   N6-acetyllysine on K
+AC   PTM-0190
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00064
+DR   RESID; AA0055
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N6-biotinyllysine on K
+AC   PTM-0382
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C10H14N2O2S
+MM   226.077599
+DR   PSI-MOD; MOD:00126
+DR   RESID; AA0117
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Biotin
+
+//</modification>
+  <modification>ID   N6-butyryllysine on K
+AC   PTM-0637
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H6O
+MM   70.041865
+DR   PSI-MOD; MOD:01781
+DR   RESID; AA0532
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N6-carboxylysine on K
+AC   PTM-0191
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   CO2
+MM   43.989829
+DR   PSI-MOD; MOD:00123
+DR   RESID; AA0114
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2763 (Rhodophyta), taxId:2830 (Haptophyceae), taxId:3027 (Cryptophyta), taxId:33090 (Viridiplantae), taxId:33634 (Stramenopiles), taxId:33682 (Euglenozoa), taxId:38254 (Glaucocystophyceae)
+
+//</modification>
+  <modification>ID   N6-crotonyllysine on K
+AC   PTM-0475
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H4O
+MM   68.026215
+DR   PSI-MOD; MOD:01892
+DR   RESID; AA0567
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N6-glutaryllysine on K
+AC   PTM-0487
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C5H6O3
+MM   114.031694
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N6-lipoyllysine on K
+AC   PTM-0383
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C8H12OS2
+MM   188.032957
+DR   PSI-MOD; MOD:00127
+DR   RESID; AA0118
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Lipoyl
+
+//</modification>
+  <modification>ID   N6-malonyllysine on K
+AC   PTM-0467
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C3H2O3
+MM   86.000394
+DR   PSI-MOD; MOD:01893
+DR   RESID; AA0568
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N6-methyllysine on K
+AC   PTM-0194
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00085
+DR   RESID; AA0076
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N6-propionyllysine on K
+AC   PTM-0642
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C3H4O
+MM   56.026215
+DR   PSI-MOD; MOD:01398
+DR   RESID; AA0475
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:40674 (Mammalia)
+
+//</modification>
+  <modification>ID   N6-succinyllysine on K
+AC   PTM-0438
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H4O3
+MM   100.016044
+DR   PSI-MOD; MOD:01819
+DR   RESID; AA0545
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N-acetylalanine on A
+AC   PTM-0199
+MT   UniProt
+FT   MOD_RES
+TG   A
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00050
+DR   RESID; AA0041
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylaspartate on D
+AC   PTM-0200
+MT   UniProt
+FT   MOD_RES
+TG   D
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00051
+DR   RESID; AA0042
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylcysteine on C
+AC   PTM-0201
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00052
+DR   RESID; AA0043
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylglutamate on E
+AC   PTM-0202
+MT   UniProt
+FT   MOD_RES
+TG   E
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00053
+DR   RESID; AA0044
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylglycine on G
+AC   PTM-0203
+MT   UniProt
+FT   MOD_RES
+TG   G
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00055
+DR   RESID; AA0046
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylmethionine on M
+AC   PTM-0205
+MT   UniProt
+FT   MOD_RES
+TG   M
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00058
+DR   RESID; AA0049
+TR   Archaea; taxId:2287 (Sulfolobus solfataricus)
+TR   Bacteria; taxId:1270 (Micrococcus luteus)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylproline on P
+AC   PTM-0206
+MT   UniProt
+FT   MOD_RES
+TG   P
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00059
+DR   RESID; AA0050
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:33090 (Viridiplantae), taxId:40674 (Mammalia)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylserine on S
+AC   PTM-0207
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00060
+DR   RESID; AA0051
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylthreonine on T
+AC   PTM-0208
+MT   UniProt
+FT   MOD_RES
+TG   T
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00061
+DR   RESID; AA0052
+TR   Bacteria; taxId:90370 (Salmonella typhi)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N-acetylvaline on V
+AC   PTM-0210
+MT   UniProt
+FT   MOD_RES
+TG   V
+PP   N-terminal.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00063
+DR   RESID; AA0054
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:3055 (Chlamydomonas reinhardtii), taxId:33208 (Metazoa)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   Nitrated tyrosine on Y
+AC   PTM-0213
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   H-1NO2
+MM   44.985078
+DR   PSI-MOD; MOD:01352
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Nitration
+
+//</modification>
+  <modification>ID   Nitrosylation on C
+MT   Common Biological
+TG   C
+PP   Anywhere.
+CF   H-1NO
+MM   28.990163592
+
+//</modification>
+  <modification>ID   Nitrosylation on Y
+MT   Common Biological
+TG   Y
+PP   Anywhere.
+CF   H-1NO2
+MM   44.985078211
+DI   HCD:180.053523533
+
+//</modification>
+  <modification>ID   N-methylglycine on G
+AC   PTM-0483
+MT   UniProt
+FT   MOD_RES
+TG   G
+PP   N-terminal.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00072
+DR   RESID; AA0063
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N-methylserine on S
+AC   PTM-0432
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   N-terminal.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:01782
+DR   RESID; AA0533
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N-pyruvate 2-iminyl-valine on V
+AC   PTM-0225
+MT   UniProt
+FT   MOD_RES
+TG   V
+PP   N-terminal.
+CF   C3H2O2
+MM   70.005479
+DR   PSI-MOD; MOD:00280
+DR   RESID; AA0275
+TR   Eukaryota; taxId:9606 (Homo sapiens)
+KW   Pyruvate
+
+//</modification>
+  <modification>ID   O-(2-cholinephosphoryl)serine on S
+AC   PTM-0400
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   C5H12NO3P
+MM   165.055479533
+DR   PSI-MOD; MOD:01588
+DR   RESID; AA0498
+TR   Bacteria; taxId:206351 (Neisseriales)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Phosphoprotein
+
+//</modification>
+  <modification>ID   O-(pantetheine 4'-phosphoryl)serine on S
+AC   PTM-0391
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   C11H21N2O6PS
+MM   340.085794
+DR   PSI-MOD; MOD:00159
+DR   RESID; AA0150
+TR   Bacteria; taxId:638 (Arsenophonus nasoniae), taxId:112 (Planctomycetales)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Phosphopantetheine or Phosphoprotein
+
+//</modification>
+  <modification>ID   O-acetylserine on S
+AC   PTM-0232
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00369
+DR   RESID; AA0364
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   O-acetylthreonine on T
+AC   PTM-0233
+MT   UniProt
+FT   MOD_RES
+TG   T
+PP   Anywhere.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:01171
+DR   RESID; AA0423
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   O-AMP-serine on S
+AC   PTM-0651
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   C10H12N5O6P
+MM   329.05252
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Nucleotide-binding or Phosphoprotein
+
+//</modification>
+  <modification>ID   O-AMP-threonine on T
+AC   PTM-0393
+MT   UniProt
+FT   MOD_RES
+TG   T
+PP   Anywhere.
+CF   C10H12N5O6P
+MM   329.05252
+DR   PSI-MOD; MOD:00272
+DR   RESID; AA0267
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Nucleotide-binding or Phosphoprotein
+
+//</modification>
+  <modification>ID   O-AMP-tyrosine on Y
+AC   PTM-0332
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   C10H12N5O6P
+MM   329.05252
+DR   PSI-MOD; MOD:00208
+DR   RESID; AA0203
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Nucleotide-binding or Phosphoprotein
+
+//</modification>
+  <modification>ID   Omega-N-methylarginine on R
+AC   PTM-0237
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00078
+DR   RESID; AA0069
+TR   Eukaryota; taxId:5661 (Leishmania donovani), taxId:40674 (Mammalia)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Phosphohistidine on H
+AC   PTM-0252
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00890
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Phosphoprotein
+
+//</modification>
+  <modification>ID   Phosphorylation on S
+MT   Common Biological
+TG   S
+PP   Anywhere.
+CF   HO3P
+MM   79.966330889
+NL   HCD:0 or HCD:97.976895573
+
+//</modification>
+  <modification>ID   Phosphorylation on T
+MT   Common Biological
+TG   T
+PP   Anywhere.
+CF   HO3P
+MM   79.966330889
+NL   HCD:0 or HCD:97.976895573
+
+//</modification>
+  <modification>ID   Phosphorylation on Y
+MT   Common Biological
+TG   Y
+PP   Anywhere.
+CF   HO3P
+MM   79.966330889
+NL   HCD:0 or HCD:97.976895573
+DI   HCD:215.034744803
+
+//</modification>
+  <modification>ID   Phosphoserine on S
+AC   PTM-0253
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00046
+DR   RESID; AA0037
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+TR   Viruses; taxId:10239 (Viruses)
+KW   Phosphoprotein
+
+//</modification>
+  <modification>ID   Phosphothreonine on T
+AC   PTM-0254
+MT   UniProt
+FT   MOD_RES
+TG   T
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00047
+DR   RESID; AA0038
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+TR   Viruses; taxId:10239 (Viruses)
+KW   Phosphoprotein
+
+//</modification>
+  <modification>ID   Phosphotyrosine on Y
+AC   PTM-0255
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00048
+DR   RESID; AA0039
+TR   Archaea; taxId:2287 (Sulfolobus solfataricus)
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+TR   Viruses; taxId:10239 (Viruses)
+KW   Phosphoprotein
+
+//</modification>
+  <modification>ID   Potassium on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-1K
+MM   37.955881454
+
+//</modification>
+  <modification>ID   Potassium on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-1K
+MM   37.955881454
+
+//</modification>
+  <modification>ID   Pros-methylhistidine on H
+AC   PTM-0259
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00082
+DR   RESID; AA0073
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Pyridoxal phosphate on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C8H8NO5P
+MM   229.014009359
+
+//</modification>
+  <modification>ID   S-(dipyrrolylmethanemethyl)cysteine on C
+AC   PTM-0421
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   C20H22N2O8
+MM   418.137616
+DR   PSI-MOD; MOD:00257
+DR   RESID; AA0252
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   S-8alpha-FAD cysteine on C
+AC   PTM-0272
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   C27H31N9O15P2
+MM   783.141485
+DR   PSI-MOD; MOD:00152
+DR   RESID; AA0143
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   FAD
+
+//</modification>
+  <modification>ID   S-cysteinyl cysteine on C
+AC   PTM-0415
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   C3H5NO2S
+MM   119.004099
+DR   PSI-MOD; MOD:00765
+DR   RESID; AA0025
+TR   Bacteria; taxId:91347 (Enterobacterales)
+TR   Eukaryota; taxId:40674 (Mammalia)
+
+//</modification>
+  <modification>ID   S-glutathionyl cysteine on C
+AC   PTM-0311
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   C10H15N3O6S
+MM   305.068156
+DR   PSI-MOD; MOD:00234
+DR   RESID; AA0229
+TR   Bacteria; taxId:83333 (Escherichia coli (strain K12))
+TR   Eukaryota; taxId:3981 (Hevea brasiliensis), taxId:7742 (Vertebrata)
+KW   Glutathionylation
+
+//</modification>
+  <modification>ID   S-methylcysteine on C
+AC   PTM-0279
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00239
+DR   RESID; AA0234
+TR   Archaea; taxId:28890 (Euryarchaeota)
+TR   Bacteria; taxId:1421 (Lysinibacillus sphaericus)
+TR   Eukaryota; taxId:3055 (Chlamydomonas reinhardtii)
+KW   Methylation
+
+//</modification>
+  <modification>ID   S-nitrosocysteine on C
+AC   PTM-0280
+MT   UniProt
+FT   MOD_RES
+TG   C
+PP   Anywhere.
+CF   H-1NO
+MM   28.990164
+DR   PSI-MOD; MOD:00235
+DR   RESID; AA0230
+TR   Bacteria; taxId:1224 (Proteobacteria)
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   S-nitrosylation
+
+//</modification>
+  <modification>ID   Sodium on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-1Na
+MM   21.98194425
+
+//</modification>
+  <modification>ID   Sodium on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-1Na
+MM   21.98194425
+
+//</modification>
+  <modification>ID   Succinylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C4H4O3
+MM   100.016043988
+NL   ETD:101.0239
+DI   HCD:183.089523533
+
+//</modification>
+  <modification>ID   Sulfonation on Y
+MT   Common Biological
+TG   Y
+PP   Anywhere.
+CF   O3S
+MM   79.956815033
+NL   AnyActivationType:79.956815033
+
+//</modification>
+  <modification>ID   Sulfoserine on S
+AC   PTM-0284
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   O3S
+MM   79.956815
+DR   PSI-MOD; MOD:00366
+DR   RESID; AA0361
+TR   Eukaryota; taxId:9606 (Homo sapiens)
+KW   Sulfation
+
+//</modification>
+  <modification>ID   Sulfotyrosine on Y
+AC   PTM-0286
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   O3S
+MM   79.956815
+DR   PSI-MOD; MOD:00181
+DR   RESID; AA0172
+TR   Eukaryota; taxId:33208 (Metazoa), taxId:33090 (Viridiplantae)
+KW   Sulfation
+
+//</modification>
+  <modification>ID   Symmetric dimethylarginine on R
+AC   PTM-0287
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:00076
+DR   RESID; AA0067
+TR   Eukaryota; taxId:7742 (Vertebrata)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Tele-8alpha-FAD histidine on H
+AC   PTM-0288
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   C27H31N9O15P2
+MM   783.141485
+DR   PSI-MOD; MOD:00226
+DR   RESID; AA0221
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   FAD
+
+//</modification>
+  <modification>ID   Tele-methylhistidine on H
+AC   PTM-0290
+MT   UniProt
+FT   MOD_RES
+TG   H
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00322
+DR   RESID; AA0317
+TR   Eukaryota; taxId:5791 (Physarum polycephalum), taxId:7742 (Vertebrata)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Thyroxine on Y
+AC   PTM-0294
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   C6I4O
+MM   595.612805
+DR   PSI-MOD; MOD:00187
+DR   RESID; AA0178
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Iodination
+
+//</modification>
+  <modification>ID   Triiodothyronine on Y
+AC   PTM-0295
+MT   UniProt
+FT   MOD_RES
+TG   Y
+PP   Anywhere.
+CF   C6HI3O
+MM   469.716158
+DR   PSI-MOD; MOD:00186
+DR   RESID; AA0177
+TR   Eukaryota; taxId:40674 (Mammalia)
+KW   Iodination
+
+//</modification>
+  <modification>ID   Trimethylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   C3H6
+MM   42.046950193
+NL   ETD:45.0204
+
+//</modification>
+  <modification>ID   Water Loss on E
+MT   Common Artifact
+TG   E
+PP   Peptide N-terminal.
+CF   H-2O-1
+MM   -18.010564684
+
+//</modification>
+  <modification>ID   Zinc on D
+MT   Metal
+TG   D
+PP   Anywhere.
+CF   H-2Zn
+MM   61.913491946
+
+//</modification>
+  <modification>ID   Zinc on E
+MT   Metal
+TG   E
+PP   Anywhere.
+CF   H-2Zn
+MM   61.913491946
+
+//</modification>
+  <entry>
+    <accession>Q8N865</accession>
+    <name>ENST00000283905,ENST00000409280</name>
+    <protein>
+      <recommendedName>
+        <fullName>Uncharacterized protein C7orf31</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">C7orf31</name>
+      <name type="primary">C7orf31</name>
+      <name type="accession">ENSG00000153790</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="14702039" />
+    <dbReference type="DOI" id="10.1038/ng1285" />
+    <dbReference type="PubMed" id="12853948" />
+    <dbReference type="DOI" id="10.1038/nature01782" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="17974005" />
+    <dbReference type="DOI" id="10.1186/1471-2164-8-399" />
+    <dbReference type="PubMed" id="25074808" />
+    <dbReference type="DOI" id="10.1242/jcs.157008" />
+    <dbReference type="PubMed" id="28112733" />
+    <dbReference type="DOI" id="10.1038/nsmb.3366" />
+    <dbReference type="EMBL" id="AK097248">
+      <property type="protein sequence ID" value="BAC04985.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AK098189">
+      <property type="protein sequence ID" value="BAC05255.1" />
+      <property type="status" value="ALT_INIT" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AC004129">
+      <property type="protein sequence ID" value="AAP22338.1" />
+      <property type="status" value="ALT_SEQ" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH236948">
+      <property type="protein sequence ID" value="EAL24238.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471073">
+      <property type="protein sequence ID" value="EAW93827.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC015397">
+      <property type="protein sequence ID" value="AAH15397.2" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC043269">
+      <property type="protein sequence ID" value="AAH43269.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC060879">
+      <property type="protein sequence ID" value="AAH60879.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BX640851">
+      <property type="protein sequence ID" value="CAE45919.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS5394.1" />
+    <dbReference type="RefSeq" id="NP_620166.3">
+      <property type="nucleotide sequence ID" value="NM_138811.3" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_005249676.1">
+      <property type="nucleotide sequence ID" value="XM_005249619.3" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_005249677.1">
+      <property type="nucleotide sequence ID" value="XM_005249620.3" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_011513427.1">
+      <property type="nucleotide sequence ID" value="XM_011515125.2" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.122055" />
+    <dbReference type="ProteinModelPortal" id="Q8N865" />
+    <dbReference type="SMR" id="Q8N865" />
+    <dbReference type="BioGrid" id="126465">
+      <property type="interactions" value="5" />
+    </dbReference>
+    <dbReference type="IntAct" id="Q8N865">
+      <property type="interactions" value="10" />
+    </dbReference>
+    <dbReference type="STRING" id="9606.ENSP00000386604" />
+    <dbReference type="iPTMnet" id="Q8N865" />
+    <dbReference type="PhosphoSitePlus" id="Q8N865" />
+    <dbReference type="BioMuta" id="C7orf31" />
+    <dbReference type="DMDM" id="269849700" />
+    <dbReference type="EPD" id="Q8N865" />
+    <dbReference type="PaxDb" id="Q8N865" />
+    <dbReference type="PeptideAtlas" id="Q8N865" />
+    <dbReference type="PRIDE" id="Q8N865" />
+    <dbReference type="ProteomicsDB" id="72377" />
+    <dbReference type="DNASU" id="136895" />
+    <dbReference type="Ensembl" id="ENST00000283905">
+      <property type="protein sequence ID" value="ENSP00000283905" />
+      <property type="gene ID" value="ENSG00000153790" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000409280">
+      <property type="protein sequence ID" value="ENSP00000386604" />
+      <property type="gene ID" value="ENSG00000153790" />
+    </dbReference>
+    <dbReference type="GeneID" id="136895" />
+    <dbReference type="KEGG" id="hsa:136895" />
+    <dbReference type="UCSC" id="uc003sxn.2">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="136895" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000153790.11" />
+    <dbReference type="GeneCards" id="C7orf31" />
+    <dbReference type="H-InvDB" id="HIX0201151" />
+    <dbReference type="HGNC" id="HGNC:21722">
+      <property type="gene designation" value="C7orf31" />
+    </dbReference>
+    <dbReference type="HPA" id="HPA020346" />
+    <dbReference type="MIM" id="616071">
+      <property type="type" value="gene" />
+    </dbReference>
+    <dbReference type="neXtProt" id="NX_Q8N865" />
+    <dbReference type="OpenTargets" id="ENSG00000153790" />
+    <dbReference type="PharmGKB" id="PA134924921" />
+    <dbReference type="eggNOG" id="ENOG410IIJZ">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG410YGE7">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00390000015236" />
+    <dbReference type="HOVERGEN" id="HBG081124" />
+    <dbReference type="InParanoid" id="Q8N865" />
+    <dbReference type="OMA" id="CPDCTPR" />
+    <dbReference type="OrthoDB" id="1113879at2759" />
+    <dbReference type="PhylomeDB" id="Q8N865" />
+    <dbReference type="TreeFam" id="TF336164" />
+    <dbReference type="ChiTaRS" id="C7orf31">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="GenomeRNAi" id="136895" />
+    <dbReference type="PRO" id="PR:Q8N865" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 7" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000153790">
+      <property type="expression patterns" value="Expressed in 146 organ(s), highest expression level in sperm" />
+    </dbReference>
+    <dbReference type="ExpressionAtlas" id="Q8N865">
+      <property type="expression patterns" value="baseline and differential" />
+    </dbReference>
+    <dbReference type="Genevisible" id="Q8N865">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005813">
+      <property type="term" value="C:centrosome" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005737">
+      <property type="term" value="C:cytoplasm" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-KW" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR027886">
+      <property type="entry name" value="DUF4555" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR31393">
+      <property type="entry name" value="PTHR31393" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF15093">
+      <property type="entry name" value="DUF4555" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="UniProtKB" id="Q6AYM0" />
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="590" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="219" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="407" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="422" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphotyrosine on Y">
+      <location>
+        <position position="442" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="485" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="547" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25155134\t.\tC\tT\t843.77\t.\tANN=T|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000283905.7|protein_coding|6/10|c.472G&gt;A|p.Ala158Thr|1135/2673|472/1773|158/590||\tGT:AD:DP:GQ:PL\t0/1:40,36:76:99:872,0,1140">
+      <original>A</original>
+      <variation>T</variation>
+      <location>
+        <position position="158" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25155134\t.\tC\tT\t843.77\t.\tANN=T|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000409280.5|protein_coding|6/10|c.472G&gt;A|p.Ala158Thr|781/3357|472/1773|158/590||\tGT:AD:DP:GQ:PL\t0/1:40,36:76:99:872,0,1140">
+      <original>A</original>
+      <variation>T</variation>
+      <location>
+        <position position="158" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25155046\t.\tG\tC\t581.77\t.\tANN=C|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000283905.7|protein_coding|6/10|c.560C&gt;G|p.Thr187Ser|1223/2673|560/1773|187/590||\tGT:AD:DP:GQ:PL\t0/1:28,20:48:99:610,0,926">
+      <original>T</original>
+      <variation>S</variation>
+      <location>
+        <position position="187" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25155046\t.\tG\tC\t581.77\t.\tANN=C|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000409280.5|protein_coding|6/10|c.560C&gt;G|p.Thr187Ser|869/3357|560/1773|187/590||\tGT:AD:DP:GQ:PL\t0/1:28,20:48:99:610,0,926">
+      <original>T</original>
+      <variation>S</variation>
+      <location>
+        <position position="187" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25142786\t.\tG\tT\t907.77\t.\tANN=T|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000283905.7|protein_coding|8/10|c.713C&gt;A|p.Pro238Gln|1376/2673|713/1773|238/590||\tGT:AD:DP:GQ:PL\t0/1:44,34:78:99:936,0,1389">
+      <original>P</original>
+      <variation>Q</variation>
+      <location>
+        <position position="238" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25142786\t.\tG\tT\t907.77\t.\tANN=T|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000409280.5|protein_coding|8/10|c.713C&gt;A|p.Pro238Gln|1022/3357|713/1773|238/590||\tGT:AD:DP:GQ:PL\t0/1:44,34:78:99:936,0,1389">
+      <original>P</original>
+      <variation>Q</variation>
+      <location>
+        <position position="238" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25142293\t.\tT\tC\t783.77\t.\tANN=C|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000283905.7|protein_coding|9/10|c.899A&gt;G|p.His300Arg|1562/2673|899/1773|300/590||\tGT:AD:DP:GQ:PL\t0/1:35,30:65:99:812,0,1021">
+      <original>H</original>
+      <variation>R</variation>
+      <location>
+        <position position="300" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="7\t25142293\t.\tT\tC\t783.77\t.\tANN=C|missense_variant|MODERATE|C7orf31|ENSG00000153790|transcript|ENST00000409280.5|protein_coding|9/10|c.899A&gt;G|p.His300Arg|1208/3357|899/1773|300/590||\tGT:AD:DP:GQ:PL\t0/1:35,30:65:99:812,0,1021">
+      <original>H</original>
+      <variation>R</variation>
+      <location>
+        <position position="300" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25161188\t25161259\t25168288\t25168464">
+      <location>
+        <begin position="24" />
+        <end position="25" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25168288\t25168464\t25135971\t25136792">
+      <location>
+        <begin position="83" />
+        <end position="84" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25135971\t25136792\t25142240\t25142331">
+      <location>
+        <begin position="357" />
+        <end position="358" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25142240\t25142331\t25155010\t25155191">
+      <location>
+        <position position="388" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25155010\t25155191\t25142639\t25142813">
+      <location>
+        <position position="449" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25142639\t25142813\t25179174\t25179307">
+      <location>
+        <position position="507" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25179174\t25179307\t25151595\t25151683">
+      <location>
+        <position position="552" />
+      </location>
+    </feature>
+    <feature type="splice site" description="7\t-\t25151595\t25151683\t25158500\t25158529">
+      <location>
+        <begin position="581" />
+        <end position="582" />
+      </location>
+    </feature>
+    <sequence length="590">MEVIHGRPYCCRELEGADILSNTFYSNELHNPLQTVTRPTASEDRYQELRESLQQCRLPWGAEREYGGIIPISLPEDHRPKYEPPRVMGKGHQHYGFGGETWPRKLPVEQFYYLTQNKKSDVYGNDSLIPKPPNSTVGEICLPYPIEHPYHTHICRGAMFPTFTSPEDLYTGIKARTQQPFPPTVPTKAYDSTVLKTRGNPYRYELIDIPMDSKKKALTWPGQGVYYDFPRGVEKNKPVFYPKPPKTFAPNTSLNSWDPICSAKEANIQRNLERSHWLTSYTHDFTGLGPMDPLELDDYHEKMVAELTRKIGFDPEPQEKFHPVFKPPRPLEGRIARLIQNRRSLEAIVQQRPRSCPDCTPRVLCNFHTFVPSSKEMVALSDNIPAGVTHKNQDIEEKIIEEQSLLSTYELPSCYPTKDLTSIYDIKPFPKITDTKKTEDLYWRQQSLKTQPTPYCKPDHWIHYENLKSPLRDQYNMCPDPVSLSKPSVLQNKQDTEAFTLEHFLSKPEEELFLNMENNEETRPVLGWIPRAGVTKPQTNLLELKNSFSKTGAQKRFHKSILEDHKDLRDNEHSGMKHQFYGHNSYYFYN</sequence>
+  </entry>
+  <entry>
+    <accession>Q15669</accession>
+    <name>ENST00000619474,ENST00000381799,ENST00000505618,ENST00000622175,ENST00000610353,ENST00000614836,ENST00000615083,ENST00000613272,ENST00000617441,ENST00000615577</name>
+    <protein>
+      <recommendedName>
+        <fullName>Rho-related GTP-binding protein RhoH</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">RHOH</name>
+      <name type="synonym">ARHH</name>
+      <name type="synonym">TTF</name>
+      <name type="primary">RHOH</name>
+      <name type="accession">ENSG00000168421</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="7784061" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="11809807" />
+    <dbReference type="DOI" id="10.1128/MCB.22.4.1158-1171.2002" />
+    <dbReference type="PubMed" id="17064668" />
+    <dbReference type="DOI" id="10.1016/j.bbrc.2006.09.172" />
+    <dbReference type="PubMed" id="19414807" />
+    <dbReference type="DOI" id="10.4049/jimmunol.0803846" />
+    <dbReference type="EMBL" id="Z35227">
+      <property type="protein sequence ID" value="CAA84538.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF498975">
+      <property type="protein sequence ID" value="AAM21122.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC014261">
+      <property type="protein sequence ID" value="AAH14261.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS3458.1" />
+    <dbReference type="PIR" id="I38367">
+      <property type="entry name" value="I38367" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265288.1">
+      <property type="nucleotide sequence ID" value="NM_001278359.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265289.1">
+      <property type="nucleotide sequence ID" value="NM_001278360.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265290.1">
+      <property type="nucleotide sequence ID" value="NM_001278361.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265291.1">
+      <property type="nucleotide sequence ID" value="NM_001278362.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265292.1">
+      <property type="nucleotide sequence ID" value="NM_001278363.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265293.1">
+      <property type="nucleotide sequence ID" value="NM_001278364.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265294.1">
+      <property type="nucleotide sequence ID" value="NM_001278365.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265295.1">
+      <property type="nucleotide sequence ID" value="NM_001278366.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265296.1">
+      <property type="nucleotide sequence ID" value="NM_001278367.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265297.1">
+      <property type="nucleotide sequence ID" value="NM_001278368.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_001265298.1">
+      <property type="nucleotide sequence ID" value="NM_001278369.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_004301.1">
+      <property type="nucleotide sequence ID" value="NM_004310.4" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_011511994.1">
+      <property type="nucleotide sequence ID" value="XM_011513692.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_016863677.1">
+      <property type="nucleotide sequence ID" value="XM_017008188.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_016863678.1">
+      <property type="nucleotide sequence ID" value="XM_017008189.1" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.654594" />
+    <dbReference type="UniGene" id="Hs.738915" />
+    <dbReference type="ProteinModelPortal" id="Q15669" />
+    <dbReference type="SMR" id="Q15669" />
+    <dbReference type="BioGrid" id="106892">
+      <property type="interactions" value="5" />
+    </dbReference>
+    <dbReference type="IntAct" id="Q15669">
+      <property type="interactions" value="14" />
+    </dbReference>
+    <dbReference type="MINT" id="Q15669" />
+    <dbReference type="STRING" id="9606.ENSP00000371219" />
+    <dbReference type="iPTMnet" id="Q15669" />
+    <dbReference type="PhosphoSitePlus" id="Q15669" />
+    <dbReference type="BioMuta" id="RHOH" />
+    <dbReference type="DMDM" id="2500200" />
+    <dbReference type="PaxDb" id="Q15669" />
+    <dbReference type="PeptideAtlas" id="Q15669" />
+    <dbReference type="PRIDE" id="Q15669" />
+    <dbReference type="ProteomicsDB" id="60699" />
+    <dbReference type="DNASU" id="399" />
+    <dbReference type="Ensembl" id="ENST00000381799">
+      <property type="protein sequence ID" value="ENSP00000371219" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000505618">
+      <property type="protein sequence ID" value="ENSP00000425010" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000610353">
+      <property type="protein sequence ID" value="ENSP00000480192" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000613272">
+      <property type="protein sequence ID" value="ENSP00000480772" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000614836">
+      <property type="protein sequence ID" value="ENSP00000478248" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000615083">
+      <property type="protein sequence ID" value="ENSP00000480379" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000615577">
+      <property type="protein sequence ID" value="ENSP00000481566" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000617441">
+      <property type="protein sequence ID" value="ENSP00000482947" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000619474">
+      <property type="protein sequence ID" value="ENSP00000481746" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000622175">
+      <property type="protein sequence ID" value="ENSP00000481836" />
+      <property type="gene ID" value="ENSG00000168421" />
+    </dbReference>
+    <dbReference type="GeneID" id="399" />
+    <dbReference type="KEGG" id="hsa:399" />
+    <dbReference type="CTD" id="399" />
+    <dbReference type="DisGeNET" id="399" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000168421.12" />
+    <dbReference type="GeneCards" id="RHOH" />
+    <dbReference type="HGNC" id="HGNC:686">
+      <property type="gene designation" value="RHOH" />
+    </dbReference>
+    <dbReference type="HPA" id="HPA030345" />
+    <dbReference type="MalaCards" id="RHOH" />
+    <dbReference type="MIM" id="602037">
+      <property type="type" value="gene" />
+    </dbReference>
+    <dbReference type="neXtProt" id="NX_Q15669" />
+    <dbReference type="OpenTargets" id="ENSG00000168421" />
+    <dbReference type="Orphanet" id="324294">
+      <property type="disease" value="T-cell immunodeficiency with epidermodysplasia verruciformis" />
+    </dbReference>
+    <dbReference type="PharmGKB" id="PA24979" />
+    <dbReference type="eggNOG" id="KOG0393">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="COG1100">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00940000160078" />
+    <dbReference type="HOGENOM" id="HOG000233974" />
+    <dbReference type="HOVERGEN" id="HBG009351" />
+    <dbReference type="InParanoid" id="Q15669" />
+    <dbReference type="KO" id="K07873" />
+    <dbReference type="OMA" id="CINAIEG" />
+    <dbReference type="OrthoDB" id="1091615at2759" />
+    <dbReference type="PhylomeDB" id="Q15669" />
+    <dbReference type="TreeFam" id="TF331219" />
+    <dbReference type="BRENDA" id="3.6.5.2">
+      <property type="organism ID" value="2681" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-194840">
+      <property type="pathway name" value="Rho GTPase cycle" />
+    </dbReference>
+    <dbReference type="ChiTaRS" id="RHOH">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="GeneWiki" id="RhoH" />
+    <dbReference type="GenomeRNAi" id="399" />
+    <dbReference type="PRO" id="PR:Q15669" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 4" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000168421">
+      <property type="expression patterns" value="Expressed in 116 organ(s), highest expression level in leukocyte" />
+    </dbReference>
+    <dbReference type="ExpressionAtlas" id="Q15669">
+      <property type="expression patterns" value="baseline and differential" />
+    </dbReference>
+    <dbReference type="Genevisible" id="Q15669">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005938">
+      <property type="term" value="C:cell cortex" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042995">
+      <property type="term" value="C:cell projection" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005737">
+      <property type="term" value="C:cytoplasm" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005829">
+      <property type="term" value="C:cytosol" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0001772">
+      <property type="term" value="C:immunological synapse" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005886">
+      <property type="term" value="C:plasma membrane" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005525">
+      <property type="term" value="F:GTP binding" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003924">
+      <property type="term" value="F:GTPase activity" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005095">
+      <property type="term" value="F:GTPase inhibitor activity" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0019210">
+      <property type="term" value="F:kinase inhibitor activity" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0019901">
+      <property type="term" value="F:protein kinase binding" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0017048">
+      <property type="term" value="F:Rho GTPase binding" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030036">
+      <property type="term" value="P:actin cytoskeleton organization" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0007015">
+      <property type="term" value="P:actin filament organization" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0007163">
+      <property type="term" value="P:establishment or maintenance of cell polarity" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0045576">
+      <property type="term" value="P:mast cell activation" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043124">
+      <property type="term" value="P:negative regulation of I-kappaB kinase/NF-kappaB signaling" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0032956">
+      <property type="term" value="P:regulation of actin cytoskeleton organization" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0008360">
+      <property type="term" value="P:regulation of cell shape" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0051056">
+      <property type="term" value="P:regulation of small GTPase mediated signal transduction" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006355">
+      <property type="term" value="P:regulation of transcription, DNA-templated" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0007266">
+      <property type="term" value="P:Rho protein signal transduction" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030217">
+      <property type="term" value="P:T cell differentiation" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR027417">
+      <property type="entry name" value="P-loop_NTPase" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR005225">
+      <property type="entry name" value="Small_GTP-bd_dom" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001806">
+      <property type="entry name" value="Small_GTPase" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR003578">
+      <property type="entry name" value="Small_GTPase_Rho" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00071">
+      <property type="entry name" value="Ras" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF52540">
+      <property type="entry name" value="SSF52540" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="TIGRFAMs" id="TIGR00231">
+      <property type="entry name" value="small_GTP" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS51420">
+      <property type="entry name" value="RHO" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="188" />
+      </location>
+    </feature>
+    <feature type="propeptide">
+      <location>
+        <begin position="189" />
+        <end position="191" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000619474.4|protein_coding|4/4|c.481C&gt;T|p.Gln161*|1333/2230|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000381799.9|protein_coding|3/3|c.481C&gt;T|p.Gln161*|1205/4305|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000505618.5|protein_coding|3/3|c.481C&gt;T|p.Gln161*|1097/1225|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000622175.4|protein_coding|4/4|c.481C&gt;T|p.Gln161*|1357/2254|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000610353.4|protein_coding|4/4|c.481C&gt;T|p.Gln161*|1371/2268|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000614836.1|protein_coding|3/3|c.481C&gt;T|p.Gln161*|1217/2114|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000615083.4|protein_coding|4/4|c.481C&gt;T|p.Gln161*|1259/2156|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000613272.4|protein_coding|3/3|c.481C&gt;T|p.Gln161*|968/1865|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000617441.4|protein_coding|3/3|c.481C&gt;T|p.Gln161*|975/1872|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t40243867\t.\tC\tT\t10244.77\t.\tANN=T|stop_gained|HIGH|RHOH|ENSG00000168421|transcript|ENST00000615577.4|protein_coding|5/5|c.481C&gt;T|p.Gln161*|1330/2227|481/576|161/191||\tGT:AD:DP:GQ:PL\t0/1:272,378:650:99:10273,0,7908">
+      <original>Q</original>
+      <variation>*</variation>
+      <location>
+        <position position="161" />
+      </location>
+    </feature>
+    <sequence length="191">MLSSIKCVLVGDSAVGKTSLLVRFTSETFPEAYKPTVYENTGVDVFMDGIQISLGLWDTAGNDAFRSIRPLSYQQADVVLMCYSVANHNSFLNLKNKWIGEIRSNLPCTPVLVVATQTDQREMGPHRASCVNAMEGKKLAQDVRAKGYLECSALSNRGVQQVFECAVRTAVNQARRRNRRRLFSINECKIF</sequence>
+  </entry>
+  <entry>
+    <accession>J3QRV5</accession>
+    <name>ENST00000577200</name>
+    <protein>
+      <recommendedName>
+        <fullName>Lethal(2) giant larvae protein homolog 2</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">LLGL2</name>
+      <name type="primary">LLGL2</name>
+      <name type="accession">ENSG00000073350</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="16625196" />
+    <dbReference type="DOI" id="10.1038/nature04689" />
+    <dbReference type="PubMed" id="18669648" />
+    <dbReference type="DOI" id="10.1073/pnas.0805139105" />
+    <dbReference type="PubMed" id="21406692" />
+    <dbReference type="DOI" id="10.1126/scisignal.2001570" />
+    <dbReference type="PubMed" id="23186163" />
+    <dbReference type="PubMed" id="24275569" />
+    <dbReference type="DOI" id="10.1016/j.jprot.2013.11.014" />
+    <dbReference type="EMBL" id="AC100787">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_016880116.1">
+      <property type="nucleotide sequence ID" value="XM_017024627.1" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.514477" />
+    <dbReference type="UniGene" id="Hs.670451" />
+    <dbReference type="ProteinModelPortal" id="J3QRV5" />
+    <dbReference type="IntAct" id="J3QRV5">
+      <property type="interactions" value="1" />
+    </dbReference>
+    <dbReference type="EPD" id="J3QRV5" />
+    <dbReference type="jPOST" id="J3QRV5" />
+    <dbReference type="MaxQB" id="J3QRV5" />
+    <dbReference type="PeptideAtlas" id="J3QRV5" />
+    <dbReference type="PRIDE" id="J3QRV5" />
+    <dbReference type="Ensembl" id="ENST00000577200">
+      <property type="protein sequence ID" value="ENSP00000464397" />
+      <property type="gene ID" value="ENSG00000073350" />
+    </dbReference>
+    <dbReference type="GeneID" id="3993" />
+    <dbReference type="UCSC" id="uc010dgg.3">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="3993" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000073350.13" />
+    <dbReference type="HGNC" id="HGNC:6629">
+      <property type="gene designation" value="LLGL2" />
+    </dbReference>
+    <dbReference type="OpenTargets" id="ENSG00000073350" />
+    <dbReference type="eggNOG" id="KOG1983">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG410XS6Z">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00950000182906" />
+    <dbReference type="OrthoDB" id="122541at2759" />
+    <dbReference type="ChiTaRS" id="LLGL2">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="GenomeRNAi" id="3993" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 17" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000073350">
+      <property type="expression patterns" value="Expressed in 181 organ(s), highest expression level in mucosa of transverse colon" />
+    </dbReference>
+    <dbReference type="ExpressionAtlas" id="J3QRV5">
+      <property type="expression patterns" value="baseline and differential" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005829">
+      <property type="term" value="C:cytosol" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043231">
+      <property type="term" value="C:intracellular membrane-bounded organelle" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="Gene3D" id="2.130.10.10">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR000664">
+      <property type="entry name" value="Lethal2_giant" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR013577">
+      <property type="entry name" value="LLGL2" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR015943">
+      <property type="entry name" value="WD40/YVTN_repeat-like_dom_sf" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001680">
+      <property type="entry name" value="WD40_repeat" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR019775">
+      <property type="entry name" value="WD40_repeat_CS" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR036322">
+      <property type="entry name" value="WD40_repeat_dom_sf" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF08366">
+      <property type="entry name" value="LLGL" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00400">
+      <property type="entry name" value="WD40" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PRINTS" id="PR00962">
+      <property type="entry name" value="LETHAL2GIANT" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00320">
+      <property type="entry name" value="WD40" />
+      <property type="match status" value="5" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF50978">
+      <property type="entry name" value="SSF50978" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00678">
+      <property type="entry name" value="WD_REPEATS_1" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50082">
+      <property type="entry name" value="WD_REPEATS_2" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE-ProRule" id="PRU00221" />
+    <dbReference type="Pfam" id="PF08366" />
+    <dbReference type="Ensembl" id="ENSP00000464397" />
+    <dbReference type="Proteomes" id="UP000005640" />
+    <feature type="sequence variant" description="17\t75556104\t.\tG\tA\t198.77\t.\tANN=A|missense_variant|MODERATE|LLGL2|ENSG00000073350|transcript|ENST00000577200.5|protein_coding|3/26|c.134G&gt;A|p.Arg45His|238/3192|134/3060|45/1019||\tGT:AD:DP:GQ:PL\t0/1:13,8:21:99:227,0,313">
+      <original>R</original>
+      <variation>H</variation>
+      <location>
+        <position position="45" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="17\t75569090\t.\tT\tC\t437.77\t.\tANN=C|missense_variant|MODERATE|LLGL2|ENSG00000073350|transcript|ENST00000577200.5|protein_coding|13/26|c.1435T&gt;C|p.Phe479Leu|1539/3192|1435/3060|479/1019||\tGT:AD:DP:GQ:PL\t0/1:10,15:25:99:466,0,278">
+      <original>F</original>
+      <variation>L</variation>
+      <location>
+        <position position="479" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="17\t75571765\t.\tC\tT\t209.77\t.\tANN=T|missense_variant|MODERATE|LLGL2|ENSG00000073350|transcript|ENST00000577200.5|protein_coding|18/26|c.2275C&gt;T|p.Pro759Ser|2379/3192|2275/3060|759/1019||\tGT:AD:DP:GQ:PL\t0/1:13,9:22:99:238,0,370">
+      <original>P</original>
+      <variation>S</variation>
+      <location>
+        <position position="759" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="17\t75574637\t.\tC\tG\t208.77\t.\tANN=G|synonymous_variant|LOW|LLGL2|ENSG00000073350|transcript|ENST00000577200.5|protein_coding|25/26|c.3024C&gt;G|p.Ala1008Ala|3128/3192|3024/3060|1008/1019||\tGT:AD:DP:GQ:PL\t0/1:10,8:18:99:237,0,282">
+      <original>A</original>
+      <variation>A</variation>
+      <location>
+        <position position="1008" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75563751\t75563805\t75563015\t75563177">
+      <location>
+        <position position="19" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75563015\t75563177\t75570949\t75571099">
+      <location>
+        <position position="73" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75570949\t75571099\t75568771\t75568838">
+      <location>
+        <begin position="123" />
+        <end position="124" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75568771\t75568838\t75543426\t75543500">
+      <location>
+        <position position="146" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75543426\t75543500\t75573951\t75573979">
+      <location>
+        <position position="171" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75573951\t75573979\t75559251\t75559409">
+      <location>
+        <position position="181" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75559251\t75559409\t75556045\t75556142">
+      <location>
+        <position position="234" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75556045\t75556142\t75574452\t75574494">
+      <location>
+        <begin position="266" />
+        <end position="267" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75574452\t75574494\t75571666\t75571782">
+      <location>
+        <position position="281" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75571666\t75571782\t75574873\t75574877">
+      <location>
+        <position position="320" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75574873\t75574877\t75558511\t75558626">
+      <location>
+        <begin position="321" />
+        <end position="322" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75558511\t75558626\t75563330\t75563462">
+      <location>
+        <position position="360" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75563330\t75563462\t75564352\t75564506">
+      <location>
+        <begin position="404" />
+        <end position="405" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75564352\t75564506\t75570347\t75570497">
+      <location>
+        <position position="456" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75570347\t75570497\t75574212\t75574259">
+      <location>
+        <begin position="506" />
+        <end position="507" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75574212\t75574259\t75573013\t75573277">
+      <location>
+        <begin position="522" />
+        <end position="523" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75573013\t75573277\t75568977\t75569130">
+      <location>
+        <position position="611" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75568977\t75569130\t75569220\t75569324">
+      <location>
+        <position position="662" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75569220\t75569324\t75574609\t75574667">
+      <location>
+        <position position="697" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75574609\t75574667\t75569962\t75570254">
+      <location>
+        <position position="717" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75569962\t75570254\t75571897\t75572063">
+      <location>
+        <begin position="814" />
+        <end position="815" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75571897\t75572063\t75573480\t75573630">
+      <location>
+        <position position="870" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75573480\t75573630\t75568475\t75568692">
+      <location>
+        <begin position="920" />
+        <end position="921" />
+      </location>
+    </feature>
+    <feature type="splice site" description="17\t+\t75568475\t75568692\t75558154\t75558235">
+      <location>
+        <position position="993" />
+      </location>
+    </feature>
+    <sequence length="1019">MRRFLRPGHDPVRERLKRDLFQFNKTVEHGFPHQPSALGYSPSLRILAIGTRSGAIKLYGAPGVEFMGLHQENNAVTQIHLLPGQCQLVTLLDDNSLHLWSLKVKGGASELQEDESFTLRGPPGAAPSATQITVVLPHSSCELLYLGTESGNVFVVQLPAFRALEDRTISSDAVLQRLPEEARHRRVFEMVEALQEHPRDPNQILIGYSRGLVVIWDLQGSRVLYHFLSSQQLENIWWQRDGRLLVSCHSDGSYCQWPVSSEAQQPEPLRSLVPYGPFPCKAITRILWLTTRQGLPFTIFQGGMPRASYGDRHCISVIHDGQQTAFDFTSRVIGFTVLTEADPAATFDDPYALVVLAEEELVVIDLQTAGWPPVQLPYLASLHCSAITCSHHVSNIPLKLWERIIAAGSRQNAHFSTMEWPIDGGTSLTPAPPQRDLLLTGHEDGTVRFWDASGVCLRLLYKLSTVRVFLTDTDPNENFSAQGEDEWPPLRKVGSFDPYSDDPRLGIQKIFLCKYSGYLAVAGTAGQVLVLELNDEAAEQAVEQVEADLLQDQEGYRWKGHERLAARSGPVRFEPGFQPFVLVQCQPPAVVTSLALHSEWRLVAFGTSHGFGLFDHQQRRQVFVKCTLHPSDQLALEGPLSRVKSLKKSLRQSFRRMRRSRVSSRKRHPAGPPGEAQEGSAKAERPGLQNMELAPVQRKIEARSAEDSFTGFVRTLYFADTYLKDSSRHCPSLWAGTNGGTIYAFSLRVPPAERRMDEPVRAEQAKEIQLMHRAPVVGILVLDGHSVPLPEPLEVAHDLSKSPDMQGSHQLLVVSEEQFKVFTLPKVSAKLKLKLTALEGSRVRRVSVAHFGSRRAEDYGEHHLAVLTNLGDIQVVSLPLLKPQVRYSCIRREDVSGIASCVFTKYGQGFYLISPSEFERFSLSTKWLVEPRCLVDSAETKNHRPGNGAGPKKAPSRARNSGTQSDGEEKQPGLVMERALLSDERVLKEIQSTLEGDRGSGNWRSHRAAVGCSLSNGGE</sequence>
+  </entry>
+  <entry>
+    <accession>O96028</accession>
+    <name>ENST00000382891,ENST00000382892,ENST00000382895,ENST00000508803</name>
+    <protein>
+      <recommendedName>
+        <fullName>Histone-lysine N-methyltransferase NSD2</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">NSD2</name>
+      <name type="synonym">KIAA1090</name>
+      <name type="synonym">MMSET</name>
+      <name type="synonym">TRX5</name>
+      <name type="synonym">WHSC1</name>
+      <name type="primary">WHSC1</name>
+      <name type="accession">ENSG00000109685</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="9787135" />
+    <dbReference type="PubMed" id="9618163" />
+    <dbReference type="DOI" id="10.1093/hmg/7.7.1071" />
+    <dbReference type="PubMed" id="11152655" />
+    <dbReference type="DOI" id="10.1165/ajrcmb.24.1.4224" />
+    <dbReference type="PubMed" id="15677557" />
+    <dbReference type="DOI" id="10.1182/blood-2004-09-3704" />
+    <dbReference type="PubMed" id="10470851" />
+    <dbReference type="DOI" id="10.1093/dnares/6.3.197" />
+    <dbReference type="PubMed" id="14702039" />
+    <dbReference type="DOI" id="10.1038/ng1285" />
+    <dbReference type="PubMed" id="15815621" />
+    <dbReference type="DOI" id="10.1038/nature03466" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="10945609" />
+    <dbReference type="PubMed" id="11337357" />
+    <dbReference type="DOI" id="10.1016/S0002-9440(10)64115-6" />
+    <dbReference type="PubMed" id="12433679" />
+    <dbReference type="DOI" id="10.1182/blood-2002-09-2801" />
+    <dbReference type="PubMed" id="15257719" />
+    <dbReference type="DOI" id="10.1111/j.1365-2141.2004.05048.x" />
+    <dbReference type="PubMed" id="16115125" />
+    <dbReference type="DOI" id="10.1111/j.1365-2141.2005.05664.x" />
+    <dbReference type="PubMed" id="16197452" />
+    <dbReference type="DOI" id="10.1111/j.1365-2141.2005.05741.x" />
+    <dbReference type="PubMed" id="15734578" />
+    <dbReference type="DOI" id="10.1016/j.tig.2005.01.008" />
+    <dbReference type="PubMed" id="17081983" />
+    <dbReference type="DOI" id="10.1016/j.cell.2006.09.026" />
+    <dbReference type="PubMed" id="18172012" />
+    <dbReference type="DOI" id="10.1128/MCB.02130-07" />
+    <dbReference type="PubMed" id="18669648" />
+    <dbReference type="DOI" id="10.1073/pnas.0805139105" />
+    <dbReference type="PubMed" id="19413330" />
+    <dbReference type="DOI" id="10.1021/ac9004309" />
+    <dbReference type="PubMed" id="19690332" />
+    <dbReference type="DOI" id="10.1126/scisignal.2000007" />
+    <dbReference type="PubMed" id="20068231" />
+    <dbReference type="DOI" id="10.1126/scisignal.2000475" />
+    <dbReference type="PubMed" id="23186163" />
+    <dbReference type="DOI" id="10.1021/pr300630k" />
+    <dbReference type="PubMed" id="24129315" />
+    <dbReference type="DOI" id="10.1074/mcp.O113.027870" />
+    <dbReference type="Rhea" id="RHEA:10024" />
+    <dbReference type="Rhea" id="RHEA-COMP:9845" />
+    <dbReference type="Rhea" id="RHEA-COMP:9846" />
+    <dbReference type="ChEBI" id="CHEBI:15378" />
+    <dbReference type="ChEBI" id="CHEBI:29969" />
+    <dbReference type="ChEBI" id="CHEBI:57856" />
+    <dbReference type="ChEBI" id="CHEBI:59789" />
+    <dbReference type="ChEBI" id="CHEBI:61929" />
+    <dbReference type="EC" id="2.1.1.43" />
+    <dbReference type="EMBL" id="AF071593">
+      <property type="protein sequence ID" value="AAC24150.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF071594">
+      <property type="protein sequence ID" value="AAC24151.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF083386">
+      <property type="protein sequence ID" value="AAD19343.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF083387">
+      <property type="protein sequence ID" value="AAD21770.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF083388">
+      <property type="protein sequence ID" value="AAD21771.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF083389">
+      <property type="protein sequence ID" value="AAD19344.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF083390">
+      <property type="protein sequence ID" value="AAD19345.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF083391">
+      <property type="protein sequence ID" value="AAD19346.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178206">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178199">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178198">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178202">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178204">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178205">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178203">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178201">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178200">
+      <property type="protein sequence ID" value="AAF23369.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178219">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178198">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178199">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178200">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178202">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178204">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178207">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178216">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178215">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178214">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178213">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178212">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178211">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178210">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178209">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178208">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178218">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178217">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178205">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178203">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF178201">
+      <property type="protein sequence ID" value="AAF23370.1" />
+      <property type="status" value="JOINED" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF330040">
+      <property type="protein sequence ID" value="AAK00344.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AY694128">
+      <property type="protein sequence ID" value="AAU09264.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AJ007042">
+      <property type="protein sequence ID" value="CAB45386.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AB029013">
+      <property type="protein sequence ID" value="BAA83042.2" />
+      <property type="status" value="ALT_INIT" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AK289697">
+      <property type="protein sequence ID" value="BAF82386.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AC105448">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AL132868">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471131">
+      <property type="protein sequence ID" value="EAW82548.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471131">
+      <property type="protein sequence ID" value="EAW82552.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471131">
+      <property type="protein sequence ID" value="EAW82557.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471131">
+      <property type="protein sequence ID" value="EAW82553.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471131">
+      <property type="protein sequence ID" value="EAW82556.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC052254">
+      <property type="protein sequence ID" value="AAH52254.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC070176">
+      <property type="protein sequence ID" value="AAH70176.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC094825">
+      <property type="protein sequence ID" value="AAH94825.2" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC141815">
+      <property type="protein sequence ID" value="AAI41816.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC152412">
+      <property type="protein sequence ID" value="AAI52413.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS3356.1" />
+    <dbReference type="CCDS" id="CCDS33940.1" />
+    <dbReference type="CCDS" id="CCDS46999.1" />
+    <dbReference type="RefSeq" id="NP_001035889.1">
+      <property type="nucleotide sequence ID" value="NM_001042424.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_015627.1">
+      <property type="nucleotide sequence ID" value="NM_007331.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_579877.1">
+      <property type="nucleotide sequence ID" value="NM_133330.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_579878.1">
+      <property type="nucleotide sequence ID" value="NM_133331.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_579889.1">
+      <property type="nucleotide sequence ID" value="NM_133334.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_579890.1">
+      <property type="nucleotide sequence ID" value="NM_133335.3" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_005248058.1">
+      <property type="nucleotide sequence ID" value="XM_005248001.3" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_005248062.1">
+      <property type="nucleotide sequence ID" value="XM_005248005.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_006713977.1">
+      <property type="nucleotide sequence ID" value="XM_006713914.3" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_011511859.1">
+      <property type="nucleotide sequence ID" value="XM_011513557.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_011511862.1">
+      <property type="nucleotide sequence ID" value="XM_011513560.2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_016864076.1">
+      <property type="nucleotide sequence ID" value="XM_017008587.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="XP_016864077.1">
+      <property type="nucleotide sequence ID" value="XM_017008588.1" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.113876" />
+    <dbReference type="PDB" id="5LSU">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.14" />
+      <property type="chains" value="A/B=973-1203" />
+    </dbReference>
+    <dbReference type="PDB" id="5VC8">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.80" />
+      <property type="chains" value="A/B=211-350" />
+    </dbReference>
+    <dbReference type="PDBsum" id="5LSU" />
+    <dbReference type="PDBsum" id="5VC8" />
+    <dbReference type="ProteinModelPortal" id="O96028" />
+    <dbReference type="SMR" id="O96028" />
+    <dbReference type="BioGrid" id="113306">
+      <property type="interactions" value="72" />
+    </dbReference>
+    <dbReference type="DIP" id="DIP-57224N" />
+    <dbReference type="IntAct" id="O96028">
+      <property type="interactions" value="6" />
+    </dbReference>
+    <dbReference type="MINT" id="O96028" />
+    <dbReference type="STRING" id="9606.ENSP00000372351" />
+    <dbReference type="BindingDB" id="O96028" />
+    <dbReference type="ChEMBL" id="CHEMBL3108645" />
+    <dbReference type="iPTMnet" id="O96028" />
+    <dbReference type="PhosphoSitePlus" id="O96028" />
+    <dbReference type="BioMuta" id="NSD2" />
+    <dbReference type="EPD" id="O96028" />
+    <dbReference type="jPOST" id="O96028" />
+    <dbReference type="MaxQB" id="O96028" />
+    <dbReference type="PaxDb" id="O96028" />
+    <dbReference type="PeptideAtlas" id="O96028" />
+    <dbReference type="PRIDE" id="O96028" />
+    <dbReference type="ProteomicsDB" id="51216" />
+    <dbReference type="ProteomicsDB" id="51217" />
+    <dbReference type="ProteomicsDB" id="51218" />
+    <dbReference type="ProteomicsDB" id="51219" />
+    <dbReference type="ProteomicsDB" id="51220" />
+    <dbReference type="ProteomicsDB" id="51221" />
+    <dbReference type="ProteomicsDB" id="51222" />
+    <dbReference type="DNASU" id="7468" />
+    <dbReference type="Ensembl" id="ENST00000312087">
+      <property type="protein sequence ID" value="ENSP00000308780" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000353275">
+      <property type="protein sequence ID" value="ENSP00000329167" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000382888">
+      <property type="protein sequence ID" value="ENSP00000372344" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000382891">
+      <property type="protein sequence ID" value="ENSP00000372347" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000382892">
+      <property type="protein sequence ID" value="ENSP00000372348" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000382895">
+      <property type="protein sequence ID" value="ENSP00000372351" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000398261">
+      <property type="protein sequence ID" value="ENSP00000381311" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000420906">
+      <property type="protein sequence ID" value="ENSP00000399251" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000436793">
+      <property type="protein sequence ID" value="ENSP00000416725" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000503128">
+      <property type="protein sequence ID" value="ENSP00000425761" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000508803">
+      <property type="protein sequence ID" value="ENSP00000423972" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000512700">
+      <property type="protein sequence ID" value="ENSP00000427516" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000514045">
+      <property type="protein sequence ID" value="ENSP00000421681" />
+      <property type="gene ID" value="ENSG00000109685" />
+    </dbReference>
+    <dbReference type="GeneID" id="7468" />
+    <dbReference type="KEGG" id="hsa:7468" />
+    <dbReference type="UCSC" id="uc003gdy.2">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="7468" />
+    <dbReference type="DisGeNET" id="7468" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000109685.17" />
+    <dbReference type="GeneCards" id="NSD2" />
+    <dbReference type="GeneReviews" id="NSD2" />
+    <dbReference type="HGNC" id="HGNC:12766">
+      <property type="gene designation" value="NSD2" />
+    </dbReference>
+    <dbReference type="HPA" id="CAB068246" />
+    <dbReference type="HPA" id="CAB068247" />
+    <dbReference type="HPA" id="HPA015801" />
+    <dbReference type="MalaCards" id="NSD2" />
+    <dbReference type="MIM" id="602952">
+      <property type="type" value="gene" />
+    </dbReference>
+    <dbReference type="neXtProt" id="NX_O96028" />
+    <dbReference type="OpenTargets" id="ENSG00000109685" />
+    <dbReference type="Orphanet" id="280">
+      <property type="disease" value="Wolf-Hirschhorn syndrome" />
+    </dbReference>
+    <dbReference type="PharmGKB" id="PA37369" />
+    <dbReference type="eggNOG" id="KOG1081">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="COG2940">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00940000157429" />
+    <dbReference type="HOGENOM" id="HOG000230892" />
+    <dbReference type="HOVERGEN" id="HBG079978" />
+    <dbReference type="InParanoid" id="O96028" />
+    <dbReference type="KO" id="K11424" />
+    <dbReference type="OMA" id="EYVMVHR" />
+    <dbReference type="OrthoDB" id="507784at2759" />
+    <dbReference type="PhylomeDB" id="O96028" />
+    <dbReference type="TreeFam" id="TF329088" />
+    <dbReference type="BRENDA" id="2.1.1.43">
+      <property type="organism ID" value="2681" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-3214841">
+      <property type="pathway name" value="PKMTs methylate histone lysines" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5693565">
+      <property type="pathway name" value="Recruitment and ATM-mediated phosphorylation of repair and signaling proteins at DNA double strand breaks" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5693571">
+      <property type="pathway name" value="Nonhomologous End-Joining (NHEJ)" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5693607">
+      <property type="pathway name" value="Processing of DNA double-strand break ends" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69473">
+      <property type="pathway name" value="G2/M DNA damage checkpoint" />
+    </dbReference>
+    <dbReference type="SIGNOR" id="O96028" />
+    <dbReference type="ChiTaRS" id="WHSC1">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="GeneWiki" id="WHSC1" />
+    <dbReference type="GenomeRNAi" id="7468" />
+    <dbReference type="PRO" id="PR:O96028" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 4" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000109685">
+      <property type="expression patterns" value="Expressed in 223 organ(s), highest expression level in testis" />
+    </dbReference>
+    <dbReference type="ExpressionAtlas" id="O96028">
+      <property type="expression patterns" value="baseline and differential" />
+    </dbReference>
+    <dbReference type="Genevisible" id="O96028">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000785">
+      <property type="term" value="C:chromatin" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005737">
+      <property type="term" value="C:cytoplasm" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-SubCell" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005654">
+      <property type="term" value="C:nucleoplasm" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005634">
+      <property type="term" value="C:nucleus" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003682">
+      <property type="term" value="F:chromatin binding" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000981">
+      <property type="term" value="F:DNA-binding transcription factor activity, RNA polymerase II-specific" />
+      <property type="evidence" value="ECO:0000247" />
+      <property type="project" value="NTNU_SB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046975">
+      <property type="term" value="F:histone methyltransferase activity (H3-K36 specific)" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0042799">
+      <property type="term" value="F:histone methyltransferase activity (H4-K20 specific)" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0018024">
+      <property type="term" value="F:histone-lysine N-methyltransferase activity" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046872">
+      <property type="term" value="F:metal ion binding" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-KW" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043565">
+      <property type="term" value="F:sequence-specific DNA binding" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003289">
+      <property type="term" value="P:atrial septum primum morphogenesis" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003290">
+      <property type="term" value="P:atrial septum secundum morphogenesis" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0060348">
+      <property type="term" value="P:bone development" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006303">
+      <property type="term" value="P:double-strand break repair via nonhomologous end joining" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003149">
+      <property type="term" value="P:membranous septum morphogenesis" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000122">
+      <property type="term" value="P:negative regulation of transcription by RNA polymerase II" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0048298">
+      <property type="term" value="P:positive regulation of isotype switching to IgA isotypes" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:2001032">
+      <property type="term" value="P:regulation of double-strand break repair via nonhomologous end joining" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0070201">
+      <property type="term" value="P:regulation of establishment of protein localization" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="Ensembl" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006355">
+      <property type="term" value="P:regulation of transcription, DNA-templated" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="Gene3D" id="1.10.30.10">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Gene3D" id="3.30.40.10">
+      <property type="match status" value="4" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR006560">
+      <property type="entry name" value="AWS_dom" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR009071">
+      <property type="entry name" value="HMG_box_dom" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR036910">
+      <property type="entry name" value="HMG_box_dom_sf" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR003616">
+      <property type="entry name" value="Post-SET_dom" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR000313">
+      <property type="entry name" value="PWWP_dom" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001214">
+      <property type="entry name" value="SET_dom" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR019786">
+      <property type="entry name" value="Zinc_finger_PHD-type_CS" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR011011">
+      <property type="entry name" value="Znf_FYVE_PHD" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001965">
+      <property type="entry name" value="Znf_PHD" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR019787">
+      <property type="entry name" value="Znf_PHD-finger" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001841">
+      <property type="entry name" value="Znf_RING" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR013083">
+      <property type="entry name" value="Znf_RING/FYVE/PHD" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF17907">
+      <property type="entry name" value="AWS" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00505">
+      <property type="entry name" value="HMG_box" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00855">
+      <property type="entry name" value="PWWP" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00856">
+      <property type="entry name" value="SET" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00570">
+      <property type="entry name" value="AWS" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00398">
+      <property type="entry name" value="HMG" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00249">
+      <property type="entry name" value="PHD" />
+      <property type="match status" value="4" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00508">
+      <property type="entry name" value="PostSET" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00293">
+      <property type="entry name" value="PWWP" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00184">
+      <property type="entry name" value="RING" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00317">
+      <property type="entry name" value="SET" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF47095">
+      <property type="entry name" value="SSF47095" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF57903">
+      <property type="entry name" value="SSF57903" />
+      <property type="match status" value="3" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS51215">
+      <property type="entry name" value="AWS" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50118">
+      <property type="entry name" value="HMG_BOX_2" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50868">
+      <property type="entry name" value="POST_SET" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50812">
+      <property type="entry name" value="PWWP" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50280">
+      <property type="entry name" value="SET" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS01359">
+      <property type="entry name" value="ZF_PHD_1" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS50016">
+      <property type="entry name" value="ZF_PHD_2" />
+      <property type="match status" value="2" />
+    </dbReference>
+    <dbReference type="PDB" id="5LSU" />
+    <dbReference type="PDB" id="5VC8" />
+    <dbReference type="PROSITE-ProRule" id="PRU00146" />
+    <dbReference type="PROSITE-ProRule" id="PRU00155" />
+    <dbReference type="PROSITE-ProRule" id="PRU00162" />
+    <dbReference type="PROSITE-ProRule" id="PRU00190" />
+    <dbReference type="PROSITE-ProRule" id="PRU00267" />
+    <dbReference type="PROSITE-ProRule" id="PRU00562" />
+    <dbReference type="HGNC" id="HGNC:12766" />
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="1365" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="110" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="114" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="121" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="172" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="376" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="422" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="544" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="614" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t1900984\t.\tAC\tA\t4985.73\t.\tANN=A|frameshift_variant|HIGH|WHSC1|ENSG00000109685|transcript|ENST00000382891.9|protein_coding|2/22|c.335delC|p.Pro112fs|474/7534|335/4098|112/1365||INFO_REALIGN_3_PRIME\tGT:AD:DP:GQ:PL\t0/1:550,225:775:99:5023,0,15545">
+      <original>PNTTPIKNGSPEIKLKITKTYMNGKPLFESSICGDSAADVSQSEENGQKPENKARRNRKRSIKYDSLLEQGLVEAALVSKISSPSDKKIPAKKESCPNTGRDKDHLLKYNVGDLVWSKVSGYPWWPCMVSADPLLHSYTKLKGQKKSARQYHVQFFGDAPERAWIFEKSLVAFEGEGQFEKLCQESAKQAPTKAEKIKLLKPISGKLRAQWEMGIVQAEEAASMSVEERKAKFTFLYVGDQLHLNPQVAKEAGIAAESLGEMAESSGVSEEAAENPKSVREECIPMKRRRRAKLCSSAETLESHPDIGKSTPQKTAEADPRRGVGSPPGRKKTTVSMPRSRKGDAASQFLVFCQKHRDEVVAEHPDASGEEIEELLRSQWSLLSEKQRARYNTKFALVAPVQAEEDSGNVNGKKRNHTKRIQDPTEDAEAEDTPRKRLRTDKHSLRKRDTITDKTARTSSYKAMEAASSLKSQAATKNLSDACKPLKKRNRASTAASSALGFSKSSSPSASLTENEVSDSPGDEPSESPYESADETQTEVSVSSKKSERGVTAKKEYVCQLCEKPGSLLLCEGPCCGAFHLACLGLSRRPEGRFTCSECASGIHSCFVCKESKTDVKRCVVTQCGKFYHEACVKKYPLTVFESRGFRCPLHSCVSCHASNPSNPRPSKGKMMRCVRCPVAYHSGDACLAAGCSVIASNSIICTAHFTARKGKRHHAHVNVSWCFVCSKGGSLLCCESCPAAFHPDCLNIEMPDGSWFCNDCRAGKKLHFQDIIWVKLGNYRWWPAEVCHPKNVPPNIQKMKHEIGEFPVFFFGSKDYYWTHQARVFPYMEGDRGSRYQGVRGIGRVFKNALQEAEARFREIKLQREARETQESERKPPPYKHIKVNKPYGKVQIYTADISEIPKCNCKPTDENPCGFDSECLNRMLMFECHPQVCPAGEFCQNQCFTKRQYPETKIIKTDGKGWGLVAKRDIRKGEFVNEYVGELIDEEECMARIKHAHENDITHFYMLTIDKDRIIDAGPKGNYSRFMNHSCQPNCETLKWTVNGDTRVGLFAVCDIPAGTELTFNYNLDCLGNEKTVCRCGASNCSGFLGDRPKTSTTLSSEEKGKKTKKKTRRRRAKGEGKRQSEDECFRCGDGGQLVLCDRKFCTKAYHLSCLGLGKRPFGKWECPWHHCDVCGKPSTSFCHLCPNSFCKEHQDGTAFSCTPDGRSYCCEHDLGAASVRSTKTEKPPPEPGKPKGKRRRRRGWRRVTEGK</original>
+      <variation>LTLPLSKMALQKLS</variation>
+      <location>
+        <begin position="112" />
+        <end position="1365" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t1900984\t.\tAC\tA\t4985.73\t.\tANN=A|frameshift_variant|HIGH|WHSC1|ENSG00000109685|transcript|ENST00000382892.6|protein_coding|3/23|c.335delC|p.Pro112fs|649/7706|335/4098|112/1365||INFO_REALIGN_3_PRIME\tGT:AD:DP:GQ:PL\t0/1:550,225:775:99:5023,0,15545">
+      <original>PNTTPIKNGSPEIKLKITKTYMNGKPLFESSICGDSAADVSQSEENGQKPENKARRNRKRSIKYDSLLEQGLVEAALVSKISSPSDKKIPAKKESCPNTGRDKDHLLKYNVGDLVWSKVSGYPWWPCMVSADPLLHSYTKLKGQKKSARQYHVQFFGDAPERAWIFEKSLVAFEGEGQFEKLCQESAKQAPTKAEKIKLLKPISGKLRAQWEMGIVQAEEAASMSVEERKAKFTFLYVGDQLHLNPQVAKEAGIAAESLGEMAESSGVSEEAAENPKSVREECIPMKRRRRAKLCSSAETLESHPDIGKSTPQKTAEADPRRGVGSPPGRKKTTVSMPRSRKGDAASQFLVFCQKHRDEVVAEHPDASGEEIEELLRSQWSLLSEKQRARYNTKFALVAPVQAEEDSGNVNGKKRNHTKRIQDPTEDAEAEDTPRKRLRTDKHSLRKRDTITDKTARTSSYKAMEAASSLKSQAATKNLSDACKPLKKRNRASTAASSALGFSKSSSPSASLTENEVSDSPGDEPSESPYESADETQTEVSVSSKKSERGVTAKKEYVCQLCEKPGSLLLCEGPCCGAFHLACLGLSRRPEGRFTCSECASGIHSCFVCKESKTDVKRCVVTQCGKFYHEACVKKYPLTVFESRGFRCPLHSCVSCHASNPSNPRPSKGKMMRCVRCPVAYHSGDACLAAGCSVIASNSIICTAHFTARKGKRHHAHVNVSWCFVCSKGGSLLCCESCPAAFHPDCLNIEMPDGSWFCNDCRAGKKLHFQDIIWVKLGNYRWWPAEVCHPKNVPPNIQKMKHEIGEFPVFFFGSKDYYWTHQARVFPYMEGDRGSRYQGVRGIGRVFKNALQEAEARFREIKLQREARETQESERKPPPYKHIKVNKPYGKVQIYTADISEIPKCNCKPTDENPCGFDSECLNRMLMFECHPQVCPAGEFCQNQCFTKRQYPETKIIKTDGKGWGLVAKRDIRKGEFVNEYVGELIDEEECMARIKHAHENDITHFYMLTIDKDRIIDAGPKGNYSRFMNHSCQPNCETLKWTVNGDTRVGLFAVCDIPAGTELTFNYNLDCLGNEKTVCRCGASNCSGFLGDRPKTSTTLSSEEKGKKTKKKTRRRRAKGEGKRQSEDECFRCGDGGQLVLCDRKFCTKAYHLSCLGLGKRPFGKWECPWHHCDVCGKPSTSFCHLCPNSFCKEHQDGTAFSCTPDGRSYCCEHDLGAASVRSTKTEKPPPEPGKPKGKRRRRRGWRRVTEGK</original>
+      <variation>LTLPLSKMALQKLS</variation>
+      <location>
+        <begin position="112" />
+        <end position="1365" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t1900984\t.\tAC\tA\t4985.73\t.\tANN=A|frameshift_variant|HIGH|WHSC1|ENSG00000109685|transcript|ENST00000382895.7|protein_coding|4/24|c.335delC|p.Pro112fs|766/7827|335/4098|112/1365||INFO_REALIGN_3_PRIME\tGT:AD:DP:GQ:PL\t0/1:550,225:775:99:5023,0,15545">
+      <original>PNTTPIKNGSPEIKLKITKTYMNGKPLFESSICGDSAADVSQSEENGQKPENKARRNRKRSIKYDSLLEQGLVEAALVSKISSPSDKKIPAKKESCPNTGRDKDHLLKYNVGDLVWSKVSGYPWWPCMVSADPLLHSYTKLKGQKKSARQYHVQFFGDAPERAWIFEKSLVAFEGEGQFEKLCQESAKQAPTKAEKIKLLKPISGKLRAQWEMGIVQAEEAASMSVEERKAKFTFLYVGDQLHLNPQVAKEAGIAAESLGEMAESSGVSEEAAENPKSVREECIPMKRRRRAKLCSSAETLESHPDIGKSTPQKTAEADPRRGVGSPPGRKKTTVSMPRSRKGDAASQFLVFCQKHRDEVVAEHPDASGEEIEELLRSQWSLLSEKQRARYNTKFALVAPVQAEEDSGNVNGKKRNHTKRIQDPTEDAEAEDTPRKRLRTDKHSLRKRDTITDKTARTSSYKAMEAASSLKSQAATKNLSDACKPLKKRNRASTAASSALGFSKSSSPSASLTENEVSDSPGDEPSESPYESADETQTEVSVSSKKSERGVTAKKEYVCQLCEKPGSLLLCEGPCCGAFHLACLGLSRRPEGRFTCSECASGIHSCFVCKESKTDVKRCVVTQCGKFYHEACVKKYPLTVFESRGFRCPLHSCVSCHASNPSNPRPSKGKMMRCVRCPVAYHSGDACLAAGCSVIASNSIICTAHFTARKGKRHHAHVNVSWCFVCSKGGSLLCCESCPAAFHPDCLNIEMPDGSWFCNDCRAGKKLHFQDIIWVKLGNYRWWPAEVCHPKNVPPNIQKMKHEIGEFPVFFFGSKDYYWTHQARVFPYMEGDRGSRYQGVRGIGRVFKNALQEAEARFREIKLQREARETQESERKPPPYKHIKVNKPYGKVQIYTADISEIPKCNCKPTDENPCGFDSECLNRMLMFECHPQVCPAGEFCQNQCFTKRQYPETKIIKTDGKGWGLVAKRDIRKGEFVNEYVGELIDEEECMARIKHAHENDITHFYMLTIDKDRIIDAGPKGNYSRFMNHSCQPNCETLKWTVNGDTRVGLFAVCDIPAGTELTFNYNLDCLGNEKTVCRCGASNCSGFLGDRPKTSTTLSSEEKGKKTKKKTRRRRAKGEGKRQSEDECFRCGDGGQLVLCDRKFCTKAYHLSCLGLGKRPFGKWECPWHHCDVCGKPSTSFCHLCPNSFCKEHQDGTAFSCTPDGRSYCCEHDLGAASVRSTKTEKPPPEPGKPKGKRRRRRGWRRVTEGK</original>
+      <variation>LTLPLSKMALQKLS</variation>
+      <location>
+        <begin position="112" />
+        <end position="1365" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="4\t1900984\t.\tAC\tA\t4985.73\t.\tANN=A|frameshift_variant|HIGH|WHSC1|ENSG00000109685|transcript|ENST00000508803.5|protein_coding|2/22|c.335delC|p.Pro112fs|483/4251|335/4098|112/1365||INFO_REALIGN_3_PRIME\tGT:AD:DP:GQ:PL\t0/1:550,225:775:99:5023,0,15545">
+      <original>PNTTPIKNGSPEIKLKITKTYMNGKPLFESSICGDSAADVSQSEENGQKPENKARRNRKRSIKYDSLLEQGLVEAALVSKISSPSDKKIPAKKESCPNTGRDKDHLLKYNVGDLVWSKVSGYPWWPCMVSADPLLHSYTKLKGQKKSARQYHVQFFGDAPERAWIFEKSLVAFEGEGQFEKLCQESAKQAPTKAEKIKLLKPISGKLRAQWEMGIVQAEEAASMSVEERKAKFTFLYVGDQLHLNPQVAKEAGIAAESLGEMAESSGVSEEAAENPKSVREECIPMKRRRRAKLCSSAETLESHPDIGKSTPQKTAEADPRRGVGSPPGRKKTTVSMPRSRKGDAASQFLVFCQKHRDEVVAEHPDASGEEIEELLRSQWSLLSEKQRARYNTKFALVAPVQAEEDSGNVNGKKRNHTKRIQDPTEDAEAEDTPRKRLRTDKHSLRKRDTITDKTARTSSYKAMEAASSLKSQAATKNLSDACKPLKKRNRASTAASSALGFSKSSSPSASLTENEVSDSPGDEPSESPYESADETQTEVSVSSKKSERGVTAKKEYVCQLCEKPGSLLLCEGPCCGAFHLACLGLSRRPEGRFTCSECASGIHSCFVCKESKTDVKRCVVTQCGKFYHEACVKKYPLTVFESRGFRCPLHSCVSCHASNPSNPRPSKGKMMRCVRCPVAYHSGDACLAAGCSVIASNSIICTAHFTARKGKRHHAHVNVSWCFVCSKGGSLLCCESCPAAFHPDCLNIEMPDGSWFCNDCRAGKKLHFQDIIWVKLGNYRWWPAEVCHPKNVPPNIQKMKHEIGEFPVFFFGSKDYYWTHQARVFPYMEGDRGSRYQGVRGIGRVFKNALQEAEARFREIKLQREARETQESERKPPPYKHIKVNKPYGKVQIYTADISEIPKCNCKPTDENPCGFDSECLNRMLMFECHPQVCPAGEFCQNQCFTKRQYPETKIIKTDGKGWGLVAKRDIRKGEFVNEYVGELIDEEECMARIKHAHENDITHFYMLTIDKDRIIDAGPKGNYSRFMNHSCQPNCETLKWTVNGDTRVGLFAVCDIPAGTELTFNYNLDCLGNEKTVCRCGASNCSGFLGDRPKTSTTLSSEEKGKKTKKKTRRRRAKGEGKRQSEDECFRCGDGGQLVLCDRKFCTKAYHLSCLGLGKRPFGKWECPWHHCDVCGKPSTSFCHLCPNSFCKEHQDGTAFSCTPDGRSYCCEHDLGAASVRSTKTEKPPPEPGKPKGKRRRRRGWRRVTEGK</original>
+      <variation>LTLPLSKMALQKLS</variation>
+      <location>
+        <begin position="112" />
+        <end position="1365" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1900654\t1901250\t1904215\t1904377">
+      <location>
+        <begin position="199" />
+        <end position="200" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1904215\t1904377\t1935143\t1935261">
+      <location>
+        <position position="254" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1935143\t1935261\t1951071\t1951202">
+      <location>
+        <begin position="293" />
+        <end position="294" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1951071\t1951202\t1953323\t1953523">
+      <location>
+        <begin position="337" />
+        <end position="338" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1953323\t1953523\t1957932\t1958035">
+      <location>
+        <begin position="404" />
+        <end position="405" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1957932\t1958035\t1961034\t1961150">
+      <location>
+        <position position="439" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1961034\t1961150\t1976474\t1976678">
+      <location>
+        <position position="478" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1976474\t1976678\t1930625\t1930769">
+      <location>
+        <begin position="546" />
+        <end position="547" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1930625\t1930769\t1955160\t1955339">
+      <location>
+        <position position="595" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1955160\t1955339\t1959470\t1959739">
+      <location>
+        <position position="655" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1959470\t1959739\t1955982\t1956187">
+      <location>
+        <position position="745" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1955982\t1956187\t1974862\t1975003">
+      <location>
+        <begin position="813" />
+        <end position="814" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1974862\t1975003\t1939653\t1939777">
+      <location>
+        <position position="861" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1939653\t1939777\t1975293\t1975399">
+      <location>
+        <begin position="902" />
+        <end position="903" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1975293\t1975399\t1916870\t1917036">
+      <location>
+        <position position="938" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1916870\t1917036\t1978637\t1978908">
+      <location>
+        <position position="994" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1978637\t1978908\t1955692\t1955848">
+      <location>
+        <begin position="1084" />
+        <end position="1085" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1955692\t1955848\t1918140\t1918622">
+      <location>
+        <position position="1137" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1918140\t1918622\t1938450\t1938531">
+      <location>
+        <position position="1298" />
+      </location>
+    </feature>
+    <feature type="splice site" description="4\t+\t1938450\t1938531\t1952107\t1952230">
+      <location>
+        <position position="1325" />
+      </location>
+    </feature>
+    <sequence length="1365">MEFSIKQSPLSVQSVVKCIKMKQAPEILGSANGKTPSCEVNRECSVFLSKAQLSSSLQEGVMQKFNGHDALPFIPADKLKDLTSRVFNGEPGAHDAKLRFESQEMKGIGTPPNTTPIKNGSPEIKLKITKTYMNGKPLFESSICGDSAADVSQSEENGQKPENKARRNRKRSIKYDSLLEQGLVEAALVSKISSPSDKKIPAKKESCPNTGRDKDHLLKYNVGDLVWSKVSGYPWWPCMVSADPLLHSYTKLKGQKKSARQYHVQFFGDAPERAWIFEKSLVAFEGEGQFEKLCQESAKQAPTKAEKIKLLKPISGKLRAQWEMGIVQAEEAASMSVEERKAKFTFLYVGDQLHLNPQVAKEAGIAAESLGEMAESSGVSEEAAENPKSVREECIPMKRRRRAKLCSSAETLESHPDIGKSTPQKTAEADPRRGVGSPPGRKKTTVSMPRSRKGDAASQFLVFCQKHRDEVVAEHPDASGEEIEELLRSQWSLLSEKQRARYNTKFALVAPVQAEEDSGNVNGKKRNHTKRIQDPTEDAEAEDTPRKRLRTDKHSLRKRDTITDKTARTSSYKAMEAASSLKSQAATKNLSDACKPLKKRNRASTAASSALGFSKSSSPSASLTENEVSDSPGDEPSESPYESADETQTEVSVSSKKSERGVTAKKEYVCQLCEKPGSLLLCEGPCCGAFHLACLGLSRRPEGRFTCSECASGIHSCFVCKESKTDVKRCVVTQCGKFYHEACVKKYPLTVFESRGFRCPLHSCVSCHASNPSNPRPSKGKMMRCVRCPVAYHSGDACLAAGCSVIASNSIICTAHFTARKGKRHHAHVNVSWCFVCSKGGSLLCCESCPAAFHPDCLNIEMPDGSWFCNDCRAGKKLHFQDIIWVKLGNYRWWPAEVCHPKNVPPNIQKMKHEIGEFPVFFFGSKDYYWTHQARVFPYMEGDRGSRYQGVRGIGRVFKNALQEAEARFREIKLQREARETQESERKPPPYKHIKVNKPYGKVQIYTADISEIPKCNCKPTDENPCGFDSECLNRMLMFECHPQVCPAGEFCQNQCFTKRQYPETKIIKTDGKGWGLVAKRDIRKGEFVNEYVGELIDEEECMARIKHAHENDITHFYMLTIDKDRIIDAGPKGNYSRFMNHSCQPNCETLKWTVNGDTRVGLFAVCDIPAGTELTFNYNLDCLGNEKTVCRCGASNCSGFLGDRPKTSTTLSSEEKGKKTKKKTRRRRAKGEGKRQSEDECFRCGDGGQLVLCDRKFCTKAYHLSCLGLGKRPFGKWECPWHHCDVCGKPSTSFCHLCPNSFCKEHQDGTAFSCTPDGRSYCCEHDLGAASVRSTKTEKPPPEPGKPKGKRRRRRGWRRVTEGK</sequence>
+  </entry>
+  <entry>
+    <accession>Q7Z4Y8</accession>
+    <name>ENST00000505920</name>
+    <protein>
+      <recommendedName>
+        <fullName>Putative ATP synthase subunit g 2, mitochondrial</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ATP5MGL</name>
+      <name type="synonym">ATP5K2</name>
+      <name type="synonym">ATP5L2</name>
+      <name type="primary">ATP5L2</name>
+      <name type="accession">ENSG00000249222</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="EMBL" id="AF092923">
+      <property type="protein sequence ID" value="AAP97217.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC093719">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC093721">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS54534.1" />
+    <dbReference type="RefSeq" id="NP_001159349.1">
+      <property type="nucleotide sequence ID" value="NM_001165877.1" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.664737" />
+    <dbReference type="STRING" id="9606.ENSP00000421076" />
+    <dbReference type="iPTMnet" id="Q7Z4Y8" />
+    <dbReference type="PhosphoSitePlus" id="Q7Z4Y8" />
+    <dbReference type="BioMuta" id="ATP5L2" />
+    <dbReference type="DMDM" id="74762435" />
+    <dbReference type="jPOST" id="Q7Z4Y8" />
+    <dbReference type="MaxQB" id="Q7Z4Y8" />
+    <dbReference type="PaxDb" id="Q7Z4Y8" />
+    <dbReference type="PeptideAtlas" id="Q7Z4Y8" />
+    <dbReference type="PRIDE" id="Q7Z4Y8" />
+    <dbReference type="ProteomicsDB" id="69254" />
+    <dbReference type="Ensembl" id="ENST00000505920">
+      <property type="protein sequence ID" value="ENSP00000421076" />
+      <property type="gene ID" value="ENSG00000249222" />
+    </dbReference>
+    <dbReference type="GeneID" id="267020" />
+    <dbReference type="KEGG" id="hsa:267020" />
+    <dbReference type="UCSC" id="uc003bda.1">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="267020" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000249222.1" />
+    <dbReference type="GeneCards" id="ATP5MGL" />
+    <dbReference type="HGNC" id="HGNC:13213">
+      <property type="gene designation" value="ATP5MGL" />
+    </dbReference>
+    <dbReference type="HPA" id="HPA044629" />
+    <dbReference type="neXtProt" id="NX_Q7Z4Y8" />
+    <dbReference type="OpenTargets" id="ENSG00000249222" />
+    <dbReference type="PharmGKB" id="PA134948694" />
+    <dbReference type="eggNOG" id="KOG4103">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG4111TZ1">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00390000009724" />
+    <dbReference type="HOGENOM" id="HOG000007506" />
+    <dbReference type="HOVERGEN" id="HBG050614" />
+    <dbReference type="InParanoid" id="Q7Z4Y8" />
+    <dbReference type="OMA" id="FYMGEVI" />
+    <dbReference type="OrthoDB" id="1461139at2759" />
+    <dbReference type="PhylomeDB" id="Q7Z4Y8" />
+    <dbReference type="TreeFam" id="TF313978" />
+    <dbReference type="GenomeRNAi" id="267020" />
+    <dbReference type="PRO" id="PR:Q7Z4Y8" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 22" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000249222">
+      <property type="expression patterns" value="Expressed in 19 organ(s), highest expression level in adrenal tissue" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000276">
+      <property type="term" value="C:mitochondrial proton-transporting ATP synthase complex, coupling factor F(o)" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005739">
+      <property type="term" value="C:mitochondrion" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0015078">
+      <property type="term" value="F:proton transmembrane transporter activity" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="InterPro" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0099132">
+      <property type="term" value="P:ATP hydrolysis coupled cation transmembrane transport" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="GOC" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0015986">
+      <property type="term" value="P:ATP synthesis coupled proton transport" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR006808">
+      <property type="entry name" value="ATP_synth_F0_gsu_mt" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR016702">
+      <property type="entry name" value="ATP_synth_su_G_mt_met" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR12386">
+      <property type="entry name" value="PTHR12386" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF04718">
+      <property type="entry name" value="ATP-synt_G" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PIRSF" id="PIRSF017835">
+      <property type="entry name" value="ATP-synth_g_mitoch_animal" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="HGNC" id="HGNC:13213" />
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="100" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Deamidation on Q">
+      <location>
+        <position position="61" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="22\t42640102\t.\tC\tT\t151.77\t.\tANN=T|missense_variant|MODERATE|ATP5L2|ENSG00000249222|transcript|ENST00000505920.1|protein_coding|1/1|c.173G&gt;A|p.Ser58Asn|500/799|173/303|58/100||\tGT:AD:DP:GQ:PL\t0/1:2,7:9:53:180,0,53">
+      <original>S</original>
+      <variation>N</variation>
+      <location>
+        <position position="58" />
+        <subfeature type="modified residue" description="Deamidation on N">
+          <location>
+            <subposition subposition="58" />
+          </location>
+        </subfeature>
+      </location>
+    </feature>
+    <sequence length="100">MAPFVRNLVEKTPALVNAAVTYLKPRLAAFWYYTTVELVPPTPAEIPRAIQSLKKIVSSAQTGSFKQLTVKEALLNGLVATEVSTWFYVREITGKRGIIG</sequence>
+  </entry>
+  <entry>
+    <accession>Q6P6B1</accession>
+    <name>ENST00000318528</name>
+    <protein>
+      <recommendedName>
+        <fullName>Glutamate-rich protein 5</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ERICH5</name>
+      <name type="synonym">C8orf47</name>
+      <name type="primary">ERICH5</name>
+      <name type="accession">ENSG00000177459</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="14702039" />
+    <dbReference type="DOI" id="10.1038/ng1285" />
+    <dbReference type="PubMed" id="16421571" />
+    <dbReference type="DOI" id="10.1038/nature04406" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="EMBL" id="AK096872">
+      <property type="protein sequence ID" value="BAC04880.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AP003352">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AP003439">
+      <property type="status" value="NOT_ANNOTATED_CDS" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="CH471060">
+      <property type="protein sequence ID" value="EAW91772.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC062359">
+      <property type="protein sequence ID" value="AAH62359.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS34929.1" />
+    <dbReference type="CCDS" id="CCDS55266.1" />
+    <dbReference type="RefSeq" id="NP_001164277.1">
+      <property type="nucleotide sequence ID" value="NM_001170806.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_775820.2">
+      <property type="nucleotide sequence ID" value="NM_173549.2" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.171455" />
+    <dbReference type="ProteinModelPortal" id="Q6P6B1" />
+    <dbReference type="BioGrid" id="128453">
+      <property type="interactions" value="22" />
+    </dbReference>
+    <dbReference type="IntAct" id="Q6P6B1">
+      <property type="interactions" value="3" />
+    </dbReference>
+    <dbReference type="STRING" id="9606.ENSP00000315614" />
+    <dbReference type="iPTMnet" id="Q6P6B1" />
+    <dbReference type="PhosphoSitePlus" id="Q6P6B1" />
+    <dbReference type="BioMuta" id="ERICH5" />
+    <dbReference type="DMDM" id="74737479" />
+    <dbReference type="EPD" id="Q6P6B1" />
+    <dbReference type="jPOST" id="Q6P6B1" />
+    <dbReference type="MaxQB" id="Q6P6B1" />
+    <dbReference type="PaxDb" id="Q6P6B1" />
+    <dbReference type="PeptideAtlas" id="Q6P6B1" />
+    <dbReference type="PRIDE" id="Q6P6B1" />
+    <dbReference type="ProteomicsDB" id="67018" />
+    <dbReference type="DNASU" id="203111" />
+    <dbReference type="Ensembl" id="ENST00000318528">
+      <property type="protein sequence ID" value="ENSP00000315614" />
+      <property type="gene ID" value="ENSG00000177459" />
+    </dbReference>
+    <dbReference type="Ensembl" id="ENST00000545282">
+      <property type="protein sequence ID" value="ENSP00000440297" />
+      <property type="gene ID" value="ENSG00000177459" />
+    </dbReference>
+    <dbReference type="GeneID" id="203111" />
+    <dbReference type="KEGG" id="hsa:203111" />
+    <dbReference type="UCSC" id="uc003yih.2">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="203111" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000177459.10" />
+    <dbReference type="GeneCards" id="ERICH5" />
+    <dbReference type="HGNC" id="HGNC:26823">
+      <property type="gene designation" value="ERICH5" />
+    </dbReference>
+    <dbReference type="HPA" id="HPA025070" />
+    <dbReference type="HPA" id="HPA025293" />
+    <dbReference type="HPA" id="HPA027233" />
+    <dbReference type="neXtProt" id="NX_Q6P6B1" />
+    <dbReference type="OpenTargets" id="ENSG00000177459" />
+    <dbReference type="PharmGKB" id="PA142672366" />
+    <dbReference type="eggNOG" id="ENOG410IINR">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG410YP4B">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00390000010783" />
+    <dbReference type="HOGENOM" id="HOG000111616" />
+    <dbReference type="HOVERGEN" id="HBG096287" />
+    <dbReference type="InParanoid" id="Q6P6B1" />
+    <dbReference type="OMA" id="QHIEGET" />
+    <dbReference type="OrthoDB" id="962254at2759" />
+    <dbReference type="PhylomeDB" id="Q6P6B1" />
+    <dbReference type="TreeFam" id="TF337219" />
+    <dbReference type="GenomeRNAi" id="203111" />
+    <dbReference type="PRO" id="PR:Q6P6B1" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 8" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000177459">
+      <property type="expression patterns" value="Expressed in 132 organ(s), highest expression level in palpebral conjunctiva" />
+    </dbReference>
+    <dbReference type="Genevisible" id="Q6P6B1">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR027856">
+      <property type="entry name" value="DUF4573" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF15140">
+      <property type="entry name" value="DUF4573" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="UniProtKB" id="Q8K0S2" />
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="374" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="169" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="187" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on N">
+      <location>
+        <position position="193" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Ammonia loss on N">
+      <location>
+        <position position="193" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="205" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="216" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on K">
+      <location>
+        <position position="223" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="8\t98089650\t.\tG\tT\t488.77\t.\tANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G&gt;T|p.Lys211Asn|992/1761|633/1125|211/374||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:45:517,45,0">
+      <original>K</original>
+      <variation>N</variation>
+      <location>
+        <position position="211" />
+        <subfeature type="modified residue" description="Hydroxylation on N">
+          <location>
+            <subposition subposition="211" />
+          </location>
+        </subfeature>
+        <subfeature type="modified residue" description="Ammonia loss on N">
+          <location>
+            <subposition subposition="211" />
+          </location>
+        </subfeature>
+      </location>
+    </feature>
+    <feature type="splice site" description="8\t+\t98064669\t98064726\t98089075\t98090028">
+      <location>
+        <position position="20" />
+      </location>
+    </feature>
+    <feature type="splice site" description="8\t+\t98089075\t98090028\t98093220\t98093332">
+      <location>
+        <position position="338" />
+      </location>
+    </feature>
+    <sequence length="374">MGCSSSALNKAGDSSRFPSVTSNEHFSTAEESESCFAQPKPHALGRESTVDGNVQRESRPPLQKLKVSAEPTANGVKPLQEQPLAKDVAPGRDATDQSGSTEKTQPGEGLEESGPPQPGGKEDAPAAEGKKKDAGAGTEAESLKGNAEAQPLGPEAKGQPLQAAVEKDSLRAVEVTENPQTAAEMKPLGTTENVLTLQIAGELQPQGTVGKDEQAPLLETISKENESPEILEGSQFVETAEEQQLQATLGKEEQPQLLERIPKENVTPEVLDRSQLVEKPVMNDPFHKTPEGPGNMEQIQPEGIVGSMEHPARNVEAGAYVEMIRNIHTNEEDQRIEGETGEKVETDMENEKVSEGAETKEEETGEVVDLSAAT</sequence>
+  </entry>
+</mzLibProteinDb>
+
+
