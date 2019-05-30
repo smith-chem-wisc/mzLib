@@ -1,4 +1,5 @@
-﻿using Proteomics.ProteolyticDigestion;
+﻿using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -151,6 +152,7 @@ namespace Proteomics
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
+        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
@@ -227,20 +229,48 @@ namespace Proteomics
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
             variableModifications = variableModifications ?? new List<Modification>();
+            CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                digestionParams.SearchModeType == CleavageSpecificity.Semi ?
+                searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
                 digestion.Digestion(this);
 
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
+            //Remove terminal modifications (if needed)
+            if (searchModeType == CleavageSpecificity.SingleN ||
+                searchModeType == CleavageSpecificity.SingleC ||
+                (searchModeType == CleavageSpecificity.None && (digestionParams.FragmentationTerminus == FragmentationTerminus.N || digestionParams.FragmentationTerminus == FragmentationTerminus.C)))
+            {
+                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, digestionParams.FragmentationTerminus, allKnownFixedModifications);
+            }
+
+            //add silac labels (if needed)
             if (silacLabels != null)
             {
                 return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac);
             }
+
             return modifiedPeptides;
+        }
+
+        /// <summary>
+        /// Remove terminal modifications from the C-terminus of SingleN peptides and the N-terminus of SingleC peptides/
+        /// These terminal modifications create redundant entries and increase search time
+        /// </summary>
+        internal static IEnumerable<PeptideWithSetModifications> RemoveTerminalModifications(IEnumerable<PeptideWithSetModifications> modifiedPeptides, FragmentationTerminus fragmentationTerminus, IEnumerable<Modification> allFixedMods)
+        {
+            string terminalStringToLookFor = fragmentationTerminus == FragmentationTerminus.N ? "C-terminal" : "N-terminal";
+            List<Modification> fixedTerminalMods = allFixedMods.Where(x => x.LocationRestriction.Contains(terminalStringToLookFor)).ToList();
+            foreach (PeptideWithSetModifications pwsm in modifiedPeptides)
+            {
+                if (!pwsm.AllModsOneIsNterminus.Values.Any(x => x.LocationRestriction.Contains(terminalStringToLookFor) && !fixedTerminalMods.Contains(x)))
+                {
+                    yield return pwsm;
+                }
+            }
         }
 
         /// <summary>
@@ -355,13 +385,7 @@ namespace Proteomics
         public override bool Equals(object obj)
         {
             Protein otherProtein = (Protein)obj;
-
-            if (otherProtein == null)
-            {
-                return false;
-            }
-
-            return otherProtein != null && otherProtein.Accession == this.Accession && otherProtein.BaseSequence == this.BaseSequence;
+            return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
         }
 
         /// <summary>
