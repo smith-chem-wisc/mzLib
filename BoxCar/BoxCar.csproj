@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net471;netstandard2.0</TargetFrameworks>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net471'">
+    <DefineConstants>NETFRAMEWORK</DefineConstants>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net471|AnyCPU'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'net471'">
+    <ProjectReference Include="..\Thermo\Thermo.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+    <ProjectReference Include="..\MzML\MzML.csproj" />
+	<ProjectReference Include="..\Thermo\Thermo.csproj" />
+	<ProjectReference Include="..\UnmanagedThermoHelperLayer\Win32Project8.vcxproj"/>
+    <ProjectReference Include="..\Spectra\Spectra.csproj" />
+    <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Accord.Math" Version="3.8.0" />
+    <PackageReference Include="NetSerializer" Version="4.1.0" />
+    <PackageReference Include="SharpLearning.Containers" Version="[0.28.0]" />
+    <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
+  </ItemGroup>
+  
+</Project>

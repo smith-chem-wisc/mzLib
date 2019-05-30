@@ -3,6 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{D7C69058-1FE4-49BD-B994-B08C1DFB21A4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CDD56F70-D42F-4E86-A232-65F955CEF6EC} = {CDD56F70-D42F-4E86-A232-65F955CEF6EC}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestThermo", "TestThermo\TestThermo.csproj", "{0FA1E770-6D5E-421B-802C-FDCA44791EAA}"
 	ProjectSection(ProjectDependencies) = postProject
