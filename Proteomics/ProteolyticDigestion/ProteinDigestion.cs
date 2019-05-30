@@ -63,13 +63,13 @@ namespace Proteomics.ProteolyticDigestion
                         }
                         else if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N) //make something with the maximum length and fixed N
                         {
-                            int tempIndex = oneBasedIndicesToCleaveAfter[i] + 1;
-                            peptides.Add(new ProteolyticPeptide(protein, tempIndex, tempIndex + MaxPeptideLength, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
+                            int startIndex = oneBasedIndicesToCleaveAfter[i];
+                            peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, startIndex + MaxPeptideLength, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
                         else //It has to be FragmentationTerminus.C //make something with the maximum length and fixed C
                         {
-                            int tempIndex = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift];
-                            peptides.Add(new ProteolyticPeptide(protein, tempIndex - MaxPeptideLength, tempIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
+                            int endIndex = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift];
+                            peptides.Add(new ProteolyticPeptide(protein, endIndex - MaxPeptideLength + 1, endIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
                     }
                 }
@@ -86,7 +86,7 @@ namespace Proteomics.ProteolyticDigestion
                         }
                         else if (DigestionParams.FragmentationTerminus == FragmentationTerminus.N)
                         {
-                            peptides.Add(new ProteolyticPeptide(protein, 2, 2 + MaxPeptideLength, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
+                            peptides.Add(new ProteolyticPeptide(protein, 2, 2 + MaxPeptideLength - 1, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
                         else //It has to be FragmentationTerminus.C //make something with the maximum length and fixed C
                         {
@@ -94,7 +94,7 @@ namespace Proteomics.ProteolyticDigestion
                             if (!Protease.Retain(i, InitiatorMethionineBehavior, protein[0])) //only if cleave, because then not made earlier during retain
                             {
                                 int tempIndex = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift];
-                                peptides.Add(new ProteolyticPeptide(protein, tempIndex - MaxPeptideLength, tempIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
+                                peptides.Add(new ProteolyticPeptide(protein, tempIndex - MaxPeptideLength + 1, tempIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                             }
                         }
                     }

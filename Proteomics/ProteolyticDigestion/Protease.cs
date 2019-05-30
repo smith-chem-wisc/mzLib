@@ -605,13 +605,21 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
                 //wrap up the terminus
-                if (oneBasedIndicesToCleaveAfter.Count >= maximumMissedCleavagesIndexShift)
+                if (oneBasedIndicesToCleaveAfter.Count < maximumMissedCleavagesIndexShift)
                 {
-                    int lastStartIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavagesIndexShift] + 1;
-                    int lastEndIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - 1];
-                    for (; lastStartIndex + minPeptideLength - 1 <= lastEndIndex; lastStartIndex++)
+                    maximumMissedCleavagesIndexShift = oneBasedIndicesToCleaveAfter.Count;
+                }
+                int lastStartIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavagesIndexShift] + 1;
+                int proteinEndIndex = oneBasedIndicesToCleaveAfter[oneBasedIndicesToCleaveAfter.Count - 1]; //end of protein
+                int lastEndIndex = Math.Min(proteinEndIndex, lastStartIndex + maxPeptideLength - 1); //end of protein
+                for (; lastStartIndex + minPeptideLength - 1 <= lastEndIndex; lastStartIndex++)
+                {
+                    peptides.Add(new ProteolyticPeptide(protein, lastStartIndex, lastEndIndex, maximumMissedCleavages, CleavageSpecificity.SingleN, "SingleN"));
+
+                    //update the end if needed
+                    if (lastEndIndex != proteinEndIndex)
                     {
-                        peptides.Add(new ProteolyticPeptide(protein, lastStartIndex, lastEndIndex, maximumMissedCleavages, CleavageSpecificity.SingleN, "SingleN"));
+                        lastEndIndex++;
                     }
                 }
             }
@@ -680,16 +688,23 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
                 //wrap up the terminus
-                //if there are more missed cleavages allowed than there are cleavages to cleave, change the effective number of missed cleavages
+                //if there are more missed cleavages allowed than there are cleavages to cleave, change the effective number of missed cleavages to the max
                 if (oneBasedIndicesToCleaveAfter.Count <= maximumMissedCleavagesIndexShift)
                 {
                     maximumMissedCleavagesIndexShift = oneBasedIndicesToCleaveAfter.Count - 1;
                 }
                 int lastEndIndex = oneBasedIndicesToCleaveAfter[maximumMissedCleavagesIndexShift];
-                int lastStartIndex = oneBasedIndicesToCleaveAfter[0];
-                for (; lastEndIndex >= lastStartIndex + minPeptideLength; lastEndIndex--)
+                int startIndex = Math.Max(proteinStart, lastEndIndex - maxPeptideLength + 1);
+                int minPeptideLengthOneBasedResidueShift = minPeptideLength - 1;
+                for (; lastEndIndex >= startIndex + minPeptideLengthOneBasedResidueShift; lastEndIndex--)
                 {
-                    peptides.Add(new ProteolyticPeptide(protein, lastStartIndex + 1, lastEndIndex, maximumMissedCleavages, CleavageSpecificity.SingleC, "SingleC"));
+                    peptides.Add(new ProteolyticPeptide(protein, startIndex, lastEndIndex, maximumMissedCleavages, CleavageSpecificity.SingleC, "SingleC"));
+
+                    //update the start if needed
+                    if (startIndex != proteinStart)
+                    {
+                        startIndex--;
+                    }
                 }
             }
             return peptides;
