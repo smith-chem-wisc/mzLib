@@ -376,23 +376,6 @@ namespace Test
         }
 
         [Test]
-        public static void TestSingleProteaseFifteenMer()
-        {
-            Protein protein = new Protein("MACDEFGHIKLMNPQRSTVWY", "Test");
-            PeptideWithSetModifications pwsm = new PeptideWithSetModifications("ACDEFGHIKLMNPQR", new Dictionary<string, Modification>());
-
-            //N
-            DigestionParams dp = new DigestionParams("non-specific", 14, 15, 15, 1024, InitiatorMethionineBehavior.Variable, 2, CleavageSpecificity.None, FragmentationTerminus.N);
-            List<PeptideWithSetModifications> pwsms = protein.Digest(dp, null, null).ToList();
-            Assert.IsTrue(pwsms.Count == (protein.Length - dp.MaxPeptideLength + 1));
-
-            //C
-            dp = new DigestionParams("non-specific", 14, 15, 15, 1024, InitiatorMethionineBehavior.Variable, 2, CleavageSpecificity.None, FragmentationTerminus.C);
-            pwsms = protein.Digest(dp, null, null).ToList();
-            Assert.IsTrue(pwsms.Count == (protein.Length - dp.MaxPeptideLength + 1));
-        }
-
-        [Test]
         public static void TestHardToParseModifiedSequence()
         {
             string fullSequence = "PE[Metal:Cation:Fe[III] on X]PTIDE";
