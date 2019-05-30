@@ -334,7 +334,7 @@ namespace Test
             nSpecificPeps = proteinWithMods.Digest(specificNonN, empty, empty).ToList();
             cSpecificPeps = proteinWithMods.Digest(specificNonC, empty, empty).ToList();
             Assert.IsTrue(nSpecificPeps.Count == 11);
-            Assert.IsTrue(cSpecificPeps.Count == 10);
+            Assert.IsTrue(cSpecificPeps.Count == 11);
         }
 
         [Test]
@@ -373,6 +373,23 @@ namespace Test
             Assert.IsTrue(peptides.Count == 16);
             peptides = methionineProtein.Digest(dpC, empty, empty).ToList();
             Assert.IsTrue(peptides.Count == 16);
+        }
+
+        [Test]
+        public static void TestSingleProteaseFifteenMer()
+        {
+            Protein protein = new Protein("MACDEFGHIKLMNPQRSTVWY", "Test");
+            PeptideWithSetModifications pwsm = new PeptideWithSetModifications("ACDEFGHIKLMNPQR", new Dictionary<string, Modification>());
+
+            //N
+            DigestionParams dp = new DigestionParams("non-specific", 14, 15, 15, 1024, InitiatorMethionineBehavior.Variable, 2, CleavageSpecificity.None, FragmentationTerminus.N);
+            List<PeptideWithSetModifications> pwsms = protein.Digest(dp, null, null).ToList();
+            Assert.IsTrue(pwsms.Count == (protein.Length - dp.MaxPeptideLength + 1));
+
+            //C
+            dp = new DigestionParams("non-specific", 14, 15, 15, 1024, InitiatorMethionineBehavior.Variable, 2, CleavageSpecificity.None, FragmentationTerminus.C);
+            pwsms = protein.Digest(dp, null, null).ToList();
+            Assert.IsTrue(pwsms.Count == (protein.Length - dp.MaxPeptideLength + 1));
         }
 
         [Test]

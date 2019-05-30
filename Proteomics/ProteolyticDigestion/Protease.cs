@@ -675,7 +675,7 @@ namespace Proteomics.ProteolyticDigestion
                         }
                         int nextEndIndex = oneBasedIndicesToCleaveAfter[i - 1];
                         //make SingleC peptides until we reach the next index to cleave at or until the peptides are too small
-                        for (; (endProteaseIndex > nextEndIndex) && (endProteaseIndex - startActualIndex > minPeptideLength); endProteaseIndex--)
+                        for (; (endProteaseIndex > nextEndIndex) && (endProteaseIndex - startActualIndex >= minPeptideLength); endProteaseIndex--)
                         {
                             peptides.Add(new ProteolyticPeptide(protein, startActualIndex + 1, endProteaseIndex, maximumMissedCleavages, CleavageSpecificity.SingleC, "SingleC"));
 
