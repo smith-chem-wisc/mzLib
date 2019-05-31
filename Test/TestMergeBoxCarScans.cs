@@ -23,7 +23,7 @@ namespace Test
     [TestFixture]
     public class TestBoxCar // what does sealed mean??
     {
-        string FilepathMZML = "C:\\Nicole\\mzLib\\Test\\20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML";
+        string FilepathMZML = Path.Combine(TestContext.CurrentContext.TestDirectory, "20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML");
 
         [Test]
         public void TestCalculateMean()

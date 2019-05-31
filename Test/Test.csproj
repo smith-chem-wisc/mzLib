@@ -193,9 +193,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.raw">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <Content Include="DatabaseTests\DecoyVariants.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
