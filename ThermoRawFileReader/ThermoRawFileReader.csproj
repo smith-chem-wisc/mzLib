@@ -33,9 +33,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <None Include="RawFileReaderLicense.doc"></None>
-  </ItemGroup>
-  <ItemGroup>
     <Folder Include="Properties\" />
   </ItemGroup>
 </Project>
