@@ -31,8 +31,6 @@ namespace ThermoRawFileReader
         /// </summary>
         public static ThermoRawFileReaderData LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
         {
-            //TODO: implement peak filtering
-
             if (!File.Exists(filePath))
             {
                 throw new FileNotFoundException();
@@ -313,6 +311,9 @@ namespace ThermoRawFileReader
 
             var centroidStream = rawFile.GetCentroidStream(scanNumber, false);
 
+            // TODO: some files are not centroided properly by ThermoRawFileReader. Need to contact Thermo and figure out
+            // some way to fix this. contact is probably Jim Shofstahl. Example of file not being centroided is the small.raw
+            // (see unit test "TestRawFileReader")
             if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
                 throw new MzLibException("Could not centroid data from scan " + scanNumber);

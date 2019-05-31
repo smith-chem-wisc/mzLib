@@ -289,6 +289,7 @@
     </Content>
     <Content Include="DataFiles\testFileWMS2.raw">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\VariantModsGPTMD.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <SubType>Designer</SubType>
