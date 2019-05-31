@@ -167,7 +167,6 @@ namespace ThermoRawFileReader
 
         private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {
-            var scan = Scan.FromFile(rawFile, scanNumber);
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
 
             string scanFilterString = filter.ToString();

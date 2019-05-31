@@ -31,7 +31,7 @@ namespace Test
             var aa = Mzml.LoadAllStaticData(outfile1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
             Mzml.LoadAllStaticData(outfile2);
-            Console.WriteLine($"Analysis time for TestRawFileReader1({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
@@ -55,7 +55,7 @@ namespace Test
 
             ThermoRawFileReaderData.CloseDynamicConnection();
             
-            Console.WriteLine($"Analysis time for TestSingleScanRawReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
@@ -109,8 +109,13 @@ namespace Test
         /// </summary>
         public static void TestThermoLicence()
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
             var licence = ThermoRawFileReaderLicence.ThermoLicenceText;
             Assert.That(licence.Length > 100);
+
+            Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
     }
 }
