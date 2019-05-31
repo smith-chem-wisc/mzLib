@@ -235,6 +235,7 @@ namespace UsefulProteomicsDatabases
                     SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
                 }
                 AnnotatedVariantMods = new List<(int, string)>();
+                OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
             }
             else if (FeatureType == "disulfide bond")
             {

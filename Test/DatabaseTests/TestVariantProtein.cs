@@ -107,6 +107,8 @@ namespace Test
                 Assert.AreEqual(s.OriginalSequence, decoy.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
             }
             Assert.AreNotEqual(target.SequenceVariations.First().Description, decoy.SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+
+            List<PeptideWithSetModifications> peptides = ok.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
         [Test]
@@ -253,6 +255,8 @@ namespace Test
             Assert.AreEqual(1, decoy.SpliceSites.Count());
             Assert.AreEqual(reversedBeginIdx, decoy.SpliceSites.Single().OneBasedBeginPosition);
             Assert.AreEqual(reversedEndIdx, decoy.SpliceSites.Single().OneBasedEndPosition);
+
+            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
         [Test]
@@ -269,6 +273,7 @@ namespace Test
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(1, proteins[0].GetVariantProteins().Count);
             var variantProteins = proteins[0].GetVariantProteins();
+            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
         [Test]
@@ -343,6 +348,19 @@ namespace Test
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(161 - 1, proteins[0].Length);
+        }
+
+        [Test]
+        public static void StopGainedDecoysAndDigestion()
+        {
+            // test decoys and digestion
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGain.xml"), true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications, minAlleleDepth: 400);
+            Assert.AreEqual(2, proteins.Count);
+            var targetPeps = proteins[0].Digest(new DigestionParams(), null, null).ToList();
+            var decoyPeps = proteins[1].Digest(new DigestionParams(), null, null).ToList();
+            //Assert.AreEqual(targetPeps.Sum(p => p.Length), decoyPeps.Sum(p => p.Length));
+            //Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
         }
 
         [Test]
@@ -461,6 +479,35 @@ namespace Test
             Assert.AreEqual("M", variantProteins[2].AppliedSequenceVariations.First().OriginalSequence);
             Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
+        }
+        [Test]
+        public void VariantModificationTest()
+        {
+            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            List<Protein> targets = variantProteins.Where(p => p.IsDecoy == false).ToList();
+            List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
+            List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
+            List<Protein> variantDecoys = decoys.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
+            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");           
+
+            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x=>x.OneBasedModifications.Count>= 1)).ToList();
+            var decoyMods = decoys.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
+            var negativeResidues = decoyMods.SelectMany(x => x.OneBasedModifications.Where(w => w.Key < 0)).ToList();
+            bool namingWrong = targets.Select(p => p.Accession).Contains("Q8N865_H300R_A158T_H300R");
+            bool namingRight = targets.Select(p => p.Accession).Contains("Q8N865_A158T_H300R");
+            Assert.AreEqual(false, namingWrong);
+            Assert.AreEqual(true, namingRight);
+            Assert.AreEqual(false, homozygousVariant);
+            Assert.AreEqual(62, variantProteins.Count);
+            Assert.AreEqual(31, targets.Count);
+            Assert.AreEqual(26, variantTargets.Count);
+            Assert.AreEqual(31, decoys.Count);
+            Assert.AreEqual(26, variantDecoys.Count);
+            Assert.AreEqual(2, variantMods.Count);
+            Assert.AreEqual(2, decoyMods.Count);
+            Assert.AreEqual(0, negativeResidues.Count);
+
         }
     }
 }

@@ -434,14 +434,14 @@ namespace Proteomics.ProteolyticDigestion
 
         public override int GetHashCode()
         {
-            if(DigestionParams == null)
+            if (DigestionParams == null)
             {
                 return FullSequence.GetHashCode();
             }
             else
             {
                 return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
-            }            
+            }
         }
 
         /// <summary>
@@ -593,7 +593,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)
             {
-                CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein.BaseSequence, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein);
+                CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, DigestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }

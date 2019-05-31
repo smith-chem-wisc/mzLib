@@ -11,10 +11,9 @@ namespace Proteomics
         /// </summary>
         /// <param name="protein"></param>
         /// <param name="sequenceVariation"></param>
-        public static string GetAccession(Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations)
+        public static string GetAccession(Protein protein,IEnumerable<SequenceVariation> appliedSequenceVariations)
         {
-                        
-            return protein.Accession + 
+            return protein.NonVariantProtein.Accession + 
                 (appliedSequenceVariations == null || appliedSequenceVariations.Count() == 0 ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
         }
 
@@ -49,7 +48,7 @@ namespace Proteomics
         /// <param name="variations"></param>
         /// <returns></returns>
         internal static string CombineSimpleStrings(IEnumerable<SequenceVariation> variations)
-        {
+        {            
             return variations == null || variations.Count() == 0? "" : string.Join("_", variations.Select(v => v.SimpleString()));
         }
 
