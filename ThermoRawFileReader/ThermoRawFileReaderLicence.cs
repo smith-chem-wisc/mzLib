@@ -1,8 +1,8 @@
 ﻿namespace ThermoRawFileReader
 {
-    class ThermoRawFileReaderLicence
+    public class ThermoRawFileReaderLicence
     {
-        public string ThermoLicenceText =
+        public static string ThermoLicenceText =
 "SOFTWARE LICENSE AGREEMENT (“License”) FOR RawFileReader\n" +
 
 "\nThese License terms are an agreement between you and Thermo Finnigan LLC(\"Licensor\"). They apply to Licensor’s MSFileReader software program(“Software”), " +

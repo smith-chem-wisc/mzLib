@@ -102,5 +102,15 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
+
+        [Test]
+        /// <summary>
+        /// Just makes sure the Thermo RawFileReader licence is accessible...
+        /// </summary>
+        public static void TestThermoLicence()
+        {
+            var licence = ThermoRawFileReaderLicence.ThermoLicenceText;
+            Assert.That(licence.Length > 100);
+        }
     }
 }
