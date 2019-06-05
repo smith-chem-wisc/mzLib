@@ -123,7 +123,7 @@ namespace BoxCar
         }
 
         /// <summary>
-        /// Helper method for RemoveEdgeEffects
+        /// Helper method for RemoveOverlap
         /// given 2 numbers, returns the mean
         /// </summary>
         /// <param name="num1"></param>

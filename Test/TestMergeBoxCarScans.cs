@@ -23,69 +23,71 @@ namespace Test
     [TestFixture]
     public class TestBoxCar // what does sealed mean??
     {
-        string FilepathMZML = Path.Combine(TestContext.CurrentContext.TestDirectory, "20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML");
+        string FilepathMZML = null;
 
         [Test]
         public void TestCalculateMean()
         {
             Assert.AreEqual(511.5, Program.CalculateMean(509, 514));
-            // maybe make sure this works with negative numbers OR make some sort of exception if negative numbers are inputted?
         }
 
         [Test]
         public void TestMergeBoxCarScans()
         {
             // Import data
-
+            FilepathMZML = Path.Combine(TestContext.CurrentContext.TestDirectory, "20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML");
             MsDataFile file = Mzml.LoadAllStaticData(FilepathMZML, null);
 
-            ArrayList toAdd = new ArrayList();
-            toAdd.Add(new BoxcarRange(400, 416.3));
-            toAdd.Add(new BoxcarRange(441.2, 454.2));
-            toAdd.Add(new BoxcarRange(476.3, 488.8));
-            toAdd.Add(new BoxcarRange(510.3, 523.3));
-            toAdd.Add(new BoxcarRange(545, 557.8));
-            toAdd.Add(new BoxcarRange(580.8, 594));
-            toAdd.Add(new BoxcarRange(618.4, 633));
-            toAdd.Add(new BoxcarRange(660.3, 676.4));
-            toAdd.Add(new BoxcarRange(708.3, 726.3));
-            toAdd.Add(new BoxcarRange(764.4, 788.4));
-            toAdd.Add(new BoxcarRange(837.9, 868.8));
-            toAdd.Add(new BoxcarRange(945, 999));
+
+            // Create boxcarRanges
+
+            ArrayList toAddA = new ArrayList();
+            toAddA.Add(new BoxcarRange(400, 416.3));
+            toAddA.Add(new BoxcarRange(441.2, 454.2));
+            toAddA.Add(new BoxcarRange(476.3, 488.8));
+            toAddA.Add(new BoxcarRange(510.3, 523.3));
+            toAddA.Add(new BoxcarRange(545, 557.8));
+            toAddA.Add(new BoxcarRange(580.8, 594));
+            toAddA.Add(new BoxcarRange(618.4, 633));
+            toAddA.Add(new BoxcarRange(660.3, 676.4));
+            toAddA.Add(new BoxcarRange(708.3, 726.3));
+            toAddA.Add(new BoxcarRange(764.4, 788.4));
+            toAddA.Add(new BoxcarRange(837.9, 868.8));
+            toAddA.Add(new BoxcarRange(945, 999));
 
             ArrayList toAddB = new ArrayList();
-            toAdd.Add(new BoxcarRange(415.3, 429.7));
-            toAdd.Add(new BoxcarRange(453.2, 465.9));
-            toAdd.Add(new BoxcarRange(487.8, 499.9));
-            toAdd.Add(new BoxcarRange(522.3, 534.8));
-            toAdd.Add(new BoxcarRange(556.8, 569.6));
-            toAdd.Add(new BoxcarRange(593, 606.6));
-            toAdd.Add(new BoxcarRange(632, 646.8));
-            toAdd.Add(new BoxcarRange(675.4, 692.3));
-            toAdd.Add(new BoxcarRange(725.3, 745));
-            toAdd.Add(new BoxcarRange(787.4, 812.4));
-            toAdd.Add(new BoxcarRange(867.8, 903.5));
-            toAdd.Add(new BoxcarRange(998, 1071.1));
+            toAddB.Add(new BoxcarRange(415.3, 429.7));
+            toAddB.Add(new BoxcarRange(453.2, 465.9));
+            toAddB.Add(new BoxcarRange(487.8, 499.9));
+            toAddB.Add(new BoxcarRange(522.3, 534.8));
+            toAddB.Add(new BoxcarRange(556.8, 569.6));
+            toAddB.Add(new BoxcarRange(593, 606.6));
+            toAddB.Add(new BoxcarRange(632, 646.8));
+            toAddB.Add(new BoxcarRange(675.4, 692.3));
+            toAddB.Add(new BoxcarRange(725.3, 745));
+            toAddB.Add(new BoxcarRange(787.4, 812.4));
+            toAddB.Add(new BoxcarRange(867.8, 903.5));
+            toAddB.Add(new BoxcarRange(998, 1071.1));
 
             ArrayList toAddC = new ArrayList();
-            toAdd.Add(new BoxcarRange(428.7, 442.2));
-            toAdd.Add(new BoxcarRange(464.9, 477.3));
-            toAdd.Add(new BoxcarRange(498.9, 511.3));
-            toAdd.Add(new BoxcarRange(533.8, 546));
-            toAdd.Add(new BoxcarRange(568.6, 581.8));
-            toAdd.Add(new BoxcarRange(605.6, 619.4));
-            toAdd.Add(new BoxcarRange(645.8, 661.3));
-            toAdd.Add(new BoxcarRange(691.3, 709.3));
-            toAdd.Add(new BoxcarRange(744, 765.4));
-            toAdd.Add(new BoxcarRange(811.4, 838.9));
-            toAdd.Add(new BoxcarRange(902.5, 946));
-            toAdd.Add(new BoxcarRange(1070.1, 1201));
+            toAddC.Add(new BoxcarRange(428.7, 442.2));
+            toAddC.Add(new BoxcarRange(464.9, 477.3));
+            toAddC.Add(new BoxcarRange(498.9, 511.3));
+            toAddC.Add(new BoxcarRange(533.8, 546));
+            toAddC.Add(new BoxcarRange(568.6, 581.8));
+            toAddC.Add(new BoxcarRange(605.6, 619.4));
+            toAddC.Add(new BoxcarRange(645.8, 661.3));
+            toAddC.Add(new BoxcarRange(691.3, 709.3));
+            toAddC.Add(new BoxcarRange(744, 765.4));
+            toAddC.Add(new BoxcarRange(811.4, 838.9));
+            toAddC.Add(new BoxcarRange(902.5, 946));
+            toAddC.Add(new BoxcarRange(1070.1, 1201));
 
-            SetOfBoxcarRanges[] boxcarRanges = new SetOfBoxcarRanges[3] { new SetOfBoxcarRanges(toAdd), new SetOfBoxcarRanges(toAddB), new SetOfBoxcarRanges(toAddC) } ;
-
+            SetOfBoxcarRanges[] boxcarRanges = new SetOfBoxcarRanges[3] { new SetOfBoxcarRanges(toAddA), new SetOfBoxcarRanges(toAddB), new SetOfBoxcarRanges(toAddC) } ;
 
 
             // Sort the boxcar scans into categories
+
             List<SetOfScans> scans = Program.SeparateScans(file);
             Assert.AreNotEqual(null, scans);
             Assert.AreNotEqual(0, scans.Count);
@@ -96,11 +98,8 @@ namespace Test
             List <MsDataScan> mergedScans = Program.MergeScans(scans, boxcarRanges);
             Assert.AreNotEqual(0, mergedScans.Count);
             Assert.IsTrue((403.23065185 > mergedScans.ElementAt(5).MassSpectrum.XArray[22] - 0.00001) && (403.23065185 < mergedScans.ElementAt(5).MassSpectrum.XArray[22] + 0.00001));
-            //Assert.IsTrue(()) // 5 39 275908.875
             Assert.AreEqual(275908.875, Math.Round(mergedScans.ElementAt(5).MassSpectrum.YArray[37], 3));
             //WriteMzmlFile(mergedScans, file, FinalFilePath);
-
-            //Assert.AreEqual(3, boxcarRanges.Count());
         }
 
         
