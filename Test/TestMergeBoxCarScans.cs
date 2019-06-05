@@ -16,7 +16,10 @@ using BoxCar;
 
 
 /// <summary>
-/// by Nicole Frey
+/// Test class for the BoxCar project.
+/// There is a method at the bottom that will write an mzml file to the desired filepath
+/// Also, commented out at the bottom of the file is a way to add boxcars from Leah's data (these are not from the metadata, I manually calculated them so they're not super accurate)
+/// Written by Nicole Frey, May-June 2019 for the Smith Group in the UW Madison chemistry department, with direction from Leah Schaffer.
 /// </summary>
 namespace Test
 {
@@ -26,12 +29,19 @@ namespace Test
         static string FilepathMZML;
         static MsDataFile file;
         static SetOfBoxcarRanges[] boxcarRanges;
-
+        static string FilepathMessedUpMZML;
+        static MsDataFile fileMessedUp;
+        
         [SetUp]
         public static void SetUp()
         {
             FilepathMZML = Path.Combine(TestContext.CurrentContext.TestDirectory, "20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML");
             file = Mzml.LoadAllStaticData(FilepathMZML, null);
+
+            FilepathMessedUpMZML = Path.Combine(TestContext.CurrentContext.TestDirectory, "MessedUpOnPurpose.mzML");
+            fileMessedUp = Mzml.LoadAllStaticData(FilepathMessedUpMZML, null);
+
+
 
             // Create boxcars
 
@@ -109,20 +119,13 @@ namespace Test
         public static void TestMergeBoxcarScans()
         {
             // Sort the boxcar scans into categories
-
             boxcarRanges = Program.RemoveOverlap(boxcarRanges);
 
             List<SetOfScans> scans = Program.SeparateScans(file);
-            Assert.AreNotEqual(null, scans);
-            Assert.AreNotEqual(0, scans.Count);
-            Assert.IsTrue((400.861480 > scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] - 0.00001) && (400.861480 < scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] + 0.00001));
-
 
             // Create mzml
             List<MsDataScan> mergedScans = Program.MergeScans(scans, boxcarRanges);
-            Assert.AreNotEqual(0, mergedScans.Count);
-            Assert.IsTrue((403.23065185 > mergedScans.ElementAt(5).MassSpectrum.XArray[22] - 0.00001) && (403.23065185 < mergedScans.ElementAt(5).MassSpectrum.XArray[22] + 0.00001));
-            Assert.AreEqual(275908.875, Math.Round(mergedScans.ElementAt(5).MassSpectrum.YArray[37], 3));
+
             //WriteMzmlFile(mergedScans, file, FinalFilePath);
 
             int len = mergedScans.Count;
@@ -130,6 +133,29 @@ namespace Test
             {
                 Assert.AreEqual(mergedScans.ElementAt(i).MassSpectrum.XArray, Program.MergeBoxCarScans(file, boxcarRanges, null).ElementAt(i).MassSpectrum.XArray);
             }
+        }
+
+        [Test]
+        public static void TestSeparateScans()
+        {
+            List<SetOfScans> scans = Program.SeparateScans(file);
+
+            Assert.AreNotEqual(null, scans);
+            Assert.AreNotEqual(0, scans.Count);
+            Assert.IsTrue((400.861480 > scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] - 0.00001) && (400.861480 < scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] + 0.00001));
+
+            List<SetOfScans> scansMessedUp = Program.SeparateScans(fileMessedUp);
+            Assert.AreNotEqual(null, scansMessedUp);
+            Assert.AreNotEqual(0, scansMessedUp.Count);
+        }
+
+        [Test]
+        public static void TestMergeScans()
+        {
+            List<MsDataScan> mergedScans = Program.MergeScans(Program.SeparateScans(file), boxcarRanges);
+            Assert.AreNotEqual(0, mergedScans.Count);
+            Assert.IsTrue((403.23065185 > mergedScans.ElementAt(5).MassSpectrum.XArray[22] - 0.00001) && (403.23065185 < mergedScans.ElementAt(5).MassSpectrum.XArray[22] + 0.00001));
+            Assert.AreEqual(275908.875, Math.Round(mergedScans.ElementAt(5).MassSpectrum.YArray[37], 3));
         }
 
         // Tests for the SetOfScans class:
@@ -240,7 +266,6 @@ namespace Test
         public static void WriteMzmlFile(List<MsDataScan> mergedScans, MsDataFile originalFile, string filepath)
         {
             MsDataScan[] combined = new MsDataScan[mergedScans.Count];
-            //MsDataScan[] ms1scans = new MsDataScan[mergedScans.Count];
 
             if (mergedScans.Count == 0)
             {
@@ -252,42 +277,14 @@ namespace Test
             for (int i = 0; i < mergedScans.Count; i++)
             {
                 MsDataScan boxcarScan = mergedScans.ElementAt(i); ;
-                //MsDataScan ms1Scan = set.Ms1scans[0];
-
                 combined[i] = boxcarScan;
-                //ms1scans[i] = ms1Scan;
             }
 
             SourceFile sourceFile = originalFile.SourceFile;
             MsDataFile msDataFile = new MsDataFile(combined, sourceFile);
-            //MsDataFile ms1DataFile = new MsDataFile(ms1scans, sourceFile);
 
-            // Debugging: (change directory before using)
-            //Console.WriteLine("scan5: ");
-            //var scan5 = combined[5];
-            //double[] xarray = scan5.MassSpectrum.XArray;
-            //double[] yarray = scan5.MassSpectrum.YArray;
-            //for (int i = 0; i < xarray.Length; i++)
-            //{
-            //    Console.WriteLine("point: " + xarray[i] + ", " + yarray[i]);
-            //}
-
-            //using (StreamWriter writer = new StreamWriter("C:\\Nicole\\test5.txt"))
-            //{
-            //    writer.WriteLine("m/z value " + "\t" + "intensity");
-            //    int len = combined[5].MassSpectrum.XArray.Count();
-            //    //Console.WriteLine(len);
-            //    for (int i = 0; i < len; i++)
-            //    {
-            //        writer.WriteLine(combined[5].MassSpectrum.XArray[i] + "\t" + combined[5].MassSpectrum.YArray[i]);
-            //    }
-            //}
-
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, filepath + originalFile.SourceFile.FileName + "_output3_combined_boxcars.mzML", false);
-            //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ms1DataFile, filepath + originalFile.SourceFile.FileName + "_output2_ms1s.mzML", false);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, filepath + originalFile.SourceFile.FileName + "_output_combined_boxcars.mzML", false);
         }
-
-
 
         // Leah's data - manually finding boxcars because they aren't in the metadata:
 

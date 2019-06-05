@@ -1,5 +1,8 @@
 ﻿using MassSpectrometry;
 
+/// <summary>
+/// Written by Nicole Frey, May-June 2019 for the Smith Group in the UW Madison chemistry department, with direction from Leah Schaffer.
+/// </summary>
 namespace BoxCar
 {
     /// <summary>

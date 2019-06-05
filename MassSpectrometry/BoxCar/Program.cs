@@ -6,13 +6,14 @@ using System.IO;
 using MzLibUtil;
 using MassSpectrometry;
 
+/// <summary>
+/// Written by Nicole Frey, May-June 2019 for the Smith Group in the UW Madison chemistry department, with direction from Leah Schaffer.
+/// </summary>
 namespace BoxCar
 {
     /// <summary>
     /// Merges the scans in a data file that were taken using the boxcar method.
     /// Writes an mzml file containing the merged scans.
-    /// 
-    /// Written by Nicole Frey, May-June 2019 for the Smith Group in the UW Madison chemistry department, with direction from Leah Schaffer.
     /// </summary>
     public class Program
     {
@@ -25,7 +26,6 @@ namespace BoxCar
         /// <returns></returns> mergedScans, a list of final merged boxcar scans.
         public static List<MsDataScan> MergeBoxCarScans(MsDataFile file, SetOfBoxcarRanges[] boxcarRanges, string finalFilePath)
         {
-            //SetOfBoxcarRanges[] boxcarRanges = FindBoxcars(file);
             SetOfBoxcarRanges[] bcRanges = RemoveOverlap(boxcarRanges);
             List<SetOfScans> scans = SeparateScans(file);
             List<MsDataScan> mergedScans = MergeScans(scans, bcRanges);
