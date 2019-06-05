@@ -21,7 +21,7 @@ using BoxCar;
 namespace Test
 {
     [TestFixture]
-    public class TestBoxCar // what does sealed mean??
+    public class TestBoxCar // does this need to be a sealed class?
     {
         static string FilepathMZML;
         static MsDataFile file;
@@ -80,6 +80,7 @@ namespace Test
             boxcarRanges = new SetOfBoxcarRanges[3] { new SetOfBoxcarRanges(toAddA), new SetOfBoxcarRanges(toAddB), new SetOfBoxcarRanges(toAddC) };
         }
 
+        // Test methods:
 
         [Test]
         public static void TestCalculateMean()
@@ -90,73 +91,19 @@ namespace Test
         [Test]
         public static void TestRemoveOverlap()
         {
-            boxcarRanges = Program.RemoveOverlap(boxcarRanges);
-            Assert.AreEqual(453.7, boxcarRanges[1].ElementAt(1).Start);
-            Assert.IsTrue(453.700001 > boxcarRanges[1].ElementAt(1).Start && 453.699999 < boxcarRanges[1].ElementAt(1).Start);
+            SetOfBoxcarRanges[] boxcarRangesOverlapRemoved = Program.RemoveOverlap(boxcarRanges);
+            Assert.AreEqual(453.7, boxcarRangesOverlapRemoved[1].ElementAt(1).Start);
+            Assert.IsTrue(453.700001 > boxcarRangesOverlapRemoved[1].ElementAt(1).Start && 453.699999 < boxcarRangesOverlapRemoved[1].ElementAt(1).Start);
 
-            // make sure that it returns the input SetOfBoxcarRanges[] if there is 0 or 1 in the array (numBoxcarScans <= 1)
-            // make sure that the means are right:
-            // the new boxcarranges should have the same start and endpoints
-            // make sure it works even if the SetOfBoxcarRanges objects have different lengths (doubt this would be an issue, maybe test it anyway)
+            // make sure it works even if the SetOfBoxcarRanges[] is of length one.
+            SetOfBoxcarRanges[] boxcarRangesMini = new SetOfBoxcarRanges[1];
+            boxcarRangesMini[0] = boxcarRanges[0];
+            boxcarRangesMini = Program.RemoveOverlap(boxcarRangesMini);
+            Assert.AreEqual(boxcarRanges[0], boxcarRangesMini[0]);
+
+            // make sure that the means are right: the new boxcarranges should have the same start and endpoints
+            Assert.AreEqual(boxcarRangesOverlapRemoved[0].ElementAt(0).End, boxcarRangesOverlapRemoved[1].ElementAt(0).Start);
         }
-
-
-        /// <summary>
-        /// Writes an mzml file to the given filepath.
-        /// Metadata for the file comes from the originalFile.
-        /// </summary>
-        /// <param name="mergedScans"></param>
-        /// <param name="originalFile"></param>
-        public static void WriteMzmlFile(List<MsDataScan> mergedScans, MsDataFile originalFile, string filepath)
-        {
-            MsDataScan[] combined = new MsDataScan[mergedScans.Count];
-            //MsDataScan[] ms1scans = new MsDataScan[mergedScans.Count];
-
-            if (mergedScans.Count == 0)
-            {
-                Console.WriteLine("Error! You have no merged scans.");
-                return;
-            }
-
-            // put the merged boxcar scans into this array:
-            for (int i = 0; i < mergedScans.Count; i++)
-            {
-                MsDataScan boxcarScan = mergedScans.ElementAt(i); ;
-                //MsDataScan ms1Scan = set.Ms1scans[0];
-
-                combined[i] = boxcarScan;
-                //ms1scans[i] = ms1Scan;
-            }
-
-            SourceFile sourceFile = originalFile.SourceFile;
-            MsDataFile msDataFile = new MsDataFile(combined, sourceFile);
-            //MsDataFile ms1DataFile = new MsDataFile(ms1scans, sourceFile);
-
-            // Debugging: (change directory before using)
-            //Console.WriteLine("scan5: ");
-            //var scan5 = combined[5];
-            //double[] xarray = scan5.MassSpectrum.XArray;
-            //double[] yarray = scan5.MassSpectrum.YArray;
-            //for (int i = 0; i < xarray.Length; i++)
-            //{
-            //    Console.WriteLine("point: " + xarray[i] + ", " + yarray[i]);
-            //}
-
-            //using (StreamWriter writer = new StreamWriter("C:\\Nicole\\test5.txt"))
-            //{
-            //    writer.WriteLine("m/z value " + "\t" + "intensity");
-            //    int len = combined[5].MassSpectrum.XArray.Count();
-            //    //Console.WriteLine(len);
-            //    for (int i = 0; i < len; i++)
-            //    {
-            //        writer.WriteLine(combined[5].MassSpectrum.XArray[i] + "\t" + combined[5].MassSpectrum.YArray[i]);
-            //    }
-            //}
-
-            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, filepath + originalFile.SourceFile.FileName + "_output3_combined_boxcars.mzML", false);
-            //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ms1DataFile, filepath + originalFile.SourceFile.FileName + "_output2_ms1s.mzML", false);
-        }
-
 
         [Test]
         public static void TestMergeBoxcarScans()
@@ -284,43 +231,63 @@ namespace Test
 
         }
 
+        /// <summary>
+        /// Writes an mzml file to the given filepath.
+        /// Metadata for the file comes from the originalFile.
+        /// </summary>
+        /// <param name="mergedScans"></param>
+        /// <param name="originalFile"></param>
+        public static void WriteMzmlFile(List<MsDataScan> mergedScans, MsDataFile originalFile, string filepath)
+        {
+            MsDataScan[] combined = new MsDataScan[mergedScans.Count];
+            //MsDataScan[] ms1scans = new MsDataScan[mergedScans.Count];
+
+            if (mergedScans.Count == 0)
+            {
+                Console.WriteLine("Error! You have no merged scans.");
+                return;
+            }
+
+            // put the merged boxcar scans into this array:
+            for (int i = 0; i < mergedScans.Count; i++)
+            {
+                MsDataScan boxcarScan = mergedScans.ElementAt(i); ;
+                //MsDataScan ms1Scan = set.Ms1scans[0];
+
+                combined[i] = boxcarScan;
+                //ms1scans[i] = ms1Scan;
+            }
+
+            SourceFile sourceFile = originalFile.SourceFile;
+            MsDataFile msDataFile = new MsDataFile(combined, sourceFile);
+            //MsDataFile ms1DataFile = new MsDataFile(ms1scans, sourceFile);
+
+            // Debugging: (change directory before using)
+            //Console.WriteLine("scan5: ");
+            //var scan5 = combined[5];
+            //double[] xarray = scan5.MassSpectrum.XArray;
+            //double[] yarray = scan5.MassSpectrum.YArray;
+            //for (int i = 0; i < xarray.Length; i++)
+            //{
+            //    Console.WriteLine("point: " + xarray[i] + ", " + yarray[i]);
+            //}
+
+            //using (StreamWriter writer = new StreamWriter("C:\\Nicole\\test5.txt"))
+            //{
+            //    writer.WriteLine("m/z value " + "\t" + "intensity");
+            //    int len = combined[5].MassSpectrum.XArray.Count();
+            //    //Console.WriteLine(len);
+            //    for (int i = 0; i < len; i++)
+            //    {
+            //        writer.WriteLine(combined[5].MassSpectrum.XArray[i] + "\t" + combined[5].MassSpectrum.YArray[i]);
+            //    }
+            //}
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(msDataFile, filepath + originalFile.SourceFile.FileName + "_output3_combined_boxcars.mzML", false);
+            //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ms1DataFile, filepath + originalFile.SourceFile.FileName + "_output2_ms1s.mzML", false);
+        }
 
 
-        //[Test]
-        //public void TestSeparateScans()
-        //{
-        //    // make sure there are as many SetOfScans objects in the list as the scanheader # of boxes
-        //}
-
-        //[Test]
-        //public void TestMergeScans()
-        //{
-        //    // returned list should have the same nubmer of elements as the input set of scans? maybe unless some got cut out. check that too
-        //}
-
-        //[Test]
-        //public void TestCombineScans()
-        //{
-        //    // returned MsDataScan MsDataScan should have the same range as the boxcar scans, should be a combination
-        //}
-
-        //[Test]
-        //public void TestFindBoxcarScan()
-        //{
-        //    // 
-        //}
-
-        //[Test]
-        //public void TestFindScanRange()
-        //{
-
-        //}
-
-        //[Test]
-        //public void TestWriteMzmlFile()
-        //{
-
-        //}
 
         // Leah's data - manually finding boxcars because they aren't in the metadata:
 
@@ -357,16 +324,5 @@ namespace Test
         //SetOfBoxcarRanges setB = new SetOfBoxcarRanges(msxB);
 
         //SetOfBoxcarRanges[] boxcarRanges = new SetOfBoxcarRanges[] { setA, setB };
-
-
-
-
-
-
-
-
-
-
-
     }
 }
