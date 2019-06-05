@@ -65,7 +65,7 @@ namespace BoxCar
         /// </summary>
         /// <param name="boxcarRange"></param>
         /// <param name="index"></param>
-        public void Insert(BoxcarRange boxcarRange, int index)
+        public void ReplaceAtIndex(BoxcarRange boxcarRange, int index)
         {
             Set[index] = boxcarRange;
         }

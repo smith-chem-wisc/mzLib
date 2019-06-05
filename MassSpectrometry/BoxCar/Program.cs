@@ -16,13 +16,21 @@ namespace BoxCar
     /// </summary>
     public class Program
     {
-        public static void MergeBoxCarScans(MsDataFile file, SetOfBoxcarRanges[] boxcarRanges, string finalFilePath)
+        /// <summary>
+        /// Uses the boxcar algorithm to merge the boxcar scans in a file, writes a new mzml file to the directory.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="boxcarRanges"></param>
+        /// <param name="finalFilePath"></param>
+        /// <returns></returns> mergedScans, a list of final merged boxcar scans.
+        public static List<MsDataScan> MergeBoxCarScans(MsDataFile file, SetOfBoxcarRanges[] boxcarRanges, string finalFilePath)
         {
             //SetOfBoxcarRanges[] boxcarRanges = FindBoxcars(file);
             SetOfBoxcarRanges[] bcRanges = RemoveOverlap(boxcarRanges);
             List<SetOfScans> scans = SeparateScans(file);
             List<MsDataScan> mergedScans = MergeScans(scans, bcRanges);
-           // WriteMzmlFile(mergedScans, file, finalFilePath);
+            // WriteMzmlFile(mergedScans, file, finalFilePath);
+            return mergedScans;
         }
 
 
@@ -102,14 +110,14 @@ namespace BoxCar
                         rangeA.End = mean;
                         rangeB.Start = mean;
                         // insert rangeA and rangeB
-                        boxcars[x].Insert(rangeA, y);
+                        boxcars[x].ReplaceAtIndex(rangeA, y);
                         if (x < (numBoxcarScans - 1) && (y <= boxcars[x + 1].Count())) // if you aren't on the last column, insert rangeB into the next column
                         {
-                            boxcars[x + 1].Insert(rangeB, y);
+                            boxcars[x + 1].ReplaceAtIndex(rangeB, y);
                         }
                         else if (x == (numBoxcarScans - 1) && (y != boxcars[0].Count())) // if you're on the last column, insert rangeB into the first column in the next row
                         {
-                            boxcars[0].Insert(rangeB, y + 1);
+                            boxcars[0].ReplaceAtIndex(rangeB, y + 1);
                         }
                         rangeA = rangeB;
                     }

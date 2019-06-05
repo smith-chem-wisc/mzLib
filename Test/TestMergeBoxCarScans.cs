@@ -23,23 +23,17 @@ namespace Test
     [TestFixture]
     public class TestBoxCar // what does sealed mean??
     {
-        string FilepathMZML = null;
+        static string FilepathMZML;
+        static MsDataFile file;
+        static SetOfBoxcarRanges[] boxcarRanges;
 
-        [Test]
-        public void TestCalculateMean()
+        [SetUp]
+        public static void SetUp()
         {
-            Assert.AreEqual(511.5, Program.CalculateMean(509, 514));
-        }
-
-        [Test]
-        public void TestMergeBoxCarScans()
-        {
-            // Import data
             FilepathMZML = Path.Combine(TestContext.CurrentContext.TestDirectory, "20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML");
-            MsDataFile file = Mzml.LoadAllStaticData(FilepathMZML, null);
+            file = Mzml.LoadAllStaticData(FilepathMZML, null);
 
-
-            // Create boxcarRanges
+            // Create boxcars
 
             ArrayList toAddA = new ArrayList();
             toAddA.Add(new BoxcarRange(400, 416.3));
@@ -83,26 +77,30 @@ namespace Test
             toAddC.Add(new BoxcarRange(902.5, 946));
             toAddC.Add(new BoxcarRange(1070.1, 1201));
 
-            SetOfBoxcarRanges[] boxcarRanges = new SetOfBoxcarRanges[3] { new SetOfBoxcarRanges(toAddA), new SetOfBoxcarRanges(toAddB), new SetOfBoxcarRanges(toAddC) } ;
-
-
-            // Sort the boxcar scans into categories
-
-            List<SetOfScans> scans = Program.SeparateScans(file);
-            Assert.AreNotEqual(null, scans);
-            Assert.AreNotEqual(0, scans.Count);
-            Assert.IsTrue((400.861480 > scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] - 0.00001) && (400.861480 < scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] + 0.00001));
-
-
-            // Create mzml
-            List <MsDataScan> mergedScans = Program.MergeScans(scans, boxcarRanges);
-            Assert.AreNotEqual(0, mergedScans.Count);
-            Assert.IsTrue((403.23065185 > mergedScans.ElementAt(5).MassSpectrum.XArray[22] - 0.00001) && (403.23065185 < mergedScans.ElementAt(5).MassSpectrum.XArray[22] + 0.00001));
-            Assert.AreEqual(275908.875, Math.Round(mergedScans.ElementAt(5).MassSpectrum.YArray[37], 3));
-            //WriteMzmlFile(mergedScans, file, FinalFilePath);
+            boxcarRanges = new SetOfBoxcarRanges[3] { new SetOfBoxcarRanges(toAddA), new SetOfBoxcarRanges(toAddB), new SetOfBoxcarRanges(toAddC) };
         }
 
-        
+
+        [Test]
+        public static void TestCalculateMean()
+        {
+            Assert.AreEqual(511.5, Program.CalculateMean(509, 514));
+        }
+
+        [Test]
+        public static void TestRemoveOverlap()
+        {
+            boxcarRanges = Program.RemoveOverlap(boxcarRanges);
+            Assert.AreEqual(453.7, boxcarRanges[1].ElementAt(1).Start);
+            Assert.IsTrue(453.700001 > boxcarRanges[1].ElementAt(1).Start && 453.699999 < boxcarRanges[1].ElementAt(1).Start);
+
+            // make sure that it returns the input SetOfBoxcarRanges[] if there is 0 or 1 in the array (numBoxcarScans <= 1)
+            // make sure that the means are right:
+            // the new boxcarranges should have the same start and endpoints
+            // make sure it works even if the SetOfBoxcarRanges objects have different lengths (doubt this would be an issue, maybe test it anyway)
+        }
+
+
         /// <summary>
         /// Writes an mzml file to the given filepath.
         /// Metadata for the file comes from the originalFile.
@@ -114,7 +112,7 @@ namespace Test
             MsDataScan[] combined = new MsDataScan[mergedScans.Count];
             //MsDataScan[] ms1scans = new MsDataScan[mergedScans.Count];
 
-            if (mergedScans.Count == 0) 
+            if (mergedScans.Count == 0)
             {
                 Console.WriteLine("Error! You have no merged scans.");
                 return;
@@ -159,20 +157,134 @@ namespace Test
             //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(ms1DataFile, filepath + originalFile.SourceFile.FileName + "_output2_ms1s.mzML", false);
         }
 
-        //[Test]
-        //public void TestFindBoxcars()
-        //{
-        //    // not sure if i need to test this one because i don't think it would be used like this in our data
-        //}
 
-        //[Test]
-        //public void TestRemoveOverlap()
-        //{
-        //    // make sure that it returns the input SetOfBoxcarRanges[] if there is 0 or 1 in the array (numBoxcarScans <= 1)
-        //    // make sure that the means are right:
-        //    // the new boxcarranges should have the same start and endpoints
-        //    // make sure it works even if the SetOfBoxcarRanges objects have different lengths (doubt this would be an issue, maybe test it anyway)
-        //}
+        [Test]
+        public static void TestMergeBoxcarScans()
+        {
+            // Sort the boxcar scans into categories
+
+            boxcarRanges = Program.RemoveOverlap(boxcarRanges);
+
+            List<SetOfScans> scans = Program.SeparateScans(file);
+            Assert.AreNotEqual(null, scans);
+            Assert.AreNotEqual(0, scans.Count);
+            Assert.IsTrue((400.861480 > scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] - 0.00001) && (400.861480 < scans.ElementAt(11).BoxcarScans[0].MassSpectrum.XArray[8] + 0.00001));
+
+
+            // Create mzml
+            List<MsDataScan> mergedScans = Program.MergeScans(scans, boxcarRanges);
+            Assert.AreNotEqual(0, mergedScans.Count);
+            Assert.IsTrue((403.23065185 > mergedScans.ElementAt(5).MassSpectrum.XArray[22] - 0.00001) && (403.23065185 < mergedScans.ElementAt(5).MassSpectrum.XArray[22] + 0.00001));
+            Assert.AreEqual(275908.875, Math.Round(mergedScans.ElementAt(5).MassSpectrum.YArray[37], 3));
+            //WriteMzmlFile(mergedScans, file, FinalFilePath);
+
+            int len = mergedScans.Count;
+            for (int i = 0; i < len; i++)
+            {
+                Assert.AreEqual(mergedScans.ElementAt(i).MassSpectrum.XArray, Program.MergeBoxCarScans(file, boxcarRanges, null).ElementAt(i).MassSpectrum.XArray);
+            }
+        }
+
+        // Tests for the SetOfScans class:
+
+        [Test]
+        public static void TestSetOfScansConstructor1()
+        {
+            List<MsDataScan> list = file.GetAllScansList();
+            SetOfScans set = new SetOfScans(list, list, list);
+            Assert.AreEqual(list, set.BoxcarScans);
+            Assert.AreEqual(list, set.Ms1scans);
+            Assert.AreEqual(list, set.Ms2scans);
+        }
+
+        [Test]
+        public static void TestSetOfScansConstructor2()
+        {
+            List<MsDataScan> list = file.GetAllScansList();
+            SetOfScans set = new SetOfScans(list, list);
+            Assert.AreEqual(list, set.BoxcarScans);
+            Assert.AreEqual(list, set.Ms1scans);
+        }
+
+        [Test]
+        public static void TestAddToBoxcarScans()
+        {
+            MsDataScan boxcarscanExample = file.GetOneBasedScan(2);
+            SetOfScans setOfScansExample = new SetOfScans();
+            setOfScansExample.AddToBoxcarScans(boxcarscanExample);
+            Assert.AreEqual(boxcarscanExample, setOfScansExample.BoxcarScans.ElementAt(0));
+        }
+
+        [Test]
+        public void TestAddToMs1Scans()
+        {
+            MsDataScan ms1scanExample = file.GetOneBasedScan(1);
+            SetOfScans setOfScansExample = new SetOfScans();
+            setOfScansExample.AddToMs1Scans(ms1scanExample);
+            Assert.AreEqual(ms1scanExample, setOfScansExample.Ms1scans.ElementAt(0));
+        }
+
+        [Test]
+        public static void TestAddToMs2Scans()
+        {
+            MsDataScan ms2scanExample = file.GetOneBasedScan(5);
+            SetOfScans setOfScansExample = new SetOfScans();
+            setOfScansExample.AddToMs2Scans(ms2scanExample);
+            Assert.AreEqual(ms2scanExample, setOfScansExample.Ms2scans.ElementAt(0));
+        }
+
+
+        // Tests for the SetOfBoxcarRanges Class:
+
+        [Test]
+        public static void TestSetOfBoxcarRangesConstructor()
+        {
+            ArrayList a = new ArrayList();
+            a.Add(new BoxcarRange(0, 90));
+            a.Add(new BoxcarRange(120, 333.3));
+
+            SetOfBoxcarRanges set = new SetOfBoxcarRanges(a);
+            Assert.AreEqual(a, set.Set);
+        }
+
+        [Test]
+        public static void TestSetOfboxcarRangesGenericConstructor()
+        {
+            SetOfBoxcarRanges set = new SetOfBoxcarRanges();
+            Assert.AreEqual(new ArrayList(), set.Set);
+        }
+
+        [Test]
+        public static void TestBoxcarRangeMethods()
+        {
+            SetOfBoxcarRanges set = new SetOfBoxcarRanges();
+            BoxcarRange br1 = new BoxcarRange(0, 90);
+            BoxcarRange br2 = new BoxcarRange(89, 121);
+            BoxcarRange br3 = new BoxcarRange(120, 333.3);
+            set.AddBoxcarRange(br1);
+            set.AddBoxcarRange(br3);
+            Assert.AreEqual(br3, set.ElementAt(1));
+            set.ReplaceAtIndex(br2, 1);
+            Assert.AreEqual(br1, set.ElementAt(0));
+            Assert.AreEqual(br2, set.ElementAt(1));
+            Assert.AreEqual(2, set.Count());
+        }
+
+        // Tests for BoxcarRange class
+
+        [Test]
+        public static void TestBoxcarRangeConstruction()
+        {
+            BoxcarRange br = new BoxcarRange();
+            BoxcarRange br1 = new BoxcarRange(401, 418.5);
+            br.Start = 401;
+            br.End = 418.5;
+            Assert.AreEqual(br.Start, br1.Start);
+            Assert.AreEqual(br.End, br1.End);
+
+        }
+
+
 
         //[Test]
         //public void TestSeparateScans()
@@ -245,15 +357,15 @@ namespace Test
         //SetOfBoxcarRanges setB = new SetOfBoxcarRanges(msxB);
 
         //SetOfBoxcarRanges[] boxcarRanges = new SetOfBoxcarRanges[] { setA, setB };
-        
 
 
 
-  
 
 
 
-   
+
+
+
 
 
     }
