@@ -489,11 +489,15 @@ namespace Test
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
             List<Protein> variantDecoys = decoys.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
-            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");
+            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");           
+
             var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x=>x.OneBasedModifications.Count>= 1)).ToList();
             var decoyMods = decoys.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var negativeResidues = decoyMods.SelectMany(x => x.OneBasedModifications.Where(w => w.Key < 0)).ToList();
-
+            bool namingWrong = targets.Select(p => p.Accession).Contains("Q8N865_H300R_A158T_H300R");
+            bool namingRight = targets.Select(p => p.Accession).Contains("Q8N865_A158T_H300R");
+            Assert.AreEqual(false, namingWrong);
+            Assert.AreEqual(true, namingRight);
             Assert.AreEqual(false, homozygousVariant);
             Assert.AreEqual(62, variantProteins.Count);
             Assert.AreEqual(31, targets.Count);

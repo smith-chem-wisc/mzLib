@@ -43,6 +43,7 @@ namespace UsefulProteomicsDatabases
         /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
+        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts code
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
