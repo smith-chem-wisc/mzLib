@@ -309,35 +309,29 @@ namespace ThermoRawFileReader
             }
 
             var centroidStream = rawFile.GetCentroidStream(scanNumber, false);
-
-            // TODO: some files are not centroided properly by ThermoRawFileReader. Need to contact Thermo and figure out
-            // some way to fix this. contact is probably Jim Shofstahl. Example of file not being centroided is the small.raw
-            // (see unit test "TestRawFileReader")
-            if (centroidStream.Masses == null || centroidStream.Intensities == null)
+            
+            // PreferredMasses should be used if centroidStream data is null; it's probably ITMS data
+            if (centroidStream.Masses == null || centroidStream.Intensities == null) 
             {
-                throw new MzLibException("Could not centroid data from scan " + scanNumber);
+                var scan = Scan.FromFile(rawFile, scanNumber);
+                var mzs = scan.PreferredMasses;
+                xArray = scan.PreferredMasses;
+                yArray = scan.PreferredIntensities;
 
-                //var segmentedScan = rawFile.GetSegmentedScanFromScanNumber(scanNumber, scanStatistics);
-                //var masses = new List<double>();
-                //var intensities = new List<double>();
-                //for (int i = 0; i < segmentedScan.Positions.Length; i++)
-                //{
-                //    if (segmentedScan.Intensities[i] > 0)
-                //    {
-                //        masses.Add(segmentedScan.Positions[i]);
-                //        intensities.Add(segmentedScan.Intensities[i]);
-                //    }
-                //}
-
-                //return new MzSpectrum(masses.ToArray(), intensities.ToArray(), false);
+                if (xArray == null || yArray == null)
+                {
+                    throw new MzLibException("Could not centroid data from scan " + scanNumber);
+                }
             }
-
-            xArray = centroidStream.Masses;
-            yArray = centroidStream.Intensities;
-
-            if (filterParams != null 
-                && xArray.Length > 0 
-                && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue) 
+            else
+            {
+                xArray = centroidStream.Masses;
+                yArray = centroidStream.Intensities;
+            }
+            
+            if (filterParams != null
+                && xArray.Length > 0
+                && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
                 && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder > 1)))
             {
                 var count = xArray.Length;
@@ -360,7 +354,7 @@ namespace ThermoRawFileReader
             {
                 spectrum = new MzSpectrum(xArray, yArray, false);
             }
-            
+
             return spectrum;
         }
 

@@ -13,7 +13,7 @@ namespace Test
     {
         [Test]
         [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
-        //[TestCase("small.raw", "a.mzML", "aa.mzML")] // TODO: this file causes a crash because it can't be centroided properly by ThermoRawFileReader
+        [TestCase("small.raw", "a.mzML", "aa.mzML")]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
         /// <summary>
         /// Tests LoadAllStaticData for ThermoRawFileReader
@@ -59,16 +59,19 @@ namespace Test
         }
 
         [Test]
+        [TestCase("testFileWMS2.raw")]
+        [TestCase("small.raw")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw")]
         /// <summary>
         /// Tests peak filtering for ThermoRawFileReader
         /// </summary>
-        public static void TestPeakFilteringRawFileReader()
+        public static void TestPeakFilteringRawFileReader(string infile)
         {
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
             var filterParams = new FilteringParams(200, 0.01, 0, 1, false, true, true);
 
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
             
             var a = ThermoRawFileReaderData.LoadAllStaticData(path, filterParams, maxThreads: 1);
             var rawScans = a.GetAllScansList();
@@ -77,30 +80,32 @@ namespace Test
                 Assert.That(scan.MassSpectrum.XArray.Length <= 200);
             }
 
-            string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.mzML");
+            string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", Path.GetFileNameWithoutExtension(infile) + ".mzML");
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var mzml = Mzml.LoadAllStaticData(outfile1, filterParams, maxThreads: 1);
-
+            
             var mzmlScans = mzml.GetAllScansList();
             for (int i = 0; i < mzmlScans.Count; i++)
             {
                 var mzmlScan = mzmlScans[i];
+                var rawScan = rawScans[i];
 
                 for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
                 {
                     double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 2);
-                    double roundedRawMz = Math.Round(rawScans[i].MassSpectrum.XArray[j], 2);
+                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 2);
 
                     Assert.AreEqual(roundedMzmlMz, roundedRawMz);
 
                     double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);
-                    double roundedRawIntensity = Math.Round(rawScans[i].MassSpectrum.XArray[j], 0);
+                    double roundedRawIntensity = Math.Round(rawScan.MassSpectrum.XArray[j], 0);
 
                     Assert.AreEqual(roundedMzmlIntensity, roundedRawIntensity);
                 }
             }
 
-            Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h " +
+                $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
         [Test]
