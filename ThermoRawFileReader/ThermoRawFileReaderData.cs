@@ -231,7 +231,7 @@ namespace ThermoRawFileReader
                 if (labels[i].StartsWith("Master Scan Number", StringComparison.Ordinal)
                     || labels[i].StartsWith("Master Index", StringComparison.Ordinal))
                 {
-                    precursorScanNumber = int.Parse(values[i], CultureInfo.InvariantCulture) <= 0 ?
+                    precursorScanNumber = int.Parse(values[i], CultureInfo.InvariantCulture) <= 1 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
