@@ -74,58 +74,50 @@ namespace FlashLFQ
             }
             else if (ext == ".RAW")
             {
-#if NETFRAMEWORK
-                using (var thermoDynamicConnection =
-                    IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.FullFilePathWithExtension))
+                var tempList = new List<MsDataScan>();
+
+                try
                 {
-                    var tempList = new List<MsDataScan>();
-
-                    try
+                    ThermoRawFileReader.ThermoRawFileReaderData.InitiateDynamicConnection(fileInfo.FullFilePathWithExtension);
+                    
+                    // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
+                    int[] msOrders = ThermoRawFileReader.ThermoRawFileReaderData.GetMsOrdersByScanInDynamicConnection();
+                    for (int i = 0; i < msOrders.Length; i++)
                     {
-                        // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.MsOrderByScan;
-                        for (int i = 0; i < msOrders.Length; i++)
+                        if (msOrders[i] == 1)
                         {
-                            if (msOrders[i] == 1)
-                            {
-                                tempList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1));
-                            }
-                            else
-                            {
-                                tempList.Add(null);
-                            }
+                            tempList.Add(ThermoRawFileReader.ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(i + 1));
                         }
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        thermoDynamicConnection.Dispose();
-
-                        if (!silent)
+                        else
                         {
-                            Console.WriteLine("\nCan't find .raw file" + fileInfo.FullFilePathWithExtension + "\n");
-                        }
-
-                        return false;
-                    }
-                    catch (Exception e)
-                    {
-                        thermoDynamicConnection.Dispose();
-
-                        if (!silent)
-                        {
-                            throw new MzLibException("FlashLFQ Error: Problem opening .raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
+                            tempList.Add(null);
                         }
                     }
 
-                    msDataScans = tempList.ToArray();
+                    ThermoRawFileReader.ThermoRawFileReaderData.CloseDynamicConnection();
                 }
-#else
-                if (!silent)
+                catch (FileNotFoundException)
                 {
-                    Console.WriteLine("Cannot open RAW with .NETStandard code - are you on Linux? " + fileInfo.FullFilePathWithExtension);
+                    ThermoRawFileReader.ThermoRawFileReaderData.CloseDynamicConnection();
+
+                    if (!silent)
+                    {
+                        Console.WriteLine("\nCan't find .raw file" + fileInfo.FullFilePathWithExtension + "\n");
+                    }
+
+                    return false;
                 }
-                return false;
-#endif
+                catch (Exception e)
+                {
+                    ThermoRawFileReader.ThermoRawFileReaderData.CloseDynamicConnection();
+
+                    if (!silent)
+                    {
+                        throw new MzLibException("FlashLFQ Error: Problem opening .raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
+                    }
+                }
+
+                msDataScans = tempList.ToArray();
             }
             else
             {
