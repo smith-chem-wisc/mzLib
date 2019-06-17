@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Business;
@@ -105,6 +106,11 @@ namespace ThermoRawFileReader
             return new ThermoRawFileReaderData(msDataScans, sourceFile);
         }
 
+        /// <summary>
+        /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
+        /// GetOneBasedScanFromDynamicConnection to get data from a particular scan. Use CloseDynamicConnection to close the 
+        /// dynamic connection after all desired data has been retrieved from the dynamic connection.
+        /// </summary>
         public static void InitiateDynamicConnection(string filePath)
         {
             Loaders.LoadElements();
@@ -139,6 +145,28 @@ namespace ThermoRawFileReader
             dynamicConnection.SelectInstrument(Device.MS, 1);
         }
 
+        /// <summary>
+        /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans
+        /// without loading all of the other MSn scans.
+        /// </summary>
+        public static int[] GetMsOrdersByScanInDynamicConnection()
+        {
+            if (dynamicConnection != null)
+            {
+                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
+                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
+
+                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
+
+                return msorders;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Disposes of the dynamic connection, if one is open.
+        /// </summary>
         public static void CloseDynamicConnection()
         {
             if (dynamicConnection != null)
@@ -148,7 +176,8 @@ namespace ThermoRawFileReader
         }
 
         /// <summary>
-        /// Allows access to a raw file one scan at a time. Returns null if the raw file does not contain the scan number specified.
+        /// Allows access to a .raw file one scan at a time via an open dynamic connection. Returns null if the raw file does not contain the 
+        /// scan number specified. Use InitiateDynamicConnection to open a dynamic connection before using this method.
         /// </summary>
         public static MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
@@ -309,9 +338,9 @@ namespace ThermoRawFileReader
             }
 
             var centroidStream = rawFile.GetCentroidStream(scanNumber, false);
-            
+
             // PreferredMasses should be used if centroidStream data is null; it's probably ITMS data
-            if (centroidStream.Masses == null || centroidStream.Intensities == null) 
+            if (centroidStream.Masses == null || centroidStream.Intensities == null)
             {
                 var scan = Scan.FromFile(rawFile, scanNumber);
                 var mzs = scan.PreferredMasses;
@@ -328,7 +357,7 @@ namespace ThermoRawFileReader
                 xArray = centroidStream.Masses;
                 yArray = centroidStream.Intensities;
             }
-            
+
             if (filterParams != null
                 && xArray.Length > 0
                 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
