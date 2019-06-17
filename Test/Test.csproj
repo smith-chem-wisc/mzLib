@@ -52,6 +52,7 @@
     <Compile Include="TestModFits.cs" />
     <Compile Include="TestProteinDigestion.cs" />
     <Compile Include="TestProteinProperties.cs" />
+    <Compile Include="TestRawFileReader.cs" />
     <Compile Include="TestSeqCoverage.cs" />
     <Compile Include="TestDigestionMotif.cs" />
     <Compile Include="TestMetaMorpheus.cs" />
@@ -115,6 +116,10 @@
     <ProjectReference Include="..\Spectra\Spectra.csproj">
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
       <Name>Spectra</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj">
+      <Project>{552eabd1-7a7c-4c52-bf3d-4eedd70e7e89}</Project>
+      <Name>ThermoRawFileReader</Name>
     </ProjectReference>
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
@@ -275,6 +280,15 @@
     </Content>
     <Content Include="DatabaseTests\SeqVarSymbolWeirdness2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataFiles\05-13-16_cali_MS_60K-res_MS.raw">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataFiles\small.RAW">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataFiles\testFileWMS2.raw">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="DatabaseTests\VariantModsGPTMD.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

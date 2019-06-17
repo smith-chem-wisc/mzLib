@@ -334,7 +334,7 @@ namespace Test
             nSpecificPeps = proteinWithMods.Digest(specificNonN, empty, empty).ToList();
             cSpecificPeps = proteinWithMods.Digest(specificNonC, empty, empty).ToList();
             Assert.IsTrue(nSpecificPeps.Count == 11);
-            Assert.IsTrue(cSpecificPeps.Count == 10);
+            Assert.IsTrue(cSpecificPeps.Count == 11);
         }
 
         [Test]
