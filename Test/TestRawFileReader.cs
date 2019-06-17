@@ -47,12 +47,15 @@ namespace Test
 
             ThermoRawFileReaderData.InitiateDynamicConnection(path);
 
+            var msOrders = ThermoRawFileReaderData.GetMsOrdersByScanInDynamicConnection();
+            Assert.That(msOrders != null && msOrders.Length > 0);
+
             var a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
 
             a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(10000);
             Assert.That(a == null);
-
+            
             ThermoRawFileReaderData.CloseDynamicConnection();
             
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
