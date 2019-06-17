@@ -48,6 +48,7 @@ namespace Test
             ThermoRawFileReaderData.InitiateDynamicConnection(path);
 
             var msOrders = ThermoRawFileReaderData.GetMsOrdersByScanInDynamicConnection();
+            Assert.That(msOrders != null && msOrders.Length > 0);
 
             var a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
