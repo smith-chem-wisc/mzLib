@@ -36,8 +36,8 @@ namespace Test
         public static void TestFlashLfq()
         {
             // get the raw file paths
-            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -82,7 +82,7 @@ namespace Test
         public static void TestEvelopQuantification()
         {
             Loaders.LoadElements();
-            
+
             double monoIsotopicMass = 1350.65681;
             double massOfAveragine = 111.1254;
             double numberOfAveragines = monoIsotopicMass / massOfAveragine;
@@ -94,15 +94,15 @@ namespace Test
             double averageS = 0.0417 * numberOfAveragines;
 
             ChemicalFormula myFormula = ChemicalFormula.ParseFormula(
-                "C" + (int)Math.Round(averageC) + 
-                "H" + (int)Math.Round(averageH) + 
-                "O" + (int)Math.Round(averageO) + 
-                "N" + (int)Math.Round(averageN) + 
+                "C" + (int)Math.Round(averageC) +
+                "H" + (int)Math.Round(averageH) +
+                "O" + (int)Math.Round(averageO) +
+                "N" + (int)Math.Round(averageN) +
                 "S" + (int)Math.Round(averageS));
 
 
             // get the raw file paths
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -124,8 +124,8 @@ namespace Test
         {
             // ********************************* check biorep normalization *********************************
             // get the raw file paths
-            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -142,8 +142,8 @@ namespace Test
             Assert.That(int1 == int2);
 
             // ********************************* check condition normalization *********************************
-            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "b", 0, 0, 0);
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "b", 0, 0, 0);
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
@@ -156,8 +156,8 @@ namespace Test
             Assert.That(int3 == int4);
 
             // ********************************* check techrep normalization *********************************
-            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
@@ -173,10 +173,10 @@ namespace Test
             Assert.That(int1 == int5);
 
             // ********************************* check fraction normalization *********************************
-            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            var raw2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 1);
-            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 0);
-            var mzml2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 1);
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            var raw2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 1);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            var mzml2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 1);
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(raw2, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
@@ -194,8 +194,8 @@ namespace Test
         [Test]
         public static void TestFlashLfqMergeResults()
         {
-            SpectraFileInfo rawA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzmlA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo rawA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzmlA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
             var pgA = new ProteinGroup("MyProtein", "gene", "org");
@@ -210,8 +210,8 @@ namespace Test
             // run the engine
             var resultsA = engineA.Run();
 
-            SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "b", 0, 0, 0);
-            SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "b", 0, 1, 0);
+            SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "b", 0, 0, 0);
+            SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "b", 0, 1, 0);
 
             // create some PSMs
             var pgB = new ProteinGroup("MyProtein", "gene", "org");
@@ -479,6 +479,7 @@ namespace Test
 
             Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
             Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
+
         }
 
         [Test]
@@ -803,7 +804,7 @@ namespace Test
         public static void TestAmbiguous()
         {
             // get the raw file paths
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -965,7 +966,7 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIEDVVVV", "PEPTIEDVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
-            
+
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
 
@@ -982,7 +983,7 @@ namespace Test
 
             Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
 
-            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory,@"SilacTest.mzML"), "", 0, 0, 0);
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"SilacTest.mzML"), "", 0, 0, 0);
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
@@ -997,6 +998,78 @@ namespace Test
                 );
             var results = engine.Run();
             Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
+        }
+
+        [Test]
+        public static void TestIsotopeEnvelopeProperties()
+        {
+            var isotopeEnvelope1 = new FlashLFQ.IsotopicEnvelope(new IndexedMassSpectralPeak(100, 100, 1, 1), 1, 1000);
+            var isotopeEnvelope2 = new FlashLFQ.IsotopicEnvelope(new IndexedMassSpectralPeak(100, 100, 1, 1), 1, 1000);
+
+            Assert.That(isotopeEnvelope1.Equals(isotopeEnvelope2));
+            Assert.That(isotopeEnvelope1.ToString() == "+1|1000|1.000|1");
+            Assert.That(isotopeEnvelope2.ToString() == "+1|1000|1.000|1");
+
+            HashSet<FlashLFQ.IsotopicEnvelope> envs = new HashSet<FlashLFQ.IsotopicEnvelope>();
+            envs.Add(isotopeEnvelope1);
+            envs.Add(isotopeEnvelope2);
+
+            Assert.That(envs.Count == 1);
+        }
+
+        [Test]
+        public static void BigMatchBetweenRunsTest()
+        {
+            // get the raw file paths
+            SpectraFileInfo raw1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
+            SpectraFileInfo raw2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 0, 1, 0);
+
+            // psm file path
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
+
+            // read in the PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            List<Identification> ids = new List<Identification>();
+            foreach (string line in File.ReadAllLines(psmFilePath))
+            {
+                // skip the header, empty lines, and decoy PSMs
+                if (line.Contains("Base Sequence") || string.IsNullOrWhiteSpace(line) || line.Contains("DECOY"))
+                {
+                    continue;
+                }
+
+                var split = line.Split(new char[] { '\t' });
+                SpectraFileInfo s = raw1;
+                if (split[0].Contains("f1r2"))
+                {
+                    s = raw2;
+                }
+
+                ids.Add(new Identification(s, split[12], split[13], double.Parse(split[21]), double.Parse(split[2]), (int)double.Parse(split[6]), new List<ProteinGroup>() { pg }));
+            }
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(ids, matchBetweenRuns: true);
+
+            // run the engine
+            var results = engine.Run();
+
+            // check results
+            Assert.That(results.PeptideModifiedSequences.Count == 444);
+            Assert.That(results.Peaks[raw1].Count == 417);
+            Assert.That(results.Peaks[raw2].Count == 411);
+
+            int missingValuesRep1 = results.PeptideModifiedSequences.Count(p => p.Value.GetIntensity(raw1) == 0);
+            Assert.That(missingValuesRep1 <= 30);
+
+            int missingValuesRep2 = results.PeptideModifiedSequences.Count(p => p.Value.GetIntensity(raw2) == 0);
+            Assert.That(missingValuesRep1 <= 37);
+
+            var pairs = results.PeptideModifiedSequences.Where(p => p.Value.GetIntensity(raw1) > 0 && p.Value.GetIntensity(raw2) > 0)
+                .Select(v => (Math.Log(v.Value.GetIntensity(raw1)), Math.Log(v.Value.GetIntensity(raw2)))).ToList();
+
+            double pearsonCorrelation = MathNet.Numerics.Statistics.Correlation.Pearson(pairs.Select(p => p.Item1), pairs.Select(p => p.Item2));
+            Assert.That(pearsonCorrelation > 0.85);
         }
     }
 }
