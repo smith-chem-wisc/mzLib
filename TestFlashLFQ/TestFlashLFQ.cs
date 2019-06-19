@@ -1045,11 +1045,11 @@ namespace Test
                     s = raw2;
                 }
 
-                ids.Add(new Identification(s, split[12], split[13], double.Parse(split[21]), double.Parse(split[2]), (int)double.Parse(split[6]), new List<ProteinGroup>() { pg }));
+                ids.Add(new Identification(s, split[12], split[13], double.Parse(split[21]), double.Parse(split[2]), (int)double.Parse(split[6]), new List<ProteinGroup> { pg }));
             }
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(ids, matchBetweenRuns: true);
+            FlashLfqEngine engine = new FlashLfqEngine(ids, matchBetweenRuns: true, normalize: true);
 
             // run the engine
             var results = engine.Run();
@@ -1063,7 +1063,7 @@ namespace Test
             Assert.That(missingValuesRep1 <= 30);
 
             int missingValuesRep2 = results.PeptideModifiedSequences.Count(p => p.Value.GetIntensity(raw2) == 0);
-            Assert.That(missingValuesRep1 <= 37);
+            Assert.That(missingValuesRep2 <= 37);
 
             var pairs = results.PeptideModifiedSequences.Where(p => p.Value.GetIntensity(raw1) > 0 && p.Value.GetIntensity(raw2) > 0)
                 .Select(v => (Math.Log(v.Value.GetIntensity(raw1)), Math.Log(v.Value.GetIntensity(raw2)))).ToList();

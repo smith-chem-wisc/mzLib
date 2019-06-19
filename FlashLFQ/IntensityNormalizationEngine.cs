@@ -209,7 +209,7 @@ namespace FlashLFQ
                     }
 
                     // solve for normalization factors
-                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, numF, maxThreads);
+                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, numF);
                     if (normFactors.All(p => p == 1.0) && !silent)
                     {
                         Console.WriteLine("Warning: Could not solve for optimal normalization factors for condition \"" + condition + "\" biorep " + (b + 1));
@@ -386,7 +386,7 @@ namespace FlashLFQ
         /// Calculates normalization factors for fractionated data using a bounded Nelder-Mead optimization algorithm.
         /// Called by NormalizeFractions().
         /// </summary>
-        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numF, int maxThreads)
+        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numF)
         {
             object locker = new object();
 
@@ -413,7 +413,7 @@ namespace FlashLFQ
 
             // calculate the error between bioreps if all normalization factors are 1 (initial error)
             double[] initialErrors = new double[numP];
-            double bestError = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref bestNormFactors, ref initialErrors);
+            double bestError = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref bestNormFactors);
 
             // constraint (normalization factors must be >0.3 and <3
             var parameterArray = new ParameterBounds[numF];
@@ -438,7 +438,7 @@ namespace FlashLFQ
                 {
                     factors[f] = Math.Round(n, 2);
 
-                    double error = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref factors, ref initialErrors);
+                    double error = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref factors);
 
                     if (error < bestFractionError)
                     {
@@ -455,7 +455,7 @@ namespace FlashLFQ
             Func<double[], OptimizerResult> minimize = v =>
             {
                 // calculate error with these normalization factors
-                double candidateError = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref v, ref errors);
+                double candidateError = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref v);
 
                 return new OptimizerResult(v, candidateError);
             };
@@ -485,7 +485,7 @@ namespace FlashLFQ
             return bestNormFactors;
         }
 
-        private static double CalculateNormalizationFactorError(ref double[] reference, ref double[,] sampleToNormalize, ref double[] normalizationFactors, ref double[] errors)
+        private static double CalculateNormalizationFactorError(ref double[] reference, ref double[,] sampleToNormalize, ref double[] normalizationFactors)
         {
             int numP = reference.Length;
             int numF = normalizationFactors.Length;
