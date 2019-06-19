@@ -9,6 +9,7 @@ namespace Proteomics.Fragmentation
         public readonly double Mz;
         public readonly double Intensity;
         public readonly int Charge;
+        public readonly bool CrossesVariant;
 
         /// <summary>
         /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
@@ -19,6 +20,16 @@ namespace Proteomics.Fragmentation
             Mz = experMz;
             Intensity = experIntensity;
             Charge = charge;
+        }
+
+        /// <summary>
+        /// Constructs a new MatchedFragmentIon given information about a theoretical and an experimental fragment mass spectral peak
+        /// and whether the ion crosses a variant residue.
+        /// </summary>
+        public MatchedFragmentIon(Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge, bool crossesVar)
+            : this(neutralTheoreticalProduct, experMz, experIntensity, charge)
+        {
+            CrossesVariant = crossesVar;
         }
 
         public double MassErrorDa
