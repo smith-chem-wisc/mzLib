@@ -51,14 +51,8 @@ namespace FlashLFQ
             double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, double matchBetweenRunsPpmTolerance = 5.0,
             bool integrate = false, int numIsotopesRequired = 2,
             bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false,
-            string optionalPeriodicTablePath = null, double maxMbrWindow = 2.5,
-            int maxThreads = -1, double mbrQValueCutoff = 0.10)
+            double maxMbrWindow = 2.5, int maxThreads = -1, double mbrQValueCutoff = 0.10)
         {
-            if (optionalPeriodicTablePath == null)
-            {
-                optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
-            }
-
             Loaders.LoadElements();
 
             _globalStopwatch = new Stopwatch();
@@ -273,12 +267,10 @@ namespace FlashLFQ
             {
                 // isotope where normalized abundance is 1
                 double mostAbundantIsotopeShift = _baseSequenceToIsotopicDistribution[identifications.First().BaseSequence].First(p => p.Value == 1.0).Key;
-
-                double thisPeptidesMostAbundantMass = identifications.First().monoisotopicMass + mostAbundantIsotopeShift;
-
+                
                 foreach (Identification identification in identifications)
                 {
-                    identification.massToLookFor = RequireMonoisotopicMass ? identification.monoisotopicMass : thisPeptidesMostAbundantMass;
+                    identification.massToLookFor = RequireMonoisotopicMass ? identification.monoisotopicMass : identification.monoisotopicMass + mostAbundantIsotopeShift;
                 }
             }
         }
