@@ -320,67 +320,67 @@ namespace FlashLFQ
         /// This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
         /// excessive computation time in normalization functions.
         /// </summary>
-        private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
-        {
-            List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
-            var temp1 = spectraFiles.GroupBy(p => p.Condition).ToList();
-            if (temp1.Count() == 1)
-            {
-                // normalizing bioreps within a condition
-                var temp2 = spectraFiles.GroupBy(p => p.BiologicalReplicate).ToList();
-                bothBioreps[0] = temp2[0].ToList();
-                bothBioreps[1] = temp2[1].ToList();
-            }
-            else
-            {
-                // normalizing bioreps between conditions
-                bothBioreps[0] = temp1[0].ToList();
-                bothBioreps[1] = temp1[1].ToList();
-            }
+        //private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
+        //{
+        //    List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
+        //    var temp1 = spectraFiles.GroupBy(p => p.Condition).ToList();
+        //    if (temp1.Count() == 1)
+        //    {
+        //        // normalizing bioreps within a condition
+        //        var temp2 = spectraFiles.GroupBy(p => p.BiologicalReplicate).ToList();
+        //        bothBioreps[0] = temp2[0].ToList();
+        //        bothBioreps[1] = temp2[1].ToList();
+        //    }
+        //    else
+        //    {
+        //        // normalizing bioreps between conditions
+        //        bothBioreps[0] = temp1[0].ToList();
+        //        bothBioreps[1] = temp1[1].ToList();
+        //    }
 
-            HashSet<Peptide> subsetList = new HashSet<Peptide>();
-            int maxFractionIndex = bothBioreps.SelectMany(p => p).Max(v => v.Fraction);
+        //    HashSet<Peptide> subsetList = new HashSet<Peptide>();
+        //    int maxFractionIndex = bothBioreps.SelectMany(p => p).Max(v => v.Fraction);
 
-            foreach (var biorep in bothBioreps)
-            {
-                List<int> fractions = biorep.Select(p => p.Fraction).Distinct().ToList();
+        //    foreach (var biorep in bothBioreps)
+        //    {
+        //        List<int> fractions = biorep.Select(p => p.Fraction).Distinct().ToList();
 
-                int numToAddPerFraction = numPeptidesDesiredInMatrix / fractions.Count;
-                if (numToAddPerFraction < numPeptidesDesiredFromEachFraction)
-                {
-                    numToAddPerFraction = numPeptidesDesiredFromEachFraction;
-                }
+        //        int numToAddPerFraction = numPeptidesDesiredInMatrix / fractions.Count;
+        //        if (numToAddPerFraction < numPeptidesDesiredFromEachFraction)
+        //        {
+        //            numToAddPerFraction = numPeptidesDesiredFromEachFraction;
+        //        }
 
-                int[] peptidesAddedPerFraction = new int[fractions.Count];
-                Queue<Peptide>[] peptidesObservedInEachFraction = new Queue<Peptide>[fractions.Count];
+        //        int[] peptidesAddedPerFraction = new int[fractions.Count];
+        //        Queue<Peptide>[] peptidesObservedInEachFraction = new Queue<Peptide>[fractions.Count];
 
-                foreach (var file in biorep)
-                {
-                    if (peptidesObservedInEachFraction[file.Fraction] == null)
-                    {
-                        peptidesObservedInEachFraction[file.Fraction] = new Queue<Peptide>(initialList.Where(p => p.GetIntensity(file) > 0)
-                            .OrderByDescending(p => p.GetIntensity(file)));
-                    }
-                }
+        //        foreach (var file in biorep)
+        //        {
+        //            if (peptidesObservedInEachFraction[file.Fraction] == null)
+        //            {
+        //                peptidesObservedInEachFraction[file.Fraction] = new Queue<Peptide>(initialList.Where(p => p.GetIntensity(file) > 0)
+        //                    .OrderByDescending(p => p.GetIntensity(file)));
+        //            }
+        //        }
 
-                foreach (var fraction in fractions)
-                {
-                    while (peptidesAddedPerFraction[fraction] < numToAddPerFraction && peptidesObservedInEachFraction[fraction].Any())
-                    {
-                        var peptide = peptidesObservedInEachFraction[fraction].Dequeue();
+        //        foreach (var fraction in fractions)
+        //        {
+        //            while (peptidesAddedPerFraction[fraction] < numToAddPerFraction && peptidesObservedInEachFraction[fraction].Any())
+        //            {
+        //                var peptide = peptidesObservedInEachFraction[fraction].Dequeue();
 
-                        // don't need to check if the return list already contains the peptide because it's a HashSet (no duplicates are allowed)
-                        subsetList.Add(peptide);
+        //                // don't need to check if the return list already contains the peptide because it's a HashSet (no duplicates are allowed)
+        //                subsetList.Add(peptide);
 
-                        // this peptide is in the return list regardless of whether or not it was actually just added;
-                        // we just want to guarantee this fraction has 500 peptides in the return list to normalize with
-                        peptidesAddedPerFraction[fraction]++;
-                    }
-                }
-            }
+        //                // this peptide is in the return list regardless of whether or not it was actually just added;
+        //                // we just want to guarantee this fraction has 500 peptides in the return list to normalize with
+        //                peptidesAddedPerFraction[fraction]++;
+        //            }
+        //        }
+        //    }
 
-            return subsetList.ToList();
-        }
+        //    return subsetList.ToList();
+        //}
 
         /// <summary>
         /// Calculates normalization factors for fractionated data using a bounded Nelder-Mead optimization algorithm.
