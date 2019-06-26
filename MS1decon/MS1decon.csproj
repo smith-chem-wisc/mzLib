@@ -79,10 +79,6 @@
       <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
       <Name>Spectra</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Thermo\Thermo.csproj">
-      <Project>{24DC85FF-E97B-4140-9614-77DD8FDDD32F}</Project>
-      <Name>Thermo</Name>
-    </ProjectReference>
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16F857B5-4942-4FA2-B198-BD4D14C1B2E4}</Project>
       <Name>UsefulProteomicsDatabases</Name>

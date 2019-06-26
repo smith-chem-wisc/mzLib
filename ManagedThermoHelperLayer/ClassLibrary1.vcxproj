@@ -101,11 +101,6 @@
   <ItemGroup>
     <Image Include="app.ico" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\UnmanagedThermoHelperLayer\Win32Project8.vcxproj">
-      <Project>{8913a108-5d93-4af7-b273-89a06e817611}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
