@@ -39,13 +39,16 @@ namespace BayesianEstimation
         private int batchCount;
         private int batchSize;
         private MersenneTwister random;
-        private double meanMu;
-        private double sdMu;
-        private double sigmaLow;
-        private double sigmaHigh;
         private List<double>[] Data;
         private bool isTwoSample;
         private List<Tuple<double, double>>[] acceptableParameterRanges;
+
+        // these are the parameters of the prior probability distributions
+        private double meanMu; // mean of prior prob mean normal distribution
+        private double sdMu; // sd of prior prob mean normal distribution
+        private double sigmaLow; // lower bound of prior prob sd uniform distribution
+        private double sigmaHigh; // upper bound of prior prob sd uniform distribution
+        private double exp; // exponent of prior prob exponential distribution
 
         /// <summary>
         /// Construct the adaptive Metropolis within Gibbs sampler. Leave data2 null for one-sample data.
@@ -75,11 +78,12 @@ namespace BayesianEstimation
             }
             
             SetUpAcceptableParameterRanges();
-            make_BEST_posterior_func(isTwoSample);
+            SetUpPriorProbabilityDistributions();
+            SetUpPosteriorFunction(isTwoSample);
         }
 
         /// <summary>
-        /// Burn in and then sample the MCMC chain
+        /// Burn in and then sample the MCMC chain.
         /// </summary>
         public void Run(int burnin = 20000, int n = 20000)
         {
@@ -114,18 +118,28 @@ namespace BayesianEstimation
         }
         
         /// <summary>
-        /// Sets up the posterior function.
+        /// Sets up the prior probability distributions for each parameter.
         /// </summary>
-        protected void make_BEST_posterior_func(bool isTwoSample)
+        protected void SetUpPriorProbabilityDistributions()
         {
-            // initialize parameters
             var pooled = Data.SelectMany(p => p.Select(v => v)).ToList();
 
             meanMu = pooled.Mean();
-            sdMu = pooled.StandardDeviation();
+            sdMu = pooled.StandardDeviation() * 1000000;
 
-            sigmaLow = Math.Min(0.1, pooled.StandardDeviation() / 10.0);
-            sigmaHigh = Math.Max(10, pooled.StandardDeviation() * 10.0);
+            sigmaLow = pooled.StandardDeviation() / 1000.0;
+            sigmaHigh = pooled.StandardDeviation() * 1000.0;
+
+            exp = 1.0 / 29.0;
+        }
+
+        /// <summary>
+        /// Sets up the posterior function.
+        /// </summary>
+        protected void SetUpPosteriorFunction(bool isTwoSample)
+        {
+            // initialize parameters
+            var pooled = Data.SelectMany(p => p.Select(v => v)).ToList();
 
             // the initial parameters are set to:
             // mu: the pooled data's mean
@@ -147,13 +161,14 @@ namespace BayesianEstimation
         }
 
         /// <summary>
-        /// Calculates the probability that a set of parameters explains the data.
+        /// Calculates the probability that a set of parameters explains the data (the posterior probability).
         /// </summary>
-        protected double PosteriorProbability(double[] parameters)
+        protected double GetPosteriorProbability(double[] parameters)
         {
             double[] mu = null;
             double[] sigma = null;
             double nu = 0;
+
             if (isTwoSample)
             {
                 mu = new double[] { parameters[0], parameters[1] };
@@ -168,7 +183,7 @@ namespace BayesianEstimation
             }
 
             double log_p = 0;
-            log_p += Math.Log(Exponential.PDF(1.0 / 29.0, nu - 1.0)); // estimate nu
+            log_p += Math.Log(Exponential.PDF(exp, nu - 1.0)); // estimate nu
 
             for (var sample = 0; sample < mu.Length; sample++) // estimate mu and sd for each sample
             {
@@ -187,7 +202,7 @@ namespace BayesianEstimation
 
             return log_p;
         }
-
+        
         /// <summary>
         /// Samples the parameter distributions via MCMC.
         /// </summary>
@@ -211,8 +226,8 @@ namespace BayesianEstimation
                     }
                     else
                     {
-                        var curr_post_dens = PosteriorProbability(currentState);
-                        var prop_post_dens = PosteriorProbability(proposed);
+                        var curr_post_dens = GetPosteriorProbability(currentState);
+                        var prop_post_dens = GetPosteriorProbability(proposed);
                         if (double.IsNegativeInfinity(curr_post_dens) || double.IsNaN(curr_post_dens))
                         {
                             // if curr_post_dens is as bad as, say, negative infinity or NaN we should always jump

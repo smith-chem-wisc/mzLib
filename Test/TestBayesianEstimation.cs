@@ -74,17 +74,17 @@ namespace Test
             Assert.That(Math.Round(muPointEstimate, 3) == 0.957);
 
             // std dev is estimated at 0.17
-            Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.167);
+            Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.129);
 
             // nu (degree of normality) is estimated at 1.2
-            Assert.That(Math.Round(nuPointEstimate, 3) == 1.217);
+            Assert.That(Math.Round(nuPointEstimate, 3) == 1.207);
 
             // instead of only a point estimate of the mean, the Bayesian method also gives a range of credible values.
             // sort of like a 95% confidence interval, we can construct a 95% highest density interval where 95% of the 
             // probability density for a parameter is contained
             var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(mus.ToArray());
-            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == 0.840);
-            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.086);
+            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == 0.827);
+            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.057);
         }
 
         [Test]
@@ -97,7 +97,7 @@ namespace Test
             List<double> data2 = new List<double> { 1.0, 0.9, 1.1 };
             
             AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data1, data2, seed: 0);
-
+            
             // burn in and then sample the MCMC chain
             sampler.Run(1000, 1000);
             
@@ -109,11 +109,11 @@ namespace Test
             var nus = chain.Select(p => p[4]).ToList(); // nu estimate
 
             double avgMeanDiff = muDiffs.Average(); // point estimate of mean diff
-            Assert.That(Math.Round(avgMeanDiff, 3) == -0.003);
+            Assert.That(Math.Round(avgMeanDiff, 3) == -0.061);
 
             var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(muDiffs.ToArray());
-            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == -0.176);
-            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 0.172);
+            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == -1.201);
+            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 0.641);
         }
     }
 }
