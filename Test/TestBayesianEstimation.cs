@@ -48,21 +48,12 @@ namespace Test
             double meanWithoutTheOutlier = dataWithoutTheOutlier.Mean(); // mean of the data excluding the outlier is 0.96
 
             // let's do a Bayesian estimate of the mean and standard deviation of the data set that includes the outlier...
-            var acceptableParamRanges = new List<Tuple<double, double>>[3];
-            acceptableParamRanges[0] = new List<Tuple<double, double>> { new Tuple<double, double>(double.NegativeInfinity, double.PositiveInfinity) }; // mu (can take any value)
-            acceptableParamRanges[1] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // sd (must be positive)
-            acceptableParamRanges[2] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // nu (must be positive)
+            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data, null, seed: 0);
 
-            int randomSeed = 0;
-            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data, null, 3, acceptableParamRanges, randomSeed);
+            // burn in and then sample the MCMC chain
+            sampler.Run(1000, 1000);
 
-            // burn in the MCMC chain
-            sampler.n_samples(1000);
-
-            // sample the MCMC chain
-            sampler.n_samples(1000);
-
-            var chain = sampler.chain;
+            var chain = sampler.markovChain;
 
             // each iteration of the MCMC chain produces one t-distribution fit result
             // in this example, 1000 different t-distributions are fit to the data
@@ -79,21 +70,21 @@ namespace Test
             double sigmaPointEstimate = sigmas.Average(); // point estimate of sigma (std dev)
             double nuPointEstimate = nus.Average(); // point estimate of nu (degree of normality)
 
-            // the mean is estimated at 0.94
-            Assert.That(Math.Round(muPointEstimate, 3) == 0.940);
+            // the mean is estimated at 0.96
+            Assert.That(Math.Round(muPointEstimate, 3) == 0.957);
 
             // std dev is estimated at 0.17
-            Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.171);
+            Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.167);
 
             // nu (degree of normality) is estimated at 1.2
-            Assert.That(Math.Round(nuPointEstimate, 3) == 1.209);
+            Assert.That(Math.Round(nuPointEstimate, 3) == 1.217);
 
             // instead of only a point estimate of the mean, the Bayesian method also gives a range of credible values.
             // sort of like a 95% confidence interval, we can construct a 95% highest density interval where 95% of the 
             // probability density for a parameter is contained
             var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(mus.ToArray());
-            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == 0.817);
-            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.067);
+            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == 0.840);
+            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.086);
         }
 
         [Test]
@@ -104,24 +95,13 @@ namespace Test
         {
             List<double> data1 = new List<double> { 1.0, 0.9, 1.1 };
             List<double> data2 = new List<double> { 1.0, 0.9, 1.1 };
+            
+            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data1, data2, seed: 0);
 
-            var acceptableParamRanges = new List<Tuple<double, double>>[5];
-            acceptableParamRanges[0] = new List<Tuple<double, double>> { new Tuple<double, double>(double.NegativeInfinity, double.PositiveInfinity) }; // mu1 (can take any value)
-            acceptableParamRanges[1] = new List<Tuple<double, double>> { new Tuple<double, double>(double.NegativeInfinity, double.PositiveInfinity) }; // mu2 (can take any value)
-            acceptableParamRanges[2] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // sd1 (must be positive)
-            acceptableParamRanges[3] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // sd2 (must be positive)
-            acceptableParamRanges[4] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // nu (must be positive)
-
-            int randomSeed = 0;
-            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data1, data2, 3, acceptableParamRanges, randomSeed);
-
-            // burn in the MCMC chain
-            sampler.n_samples(1000);
-
-            // sample the MCMC chain
-            sampler.n_samples(1000);
-
-            var chain = sampler.chain;
+            // burn in and then sample the MCMC chain
+            sampler.Run(1000, 1000);
+            
+            var chain = sampler.markovChain;
 
             var muDiffs = chain.Select(p => p[1] - p[0]).ToList(); // difference in means
             var sigma1s = chain.Select(p => p[2]).ToList(); // std dev estimate for sample 1
@@ -129,11 +109,11 @@ namespace Test
             var nus = chain.Select(p => p[4]).ToList(); // nu estimate
 
             double avgMeanDiff = muDiffs.Average(); // point estimate of mean diff
-            Assert.That(Math.Round(avgMeanDiff, 3) == -0.151);
+            Assert.That(Math.Round(avgMeanDiff, 3) == -0.003);
 
             var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(muDiffs.ToArray());
-            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == -0.976);
-            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 0.762);
+            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == -0.176);
+            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 0.172);
         }
     }
 }

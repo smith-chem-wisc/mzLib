@@ -5,11 +5,18 @@ namespace BayesianEstimation
 {
     public class Util
     {
-        public static (double hdi_start, double hdi_end) GetHighestDensityInterval(double[] data)
+        /// <summary>
+        /// Calculates the n% highest density interval. n=0.95 means 95% highest density interval.
+        /// 
+        /// Code adapted from http://sumsar.net/best_online/ .
+        /// See:
+        /// Bayesian Estimation Supersedes the t Test. Kruschke, J. K., Journal of Experimental Psychology, 2013.
+        /// </summary>
+        public static (double hdi_start, double hdi_end) GetHighestDensityInterval(double[] data, double n = 0.95)
         {
             Array.Sort(data);
 
-            var ci_nbr_of_points = (int)Math.Floor(data.Length * 0.95);
+            var ci_nbr_of_points = (int)Math.Floor(data.Length * n);
             var min_width_ci = (data.Minimum(), data.Maximum()); // initialize interval
 
             for (var i = 0; i < data.Length - ci_nbr_of_points; i++)
