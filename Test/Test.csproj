@@ -33,6 +33,9 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=4.5.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathNet.Numerics.4.5.1\lib\net461\MathNet.Numerics.dll</HintPath>
+    </Reference>
     <Reference Include="NetSerializer, Version=4.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\NetSerializer.4.1.0\lib\net45\NetSerializer.dll</HintPath>
     </Reference>
@@ -42,6 +45,8 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ValueTuple" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -49,6 +54,7 @@
     <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
+    <Compile Include="TestBayesianEstimation.cs" />
     <Compile Include="TestModFits.cs" />
     <Compile Include="TestProteinDigestion.cs" />
     <Compile Include="TestProteinProperties.cs" />
@@ -81,6 +87,10 @@
     <Compile Include="TestSpectra.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj">
+      <Project>{2306BB69-886C-4B18-8329-B575079DFD67}</Project>
+      <Name>BayesianEstimation</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>

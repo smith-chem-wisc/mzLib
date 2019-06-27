@@ -50,6 +50,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mgf", "Mgf\Mgf.csproj", "{D
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ThermoRawFileReader", "ThermoRawFileReader\ThermoRawFileReader.csproj", "{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BayesianEstimation", "BayesianEstimation\BayesianEstimation.csproj", "{2306BB69-886C-4B18-8329-B575079DFD67}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -177,6 +179,12 @@ Global
 		{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89}.Release|Any CPU.Build.0 = Release|Any CPU
 		{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89}.TestAndRelease|Any CPU.ActiveCfg = Release|Any CPU
 		{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89}.TestAndRelease|Any CPU.Build.0 = Release|Any CPU
+		{2306BB69-886C-4B18-8329-B575079DFD67}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2306BB69-886C-4B18-8329-B575079DFD67}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2306BB69-886C-4B18-8329-B575079DFD67}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2306BB69-886C-4B18-8329-B575079DFD67}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2306BB69-886C-4B18-8329-B575079DFD67}.TestAndRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{2306BB69-886C-4B18-8329-B575079DFD67}.TestAndRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
