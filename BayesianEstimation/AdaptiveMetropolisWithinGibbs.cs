@@ -1,6 +1,5 @@
 ﻿using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
-using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,29 +30,21 @@ namespace BayesianEstimation
     /// </summary>
     public class AdaptiveMetropolisWithinGibbs
     {
-        public List<double[]> markovChain { get; private set; }
-        private double[] logSd;
+        public List<double[]> MarkovChain { get; private set; }
         private double[] currentState;
-        private double[] acceptanceCount;
-        private int numParams;
-        private int batchCount;
-        private int batchSize;
+        private double[] proposedState;
         private MersenneTwister random;
-        private List<double>[] Data;
-        private bool isTwoSample;
-        private List<Tuple<double, double>>[] acceptableParameterRanges;
-
-        // these are the parameters of the prior probability distributions
-        private double meanMu; // mean of prior prob mean normal distribution
-        private double sdMu; // sd of prior prob mean normal distribution
-        private double sigmaLow; // lower bound of prior prob sd uniform distribution
-        private double sigmaHigh; // upper bound of prior prob sd uniform distribution
-        private double exp; // exponent of prior prob exponential distribution
+        private Model model;
+        private double[] data;
+        private readonly double[] logSd;
+        private readonly double[] acceptanceCount;
+        private readonly int batchSize;
+        private int batchCount;
 
         /// <summary>
         /// Construct the adaptive Metropolis within Gibbs sampler. Leave data2 null for one-sample data.
         /// </summary>
-        public AdaptiveMetropolisWithinGibbs(List<double> data1, List<double> data2, int batch_size = 3, int? seed = null)
+        public AdaptiveMetropolisWithinGibbs(double[] data, Model model, int batch_size = 3, int? seed = null)
         {
             if (seed != null)
             {
@@ -64,22 +55,18 @@ namespace BayesianEstimation
                 random = new MersenneTwister(true);
             }
 
-            batchCount = 0;
+            this.model = model;
             this.batchSize = batch_size;
-            isTwoSample = data2 != null;
+            this.data = data;
+            logSd = new double[model.modelParameters.Length];
+            acceptanceCount = new double[model.modelParameters.Length];
+            currentState = new double[model.modelParameters.Length];
+            proposedState = new double[model.modelParameters.Length];
 
-            if (isTwoSample)
+            for(int i = 0; i < currentState.Length; i++)
             {
-                Data = new List<double>[] { data1, data2 };
+                currentState[i] = model.modelParameters[i].initialGuess;
             }
-            else
-            {
-                Data = new List<double>[] { data1 };
-            }
-            
-            SetUpAcceptableParameterRanges();
-            SetUpPriorProbabilityDistributions();
-            SetUpPosteriorFunction(isTwoSample);
         }
 
         /// <summary>
@@ -87,171 +74,62 @@ namespace BayesianEstimation
         /// </summary>
         public void Run(int burnin = 20000, int n = 20000)
         {
-            n_samples(burnin);
-            n_samples(n);
+            nSamples(burnin);
+            nSamples(n);
         }
 
-        /// <summary>
-        /// Sets up the acceptable range of values for each parameter. For example, standard deviation must be positive.
-        /// </summary>
-        protected void SetUpAcceptableParameterRanges()
-        {
-            if (acceptableParameterRanges == null)
-            {
-                if (isTwoSample)
-                {
-                    acceptableParameterRanges = new List<Tuple<double, double>>[5];
-                    acceptableParameterRanges[0] = new List<Tuple<double, double>> { new Tuple<double, double>(double.NegativeInfinity, double.PositiveInfinity) }; // mu1 (can take any value)
-                    acceptableParameterRanges[1] = new List<Tuple<double, double>> { new Tuple<double, double>(double.NegativeInfinity, double.PositiveInfinity) }; // mu2 (can take any value)
-                    acceptableParameterRanges[2] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // sd1 (must be positive)
-                    acceptableParameterRanges[3] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // sd2 (must be positive)
-                    acceptableParameterRanges[4] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // nu (must be positive)
-                }
-                else
-                {
-                    acceptableParameterRanges = new List<Tuple<double, double>>[3];
-                    acceptableParameterRanges[0] = new List<Tuple<double, double>> { new Tuple<double, double>(double.NegativeInfinity, double.PositiveInfinity) }; // mu (can take any value)
-                    acceptableParameterRanges[1] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // sd (must be positive)
-                    acceptableParameterRanges[2] = new List<Tuple<double, double>> { new Tuple<double, double>(0, double.PositiveInfinity) }; // nu (must be positive)
-                }
-            }
-        }
-        
-        /// <summary>
-        /// Sets up the prior probability distributions for each parameter.
-        /// </summary>
-        protected void SetUpPriorProbabilityDistributions()
-        {
-            var pooled = Data.SelectMany(p => p.Select(v => v)).ToList();
-
-            meanMu = pooled.Mean();
-            sdMu = pooled.StandardDeviation() * 1000000;
-
-            sigmaLow = pooled.StandardDeviation() / 1000.0;
-            sigmaHigh = pooled.StandardDeviation() * 1000.0;
-
-            exp = 1.0 / 29.0;
-        }
-
-        /// <summary>
-        /// Sets up the posterior function.
-        /// </summary>
-        protected void SetUpPosteriorFunction(bool isTwoSample)
-        {
-            // initialize parameters
-            var pooled = Data.SelectMany(p => p.Select(v => v)).ToList();
-
-            // the initial parameters are set to:
-            // mu: the pooled data's mean
-            // sd: the pooled data's sd
-            // nu: 5
-            if (isTwoSample)
-            {
-                numParams = 5;
-                currentState = new double[] { pooled.Average(), pooled.Average(), pooled.StandardDeviation(), pooled.StandardDeviation(), 5 };
-            }
-            else
-            {
-                numParams = 3;
-                currentState = new double[] { pooled.Average(), pooled.StandardDeviation(), 5 };
-            }
-
-            logSd = new double[numParams];
-            acceptanceCount = new double[numParams];
-        }
-
-        /// <summary>
-        /// Calculates the probability that a set of parameters explains the data (the posterior probability).
-        /// </summary>
-        protected double GetPosteriorProbability(double[] parameters)
-        {
-            double[] mu = null;
-            double[] sigma = null;
-            double nu = 0;
-
-            if (isTwoSample)
-            {
-                mu = new double[] { parameters[0], parameters[1] };
-                sigma = new double[] { parameters[2], parameters[3] };
-                nu = parameters[4];
-            }
-            else
-            {
-                mu = new double[] { parameters[0] };
-                sigma = new double[] { parameters[1] };
-                nu = parameters[2];
-            }
-
-            double log_p = 0;
-            log_p += Math.Log(Exponential.PDF(exp, nu - 1.0)); // estimate nu
-
-            for (var sample = 0; sample < mu.Length; sample++) // estimate mu and sd for each sample
-            {
-                log_p += Math.Log(ContinuousUniform.PDF(sigmaLow, sigmaHigh, sigma[sample]));
-
-                double normalPriorProb = Normal.PDF(meanMu, sdMu, mu[sample]);
-                log_p += Math.Log(normalPriorProb);
-
-                for (var subj_i = 0; subj_i < Data[sample].Count; subj_i++)
-                {
-                    double mmt = Data[sample][subj_i];
-                    double studentTPdf = StudentT.PDF(mu[sample], sigma[sample], nu, mmt);
-                    log_p += Math.Log(studentTPdf);
-                }
-            }
-
-            return log_p;
-        }
-        
         /// <summary>
         /// Samples the parameter distributions via MCMC.
         /// </summary>
         private double[] next_sample()
         {
-            markovChain.Add(currentState.ToArray());
+            MarkovChain.Add(currentState.ToArray());
 
-            for (var param_i = 0; param_i < numParams; param_i++)
+            for (var p = 0; p < model.modelParameters.Length; p++)
             {
-                var parameterProposal = Normal.Sample(random, currentState[param_i], Math.Exp(logSd[param_i]));
-                var proposed = currentState.ToArray();
-                proposed[param_i] = parameterProposal;
-                double accept_prob = 0;
-                var acceptableParamRanges = acceptableParameterRanges[param_i];
+                var parameterProposal = Normal.Sample(random, currentState[p], Math.Exp(logSd[p]));
+                
+                proposedState = currentState.ToArray();
+                proposedState[p] = parameterProposal;
 
-                foreach (var paramRange in acceptableParamRanges)
+                double acceptProbability = 0;
+                var acceptableParamRanges = model.modelParameters[p].acceptableParameterRanges;
+
+                foreach (var acceptableParamRange in acceptableParamRanges)
                 {
-                    if (parameterProposal < paramRange.Item1 || parameterProposal > paramRange.Item2)
+                    if (parameterProposal < acceptableParamRange.Item1 || parameterProposal > acceptableParamRange.Item2)
                     {
-                        accept_prob = 0;
+                        acceptProbability = 0;
                     }
                     else
                     {
-                        var curr_post_dens = GetPosteriorProbability(currentState);
-                        var prop_post_dens = GetPosteriorProbability(proposed);
-                        if (double.IsNegativeInfinity(curr_post_dens) || double.IsNaN(curr_post_dens))
+                        double currentParamPosteriorProbability = model.LogPosteriorProbability(currentState, data);
+                        double proposedParamPosteriorProbability = model.LogPosteriorProbability(proposedState, data);
+
+                        if (double.IsNegativeInfinity(currentParamPosteriorProbability) || double.IsNaN(currentParamPosteriorProbability))
                         {
-                            // if curr_post_dens is as bad as, say, negative infinity or NaN we should always jump
-                            accept_prob = 1;
+                            // if currentParamPosteriorProbability is as bad as, say, negative infinity or NaN we should always jump
+                            acceptProbability = 1;
                             break;
                         }
 
-                        accept_prob = Math.Exp(prop_post_dens - curr_post_dens);
+                        acceptProbability = Math.Exp(proposedParamPosteriorProbability - currentParamPosteriorProbability);
                         break;
                     }
                 }
 
-                if (accept_prob > random.NextDouble())
+                if (acceptProbability > random.NextDouble())
                 {
-                    acceptanceCount[param_i]++;
-                    currentState = proposed;
+                    acceptanceCount[p]++;
+                    currentState = proposedState;
                 } // else do nothing
             }
 
-            if (markovChain.Count % batchSize == 0)
+            if (MarkovChain.Count % batchSize == 0)
             {
                 batchCount++;
 
-                for (var param_i = 0; param_i < numParams; param_i++)
+                for (var param_i = 0; param_i < model.modelParameters.Length; param_i++)
                 {
                     if (acceptanceCount[param_i] / batchSize > 0.44)
                     {
@@ -271,9 +149,9 @@ namespace BayesianEstimation
         /// <summary>
         /// Resets the MCMC chain and samples the parameter distributions n times via MCMC, storing it in a new chain.
         /// </summary>
-        private double[] n_samples(int n)
+        private double[] nSamples(int n)
         {
-            markovChain = new List<double[]>();
+            MarkovChain = new List<double[]>();
             for (int i = 0; i < n - 1; i++)
             {
                 next_sample();

@@ -48,12 +48,18 @@ namespace Test
             double meanWithoutTheOutlier = dataWithoutTheOutlier.Mean(); // mean of the data excluding the outlier is 0.96
 
             // let's do a Bayesian estimate of the mean and standard deviation of the data set that includes the outlier...
-            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data, null, seed: 0);
+            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(
+                data.ToArray(), 
+                new StudentTDistributionModel(
+                    priorMuMean: data.Average(), priorMuSd: data.StandardDeviation() * 1000000, muInitialGuess: data.Average(), 
+                    priorSdStart: data.StandardDeviation() / 1000, priorSdEnd: data.StandardDeviation() * 1000, sdInitialGuess: data.StandardDeviation(), 
+                    priorNuExponent: 1.0 / 29.0, nuInitialGuess: 5), 
+                seed: 0);
 
             // burn in and then sample the MCMC chain
             sampler.Run(1000, 1000);
 
-            var chain = sampler.markovChain;
+            var chain = sampler.MarkovChain;
 
             // each iteration of the MCMC chain produces one t-distribution fit result
             // in this example, 1000 different t-distributions are fit to the data
@@ -71,20 +77,20 @@ namespace Test
             double nuPointEstimate = nus.Average(); // point estimate of nu (degree of normality)
 
             // the mean is estimated at 0.96
-            Assert.That(Math.Round(muPointEstimate, 3) == 0.957);
+            Assert.That(Math.Round(muPointEstimate, 3) == 0.962);
 
-            // std dev is estimated at 0.17
-            Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.129);
+            // std dev is estimated at 0.13
+            Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.104);
 
             // nu (degree of normality) is estimated at 1.2
-            Assert.That(Math.Round(nuPointEstimate, 3) == 1.207);
+            Assert.That(Math.Round(nuPointEstimate, 3) == 0.654);
 
             // instead of only a point estimate of the mean, the Bayesian method also gives a range of credible values.
             // sort of like a 95% confidence interval, we can construct a 95% highest density interval where 95% of the 
             // probability density for a parameter is contained
             var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(mus.ToArray());
-            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == 0.827);
-            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.057);
+            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == 0.862);
+            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 1.062);
         }
 
         [Test]
@@ -93,27 +99,49 @@ namespace Test
         /// </summary>
         public static void TestTwoSampleBayesianEstimation()
         {
-            List<double> data1 = new List<double> { 1.0, 0.9, 1.1 };
-            List<double> data2 = new List<double> { 1.0, 0.9, 1.1 };
-            
-            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(data1, data2, seed: 0);
-            
-            // burn in and then sample the MCMC chain
-            sampler.Run(1000, 1000);
-            
-            var chain = sampler.markovChain;
+            List<double> data1 = new List<double> { 1.0, 0.9, 1.1, 1.0, 0.9, 1.1, 1.0, 0.9, 1.1 };
+            List<double> data2 = new List<double> { 1.0, 0.9, 1.1, 1.0, 0.9, 1.1, 1.0, 0.9, 1.1 };
 
-            var muDiffs = chain.Select(p => p[1] - p[0]).ToList(); // difference in means
-            var sigma1s = chain.Select(p => p[2]).ToList(); // std dev estimate for sample 1
-            var sigma2s = chain.Select(p => p[3]).ToList(); // std dev estimate for sample 2
-            var nus = chain.Select(p => p[4]).ToList(); // nu estimate
+            double pooledMean = data1.Concat(data2).Mean();
+            double pooledSd = data1.Concat(data2).StandardDeviation();
 
-            double avgMeanDiff = muDiffs.Average(); // point estimate of mean diff
-            Assert.That(Math.Round(avgMeanDiff, 3) == -0.061);
+            // construct a t-distribution model fitter for each dataset
+            var sampler1 = new AdaptiveMetropolisWithinGibbs(
+                data1.ToArray(),
+                new StudentTDistributionModel(
+                    priorMuMean: pooledMean, priorMuSd: pooledSd * 1000000, muInitialGuess: pooledMean,
+                    priorSdStart: pooledSd / 1000, priorSdEnd: pooledSd * 1000, sdInitialGuess: pooledSd,
+                    priorNuExponent: 1.0 / 29.0, nuInitialGuess: 5),
+                seed: 0);
 
-            var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(muDiffs.ToArray());
-            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == -1.201);
-            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 0.641);
+            var sampler2 = new AdaptiveMetropolisWithinGibbs(
+                data2.ToArray(),
+                new StudentTDistributionModel(
+                    priorMuMean: pooledMean, priorMuSd: pooledSd * 1000000, muInitialGuess: pooledMean,
+                    priorSdStart: pooledSd / 1000, priorSdEnd: pooledSd * 1000, sdInitialGuess: pooledSd,
+                    priorNuExponent: 1.0 / 29.0, nuInitialGuess: 5),
+                seed: 1);
+
+            // burn in and then sample the MCMC chains
+            sampler1.Run(1000, 1000);
+            sampler2.Run(1000, 1000);
+
+            var chain1 = sampler1.MarkovChain;
+            var chain2 = sampler2.MarkovChain;
+
+            // calculate difference in means
+            List<double> meanDiffs = new List<double>();
+            for(int i = 0; i < chain1.Count; i++)
+            {
+                meanDiffs.Add(chain1[i][0] - chain2[i][0]);
+            }
+            
+            double avgMeanDiff = meanDiffs.Average(); // point estimate of mean diff
+            Assert.That(Math.Round(avgMeanDiff, 3) == -0.011);
+
+            var highestDensityInterval = BayesianEstimation.Util.GetHighestDensityInterval(meanDiffs.ToArray());
+            Assert.That(Math.Round(highestDensityInterval.hdi_start, 3) == -0.118);
+            Assert.That(Math.Round(highestDensityInterval.hdi_end, 3) == 0.095);
         }
     }
 }
