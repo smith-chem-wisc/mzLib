@@ -7,20 +7,10 @@ using System.Linq;
 namespace BayesianEstimation
 {
     /// <summary>
-    /// This class uses an adaptive Metropolis within Gibbs sampler to estimate the mean (mu), standard deviation (sigma), and degree of 
-    /// normality (nu) of a series of data points. The data points are assumed to come from a t-distribution (similar to a 
-    /// normal distribution, but with fatter tails; this method is more tolerant of outliers than fitting a normal distribution). 
-    /// The mu, sigma, and nu parameters of the t-distribution are estimated by sampling from normal, uniform, and exponential distributions, 
-    /// respectively, using a Markov Chain Monte Carlo (MCMC) method and calculating their probability of describing the data (Bayesian statistics). 
-    /// Eventually, after enough iterations, the algorithm hopefully converges on an accurate answer, with some amount of measureable 
-    /// uncertainty for each parameter.
-    /// 
-    /// You can fit one-sample or two-sample data by making the "data2" parameter in the constructor null or not null, respectively.
-    /// 
-    /// If your data do not conform to a t-distribution, you can inherit this class and then define a new PosteriorProbability
-    /// function. The rest of the algorithm remains the same (the Metropolis within Gibbs sampler samples from the distributions 
-    /// you define in order to fit the distribution you want to your data). See FlashLfqBayesianEstimator.cs for an example of defining
-    /// a different posterior probability function.
+    /// This class uses an adaptive Metropolis within Gibbs sampler to estimate the parameters of a model that describes a series of data points. 
+    /// The parameters are estimated by sampling from a normal distribution and then calculating their probability of describing the data. 
+    /// The sampler then adapts to more probable parameter values over n iterations of the algorithm. Eventually, after enough iterations, 
+    /// the algorithm hopefully converges on an accurate answer, with some amount of measureable uncertainty for each parameter.
     /// 
     /// See:
     /// Bayesian Estimation Supersedes the t Test. Kruschke, J. K., Journal of Experimental Psychology, 2013.
@@ -42,7 +32,7 @@ namespace BayesianEstimation
         private int batchCount;
 
         /// <summary>
-        /// Construct the adaptive Metropolis within Gibbs sampler. Leave data2 null for one-sample data.
+        /// Construct the adaptive Metropolis within Gibbs sampler.
         /// </summary>
         public AdaptiveMetropolisWithinGibbs(double[] data, Model model, int batch_size = 3, int? seed = null)
         {

@@ -79,10 +79,10 @@ namespace Test
             // the mean is estimated at 0.96
             Assert.That(Math.Round(muPointEstimate, 3) == 0.962);
 
-            // std dev is estimated at 0.13
+            // std dev is estimated at 0.10
             Assert.That(Math.Round(sigmaPointEstimate, 3) == 0.104);
 
-            // nu (degree of normality) is estimated at 1.2
+            // nu (degree of normality) is estimated at 0.65
             Assert.That(Math.Round(nuPointEstimate, 3) == 0.654);
 
             // instead of only a point estimate of the mean, the Bayesian method also gives a range of credible values.
