@@ -2,14 +2,31 @@
 
 namespace BayesianEstimation
 {
+    /// <summary>
+    /// This class is a generic framework for a model that describes a set of data points. It must be
+    /// inherited by a more specific model with defined parameters and a probability function to be used.
+    /// 
+    /// For example, the Student's t distribution can be used to model a set of data points. See 
+    /// StudentTDistributionModel.cs for details.
+    /// </summary>
     public abstract class Model
     {
+        /// <summary>
+        /// These model parameters are null and must be defined by an inheriting class.
+        /// </summary>
         public Parameter[] modelParameters { get; protected set; }
-
-        public Model()
+        
+        protected Model()
         {
 
         }
+        
+        /// <summary>
+        /// Calculates the probability of the model, given a single data point.
+        /// 
+        /// This method needs to be overridden by an inheriting class.
+        /// </summary>
+        protected abstract double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint);
 
         /// <summary>
         /// Calculates the log probability of the prior plus the log probability of the model, given the data.
@@ -18,13 +35,6 @@ namespace BayesianEstimation
         {
             return LogPriorProbability(paramProposals) + LogProbabilityOfModelGivenTheData(paramProposals, data);
         }
-
-        /// <summary>
-        /// Calculates the probability of the model, given a single data point.
-        /// 
-        /// This method needs to be overridden by an inheriting class.
-        /// </summary>
-        protected abstract double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint);
 
         /// <summary>
         /// Calculates the log probability of the model with the proposed parameters, given the data.

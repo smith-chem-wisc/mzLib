@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace BayesianEstimation
 {
+    /// <summary>
+    /// This class models the given datapoint(s) with a Student's t distribution model. The Student's t
+    /// distribution has 3 parameters: mu (mean), sigma (standard deviation), and nu (the degree of normality, or 
+    /// "degrees of freedom").
+    /// </summary>
     public class StudentTDistributionModel : Model
     {
         public StudentTDistributionModel(double priorMuMean, double priorMuSd, double muInitialGuess,
