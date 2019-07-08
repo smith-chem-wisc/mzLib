@@ -82,7 +82,7 @@ namespace Test
         public static void TestEvelopQuantification()
         {
             Loaders.LoadElements();
-            
+
             double monoIsotopicMass = 1350.65681;
             double massOfAveragine = 111.1254;
             double numberOfAveragines = monoIsotopicMass / massOfAveragine;
@@ -94,10 +94,10 @@ namespace Test
             double averageS = 0.0417 * numberOfAveragines;
 
             ChemicalFormula myFormula = ChemicalFormula.ParseFormula(
-                "C" + (int)Math.Round(averageC) + 
-                "H" + (int)Math.Round(averageH) + 
-                "O" + (int)Math.Round(averageO) + 
-                "N" + (int)Math.Round(averageN) + 
+                "C" + (int)Math.Round(averageC) +
+                "H" + (int)Math.Round(averageH) +
+                "O" + (int)Math.Round(averageO) +
+                "N" + (int)Math.Round(averageN) +
                 "S" + (int)Math.Round(averageS));
 
 
@@ -965,7 +965,7 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIEDVVVV", "PEPTIEDVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
-            
+
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
 
@@ -982,7 +982,7 @@ namespace Test
 
             Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
 
-            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory,@"SilacTest.mzML"), "", 0, 0, 0);
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"SilacTest.mzML"), "", 0, 0, 0);
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
@@ -997,6 +997,46 @@ namespace Test
                 );
             var results = engine.Run();
             Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
+        }
+
+        [Test]
+        public static void TestBayesianProteinQuantification()
+        {
+            ProteinGroup pg = new ProteinGroup("", "", "");
+            var p = new FlashLFQ.Peptide("PEPTIDE", true);
+
+            var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0),
+                new SpectraFileInfo("a2", "a", 1, 0, 0),
+                new SpectraFileInfo("a3", "a", 2, 0, 0),
+                new SpectraFileInfo("b1", "b", 0, 0, 0),
+                new SpectraFileInfo("b2", "b", 1, 0, 0),
+                new SpectraFileInfo("b3", "b", 2, 0, 0)
+            };
+
+            p.SetIntensity(files[0], 900);
+            p.SetIntensity(files[1], 0);
+            p.SetIntensity(files[2], 1100);
+
+            p.SetIntensity(files[3], 1900);
+            p.SetIntensity(files[4], 2000);
+            p.SetIntensity(files[5], 0);
+
+            p.proteinGroups.Add(pg);
+
+            var res = new FlashLfqResults(files);
+            res.PeptideModifiedSequences.Add(p.Sequence, p);
+
+            var engine = new ProteinQuantificationEngine(res, 1, "a");
+            engine.Run();
+
+            var quantResult = pg.conditionToQuantificationResult["b"];
+            double pep = quantResult.ComputePosteriorErrorProbability();
+
+            Assert.That(Math.Round(pep, 3) == 0.037);
+            Assert.That(Math.Round(quantResult.mus.Average(), 3) == 0.962);
+            Assert.That(quantResult.foldChangeMeasurements.Count == 2);
         }
     }
 }

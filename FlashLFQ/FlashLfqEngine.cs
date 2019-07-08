@@ -182,7 +182,7 @@ namespace FlashLFQ
 
             if (AdvancedProteinQuant)
             {
-                new ProteinQuantificationEngine(_results, MaxThreads).Run();
+                new ProteinQuantificationEngine(_results, MaxThreads, _spectraFileInfo.Select(p => p.Condition).First()).Run();
             }
             else
             {
