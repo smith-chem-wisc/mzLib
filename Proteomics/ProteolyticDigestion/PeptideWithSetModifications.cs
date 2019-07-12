@@ -34,8 +34,8 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
-           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods)
-           : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
+           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null)
+           : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
