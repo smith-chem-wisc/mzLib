@@ -319,6 +319,43 @@ namespace Proteomics
                         originalPeptideArray[i] = new PeptideWithSetModifications(silacStartProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);
                     }
                     originalPeptides = originalPeptideArray;
+
+                    //modify the end label amino acids to recognize the new "original" amino acid
+                    //get the residues that were changed
+                    List<SilacLabel> originalLabels = new List<SilacLabel> { startLabel };
+                    if (startLabel.AdditionalLabels != null)
+                    {
+                        originalLabels.AddRange(startLabel.AdditionalLabels);
+                    }
+                    SilacLabel startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == endLabel.OriginalAminoAcid).FirstOrDefault();
+                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ? 
+                        endLabel : 
+                        new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, endLabel.AminoAcidLabel, endLabel.LabelChemicalFormula, endLabel.ConvertMassDifferenceToDouble());
+                    if (endLabel.AdditionalLabels != null)
+                    {
+                        foreach (SilacLabel additionalLabel in endLabel.AdditionalLabels)
+                        {
+                            startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == additionalLabel.OriginalAminoAcid).FirstOrDefault();
+                            updatedEndLabel.AddAdditionalSilacLabel(
+                                startLabelWithSharedOriginalAminoAcid == null ?
+                                additionalLabel :
+                                new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, additionalLabel.AminoAcidLabel, additionalLabel.LabelChemicalFormula, additionalLabel.ConvertMassDifferenceToDouble()));
+                        }
+                    }
+
+                    //double check that all labeled amino acids can become unlabeled/relabeled
+                    if(startLabel.AdditionalLabels!=null)
+                    {
+                        foreach(SilacLabel originalLabel in originalLabels)
+                        {
+                            if(updatedEndLabel.OriginalAminoAcid!= originalLabel.AminoAcidLabel && 
+                                (updatedEndLabel.AdditionalLabels==null || !updatedEndLabel.AdditionalLabels.Any(x=>x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
+                            {
+                                updatedEndLabel.AddAdditionalSilacLabel(new SilacLabel(originalLabel.AminoAcidLabel, originalLabel.OriginalAminoAcid, originalLabel.LabelChemicalFormula, originalLabel.ConvertMassDifferenceToDouble()));
+                            }
+                        }
+                    }
+                    endLabel = updatedEndLabel;
                 }
 
                 //add all unlabeled (or if no unlabeled, then the startLabeled) peptides
@@ -358,6 +395,7 @@ namespace Proteomics
                             List<PeptideWithSetModifications> pwsmsForCombinatorics = new List<PeptideWithSetModifications> { pwsm };
                             for (int a = 0; a < indexesOfResiduesToBeLabeled.Count; a++)
                             {
+                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new List<PeptideWithSetModifications>();
                                 foreach (PeptideWithSetModifications pwsmCombination in pwsmsForCombinatorics)
                                 {
                                     char[] combinatoricBaseSequenceArray = pwsmCombination.BaseSequence.ToArray();
@@ -368,8 +406,9 @@ namespace Proteomics
                                         pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory,
                                         pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods, updatedBaseSequence);
                                     yield return labeledPwsm; //return
-                                    pwsmsForCombinatorics.Add(labeledPwsm); //add so it can be used again
+                                    localPwsmsForCombinatorics.Add(labeledPwsm); //add so it can be used again
                                 }
+                                pwsmsForCombinatorics.AddRange(localPwsmsForCombinatorics);
                             }
                         }
                     }
@@ -409,6 +448,7 @@ namespace Proteomics
                             List<PeptideWithSetModifications> pwsmsForCombinatorics = new List<PeptideWithSetModifications> { pwsm };
                             foreach (KeyValuePair<int, char> kvp in indexesOfResiduesToBeLabeled)
                             {
+                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new List<PeptideWithSetModifications>();
                                 foreach (PeptideWithSetModifications pwsmCombination in pwsmsForCombinatorics)
                                 {
                                     char[] combinatoricBaseSequenceArray = pwsmCombination.BaseSequence.ToArray();
@@ -419,8 +459,9 @@ namespace Proteomics
                                         pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory,
                                         pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods, updatedBaseSequence);
                                     yield return labeledPwsm; //return
-                                    pwsmsForCombinatorics.Add(labeledPwsm); //add so it can be used again
+                                    localPwsmsForCombinatorics.Add(labeledPwsm); //add so it can be used again
                                 }
+                                pwsmsForCombinatorics.AddRange(localPwsmsForCombinatorics);
                             }
                         }
                     }
