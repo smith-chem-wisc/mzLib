@@ -57,7 +57,7 @@ namespace MassSpectrometry
         /// </summary>
         public MzSpectrum MassSpectrum { get; protected set; }
 
-        public int OneBasedScanNumber { get; }
+        public int OneBasedScanNumber { get; set; }
         public int MsnOrder { get; }
         public double RetentionTime { get; }
         public Polarity Polarity { get; }
@@ -190,6 +190,11 @@ namespace MassSpectrometry
         public void SetOneBasedPrecursorScanNumber(int value)
         {
             this.OneBasedPrecursorScanNumber = value;
+        }
+
+        public void SetOneBasedScanNumber(int value)
+        {
+            this.OneBasedScanNumber = value;
         }
 
         private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)
