@@ -57,7 +57,7 @@ namespace MassSpectrometry
         /// </summary>
         public MzSpectrum MassSpectrum { get; protected set; }
 
-        public int OneBasedScanNumber { get; set; }
+        public int OneBasedScanNumber { get; private set; }
         public int MsnOrder { get; }
         public double RetentionTime { get; }
         public Polarity Polarity { get; }
