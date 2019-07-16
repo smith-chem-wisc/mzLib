@@ -64,7 +64,7 @@ namespace MassSpectrometry
         public MZAnalyzerType MzAnalyzer { get; }
         public MzRange ScanWindowRange { get; }
         public string ScanFilter { get; }
-        public string NativeId { get; }
+        public string NativeId { get; private set; }
         public bool IsCentroid { get; }
         public double TotalIonCurrent { get; }
         public double? InjectionTime { get; }
@@ -195,6 +195,11 @@ namespace MassSpectrometry
         public void SetOneBasedScanNumber(int value)
         {
             this.OneBasedScanNumber = value;
+        }
+
+        public void SetNativeID(string value)
+        {
+            this.NativeId = value;
         }
 
         private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)
