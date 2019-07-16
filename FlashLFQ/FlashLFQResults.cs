@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FlashLFQ
 {
@@ -121,7 +122,7 @@ namespace FlashLFQ
                     foreach (Identification id in ambiguousPeak.Identifications)
                     {
                         string sequence = id.ModifiedSequence;
-                        
+
                         if (!PeptideModifiedSequences.ContainsKey(sequence))
                         {
                             bool useForProteinQuant = id.UseForProteinQuant;
@@ -198,7 +199,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput)
         {
             if (peaksOutputPath != null)
             {
@@ -235,6 +236,58 @@ namespace FlashLFQ
                     foreach (var protein in ProteinGroups.OrderBy(p => p.Key))
                     {
                         output.WriteLine(protein.Value.ToString(SpectraFiles));
+                    }
+                }
+            }
+
+            if (bayesianProteinQuantOutput != null)
+            {
+                StringBuilder header = new StringBuilder();
+                StringBuilder[] proteinStringBuilders = new StringBuilder[ProteinGroups.Count];
+
+                for (int i = 0; i < proteinStringBuilders.Length; i++)
+                {
+                    proteinStringBuilders[i] = new StringBuilder();
+                }
+
+                using (StreamWriter output = new StreamWriter(bayesianProteinQuantOutput))
+                {
+                    if (!ProteinGroups.Any())
+                    {
+                        return;
+                    }
+
+                    var firstProteinQuantResults = ProteinGroups.First().Value.conditionToQuantificationResults;
+
+                    if (!firstProteinQuantResults.Any())
+                    {
+                        return;
+                    }
+
+                    foreach (var condition in firstProteinQuantResults.Keys)
+                    {
+                        header.Append("Protein Accession\tGene\tOrganism\tCondition1\tCondition2\tlogFC Cutoff\tlogFC\tIntensity\tNumber of Measurements" +
+                                    "\tPosterior Error Probability\tFalse Discovery Rate\t\t");
+
+                        int p = 0;
+
+                        foreach (var protein in ProteinGroups.OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate))
+                        {
+                            proteinStringBuilders[p].Append(
+                                protein.Value.ProteinGroupName + "\t" +
+                                protein.Value.GeneName + "\t" +
+                                protein.Value.Organism + "\t" +
+                                protein.Value.conditionToQuantificationResults[condition].ToString() + "\t\t");
+
+                            p++;
+                        }
+                    }
+
+                    output.WriteLine(header);
+
+                    foreach (var proteinStringBuilder in proteinStringBuilders)
+                    {
+                        output.WriteLine(proteinStringBuilder);
                     }
                 }
             }

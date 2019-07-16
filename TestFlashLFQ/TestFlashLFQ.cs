@@ -75,7 +75,8 @@ namespace Test
             results.WriteResults(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
+                null);
         }
 
         [Test]
@@ -232,7 +233,7 @@ namespace Test
             Assert.AreEqual(1, resultsA.ProteinGroups.Count);
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
-        
+
         [Test]
         public static void TestFlashLfqMatchBetweenRuns()
         {
@@ -757,7 +758,8 @@ namespace Test
             results.WriteResults(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
+                null);
         }
 
         [Test]
@@ -931,7 +933,7 @@ namespace Test
         [Test]
         public static void TestBayesianProteinQuantification()
         {
-            ProteinGroup pg = new ProteinGroup("", "", "");
+            ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
             var p = new FlashLFQ.Peptide("PEPTIDE", true);
 
             var files = new List<SpectraFileInfo>
@@ -948,38 +950,78 @@ namespace Test
             p.SetIntensity(files[1], 1000);
             p.SetIntensity(files[2], 1100);
 
-            p.SetIntensity(files[3], 1900);
+            p.SetIntensity(files[3], 1950);
             p.SetIntensity(files[4], 2000);
-            p.SetIntensity(files[5], 2100);
+            p.SetIntensity(files[5], 2050);
 
             p.proteinGroups.Add(pg);
 
             var res = new FlashLfqResults(files);
             res.PeptideModifiedSequences.Add(p.Sequence, p);
+            res.ProteinGroups.Add(pg.ProteinGroupName, pg);
 
-            var engine = new ProteinQuantificationEngine(res, 1, baseCondition: "a", randomSeed: 0);
+            var engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 0);
             engine.Run();
 
-            var quantResult = pg.conditionToQuantificationResult["b"];
-            double pep = quantResult.ComputePosteriorErrorProbability();
+            var quantResult = pg.conditionToQuantificationResults["b"];
 
-            Assert.That(Math.Round(pep, 3) == 0.037);
-            Assert.That(Math.Round(quantResult.mus.Average(), 3) == 0.962);
+            Assert.That(Math.Round(quantResult.cutoff.Value, 3) == 0.366);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.089);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 0.996);
             Assert.That(quantResult.foldChangeMeasurements.Count == 3);
 
-            // add some missing values and run again
-            p.SetIntensity(files[1], 0);
-            p.SetIntensity(files[1], 0);
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"bayesianProteinQuant.tsv");
+            res.WriteResults(null, null, null, filepath);
 
-            pg.conditionToQuantificationResult.Clear();
+            var textResults = File.ReadAllLines(filepath);
+            Assert.That(textResults.Length == 2);
+            var line = textResults[1].Split(new char[] { '\t' });
+            Assert.That(Math.Round(double.Parse(line[9]), 3) == 0.089);
+            File.Delete(filepath);
+            
+            // try with defined fold-change cutoff
+            pg.conditionToQuantificationResults.Clear();
+            engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 1, foldChangeCutoff: 0.8);
             engine.Run();
 
-            quantResult = pg.conditionToQuantificationResult["b"];
-            pep = quantResult.ComputePosteriorErrorProbability();
+            quantResult = pg.conditionToQuantificationResults["b"];
 
-            Assert.That(Math.Round(pep, 3) == 0.905);
-            Assert.That(Math.Round(quantResult.mus.Average(), 3) == 0.508);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.218);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.014);
+            Assert.That(quantResult.foldChangeMeasurements.Count == 3);
+
+            // try with some missing values
+            p.SetIntensity(files[1], 0);
+            p.SetIntensity(files[5], 0);
+
+            pg.conditionToQuantificationResults.Clear();
+            engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 2, foldChangeCutoff: 0.5);
+            engine.Run();
+
+            quantResult = pg.conditionToQuantificationResults["b"];
+
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.916);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.357);
             Assert.That(quantResult.foldChangeMeasurements.Count == 2);
+
+            // try with paired samples
+            p.SetIntensity(files[0], 100);
+            p.SetIntensity(files[1], 1000);
+            p.SetIntensity(files[2], 10000);
+
+            p.SetIntensity(files[3], 210);
+            p.SetIntensity(files[4], 2200);
+            p.SetIntensity(files[5], 21500);
+
+            pg.conditionToQuantificationResults.Clear();
+            engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 3, pairedSamples: true);
+            engine.Run();
+
+            quantResult = pg.conditionToQuantificationResults["b"];
+
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.084);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.110);
+            Assert.That(quantResult.foldChangeMeasurements.Count == 3);
         }
     }
 }

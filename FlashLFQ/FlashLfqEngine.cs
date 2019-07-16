@@ -5,7 +5,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
@@ -32,7 +31,15 @@ namespace FlashLFQ
         public readonly bool RequireMonoisotopicMass;
         public readonly bool Normalize;
         public readonly double MinDiscFactorToCutAt;
-        public readonly bool AdvancedProteinQuant;
+        public readonly bool BayesianProteinQuant;
+
+        // settings for the Bayesian protein quantification engine
+        public readonly string ProteinQuantBaseCondition;
+        public readonly double? ProteinQuantFoldChangeCutoff;
+        public readonly int McmcSteps;
+        public readonly int McmcBurninSteps;
+        public readonly bool UseSharedPeptidesForProteinQuant;
+        public readonly int? RandomSeed;
 
         // structures used in the FlashLFQ engine
         private List<SpectraFileInfo> _spectraFileInfo;
@@ -44,19 +51,30 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         private PeakIndexingEngine _peakIndexingEngine;
 
-        public FlashLfqEngine(List<Identification> allIdentifications, bool normalize = false,
-            bool advancedProteinQuant = false, bool matchBetweenRuns = false,
-            double ppmTolerance = 10.0, double isotopeTolerancePpm = 5.0, double matchBetweenRunsPpmTolerance = 5.0,
-            bool integrate = false, int numIsotopesRequired = 2,
-            bool idSpecificChargeState = false, bool requireMonoisotopicMass = true, bool silent = false,
-            string optionalPeriodicTablePath = null, double maxMbrWindow = 2.5,
-            int maxThreads = -1)
-        {
-            if (optionalPeriodicTablePath == null)
-            {
-                optionalPeriodicTablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"elements.dat");
-            }
+        public FlashLfqEngine(
+            List<Identification> allIdentifications,
+            bool normalize = false,
+            bool bayesianProteinQuant = false,
+            bool matchBetweenRuns = false,
+            double ppmTolerance = 10.0,
+            double isotopeTolerancePpm = 5.0,
+            double matchBetweenRunsPpmTolerance = 5.0,
+            bool integrate = false,
+            int numIsotopesRequired = 2,
+            bool idSpecificChargeState = false,
+            bool requireMonoisotopicMass = true,
+            bool silent = false,
+            double maxMbrWindow = 2.5,
+            int maxThreads = -1,
 
+            // settings for the Bayesian protein quantification engine
+            string proteinQuantBaseCondition = null,
+            double? proteinQuantFoldChangeCutoff = null,
+            int mcmcSteps = 3000,
+            int mcmcBurninSteps = 1000,
+            bool useSharedPeptidesForProteinQuant = false,
+            int? randomSeed = null)
+        {
             Loaders.LoadElements();
 
             _globalStopwatch = new Stopwatch();
@@ -82,6 +100,13 @@ namespace FlashLFQ
             MbrRtWindow = maxMbrWindow;
             Normalize = normalize;
             MaxThreads = maxThreads;
+            BayesianProteinQuant = bayesianProteinQuant;
+            ProteinQuantBaseCondition = proteinQuantBaseCondition;
+            ProteinQuantFoldChangeCutoff = proteinQuantFoldChangeCutoff;
+            McmcSteps = mcmcSteps;
+            McmcBurninSteps = mcmcBurninSteps;
+            UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
+            RandomSeed = randomSeed;
 
             if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
             {
@@ -98,7 +123,6 @@ namespace FlashLFQ
             RtTol = 5.0;
             ErrorCheckAmbiguousMatches = true;
             MinDiscFactorToCutAt = 0.6;
-            AdvancedProteinQuant = advancedProteinQuant;
         }
 
         public FlashLfqResults Run()
@@ -177,12 +201,33 @@ namespace FlashLFQ
                 }
             }
 
-            // calculate intensities for proteins/peptides
+            // calculate peptide intensities 
             _results.CalculatePeptideResults();
 
-            if (AdvancedProteinQuant)
+            // calculate protein intensities
+            if (BayesianProteinQuant)
             {
-                new ProteinQuantificationEngine(_results, MaxThreads, _spectraFileInfo.Select(p => p.Condition).First()).Run();
+                if (_spectraFileInfo.Count == 1 || _spectraFileInfo.Select(p => p.Condition).Distinct().Count() == 1)
+                {
+                    if (!Silent)
+                    {
+                        Console.WriteLine("Can't do Bayesian protein quant with only one spectra file or condition. Doing top3 quant instead");
+                    }
+
+                    _results.CalculateProteinResultsTop3();
+                }
+                else
+                {
+                    try
+                    {
+                        new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
+                            ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps).Run();
+                    }
+                    catch (Exception e)
+                    {
+                        throw new MzLibException("A crash occured in FlashLFQ during the Bayesian protein quantification process:\n" + e.Message);
+                    }
+                }
             }
             else
             {
