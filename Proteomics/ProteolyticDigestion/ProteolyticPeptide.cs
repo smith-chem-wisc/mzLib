@@ -13,7 +13,7 @@ namespace Proteomics.ProteolyticDigestion
     {
         protected string _baseSequence;
 
-        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null)
+        internal ProteolyticPeptide(Protein protein, int oneBasedStartResidueInProtein, int oneBasedEndResidueInProtein, int missedCleavages, CleavageSpecificity cleavageSpecificityForFdrCategory, string peptideDescription = null, string baseSequence = null)
         {
             _protein = protein;
             OneBasedStartResidueInProtein = oneBasedStartResidueInProtein;
@@ -21,6 +21,7 @@ namespace Proteomics.ProteolyticDigestion
             MissedCleavages = missedCleavages;
             CleavageSpecificityForFdrCategory = cleavageSpecificityForFdrCategory;
             PeptideDescription = peptideDescription;
+            _baseSequence = baseSequence;
         }
 
         [NonSerialized] private Protein _protein; // protein that this peptide is a digestion product of
