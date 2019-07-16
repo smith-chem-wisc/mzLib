@@ -45,18 +45,18 @@ namespace Test
 
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
 
-            ThermoRawFileReaderData.InitiateDynamicConnection(path);
+            var dynamicConnection = new ThermoDynamicData(path);
 
-            var msOrders = ThermoRawFileReaderData.GetMsOrdersByScanInDynamicConnection();
+            var msOrders = dynamicConnection.MsOrdersByScan;
             Assert.That(msOrders != null && msOrders.Length > 0);
 
-            var a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(1);
+            var a = dynamicConnection.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
 
-            a = ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(10000);
+            a = dynamicConnection.GetOneBasedScanFromDynamicConnection(10000);
             Assert.That(a == null);
-            
-            ThermoRawFileReaderData.CloseDynamicConnection();
+
+            dynamicConnection.CloseDynamicConnection();
             
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }

@@ -21,9 +21,7 @@ namespace ThermoRawFileReader
 {
     public class ThermoRawFileReaderData : MsDataFile
     {
-        private static IRawDataPlus dynamicConnection;
-
-        private ThermoRawFileReaderData(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        protected ThermoRawFileReaderData(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
@@ -105,96 +103,8 @@ namespace ThermoRawFileReader
 
             return new ThermoRawFileReaderData(msDataScans, sourceFile);
         }
-
-        /// <summary>
-        /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
-        /// GetOneBasedScanFromDynamicConnection to get data from a particular scan. Use CloseDynamicConnection to close the 
-        /// dynamic connection after all desired data has been retrieved from the dynamic connection.
-        /// </summary>
-        public static void InitiateDynamicConnection(string filePath)
-        {
-            Loaders.LoadElements();
-
-            if (dynamicConnection != null)
-            {
-                dynamicConnection.Dispose();
-            }
-
-            dynamicConnection = RawFileReaderAdapter.FileFactory(filePath);
-
-            if (!File.Exists(filePath))
-            {
-                throw new FileNotFoundException();
-            }
-
-            if (!dynamicConnection.IsOpen)
-            {
-                throw new MzLibException("Unable to access RAW file!");
-            }
-
-            if (dynamicConnection.IsError)
-            {
-                throw new MzLibException("Error opening RAW file!");
-            }
-
-            if (dynamicConnection.InAcquisition)
-            {
-                throw new MzLibException("RAW file still being acquired!");
-            }
-
-            dynamicConnection.SelectInstrument(Device.MS, 1);
-        }
-
-        /// <summary>
-        /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans
-        /// without loading all of the other MSn scans.
-        /// </summary>
-        public static int[] GetMsOrdersByScanInDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                int lastSpectrum = dynamicConnection.RunHeaderEx.LastSpectrum;
-                var scanEvents = dynamicConnection.GetScanEvents(1, lastSpectrum);
-
-                int[] msorders = scanEvents.Select(p => (int)p.MSOrder).ToArray();
-
-                return msorders;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Disposes of the dynamic connection, if one is open.
-        /// </summary>
-        public static void CloseDynamicConnection()
-        {
-            if (dynamicConnection != null)
-            {
-                dynamicConnection.Dispose();
-            }
-        }
-
-        /// <summary>
-        /// Allows access to a .raw file one scan at a time via an open dynamic connection. Returns null if the raw file does not contain the 
-        /// scan number specified. Use InitiateDynamicConnection to open a dynamic connection before using this method.
-        /// </summary>
-        public static MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
-        {
-            if (dynamicConnection == null)
-            {
-                throw new MzLibException("The dynamic connection has not been created yet!");
-            }
-
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum || oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
-            {
-                return null;
-            }
-
-            return GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
-        }
-
-        private static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
+        
+        public static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
 
