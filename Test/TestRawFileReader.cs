@@ -54,14 +54,14 @@ namespace Test
 
             var a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
-
-            a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(10000);
-            Assert.That(a == null);
-
+            
             var b = dynamicConnection2.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(b != null);
 
             Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+
+            a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(10000);
+            Assert.That(a == null);
 
             dynamicConnection1.CloseDynamicConnection();
             dynamicConnection2.CloseDynamicConnection();
