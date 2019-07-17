@@ -4,7 +4,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Business;
@@ -103,7 +102,7 @@ namespace ThermoRawFileReader
 
             return new ThermoRawFileReaderData(msDataScans, sourceFile);
         }
-        
+
         public static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
         {
             var filter = rawFile.GetFilterForScanNumber(scanNumber);
@@ -212,6 +211,28 @@ namespace ThermoRawFileReader
                 }
             }
 
+            // at this point, we have the m/z value of the species that got fragmented, from the scan header
+            // this section of the code finds that peak in the spectrum (it's actual intensity and centroided m/z values)
+            // the intention is to remove any rounding issues caused by what is in the scan header and what is observable in the spectrum
+            double? selectedIonIntensity = null;
+
+            if (isolationMz.HasValue)
+            {
+                int? closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
+
+                if (closest.HasValue)
+                {
+                    double mz = spectrum.XArray[closest.Value];
+                    double intensity = spectrum.YArray[closest.Value];
+
+                    if (Math.Abs(mz - isolationMz.Value) < 0.1)
+                    {
+                        selectedIonIntensity = intensity;
+                        isolationMz = mz;
+                    }
+                }
+            }
+
             return new MsDataScan(
                 massSpectrum: spectrum,
                 oneBasedScanNumber: scanNumber,
@@ -224,11 +245,11 @@ namespace ThermoRawFileReader
                 mzAnalyzer: GetMassAnalyzerType(filter.MassAnalyzer),
                 totalIonCurrent: spectrum.SumOfAllY,
                 injectionTime: ionInjectionTime,
-                noiseData: null,
+                noiseData: null, //TODO: implement reading noise data. it's unused right now, so it's just left as null
                 nativeId: nativeId,
                 selectedIonMz: isolationMz,
                 selectedIonChargeStateGuess: selectedIonChargeState,
-                selectedIonIntensity: null,
+                selectedIonIntensity: selectedIonIntensity,
                 isolationMZ: isolationMz,
                 isolationWidth: ms2IsolationWidth,
                 dissociationType: GetDissociationType(activationType),

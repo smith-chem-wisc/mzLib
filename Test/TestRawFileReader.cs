@@ -43,20 +43,28 @@ namespace Test
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var dynamicConnection1 = new ThermoDynamicData(path1);
 
-            var dynamicConnection = new ThermoDynamicData(path);
+            var path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
+            var dynamicConnection2 = new ThermoDynamicData(path2);
 
-            var msOrders = dynamicConnection.MsOrdersByScan;
+            var msOrders = dynamicConnection1.MsOrdersByScan;
             Assert.That(msOrders != null && msOrders.Length > 0);
 
-            var a = dynamicConnection.GetOneBasedScanFromDynamicConnection(1);
+            var a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
 
-            a = dynamicConnection.GetOneBasedScanFromDynamicConnection(10000);
+            a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(10000);
             Assert.That(a == null);
 
-            dynamicConnection.CloseDynamicConnection();
+            var b = dynamicConnection2.GetOneBasedScanFromDynamicConnection(1);
+            Assert.That(b != null);
+
+            Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+
+            dynamicConnection1.CloseDynamicConnection();
+            dynamicConnection2.CloseDynamicConnection();
             
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
