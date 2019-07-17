@@ -40,6 +40,7 @@ namespace FlashLFQ
         private Dictionary<ProteinGroup, List<Peptide>> ProteinsWithConstituentPeptides;
         private Dictionary<(Peptide, string, int), double> PeptideToSampleQuantity;
         private Dictionary<ProteinGroup, double> ProteinToBaseConditionIntensity;
+        public readonly int RandomSeed;
 
         /// <summary>
         /// Constructs the protein quantification engine. 
@@ -71,11 +72,14 @@ namespace FlashLFQ
             if (randomSeed == null)
             {
                 Rng = new MersenneTwister();
+                RandomSeed = Rng.NextFullRangeInt32();
             }
             else
             {
-                Rng = new MersenneTwister(randomSeed.Value);
+                RandomSeed = randomSeed.Value;
             }
+
+            Rng = new MersenneTwister(RandomSeed);
         }
 
         /// <summary>
