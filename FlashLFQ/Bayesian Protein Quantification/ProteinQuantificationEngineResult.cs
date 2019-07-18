@@ -64,7 +64,7 @@ namespace FlashLFQ
         /// </summary>
         public void CalculatePosteriorErrorProbability(double[] skepticalMus)
         {
-            double pep = 1.0;
+            double pep;
 
             if (cutoff == null || skepticalMus == null)
             {
@@ -74,8 +74,10 @@ namespace FlashLFQ
             int numIncreasing = skepticalMus.Count(p => p > cutoff);
             int numDecreasing = skepticalMus.Count(p => p < -cutoff);
 
-            double nullHypothesisCount = 0;
-            double alternativeHypothesisCount = 0;
+            // the hypotheses are equally likely beofre any data
+            // if something goes wrong and none of the following "if" statements are triggered, then PEP will evaluate to 1.0
+            double nullHypothesisCount = 1.0;
+            double alternativeHypothesisCount = 1.0;
 
             if (numIncreasing > numDecreasing)
             {
@@ -92,7 +94,7 @@ namespace FlashLFQ
                 nullHypothesisCount = skepticalMus.Length;
                 alternativeHypothesisCount = 0;
             }
-            else if (numIncreasing == numDecreasing)
+            else if (numIncreasing == numDecreasing) // this technically doesn't need to be here, but it's here for logical completeness
             {
                 nullHypothesisCount = 1.0;
                 alternativeHypothesisCount = 1.0;

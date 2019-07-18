@@ -131,7 +131,7 @@ namespace FlashLFQ
                             result = RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
                                 randomSeedsForEachProtein[protein][0], null, false, BurnInSteps, NSteps, out var mus);
 
-                            var skepticalResult = RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
+                            RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
                                 randomSeedsForEachProtein[protein][1], nullHyp, true, BurnInSteps, NSteps, out var skepticalMus);
 
                             result.cutoff = nullHyp;
@@ -568,7 +568,7 @@ namespace FlashLFQ
                 else
                 {
                     // TODO: not sure what to do here.. there were no protein quant results for this condition
-                    // throw an exception... or just make the cutoff 1.0?
+                    // for now the cutoff is just made to be a fold-change of 1.0, but maybe an exception should be thrown...
                     stdDev = 0.3333;
 
                     //throw new MzLibException("Could not determine experimental null for condition " + treatmentCondition);
