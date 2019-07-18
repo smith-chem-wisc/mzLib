@@ -478,5 +478,34 @@ namespace Test
 
             Assert.AreEqual(3, new_proteins[0].OneBasedPossibleLocalizedModifications.Count());
         }
+
+        [Test]
+        public static void TestStringSanitation()
+        {
+            string messedUpSequence = @"PRO�EIN�";
+
+            // just test the string sanitation method alone
+            var sanitized = ProteinDbLoader.SanitizeAminoAcidSequence(messedUpSequence, 'X');
+            Assert.That(sanitized == "PRXXEINX");
+
+            // test reading from a fasta
+            Protein protein = new Protein(messedUpSequence, "accession");
+
+            string fastaPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"messedUp.fasta");
+            ProteinDbWriter.WriteFastaDatabase(new List<Protein> { protein }, fastaPath, "|");
+
+            var fastaProteins = ProteinDbLoader.LoadProteinFasta(fastaPath, true, DecoyType.Reverse, false, ProteinDbLoader.UniprotAccessionRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out var a);
+
+            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PRXXEINX");
+
+            // test reading from an XML
+            string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"messedUp.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, xmlPath);
+            var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unk);
+
+            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PRXXEINX");
+        }
     }
 }

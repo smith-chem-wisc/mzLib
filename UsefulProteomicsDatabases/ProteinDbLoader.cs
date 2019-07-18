@@ -1,4 +1,5 @@
 ﻿using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -22,9 +23,11 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
-
+        
         public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
         public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
+
+        private static Regex UnicodeRegex = new Regex(@"[^\u0000-\u007F]+");
 
         /// <summary>
         /// Stores the last database file path.
@@ -207,6 +210,11 @@ namespace UsefulProteomicsDatabases
                     if ((fasta.Peek() == '>' || fasta.Peek() == -1) && accession != null && sb != null)
                     {
                         string sequence = substituteWhitespace.Replace(sb.ToString(), "");
+
+                        // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
+                        // sometimes strange characters get added by RNA sequencing software, etc.
+                        sequence = SanitizeAminoAcidSequence(sequence, 'X');
+
                         if (unique_accessions.Contains(accession)) //this will happen for isoforms
                         {
                             string originalAccession = accession; //save the original
@@ -365,6 +373,21 @@ namespace UsefulProteomicsDatabases
             }
 
             return mod_dict;
+        }
+
+        public static string SanitizeAminoAcidSequence(string originalSequence, char replacementCharacter)
+        {
+            string cleaned = UnicodeRegex.Replace(originalSequence, replacementCharacter.ToString());
+
+            for (int r = 0; r < cleaned.Length; r++)
+            {
+                if (!Residue.TryGetResidue(cleaned[r], out Residue res))
+                {
+                    cleaned = cleaned.Replace(cleaned[r], replacementCharacter);
+                }
+            }
+
+            return cleaned;
         }
     }
 }
