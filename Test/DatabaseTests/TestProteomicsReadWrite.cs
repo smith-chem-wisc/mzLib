@@ -1,6 +1,8 @@
 ﻿using MassSpectrometry;
 using NUnit.Framework;
 using Proteomics;
+using Proteomics.Fragmentation;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -499,6 +501,13 @@ namespace Test
                 ProteinDbLoader.UniprotOrganismRegex, out var a);
 
             Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PRXXEINX");
+
+            // digest and fragment to check that there isn't a crash
+            var peptides = fastaProteins.First().Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
+            foreach (PeptideWithSetModifications peptide in peptides)
+            {
+                List<Product> fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            }
 
             // test reading from an XML
             string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"messedUp.xml");
