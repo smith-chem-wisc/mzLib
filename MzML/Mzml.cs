@@ -537,7 +537,7 @@ namespace IO.MzML
         /// <param name="bytes">the 64-bit encoded byte array</param>
         /// <param name="zlibCompressed">Specifies if the byte array is zlib compressed</param>
         /// <returns>a decompressed, de-encoded double[]</returns>
-        private static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
+        public static double[] ConvertBase64ToDoubles(byte[] bytes, bool zlibCompressed = false, bool is32bit = true)
         {
             // Add capability of compressed data
 
