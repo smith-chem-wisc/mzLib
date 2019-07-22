@@ -7,16 +7,16 @@ using ThermoFisher.CommonCore.Data.Interfaces;
 using ThermoFisher.CommonCore.RawFileReader;
 using UsefulProteomicsDatabases;
 
-namespace ThermoRawFileReader
+namespace IO.ThermoRaw
 {
-    public class ThermoDynamicData
+    public class ThermoRawDynamicData : DynamicDataConnection
     {
         private IRawDataPlus dynamicConnection;
         public readonly int[] MsOrdersByScan;
 
-        public ThermoDynamicData(string filePath)
+        public ThermoRawDynamicData(string filePath) : base(filePath)
         {
-            InitiateDynamicConnection(filePath);
+            InitiateDynamicConnection();
             MsOrdersByScan = GetMsOrdersByScanInDynamicConnection();
         }
 
@@ -44,7 +44,7 @@ namespace ThermoRawFileReader
         /// GetOneBasedScanFromDynamicConnection to get data from a particular scan. Use CloseDynamicConnection to close the 
         /// dynamic connection after all desired data has been retrieved from the dynamic connection.
         /// </summary>
-        private void InitiateDynamicConnection(string filePath)
+        protected override void InitiateDynamicConnection()
         {
             Loaders.LoadElements();
 
@@ -53,9 +53,9 @@ namespace ThermoRawFileReader
                 dynamicConnection.Dispose();
             }
 
-            dynamicConnection = RawFileReaderAdapter.FileFactory(filePath);
+            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
 
-            if (!File.Exists(filePath))
+            if (!File.Exists(FilePath))
             {
                 throw new FileNotFoundException();
             }
@@ -83,7 +83,7 @@ namespace ThermoRawFileReader
         /// Allows access to a .raw file one scan at a time via an open dynamic connection. Returns null if the raw file does not contain the 
         /// scan number specified. Use InitiateDynamicConnection to open a dynamic connection before using this method.
         /// </summary>
-        public MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
             if (dynamicConnection == null)
             {
@@ -95,13 +95,13 @@ namespace ThermoRawFileReader
                 return null;
             }
 
-            return ThermoRawFileReaderData.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            return ThermoRaw.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
         }
 
         /// <summary>
         /// Disposes of the dynamic connection, if one is open.
         /// </summary>
-        public void CloseDynamicConnection()
+        public override void CloseDynamicConnection()
         {
             if (dynamicConnection != null)
             {

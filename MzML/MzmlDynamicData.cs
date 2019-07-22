@@ -12,39 +12,39 @@ using UsefulProteomicsDatabases;
 
 namespace IO.MzML
 {
-    public class MzmlDynamicData
+    public class MzmlDynamicData : DynamicDataConnection
     {
-        public readonly string FilePath;
-
         private Dictionary<int, long> ScanNumberToByteOffset;
         private StreamReader reader;
 
         //private XmlSerializer serializer;
         private static Regex nativeIdScanNumberParser = new Regex(@"(^|\s)scan=(.*?)($|\D)");
 
-        public MzmlDynamicData(string filepath)
+        public MzmlDynamicData(string filepath) : base(filepath)
         {
             //XmlRootAttribute xRoot = new XmlRootAttribute();
             //xRoot.ElementName = "spectrum";
             //xRoot.IsNullable = false;
             //serializer = new XmlSerializer(typeof(IO.MzML.Generated.SpectrumType), xRoot);
 
-            this.FilePath = filepath;
             InitiateDynamicConnection();
         }
 
         /// <summary>
         /// Closes the dynamic connection with the .mzML file.
         /// </summary>
-        public void CloseDynamicConnection()
+        public override void CloseDynamicConnection()
         {
-            reader.Dispose();
+            if (reader != null)
+            {
+                reader.Dispose();
+            }
         }
 
         /// <summary>
         /// Gets the scan with the specified one-based scan number.
         /// </summary>
-        public MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
             MsDataScan scan = null;
 
@@ -82,7 +82,7 @@ namespace IO.MzML
                     int? msOrder = 0;
                     bool? isCentroid = false;
                     Polarity polarity = Polarity.Unknown;
-                    double retentionTime = 0;
+                    double retentionTime = double.NaN;
                     MzRange range = null;
                     string scanFilter = null;
                     MZAnalyzerType mzAnalyzerType = MZAnalyzerType.Unknown;
@@ -98,10 +98,10 @@ namespace IO.MzML
                     int? oneBasedPrecursorScanNumber = null;
                     double? selectedIonMonoisotopicGuessMz = null; // TODO: not sure what this is
 
-                    double scanLowerLimit = 0;
-                    double scanUpperLimit = 0;
-                    double isolationWindowLowerOffset = 0;
-                    double isolationWindowUpperOffset = 0;
+                    double scanLowerLimit = double.NaN;
+                    double scanUpperLimit = double.NaN;
+                    double isolationWindowLowerOffset = double.NaN;
+                    double isolationWindowUpperOffset = double.NaN;
 
                     bool compressed = false;
                     bool readingMzs = false;
@@ -131,7 +131,7 @@ namespace IO.MzML
                                     // profile mode
                                     case "MS:1000128":
                                         isCentroid = false;
-                                        throw new Exception("Reading profile mode mzmls not supported");
+                                        throw new MzLibException("Reading profile mode mzmls not supported");
                                         break;
 
                                     // positive scan mode
@@ -197,6 +197,11 @@ namespace IO.MzML
                                     // selected charge state
                                     case "MS:1000041":
                                         selectedCharge = int.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // selected intensity
+                                    case "MS:1000042":
+                                        selectedIonIntensity = double.Parse(xmlReader["value"]);
                                         break;
 
                                     // activation types
@@ -317,9 +322,19 @@ namespace IO.MzML
                                 {
                                     string precursorScanInfo = xmlReader["spectrumRef"];
 
-                                    Match result = nativeIdScanNumberParser.Match(precursorScanInfo);
-                                    var scanString = result.Groups[2].Value;
-                                    oneBasedPrecursorScanNumber = int.Parse(scanString);
+                                    if (precursorScanInfo != null)
+                                    {
+                                        Match result = nativeIdScanNumberParser.Match(precursorScanInfo);
+                                        var scanString = result.Groups[2].Value;
+                                        oneBasedPrecursorScanNumber = int.Parse(scanString);
+                                    }
+                                }
+                                break;
+
+                            case "USERPARAM":
+                                if (xmlReader.IsStartElement() && xmlReader["name"] != null && xmlReader["name"] == "[mzLib]Monoisotopic M/Z:")
+                                {
+                                    selectedIonMonoisotopicGuessMz = double.Parse(xmlReader["value"]);
                                 }
                                 break;
 
@@ -343,6 +358,11 @@ namespace IO.MzML
                                                 selectedIonIntensity = precursorScan.MassSpectrum.YArray[bestIndex.Value];
                                                 selectedIonMz = precursorScan.MassSpectrum.XArray[bestIndex.Value];
                                             }
+                                        }
+
+                                        if (dissociationType == null)
+                                        {
+                                            dissociationType = DissociationType.Unknown;
                                         }
                                     }
 
@@ -372,7 +392,7 @@ namespace IO.MzML
                                 }
                                 else
                                 {
-                                    throw new Exception("Spectrum data is malformed");
+                                    throw new MzLibException("Spectrum data is malformed");
                                 }
                         }
                     }
@@ -385,7 +405,7 @@ namespace IO.MzML
         /// <summary>
         /// Initiates the dynamic connection with the .mzML file.
         /// </summary>
-        private void InitiateDynamicConnection()
+        protected override void InitiateDynamicConnection()
         {
             if (!File.Exists(FilePath))
             {
@@ -411,9 +431,18 @@ namespace IO.MzML
         private void FindOrCreateIndex(string filepath)
         {
             // look for the index in the mzML file
-            LookForIndex();
+            try
+            {
+                LookForIndex();
+            }
+            catch (Exception)
+            {
+                // something went wrong reading the index
+                // the index will need to be created instead
+                ScanNumberToByteOffset.Clear();
+            }
 
-            // the index could not be found. we will need to build it
+            // the index could not be found or could not be read. we will need to build it
             if (!ScanNumberToByteOffset.Any())
             {
                 CreateIndexFromUnindexedMzml();
@@ -427,12 +456,15 @@ namespace IO.MzML
         {
             long? indexByteOffset = null;
 
-            // check the top of the file for the index
-            while (reader.Peek() > 0)
-            {
-                var line = reader.ReadLine();
+            // check the bottom of the file for the index
+            // this is super annoying... we need to read the file backwards starting from the end 
+            // and then parse the xml...
+            ReverseLineReader rlr = new ReverseLineReader(FilePath);
 
+            foreach (string line in rlr)
+            {
                 string trimmedline = line.Trim();
+
                 if (trimmedline.StartsWith("<indexListOffset>", StringComparison.InvariantCultureIgnoreCase))
                 {
                     trimmedline = trimmedline.Replace("<indexListOffset>", "");
@@ -441,35 +473,9 @@ namespace IO.MzML
                     indexByteOffset = long.Parse(trimmedline);
                     break;
                 }
-                else if (trimmedline.StartsWith("<mzML", StringComparison.InvariantCultureIgnoreCase))
+                else if (trimmedline.StartsWith("</mzML", StringComparison.InvariantCultureIgnoreCase))
                 {
                     break;
-                }
-            }
-
-            if (!indexByteOffset.HasValue)
-            {
-                // check the bottom of the file for the index
-                // this is super annoying... we need to read the file backwards starting from the end 
-                // and then parse the xml...
-                ReverseLineReader rlr = new ReverseLineReader(FilePath);
-
-                foreach (string line in rlr)
-                {
-                    string trimmedline = line.Trim();
-
-                    if (trimmedline.StartsWith("<indexListOffset>", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        trimmedline = trimmedline.Replace("<indexListOffset>", "");
-                        trimmedline = trimmedline.Replace("</indexListOffset>", "");
-
-                        indexByteOffset = long.Parse(trimmedline);
-                        break;
-                    }
-                    else if (trimmedline.StartsWith("</mzML", StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        break;
-                    }
                 }
             }
 
@@ -484,11 +490,15 @@ namespace IO.MzML
         /// </summary>
         private void ReadIndex(long byteOffsetOfIndex)
         {
-            // seek to the byte of the scan
+            // seek to the position of the index in the file
             reader.BaseStream.Position = byteOffsetOfIndex;
             reader.DiscardBufferedData();
 
             bool readingScanIndex = false;
+
+            // some nativeID formats don't have a scan number specified. 
+            // in this case, use a counter to determine the scan number.
+            int scanNumber = 0;
 
             using (XmlReader xmlReader = XmlReader.Create(reader))
             {
@@ -511,7 +521,16 @@ namespace IO.MzML
                             long byteOffset = 0;
 
                             Match result = nativeIdScanNumberParser.Match(spectrumInfo);
-                            var scanString = result.Groups[2].Value;
+
+                            if (result.Groups[2].Success)
+                            {
+                                // TODO: throw some kind of exception here if it doesn't parse
+                                scanNumber = int.Parse(result.Groups[2].Value);
+                            }
+                            else
+                            {
+                                scanNumber++;
+                            }
 
                             if (xmlReader.Read())
                             {
@@ -525,14 +544,7 @@ namespace IO.MzML
                                 // TODO: throw exception
                             }
 
-                            if (int.TryParse(scanString, out int scanNumber))
-                            {
-                                ScanNumberToByteOffset.Add(scanNumber, byteOffset);
-                            }
-                            else
-                            {
-                                //TODO: throw an exception or something.. this index is messed up
-                            }
+                            ScanNumberToByteOffset.Add(scanNumber, byteOffset);
                         }
                     }
                     else if (readingScanIndex && xmlReader.NodeType == XmlNodeType.EndElement)
@@ -562,11 +574,16 @@ namespace IO.MzML
         /// </summary>
         private void CreateIndexFromUnindexedMzml()
         {
+            reader.BaseStream.Position = 0;
+            reader.DiscardBufferedData();
+
+            int scanNumber = 0;
+
             while (reader.Peek() > 0)
             {
                 // this byte offset might be a little different than what it technically 
                 // should be because of white space but it will work out ok
-                long byteOffset = GetByteOffsetAtCurrentPosition();
+                long byteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(reader);
                 var line = reader.ReadLine();
 
                 line = line.Trim();
@@ -574,77 +591,19 @@ namespace IO.MzML
                 if (line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase))
                 {
                     Match result = nativeIdScanNumberParser.Match(line);
-                    string scanString = result.Groups[2].Value;
 
-                    if (int.TryParse(scanString, out int scanNumber))
+                    if (result.Groups[2].Success)
                     {
-                        var tryLine = reader.ReadLine();
-
-                        ScanNumberToByteOffset.Add(scanNumber, byteOffset);
+                        scanNumber = int.Parse(result.Groups[2].Value);
                     }
                     else
                     {
-                        throw new Exception("Could not resolve this information into a scan number: " + line);
+                        scanNumber++;
                     }
+
+                    ScanNumberToByteOffset.Add(scanNumber, byteOffset);
                 }
             }
-        }
-
-        /// <summary>
-        /// The StreamReader object does not have a reliable method to get a byte position in
-        /// a file. This method calculates it.
-        /// 
-        /// Code from: https://stackoverflow.com/questions/5404267/streamreader-and-seeking
-        /// </summary>
-        private long GetByteOffsetAtCurrentPosition()
-        {
-            System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.DeclaredOnly | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.GetField;
-
-            // The current buffer of decoded characters
-            char[] charBuffer = (char[])reader.GetType().InvokeMember("charBuffer", flags, null, reader, null);
-
-            // The index of the next char to be read from charBuffer
-            int charPos = (int)reader.GetType().InvokeMember("charPos", flags, null, reader, null);
-
-            // The number of decoded chars presently used in charBuffer
-            int charLen = (int)reader.GetType().InvokeMember("charLen", flags, null, reader, null);
-
-            // The current buffer of read bytes (byteBuffer.Length = 1024; this is critical).
-            byte[] byteBuffer = (byte[])reader.GetType().InvokeMember("byteBuffer", flags, null, reader, null);
-
-            // The number of bytes read while advancing reader.BaseStream.Position to (re)fill charBuffer
-            int byteLen = (int)reader.GetType().InvokeMember("byteLen", flags, null, reader, null);
-
-            // The number of bytes the remaining chars use in the original encoding.
-            int numBytesLeft = reader.CurrentEncoding.GetByteCount(charBuffer, charPos, charLen - charPos);
-
-            // For variable-byte encodings, deal with partial chars at the end of the buffer
-            int numFragments = 0;
-            if (byteLen > 0 && !reader.CurrentEncoding.IsSingleByte)
-            {
-                if (reader.CurrentEncoding.CodePage == 65001) // UTF-8
-                {
-                    byte byteCountMask = 0;
-                    while ((byteBuffer[byteLen - numFragments - 1] >> 6) == 2) // if the byte is "10xx xxxx", it's a continuation-byte
-                        byteCountMask |= (byte)(1 << ++numFragments); // count bytes & build the "complete char" mask
-                    if ((byteBuffer[byteLen - numFragments - 1] >> 6) == 3) // if the byte is "11xx xxxx", it starts a multi-byte char.
-                        byteCountMask |= (byte)(1 << ++numFragments); // count bytes & build the "complete char" mask
-                                                                      // see if we found as many bytes as the leading-byte says to expect
-                    if (numFragments > 1 && ((byteBuffer[byteLen - numFragments] >> 7 - numFragments) == byteCountMask))
-                        numFragments = 0; // no partial-char in the byte-buffer to account for
-                }
-                else if (reader.CurrentEncoding.CodePage == 1200) // UTF-16LE
-                {
-                    if (byteBuffer[byteLen - 1] >= 0xd8) // high-surrogate
-                        numFragments = 2; // account for the partial character
-                }
-                else if (reader.CurrentEncoding.CodePage == 1201) // UTF-16BE
-                {
-                    if (byteBuffer[byteLen - 2] >= 0xd8) // high-surrogate
-                        numFragments = 2; // account for the partial character
-                }
-            }
-            return reader.BaseStream.Position - numBytesLeft - numFragments;
         }
     }
 

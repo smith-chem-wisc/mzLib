@@ -74,7 +74,7 @@ namespace Test
         public static void ReadMzMlInNewEra()
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
-            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
@@ -88,7 +88,7 @@ namespace Test
         [Test]
         public void LoadBadMzml()
         {
-            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")); // just to be sure
+            File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "asdfasdfasdfasdfasdf.mzML")); // just to be sure
             Assert.Throws<FileNotFoundException>(() => Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "asdfasdfasdfasdfasdf.mzML")));
         }
 
@@ -103,7 +103,7 @@ namespace Test
 
             for (int mz = 400; mz < 1600; mz++)
             {
-                myPeaks.Add((mz, 10d*(double)mz));
+                myPeaks.Add((mz, 10d * (double)mz));
             }
 
             double myMaxIntensity = myPeaks.Max(p => p.intensity);
@@ -617,14 +617,14 @@ namespace Test
         {
             Assert.Throws<AggregateException>(() =>
             {
-                Mzml.LoadAllStaticData(@"tiny.pwiz.1.1.mzML");
+                Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tiny.pwiz.1.1.mzML"));
             }, "Reading profile mode mzmls not supported");
         }
 
         [Test]
         public void LoadMzmlFromConvertedMGFTest()
         {
-            Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
+            Mzml a = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mzML"));
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
             Assert.AreEqual(192, ya.Size);
@@ -1378,6 +1378,91 @@ namespace Test
 
             Assert.AreEqual(3, fakeMzml.GetAllScansList().ElementAt(5).OneBasedPrecursorScanNumber);
             Assert.AreEqual(1, fakeMzml1.GetAllScansList().ElementAt(3).OneBasedPrecursorScanNumber);
+        }
+
+        [Test]
+        [TestCase("tester.mzml")]
+        [TestCase("BinGenerationTest.mzML")]
+        //[TestCase("tiny.pwiz.1.1.mzML")] // reading profile mode not supported
+        public static void TestDynamicMzml(string fileName)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+
+            Mzml staticMzml = Mzml.LoadAllStaticData(filePath);
+            MzmlDynamicData dynamicMzml = new MzmlDynamicData(filePath);
+
+            foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
+            {
+                MsDataScan dynamicScan = dynamicMzml.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
+
+                if (!double.IsNaN(dynamicScan.RetentionTime) || !double.IsNaN(staticScan.RetentionTime))
+                {
+                    Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                }
+
+                Assert.That(dynamicScan.Polarity == staticScan.Polarity);
+
+                if (!double.IsNaN(staticScan.ScanWindowRange.Minimum) || !double.IsNaN(staticScan.ScanWindowRange.Maximum)
+                    || !double.IsNaN(dynamicScan.ScanWindowRange.Minimum) || !double.IsNaN(dynamicScan.ScanWindowRange.Maximum))
+                {
+                    Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
+                    Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
+                }
+
+                Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
+                Assert.That(dynamicScan.NativeId == staticScan.NativeId);
+                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                Assert.That(dynamicScan.TotalIonCurrent == staticScan.TotalIonCurrent);
+                Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
+                Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+
+                Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
+                Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
+                Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
+                Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
+                Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
+
+                if (dynamicScan.IsolationWidth != null || staticScan.IsolationWidth != null)
+                {
+                    if (!double.IsNaN(dynamicScan.IsolationWidth.Value) || !double.IsNaN(staticScan.IsolationWidth.Value))
+                    {
+                        Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
+                    }
+                }
+
+                // TODO: something is messed up with the scan headers in this file. there are duplicates. 
+                // that doesn't seem normal?
+                if (fileName != "BinGenerationTest.mzML")
+                {
+                    Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                }
+                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
+                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
+
+                if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
+                {
+                    Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
+                    Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
+                }
+
+                Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+
+                for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
+                {
+                    double staticMz = staticScan.MassSpectrum.XArray[i];
+                    double staticIntensity = staticScan.MassSpectrum.YArray[i];
+
+                    double dynamicMz = dynamicScan.MassSpectrum.XArray[i];
+                    double dynamicIntensity = dynamicScan.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz == staticMz);
+                    Assert.That(dynamicIntensity == staticIntensity);
+                }
+            }
         }
 
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)

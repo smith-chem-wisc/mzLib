@@ -26,9 +26,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestFlashLFQ", "TestFlashLF
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Mgf", "Mgf\Mgf.csproj", "{D8BCAE00-E826-4771-A423-8B47D8D86EF4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ThermoRawFileReader", "ThermoRawFileReader\ThermoRawFileReader.csproj", "{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ThermoRaw", "ThermoRawFileReader\ThermoRaw.csproj", "{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BayesianEstimation", "BayesianEstimation\BayesianEstimation.csproj", "{2306BB69-886C-4B18-8329-B575079DFD67}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BayesianEstimation", "BayesianEstimation\BayesianEstimation.csproj", "{2306BB69-886C-4B18-8329-B575079DFD67}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IO", "IO", "{5F412DB7-44A3-4494-96FD-95A8ABB7A4F5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -124,6 +126,11 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{012434FB-88A9-4DEC-B887-5F64C0B481D4} = {5F412DB7-44A3-4494-96FD-95A8ABB7A4F5}
+		{D8BCAE00-E826-4771-A423-8B47D8D86EF4} = {5F412DB7-44A3-4494-96FD-95A8ABB7A4F5}
+		{552EABD1-7A7C-4C52-BF3D-4EEDD70E7E89} = {5F412DB7-44A3-4494-96FD-95A8ABB7A4F5}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B7C26F74-0023-4108-B9D4-EA1E86CA569B}
