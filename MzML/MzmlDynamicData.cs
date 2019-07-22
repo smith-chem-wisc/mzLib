@@ -96,7 +96,7 @@ namespace IO.MzML
                     double? isolationWidth = null;
                     DissociationType? dissociationType = null;
                     int? oneBasedPrecursorScanNumber = null;
-                    double? selectedIonMonoisotopicGuessMz = null; // TODO: not sure what this is
+                    double? selectedIonMonoisotopicGuessMz = null;
 
                     double scanLowerLimit = double.NaN;
                     double scanUpperLimit = double.NaN;
