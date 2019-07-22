@@ -1382,10 +1382,27 @@ namespace Test
 
         [Test]
         [TestCase("tester.mzml")]
-        [TestCase("BinGenerationTest.mzML")]
-        //[TestCase("tiny.pwiz.1.1.mzML")] // reading profile mode not supported
-        public static void TestDynamicMzml(string fileName)
+        [TestCase("SmallCalibratibleYeast.mzml")]
+        [TestCase("small.raw", true)]
+        [TestCase("small.raw", false)]
+        [TestCase("testFileWMS2.raw", true)]
+        [TestCase("testFileWMS2.raw", false)]
+        [TestCase("testFileWMS2.raw", false)]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", true)]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", false)]
+        public static void TestDynamicMzml(string fileName, bool writeIndexed = false)
         {
+            if (Path.GetExtension(fileName).ToUpper() == ".RAW")
+            {
+                string rawPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+                var raw = IO.ThermoRaw.ThermoRaw.LoadAllStaticData(rawPath);
+                string mzmlFilename = Path.GetFileNameWithoutExtension(fileName) + ".mzML";
+                fileName = mzmlFilename;
+                string mzmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+
+                MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(raw, mzmlPath, writeIndexed);
+            }
+
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
             Mzml staticMzml = Mzml.LoadAllStaticData(filePath);
@@ -1433,12 +1450,85 @@ namespace Test
                     }
                 }
 
-                // TODO: something is messed up with the scan headers in this file. there are duplicates. 
-                // that doesn't seem normal?
-                if (fileName != "BinGenerationTest.mzML")
+                Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
+                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
+
+                if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
                 {
-                    Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                    Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
+                    Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
                 }
+
+                Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+
+                for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
+                {
+                    double staticMz = staticScan.MassSpectrum.XArray[i];
+                    double staticIntensity = staticScan.MassSpectrum.YArray[i];
+
+                    double dynamicMz = dynamicScan.MassSpectrum.XArray[i];
+                    double dynamicIntensity = dynamicScan.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz == staticMz);
+                    Assert.That(dynamicIntensity == staticIntensity);
+                }
+            }
+        }
+
+        [Test]
+        public static void TestDynamicMzmlWithPeakFiltering()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+            FilteringParams filteringParams = new FilteringParams(200, 0.01, 1, null, false, true, true);
+
+            Mzml staticMzml = Mzml.LoadAllStaticData(filePath, filteringParams);
+            MzmlDynamicData dynamicMzml = new MzmlDynamicData(filePath);
+
+            foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
+            {
+                MsDataScan dynamicScan = dynamicMzml.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber, filteringParams);
+
+                Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
+
+                if (!double.IsNaN(dynamicScan.RetentionTime) || !double.IsNaN(staticScan.RetentionTime))
+                {
+                    Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                }
+
+                Assert.That(dynamicScan.Polarity == staticScan.Polarity);
+
+                if (!double.IsNaN(staticScan.ScanWindowRange.Minimum) || !double.IsNaN(staticScan.ScanWindowRange.Maximum)
+                    || !double.IsNaN(dynamicScan.ScanWindowRange.Minimum) || !double.IsNaN(dynamicScan.ScanWindowRange.Maximum))
+                {
+                    Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
+                    Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
+                }
+
+                Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
+                Assert.That(dynamicScan.NativeId == staticScan.NativeId);
+                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                Assert.That(dynamicScan.TotalIonCurrent == staticScan.TotalIonCurrent);
+                Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
+                Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+
+                Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
+                Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
+                Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
+                Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
+                Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
+
+                if (dynamicScan.IsolationWidth != null || staticScan.IsolationWidth != null)
+                {
+                    if (!double.IsNaN(dynamicScan.IsolationWidth.Value) || !double.IsNaN(staticScan.IsolationWidth.Value))
+                    {
+                        Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
+                    }
+                }
+
+                Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
                 Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
                 Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
 

@@ -51,7 +51,7 @@ namespace IO.Mgf
                         int charge = 2;
                         int scanNumber = 0;
                         int oldScanNumber = 0;
-                        double rtInMinutes = 0;
+                        double rtInMinutes = double.NaN;
 
                         while ((s = sr.ReadLine()) != null)
                         {
@@ -69,6 +69,7 @@ namespace IO.Mgf
                                 intensities = new List<double>();
                                 oldScanNumber = scanNumber;
                                 charge = 2; //default when unknown
+                                rtInMinutes = double.NaN; //default when unknown
 
                                 //skip the next two lines which are "" and "BEGIN IONS"
                                 while ((s = sr.ReadLine()) != null && !s.Equals("BEGIN IONS"))

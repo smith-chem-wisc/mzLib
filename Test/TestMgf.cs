@@ -60,6 +60,7 @@ namespace Test
 
         [Test]
         [TestCase("tester.mgf")]
+        [TestCase("SmallCalibratibleYeast.mgf")]
         public static void TestDynamicMgf(string fileName)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
@@ -73,7 +74,12 @@ namespace Test
 
                 Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
-                //Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime); // TODO: there seems to be a bug reading RT in the LoadAllStaticData method?
+
+                if (!double.IsNaN(dynamicScan.RetentionTime) || !double.IsNaN(staticScan.RetentionTime))
+                {
+                    Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                }
+
                 Assert.That(dynamicScan.Polarity == staticScan.Polarity);
                 Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
                 Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);

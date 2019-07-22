@@ -171,6 +171,12 @@
     <None Include="DatabaseTests\Working_86.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Include="DataFiles\SmallCalibratibleYeast.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="DataFiles\SmallCalibratibleYeast.mzml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Include="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

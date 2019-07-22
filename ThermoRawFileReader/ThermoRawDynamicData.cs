@@ -46,20 +46,25 @@ namespace IO.ThermoRaw
         /// </summary>
         protected override void InitiateDynamicConnection()
         {
-            Loaders.LoadElements();
+            if (!File.Exists(FilePath))
+            {
+                throw new FileNotFoundException();
+            }
 
+            if (Path.GetExtension(FilePath).ToUpper() != ".RAW")
+            {
+                throw new InvalidDataException();
+            }
+
+            Loaders.LoadElements();
+            
             if (dynamicConnection != null)
             {
                 dynamicConnection.Dispose();
             }
 
             dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
-
-            if (!File.Exists(FilePath))
-            {
-                throw new FileNotFoundException();
-            }
-
+            
             if (!dynamicConnection.IsOpen)
             {
                 throw new MzLibException("Unable to access RAW file!");

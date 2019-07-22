@@ -40,7 +40,7 @@ namespace IO.Mgf
                 List<(double mz, double intensity)> peaks = new List<(double, double)>();
                 int charge = 2; //default when unknown
                 double precursorMz = 0;
-                double rtInMinutes = 0;
+                double rtInMinutes = double.NaN; //default when unknown
 
                 // read the scan data
                 while (reader.Peek() > 0)
@@ -81,10 +81,19 @@ namespace IO.Mgf
                 double[] mzs = peaks.Select(p => p.mz).ToArray();
                 double[] intensities = peaks.Select(p => p.intensity).ToArray();
 
+                Array.Sort(mzs, intensities);
+                MzRange scanRange = new MzRange(mzs[0], mzs[mzs.Length - 1]);
+
+                // peak filtering
+                if (filterParams != null && intensities.Length > 0 && filterParams.ApplyTrimmingToMsMs)
+                {
+                    MsDataFile.WindowModeHelper(ref intensities, ref mzs, filterParams, scanRange.Minimum, scanRange.Maximum);
+                }
+
                 MzSpectrum spectrum = new MzSpectrum(mzs, intensities, false);
 
                 scan = new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative,
-                    rtInMinutes, new MzRange(mzs[0], mzs[mzs.Length - 1]), null, MZAnalyzerType.Unknown,
+                    rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
                     intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null,
                     DissociationType.Unknown, null, precursorMz);
             }
@@ -107,9 +116,14 @@ namespace IO.Mgf
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
+            if (Path.GetExtension(FilePath).ToUpper() != ".MGF")
+            {
+                throw new InvalidDataException();
+            }
 
+            Loaders.LoadElements();
             reader = new StreamReader(FilePath);
+
             BuildIndex();
         }
 

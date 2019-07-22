@@ -15,6 +15,7 @@ namespace IO.MzML
     public class MzmlDynamicData : DynamicDataConnection
     {
         private Dictionary<int, long> ScanNumberToByteOffset;
+        private Dictionary<string, int> NativeIdToScanNumber;
         private StreamReader reader;
 
         //private XmlSerializer serializer;
@@ -324,9 +325,7 @@ namespace IO.MzML
 
                                     if (precursorScanInfo != null)
                                     {
-                                        Match result = nativeIdScanNumberParser.Match(precursorScanInfo);
-                                        var scanString = result.Groups[2].Value;
-                                        oneBasedPrecursorScanNumber = int.Parse(scanString);
+                                        oneBasedPrecursorScanNumber = NativeIdToScanNumber[precursorScanInfo];
                                     }
                                 }
                                 break;
@@ -345,20 +344,6 @@ namespace IO.MzML
                                     if (msOrder > 1)
                                     {
                                         isolationWidth = isolationWindowUpperOffset + isolationWindowLowerOffset;
-
-                                        // look for precursor ion info in the precursor scan
-                                        if (oneBasedPrecursorScanNumber != null && selectedIonMz.HasValue)
-                                        {
-                                            MsDataScan precursorScan = GetOneBasedScanFromDynamicConnection(oneBasedPrecursorScanNumber.Value);
-                                            int? bestIndex = precursorScan.MassSpectrum.GetClosestPeakIndex(selectedIonMz.Value);
-
-                                            if (bestIndex.HasValue &&
-                                                Math.Abs(precursorScan.MassSpectrum.XArray[bestIndex.Value] - selectedIonMz.Value) < 0.1)
-                                            {
-                                                selectedIonIntensity = precursorScan.MassSpectrum.YArray[bestIndex.Value];
-                                                selectedIonMz = precursorScan.MassSpectrum.XArray[bestIndex.Value];
-                                            }
-                                        }
 
                                         if (dissociationType == null)
                                         {
@@ -421,14 +406,16 @@ namespace IO.MzML
             reader = new StreamReader(FilePath);
 
             ScanNumberToByteOffset = new Dictionary<int, long>();
-            FindOrCreateIndex(FilePath);
+            NativeIdToScanNumber = new Dictionary<string, int>();
+
+            FindOrCreateIndex();
         }
 
         /// <summary>
         /// Finds the index in the .mzML file. If the index doesn't exist or can't be found,
-        /// then an index is created by the method BuildIndexFromUnindexedMzml().
+        /// then an index is created by the method CreateIndexFromUnindexedMzml().
         /// </summary>
-        private void FindOrCreateIndex(string filepath)
+        private void FindOrCreateIndex()
         {
             // look for the index in the mzML file
             try
@@ -440,6 +427,7 @@ namespace IO.MzML
                 // something went wrong reading the index
                 // the index will need to be created instead
                 ScanNumberToByteOffset.Clear();
+                NativeIdToScanNumber.Clear();
             }
 
             // the index could not be found or could not be read. we will need to build it
@@ -532,6 +520,8 @@ namespace IO.MzML
                                 scanNumber++;
                             }
 
+                            NativeIdToScanNumber.Add(spectrumInfo, scanNumber);
+
                             if (xmlReader.Read())
                             {
                                 var textNode = xmlReader.Value.Trim();
@@ -591,7 +581,30 @@ namespace IO.MzML
                 if (line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase))
                 {
                     Match result = nativeIdScanNumberParser.Match(line);
+                    int ind = line.IndexOf("id=\"");
+                    string nativeId;
 
+                    if (ind >= 0)
+                    {
+                        StringBuilder nativeIdBuilder = new StringBuilder();
+
+                        for (int r = ind + 4; r < line.Length; r++)
+                        {
+                            if (line[r] == '"')
+                            {
+                                break;
+                            }
+
+                            nativeIdBuilder.Append(line[r]);
+                        }
+
+                        nativeId = nativeIdBuilder.ToString();
+                    }
+                    else
+                    {
+                        throw new MzLibException("Could not get nativeID from line: " + line);
+                    }
+                    
                     if (result.Groups[2].Success)
                     {
                         scanNumber = int.Parse(result.Groups[2].Value);
@@ -601,6 +614,7 @@ namespace IO.MzML
                         scanNumber++;
                     }
 
+                    NativeIdToScanNumber.Add(nativeId, scanNumber);
                     ScanNumberToByteOffset.Add(scanNumber, byteOffset);
                 }
             }
