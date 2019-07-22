@@ -1394,9 +1394,10 @@ namespace Test
         {
             if (Path.GetExtension(fileName).ToUpper() == ".RAW")
             {
+                string append = writeIndexed ? "_indexed" : "_unindexed";
                 string rawPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
                 var raw = IO.ThermoRaw.ThermoRaw.LoadAllStaticData(rawPath);
-                string mzmlFilename = Path.GetFileNameWithoutExtension(fileName) + ".mzML";
+                string mzmlFilename = Path.GetFileNameWithoutExtension(fileName) + append + ".mzML";
                 fileName = mzmlFilename;
                 string mzmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
@@ -1488,6 +1489,12 @@ namespace Test
 
             foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
             {
+                if(staticScan.OneBasedScanNumber > 10)
+                {
+                    // only the first 10 scans are checked because checking the entire file takes 7min on AppVeyor
+                    break;
+                }
+
                 MsDataScan dynamicScan = dynamicMzml.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber, filteringParams);
 
                 Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
