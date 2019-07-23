@@ -15,19 +15,19 @@ namespace FlashLFQ
         public readonly double StandardDeviationPointEstimate;
         public readonly double NuPointEstimate;
         public readonly (double, double) hdi_95;
-        public readonly List<double> foldChangeMeasurements;
+        public readonly List<(Peptide peptide, List<double> foldChanges)> peptideFoldChangeMeasurements;
         public double PosteriorErrorProbability { get; private set; }
         public double FalseDiscoveryRate { get; set; }
         public double DegreeOfEvidence { get; private set; }
         public double? cutoff { get; set; }
 
         public ProteinQuantificationEngineResult(ProteinGroup protein, string condition1, string condition2, double[] mus, double[] sds, double[] nus,
-            List<double> fcs, double referenceIntensity)
+            List<(Peptide, List<double>)> fcs, double referenceIntensity)
         {
             this.protein = protein;
             this.condition1 = condition1;
             this.condition2 = condition2;
-            this.foldChangeMeasurements = fcs;
+            this.peptideFoldChangeMeasurements = fcs;
             this.FoldChangePointEstimate = mus.Average();
             this.StandardDeviationPointEstimate = sds.Average();
             this.NuPointEstimate = nus.Average();
@@ -74,7 +74,7 @@ namespace FlashLFQ
             int numIncreasing = skepticalMus.Count(p => p > cutoff);
             int numDecreasing = skepticalMus.Count(p => p < -cutoff);
 
-            // the hypotheses are equally likely beofre any data
+            // the hypotheses are equally likely before any data is examined
             // if something goes wrong and none of the following "if" statements are triggered, then PEP will evaluate to 1.0
             double nullHypothesisCount = 1.0;
             double alternativeHypothesisCount = 1.0;
@@ -110,8 +110,42 @@ namespace FlashLFQ
 
         public override string ToString()
         {
-            return condition1 + "\t" + condition2 + "\t" + cutoff.Value + "\t" + FoldChangePointEstimate + "\t" + ConditionIntensityPointEstimate 
-                + "\t" + foldChangeMeasurements.Count() + "\t" + PosteriorErrorProbability + "\t" + FalseDiscoveryRate;
+            int nPeptides = peptideFoldChangeMeasurements.Count;
+            int nMeasurements = peptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
+            var measurementsString = peptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F4"))));
+
+            return 
+                protein.ProteinGroupName + "\t" +
+                protein.GeneName + "\t" +
+                protein.Organism + "\t" +
+                condition1 + "\t" + 
+                condition2 + "\t" + 
+                cutoff.Value + "\t" + 
+                FoldChangePointEstimate + "\t" + 
+                ConditionIntensityPointEstimate + "\t" +
+                nPeptides + "\t" +
+                nMeasurements + "\t" +
+                string.Join(",", measurementsString) + "\t" +
+                PosteriorErrorProbability + "\t" + 
+                FalseDiscoveryRate + "\t\t";
+        }
+
+        public static string TabSeparatedHeader()
+        {
+            return
+                "Protein Group" + "\t" +
+                "Gene" + "\t" +
+                "Organism" + "\t" +
+                "Base Condition" + "\t" +
+                "Treatment Condition" + "\t" +
+                "Log2 Fold-Change Cutoff" + "\t" +
+                "Protein Log2 Fold-Change" + "\t" +
+                "Protein Intensity for Treatment Condition" + "\t" +
+                "Number of Peptides" + "\t" +
+                "Number of Fold-Change Measurements" + "\t" +
+                "List of Fold-Change Measurements Grouped by Peptide" + "\t" +
+                "Posterior Error Probability" + "\t" +
+                "False Discovery Rate" + "\t\t";
         }
     }
 }

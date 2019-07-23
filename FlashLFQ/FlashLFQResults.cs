@@ -266,18 +266,17 @@ namespace FlashLFQ
 
                     foreach (var condition in firstProteinQuantResults.Keys)
                     {
-                        header.Append("Protein Accession\tGene\tOrganism\tCondition1\tCondition2\tlogFC Cutoff\tlogFC\tIntensity\tNumber of Measurements" +
-                                    "\tPosterior Error Probability\tFalse Discovery Rate\t\t");
+                        header.Append(ProteinQuantificationEngineResult.TabSeparatedHeader());
 
                         int p = 0;
 
-                        foreach (var protein in ProteinGroups.OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate))
+                        // sort by protein false discovery rate, then by number of fold-change measurements
+                        foreach (var protein in ProteinGroups
+                            .OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate)
+                            .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.Item2).Count()))
                         {
                             proteinStringBuilders[p].Append(
-                                protein.Value.ProteinGroupName + "\t" +
-                                protein.Value.GeneName + "\t" +
-                                protein.Value.Organism + "\t" +
-                                protein.Value.conditionToQuantificationResults[condition].ToString() + "\t\t");
+                                protein.Value.conditionToQuantificationResults[condition].ToString());
 
                             p++;
                         }

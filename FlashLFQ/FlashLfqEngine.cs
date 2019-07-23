@@ -204,17 +204,18 @@ namespace FlashLFQ
             // calculate peptide intensities 
             _results.CalculatePeptideResults();
 
-            // calculate protein intensities
+            // do top3 protein quantification
+            _results.CalculateProteinResultsTop3();
+
+            // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
             {
                 if (_spectraFileInfo.Count == 1 || _spectraFileInfo.Select(p => p.Condition).Distinct().Count() == 1)
                 {
                     if (!Silent)
                     {
-                        Console.WriteLine("Can't do Bayesian protein quant with only one spectra file or condition. Doing top3 quant instead");
+                        Console.WriteLine("Can't do Bayesian protein quant with only one spectra file or condition. FlashLFQ will still do a top3 protein quant");
                     }
-
-                    _results.CalculateProteinResultsTop3();
                 }
                 else
                 {
@@ -228,10 +229,6 @@ namespace FlashLFQ
                         throw new MzLibException("A crash occured in FlashLFQ during the Bayesian protein quantification process:\n" + e.Message);
                     }
                 }
-            }
-            else
-            {
-                _results.CalculateProteinResultsTop3();
             }
 
             // done

@@ -121,11 +121,12 @@ namespace FlashLFQ
                         ProteinGroup protein = proteinList[i].Key;
 
                         // get the fold-change measurements for the peptides assigned to this protein
-                        List<double> peptideFoldChanges = GetPeptideFoldChangeMeasurements(protein, BaseCondition, condition, null, null);
+                        List<(Peptide, List<double>)> peptideFoldChanges = GetPeptideFoldChangeMeasurements(protein, BaseCondition, condition, null, null);
+                        int measurementCount = peptideFoldChanges.SelectMany(p => p.Item2).Count();
 
                         ProteinQuantificationEngineResult result;
 
-                        if (peptideFoldChanges.Count > 1)
+                        if (measurementCount > 1)
                         {
                             // run the Bayesian analysis
                             result = RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
@@ -137,10 +138,10 @@ namespace FlashLFQ
                             result.cutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(skepticalMus);
                         }
-                        else if (peptideFoldChanges.Count == 1)
+                        else if (measurementCount == 1)
                         {
                             result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
-                                new double[] { peptideFoldChanges.First() }, new double[] { double.NaN },
+                                new double[] { peptideFoldChanges.SelectMany(p => p.Item2).First() }, new double[] { double.NaN },
                                 new double[] { double.NaN }, peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
 
                             result.cutoff = nullHyp;
@@ -201,7 +202,11 @@ namespace FlashLFQ
             }
 
             // match proteins to peptides
-            ProteinsWithConstituentPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
+            ProteinsWithConstituentPeptides = results.PeptideModifiedSequences.Values
+                .SelectMany(p => p.proteinGroups)
+                .Distinct()
+                .ToDictionary(p => p, p => new List<Peptide>());
+
             foreach (var peptide in results.PeptideModifiedSequences)
             {
                 if (!peptide.Value.UseForProteinQuant || (!UseSharedPeptides && sharedPeptides.Contains(peptide.Value)))
@@ -316,19 +321,18 @@ namespace FlashLFQ
         /// ---> biorep1 and biorep2 are not null.
         /// (This returns a list of peptide fold-changes between the defined bioreps of (a) condition(s).)
         /// </summary>
-        private List<double> GetPeptideFoldChangeMeasurements(ProteinGroup protein, string condition1, string condition2, int? biorep1, int? biorep2)
+        private List<(Peptide, List<double>)> GetPeptideFoldChangeMeasurements(ProteinGroup protein, string condition1, string condition2, int? biorep1, int? biorep2)
         {
-            List<double> allPeptideFoldChanges = new List<double>();
+            List<(Peptide, List<double>)> allPeptideFoldChanges = new List<(Peptide, List<double>)>();
 
             List<Peptide> peptides = ProteinsWithConstituentPeptides[protein];
 
             int numB1 = results.SpectraFiles.Where(p => p.Condition == condition1).Max(p => p.BiologicalReplicate) + 1;
             int numB2 = results.SpectraFiles.Where(p => p.Condition == condition2).Max(p => p.BiologicalReplicate) + 1;
 
-            List<double> peptideFoldChanges = new List<double>();
             foreach (var peptide in peptides)
             {
-                peptideFoldChanges.Clear();
+                List<double> peptideFoldChanges = new List<double>();
 
                 // fold-changes between different conditions
                 if (biorep1 == null && biorep2 == null && condition1 != condition2)
@@ -400,7 +404,7 @@ namespace FlashLFQ
                     throw new MzLibException("Problem getting peptide fold-change measurements for protein " + protein.ProteinGroupName);
                 }
 
-                allPeptideFoldChanges.AddRange(peptideFoldChanges);
+                allPeptideFoldChanges.Add((peptide, peptideFoldChanges));
             }
 
             return allPeptideFoldChanges;
@@ -427,13 +431,15 @@ namespace FlashLFQ
         /// If "skepticalPrior" is set to true, then the result's estimate of the fold-change between conditions is drawn towards 
         /// zero. This is useful for estimating the posterior error probability (PEP) that a fold-change is below a certain cutoff.
         /// </summary>
-        private ProteinQuantificationEngineResult RunBayesianProteinQuant(List<double> foldChanges, ProteinGroup protein, string condition, int randomSeed,
+        private ProteinQuantificationEngineResult RunBayesianProteinQuant(List<(Peptide, List<double>)> peptideFoldChanges, ProteinGroup protein, string condition, int randomSeed,
             double? nullHypothesisCutoff, bool skepticalPrior, int burnin, int n, out double[] mus)
         {
             if (skepticalPrior && nullHypothesisCutoff == null)
             {
                 throw new MzLibException("Invalid protein quantification parameters given for protein " + protein.ProteinGroupName);
             }
+
+            List<double> foldChanges = peptideFoldChanges.SelectMany(p => p.Item2).ToList();
 
             // the Math.Max is here because in some edge cases the SD can be 0, which causes a crash
             // also, the prior distribution for SD would be very narrow if SD < 0.001
@@ -473,7 +479,7 @@ namespace FlashLFQ
                 mus,
                 sds,
                 nus,
-                foldChanges,
+                peptideFoldChanges,
                 ProteinToBaseConditionIntensity[protein]
             );
 
@@ -514,8 +520,8 @@ namespace FlashLFQ
                 {
                     ProteinGroup protein = proteinList[i].Key;
 
-                    List<double> peptideFoldChanges = new List<double>();
-
+                    List<(Peptide, List<double>)> peptideFoldChanges = new List<(Peptide, List<double>)>();
+                    
                     if (biorepCount > 1)
                     {
                         if (!PairedSamples)
@@ -537,12 +543,13 @@ namespace FlashLFQ
                     }
 
                     ProteinQuantificationEngineResult result;
+                    int measurementCount = peptideFoldChanges.SelectMany(p => p.Item2).Count();
 
-                    if (peptideFoldChanges.Count > 1)
+                    if (measurementCount > 1)
                     {
                         // run the Bayesian analysis
                         result = RunBayesianProteinQuant(peptideFoldChanges, protein, treatmentCondition,
-                            randomSeedsForEachProtein[protein][0], null, false, 500, 500, out var mus);
+                        randomSeedsForEachProtein[protein][0], null, false, 500, 500, out var mus);
 
                         lock (experimentalNullResults)
                         {
@@ -569,7 +576,9 @@ namespace FlashLFQ
                 {
                     // TODO: not sure what to do here.. there were no protein quant results for this condition
                     // for now the cutoff is just made to be a fold-change of 1.0, but maybe an exception should be thrown...
-                    stdDev = 0.3333;
+
+                    // the experimental null is 3 * stdDev so the fold-change cutoff will end up being 1.0
+                    stdDev = 1.0 / 3.0;
 
                     //throw new MzLibException("Could not determine experimental null for condition " + treatmentCondition);
                 }
@@ -591,7 +600,7 @@ namespace FlashLFQ
         {
             var bayesianQuantResults = bayesianProteinQuantificationResults
                 .OrderByDescending(p => p.DegreeOfEvidence)
-                .ThenByDescending(p => p.foldChangeMeasurements.Count)
+                .ThenByDescending(p => p.peptideFoldChangeMeasurements.SelectMany(v => v.Item2).Count())
                 .ToList();
 
             double runningPEP = 0;
