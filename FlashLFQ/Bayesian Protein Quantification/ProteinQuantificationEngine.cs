@@ -135,7 +135,7 @@ namespace FlashLFQ
                             RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
                                 randomSeedsForEachProtein[protein][1], nullHyp, true, BurnInSteps, NSteps, out var skepticalMus);
 
-                            result.cutoff = nullHyp;
+                            result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(skepticalMus);
                         }
                         else if (measurementCount == 1)
@@ -144,7 +144,7 @@ namespace FlashLFQ
                                 new double[] { peptideFoldChanges.SelectMany(p => p.Item2).First() }, new double[] { double.NaN },
                                 new double[] { double.NaN }, peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
 
-                            result.cutoff = nullHyp;
+                            result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
                         else
@@ -153,7 +153,7 @@ namespace FlashLFQ
                                 new double[] { 0.0 }, new double[] { double.NaN }, new double[] { double.NaN },
                                 peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
 
-                            result.cutoff = nullHyp;
+                            result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
 
@@ -447,7 +447,7 @@ namespace FlashLFQ
             double mean = foldChanges.Mean();
 
             // the Math.max is here for cases where the cutoff is very small (e.g., 0)
-            double priorMuSd = Math.Max(0.05, skepticalPrior ? nullHypothesisCutoff.Value : sd * 100);
+            double priorMuSd = Math.Max(0.05, skepticalPrior ? (nullHypothesisCutoff.Value * (2.0 / 3.0)) : sd * 100);
             double priorMuMean = skepticalPrior ? 0 : mean;
 
             AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(
@@ -521,7 +521,7 @@ namespace FlashLFQ
                     ProteinGroup protein = proteinList[i].Key;
 
                     List<(Peptide, List<double>)> peptideFoldChanges = new List<(Peptide, List<double>)>();
-                    
+
                     if (biorepCount > 1)
                     {
                         if (!PairedSamples)
@@ -599,8 +599,8 @@ namespace FlashLFQ
         private void CalculateFalseDiscoveryRates(List<ProteinQuantificationEngineResult> bayesianProteinQuantificationResults)
         {
             var bayesianQuantResults = bayesianProteinQuantificationResults
-                .OrderByDescending(p => p.DegreeOfEvidence)
-                .ThenByDescending(p => p.peptideFoldChangeMeasurements.SelectMany(v => v.Item2).Count())
+                .OrderByDescending(p => 1.0 - p.PosteriorErrorProbability)
+                .ThenByDescending(p => p.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count())
                 .ToList();
 
             double runningPEP = 0;

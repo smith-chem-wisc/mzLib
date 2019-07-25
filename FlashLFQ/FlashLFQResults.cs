@@ -273,7 +273,7 @@ namespace FlashLFQ
                         // sort by protein false discovery rate, then by number of fold-change measurements
                         foreach (var protein in ProteinGroups
                             .OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate)
-                            .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.Item2).Count()))
+                            .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].PeptideFoldChangeMeasurements.SelectMany(b => b.Item2).Count()))
                         {
                             proteinStringBuilders[p].Append(
                                 protein.Value.conditionToQuantificationResults[condition].ToString());

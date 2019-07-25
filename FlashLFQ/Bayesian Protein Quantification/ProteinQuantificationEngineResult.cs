@@ -8,125 +8,105 @@ namespace FlashLFQ
     public class ProteinQuantificationEngineResult
     {
         public readonly ProteinGroup protein;
-        public readonly string condition1;
-        public readonly string condition2;
+        public readonly string BaseCondition;
+        public readonly string TreatmentCondition;
         public readonly double FoldChangePointEstimate;
         public readonly double ConditionIntensityPointEstimate;
         public readonly double StandardDeviationPointEstimate;
         public readonly double NuPointEstimate;
-        public readonly (double, double) hdi_95;
-        public readonly List<(Peptide peptide, List<double> foldChanges)> peptideFoldChangeMeasurements;
+        public readonly (double, double) HDI_95;
+        public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;
         public double PosteriorErrorProbability { get; private set; }
         public double FalseDiscoveryRate { get; set; }
-        public double DegreeOfEvidence { get; private set; }
-        public double? cutoff { get; set; }
+        public double? NullHypothesisCutoff { get; set; }
 
         public ProteinQuantificationEngineResult(ProteinGroup protein, string condition1, string condition2, double[] mus, double[] sds, double[] nus,
             List<(Peptide, List<double>)> fcs, double referenceIntensity)
         {
             this.protein = protein;
-            this.condition1 = condition1;
-            this.condition2 = condition2;
-            this.peptideFoldChangeMeasurements = fcs;
+            this.BaseCondition = condition1;
+            this.TreatmentCondition = condition2;
+            this.PeptideFoldChangeMeasurements = fcs;
             this.FoldChangePointEstimate = mus.Average();
             this.StandardDeviationPointEstimate = sds.Average();
             this.NuPointEstimate = nus.Average();
-            this.hdi_95 = Util.GetHighestDensityInterval(mus, 0.95);
+            this.HDI_95 = Util.GetHighestDensityInterval(mus, 0.95);
             this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
         }
 
         /// <summary>
-        /// The posterior error probability (PEP) is the probability that the alternative hypothesis is not true.
+        /// The posterior error probability (PEP) is the probability that the null hypothesis is true.
         /// 
         /// This is estimated by dividing the number of Markov Chain Monte Carlo iterations that show a fold-change
-        /// less than the cutoff by the number of MCMC iterations that show a fold-change greater than the cutoff.
+        /// greater than the cutoff by the number of total MCMC iterations.
         /// 
-        /// This means that if the null and alternative hypotheses are equally likely, the PEP equals 1.
-        /// If the null hypothesis is more likely than the alternative, the PEP is also equal to 1.
-        /// If the alternative hypothesis is more likely than the null hypothesis, then the PEP is less than 1.
+        /// This means that if the null and alternative hypotheses are equally likely, the PEP equals 0.5.
+        /// If the null hypothesis is more likely than the alternative, the PEP is greater than 0.5.
+        /// If the alternative hypothesis is more likely than the null hypothesis, then the PEP is less than 0.5.
         /// As the alternative hypothesis becomes increasingly likely, the PEP decreases towards zero.
         /// 
         /// If there are no iterations of the MCMC algorithm that show a protein fold-change less than the cutoff,
         /// then the PEP equals zero. 
         /// 
         /// If there are no iterations of the MCMC algorithm that show a protein fold-change greater than the absolute
-        /// value of the cutoff, then the PEP equals 1 and the null hypothesis can be accepted, rather than just
-        /// rejecting the alternative hypothesis.
+        /// value of the cutoff, then the PEP equals 1 and the null hypothesis can be accepted.
         /// 
         /// Additional MCMC iterations can be performed to determine a more precise estimate of the PEP.
-        /// 
-        /// Numerically:
-        /// F = fold change
-        /// C = cutoff
-        /// 
-        /// if F > C, then P(H0|D) = P(F < C) / P (F > C)
-        /// if F < -C, then P(H0|D) = P(F > -C) / P (F < -C)
         /// </summary>
-        public void CalculatePosteriorErrorProbability(double[] skepticalMus)
+        public void CalculatePosteriorErrorProbability(double[] musWithSkepticalPrior)
         {
-            double pep;
-
-            if (cutoff == null || skepticalMus == null)
+            if (NullHypothesisCutoff == null || musWithSkepticalPrior == null)
             {
-                pep = double.NaN;
+                PosteriorErrorProbability = double.NaN;
+                return;
             }
 
-            int numIncreasing = skepticalMus.Count(p => p > cutoff);
-            int numDecreasing = skepticalMus.Count(p => p < -cutoff);
+            int numIncreasing = musWithSkepticalPrior.Count(p => p > NullHypothesisCutoff);
+            int numDecreasing = musWithSkepticalPrior.Count(p => p < -NullHypothesisCutoff);
 
-            // the hypotheses are equally likely before any data is examined
             // if something goes wrong and none of the following "if" statements are triggered, then PEP will evaluate to 1.0
-            double nullHypothesisCount = 1.0;
-            double alternativeHypothesisCount = 1.0;
+            double nullHypothesisCount = musWithSkepticalPrior.Length;
+            double alternativeHypothesisCount = 0;
 
-            if (numIncreasing > numDecreasing)
+            if (numIncreasing >= numDecreasing && numIncreasing > 0)
             {
-                nullHypothesisCount = skepticalMus.Count(p => p < cutoff);
+                nullHypothesisCount = musWithSkepticalPrior.Count(p => p < NullHypothesisCutoff);
                 alternativeHypothesisCount = numIncreasing;
             }
-            else if (numDecreasing > numIncreasing)
+            else if (numIncreasing < numDecreasing)
             {
-                nullHypothesisCount = skepticalMus.Count(p => p > -cutoff);
+                nullHypothesisCount = musWithSkepticalPrior.Count(p => p > -NullHypothesisCutoff);
                 alternativeHypothesisCount = numDecreasing;
             }
-            else if (skepticalMus.All(p => Math.Abs(p) <= cutoff))
+            // this doesn't need to be here, but it's here for logical completeness
+            else if (musWithSkepticalPrior.All(p => Math.Abs(p) <= NullHypothesisCutoff))
             {
-                nullHypothesisCount = skepticalMus.Length;
+                nullHypothesisCount = musWithSkepticalPrior.Length;
                 alternativeHypothesisCount = 0;
             }
-            else if (numIncreasing == numDecreasing) // this technically doesn't need to be here, but it's here for logical completeness
-            {
-                nullHypothesisCount = 1.0;
-                alternativeHypothesisCount = 1.0;
-            }
 
-            pep = nullHypothesisCount / alternativeHypothesisCount;
-            DegreeOfEvidence = alternativeHypothesisCount / nullHypothesisCount;
-
-            pep = Math.Min(1.0, pep);
-
-            this.PosteriorErrorProbability = pep;
+            PosteriorErrorProbability = nullHypothesisCount / musWithSkepticalPrior.Length;
         }
 
         public override string ToString()
         {
-            int nPeptides = peptideFoldChangeMeasurements.Count;
-            int nMeasurements = peptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
-            var measurementsString = peptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F4"))));
+            int nPeptides = PeptideFoldChangeMeasurements.Count;
+            int nMeasurements = PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
+            var measurementsString = PeptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F4"))));
 
-            return 
+            return
                 protein.ProteinGroupName + "\t" +
                 protein.GeneName + "\t" +
                 protein.Organism + "\t" +
-                condition1 + "\t" + 
-                condition2 + "\t" + 
-                cutoff.Value + "\t" + 
-                FoldChangePointEstimate + "\t" + 
+                BaseCondition + "\t" +
+                TreatmentCondition + "\t" +
+                NullHypothesisCutoff.Value + "\t" +
+                FoldChangePointEstimate + "\t" +
                 ConditionIntensityPointEstimate + "\t" +
                 nPeptides + "\t" +
                 nMeasurements + "\t" +
                 string.Join(",", measurementsString) + "\t" +
-                PosteriorErrorProbability + "\t" + 
+                PosteriorErrorProbability + "\t" +
                 FalseDiscoveryRate + "\t\t";
         }
 
