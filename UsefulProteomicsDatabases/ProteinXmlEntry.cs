@@ -189,6 +189,10 @@ namespace UsefulProteomicsDatabases
             Protein result = null;
             if (Accession != null && Sequence != null)
             {
+                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
+                // sometimes strange characters get added by RNA sequencing software, etc.
+                Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
