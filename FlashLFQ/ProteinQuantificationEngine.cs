@@ -52,7 +52,7 @@ namespace FlashLFQ
             Dictionary<ProteinGroup, List<Peptide>> proteinsToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
             foreach (var peptide in results.PeptideModifiedSequences.Where(p => p.Value.UseForProteinQuant))
             {
-                foreach (var protein in peptide.Value.proteinGroups)
+                foreach (var protein in peptide.Value.ProteinGroups)
                 {
                     if (proteinsToPeptides.TryGetValue(protein, out var peptides))
                     {

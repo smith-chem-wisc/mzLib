@@ -63,7 +63,7 @@ namespace FlashLFQ
             _chargeStates = new List<int>();
             _peakIndexingEngine = new PeakIndexingEngine();
 
-            _spectraFileInfo = allIdentifications.Select(p => p.fileInfo).Distinct()
+            _spectraFileInfo = allIdentifications.Select(p => p.FileInfo).Distinct()
                 .OrderBy(p => p.Condition)
                 .ThenBy(p => p.BiologicalReplicate)
                 .ThenBy(p => p.Fraction)
@@ -261,8 +261,8 @@ namespace FlashLFQ
                 _baseSequenceToIsotopicDistribution.Add(id.BaseSequence, isotopicMassesAndNormalizedAbundances);
             }
 
-            var minChargeState = _allIdentifications.Min(p => p.precursorChargeState);
-            var maxChargeState = _allIdentifications.Max(p => p.precursorChargeState);
+            var minChargeState = _allIdentifications.Min(p => p.PrecursorChargeState);
+            var maxChargeState = _allIdentifications.Max(p => p.PrecursorChargeState);
             _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1);
 
             var peptideModifiedSequences = _allIdentifications.GroupBy(p => p.ModifiedSequence);
@@ -271,11 +271,11 @@ namespace FlashLFQ
                 // isotope where normalized abundance is 1
                 double mostAbundantIsotopeShift = _baseSequenceToIsotopicDistribution[identifications.First().BaseSequence].First(p => p.Value == 1.0).Key;
 
-                double thisPeptidesMostAbundantMass = identifications.First().monoisotopicMass + mostAbundantIsotopeShift;
+                double thisPeptidesMostAbundantMass = identifications.First().MonoisotopicMass + mostAbundantIsotopeShift;
 
                 foreach (Identification identification in identifications)
                 {
-                    identification.massToLookFor = RequireMonoisotopicMass ? identification.monoisotopicMass : thisPeptidesMostAbundantMass;
+                    identification.MassToLookFor = RequireMonoisotopicMass ? identification.MonoisotopicMass : thisPeptidesMostAbundantMass;
                 }
             }
         }
@@ -287,7 +287,7 @@ namespace FlashLFQ
                 Console.WriteLine("Quantifying peptides for " + fileInfo.FilenameWithoutExtension);
             }
 
-            var ms2IdsForThisFile = _allIdentifications.Where(p => p.fileInfo.Equals(fileInfo)).ToList();
+            var ms2IdsForThisFile = _allIdentifications.Where(p => p.FileInfo.Equals(fileInfo)).ToList();
 
             if (!ms2IdsForThisFile.Any())
             {
@@ -318,17 +318,17 @@ namespace FlashLFQ
 
                         foreach (var chargeState in _chargeStates)
                         {
-                            if (IdSpecificChargeState && chargeState != identification.precursorChargeState)
+                            if (IdSpecificChargeState && chargeState != identification.PrecursorChargeState)
                             {
                                 continue;
                             }
 
                             // get XIC (peakfinding)
-                            List<IndexedMassSpectralPeak> xic = Peakfind(identification.ms2RetentionTimeInMinutes,
-                                identification.massToLookFor, chargeState, identification.fileInfo, peakfindingTol).OrderBy(p => p.RetentionTime).ToList();
+                            List<IndexedMassSpectralPeak> xic = Peakfind(identification.Ms2RetentionTimeInMinutes,
+                                identification.MassToLookFor, chargeState, identification.FileInfo, peakfindingTol).OrderBy(p => p.RetentionTime).ToList();
 
                             // filter by smaller mass tolerance
-                            xic.RemoveAll(p => !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.massToLookFor));
+                            xic.RemoveAll(p => !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.MassToLookFor));
 
                             // filter by isotopic distribution
                             List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState, true);
@@ -338,14 +338,14 @@ namespace FlashLFQ
                         }
 
                         msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                        CutPeak(msmsFeature, identification.ms2RetentionTimeInMinutes);
+                        CutPeak(msmsFeature, identification.Ms2RetentionTimeInMinutes);
 
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
                             continue;
                         }
 
-                        var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.precursorChargeState).ToList();
+                        var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.PrecursorChargeState).ToList();
 
                         if (!precursorXic.Any())
                         {
@@ -382,7 +382,7 @@ namespace FlashLFQ
             // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
             foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
             {
-                foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.proteinGroups)))
+                foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
                 {
                     thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
                 }
@@ -404,7 +404,7 @@ namespace FlashLFQ
                 var donorPeaksToMatch = _results.Peaks[idDonorFile].Where(p => p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
                     && !p.Identifications.Any(v => thisFilesIds.Contains(v.ModifiedSequence))
-                    && p.Identifications.Any(v => v.proteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g)))).ToList();
+                    && p.Identifications.Any(v => v.ProteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g)))).ToList();
 
                 if (!donorPeaksToMatch.Any())
                 {
@@ -527,7 +527,7 @@ namespace FlashLFQ
 
                                 for (int j = start.ZeroBasedMs1ScanIndex; j <= end.ZeroBasedMs1ScanIndex; j++)
                                 {
-                                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(identification.massToLookFor, j, mbrTol, chargeState);
+                                    IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(identification.MassToLookFor, j, mbrTol, chargeState);
 
                                     if (peak != null)
                                     {
@@ -551,7 +551,7 @@ namespace FlashLFQ
                             double maxIntensity = allEnvs.Max(p => p.Intensity);
                             bestEnv = allEnvs.First(p => p.Intensity == maxIntensity);
 
-                            var bestChargeXic = Peakfind(bestEnv.IndexedPeak.RetentionTime, identification.massToLookFor, bestEnv.ChargeState, idAcceptorFile, mbrTol);
+                            var bestChargeXic = Peakfind(bestEnv.IndexedPeak.RetentionTime, identification.MassToLookFor, bestEnv.ChargeState, idAcceptorFile, mbrTol);
                             List<IsotopicEnvelope> envs2 = GetIsotopicEnvelopes(bestChargeXic, identification, bestEnv.ChargeState, true);
                             double maxRt = envs2.Max(p => p.IndexedPeak.RetentionTime);
                             double minRt = envs2.Min(p => p.IndexedPeak.RetentionTime);
@@ -773,11 +773,11 @@ namespace FlashLFQ
                 Array.Clear(experimentalIsotopeAbundances, 0, experimentalIsotopeAbundances.Length);
 
                 double observedMass = peak.Mz.ToMass(chargeState);
-                double theorMass = identification.massToLookFor;
+                double theorMass = identification.MassToLookFor;
                 double mainPeakError = observedMass - theorMass;
                 for (int i = 0; i < theorIsotopeMasses.Length; i++)
                 {
-                    theorIsotopeMasses[i] = mainPeakError + identification.massToLookFor + isotopeMassShifts[i].Key;
+                    theorIsotopeMasses[i] = mainPeakError + identification.MassToLookFor + isotopeMassShifts[i].Key;
                 }
 
                 if (matchBetweenRuns)
@@ -811,7 +811,7 @@ namespace FlashLFQ
                 }
 
                 int numIsotopePeaksObserved = 0;
-                int mainPeakIndex = (int)Math.Round(observedMass - identification.monoisotopicMass, 0);
+                int mainPeakIndex = (int)Math.Round(observedMass - identification.MonoisotopicMass, 0);
                 for (int i = mainPeakIndex; i < expIsotopeMasses.Length; i++)
                 {
                     if (expIsotopeMasses[i] > 0)
