@@ -85,7 +85,7 @@ namespace FlashLFQ
                     string sequence = sequenceWithPeaks.Key;
                     double intensity = sequenceWithPeaks.Sum(p => p.Intensity);
                     DetectionType detectionType;
-                    var pgs = new HashSet<ProteinGroup>(sequenceWithPeaks.SelectMany(p => p.Identifications).SelectMany(v => v.proteinGroups));
+                    var pgs = new HashSet<ProteinGroup>(sequenceWithPeaks.SelectMany(p => p.Identifications).SelectMany(v => v.ProteinGroups));
 
                     if (sequenceWithPeaks.First().IsMbrPeak && intensity > 0)
                     {
@@ -112,7 +112,7 @@ namespace FlashLFQ
 
                     PeptideModifiedSequences[sequence].SetIntensity(file.Key, intensity);
                     PeptideModifiedSequences[sequence].SetDetectionType(file.Key, detectionType);
-                    PeptideModifiedSequences[sequence].proteinGroups = pgs;
+                    PeptideModifiedSequences[sequence].ProteinGroups = pgs;
                 }
 
                 // report ambiguous quantification
@@ -136,7 +136,7 @@ namespace FlashLFQ
                         {
                             PeptideModifiedSequences[sequence].SetIntensity(file.Key, 0);
                             PeptideModifiedSequences[sequence].SetDetectionType(file.Key, DetectionType.MSMSAmbiguousPeakfinding);
-                            PeptideModifiedSequences[sequence].proteinGroups = id.proteinGroups;
+                            PeptideModifiedSequences[sequence].ProteinGroups = id.ProteinGroups;
                         }
                     }
                 }
@@ -147,53 +147,47 @@ namespace FlashLFQ
         {
             int topNPeaks = 3;
 
-            List<ProteinGroup> allProteinGroups = Peaks.Values.SelectMany(p => p).SelectMany(p => p.Identifications).SelectMany(p => p.proteinGroups).Distinct().ToList();
-
+            List<ProteinGroup> allProteinGroups = PeptideModifiedSequences.Values.SelectMany(p => p.ProteinGroups).Distinct().ToList();
             foreach (ProteinGroup pg in allProteinGroups)
             {
                 ProteinGroups.Add(pg.ProteinGroupName, pg);
             }
 
-            List<ChromatographicPeak> unambiguousPeaks = Peaks.Values.SelectMany(p => p).Where(p => p.NumIdentificationsByFullSeq == 1 && p.Intensity > 0).ToList();
-            Dictionary<ProteinGroup, List<ChromatographicPeak>> proteinGroupToPeaks = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
+            List<Peptide> peptides = PeptideModifiedSequences.Values.Where(p => p.UnambiguousPeptideQuant()).ToList();
+            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
 
-            foreach (ChromatographicPeak peak in unambiguousPeaks)
+            foreach (Peptide peptide in peptides)
             {
-                var id = peak.Identifications.First();
-                if (!id.UseForProteinQuant)
+                if (!peptide.UseForProteinQuant)
                 {
                     continue;
                 }
 
-                foreach (ProteinGroup pg in id.proteinGroups)
+                foreach (ProteinGroup pg in peptide.ProteinGroups)
                 {
-                    if (proteinGroupToPeaks.TryGetValue(pg, out var peaks))
+                    if (proteinGroupToPeptides.TryGetValue(pg, out var peptidesForThisProtein))
                     {
-                        peaks.Add(peak);
+                        peptidesForThisProtein.Add(peptide);
                     }
                     else
                     {
-                        proteinGroupToPeaks.Add(pg, new List<ChromatographicPeak> { peak });
+                        proteinGroupToPeptides.Add(pg, new List<Peptide> { peptide });
                     }
                 }
             }
 
-            foreach (var pg in ProteinGroups)
+            foreach (ProteinGroup pg in ProteinGroups.Values)
             {
-                if (proteinGroupToPeaks.TryGetValue(pg.Value, out var proteinGroupPeaks))
+                if (proteinGroupToPeptides.TryGetValue(pg, out var peptidesForThisProtein))
                 {
-                    var peaksGroupedByFile = proteinGroupPeaks.GroupBy(p => p.SpectraFileInfo).ToList();
-
-                    foreach (var peaksForThisPgAndFile in peaksGroupedByFile)
+                    foreach (SpectraFileInfo file in SpectraFiles)
                     {
-                        SpectraFileInfo file = peaksForThisPgAndFile.First().SpectraFileInfo;
-
                         // top N peaks, prioritizing protein-uniqueness and then intensity
                         double proteinIntensity =
-                            peaksForThisPgAndFile.OrderBy(p => p.Identifications.SelectMany(v => v.proteinGroups).Distinct().Count())
-                            .ThenByDescending(p => p.Intensity).Take(topNPeaks).Sum(p => p.Intensity);
+                            peptidesForThisProtein.OrderBy(p => p.ProteinGroups.Distinct().Count())
+                            .ThenByDescending(p => p.GetIntensity(file)).Take(topNPeaks).Sum(p => p.GetIntensity(file));
 
-                        pg.Value.SetIntensity(file, proteinIntensity);
+                        pg.SetIntensity(file, proteinIntensity);
                     }
                 }
             }
@@ -257,7 +251,7 @@ namespace FlashLFQ
                         return;
                     }
 
-                    var firstProteinQuantResults = ProteinGroups.First().Value.conditionToQuantificationResults;
+                    var firstProteinQuantResults = ProteinGroups.First().Value.ConditionToQuantificationResults;
 
                     if (!firstProteinQuantResults.Any())
                     {
@@ -272,11 +266,11 @@ namespace FlashLFQ
 
                         // sort by protein false discovery rate, then by number of fold-change measurements
                         foreach (var protein in ProteinGroups
-                            .OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate)
-                            .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.Item2).Count()))
+                            .OrderBy(v => v.Value.ConditionToQuantificationResults[condition].FalseDiscoveryRate)
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.Item2).Count()))
                         {
                             proteinStringBuilders[p].Append(
-                                protein.Value.conditionToQuantificationResults[condition].ToString());
+                                protein.Value.ConditionToQuantificationResults[condition].ToString());
 
                             p++;
                         }

@@ -157,7 +157,7 @@ namespace FlashLFQ
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
 
-                        protein.conditionToQuantificationResults.Add(condition, result);
+                        protein.ConditionToQuantificationResults.Add(condition, result);
                     }
                 });
             }
@@ -165,7 +165,7 @@ namespace FlashLFQ
             // calculate FDR for the condition
             foreach (var condition in conditions)
             {
-                var res = proteinList.Select(p => p.Key.conditionToQuantificationResults[condition]).ToList();
+                var res = proteinList.Select(p => p.Key.ConditionToQuantificationResults[condition]).ToList();
                 CalculateFalseDiscoveryRates(res);
             }
 
@@ -198,12 +198,12 @@ namespace FlashLFQ
             // determine shared peptides
             if (!UseSharedPeptides)
             {
-                sharedPeptides = new HashSet<Peptide>(results.PeptideModifiedSequences.Where(p => p.Value.proteinGroups.Count > 1).Select(p => p.Value));
+                sharedPeptides = new HashSet<Peptide>(results.PeptideModifiedSequences.Where(p => p.Value.ProteinGroups.Count > 1).Select(p => p.Value));
             }
 
             // match proteins to peptides
             ProteinsWithConstituentPeptides = results.PeptideModifiedSequences.Values
-                .SelectMany(p => p.proteinGroups)
+                .SelectMany(p => p.ProteinGroups)
                 .Distinct()
                 .ToDictionary(p => p, p => new List<Peptide>());
 
@@ -214,7 +214,7 @@ namespace FlashLFQ
                     continue;
                 }
 
-                foreach (ProteinGroup protein in peptide.Value.proteinGroups)
+                foreach (ProteinGroup protein in peptide.Value.ProteinGroups)
                 {
                     if (ProteinsWithConstituentPeptides.TryGetValue(protein, out var peptides))
                     {
