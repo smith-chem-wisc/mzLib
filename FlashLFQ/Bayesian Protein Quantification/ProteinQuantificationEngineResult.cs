@@ -14,7 +14,12 @@ namespace FlashLFQ
         public readonly double ConditionIntensityPointEstimate;
         public readonly double StandardDeviationPointEstimate;
         public readonly double NuPointEstimate;
-        public readonly (double, double) HDI_95;
+
+        // the HDI_95 is the "95% highest density interval". this is the interval where 95% of the 
+        // probability density is contained (in this case, for the estimate of the mean). 
+        // it can be thought of as analgous to a 95% confidence interval.
+        public readonly (double, double) MeanHDI_95;
+
         public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;
         public double PosteriorErrorProbability { get; private set; }
         public double FalseDiscoveryRate { get; set; }
@@ -30,7 +35,7 @@ namespace FlashLFQ
             this.FoldChangePointEstimate = mus.Average();
             this.StandardDeviationPointEstimate = sds.Average();
             this.NuPointEstimate = nus.Average();
-            this.HDI_95 = Util.GetHighestDensityInterval(mus, 0.95);
+            this.MeanHDI_95 = Util.GetHighestDensityInterval(mus, 0.95);
             this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
         }
 
