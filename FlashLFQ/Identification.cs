@@ -7,27 +7,27 @@ namespace FlashLFQ
     {
         public readonly string BaseSequence;
         public readonly string ModifiedSequence;
-        public readonly double ms2RetentionTimeInMinutes;
-        public readonly double monoisotopicMass;
-        public readonly SpectraFileInfo fileInfo;
-        public readonly int precursorChargeState;
-        public readonly HashSet<ProteinGroup> proteinGroups;
+        public readonly double Ms2RetentionTimeInMinutes;
+        public readonly double MonoisotopicMass;
+        public readonly SpectraFileInfo FileInfo;
+        public readonly int PrecursorChargeState;
+        public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly ChemicalFormula OptionalChemicalFormula;
         public readonly bool UseForProteinQuant;
-        public double massToLookFor;
+        public double MassToLookFor;
 
         public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence,
             double monoisotopicMass,
             double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups,
             ChemicalFormula optionalChemicalFormula = null, bool useForProteinQuant = true)
         {
-            this.fileInfo = fileInfo;
+            this.FileInfo = fileInfo;
             this.BaseSequence = BaseSequence;
             this.ModifiedSequence = ModifiedSequence;
-            this.monoisotopicMass = monoisotopicMass;
-            this.ms2RetentionTimeInMinutes = ms2RetentionTimeInMinutes;
-            this.precursorChargeState = chargeState;
-            this.proteinGroups = new HashSet<ProteinGroup>(proteinGroups);
+            this.MonoisotopicMass = monoisotopicMass;
+            this.Ms2RetentionTimeInMinutes = ms2RetentionTimeInMinutes;
+            this.PrecursorChargeState = chargeState;
+            this.ProteinGroups = new HashSet<ProteinGroup>(proteinGroups);
             this.OptionalChemicalFormula = optionalChemicalFormula;
             UseForProteinQuant = useForProteinQuant;
         }

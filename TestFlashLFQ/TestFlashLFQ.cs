@@ -961,7 +961,7 @@ namespace Test
             p.SetIntensity(files[4], 2000);
             p.SetIntensity(files[5], 2050);
 
-            p.proteinGroups.Add(pg);
+            p.ProteinGroups.Add(pg);
 
             var res = new FlashLfqResults(files);
             res.PeptideModifiedSequences.Add(p.Sequence, p);
@@ -970,7 +970,7 @@ namespace Test
             var engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 0);
             engine.Run();
 
-            var quantResult = pg.conditionToQuantificationResults["b"];
+            var quantResult = pg.ConditionToQuantificationResults["b"];
 
             Assert.That(Math.Round(quantResult.NullHypothesisCutoff.Value, 3) == 0.366);
             Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.082);
@@ -988,11 +988,11 @@ namespace Test
             File.Delete(filepath);
 
             // try with defined fold-change cutoff
-            pg.conditionToQuantificationResults.Clear();
+            pg.ConditionToQuantificationResults.Clear();
             engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 1, foldChangeCutoff: 0.8);
             engine.Run();
 
-            quantResult = pg.conditionToQuantificationResults["b"];
+            quantResult = pg.ConditionToQuantificationResults["b"];
 
             Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.179);
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.014);
@@ -1003,11 +1003,11 @@ namespace Test
             p.SetIntensity(files[1], 0);
             p.SetIntensity(files[5], 0);
 
-            pg.conditionToQuantificationResults.Clear();
+            pg.ConditionToQuantificationResults.Clear();
             engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 2, foldChangeCutoff: 0.5);
             engine.Run();
 
-            quantResult = pg.conditionToQuantificationResults["b"];
+            quantResult = pg.ConditionToQuantificationResults["b"];
 
             Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.478);
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.357);
@@ -1023,11 +1023,11 @@ namespace Test
             p.SetIntensity(files[4], 2200);
             p.SetIntensity(files[5], 21500);
 
-            pg.conditionToQuantificationResults.Clear();
+            pg.ConditionToQuantificationResults.Clear();
             engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 3, pairedSamples: true);
             engine.Run();
 
-            quantResult = pg.conditionToQuantificationResults["b"];
+            quantResult = pg.ConditionToQuantificationResults["b"];
 
             Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.077);
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.110);
