@@ -135,7 +135,7 @@ namespace FlashLFQ
                             RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
                                 randomSeedsForEachProtein[protein][1], nullHyp, true, BurnInSteps, NSteps, out var skepticalMus);
 
-                            result.cutoff = nullHyp;
+                            result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(skepticalMus);
                         }
                         else if (measurementCount == 1)
@@ -144,7 +144,7 @@ namespace FlashLFQ
                                 new double[] { peptideFoldChanges.SelectMany(p => p.Item2).First() }, new double[] { double.NaN },
                                 new double[] { double.NaN }, peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
 
-                            result.cutoff = nullHyp;
+                            result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
                         else
@@ -153,7 +153,7 @@ namespace FlashLFQ
                                 new double[] { 0.0 }, new double[] { double.NaN }, new double[] { double.NaN },
                                 peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
 
-                            result.cutoff = nullHyp;
+                            result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
 
@@ -447,6 +447,19 @@ namespace FlashLFQ
             double mean = foldChanges.Mean();
 
             // the Math.max is here for cases where the cutoff is very small (e.g., 0)
+
+            // "nullHypothesisCutoff.Value" means that the standard deviation of the Student's t prior probability distribution is 
+            // the null hypothesis (e.g., the fold-change cutoff). so if the fold-change cutoff is 0.3, then the standard deviation 
+            // of the prior probability distribution for mu is 0.3. the "degrees of freedom" (nu) of the prior will always be 1.0.
+            // the reason for this is explained in the ProteinFoldChangeEstimationModel.cs file.
+
+            // The standard deviation of the prior for mu is equal to the null hypothesis because the cumulative probability density of a 
+            // Student's t distribution with nu=1 is 0.5, between -1 * SD and 1 * SD. In other words, 1 standard deviation from the mean is 50%
+            // of the probability. This was chosen because the probability of the null hypothesis and the alternative hypothesis, given no data,
+            // should each be 50%. So in summary, the prior here was chosen because given no data, the initial assumption is that the 
+            // null hypothesis and the alternative hypothesis are equally likely. The datapoints are then used to "convince" the algorithm 
+            // one way or another (towards the null or the alternative), with some estimated probability that either the null or alternative hypothesis
+            // is true.
             double priorMuSd = Math.Max(0.05, skepticalPrior ? nullHypothesisCutoff.Value : sd * 100);
             double priorMuMean = skepticalPrior ? 0 : mean;
 
@@ -521,7 +534,7 @@ namespace FlashLFQ
                     ProteinGroup protein = proteinList[i].Key;
 
                     List<(Peptide, List<double>)> peptideFoldChanges = new List<(Peptide, List<double>)>();
-                    
+
                     if (biorepCount > 1)
                     {
                         if (!PairedSamples)
@@ -599,8 +612,8 @@ namespace FlashLFQ
         private void CalculateFalseDiscoveryRates(List<ProteinQuantificationEngineResult> bayesianProteinQuantificationResults)
         {
             var bayesianQuantResults = bayesianProteinQuantificationResults
-                .OrderByDescending(p => p.DegreeOfEvidence)
-                .ThenByDescending(p => p.peptideFoldChangeMeasurements.SelectMany(v => v.Item2).Count())
+                .OrderByDescending(p => 1.0 - p.PosteriorErrorProbability)
+                .ThenByDescending(p => p.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count())
                 .ToList();
 
             double runningPEP = 0;
