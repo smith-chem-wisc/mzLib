@@ -9,6 +9,7 @@ namespace FlashLFQ
         public readonly string GeneName;
         public readonly string Organism;
         private Dictionary<SpectraFileInfo, double> intensities;
+        public Dictionary<string, ProteinQuantificationEngineResult> conditionToQuantificationResults;
 
         public ProteinGroup(string proteinGroupName, string geneName, string organism)
         {
@@ -16,6 +17,7 @@ namespace FlashLFQ
             GeneName = geneName;
             Organism = organism;
             intensities = new Dictionary<SpectraFileInfo, double>();
+            conditionToQuantificationResults = new Dictionary<string, ProteinQuantificationEngineResult>();
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)

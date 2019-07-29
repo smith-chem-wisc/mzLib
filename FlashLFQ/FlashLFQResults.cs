@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace FlashLFQ
 {
@@ -11,12 +12,33 @@ namespace FlashLFQ
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles)
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+
+            foreach (SpectraFileInfo file in spectraFiles)
+            {
+                Peaks.Add(file, new List<ChromatographicPeak>());
+            }
+
+            foreach (Identification id in identifications)
+            {
+                if (!PeptideModifiedSequences.ContainsKey(id.ModifiedSequence))
+                {
+                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.UseForProteinQuant, id.proteinGroups));
+                }
+
+                foreach (ProteinGroup proteinGroup in id.proteinGroups)
+                {
+                    if (!ProteinGroups.ContainsKey(proteinGroup.ProteinGroupName))
+                    {
+                        ProteinGroups.Add(proteinGroup.ProteinGroupName, proteinGroup);
+                    }
+                }
+            }
         }
 
         public void MergeResultsWith(FlashLfqResults mergeFrom)
@@ -77,25 +99,22 @@ namespace FlashLFQ
         {
             foreach (var sequence in PeptideModifiedSequences)
             {
-                sequence.Value.proteinGroups.Clear();
-
-                foreach (var file in SpectraFiles)
+                foreach (SpectraFileInfo file in SpectraFiles)
                 {
                     sequence.Value.SetDetectionType(file, DetectionType.NotDetected);
                     sequence.Value.SetIntensity(file, 0);
                 }
             }
-
-            foreach (var file in Peaks)
+            
+            foreach (var filePeaks in Peaks)
             {
-                var groupedPeaks = file.Value.Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
+                var groupedPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
                     string sequence = sequenceWithPeaks.Key;
                     double intensity = sequenceWithPeaks.Sum(p => p.Intensity);
                     DetectionType detectionType;
-                    var pgs = new HashSet<ProteinGroup>(sequenceWithPeaks.SelectMany(p => p.Identifications).SelectMany(v => v.proteinGroups));
 
                     if (sequenceWithPeaks.First().IsMbrPeak && intensity > 0)
                     {
@@ -113,40 +132,26 @@ namespace FlashLFQ
                     {
                         detectionType = DetectionType.NotDetected;
                     }
-
-                    if (!PeptideModifiedSequences.ContainsKey(sequence))
-                    {
-                        bool useForProteinQuant = sequenceWithPeaks.First().Identifications.First().UseForProteinQuant;
-                        PeptideModifiedSequences.Add(sequence, new Peptide(sequence, useForProteinQuant));
-                    }
-
-                    PeptideModifiedSequences[sequence].SetIntensity(file.Key, intensity);
-                    PeptideModifiedSequences[sequence].SetDetectionType(file.Key, detectionType);
-                    PeptideModifiedSequences[sequence].proteinGroups = pgs;
+                    
+                    PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
+                    PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, detectionType);
                 }
 
                 // report ambiguous quantification
-                var ambiguousPeaks = file.Value.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
+                var ambiguousPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
                     foreach (Identification id in ambiguousPeak.Identifications)
                     {
                         string sequence = id.ModifiedSequence;
-
-                        if (!PeptideModifiedSequences.ContainsKey(sequence))
-                        {
-                            bool useForProteinQuant = id.UseForProteinQuant;
-                            PeptideModifiedSequences.Add(sequence, new Peptide(sequence, useForProteinQuant));
-                        }
-
-                        double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(file.Key);
+                        
+                        double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
                         double fractionAmbiguous = (ambiguousPeak.Intensity + alreadyRecordedIntensity) / alreadyRecordedIntensity;
 
                         if (fractionAmbiguous > 0.3)
                         {
-                            PeptideModifiedSequences[sequence].SetIntensity(file.Key, 0);
-                            PeptideModifiedSequences[sequence].SetDetectionType(file.Key, DetectionType.MSMSAmbiguousPeakfinding);
-                            PeptideModifiedSequences[sequence].proteinGroups = id.proteinGroups;
+                            PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, 0);
+                            PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
                         }
                     }
                 }
@@ -155,15 +160,20 @@ namespace FlashLFQ
 
         public void CalculateProteinResultsTop3()
         {
-            int topNPeaks = 3;
-
-            List<ProteinGroup> allProteinGroups = Peaks.Values.SelectMany(p => p).SelectMany(p => p.Identifications).SelectMany(p => p.proteinGroups).Distinct().ToList();
-
-            foreach (ProteinGroup pg in allProteinGroups)
+            foreach (var proteinGroup in ProteinGroups)
             {
-                ProteinGroups.Add(pg.ProteinGroupName, pg);
+                foreach (SpectraFileInfo file in SpectraFiles)
+                {
+                    proteinGroup.Value.SetIntensity(file, 0);
+                }
             }
 
+            int topNPeaks = 3;
+
+            List<ProteinGroup> allProteinGroups = Peaks.Values.SelectMany(p => p)
+                .SelectMany(p => p.Identifications)
+                .SelectMany(p => p.proteinGroups).Distinct().ToList();
+            
             List<ChromatographicPeak> unambiguousPeaks = Peaks.Values.SelectMany(p => p).Where(p => p.NumIdentificationsByFullSeq == 1 && p.Intensity > 0).ToList();
             Dictionary<ProteinGroup, List<ChromatographicPeak>> proteinGroupToPeaks = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
 
@@ -209,7 +219,7 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput)
         {
             if (peaksOutputPath != null)
             {
@@ -246,6 +256,57 @@ namespace FlashLFQ
                     foreach (var protein in ProteinGroups.OrderBy(p => p.Key))
                     {
                         output.WriteLine(protein.Value.ToString(SpectraFiles));
+                    }
+                }
+            }
+
+            if (bayesianProteinQuantOutput != null)
+            {
+                StringBuilder header = new StringBuilder();
+                StringBuilder[] proteinStringBuilders = new StringBuilder[ProteinGroups.Count];
+
+                for (int i = 0; i < proteinStringBuilders.Length; i++)
+                {
+                    proteinStringBuilders[i] = new StringBuilder();
+                }
+
+                using (StreamWriter output = new StreamWriter(bayesianProteinQuantOutput))
+                {
+                    if (!ProteinGroups.Any())
+                    {
+                        return;
+                    }
+
+                    var firstProteinQuantResults = ProteinGroups.First().Value.conditionToQuantificationResults;
+
+                    if (!firstProteinQuantResults.Any())
+                    {
+                        return;
+                    }
+
+                    foreach (var condition in firstProteinQuantResults.Keys)
+                    {
+                        header.Append(ProteinQuantificationEngineResult.TabSeparatedHeader());
+
+                        int p = 0;
+
+                        // sort by protein false discovery rate, then by number of fold-change measurements
+                        foreach (var protein in ProteinGroups
+                            .OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate)
+                            .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.foldChanges).Count()))
+                        {
+                            proteinStringBuilders[p].Append(
+                                protein.Value.conditionToQuantificationResults[condition].ToString());
+
+                            p++;
+                        }
+                    }
+
+                    output.WriteLine(header);
+
+                    foreach (var proteinStringBuilder in proteinStringBuilders)
+                    {
+                        output.WriteLine(proteinStringBuilder);
                     }
                 }
             }

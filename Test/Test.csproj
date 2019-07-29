@@ -33,6 +33,9 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=4.8.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathNet.Numerics.4.8.1\lib\net461\MathNet.Numerics.dll</HintPath>
+    </Reference>
     <Reference Include="NetSerializer, Version=4.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\NetSerializer.4.1.0\lib\net45\NetSerializer.dll</HintPath>
     </Reference>
@@ -42,6 +45,8 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ValueTuple" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -49,6 +54,7 @@
     <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
+    <Compile Include="TestBayesianEstimation.cs" />
     <Compile Include="TestModFits.cs" />
     <Compile Include="TestProteinDigestion.cs" />
     <Compile Include="TestProteinProperties.cs" />
@@ -65,7 +71,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="FixtureSetUp.cs" />
     <Compile Include="TestAminoAcids.cs" />
-    <Compile Include="TestChromatogram.cs" />
     <Compile Include="TestMsDataFile.cs" />
     <Compile Include="TestFragments.cs" />
     <Compile Include="TestModifications.cs" />
@@ -81,6 +86,10 @@
     <Compile Include="TestSpectra.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj">
+      <Project>{2306BB69-886C-4B18-8329-B575079DFD67}</Project>
+      <Name>BayesianEstimation</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
@@ -112,10 +121,6 @@
     <ProjectReference Include="..\Proteomics\Proteomics.csproj">
       <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
       <Name>Proteomics</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\Spectra\Spectra.csproj">
-      <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
-      <Name>Spectra</Name>
     </ProjectReference>
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj">
       <Project>{552eabd1-7a7c-4c52-bf3d-4eedd70e7e89}</Project>

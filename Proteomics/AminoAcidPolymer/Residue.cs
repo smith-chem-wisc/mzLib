@@ -186,7 +186,15 @@ namespace Proteomics.AminoAcidPolymer
 
         public static bool TryGetResidue(char letter, out Residue residue)
         {
-            residue = ResiduesByLetter[letter];
+            if (letter < ResiduesByLetter.Length && letter >= 0)
+            {
+                residue = ResiduesByLetter[letter];
+            }
+            else
+            {
+                residue = null;
+            }
+
             return residue != null;
         }
 
