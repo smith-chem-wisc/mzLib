@@ -28,10 +28,10 @@ namespace FlashLFQ
             {
                 if (!PeptideModifiedSequences.ContainsKey(id.ModifiedSequence))
                 {
-                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.UseForProteinQuant, id.proteinGroups));
+                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.UseForProteinQuant, id.ProteinGroups));
                 }
 
-                foreach (ProteinGroup proteinGroup in id.proteinGroups)
+                foreach (ProteinGroup proteinGroup in id.ProteinGroups)
                 {
                     if (!ProteinGroups.ContainsKey(proteinGroup.ProteinGroupName))
                     {
@@ -170,12 +170,8 @@ namespace FlashLFQ
 
             int topNPeaks = 3;
 
-            List<ProteinGroup> allProteinGroups = Peaks.Values.SelectMany(p => p)
-                .SelectMany(p => p.Identifications)
-                .SelectMany(p => p.proteinGroups).Distinct().ToList();
-            
-            List<ChromatographicPeak> unambiguousPeaks = Peaks.Values.SelectMany(p => p).Where(p => p.NumIdentificationsByFullSeq == 1 && p.Intensity > 0).ToList();
-            Dictionary<ProteinGroup, List<ChromatographicPeak>> proteinGroupToPeaks = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
+            List<Peptide> peptides = PeptideModifiedSequences.Values.Where(p => p.UnambiguousPeptideQuant()).ToList();
+            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
 
             foreach (Peptide peptide in peptides)
             {
@@ -203,10 +199,8 @@ namespace FlashLFQ
                 {
                     foreach (SpectraFileInfo file in SpectraFiles)
                     {
-                        // top N peaks, prioritizing protein-uniqueness and then intensity
-                        double proteinIntensity =
-                            peptidesForThisProtein.OrderBy(p => p.ProteinGroups.Distinct().Count())
-                            .ThenByDescending(p => p.GetIntensity(file)).Take(topNPeaks).Sum(p => p.GetIntensity(file));
+                        // top N peptides in the file
+                        double proteinIntensity = peptidesForThisProtein.Select(p => p.GetIntensity(file)).OrderByDescending(p => p).Take(topNPeaks).Sum();
 
                         pg.SetIntensity(file, proteinIntensity);
                     }
@@ -287,8 +281,8 @@ namespace FlashLFQ
 
                         // sort by protein false discovery rate, then by number of fold-change measurements
                         foreach (var protein in ProteinGroups
-                            .OrderBy(v => v.Value.conditionToQuantificationResults[condition].FalseDiscoveryRate)
-                            .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.foldChanges).Count()))
+                            .OrderBy(v => v.Value.ConditionToQuantificationResults[condition].FalseDiscoveryRate)
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].PeptideFoldChangeMeasurements.SelectMany(b => b.foldChanges).Count()))
                         {
                             proteinStringBuilders[p].Append(
                                 protein.Value.ConditionToQuantificationResults[condition].ToString());

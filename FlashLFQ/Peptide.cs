@@ -15,9 +15,9 @@ namespace FlashLFQ
         public Peptide(string sequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups)
         {
             Sequence = sequence;
-            intensities = new Dictionary<SpectraFileInfo, double>();
-            detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
-            this.proteinGroups = proteinGroups;
+            Intensities = new Dictionary<SpectraFileInfo, double>();
+            DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
+            this.ProteinGroups = proteinGroups;
 
             this.UseForProteinQuant = useForProteinQuant;
         }

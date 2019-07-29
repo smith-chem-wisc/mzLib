@@ -14,7 +14,7 @@ namespace FlashLFQ
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly ChemicalFormula OptionalChemicalFormula;
         public readonly bool UseForProteinQuant;
-        public double peakfindingMass;
+        public double PeakfindingMass;
 
         public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence,
             double monoisotopicMass,
