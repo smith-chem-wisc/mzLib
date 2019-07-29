@@ -88,7 +88,7 @@ namespace FlashLFQ
             _chargeStates = new List<int>();
             _peakIndexingEngine = new PeakIndexingEngine();
 
-            _spectraFileInfo = allIdentifications.Select(p => p.fileInfo).Distinct()
+            _spectraFileInfo = allIdentifications.Select(p => p.FileInfo).Distinct()
                 .OrderBy(p => p.Condition)
                 .ThenBy(p => p.BiologicalReplicate)
                 .ThenBy(p => p.Fraction)
@@ -341,8 +341,8 @@ namespace FlashLFQ
                 _modifiedSequenceToIsotopicDistribution.Add(id.ModifiedSequence, isotopicMassesAndNormalizedAbundances);
             }
 
-            var minChargeState = _allIdentifications.Min(p => p.precursorChargeState);
-            var maxChargeState = _allIdentifications.Max(p => p.precursorChargeState);
+            var minChargeState = _allIdentifications.Min(p => p.PrecursorChargeState);
+            var maxChargeState = _allIdentifications.Max(p => p.PrecursorChargeState);
             _chargeStates = Enumerable.Range(minChargeState, (maxChargeState - minChargeState) + 1);
 
             var peptideModifiedSequences = _allIdentifications.GroupBy(p => p.ModifiedSequence);
@@ -365,7 +365,7 @@ namespace FlashLFQ
                 Console.WriteLine("Quantifying peptides for " + fileInfo.FilenameWithoutExtension);
             }
 
-            var ms2IdsForThisFile = _allIdentifications.Where(p => p.fileInfo.Equals(fileInfo)).ToList();
+            var ms2IdsForThisFile = _allIdentifications.Where(p => p.FileInfo.Equals(fileInfo)).ToList();
 
             if (!ms2IdsForThisFile.Any())
             {
@@ -396,7 +396,7 @@ namespace FlashLFQ
 
                         foreach (var chargeState in _chargeStates)
                         {
-                            if (IdSpecificChargeState && chargeState != identification.precursorChargeState)
+                            if (IdSpecificChargeState && chargeState != identification.PrecursorChargeState)
                             {
                                 continue;
                             }
@@ -416,14 +416,14 @@ namespace FlashLFQ
                         }
 
                         msmsFeature.CalculateIntensityForThisFeature(Integrate);
-                        CutPeak(msmsFeature, identification.ms2RetentionTimeInMinutes);
+                        CutPeak(msmsFeature, identification.Ms2RetentionTimeInMinutes);
 
                         if (!msmsFeature.IsotopicEnvelopes.Any())
                         {
                             continue;
                         }
 
-                        var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.precursorChargeState).ToList();
+                        var precursorXic = msmsFeature.IsotopicEnvelopes.Where(p => p.ChargeState == identification.PrecursorChargeState).ToList();
 
                         if (!precursorXic.Any())
                         {
@@ -460,7 +460,7 @@ namespace FlashLFQ
             var thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
             foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
             {
-                foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.proteinGroups)))
+                foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
                 {
                     thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
                 }
@@ -482,7 +482,7 @@ namespace FlashLFQ
                 var donorPeaksToMatch = _results.Peaks[idDonorFile].Where(p => p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
                     && !p.Identifications.Any(v => thisFilesIds.Contains(v.ModifiedSequence))
-                    && p.Identifications.Any(v => v.proteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g)))).ToList();
+                    && p.Identifications.Any(v => v.ProteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g)))).ToList();
 
                 if (!donorPeaksToMatch.Any())
                 {
@@ -619,7 +619,7 @@ namespace FlashLFQ
                                 {
                                     IndexedMassSpectralPeak peak = _peakIndexingEngine.GetIndexedPeak(identification.peakfindingMass, j, mbrTol, z);
                                     IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(identification.peakfindingMass + Constants.C13MinusC12, j, mbrTol, z);
-
+                                  
                                     if (peak != null && isotopePeak != null)
                                     {
                                         chargeXic.Add(peak);
@@ -1044,6 +1044,7 @@ namespace FlashLFQ
                 double observedMass = peak.Mz.ToMass(chargeState);
                 double theorMass = identification.peakfindingMass;
                 double mainPeakError = observedMass - theorMass;
+
 
                 if (matchBetweenRuns)
                 {

@@ -8,21 +8,21 @@ namespace FlashLFQ
         public readonly string ProteinGroupName;
         public readonly string GeneName;
         public readonly string Organism;
-        private Dictionary<SpectraFileInfo, double> intensities;
-        public Dictionary<string, ProteinQuantificationEngineResult> conditionToQuantificationResults;
+        private Dictionary<SpectraFileInfo, double> Intensities;
+        public Dictionary<string, ProteinQuantificationEngineResult> ConditionToQuantificationResults;
 
         public ProteinGroup(string proteinGroupName, string geneName, string organism)
         {
             ProteinGroupName = proteinGroupName;
             GeneName = geneName;
             Organism = organism;
-            intensities = new Dictionary<SpectraFileInfo, double>();
-            conditionToQuantificationResults = new Dictionary<string, ProteinQuantificationEngineResult>();
+            Intensities = new Dictionary<SpectraFileInfo, double>();
+            ConditionToQuantificationResults = new Dictionary<string, ProteinQuantificationEngineResult>();
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)
         {
-            if (intensities.TryGetValue(fileInfo, out double intensity))
+            if (Intensities.TryGetValue(fileInfo, out double intensity))
             {
                 return intensity;
             }
@@ -34,13 +34,13 @@ namespace FlashLFQ
 
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
         {
-            if (intensities.ContainsKey(fileInfo))
+            if (Intensities.ContainsKey(fileInfo))
             {
-                intensities[fileInfo] = intensity;
+                Intensities[fileInfo] = intensity;
             }
             else
             {
-                intensities.Add(fileInfo, intensity);
+                Intensities.Add(fileInfo, intensity);
             }
         }
 
@@ -68,7 +68,7 @@ namespace FlashLFQ
 
             foreach (var file in rawFiles)
             {
-                if (intensities.TryGetValue(file, out double intensity))
+                if (Intensities.TryGetValue(file, out double intensity))
                 {
                     str.Append(intensity + "\t");
                 }

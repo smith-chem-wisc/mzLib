@@ -132,7 +132,7 @@ namespace FlashLFQ
                     {
                         detectionType = DetectionType.NotDetected;
                     }
-                    
+                  
                     PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
                     PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, detectionType);
                 }
@@ -177,43 +177,38 @@ namespace FlashLFQ
             List<ChromatographicPeak> unambiguousPeaks = Peaks.Values.SelectMany(p => p).Where(p => p.NumIdentificationsByFullSeq == 1 && p.Intensity > 0).ToList();
             Dictionary<ProteinGroup, List<ChromatographicPeak>> proteinGroupToPeaks = new Dictionary<ProteinGroup, List<ChromatographicPeak>>();
 
-            foreach (ChromatographicPeak peak in unambiguousPeaks)
+            foreach (Peptide peptide in peptides)
             {
-                var id = peak.Identifications.First();
-                if (!id.UseForProteinQuant)
+                if (!peptide.UseForProteinQuant)
                 {
                     continue;
                 }
 
-                foreach (ProteinGroup pg in id.proteinGroups)
+                foreach (ProteinGroup pg in peptide.ProteinGroups)
                 {
-                    if (proteinGroupToPeaks.TryGetValue(pg, out var peaks))
+                    if (proteinGroupToPeptides.TryGetValue(pg, out var peptidesForThisProtein))
                     {
-                        peaks.Add(peak);
+                        peptidesForThisProtein.Add(peptide);
                     }
                     else
                     {
-                        proteinGroupToPeaks.Add(pg, new List<ChromatographicPeak> { peak });
+                        proteinGroupToPeptides.Add(pg, new List<Peptide> { peptide });
                     }
                 }
             }
 
-            foreach (var pg in ProteinGroups)
+            foreach (ProteinGroup pg in ProteinGroups.Values)
             {
-                if (proteinGroupToPeaks.TryGetValue(pg.Value, out var proteinGroupPeaks))
+                if (proteinGroupToPeptides.TryGetValue(pg, out var peptidesForThisProtein))
                 {
-                    var peaksGroupedByFile = proteinGroupPeaks.GroupBy(p => p.SpectraFileInfo).ToList();
-
-                    foreach (var peaksForThisPgAndFile in peaksGroupedByFile)
+                    foreach (SpectraFileInfo file in SpectraFiles)
                     {
-                        SpectraFileInfo file = peaksForThisPgAndFile.First().SpectraFileInfo;
-
                         // top N peaks, prioritizing protein-uniqueness and then intensity
                         double proteinIntensity =
-                            peaksForThisPgAndFile.OrderBy(p => p.Identifications.SelectMany(v => v.proteinGroups).Distinct().Count())
-                            .ThenByDescending(p => p.Intensity).Take(topNPeaks).Sum(p => p.Intensity);
+                            peptidesForThisProtein.OrderBy(p => p.ProteinGroups.Distinct().Count())
+                            .ThenByDescending(p => p.GetIntensity(file)).Take(topNPeaks).Sum(p => p.GetIntensity(file));
 
-                        pg.Value.SetIntensity(file, proteinIntensity);
+                        pg.SetIntensity(file, proteinIntensity);
                     }
                 }
             }
@@ -277,7 +272,7 @@ namespace FlashLFQ
                         return;
                     }
 
-                    var firstProteinQuantResults = ProteinGroups.First().Value.conditionToQuantificationResults;
+                    var firstProteinQuantResults = ProteinGroups.First().Value.ConditionToQuantificationResults;
 
                     if (!firstProteinQuantResults.Any())
                     {
@@ -296,7 +291,7 @@ namespace FlashLFQ
                             .ThenByDescending(v => v.Value.conditionToQuantificationResults[condition].peptideFoldChangeMeasurements.SelectMany(b => b.foldChanges).Count()))
                         {
                             proteinStringBuilders[p].Append(
-                                protein.Value.conditionToQuantificationResults[condition].ToString());
+                                protein.Value.ConditionToQuantificationResults[condition].ToString());
 
                             p++;
                         }
