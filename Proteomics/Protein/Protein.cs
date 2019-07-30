@@ -70,10 +70,10 @@ namespace Proteomics
         /// <param name="originalProtein"></param>
         /// <param name="silacSequence"></param>
         /// <param name="silacAccession"></param>
-        public Protein(Protein originalProtein, string silacSequence, string silacAccession)
+        public Protein(Protein originalProtein, string silacSequence)
         {
             BaseSequence = silacSequence;
-            Accession = silacAccession;
+            Accession = originalProtein.Accession;
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
@@ -475,16 +475,14 @@ namespace Proteomics
         private Protein GenerateFullyLabeledSilacProtein(SilacLabel label)
         {
             string updatedBaseSequence = BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel);
-            string updatedAccession = Accession + label.MassDifference;
             if (label.AdditionalLabels != null) //if there is more than one label per replicate (i.e both R and K were labeled in a sample before pooling)
             {
                 foreach (SilacLabel additionalLabel in label.AdditionalLabels)
                 {
                     updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
-                    updatedAccession += additionalLabel.MassDifference;
                 }
             }
-            return new Protein(this, updatedBaseSequence, updatedAccession);
+            return new Protein(this, updatedBaseSequence);
         }
 
         /// <summary>
