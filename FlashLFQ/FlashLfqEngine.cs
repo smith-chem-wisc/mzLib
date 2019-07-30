@@ -50,6 +50,7 @@ namespace FlashLFQ
         private FlashLfqResults _results;
         private Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans;
         private PeakIndexingEngine _peakIndexingEngine;
+        private bool DoTop3ProteinQuant;
 
         public FlashLfqEngine(
             List<Identification> allIdentifications,
@@ -73,7 +74,8 @@ namespace FlashLFQ
             int mcmcSteps = 3000,
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
-            int? randomSeed = null)
+            int? randomSeed = null,
+            bool doTop3ProteinQuant = true)
         {
             Loaders.LoadElements();
 
@@ -123,6 +125,7 @@ namespace FlashLFQ
             RtTol = 5.0;
             ErrorCheckAmbiguousMatches = true;
             MinDiscFactorToCutAt = 0.6;
+            DoTop3ProteinQuant = doTop3ProteinQuant;
         }
 
         public FlashLfqResults Run()
@@ -205,7 +208,10 @@ namespace FlashLFQ
             _results.CalculatePeptideResults();
 
             // do top3 protein quantification
-            _results.CalculateProteinResultsTop3();
+            if (DoTop3ProteinQuant)
+            {
+                _results.CalculateProteinResultsTop3();
+            }
 
             // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
