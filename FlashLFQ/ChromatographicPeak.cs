@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,7 +15,7 @@ namespace FlashLFQ
         public readonly bool IsMbrPeak;
         public double MbrScore;
         public double MbrQValue;
-
+        
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
@@ -82,7 +83,18 @@ namespace FlashLFQ
                     Intensity = Apex.Intensity;
                 }
 
-                MassError = Identifications.Min(p => ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - p.MonoisotopicMass) / p.MonoisotopicMass) * 1e6);
+                MassError = double.NaN;
+
+                foreach (var id in Identifications)
+                {
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.MonoisotopicMass) / id.MonoisotopicMass) * 1e6;
+
+                    if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < MassError)
+                    {
+                        MassError = massErrorForId;
+                    }
+                }
+
                 NumChargeStatesObserved = IsotopicEnvelopes.Select(p => p.ChargeState).Distinct().Count();
             }
             else

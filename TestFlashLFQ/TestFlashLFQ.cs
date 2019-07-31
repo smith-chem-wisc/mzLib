@@ -968,7 +968,7 @@ namespace Test
             peptide.SetIntensity(files[3], 1950);
             peptide.SetIntensity(files[4], 2000);
             peptide.SetIntensity(files[5], 2050);
-            
+
             var engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 0);
             engine.Run();
 
@@ -1035,6 +1035,51 @@ namespace Test
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.110);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
+        }
+
+        [Test]
+        public static void RealDataMbrTest()
+        {
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
+
+            List<Identification> ids = new List<Identification>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("f1r1"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("f1r2"))
+                {
+                    file = f1r2;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[21]);
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, new List<ProteinGroup>());
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, maxThreads: 1);
+            engine.Run();
+
+            // todo: assertions
         }
     }
 }
