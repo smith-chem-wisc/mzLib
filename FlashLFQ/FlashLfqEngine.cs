@@ -227,6 +227,11 @@ namespace FlashLFQ
                 {
                     try
                     {
+                        if (!Silent)
+                        {
+                            Console.WriteLine("Running Bayesian protein quantification analysis");
+                        }
+
                         new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
                             ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps).Run();
                     }
@@ -440,9 +445,19 @@ namespace FlashLFQ
             _results.Peaks[fileInfo].AddRange(chromatographicPeaks.ToList());
         }
 
+        /// <summary>
+        /// This method maps identified peaks from other chromatographic runs ("donors") onto 
+        /// the defined chromatographic run ("acceptor"). The goal is to reduce the number of missing
+        /// intensity measurements. Missing values occur generally either because 1) the analyte is
+        /// in the sample but didn't get fragmented/identified or 2) the analyte is genuinely missing 
+        /// from the sample.
+        /// </summary>
         private void QuantifyMatchBetweenRunsPeaks(SpectraFileInfo idAcceptorFile)
         {
+            // acceptor file known peaks
             var acceptorFileIdentifiedPeaks = _results.Peaks[idAcceptorFile];
+
+            // match between runs PPM tolerance
             Tolerance mbrTol = new PpmTolerance(MbrPpmTolerance);
 
             if (!acceptorFileIdentifiedPeaks.Any())
@@ -450,13 +465,17 @@ namespace FlashLFQ
                 return;
             }
 
+            // deserialize the file's indexed mass spectral peaks. these were stored and serialized to a file earlier
             _peakIndexingEngine.DeserializeIndex(idAcceptorFile);
 
+            // these are the analytes already identified in this run. we don't need to try to match them from other runs
             var acceptorFileIdentifiedSequences = new HashSet<string>(acceptorFileIdentifiedPeaks.Where(p => p.IsotopicEnvelopes.Any())
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
 
+            // this stores the results of MBR
             var matchBetweenRunsIdentifiedPeaks = new Dictionary<string, Dictionary<IsotopicEnvelope, ChromatographicPeak>>();
 
+            // map each donor file onto this file
             foreach (SpectraFileInfo idDonorFile in _spectraFileInfo)
             {
                 if (idAcceptorFile.Equals(idDonorFile))
@@ -464,13 +483,14 @@ namespace FlashLFQ
                     continue;
                 }
 
-                List<ChromatographicPeak> donorPeaksToMatch = _results.Peaks[idDonorFile].Where(p => 
+                // this is the list of peaks identified in the other file but not in this one ("ID donor peaks")
+                List<ChromatographicPeak> idDonorPeaks = _results.Peaks[idDonorFile].Where(p => 
                     !p.IsMbrPeak
                     && p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
                     && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)).ToList();
                 
-                if (!donorPeaksToMatch.Any())
+                if (!idDonorPeaks.Any())
                 {
                     continue;
                 }
@@ -478,7 +498,7 @@ namespace FlashLFQ
                 // generate RT calibration curve
                 RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(idDonorFile, idAcceptorFile);
 
-                Parallel.ForEach(Partitioner.Create(0, donorPeaksToMatch.Count),
+                Parallel.ForEach(Partitioner.Create(0, idDonorPeaks.Count),
                     new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
                     (range, loopState) =>
                     {
@@ -489,10 +509,10 @@ namespace FlashLFQ
                         {
                             nearbyCalibrationPoints.Clear();
 
-                            ChromatographicPeak donorPeak = donorPeaksToMatch[i];
+                            ChromatographicPeak donorPeak = idDonorPeaks[i];
                             Identification donorIdentification = donorPeak.Identifications.First();
 
-                            // binary search for peaks near this donor point
+                            // binary search for this donor peak in the retention time calibration spline
                             RetentionTimeCalibDataPoint testPoint = new RetentionTimeCalibDataPoint(donorPeak, null);
                             int index = Array.BinarySearch(rtCalibrationCurve, testPoint);
 
@@ -539,7 +559,7 @@ namespace FlashLFQ
                                 continue;
                             }
 
-                            // calculate difference between acceptor and donor RTs for these peaks
+                            // calculate difference between acceptor and donor RTs for these RT region
                             List<double> rtDiffs = nearbyCalibrationPoints
                                 .Select(p => p.AcceptorFilePeak.Apex.IndexedPeak.RetentionTime - p.DonorFilePeak.Apex.IndexedPeak.RetentionTime)
                                 .ToList();
@@ -589,7 +609,7 @@ namespace FlashLFQ
                                 }
                             }
 
-                            // now for the fun part. we've identified the region in the chromatography this analyte should appear
+                            // now we've identified the region in the chromatography this analyte should appear.
                             // we need to check for peaks in the region using ppm tolerance and isotope pattern matching
                             var chargesToMatch = donorPeak.Identifications.Select(p => p.PrecursorChargeState).Distinct().ToList();
                             if (!chargesToMatch.Contains(donorPeak.Apex.ChargeState))
@@ -618,6 +638,8 @@ namespace FlashLFQ
 
                                 List<IsotopicEnvelope> chargeEnvelopes = GetIsotopicEnvelopes(chargeXic, donorIdentification, z);
 
+                                // treat each isotopic envelope in the valid region as a potential seed for a chromatographic peak.
+                                // remove the clustered isotopic envelopes from the list of seeds after each iteration
                                 while (chargeEnvelopes.Any())
                                 {
                                     var acceptorPeak = new ChromatographicPeak(donorIdentification, true, idAcceptorFile);
@@ -642,7 +664,7 @@ namespace FlashLFQ
 
                                     if (idAcceptorFile.Fraction == idDonorFile.Fraction && idAcceptorFile.Condition == idDonorFile.Condition && !string.IsNullOrEmpty(idAcceptorFile.Condition))
                                     {
-                                        
+                                        // use intensity difference if it's reasonable (same condition, same biorep)
                                         double intensityHypothesis = (Math.Log(donorPeak.Apex.Intensity, 2) + medianIntensityDiff);
                                         double experimentalIntensity = Math.Log(acceptorPeak.Apex.Intensity, 2);
                                         double intensityDistance = intensityHypothesis - experimentalIntensity;
@@ -651,12 +673,14 @@ namespace FlashLFQ
                                     }
                                     else
                                     {
+                                        // the +1 here at the end is to weight these MBR matches less than if we had some intensity info
                                         distance = Math.Sqrt(Math.Pow(rtDistance, 2) + 1);
                                     }
 
                                     acceptorPeak.MbrScore = 1.0 / distance;
 
-                                    // save the peak
+                                    // save the peak hypothesis
+                                    // if this peak hypothesis already exists, sum the scores since we've mapped >1 of the same ID onto this peak
                                     if (matchBetweenRunsIdentifiedPeaksThreadSpecific.TryGetValue(donorIdentification.ModifiedSequence, out var mbrPeaks))
                                     {
                                         if (mbrPeaks.TryGetValue(acceptorPeak.Apex, out ChromatographicPeak existing))
@@ -707,6 +731,7 @@ namespace FlashLFQ
                     });
             }
 
+            // take the best result (highest scoring) for each peptide after we've matched from all the donor files
             foreach (var mbrIdentifiedPeptide in matchBetweenRunsIdentifiedPeaks.Where(p => !acceptorFileIdentifiedSequences.Contains(p.Key)))
             {
                 string peptideModifiedSequence = mbrIdentifiedPeptide.Key;
@@ -724,6 +749,10 @@ namespace FlashLFQ
             RunErrorChecking(idAcceptorFile);
         }
 
+        /// <summary>
+        /// Used by the match-between-runs algorithm to determine systematic retention time drifts between 
+        /// chromatographic runs.
+        /// </summary>
         private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor)
         {
             var donorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
