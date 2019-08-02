@@ -9,15 +9,16 @@ namespace FlashLFQ
         public readonly string Sequence;
         private Dictionary<SpectraFileInfo, double> Intensities;
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
-        public HashSet<ProteinGroup> ProteinGroups;
+        public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
 
-        public Peptide(string sequence, bool useForProteinQuant)
+        public Peptide(string sequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups)
         {
             Sequence = sequence;
             Intensities = new Dictionary<SpectraFileInfo, double>();
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
-            ProteinGroups = new HashSet<ProteinGroup>();
+            this.ProteinGroups = proteinGroups;
+
             this.UseForProteinQuant = useForProteinQuant;
         }
 

@@ -17,7 +17,7 @@ namespace FlashLFQ
 
         // the HDI_95 is the "95% highest density interval". this is the interval where 95% of the 
         // probability density is contained (in this case, for the estimate of the mean). 
-        // it can be thought of as analgous to a 95% confidence interval.
+        // it can be thought of as analogous to a 95% confidence interval.
         public readonly (double, double) MeanHDI_95;
 
         public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;

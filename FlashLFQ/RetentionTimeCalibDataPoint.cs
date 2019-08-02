@@ -1,6 +1,8 @@
-﻿namespace FlashLFQ
+﻿using System;
+
+namespace FlashLFQ
 {
-    public class RetentionTimeCalibDataPoint
+    public class RetentionTimeCalibDataPoint : IComparable
     {
         public readonly ChromatographicPeak DonorFilePeak;
         public readonly ChromatographicPeak AcceptorFilePeak;
@@ -10,7 +12,22 @@
         {
             DonorFilePeak = donorFilePeak;
             AcceptorFilePeak = acceptorFilePeak;
-            RtDiff = acceptorFilePeak.Apex.IndexedPeak.RetentionTime - donorFilePeak.Apex.IndexedPeak.RetentionTime;
+
+            if (donorFilePeak != null && acceptorFilePeak != null)
+            {
+                RtDiff = acceptorFilePeak.Apex.IndexedPeak.RetentionTime - donorFilePeak.Apex.IndexedPeak.RetentionTime;
+            }
+            else
+            {
+                RtDiff = double.NaN;
+            }
+        }
+
+        public int CompareTo(object obj)
+        {
+            var otherPoint = (RetentionTimeCalibDataPoint)obj;
+
+            return this.DonorFilePeak.Apex.IndexedPeak.RetentionTime.CompareTo(otherPoint.DonorFilePeak.Apex.IndexedPeak.RetentionTime);
         }
 
         // for debugging
