@@ -25,7 +25,6 @@ namespace FlashLFQ
         public readonly int NumIsotopesRequired;
         public readonly bool ErrorCheckAmbiguousMatches;
         public readonly bool IdSpecificChargeState;
-        public readonly bool RequireMonoisotopicMass;
         public readonly bool Normalize;
         public readonly double MinDiscFactorToCutAt;
 
@@ -102,7 +101,6 @@ namespace FlashLFQ
             NumIsotopesRequired = numIsotopesRequired;
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
-            RequireMonoisotopicMass = requireMonoisotopicMass;
             MbrRtWindow = maxMbrWindow;
             Normalize = normalize;
             MaxThreads = maxThreads;
@@ -335,7 +333,7 @@ namespace FlashLFQ
                     abundances[i] /= highestAbundance;
 
                     // look for these isotopes
-                    if (isotopicMassesAndNormalizedAbundances.Count < NumIsotopesRequired || abundances[i] > 0.1 || i < highestAbundanceIndex)
+                    if (isotopicMassesAndNormalizedAbundances.Count < NumIsotopesRequired || abundances[i] > 0.1)
                     {
                         isotopicMassesAndNormalizedAbundances.Add((masses[i], abundances[i]));
                     }
@@ -484,12 +482,12 @@ namespace FlashLFQ
                 }
 
                 // this is the list of peaks identified in the other file but not in this one ("ID donor peaks")
-                List<ChromatographicPeak> idDonorPeaks = _results.Peaks[idDonorFile].Where(p => 
+                List<ChromatographicPeak> idDonorPeaks = _results.Peaks[idDonorFile].Where(p =>
                     !p.IsMbrPeak
                     && p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
                     && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)).ToList();
-                
+
                 if (!idDonorPeaks.Any())
                 {
                     continue;
@@ -888,83 +886,116 @@ namespace FlashLFQ
 
             PpmTolerance isotopeTolerance = new PpmTolerance(IsotopePpmTolerance);
 
-            var experimentalIsotopeAbundances = new double[isotopeMassShifts.Count];
-            var theoreticalIsotopeMassShifts = isotopeMassShifts.Select(p => p.Item1).ToArray();
-            var theoreticalIsotopeAbundances = isotopeMassShifts.Select(p => p.Item2).ToArray();
+            double[] experimentalIsotopeIntensities = new double[isotopeMassShifts.Count];
+            double[] theoreticalIsotopeMassShifts = isotopeMassShifts.Select(p => p.Item1).ToArray();
+            double[] theoreticalIsotopeAbundances = isotopeMassShifts.Select(p => p.Item2).ToArray();
+            int peakfindingMassIndex = (int)Math.Round(identification.PeakfindingMass - identification.MonoisotopicMass, 0);
+
+            List<int> directions = new List<int> { -1, 1 };
+
+            var massShiftToIsotopePeaks = new Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>>
+            {
+                { -1, new List<(double, double, double)>() },
+                { 0, new List<(double, double, double)>() },
+                { 1, new List<(double, double, double)>() },
+            };
 
             foreach (IndexedMassSpectralPeak peak in xic)
             {
-                Array.Clear(experimentalIsotopeAbundances, 0, experimentalIsotopeAbundances.Length);
-
-                // calculate theoretical isotopes relative to observed peak
-                double observedMass = peak.Mz.ToMass(chargeState);
-
-                for (int t = 0; t < theoreticalIsotopeAbundances.Length; t++)
+                Array.Clear(experimentalIsotopeIntensities, 0, experimentalIsotopeIntensities.Length);
+                foreach (var kvp in massShiftToIsotopePeaks)
                 {
-                    double isotopeMass = observedMass + theoreticalIsotopeMassShifts[t];
-                    var isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass, peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
-
-                    if (isotopePeak == null)
-                    {
-                        continue;
-                    }
-
-                    experimentalIsotopeAbundances[t] = isotopePeak.Intensity;
+                    kvp.Value.Clear();
                 }
 
-                if (experimentalIsotopeAbundances[0] == 0 && RequireMonoisotopicMass)
+                // isotope masses are calculated relative to the observed peak
+                double observedMass = peak.Mz.ToMass(chargeState);
+                double observedMassError = observedMass - identification.PeakfindingMass;
+
+                foreach (var shift in massShiftToIsotopePeaks)
+                {
+                    // look for each isotope peak in the data
+                    foreach (int direction in directions)
+                    {
+                        int start = direction == -1 ? peakfindingMassIndex - 1 : peakfindingMassIndex;
+
+                        for (int i = start; i < theoreticalIsotopeAbundances.Length && i >= 0; i += direction)
+                        {
+                            double isotopeMass = identification.MonoisotopicMass + observedMassError + theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
+                            double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
+
+                            IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
+                                peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+
+                            if (isotopePeak == null
+                                || isotopePeak.Intensity < theoreticalIsotopeIntensity / 2.0 || isotopePeak.Intensity > theoreticalIsotopeIntensity * 2.0)
+                            {
+                                break;
+                            }
+
+                            shift.Value.Add((isotopePeak.Intensity, theoreticalIsotopeIntensity, isotopeMass));
+                            if (shift.Key == 0)
+                            {
+                                experimentalIsotopeIntensities[i] = isotopePeak.Intensity;
+                            }
+                        }
+                    }
+                }
+
+                // check number of isotope peaks observed
+                if (massShiftToIsotopePeaks[0].Count < NumIsotopesRequired)
                 {
                     continue;
                 }
 
-                int numIsotopePeaksObserved = 0;
-                int mainPeakIndex = (int)Math.Round(observedMass - identification.MonoisotopicMass, 0);
-                for (int i = mainPeakIndex; i < experimentalIsotopeAbundances.Length; i++)
+                // check correlation of experimental isotope intensities to the theoretical abundances
+                foreach (var shift in massShiftToIsotopePeaks)
                 {
-                    if (experimentalIsotopeAbundances[i] > 0)
+                    if (!shift.Value.Any())
                     {
-                        numIsotopePeaksObserved++;
+                        continue;
+                    }
+
+                    double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
+
+                    IndexedMassSpectralPeak unexpectedPeak = _peakIndexingEngine.GetIndexedPeak(unexpectedMass,
+                                peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
+
+                    if (unexpectedPeak == null)
+                    {
+                        shift.Value.Add((0, 0, unexpectedMass));
                     }
                     else
                     {
-                        break;
-                    }
-                }
-                for (int i = mainPeakIndex - 1; i >= 0; i--)
-                {
-                    if (experimentalIsotopeAbundances[i] > 0)
-                    {
-                        numIsotopePeaksObserved++;
-                    }
-                    else
-                    {
-                        break;
+                        shift.Value.Add((unexpectedPeak.Intensity, 0, unexpectedMass));
                     }
                 }
 
-                if (numIsotopePeaksObserved >= NumIsotopesRequired)
+                double corr = Correlation.Pearson(massShiftToIsotopePeaks[0].Select(p => p.expIntensity), massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
+                double corrShiftedLeft = Correlation.Pearson(massShiftToIsotopePeaks[-1].Select(p => p.expIntensity), massShiftToIsotopePeaks[-1].Select(p => p.theorIntensity));
+                double corrShiftedRight = Correlation.Pearson(massShiftToIsotopePeaks[1].Select(p => p.expIntensity), massShiftToIsotopePeaks[1].Select(p => p.theorIntensity));
+
+                if (double.IsNaN(corrShiftedLeft))
                 {
-                    int theoreticalMostAbundantIsotopeIndex = Array.IndexOf(theoreticalIsotopeAbundances, 1.0);
-                    int replacementsAllowed = 2;
+                    corrShiftedLeft = -1;
+                }
+                if (double.IsNaN(corrShiftedRight))
+                {
+                    corrShiftedRight = -1;
+                }
 
-                    for (int i = 0; i < experimentalIsotopeAbundances.Length; i++)
+                if (corr > 0.7 && (corrShiftedLeft - corr < 0.1 && corrShiftedRight - corr < 0.1))
+                {
+                    // impute unobserved isotope peak intensities
+                    for (int i = 0; i < experimentalIsotopeIntensities.Length; i++)
                     {
-                        double expectedIntensity = theoreticalIsotopeAbundances[i] * experimentalIsotopeAbundances[theoreticalMostAbundantIsotopeIndex];
-                        double measuredIntensity = experimentalIsotopeAbundances[i];
-
-                        if (measuredIntensity < expectedIntensity * 0.5 || measuredIntensity > expectedIntensity * 2 && replacementsAllowed >= 1)
+                        if (experimentalIsotopeIntensities[i] == 0)
                         {
-                            experimentalIsotopeAbundances[i] = expectedIntensity;
-                            replacementsAllowed--;
+                            experimentalIsotopeIntensities[i] = theoreticalIsotopeAbundances[i] * experimentalIsotopeIntensities[peakfindingMassIndex];
                         }
                     }
 
-                    double corr = Correlation.Pearson(experimentalIsotopeAbundances, theoreticalIsotopeAbundances);
-
-                    if (corr > 0.7)
-                    {
-                        isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeAbundances.Sum()));
-                    }
+                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum()));
                 }
             }
 

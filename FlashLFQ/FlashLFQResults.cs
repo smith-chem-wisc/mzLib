@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -105,26 +106,28 @@ namespace FlashLFQ
                     sequence.Value.SetIntensity(file, 0);
                 }
             }
-            
+
             foreach (var filePeaks in Peaks)
             {
-                var groupedPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq == 1).GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
+                var groupedPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq == 1)
+                    .GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
                     string sequence = sequenceWithPeaks.Key;
-                    double intensity = sequenceWithPeaks.Sum(p => p.Intensity);
+                    double intensity = sequenceWithPeaks.Max(p => p.Intensity);
+                    ChromatographicPeak bestPeak = sequenceWithPeaks.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
 
-                    if (sequenceWithPeaks.First().IsMbrPeak && intensity > 0)
+                    if (bestPeak.IsMbrPeak && intensity > 0)
                     {
                         detectionType = DetectionType.MBR;
                     }
-                    else if (!sequenceWithPeaks.First().IsMbrPeak && intensity > 0)
+                    else if (!bestPeak.IsMbrPeak && intensity > 0)
                     {
                         detectionType = DetectionType.MSMS;
                     }
-                    else if (!sequenceWithPeaks.First().IsMbrPeak && intensity == 0)
+                    else if (!bestPeak.IsMbrPeak && intensity == 0)
                     {
                         detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
                     }
@@ -132,7 +135,7 @@ namespace FlashLFQ
                     {
                         detectionType = DetectionType.NotDetected;
                     }
-                  
+
                     PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
                     PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, detectionType);
                 }
@@ -144,7 +147,7 @@ namespace FlashLFQ
                     foreach (Identification id in ambiguousPeak.Identifications)
                     {
                         string sequence = id.ModifiedSequence;
-                        
+
                         double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
                         double fractionAmbiguous = (ambiguousPeak.Intensity + alreadyRecordedIntensity) / alreadyRecordedIntensity;
 
@@ -208,8 +211,13 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
         {
+            if (!silent)
+            {
+                Console.WriteLine("Writing output...");
+            }
+
             if (peaksOutputPath != null)
             {
                 using (StreamWriter output = new StreamWriter(peaksOutputPath))
@@ -298,6 +306,11 @@ namespace FlashLFQ
                         output.WriteLine(proteinStringBuilder);
                     }
                 }
+            }
+
+            if (!silent)
+            {
+                Console.WriteLine("Finished writing output");
             }
         }
     }
