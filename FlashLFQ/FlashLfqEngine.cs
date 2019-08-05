@@ -18,12 +18,10 @@ namespace FlashLFQ
         public readonly int MaxThreads;
         public readonly double PeakfindingPpmTolerance;
         public readonly double PpmTolerance;
-        public readonly double RtTol;
         public readonly double IsotopePpmTolerance;
         public readonly bool Integrate;
         public readonly int MissedScansAllowed;
         public readonly int NumIsotopesRequired;
-        public readonly bool ErrorCheckAmbiguousMatches;
         public readonly bool IdSpecificChargeState;
         public readonly bool Normalize;
         public readonly double MinDiscFactorToCutAt;
@@ -32,7 +30,6 @@ namespace FlashLFQ
         public readonly bool MatchBetweenRuns;
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
-        public readonly double MbrQValueCutoff;
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
@@ -68,7 +65,6 @@ namespace FlashLFQ
             // MBR settings
             bool matchBetweenRuns = false,
             double matchBetweenRunsPpmTolerance = 5.0,
-            double mbrQValueCutoff = 0.10,
             double maxMbrWindow = 2.5,
 
             // settings for the Bayesian protein quantification engine
@@ -111,7 +107,6 @@ namespace FlashLFQ
             McmcBurninSteps = mcmcBurninSteps;
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
             RandomSeed = randomSeed;
-            MbrQValueCutoff = mbrQValueCutoff;
 
             if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
             {
@@ -125,8 +120,6 @@ namespace FlashLFQ
 
             PeakfindingPpmTolerance = 20.0;
             MissedScansAllowed = 1;
-            RtTol = 5.0;
-            ErrorCheckAmbiguousMatches = true;
             MinDiscFactorToCutAt = 0.6;
         }
 

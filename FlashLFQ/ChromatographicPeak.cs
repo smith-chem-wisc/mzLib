@@ -14,7 +14,6 @@ namespace FlashLFQ
         public double SplitRT;
         public readonly bool IsMbrPeak;
         public double MbrScore;
-        public double MbrQValue;
         
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
