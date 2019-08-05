@@ -86,7 +86,7 @@ namespace FlashLFQ
 
                 foreach (var id in Identifications)
                 {
-                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.MonoisotopicMass) / id.MonoisotopicMass) * 1e6;
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
 
                     if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < MassError)
                     {
