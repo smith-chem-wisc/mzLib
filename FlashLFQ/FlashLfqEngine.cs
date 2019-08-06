@@ -920,8 +920,8 @@ namespace FlashLFQ
                             IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
                                 peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
-                            if (isotopePeak == null
-                                || isotopePeak.Intensity < theoreticalIsotopeIntensity / 2.0 || isotopePeak.Intensity > theoreticalIsotopeIntensity * 2.0)
+                            if (isotopePeak == null 
+                                || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0 || isotopePeak.Intensity > theoreticalIsotopeIntensity * 4.0)
                             {
                                 break;
                             }
@@ -940,6 +940,8 @@ namespace FlashLFQ
                 {
                     continue;
                 }
+
+                double corr = Correlation.Pearson(massShiftToIsotopePeaks[0].Select(p => p.expIntensity), massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
 
                 // check correlation of experimental isotope intensities to the theoretical abundances
                 foreach (var shift in massShiftToIsotopePeaks)
@@ -964,7 +966,7 @@ namespace FlashLFQ
                     }
                 }
 
-                double corr = Correlation.Pearson(massShiftToIsotopePeaks[0].Select(p => p.expIntensity), massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
+                double corrWithPadding = Correlation.Pearson(massShiftToIsotopePeaks[0].Select(p => p.expIntensity), massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
                 double corrShiftedLeft = Correlation.Pearson(massShiftToIsotopePeaks[-1].Select(p => p.expIntensity), massShiftToIsotopePeaks[-1].Select(p => p.theorIntensity));
                 double corrShiftedRight = Correlation.Pearson(massShiftToIsotopePeaks[1].Select(p => p.expIntensity), massShiftToIsotopePeaks[1].Select(p => p.theorIntensity));
 
@@ -976,8 +978,8 @@ namespace FlashLFQ
                 {
                     corrShiftedRight = -1;
                 }
-
-                if (corr > 0.7 && (corrShiftedLeft - corr < 0.1 && corrShiftedRight - corr < 0.1))
+                
+                if (corr > 0.7 && (corrShiftedLeft - corrWithPadding < 0.1 && corrShiftedRight - corrWithPadding < 0.1))
                 {
                     // impute unobserved isotope peak intensities
                     for (int i = 0; i < experimentalIsotopeIntensities.Length; i++)
