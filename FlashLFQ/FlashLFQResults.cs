@@ -161,7 +161,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculateProteinResultsTop3()
+        public void CalculateProteinResultsTop3(bool useShared)
         {
             foreach (var proteinGroup in ProteinGroups)
             {
@@ -203,7 +203,8 @@ namespace FlashLFQ
                     foreach (SpectraFileInfo file in SpectraFiles)
                     {
                         // top N peptides in the file
-                        double proteinIntensity = peptidesForThisProtein.Select(p => p.GetIntensity(file)).OrderByDescending(p => p).Take(topNPeaks).Sum();
+                        double proteinIntensity = peptidesForThisProtein.Where(p => p.ProteinGroups.Count == 1 || useShared)
+                            .Select(p => p.GetIntensity(file)).OrderByDescending(p => p).Take(topNPeaks).Sum();
 
                         pg.SetIntensity(file, proteinIntensity);
                     }
