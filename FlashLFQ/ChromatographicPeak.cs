@@ -14,7 +14,6 @@ namespace FlashLFQ
         public double SplitRT;
         public readonly bool IsMbrPeak;
         public double MbrScore;
-        public double MbrQValue;
         
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
@@ -87,7 +86,7 @@ namespace FlashLFQ
 
                 foreach (var id in Identifications)
                 {
-                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.MonoisotopicMass) / id.MonoisotopicMass) * 1e6;
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
 
                     if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < MassError)
                     {

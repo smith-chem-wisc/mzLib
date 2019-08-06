@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
@@ -47,7 +48,7 @@ namespace Test
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
 
             // run the engine
             var results = engine.Run();
@@ -76,7 +77,8 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
-                null);
+                null,
+                true);
         }
 
         [Test]
@@ -588,7 +590,7 @@ namespace Test
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
-        
+
         [Test]
         public static void TestAmbiguous()
         {
@@ -619,9 +621,9 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
-                null);
+                null, true);
         }
-        
+
         [Test]
         public static void TestMatchBetweenRunsWithNoIdsInCommon()
         {
@@ -780,7 +782,7 @@ namespace Test
             Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
 
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"bayesianProteinQuant.tsv");
-            res.WriteResults(null, null, null, filepath);
+            res.WriteResults(null, null, null, filepath, true);
 
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 2);
@@ -870,7 +872,7 @@ namespace Test
                 double monoMass = double.Parse(split[21]);
                 double rt = double.Parse(split[2]);
                 int z = (int)double.Parse(split[6]);
-                
+
                 Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, new List<ProteinGroup>());
                 ids.Add(id);
             }
@@ -878,24 +880,111 @@ namespace Test
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, maxThreads: 1);
             var results = engine.Run();
             
-            var f1r1MbrResults = results.PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
-
-            Assert.That(f1r1MbrResults.Count >= 82);
-            var res1 = f1r1MbrResults.First(p => p.Key == "HVAVTNMNEHSSR").Value;
-            double intensity1 = Math.Log(res1.GetIntensity(f1r1), 2);
-            double intensity2 = Math.Log(res1.GetIntensity(f1r2), 2);
-            Assert.That(Math.Abs(intensity1 - intensity2) < 0.5);
-
-            var f1r2MbrResults = results
+            var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.That(f1r2MbrResults.Count >= 142);
-            res1 = f1r2MbrResults.First(p => p.Key == "YGIDKDKVDK").Value;
-            intensity1 = Math.Log(res1.GetIntensity(f1r1), 2);
-            intensity2 = Math.Log(res1.GetIntensity(f1r2), 2);
-            Assert.That(Math.Abs(intensity1 - intensity2) < 0.5);
+            Assert.That(f1r1MbrResults.Count >= 135);
+
+            var f1r2MbrResults = results.PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
+
+            Assert.That(f1r2MbrResults.Count >= 79);
+
+            List<(double, double)> peptideIntensities = new List<(double, double)>();
+            
+            foreach (var peptide in f1r1MbrResults)
+            {
+                double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
+                double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
+                peptideIntensities.Add((mbrIntensity, msmsIntensity));
+            }
+
+            double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+            Assert.That(corr > 0.8);
+
+            peptideIntensities.Clear();
+            foreach (var peptide in f1r2MbrResults)
+            {
+                double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
+                double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
+                peptideIntensities.Add((mbrIntensity, msmsIntensity));
+            }
+
+            corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+
+            Assert.That(corr > 0.7);
+        }
+
+        [Test]
+        public static void ProteoformPeakfindingTest()
+        {
+            Loaders.LoadElements();
+            string sequence =
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE";
+
+            int charge = 7;
+
+            MsDataScan[] scans = new MsDataScan[10];
+
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(sequence).GetChemicalFormula();
+
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+            double[] mz = dist.Masses.Select(v => v.ToMz(charge)).ToArray();
+            double[] intensities = dist.Intensities.Select(v => v * 1e7).ToArray();
+
+            List<double> filteredMzs = new List<double>();
+            List<double> filteredIntensities = new List<double>();
+
+            for (int i = 0; i < mz.Length; i++)
+            {
+                if (intensities[i] < 1000)
+                {
+                    continue;
+                }
+
+                filteredMzs.Add(mz[i]);
+                filteredIntensities.Add(intensities[i]);
+            }
+
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double rt = s + 0.1;
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(filteredMzs.ToArray(), filteredIntensities.ToArray(), false),
+                    oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: rt, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "testFile.mzML");
+            IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans), path, false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(path, "a", 0, 0, 0);
+
+            // create the PSM
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id1 = new Identification(file1, sequence, sequence,
+                cf.MonoisotopicMass, scans[0].RetentionTime + 0.001, charge, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+
+            // run the engine
+            var results = engine.Run();
+
+            Assert.That((int)results.PeptideModifiedSequences[sequence].GetIntensity(file1) == 1386491);
+            ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
+            Assert.That(Math.Round(peak.MassError, 3) == 0);
+            Assert.That(peak.IsotopicEnvelopes.Count == 10);
         }
     }
 }

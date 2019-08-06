@@ -1038,6 +1038,16 @@ namespace Test
             Assert.AreEqual(17, d.Intensities.Count());
         }
 
+        [Test]
+        public static void TestAddLargeNegative()
+        {
+            ChemicalFormula f = ChemicalFormula.ParseFormula("CO");
+            f.Add("O", -10);
+            Assert.That(f.Formula == "C");
+            Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 1);
+            Assert.That(f.MonoisotopicMass == 12);
+        }
+
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
             public PhysicalObjectWithChemicalFormula(string v)
