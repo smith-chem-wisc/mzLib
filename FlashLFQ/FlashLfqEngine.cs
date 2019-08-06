@@ -204,7 +204,7 @@ namespace FlashLFQ
             _results.CalculatePeptideResults();
 
             // do top3 protein quantification
-            _results.CalculateProteinResultsTop3();
+            _results.CalculateProteinResultsTop3(UseSharedPeptidesForProteinQuant);
 
             // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
