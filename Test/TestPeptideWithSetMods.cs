@@ -506,5 +506,61 @@ namespace Test
             Assert.IsTrue(nPwsms.Count == cPwsms.Count);
             Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinPeptideLength + 1);
         }
+
+        [Test]
+        public static void TestIncludeSpliceSiteRanges()
+        {
+            Protein protein = new Protein("MACDEFGHIKLMNPQRST", "test");
+            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            SpliceSite ss1Before = new SpliceSite(1, 1, "");
+            SpliceSite ss2BeginningBefore = new SpliceSite(1, 2, "");
+            SpliceSite ss3 = new SpliceSite(2, 3, "");
+            SpliceSite ss4 = new SpliceSite(3, 4, "");
+            SpliceSite ss5 = new SpliceSite(9, 10, "");
+            SpliceSite ss6EndAfter = new SpliceSite(10, 11, "");
+            SpliceSite ss7After = new SpliceSite(11, 12, "");
+            Assert.IsFalse(pepe.Includes(ss1Before));
+            Assert.IsFalse(pepe.Includes(ss2BeginningBefore));
+            Assert.IsTrue(pepe.Includes(ss3));
+            Assert.IsTrue(pepe.Includes(ss4));
+            Assert.IsTrue(pepe.Includes(ss5));
+            Assert.IsFalse(pepe.Includes(ss6EndAfter));
+            Assert.IsFalse(pepe.Includes(ss7After));
+        }
+
+        [Test]
+        public static void TestIncludeSequenceVariations()
+        {
+            Protein protein = new Protein("MACDEFGHIK", "test");
+            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+
+            // The weird thing here is that IntersectsWithVariation takes in applied variations,
+            // so these are constructed as if already applied
+            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", "");
+            SequenceVariation sv2NoSeqChangeCheck = new SequenceVariation(2, 2, "A", "A", "");
+            SequenceVariation sv3SeqChangeCheck = new SequenceVariation(2, 2, "A", "A", "");
+            SequenceVariation sv4SeqChangeCheck = new SequenceVariation(2, 2, "V", "A", ""); // missense
+            SequenceVariation sv5SeqChangeCheck = new SequenceVariation(7, 10, "GHIK", "GHIKA", ""); // insertion
+            SequenceVariation sv6SeqChangeCheck = new SequenceVariation(2, 3, "AC", "A", ""); // deletion
+            SequenceVariation sv7SeqChangeCheck = new SequenceVariation(2, 3, "AA", "AC", ""); // mnp
+            SequenceVariation sv77SeqChangeCheck = new SequenceVariation(2, 3, "AC", "AC", ""); // mnp, no change
+            SequenceVariation sv8SeqChangeCheck = new SequenceVariation(11, 11, "A", "*", ""); // stop-gain
+            SequenceVariation sv9InRange = new SequenceVariation(3, 3, "C", "V", "");
+            SequenceVariation sv10RangeEdge = new SequenceVariation(10, 10, "K", "R", "");
+            SequenceVariation sv11After = new SequenceVariation(11, 11, "L", "V", "");
+
+            Assert.IsFalse(pepe.IntersectsWithVariation(sv1Before, false));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv2NoSeqChangeCheck, false));
+            Assert.IsFalse(pepe.IntersectsWithVariation(sv3SeqChangeCheck, true));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv4SeqChangeCheck, true));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv5SeqChangeCheck, false));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv6SeqChangeCheck, false));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv7SeqChangeCheck, false));
+            Assert.IsFalse(pepe.IntersectsWithVariation(sv77SeqChangeCheck, true));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv8SeqChangeCheck, false));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv9InRange, false));
+            Assert.IsTrue(pepe.IntersectsWithVariation(sv10RangeEdge, false));
+            Assert.IsFalse(pepe.IntersectsWithVariation(sv11After, false));
+        }
     }
 }

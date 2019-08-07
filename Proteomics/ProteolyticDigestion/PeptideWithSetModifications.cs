@@ -411,6 +411,77 @@ namespace Proteomics.ProteolyticDigestion
             return peptideWithLocalizedMass;
         }
 
+        /// <summary>
+        /// Determines whether a peptide includes a splice site
+        /// </summary>
+        /// <param name="pep"></param>
+        /// <param name="site"></param>
+        /// <returns></returns>
+        public bool Includes(SpliceSite site)
+        {
+            return OneBasedStartResidueInProtein <= site.OneBasedBeginPosition && OneBasedEndResidueInProtein >= site.OneBasedEndPosition;
+        }
+
+        /// <summary>
+        /// Checks for an intersection between a peptide and applied variant that shows a sequence change.
+        /// </summary>
+        /// <param name="pep"></param>
+        /// <param name="appliedVariation"></param>
+        /// <returns></returns>
+        public bool IntersectsWithVariation(SequenceVariation appliedVariation, bool checkForSequenceChange)
+        {
+            // does it intersect?
+            int intersectOneBasedStart = Math.Max(OneBasedStartResidueInProtein, appliedVariation.OneBasedBeginPosition);
+            int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition);
+            bool isStopGain = appliedVariation.VariantSequence.Contains("*") // stop gain
+                && OneBasedEndResidueInProtein == Protein.Length // contains end of protein
+                && OneBasedEndResidueInProtein == appliedVariation.OneBasedBeginPosition + appliedVariation.VariantSequence.IndexOf('*') - 1; // the stop gain index is right after the end
+            if (isStopGain)
+            {
+                return true;
+            }
+            else if (intersectOneBasedEnd < intersectOneBasedStart)
+            {
+                return false;
+            }
+            else if (!checkForSequenceChange)
+            {
+                return true;
+            }
+            else
+            {
+                // if the original sequence is too short or long, there is a sequence change
+                int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
+                int variantZeroBasedStart = intersectOneBasedStart - appliedVariation.OneBasedBeginPosition;
+                bool origSeqIsShort = appliedVariation.OriginalSequence.Length - variantZeroBasedStart < intersectSize;
+                bool origSeqIsLong = appliedVariation.OriginalSequence.Length > intersectSize && OneBasedEndResidueInProtein > intersectOneBasedEnd;
+                if (origSeqIsShort || origSeqIsLong)
+                {
+                    return true;
+                }
+
+                // is the variant sequence intersecting the peptide different than the original sequence?
+                string originalAtIntersect = appliedVariation.OriginalSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
+                string variantAtIntersect = appliedVariation.VariantSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
+                return originalAtIntersect != variantAtIntersect;
+            }
+        }
+
+        /// <summary>
+        /// Makes the string representing a detected sequence variation, including any modifications on a variant amino acid
+        /// </summary>
+        /// <param name="p"></param>
+        /// <param name="d"></param>
+        /// <returns></returns>
+        public string SequenceVariantString(SequenceVariation applied)
+        {
+            var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
+                .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
+                .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + 1, kv => kv.Value);
+            PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, applied.OneBasedBeginPosition, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
+            return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence}";
+        }
+
         public override string ToString()
         {
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
