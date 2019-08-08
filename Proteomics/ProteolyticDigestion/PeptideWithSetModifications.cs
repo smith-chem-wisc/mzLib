@@ -436,14 +436,7 @@ namespace Proteomics.ProteolyticDigestion
             int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition + lengthDiff);
             int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
 
-            bool isStopGain = appliedVariation.VariantSequence.Contains("*") // stop gain
-                && OneBasedEndResidueInProtein == Protein.Length // contains end of protein
-                && OneBasedEndResidueInProtein == appliedVariation.OneBasedBeginPosition + appliedVariation.VariantSequence.IndexOf('*') - 1; // the stop gain index is right after the end
-            if (isStopGain)
-            {
-                return true;
-            }
-            else if (intersectOneBasedEnd < intersectOneBasedStart) // doesn't intersect
+            if (intersectOneBasedEnd < intersectOneBasedStart) // doesn't intersect
             {
                 return false;
             }

@@ -538,12 +538,11 @@ namespace Test
             SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // before peptide (not identified)
             SequenceVariation sv2Synonymous = new SequenceVariation(2, 2, "A", "A", ""); // no change (identified because peptide crosses entire variant)
             SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            SequenceVariation sv5InsertionAtEnd = new SequenceVariation(7, 9, "GHI", "GHIK", ""); // insertion
+            SequenceVariation sv5InsertionAtEnd = new SequenceVariation(7, 9, "GHI", "GHIK", ""); // insertion or stop loss
             SequenceVariation sv6Deletion = new SequenceVariation(2, 3, "AC", "A", ""); // deletion
-            SequenceVariation sv66Truncation = new SequenceVariation(10, 20, "KAAAAAAAAAA", "K", ""); // truncation (identified because peptide crosses entire variant)
+            SequenceVariation sv66Truncation = new SequenceVariation(10, 20, "KAAAAAAAAAA", "K", ""); // truncation or stop gain (identified because peptide crosses entire variant)
             SequenceVariation sv7MNP = new SequenceVariation(2, 3, "AA", "AC", ""); // mnp
             SequenceVariation sv77MNP = new SequenceVariation(2, 3, "AC", "AC", ""); // synonymous mnp (identified because peptide crosses entire variant)
-            SequenceVariation sv8StopGain = new SequenceVariation(11, 11, "A", "*", ""); // stop-gain
             SequenceVariation sv9MissenseInRange = new SequenceVariation(3, 3, "C", "V", ""); // missense in range
             SequenceVariation sv10MissenseRangeEdge = new SequenceVariation(10, 10, "K", "R", ""); // missense at end
             SequenceVariation sv11After = new SequenceVariation(11, 11, "L", "V", ""); // after peptide (not identified)
@@ -556,14 +555,12 @@ namespace Test
             Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv66Truncation));
             Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP));
             Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv77MNP));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv8StopGain));
             Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange));
             Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge));
             Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After));
 
             PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
             Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd)); // this only intersects GHI, which is the same in GHI -> GHIK
-            Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv8StopGain)); // this doesn't go to the end of the protein, so it doesn't identify the applied stop gain
         }
     }
 }
