@@ -428,11 +428,14 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="pep"></param>
         /// <param name="appliedVariation"></param>
         /// <returns></returns>
-        public bool IntersectsWithVariation(SequenceVariation appliedVariation, bool checkForSequenceChange)
+        public bool IntersectsAndIdentifiesVariation(SequenceVariation appliedVariation)
         {
             // does it intersect?
+            int lengthDiff = appliedVariation.VariantSequence.Length - appliedVariation.OriginalSequence.Length;
             int intersectOneBasedStart = Math.Max(OneBasedStartResidueInProtein, appliedVariation.OneBasedBeginPosition);
-            int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition);
+            int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition + lengthDiff);
+            int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
+
             bool isStopGain = appliedVariation.VariantSequence.Contains("*") // stop gain
                 && OneBasedEndResidueInProtein == Protein.Length // contains end of protein
                 && OneBasedEndResidueInProtein == appliedVariation.OneBasedBeginPosition + appliedVariation.VariantSequence.IndexOf('*') - 1; // the stop gain index is right after the end
@@ -440,30 +443,28 @@ namespace Proteomics.ProteolyticDigestion
             {
                 return true;
             }
-            else if (intersectOneBasedEnd < intersectOneBasedStart)
+            else if (intersectOneBasedEnd < intersectOneBasedStart) // doesn't intersect
             {
                 return false;
             }
-            else if (!checkForSequenceChange)
+            else // check whether this peptide crosses a sequence change or entire variant (if an MNP for AA -> AR, must cross the R to identify the sequence variation)
             {
-                return true;
-            }
-            else
-            {
-                // if the original sequence is too short or long, there is a sequence change
-                int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
-                int variantZeroBasedStart = intersectOneBasedStart - appliedVariation.OneBasedBeginPosition;
-                bool origSeqIsShort = appliedVariation.OriginalSequence.Length - variantZeroBasedStart < intersectSize;
+                // if the original sequence within the peptide is shorter or longer than the variant sequence within the peptide, there is a sequence change
+                int variantZeroBasedStartInPeptide = intersectOneBasedStart - appliedVariation.OneBasedBeginPosition;
+                bool origSeqIsShort = appliedVariation.OriginalSequence.Length - variantZeroBasedStartInPeptide < intersectSize;
                 bool origSeqIsLong = appliedVariation.OriginalSequence.Length > intersectSize && OneBasedEndResidueInProtein > intersectOneBasedEnd;
                 if (origSeqIsShort || origSeqIsLong)
                 {
                     return true;
                 }
 
+                // crosses the entire variant sequence (needed to identify truncations and certain deletions, like KAAAAAAAAA -> K, but also catches synonymous variations A -> A)
+                bool crossesEntireVariant = intersectSize == appliedVariation.VariantSequence.Length;
+
                 // is the variant sequence intersecting the peptide different than the original sequence?
                 string originalAtIntersect = appliedVariation.OriginalSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
                 string variantAtIntersect = appliedVariation.VariantSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
-                return originalAtIntersect != variantAtIntersect;
+                return crossesEntireVariant || originalAtIntersect != variantAtIntersect;
             }
         }
 
