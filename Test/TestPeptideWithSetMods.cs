@@ -80,7 +80,6 @@ namespace Test
             //classic
             DigestionParams classicSemi = new DigestionParams("semi-trypsin", 2, 7, 50);
             protein3.Digest(classicSemi, null, null).ToList();
-
         }
 
         [Test]
@@ -566,6 +565,5 @@ namespace Test
             Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd)); // this only intersects GHI, which is the same in GHI -> GHIK
             Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv8StopGain)); // this doesn't go to the end of the protein, so it doesn't identify the applied stop gain
         }
-
     }
 }
