@@ -15,6 +15,7 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzML\MzML.csproj" />
@@ -23,7 +24,6 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Accord.Math" Version="3.8.0" />
     <PackageReference Include="NetSerializer" Version="4.1.0" />
     <PackageReference Include="SharpLearning.Containers" Version="[0.28.0]" />
     <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
