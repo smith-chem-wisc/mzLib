@@ -4,7 +4,6 @@ using SharpLearning.Optimization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
@@ -188,7 +187,7 @@ namespace FlashLFQ
                     }
 
                     // we're only normalizing on a subset of data here because it might take too long to do the whole set
-                    seenInBothBioreps = SubsetData(seenInBothBioreps, filesForThisBiorep.Concat(filesForCond1Biorep1).ToList());
+                    //seenInBothBioreps = SubsetData(seenInBothBioreps, filesForThisBiorep.Concat(filesForCond1Biorep1).ToList());
 
                     // add the data to the array to set up for the normalization function
                     int numP = seenInBothBioreps.Count;
@@ -210,7 +209,7 @@ namespace FlashLFQ
                     }
 
                     // solve for normalization factors
-                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, 2, numF, maxThreads);
+                    var normFactors = GetNormalizationFactors(myIntensityArray, numP, numF);
                     if (normFactors.All(p => p == 1.0) && !silent)
                     {
                         Console.WriteLine("Warning: Could not solve for optimal normalization factors for condition \"" + condition + "\" biorep " + (b + 1));
@@ -321,85 +320,100 @@ namespace FlashLFQ
         /// This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
         /// excessive computation time in normalization functions.
         /// </summary>
-        private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
-        {
-            List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
-            var temp1 = spectraFiles.GroupBy(p => p.Condition).ToList();
-            if (temp1.Count() == 1)
-            {
-                // normalizing bioreps within a condition
-                var temp2 = spectraFiles.GroupBy(p => p.BiologicalReplicate).ToList();
-                bothBioreps[0] = temp2[0].ToList();
-                bothBioreps[1] = temp2[1].ToList();
-            }
-            else
-            {
-                // normalizing bioreps between conditions
-                bothBioreps[0] = temp1[0].ToList();
-                bothBioreps[1] = temp1[1].ToList();
-            }
+        //private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
+        //{
+        //    List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
+        //    var temp1 = spectraFiles.GroupBy(p => p.Condition).ToList();
+        //    if (temp1.Count() == 1)
+        //    {
+        //        // normalizing bioreps within a condition
+        //        var temp2 = spectraFiles.GroupBy(p => p.BiologicalReplicate).ToList();
+        //        bothBioreps[0] = temp2[0].ToList();
+        //        bothBioreps[1] = temp2[1].ToList();
+        //    }
+        //    else
+        //    {
+        //        // normalizing bioreps between conditions
+        //        bothBioreps[0] = temp1[0].ToList();
+        //        bothBioreps[1] = temp1[1].ToList();
+        //    }
 
-            HashSet<Peptide> subsetList = new HashSet<Peptide>();
-            int maxFractionIndex = bothBioreps.SelectMany(p => p).Max(v => v.Fraction);
+        //    HashSet<Peptide> subsetList = new HashSet<Peptide>();
+        //    int maxFractionIndex = bothBioreps.SelectMany(p => p).Max(v => v.Fraction);
 
-            foreach (var biorep in bothBioreps)
-            {
-                List<int> fractions = biorep.Select(p => p.Fraction).Distinct().ToList();
+        //    foreach (var biorep in bothBioreps)
+        //    {
+        //        List<int> fractions = biorep.Select(p => p.Fraction).Distinct().ToList();
 
-                int numToAddPerFraction = numPeptidesDesiredInMatrix / fractions.Count;
-                if (numToAddPerFraction < numPeptidesDesiredFromEachFraction)
-                {
-                    numToAddPerFraction = numPeptidesDesiredFromEachFraction;
-                }
+        //        int numToAddPerFraction = numPeptidesDesiredInMatrix / fractions.Count;
+        //        if (numToAddPerFraction < numPeptidesDesiredFromEachFraction)
+        //        {
+        //            numToAddPerFraction = numPeptidesDesiredFromEachFraction;
+        //        }
 
-                int[] peptidesAddedPerFraction = new int[fractions.Count];
-                Queue<Peptide>[] peptidesObservedInEachFraction = new Queue<Peptide>[fractions.Count];
+        //        int[] peptidesAddedPerFraction = new int[fractions.Count];
+        //        Queue<Peptide>[] peptidesObservedInEachFraction = new Queue<Peptide>[fractions.Count];
 
-                foreach (var file in biorep)
-                {
-                    if (peptidesObservedInEachFraction[file.Fraction] == null)
-                    {
-                        peptidesObservedInEachFraction[file.Fraction] = new Queue<Peptide>(initialList.Where(p => p.GetIntensity(file) > 0)
-                            .OrderByDescending(p => p.GetIntensity(file)));
-                    }
-                }
+        //        foreach (var file in biorep)
+        //        {
+        //            if (peptidesObservedInEachFraction[file.Fraction] == null)
+        //            {
+        //                peptidesObservedInEachFraction[file.Fraction] = new Queue<Peptide>(initialList.Where(p => p.GetIntensity(file) > 0)
+        //                    .OrderByDescending(p => p.GetIntensity(file)));
+        //            }
+        //        }
 
-                foreach (var fraction in fractions)
-                {
-                    while (peptidesAddedPerFraction[fraction] < numToAddPerFraction && peptidesObservedInEachFraction[fraction].Any())
-                    {
-                        var peptide = peptidesObservedInEachFraction[fraction].Dequeue();
+        //        foreach (var fraction in fractions)
+        //        {
+        //            while (peptidesAddedPerFraction[fraction] < numToAddPerFraction && peptidesObservedInEachFraction[fraction].Any())
+        //            {
+        //                var peptide = peptidesObservedInEachFraction[fraction].Dequeue();
 
-                        // don't need to check if the return list already contains the peptide because it's a HashSet (no duplicates are allowed)
-                        subsetList.Add(peptide);
+        //                // don't need to check if the return list already contains the peptide because it's a HashSet (no duplicates are allowed)
+        //                subsetList.Add(peptide);
 
-                        // this peptide is in the return list regardless of whether or not it was actually just added;
-                        // we just want to guarantee this fraction has 500 peptides in the return list to normalize with
-                        peptidesAddedPerFraction[fraction]++;
-                    }
-                }
-            }
+        //                // this peptide is in the return list regardless of whether or not it was actually just added;
+        //                // we just want to guarantee this fraction has 500 peptides in the return list to normalize with
+        //                peptidesAddedPerFraction[fraction]++;
+        //            }
+        //        }
+        //    }
 
-            return subsetList.ToList();
-        }
+        //    return subsetList.ToList();
+        //}
 
         /// <summary>
         /// Calculates normalization factors for fractionated data using a bounded Nelder-Mead optimization algorithm.
         /// Called by NormalizeFractions().
         /// </summary>
-        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numB, int numF, int maxThreads)
+        private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numF)
         {
-            double step = 0.01;
             object locker = new object();
+
+            double[] referenceSample = new double[numP];
+            double[,] sampleToNormalize = new double[numP, numF];
+
+            // populate the peptide sample quantity array for normalization calculations
+            for (int p = 0; p < numP; p++)
+            {
+                for (int f = 0; f < numF; f++)
+                {
+                    referenceSample[p] += peptideIntensities[p, 0, f];
+                    sampleToNormalize[p, f] = peptideIntensities[p, 1, f];
+                }
+            }
 
             // initialize normalization factors to 1.0
             // normalization factor optimization must improve on these to be valid
-            double bestError = 0;
             double[] bestNormFactors = new double[numF];
             for (int i = 0; i < bestNormFactors.Length; i++)
             {
                 bestNormFactors[i] = 1.0;
             }
+
+            // calculate the error between bioreps if all normalization factors are 1 (initial error)
+            double[] initialErrors = new double[numP];
+            double bestError = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref bestNormFactors);
 
             // constraint (normalization factors must be >0.3 and <3
             var parameterArray = new ParameterBounds[numF];
@@ -408,114 +422,91 @@ namespace FlashLFQ
                 parameterArray[f] = new ParameterBounds(0.3, 3, Transform.Linear);
             }
 
-            //TODO: put this into a helper method to avoid code repetition...
-            // calculate the error between bioreps if all norm factors are 1 (initial error)
+            // find approximate best starting area for each fraction normalization factor
+            for (int f = 0; f < numF; f++)
             {
-                double[,] originalBiorepIntensities = new double[numP, numB];
-                double[] temp = new double[2];
-
-                for (int p = 0; p < numP; p++)
+                double bestFractionError = double.PositiveInfinity;
+                double start = parameterArray[0].Min;
+                double end = parameterArray[0].Max;
+                double[] factors = new double[numF];
+                for (int i = 0; i < factors.Length; i++)
                 {
-                    for (int b = 0; b < numB; b++)
-                    {
-                        for (int f = 0; f < numF; f++)
-                        {
-                            originalBiorepIntensities[p, b] += peptideIntensities[p, b, f];
-                        }
-                    }
+                    factors[i] = 1.0;
                 }
 
-                for (int p = 0; p < numP; p++)
+                for (double n = start; n <= end; n += 0.01)
                 {
-                    for (int b2 = 1; b2 < numB; b2++)
-                    {
-                        temp[0] = originalBiorepIntensities[p, 0];
-                        temp[1] = originalBiorepIntensities[p, b2];
+                    factors[f] = Math.Round(n, 2);
 
-                        // calculate initial error (error if all norm factors are 1)
-                        // error metric is sum square error of coefficient of variation of each peptide
-                        double coefficientOfVariation = Statistics.StandardDeviation(temp) / temp.Average();
-                        bestError += Math.Pow(coefficientOfVariation, 2);
+                    double error = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref factors);
+
+                    if (error < bestFractionError)
+                    {
+                        bestFractionError = error;
+                        bestNormFactors[f] = factors[f];
                     }
                 }
             }
 
-            int startN = (int)(parameterArray[0].Min / step);
-            int endN = (int)(parameterArray[0].Max / step);
+            // find the best normalization factors (minimize error)
+            double[] errors = new double[numP];
 
-            Parallel.For(startN, endN, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, n =>
+            // define minimization metric
+            Func<double[], OptimizerResult> minimize = v =>
             {
-                double startPosition = n * step;
+                // calculate error with these normalization factors
+                double candidateError = CalculateNormalizationFactorError(ref referenceSample, ref sampleToNormalize, ref v);
 
-                double[,] biorepIntensities = new double[numP, numB];
-                double[] temp = new double[2];
+                return new OptimizerResult(v, candidateError);
+            };
 
-                // define minimization metric
-                Func<double[], OptimizerResult> minimize = v =>
+            // create optimizer
+            OptimizerResult result = new NelderMeadWithStartPoints(
+                parameters: parameterArray,
+                startingValue: bestNormFactors,
+                maxIterationsWithoutImprovement: 10
+            ).OptimizeBest(minimize);
+
+            double sampleError = result.Error;
+            double[] normalizationFactors = result.ParameterSet;
+
+            if (sampleError < bestError)
+            {
+                lock (locker)
                 {
-                    // sum the intensities with the current normalization factors
-                    Array.Clear(biorepIntensities, 0, biorepIntensities.Length);
-
-                    for (int p = 0; p < numP; p++)
+                    if (sampleError < bestError)
                     {
-                        for (int b = 0; b < numB; b++)
-                        {
-                            for (int f = 0; f < numF; f++)
-                            {
-                                if (b == 0)
-                                {
-                                    biorepIntensities[p, b] += peptideIntensities[p, b, f];
-                                }
-                                else
-                                {
-                                    biorepIntensities[p, b] += peptideIntensities[p, b, f] * v[f];
-                                }
-                            }
-                        }
-                    }
-
-                    // calculate the error for these normalization factors
-                    double candidateError = 0;
-                    for (int p = 0; p < numP; p++)
-                    {
-                        for (int b2 = 1; b2 < numB; b2++)
-                        {
-                            temp[0] = biorepIntensities[p, 0];
-                            temp[1] = biorepIntensities[p, b2];
-
-                            // error metric is sum square error of coefficient of variation of each peptide
-                            double coefficientOfVariation = Statistics.StandardDeviation(temp) / temp.Average();
-                            candidateError += Math.Pow(coefficientOfVariation, 2);
-                        }
-                    }
-
-                    return new OptimizerResult(v, candidateError);
-                };
-
-                // create optimizer
-                OptimizerResult result = new NelderMeadWithStartPoints(
-                    parameters: parameterArray,
-                    startingValue: startPosition,
-                    maxIterationsWithoutImprovement: 10
-                ).OptimizeBest(minimize);
-
-                double error = result.Error;
-                double[] normFactors = result.ParameterSet;
-
-                if (error < bestError)
-                {
-                    lock (locker)
-                    {
-                        if (error < bestError)
-                        {
-                            bestError = error;
-                            bestNormFactors = normFactors;
-                        }
+                        bestError = sampleError;
+                        bestNormFactors = normalizationFactors;
                     }
                 }
-            });
+            }
 
             return bestNormFactors;
+        }
+
+        private static double CalculateNormalizationFactorError(ref double[] reference, ref double[,] sampleToNormalize, ref double[] normalizationFactors)
+        {
+            int numP = reference.Length;
+            int numF = normalizationFactors.Length;
+
+            double totalError = 0;
+            
+            for (int p = 0; p < numP; p++)
+            {
+                // sum the intensities with the current normalization factors
+                double normalizedReplicateIntensity = 0;
+                for (int f = 0; f < numF; f++)
+                {
+                    normalizedReplicateIntensity += sampleToNormalize[p, f] * normalizationFactors[f];
+                }
+                
+                double peptideError = Math.Log(normalizedReplicateIntensity) - Math.Log(reference[p]);
+
+                totalError += peptideError;
+            }
+
+            return totalError;
         }
     }
 }
