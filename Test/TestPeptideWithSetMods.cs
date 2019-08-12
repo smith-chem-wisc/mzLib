@@ -518,13 +518,13 @@ namespace Test
             SpliceSite ss5 = new SpliceSite(9, 10, "");
             SpliceSite ss6EndAfter = new SpliceSite(10, 11, "");
             SpliceSite ss7After = new SpliceSite(11, 12, "");
-            Assert.IsFalse(pepe.Includes(ss1Before));
-            Assert.IsFalse(pepe.Includes(ss2BeginningBefore));
-            Assert.IsTrue(pepe.Includes(ss3));
-            Assert.IsTrue(pepe.Includes(ss4));
-            Assert.IsTrue(pepe.Includes(ss5));
-            Assert.IsFalse(pepe.Includes(ss6EndAfter));
-            Assert.IsFalse(pepe.Includes(ss7After));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss1Before));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss2BeginningBefore));
+            Assert.IsTrue(pepe.IncludesSpliceSite(ss3));
+            Assert.IsTrue(pepe.IncludesSpliceSite(ss4));
+            Assert.IsTrue(pepe.IncludesSpliceSite(ss5));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss6EndAfter));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss7After));
         }
 
         [Test]

@@ -417,7 +417,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="pep"></param>
         /// <param name="site"></param>
         /// <returns></returns>
-        public bool Includes(SpliceSite site)
+        public bool IncludesSpliceSite(SpliceSite site)
         {
             return OneBasedStartResidueInProtein <= site.OneBasedBeginPosition && OneBasedEndResidueInProtein >= site.OneBasedEndPosition;
         }
