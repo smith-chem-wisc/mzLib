@@ -30,6 +30,7 @@ namespace FlashLFQ
         public readonly bool MatchBetweenRuns;
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
+        public readonly bool RequireMsmsIdInCondition;
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
@@ -58,7 +59,6 @@ namespace FlashLFQ
             bool integrate = false,
             int numIsotopesRequired = 2,
             bool idSpecificChargeState = false,
-            bool requireMonoisotopicMass = true,
             bool silent = false,
             int maxThreads = -1,
 
@@ -66,6 +66,7 @@ namespace FlashLFQ
             bool matchBetweenRuns = false,
             double matchBetweenRunsPpmTolerance = 5.0,
             double maxMbrWindow = 2.5,
+            bool requireMsmsIdInCondition = false,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -98,6 +99,7 @@ namespace FlashLFQ
             Silent = silent;
             IdSpecificChargeState = idSpecificChargeState;
             MbrRtWindow = maxMbrWindow;
+            RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
             MaxThreads = maxThreads;
             BayesianProteinQuant = bayesianProteinQuant;
@@ -202,7 +204,7 @@ namespace FlashLFQ
             _results.CalculatePeptideResults();
 
             // do top3 protein quantification
-            _results.CalculateProteinResultsTop3();
+            _results.CalculateProteinResultsTop3(UseSharedPeptidesForProteinQuant);
 
             // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
@@ -463,6 +465,19 @@ namespace FlashLFQ
             var acceptorFileIdentifiedSequences = new HashSet<string>(acceptorFileIdentifiedPeaks.Where(p => p.IsotopicEnvelopes.Any())
                 .SelectMany(p => p.Identifications.Select(d => d.ModifiedSequence)));
 
+            HashSet<ProteinGroup> thisFilesMsmsIdentifiedProteins = new HashSet<ProteinGroup>();
+            if (RequireMsmsIdInCondition)
+            {
+                // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
+                foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
+                {
+                    foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
+                    {
+                        thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
+                    }
+                }
+            }
+
             // this stores the results of MBR
             var matchBetweenRunsIdentifiedPeaks = new Dictionary<string, Dictionary<IsotopicEnvelope, ChromatographicPeak>>();
 
@@ -479,7 +494,8 @@ namespace FlashLFQ
                     !p.IsMbrPeak
                     && p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
-                    && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)).ToList();
+                    && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
+                    && (!RequireMsmsIdInCondition || p.Identifications.Any(v => v.ProteinGroups.Any(g => thisFilesMsmsIdentifiedProteins.Contains(g))))).ToList();
 
                 if (!idDonorPeaks.Any())
                 {
@@ -920,7 +936,7 @@ namespace FlashLFQ
                             IndexedMassSpectralPeak isotopePeak = _peakIndexingEngine.GetIndexedPeak(isotopeMass,
                                 peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
-                            if (isotopePeak == null 
+                            if (isotopePeak == null
                                 || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0 || isotopePeak.Intensity > theoreticalIsotopeIntensity * 4.0)
                             {
                                 break;
@@ -978,7 +994,7 @@ namespace FlashLFQ
                 {
                     corrShiftedRight = -1;
                 }
-                
+
                 if (corr > 0.7 && (corrShiftedLeft - corrWithPadding < 0.1 && corrShiftedRight - corrWithPadding < 0.1))
                 {
                     // impute unobserved isotope peak intensities
