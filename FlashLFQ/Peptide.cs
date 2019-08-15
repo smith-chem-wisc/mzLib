@@ -97,18 +97,20 @@ namespace FlashLFQ
             str.Append(Sequence + "\t");
             str.Append(BaseSequence + "\t");
 
-            var proteinsCount = ProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
-            var genesCount = ProteinGroups.Select(p => p.GeneName).Distinct().Count();
-            var organismsCount = ProteinGroups.Select(p => p.Organism).Distinct().Count();
+            var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
+            
+            var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
+            var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
+            var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();
 
-            str.Append(proteinsCount > 1 ? string.Join(";", ProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
-                ProteinGroups.Any() ? ProteinGroups.First().ProteinGroupName + "\t" : "\t");
+            str.Append(proteinsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
+                orderedProteinGroups.Any() ? orderedProteinGroups.First().ProteinGroupName + "\t" : "\t");
 
-            str.Append(genesCount > 1 ? string.Join(";", ProteinGroups.Select(p => p.GeneName)) + "\t" : 
-                ProteinGroups.Any() ? ProteinGroups.First().GeneName + "\t" : "\t");
+            str.Append(genesCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.GeneName)) + "\t" :
+                orderedProteinGroups.Any() ? orderedProteinGroups.First().GeneName + "\t" : "\t");
 
-            str.Append(organismsCount > 1 ? string.Join(";", ProteinGroups.Select(p => p.Organism)) + "\t" :
-                ProteinGroups.Any() ? ProteinGroups.First().Organism + "\t" : "\t");
+            str.Append(organismsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.Organism)) + "\t" :
+                orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
 
             foreach (var file in rawFiles)
             {
