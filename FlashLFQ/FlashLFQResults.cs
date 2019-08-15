@@ -29,7 +29,7 @@ namespace FlashLFQ
             {
                 if (!PeptideModifiedSequences.ContainsKey(id.ModifiedSequence))
                 {
-                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.UseForProteinQuant, id.ProteinGroups));
+                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.BaseSequence, id.UseForProteinQuant, id.ProteinGroups));
                 }
 
                 foreach (ProteinGroup proteinGroup in id.ProteinGroups)
@@ -161,7 +161,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculateProteinResultsTop3()
+        public void CalculateProteinResultsTop3(bool useSharedPeptides)
         {
             foreach (var proteinGroup in ProteinGroups)
             {
@@ -203,7 +203,8 @@ namespace FlashLFQ
                     foreach (SpectraFileInfo file in SpectraFiles)
                     {
                         // top N peptides in the file
-                        double proteinIntensity = peptidesForThisProtein.Select(p => p.GetIntensity(file)).OrderByDescending(p => p).Take(topNPeaks).Sum();
+                        double proteinIntensity = peptidesForThisProtein.Where(p => p.ProteinGroups.Count == 1 || useSharedPeptides)
+                            .Select(p => p.GetIntensity(file)).OrderByDescending(p => p).Take(topNPeaks).Sum();
 
                         pg.SetIntensity(file, proteinIntensity);
                     }
