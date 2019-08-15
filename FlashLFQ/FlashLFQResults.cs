@@ -29,7 +29,7 @@ namespace FlashLFQ
             {
                 if (!PeptideModifiedSequences.ContainsKey(id.ModifiedSequence))
                 {
-                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.UseForProteinQuant, id.ProteinGroups));
+                    PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.BaseSequence, id.UseForProteinQuant, id.ProteinGroups));
                 }
 
                 foreach (ProteinGroup proteinGroup in id.ProteinGroups)

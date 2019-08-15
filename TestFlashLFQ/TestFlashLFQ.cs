@@ -581,12 +581,24 @@ namespace Test
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
+
+            var peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup>());
+            var peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\tNotDetected\t");
+
+            peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup });
+            peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\tNotDetected\t");
+
+            peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup, new ProteinGroup("Accession2", "Gene2", "Organism2") });
+            peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\tNotDetected\t");
         }
 
         [Test]
         public static void TestNotFound()
         {
-            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", true, new HashSet<ProteinGroup>());
+            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", "SEQ", true, new HashSet<ProteinGroup>());
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
@@ -742,7 +754,7 @@ namespace Test
             // the intensities in condition "b" are about double that of condition "a", and the results
             // of the Bayesian estimation should reflect that.
             ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
-            var p = new FlashLFQ.Peptide("PEPTIDE", true, new HashSet<ProteinGroup> { pg });
+            var p = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
 
             var files = new List<SpectraFileInfo>
             {
