@@ -581,12 +581,24 @@ namespace Test
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
+
+            var peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup>());
+            var peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\tNotDetected\t");
+
+            peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup });
+            peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\tNotDetected\t");
+
+            peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup, new ProteinGroup("Accession2", "Gene2", "Organism2") });
+            peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\tNotDetected\t");
         }
 
         [Test]
         public static void TestNotFound()
         {
-            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", true, new HashSet<ProteinGroup>());
+            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", "SEQ", true, new HashSet<ProteinGroup>());
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
@@ -742,7 +754,7 @@ namespace Test
             // the intensities in condition "b" are about double that of condition "a", and the results
             // of the Bayesian estimation should reflect that.
             ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
-            var p = new FlashLFQ.Peptide("PEPTIDE", true, new HashSet<ProteinGroup> { pg });
+            var p = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
 
             var files = new List<SpectraFileInfo>
             {
@@ -847,6 +859,7 @@ namespace Test
             SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
 
             List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
             foreach (string line in File.ReadAllLines(psmFile))
             {
                 var split = line.Split(new char[] { '\t' });
@@ -872,14 +885,28 @@ namespace Test
                 double monoMass = double.Parse(split[21]);
                 double rt = double.Parse(split[2]);
                 int z = (int)double.Parse(split[6]);
+                var proteins = split[24].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
 
-                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, new List<ProteinGroup>());
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
                 ids.Add(id);
             }
 
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, maxThreads: 1);
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1);
             var results = engine.Run();
-            
+
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
@@ -892,7 +919,7 @@ namespace Test
             Assert.That(f1r2MbrResults.Count >= 79);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
-            
+
             foreach (var peptide in f1r1MbrResults)
             {
                 double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
@@ -914,6 +941,19 @@ namespace Test
             corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
 
             Assert.That(corr > 0.7);
+
+            // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
+            // has to be observed in a condition for match-between-runs
+            f1r1.Condition = "b";
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
+            results = engine.Run();
+            var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            var proteinsObservedInF2 = ids.Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            var proteinsObservedInF1ButNotF2 = proteinsObservedInF1.Except(proteinsObservedInF2).ToList();
+            foreach (ProteinGroup protein in proteinsObservedInF1ButNotF2)
+            {
+                Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
+            }
         }
 
         [Test]
@@ -985,6 +1025,37 @@ namespace Test
             ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
             Assert.That(Math.Round(peak.MassError, 3) == 0);
             Assert.That(peak.IsotopicEnvelopes.Count == 10);
+        }
+
+        [Test]
+        public static void TestUseSharedPeptidesForQuant()
+        {
+            ProteinGroup pg1 = new ProteinGroup("Accession1", "Gene1", "Organism");
+            ProteinGroup pg2 = new ProteinGroup("Accession2", "Gene2", "Organism");
+
+            var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0)
+            };
+
+            // this peptide is shared between protein groups
+            var id = new Identification(files[0], "PEPTIDE", "PEPTIDE", 0, 0, 1, new List<ProteinGroup> { pg1, pg2 });
+
+            // this is unique to a single protein group
+            var id2 = new Identification(files[0], "PEPTIDEA", "PEPTIDEA", 0, 0, 1, new List<ProteinGroup> { pg1 });
+
+            var res = new FlashLfqResults(files, new List<Identification> { id, id2 });
+
+            res.PeptideModifiedSequences["PEPTIDE"].SetIntensity(files[0], 1000); // shared peptide
+            res.PeptideModifiedSequences["PEPTIDEA"].SetIntensity(files[0], 2000); // unique peptide
+            res.PeptideModifiedSequences["PEPTIDE"].SetDetectionType(files[0], DetectionType.MSMS);
+            res.PeptideModifiedSequences["PEPTIDEA"].SetDetectionType(files[0], DetectionType.MSMS);
+
+            res.CalculateProteinResultsTop3(useSharedPeptides: true);
+            Assert.That(res.ProteinGroups["Accession1"].GetIntensity(files[0]) == 3000); // protein intensity should be the sum of shared+unique peptides
+
+            res.CalculateProteinResultsTop3(useSharedPeptides: false);
+            Assert.That(res.ProteinGroups["Accession1"].GetIntensity(files[0]) == 2000); // protein intensity should be from the unique peptide only
         }
     }
 }
