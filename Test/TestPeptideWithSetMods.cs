@@ -80,7 +80,6 @@ namespace Test
             //classic
             DigestionParams classicSemi = new DigestionParams("semi-trypsin", 2, 7, 50);
             protein3.Digest(classicSemi, null, null).ToList();
-
         }
 
         [Test]
@@ -505,6 +504,92 @@ namespace Test
             List<PeptideWithSetModifications> cPwsms = P56381.Digest(singleC, null, null).ToList();
             Assert.IsTrue(nPwsms.Count == cPwsms.Count);
             Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinPeptideLength + 1);
+        }
+
+        [Test]
+        public static void TestIncludeSpliceSiteRanges()
+        {
+            Protein protein = new Protein("MACDEFGHIKLMNPQRST", "test");
+            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            SpliceSite ss1Before = new SpliceSite(1, 1, "");
+            SpliceSite ss2BeginningBefore = new SpliceSite(1, 2, "");
+            SpliceSite ss3 = new SpliceSite(2, 3, "");
+            SpliceSite ss4 = new SpliceSite(3, 4, "");
+            SpliceSite ss5 = new SpliceSite(9, 10, "");
+            SpliceSite ss6EndAfter = new SpliceSite(10, 11, "");
+            SpliceSite ss7After = new SpliceSite(11, 12, "");
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss1Before));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss2BeginningBefore));
+            Assert.IsTrue(pepe.IncludesSpliceSite(ss3));
+            Assert.IsTrue(pepe.IncludesSpliceSite(ss4));
+            Assert.IsTrue(pepe.IncludesSpliceSite(ss5));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss6EndAfter));
+            Assert.IsFalse(pepe.IncludesSpliceSite(ss7After));
+        }
+
+        [Test]
+        public static void TestIntersectsSequenceVariations()
+        {
+            Protein protein = new Protein("MACDEFGHIK", "test");
+            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+
+            // The weird thing here is that IntersectsWithVariation takes in applied variations,
+            // so these are constructed as if already applied
+            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // before peptide (not identified)
+            SequenceVariation sv2Synonymous = new SequenceVariation(2, 2, "A", "A", ""); // no change (identified because peptide crosses entire variant)
+            SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
+            SequenceVariation sv5InsertionAtEnd = new SequenceVariation(7, 9, "GHI", "GHIK", ""); // insertion or stop loss
+            SequenceVariation sv6Deletion = new SequenceVariation(2, 3, "AC", "A", ""); // deletion
+            SequenceVariation sv66Truncation = new SequenceVariation(10, 20, "KAAAAAAAAAA", "K", ""); // truncation or stop gain (identified because peptide crosses entire variant)
+            SequenceVariation sv7MNP = new SequenceVariation(2, 3, "AA", "AC", ""); // mnp
+            SequenceVariation sv77MNP = new SequenceVariation(2, 3, "AC", "AC", ""); // synonymous mnp (identified because peptide crosses entire variant)
+            SequenceVariation sv9MissenseInRange = new SequenceVariation(3, 3, "C", "V", ""); // missense in range
+            SequenceVariation sv10MissenseRangeEdge = new SequenceVariation(10, 10, "K", "R", ""); // missense at end
+            SequenceVariation sv11After = new SequenceVariation(11, 11, "L", "V", ""); // after peptide (not identified)
+
+            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv66Truncation));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv77MNP));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange));
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge));
+            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After));
+
+            PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd)); // this only intersects GHI, which is the same in GHI -> GHIK
+        }
+
+        [Test]
+        public static void TestSeqVarString()
+        {
+            Protein protein = new Protein("MACDEFGHIK", "test");
+
+            // mod on N-terminus
+            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 1, new Modification("mod on M", "mod", "mod", "mod") } }, 0);
+            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // n-terminal mod goes before the sequence
+            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before));
+
+            // mod in middle
+            PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 2, new Modification("mod on A", "mod", "mod", "mod") } }, 0);
+            SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
+            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning));
+
+            // truncated seqvar doesn't truncate in string report (using applied variation correctly)
+            PeptideWithSetModifications pepe3 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            SequenceVariation svvvv = new SequenceVariation(7, 9, "GHM", "GHIK", ""); // insertion
+            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv));
+        }
+
+        [Test]
+        public static void BreakDeserializationMethod()
+        {
+            Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("|", new Dictionary<string, Modification>())); // ambiguous
+            Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("[]", new Dictionary<string, Modification>())); // bad mod
+            Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
         }
     }
 }

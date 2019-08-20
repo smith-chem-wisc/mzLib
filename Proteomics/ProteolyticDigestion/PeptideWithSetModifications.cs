@@ -411,6 +411,73 @@ namespace Proteomics.ProteolyticDigestion
             return peptideWithLocalizedMass;
         }
 
+        /// <summary>
+        /// Determines whether a peptide includes a splice site
+        /// </summary>
+        /// <param name="pep"></param>
+        /// <param name="site"></param>
+        /// <returns></returns>
+        public bool IncludesSpliceSite(SpliceSite site)
+        {
+            return OneBasedStartResidueInProtein <= site.OneBasedBeginPosition && OneBasedEndResidueInProtein >= site.OneBasedEndPosition;
+        }
+
+        /// <summary>
+        /// Checks for an intersection between a peptide and applied variant that shows a sequence change.
+        /// </summary>
+        /// <param name="pep"></param>
+        /// <param name="appliedVariation"></param>
+        /// <returns></returns>
+        public bool IntersectsAndIdentifiesVariation(SequenceVariation appliedVariation)
+        {
+            // does it intersect?
+            int lengthDiff = appliedVariation.VariantSequence.Length - appliedVariation.OriginalSequence.Length;
+            int intersectOneBasedStart = Math.Max(OneBasedStartResidueInProtein, appliedVariation.OneBasedBeginPosition);
+            int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition + lengthDiff);
+            int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
+
+            if (intersectOneBasedEnd < intersectOneBasedStart) // doesn't intersect
+            {
+                return false;
+            }
+            else // check whether this peptide crosses a sequence change or entire variant (if an MNP for AA -> AR, must cross the R to identify the sequence variation)
+            {
+                // if the original sequence within the peptide is shorter or longer than the variant sequence within the peptide, there is a sequence change
+                int variantZeroBasedStartInPeptide = intersectOneBasedStart - appliedVariation.OneBasedBeginPosition;
+                bool origSeqIsShort = appliedVariation.OriginalSequence.Length - variantZeroBasedStartInPeptide < intersectSize;
+                bool origSeqIsLong = appliedVariation.OriginalSequence.Length > intersectSize && OneBasedEndResidueInProtein > intersectOneBasedEnd;
+                if (origSeqIsShort || origSeqIsLong)
+                {
+                    return true;
+                }
+
+                // crosses the entire variant sequence (needed to identify truncations and certain deletions, like KAAAAAAAAA -> K, but also catches synonymous variations A -> A)
+                bool crossesEntireVariant = intersectSize == appliedVariation.VariantSequence.Length;
+
+                // is the variant sequence intersecting the peptide different than the original sequence?
+                string originalAtIntersect = appliedVariation.OriginalSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
+                string variantAtIntersect = appliedVariation.VariantSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
+                return crossesEntireVariant || originalAtIntersect != variantAtIntersect;
+            }
+        }
+
+        /// <summary>
+        /// Makes the string representing a detected sequence variation, including any modifications on a variant amino acid
+        /// </summary>
+        /// <param name="p"></param>
+        /// <param name="d"></param>
+        /// <returns></returns>
+        public string SequenceVariantString(SequenceVariation applied)
+        {
+            bool startAtNTerm = applied.OneBasedBeginPosition == 1 && OneBasedStartResidueInProtein == 1;
+            int lengthDiff = applied.VariantSequence.Length - applied.OriginalSequence.Length;
+            var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
+                .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
+                .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (startAtNTerm ? 1 : 3), kv => kv.Value);
+            PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, startAtNTerm ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition + lengthDiff, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
+            return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(startAtNTerm ? 0 : 1)}";
+        }
+
         public override string ToString()
         {
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
