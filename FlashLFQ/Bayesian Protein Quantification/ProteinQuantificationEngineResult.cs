@@ -1,4 +1,5 @@
 ﻿using BayesianEstimation;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,9 +33,9 @@ namespace FlashLFQ
             this.BaseCondition = condition1;
             this.TreatmentCondition = condition2;
             this.PeptideFoldChangeMeasurements = fcs;
-            this.FoldChangePointEstimate = mus.Average();
-            this.StandardDeviationPointEstimate = sds.Average();
-            this.NuPointEstimate = nus.Average();
+            this.FoldChangePointEstimate = mus.Median();
+            this.StandardDeviationPointEstimate = sds.Median();
+            this.NuPointEstimate = nus.Median();
             this.MeanHDI_95 = Util.GetHighestDensityInterval(mus, 0.95);
             this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
         }
