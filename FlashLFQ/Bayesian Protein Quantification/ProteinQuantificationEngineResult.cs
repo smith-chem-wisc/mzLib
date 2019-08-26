@@ -108,6 +108,7 @@ namespace FlashLFQ
                 TreatmentCondition + "\t" +
                 NullHypothesisCutoff.Value + "\t" +
                 FoldChangePointEstimate + "\t" +
+                StandardDeviationPointEstimate + "\t" +
                 ConditionIntensityPointEstimate + "\t" +
                 nPeptides + "\t" +
                 nMeasurements + "\t" +
@@ -122,10 +123,11 @@ namespace FlashLFQ
                 "Protein Group" + "\t" +
                 "Gene" + "\t" +
                 "Organism" + "\t" +
-                "Base Condition" + "\t" +
+                "Control Condition" + "\t" +
                 "Treatment Condition" + "\t" +
                 "Log2 Fold-Change Cutoff" + "\t" +
                 "Protein Log2 Fold-Change" + "\t" +
+                "Standard Deviation of Peptide Log2 Fold-Changes" + "\t" +
                 "Protein Intensity for Treatment Condition" + "\t" +
                 "Number of Peptides" + "\t" +
                 "Number of Fold-Change Measurements" + "\t" +

@@ -102,18 +102,9 @@ namespace FlashLFQ
             var conditions = results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
             conditions.Remove(BaseCondition);
 
-            double baseConditionExperimentalNull = 0;
-            if (FoldChangeCutoff == null)
-            {
-                baseConditionExperimentalNull = DetermineExperimentalNull(BaseCondition);
-            }
-
             // calculate fold-change for each protein
             foreach (string condition in conditions)
             {
-                double nullHyp = FoldChangeCutoff == null ?
-                    Math.Max(DetermineExperimentalNull(condition), baseConditionExperimentalNull) : FoldChangeCutoff.Value;
-
                 Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
                 {
                     for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
@@ -131,7 +122,44 @@ namespace FlashLFQ
                             // run the Bayesian analysis
                             result = RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
                                 randomSeedsForEachProtein[protein][0], null, false, BurnInSteps, NSteps, out var mus);
+                        }
+                        else if (measurementCount == 1)
+                        {
+                            result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
+                                new double[] { peptideFoldChanges.SelectMany(p => p.Item2).First() }, new double[] { double.NaN },
+                                new double[] { double.NaN }, peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
+                        }
+                        else
+                        {
+                            result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
+                                new double[] { 0.0 }, new double[] { double.NaN }, new double[] { double.NaN },
+                                peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
+                        }
 
+                        protein.ConditionToQuantificationResults.Add(condition, result);
+                    }
+                });
+            }
+
+            // calculate PEPs for each protein
+            foreach (string condition in conditions)
+            {
+                double nullHyp = FoldChangeCutoff == null ? DetermineExperimentalNull(condition) : FoldChangeCutoff.Value;
+
+                Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        ProteinGroup protein = proteinList[i].Key;
+
+                        // get the fold-change measurements for the peptides assigned to this protein
+                        List<(Peptide, List<double>)> peptideFoldChanges = GetPeptideFoldChangeMeasurements(protein, BaseCondition, condition, null, null);
+                        int measurementCount = peptideFoldChanges.SelectMany(p => p.Item2).Count();
+
+                        ProteinQuantificationEngineResult result = protein.ConditionToQuantificationResults[condition];
+
+                        if (measurementCount > 1)
+                        {
                             RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
                                 randomSeedsForEachProtein[protein][1], nullHyp, true, BurnInSteps, NSteps, out var skepticalMus);
 
@@ -140,24 +168,14 @@ namespace FlashLFQ
                         }
                         else if (measurementCount == 1)
                         {
-                            result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
-                                new double[] { peptideFoldChanges.SelectMany(p => p.Item2).First() }, new double[] { double.NaN },
-                                new double[] { double.NaN }, peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
-
                             result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
                         else
                         {
-                            result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
-                                new double[] { 0.0 }, new double[] { double.NaN }, new double[] { double.NaN },
-                                peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
-
                             result.NullHypothesisCutoff = nullHyp;
                             result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
                         }
-
-                        protein.ConditionToQuantificationResults.Add(condition, result);
                     }
                 });
             }
@@ -500,108 +518,34 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// This function determines a fold-change cutoff from the data. The cutoff is the estimate of the biological variance. 
-        /// If bioreps are defined, the standard deviation of the protein fold-change between bioreps within a condition is used 
-        /// as the cutoff. If the condition only has 1 biorep, then the cutoff is the standard deviation of the protein fold-change 
-        /// between conditions.
+        /// This function determines a fold-change cutoff (a null hypothesis) from the data. Each protein has an estimate of the
+        /// standard deviation of its peptide fold-changes. The protein's standard deviations are pooled and the null hypothesis
+        /// is estimated as the most common standard deviation. This is difficult to do because the distribution is usually skewed,
+        /// so median and average are pretty poor estimates of the mode. Instead, the smallest interval with 10% of the distribution's 
+        /// density is found, and the median of this range is an estimate of the mode. This estimate of the mode standard deviation 
+        /// is used as the null hypothesis.
         /// </summary>
         private double DetermineExperimentalNull(string treatmentCondition)
         {
-            double experimentalNull;
+            double experimentalNull = 1.0;
+            var res = results.ProteinGroups.Values.Select(p => p.ConditionToQuantificationResults[treatmentCondition]).ToList();
 
-            int biorepCount = results.SpectraFiles.Where(p => p.Condition == treatmentCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
+            List<double> stdDevs = res.Where(p => p.PeptideFoldChangeMeasurements
+                .SelectMany(v => v.foldChanges).Count() > 1).Select(p => p.StandardDeviationPointEstimate).ToList();
 
-            if ((PairedSamples || biorepCount == 1) && treatmentCondition == BaseCondition)
+            if (stdDevs.Any())
             {
-                return 0;
-            }
+                var tenPercentHdi = Util.GetHighestDensityInterval(stdDevs.ToArray(), 0.1);
+                var sdsWithinHdi = stdDevs.Where(p => p <= tenPercentHdi.hdi_end && p >= tenPercentHdi.hdi_start).ToList();
 
-            var proteinList = ProteinsWithConstituentPeptides.ToList();
+                var modeStdDevPointEstimate = sdsWithinHdi.Median();
+                experimentalNull = modeStdDevPointEstimate;
 
-            // generate a random seed for each protein for the MCMC sampler
-            var randomSeedsForEachProtein = new Dictionary<ProteinGroup, List<int>>();
-            foreach (var protein in ProteinsWithConstituentPeptides)
-            {
-                randomSeedsForEachProtein.Add(protein.Key, new List<int> { Rng.NextFullRangeInt32() });
-            }
-
-            var experimentalNullResults = new Dictionary<string, List<ProteinQuantificationEngineResult>>();
-
-            Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
-            {
-                for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                if (double.IsNaN(experimentalNull))
                 {
-                    ProteinGroup protein = proteinList[i].Key;
-
-                    List<(Peptide, List<double>)> peptideFoldChanges = new List<(Peptide, List<double>)>();
-
-                    if (biorepCount > 1)
-                    {
-                        if (!PairedSamples)
-                        {
-                            // get the fold-change measurements for the peptides assigned to this protein between bioreps of this condition
-                            for (int b = 0; b < biorepCount - 1; b++)
-                            {
-                                peptideFoldChanges.AddRange(GetPeptideFoldChangeMeasurements(protein, treatmentCondition, treatmentCondition, b, b + 1));
-                            }
-                        }
-                        else if (PairedSamples)
-                        {
-                            peptideFoldChanges.AddRange(GetPeptideFoldChangeMeasurements(protein, BaseCondition, treatmentCondition, null, null));
-                        }
-                    }
-                    else
-                    {
-                        peptideFoldChanges.AddRange(GetPeptideFoldChangeMeasurements(protein, BaseCondition, treatmentCondition, null, null));
-                    }
-
-                    ProteinQuantificationEngineResult result;
-                    int measurementCount = peptideFoldChanges.SelectMany(p => p.Item2).Count();
-
-                    if (measurementCount > 1)
-                    {
-                        // run the Bayesian analysis
-                        result = RunBayesianProteinQuant(peptideFoldChanges, protein, treatmentCondition,
-                        randomSeedsForEachProtein[protein][0], null, false, 500, 500, out var mus);
-
-                        lock (experimentalNullResults)
-                        {
-                            experimentalNullResults.Add(protein.ProteinGroupName, new List<ProteinQuantificationEngineResult> { result });
-                        }
-                    }
-                    else
-                    {
-                        continue;
-                    }
-                }
-            });
-
-            double stdDev = 0;
-
-            // this is a weird case where there are very few proteins in the data...
-            if (experimentalNullResults.Count < 10)
-            {
-                if (experimentalNullResults.Any())
-                {
-                    stdDev = experimentalNullResults.SelectMany(p => p.Value).Select(p => p.StandardDeviationPointEstimate).Average();
-                }
-                else
-                {
-                    // TODO: not sure what to do here.. there were no protein quant results for this condition
-                    // for now the cutoff is just made to be a fold-change of 1.0, but maybe an exception should be thrown...
-
-                    // the experimental null is 3 * stdDev so the fold-change cutoff will end up being 1.0
-                    stdDev = 1.0 / 3.0;
-
-                    //throw new MzLibException("Could not determine experimental null for condition " + treatmentCondition);
+                    experimentalNull = stdDevs.Median();
                 }
             }
-            else
-            {
-                stdDev = experimentalNullResults.SelectMany(p => p.Value).Select(p => p.FoldChangePointEstimate).InterquartileRange() / 1.34896;
-            }
-
-            experimentalNull = 3.0 * stdDev;
 
             return experimentalNull;
         }
