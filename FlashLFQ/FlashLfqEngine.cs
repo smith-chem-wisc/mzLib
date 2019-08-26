@@ -105,6 +105,7 @@ namespace FlashLFQ
             Normalize = normalize;
             MaxThreads = maxThreads;
             BayesianProteinQuant = bayesianProteinQuant;
+            PairedSamples = pairedSamples;
             ProteinQuantBaseCondition = proteinQuantBaseCondition;
             ProteinQuantFoldChangeCutoff = proteinQuantFoldChangeCutoff;
             McmcSteps = mcmcSteps;
