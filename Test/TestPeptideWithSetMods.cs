@@ -622,7 +622,7 @@ namespace Test
             var protein8_variant = proteins.ElementAt(8).GetVariantProteins().ElementAt(0);
             var protein9_variant = proteins.ElementAt(9).GetVariantProteins().ElementAt(0);
 
-            List<Modification> digestMods = new List<Modification>() { };
+            List<Modification> digestMods = new List<Modification>();
 
             var protein0_peptide = protein0_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein1_peptide = protein1_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
