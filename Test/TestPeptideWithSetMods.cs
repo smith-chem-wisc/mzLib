@@ -622,16 +622,18 @@ namespace Test
             var protein8_variant = proteins.ElementAt(8).GetVariantProteins().ElementAt(0);
             var protein9_variant = proteins.ElementAt(9).GetVariantProteins().ElementAt(0);
 
-            var protein0_peptide = protein0_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);
-            var protein1_peptide = protein1_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
-            var protein2_peptide = protein2_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);
-            var protein3_peptide = protein3_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);
-            var protein4_peptide = protein4_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
-            var protein5_peptide = protein5_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
-            var protein6_peptide = protein6_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
-            var protein7_peptide = protein7_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(1);
-            var protein8_peptide = protein8_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(1);
-            var protein9_peptide = protein9_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);            
+            List<Modification> digestMods = new List<Modification>() { };
+
+            var protein0_peptide = protein0_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
+            var protein1_peptide = protein1_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
+            var protein2_peptide = protein2_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
+            var protein3_peptide = protein3_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
+            var protein4_peptide = protein4_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
+            var protein5_peptide = protein5_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
+            var protein6_peptide = protein6_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
+            var protein7_peptide = protein7_variant.Digest(dp, digestMods, digestMods).ElementAt(1);
+            var protein8_peptide = protein8_variant.Digest(dp, digestMods, digestMods).ElementAt(1);
+            var protein9_peptide = protein9_variant.Digest(dp, digestMods, digestMods).ElementAt(0);            
 
             Assert.AreEqual((true,true), protein0_peptide.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein1_peptide.IntersectsAndIdentifiesVariation(protein1_variant.AppliedSequenceVariations.ElementAt(0)));
