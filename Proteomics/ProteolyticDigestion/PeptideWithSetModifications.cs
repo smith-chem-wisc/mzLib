@@ -423,59 +423,170 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Checks for an intersection between a peptide and applied variant that shows a sequence change.
+        /// Checks if sequence variant and peptide intersect, also checks if the seuqence variatn can be identified whether they intersect 
+        /// or not (ie if the variant causes a cleavage site generating the peptide). Returns a tuple with item 1 being a bool value 
+        /// representing if the varaint intersects the peptide and item 2 beign abool that represents if the variatn is identified.
         /// </summary>
         /// <param name="pep"></param>
         /// <param name="appliedVariation"></param>
         /// <returns></returns>
-        public bool IntersectsAndIdentifiesVariation(SequenceVariation appliedVariation)
+        public (bool,bool) IntersectsAndIdentifiesVariation(SequenceVariation appliedVariation)
         {
-            // does it intersect?
-            int lengthDiff = appliedVariation.VariantSequence.Length - appliedVariation.OriginalSequence.Length;
-            int intersectOneBasedStart = Math.Max(OneBasedStartResidueInProtein, appliedVariation.OneBasedBeginPosition);
-            int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition + lengthDiff);
-            int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
+            // does it intersect?        
+   
+            bool VariantStartsBeforePeptide = appliedVariation.OneBasedBeginPosition < OneBasedStartResidueInProtein;
+            bool VariantStartsInsidePeptide = appliedVariation.OneBasedBeginPosition >= OneBasedStartResidueInProtein && appliedVariation.OneBasedBeginPosition < OneBasedEndResidueInProtein;
+            bool VariantEndsAfterPeptide = appliedVariation.OneBasedEndPosition > OneBasedEndResidueInProtein;
+            bool VariantEndsInsidePeptide = appliedVariation.OneBasedEndPosition > OneBasedStartResidueInProtein && appliedVariation.OneBasedEndPosition <= OneBasedEndResidueInProtein;
+            bool VariantStartsAtPeptideEnd = appliedVariation.OneBasedBeginPosition == OneBasedEndResidueInProtein;
+            bool VariantEndsAtPeptideEnd = appliedVariation.OneBasedEndPosition == OneBasedEndResidueInProtein;
+            bool VariantEndsAtPeptideStart = appliedVariation.OneBasedEndPosition == OneBasedStartResidueInProtein;
+            bool VariantStartsAtPeptideStart = appliedVariation.OneBasedBeginPosition == OneBasedStartResidueInProtein;
+            bool intersects = false;
+            bool identifies = false;
 
-            if (intersectOneBasedEnd < intersectOneBasedStart) // doesn't intersect
+            if (VariantStartsBeforePeptide)
             {
-                return false;
+                if (VariantEndsInsidePeptide || VariantEndsAfterPeptide || VariantEndsAtPeptideStart)
+                {
+                    intersects = true;                    
+                }
+
             }
-            else // check whether this peptide crosses a sequence change or entire variant (if an MNP for AA -> AR, must cross the R to identify the sequence variation)
+
+            if (VariantStartsInsidePeptide)
             {
+                if (VariantEndsInsidePeptide || VariantEndsAfterPeptide)
+                {
+                    intersects = true;                    
+                }
+            }
+
+            if (VariantStartsAtPeptideEnd && VariantEndsAfterPeptide)
+            {
+                intersects = true;                
+            }
+
+            if (VariantStartsAtPeptideEnd && VariantEndsAtPeptideEnd)
+            {
+                intersects = true;
+            }
+
+            if (VariantStartsAtPeptideStart && VariantEndsAtPeptideStart)
+            {
+                intersects = true;
+            }
+            if (intersects == true)
+            {
+                int lengthDiff = appliedVariation.VariantSequence.Length - appliedVariation.OriginalSequence.Length;
+                int intersectOneBasedStart = Math.Max(OneBasedStartResidueInProtein, appliedVariation.OneBasedBeginPosition);
+                int intersectOneBasedEnd = Math.Min(OneBasedEndResidueInProtein, appliedVariation.OneBasedEndPosition + lengthDiff);
+                int intersectSize = intersectOneBasedEnd - intersectOneBasedStart + 1;
+
                 // if the original sequence within the peptide is shorter or longer than the variant sequence within the peptide, there is a sequence change
                 int variantZeroBasedStartInPeptide = intersectOneBasedStart - appliedVariation.OneBasedBeginPosition;
                 bool origSeqIsShort = appliedVariation.OriginalSequence.Length - variantZeroBasedStartInPeptide < intersectSize;
                 bool origSeqIsLong = appliedVariation.OriginalSequence.Length > intersectSize && OneBasedEndResidueInProtein > intersectOneBasedEnd;
                 if (origSeqIsShort || origSeqIsLong)
                 {
-                    return true;
+                    identifies = true;
                 }
+                else
+                {
+                    // crosses the entire variant sequence (needed to identify truncations and certain deletions, like KAAAAAAAAA -> K, but also catches synonymous variations A -> A)
+                    bool crossesEntireVariant = intersectSize == appliedVariation.VariantSequence.Length;
 
-                // crosses the entire variant sequence (needed to identify truncations and certain deletions, like KAAAAAAAAA -> K, but also catches synonymous variations A -> A)
-                bool crossesEntireVariant = intersectSize == appliedVariation.VariantSequence.Length;
-
-                // is the variant sequence intersecting the peptide different than the original sequence?
-                string originalAtIntersect = appliedVariation.OriginalSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
-                string variantAtIntersect = appliedVariation.VariantSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
-                return crossesEntireVariant || originalAtIntersect != variantAtIntersect;
+                    // is the variant sequence intersecting the peptide different than the original sequence?
+                    string originalAtIntersect = appliedVariation.OriginalSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
+                    string variantAtIntersect = appliedVariation.VariantSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
+                    identifies = crossesEntireVariant || originalAtIntersect != variantAtIntersect;
+                }
             }
+            //checks to see if the variant causes a cleavage event creating the peptide. This is how a variant can be identified without intersecting
+            //with the peptide itself
+            else
+            {
+                 
+                List<SequenceVariation> VariantsThatAffectPreviousAAPosition = Protein.AppliedSequenceVariations.Where(v => v.OneBasedEndPosition <= OneBasedStartResidueInProtein).ToList();
+                int totalLengthDifference = 0;
+                foreach (var variant in VariantsThatAffectPreviousAAPosition)
+                {
+                    totalLengthDifference += variant.VariantSequence.Length - variant.OriginalSequence.Length;
+                }
+                List<DigestionMotif> proteasesCleavageSites = DigestionParams.Protease.DigestionMotifs;
+                if (appliedVariation.OneBasedEndPosition == (OneBasedStartResidueInProtein - 1))
+                {
+                    List<string> cTerminalResidue = proteasesCleavageSites.Where(dm => dm.CutIndex == 1).Select(d => d.InducingCleavage).ToList();
+                    if (cTerminalResidue.Count > 0)
+                    {
+                        PeptideWithSetModifications previousAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedStartResidueInProtein - 1, OneBasedStartResidueInProtein - 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                        PeptideWithSetModifications previousAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein.NonVariantProtein, DigestionParams, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                        if (cTerminalResidue.Contains(previousAA_Variant.BaseSequence) && !cTerminalResidue.Contains(previousAA_Original.BaseSequence))
+                        {
+                            identifies = true;
+                        }
+                    }
+                }
+                if (appliedVariation.OneBasedBeginPosition == (OneBasedEndResidueInProtein + 1))
+                {
+                    List<string> nTerminalResidue = proteasesCleavageSites.Where(dm => dm.CutIndex == 0).Select(d => d.InducingCleavage).ToList();
+                    if (nTerminalResidue.Count > 0)
+                    {
+                        PeptideWithSetModifications nextAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedEndResidueInProtein + 1, OneBasedEndResidueInProtein +1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                        PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                        if (nTerminalResidue.Contains(nextAA_Variant.BaseSequence) && !nTerminalResidue.Contains(nextAA_Original.BaseSequence))
+                        {
+                            identifies = true;
+                        }
+                    }
+                }                            
+            }
+
+            return (intersects, identifies);
         }
 
         /// <summary>
-        /// Makes the string representing a detected sequence variation, including any modifications on a variant amino acid
+        /// Makes the string representing a detected sequence variation, including any modifications on a variant amino acid. 
+        /// takes in the variant as well as the bool value of wheter the peptid eintersects the variant. (this allows for identified
+        /// variants that cause the cleavage site for the peptide.
         /// </summary>
         /// <param name="p"></param>
         /// <param name="d"></param>
         /// <returns></returns>
-        public string SequenceVariantString(SequenceVariation applied)
+        public string SequenceVariantString(SequenceVariation applied, bool intersects)
         {
-            bool startAtNTerm = applied.OneBasedBeginPosition == 1 && OneBasedStartResidueInProtein == 1;
-            int lengthDiff = applied.VariantSequence.Length - applied.OriginalSequence.Length;
-            var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
-                .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
-                .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (startAtNTerm ? 1 : 3), kv => kv.Value);
-            PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, startAtNTerm ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition + lengthDiff, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
-            return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(startAtNTerm ? 0 : 1)}";
+            if (intersects == true)
+            {
+                bool startAtNTerm = applied.OneBasedBeginPosition == 1 && OneBasedStartResidueInProtein == 1;
+                bool onlyPeptideStartAtNTerm = OneBasedStartResidueInProtein == 1 && applied.OneBasedBeginPosition != 1;
+                int modResidueScale = 0;
+                if (startAtNTerm)
+                {
+                    modResidueScale = 1;
+                }
+                else if (onlyPeptideStartAtNTerm)
+                {
+                    modResidueScale = 2;
+                }
+                else
+                {
+                    modResidueScale = 3;
+                }
+                int lengthDiff = applied.VariantSequence.Length - applied.OriginalSequence.Length;
+                var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
+                    .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
+                    .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (modResidueScale), kv => kv.Value);
+                PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, startAtNTerm ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
+                return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(startAtNTerm ? 0 : 1)}";
+            }            
+            else
+            {                
+                return $"{applied.OriginalSequence}{ applied.OneBasedBeginPosition}{applied.VariantSequence}";
+            }
+            
+            
+                    
+            
         }
 
         public override string ToString()

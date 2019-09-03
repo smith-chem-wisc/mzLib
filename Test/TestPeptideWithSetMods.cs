@@ -547,20 +547,20 @@ namespace Test
             SequenceVariation sv10MissenseRangeEdge = new SequenceVariation(10, 10, "K", "R", ""); // missense at end
             SequenceVariation sv11After = new SequenceVariation(11, 11, "L", "V", ""); // after peptide (not identified)
 
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv66Truncation));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv77MNP));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange));
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge));
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After));
+            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv66Truncation).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv77MNP).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange).Item2);
+            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge).Item2);
+            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After).Item2);
 
             PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd)); // this only intersects GHI, which is the same in GHI -> GHIK
+            Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).Item2); // this only intersects GHI, which is the same in GHI -> GHIK
         }
 
         [Test]
@@ -571,18 +571,89 @@ namespace Test
             // mod on N-terminus
             PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 1, new Modification("mod on M", "mod", "mod", "mod") } }, 0);
             SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // n-terminal mod goes before the sequence
-            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before));
+            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before,true));
 
             // mod in middle
             PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 2, new Modification("mod on A", "mod", "mod", "mod") } }, 0);
             SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning));
+            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning,true));
 
             // truncated seqvar doesn't truncate in string report (using applied variation correctly)
             PeptideWithSetModifications pepe3 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            SequenceVariation svvvv = new SequenceVariation(7, 9, "GHM", "GHIK", ""); // insertion
-            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv));
+            SequenceVariation svvvv = new SequenceVariation(7, 10, "GHM", "GHIK", ""); // insertion
+            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv,true));
         }
+
+        [Test]
+        public static void TestIdentifyandStringMethods()
+        {
+            ModificationMotif.TryGetMotif("V", out ModificationMotif motifV);
+            Modification mv = new Modification("mod", null, "type", null, motifV, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Dictionary<int, Modification> modV = new Dictionary<int, Modification>();
+            modV.Add(4, mv);
+            Dictionary<int, Modification> modP = new Dictionary<int, Modification>();
+            modP.Add(5, mp);
+           
+            List<Protein> proteins = new List<Protein>
+            {
+                new Protein("MPEPTIDE", "protein0", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPPPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPKPKTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 7, "PKPK", "PK", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTAIDE", "protein5",sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PTA", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEKKAIDE", "protein6", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "KKA", "K", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein7", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 4, new[] { mv }.ToList() } }) }),
+                new Protein("MPEPTIDE", "protein8",sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
+                new Protein("MPEPTIDEPEPTIDE", "protein9", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 15, "PTIDEPEPTIDE", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+            };
+
+            DigestionParams dp = new DigestionParams(minPeptideLength: 2);            
+            var protein0_variant = proteins.ElementAt(0).GetVariantProteins().ElementAt(0);
+            var protein1_variant = proteins.ElementAt(1).GetVariantProteins().ElementAt(0);
+            var protein2_variant = proteins.ElementAt(2).GetVariantProteins().ElementAt(0);
+            var protein3_variant = proteins.ElementAt(3).GetVariantProteins().ElementAt(0);
+            var protein4_variant = proteins.ElementAt(4).GetVariantProteins().ElementAt(0);
+            var protein5_variant = proteins.ElementAt(5).GetVariantProteins().ElementAt(0);
+            var protein6_variant = proteins.ElementAt(6).GetVariantProteins().ElementAt(0);
+            var protein7_variant = proteins.ElementAt(7).GetVariantProteins().ElementAt(0);
+            var protein8_variant = proteins.ElementAt(8).GetVariantProteins().ElementAt(0);
+            var protein9_variant = proteins.ElementAt(9).GetVariantProteins().ElementAt(0);
+
+            var protein0_peptide = protein0_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);
+            var protein1_peptide = protein1_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
+            var protein2_peptide = protein2_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);
+            var protein3_peptide = protein3_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);
+            var protein4_peptide = protein4_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
+            var protein5_peptide = protein5_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
+            var protein6_peptide = protein6_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(2);
+            var protein7_peptide = protein7_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(1);
+            var protein8_peptide = protein8_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(1);
+            var protein9_peptide = protein9_variant.Digest(dp, new List<Modification>() { }, new List<Modification>() { }).ElementAt(0);            
+
+            Assert.AreEqual((true,true), protein0_peptide.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein1_peptide.IntersectsAndIdentifiesVariation(protein1_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein2_peptide.IntersectsAndIdentifiesVariation(protein2_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein3_peptide.IntersectsAndIdentifiesVariation(protein3_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((false, false), protein4_peptide.IntersectsAndIdentifiesVariation(protein4_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein5_peptide.IntersectsAndIdentifiesVariation(protein5_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((false, true), protein6_peptide.IntersectsAndIdentifiesVariation(protein6_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein7_peptide.IntersectsAndIdentifiesVariation(protein7_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein8_peptide.IntersectsAndIdentifiesVariation(protein8_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein9_peptide.IntersectsAndIdentifiesVariation(protein9_variant.AppliedSequenceVariations.ElementAt(0)));
+
+            Assert.AreEqual("P4V", protein0_peptide.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("PT4KT", protein1_peptide.SequenceVariantString(protein1_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("P4PPP", protein2_peptide.SequenceVariantString(protein2_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("PPP4P", protein3_peptide.SequenceVariantString(protein3_variant.AppliedSequenceVariations.ElementAt(0), true));            
+            Assert.AreEqual("PTA4KT", protein5_peptide.SequenceVariantString(protein5_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("KKA4K", protein6_peptide.SequenceVariantString(protein6_variant.AppliedSequenceVariations.ElementAt(0), false));
+            Assert.AreEqual("P4V[type:mod on V]", protein7_peptide.SequenceVariantString(protein7_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("P4PP[type:mod on P]P", protein8_peptide.SequenceVariantString(protein8_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("PTIDEPEPTIDE4PPP", protein9_peptide.SequenceVariantString(protein9_variant.AppliedSequenceVariations.ElementAt(0), true));
+        }        
 
         [Test]
         public static void BreakDeserializationMethod()
