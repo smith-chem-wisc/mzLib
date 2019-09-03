@@ -598,7 +598,8 @@ namespace Proteomics.ProteolyticDigestion
                     .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (modResidueScale), kv => kv.Value);
                 PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, startAtNTerm ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
                 return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(startAtNTerm ? 0 : 1)}";
-            }            
+            }     
+            //if the variant caused a cleavage site leading the the peptide sequence (variant doe snot intersect but is identified) 
             else
             {                
                 return $"{applied.OriginalSequence}{ applied.OneBasedBeginPosition}{applied.VariantSequence}";
