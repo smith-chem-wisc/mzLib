@@ -532,7 +532,7 @@ namespace Proteomics.ProteolyticDigestion
                             PeptideWithSetModifications previousAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedStartResidueInProtein - 1, OneBasedStartResidueInProtein - 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
 
                             // get the AA that proceeds the peptide sequence in the original protein (wihtout any applied variants)
-                            PeptideWithSetModifications previousAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein.NonVariantProtein, DigestionParams, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                            PeptideWithSetModifications previousAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                             bool newSite = cTerminalResidue.Contains(previousAA_Variant.BaseSequence);
                             bool oldSite = cTerminalResidue.Contains(previousAA_Original.BaseSequence);
                             // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
@@ -570,7 +570,7 @@ namespace Proteomics.ProteolyticDigestion
                             PeptideWithSetModifications nextAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedEndResidueInProtein + 1, OneBasedEndResidueInProtein + 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
 
                             // get the AA that follows the peptide sequence in the original protein (without any applied variants)
-                            PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                            PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                             bool newSite = nTerminalResidue.Contains(nextAA_Variant.BaseSequence);
                             bool oldSite = nTerminalResidue.Contains(nextAA_Original.BaseSequence);
                             // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
@@ -583,7 +583,7 @@ namespace Proteomics.ProteolyticDigestion
                         else
                         {
                             // get the AA that follows the peptide sequence in the original protein (without any applied variants)
-                            PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                            PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                             bool oldSite = nTerminalResidue.Contains(nextAA_Original.BaseSequence);
                             // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
                             if ( oldSite == false)
