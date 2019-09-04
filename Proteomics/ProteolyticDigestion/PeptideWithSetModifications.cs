@@ -579,7 +579,7 @@ namespace Proteomics.ProteolyticDigestion
                                 identifies = true;
                             }
                         }
-                        //for stop gain varations that casue peptide
+                        //for stop gain varations that cause peptide
                         else
                         {
                             // get the AA that follows the peptide sequence in the original protein (without any applied variants)

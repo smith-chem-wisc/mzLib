@@ -627,6 +627,7 @@ namespace Test
                 new Protein("MPEPTIDE", "protein10", oneBasedModifications: proteinPMods ,sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein11", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 5, "T", "*", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //stop-gain (can identify)
                 new Protein("MPEKTIDE", "protein12", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 5, "T", "*", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //stop-gain (can't identify)
+                new Protein("MPEPTIPEPEPTIPE", "protein13", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(7, 7, "P", "D", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
             };
 
             DigestionParams dp = new DigestionParams(minPeptideLength: 2);
@@ -645,10 +646,12 @@ namespace Test
             var protein10_variant = proteins.ElementAt(10).GetVariantProteins().ElementAt(0);
             var protein11_variant = proteins.ElementAt(11).GetVariantProteins().ElementAt(0);
             var protein12_variant = proteins.ElementAt(12).GetVariantProteins().ElementAt(0);
+            var protein13_variant = proteins.ElementAt(13).GetVariantProteins().ElementAt(0);
 
             List<Modification> digestMods = new List<Modification>();
 
             var protein0_peptide = protein0_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
+            var protein0_peptide2 = protein0_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
             var protein1_peptide = protein1_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
             var protein2_peptide = protein2_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein3_peptide = protein3_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
@@ -662,8 +665,10 @@ namespace Test
             var protein11_peptide = protein11_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
             var protein11_peptide2 = protein11_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein12_peptide = protein12_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
+            var protein13_peptide = protein13_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
 
             Assert.AreEqual((true,true), protein0_peptide.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein0_peptide2.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein1_peptide.IntersectsAndIdentifiesVariation(protein1_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein2_peptide.IntersectsAndIdentifiesVariation(protein2_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein3_peptide.IntersectsAndIdentifiesVariation(protein3_variant.AppliedSequenceVariations.ElementAt(0)));
@@ -676,9 +681,11 @@ namespace Test
             Assert.AreEqual((true, true), protein10_peptide.IntersectsAndIdentifiesVariation(protein10_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((false, true), protein11_peptide.IntersectsAndIdentifiesVariation(protein11_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((false, true), protein11_peptide2.IntersectsAndIdentifiesVariation(protein11_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false,false), protein12_peptide.IntersectsAndIdentifiesVariation(protein12_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((false, false), protein12_peptide.IntersectsAndIdentifiesVariation(protein12_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((false, true), protein13_peptide.IntersectsAndIdentifiesVariation(protein13_variant.AppliedSequenceVariations.ElementAt(0)));
 
             Assert.AreEqual("P4V", protein0_peptide.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
+            Assert.AreEqual("P4V", protein0_peptide2.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("PT4KT", protein1_peptide.SequenceVariantString(protein1_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("P4PPP", protein2_peptide.SequenceVariantString(protein2_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("PPP4P", protein3_peptide.SequenceVariantString(protein3_variant.AppliedSequenceVariations.ElementAt(0), true));            
@@ -690,6 +697,7 @@ namespace Test
             Assert.AreEqual("P4V", protein10_peptide.SequenceVariantString(protein10_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("T5*", protein11_peptide.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
             Assert.AreEqual("T5*", protein11_peptide2.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
+            Assert.AreEqual("P7D", protein11_peptide2.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
         }        
 
         [Test]
