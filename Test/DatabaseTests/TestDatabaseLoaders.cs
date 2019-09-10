@@ -159,7 +159,7 @@ namespace Test
             Loaders.LoadElements();
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
-            Assert.AreEqual(2642, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(2679, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -210,7 +210,7 @@ namespace Test
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
-            Assert.AreEqual(2983, sampleModList.Count());
+            Assert.AreEqual(3020, sampleModList.Count());
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)

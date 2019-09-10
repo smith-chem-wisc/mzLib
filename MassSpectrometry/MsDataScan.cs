@@ -202,6 +202,11 @@ namespace MassSpectrometry
             this.NativeId = value;
         }
 
+        public void SetIsolationMz(double value)
+        {
+            this.IsolationMz = value;
+        }
+
         private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)
         {
             for (int i = 0; i < noiseData.Length / 3; i++)
