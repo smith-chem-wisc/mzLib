@@ -607,6 +607,13 @@ namespace Test
             PeptideWithSetModifications pepe3 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
             SequenceVariation svvvv = new SequenceVariation(7, 10, "GHM", "GHIK", ""); // insertion
             Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv, true));
+
+            Protein protein2 = new Protein("WACDEFGHIK", "test");
+
+            //variant starts at protein start but peptide does not
+            PeptideWithSetModifications pepe4 = new PeptideWithSetModifications(protein2, new DigestionParams(), 4, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            SequenceVariation variant = new SequenceVariation(1, 10, "MABCDEFGHIJKLMNOP", "WACDEFGHIK", ""); // frameshift
+            Assert.AreEqual("MABCDEFGHIJKLMNOP1WACDEFGHIK", pepe4.SequenceVariantString(variant, true));
         }
 
         [Test]
