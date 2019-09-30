@@ -577,6 +577,18 @@ namespace Test
         }
 
         [Test]
+        public static void TestIsVariantPeptide()
+        {
+            Protein protein = new Protein("MPEPTIDENEWPEPTIDE", "protein0", appliedSequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) });
+
+            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            PeptideWithSetModifications notPepe = new PeptideWithSetModifications(protein, new DigestionParams(), 9, 18, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+
+            Assert.IsTrue(pepe.IsVariantPeptide());
+            Assert.IsFalse(notPepe.IsVariantPeptide());
+        }
+
+        [Test]
         public static void TestSeqVarString()
         {
             Protein protein = new Protein("MACDEFGHIK", "test");
@@ -584,17 +596,24 @@ namespace Test
             // mod on N-terminus
             PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 1, new Modification("mod on M", "mod", "mod", "mod") } }, 0);
             SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // n-terminal mod goes before the sequence
-            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before,true));
+            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before, true));
 
             // mod in middle
             PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 2, new Modification("mod on A", "mod", "mod", "mod") } }, 0);
             SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning,true));
+            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning, true));
 
             // truncated seqvar doesn't truncate in string report (using applied variation correctly)
             PeptideWithSetModifications pepe3 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
             SequenceVariation svvvv = new SequenceVariation(7, 10, "GHM", "GHIK", ""); // insertion
-            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv,true));
+            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv, true));
+
+            Protein protein2 = new Protein("WACDEFGHIK", "test");
+
+            //variant starts at protein start but peptide does not
+            PeptideWithSetModifications pepe4 = new PeptideWithSetModifications(protein2, new DigestionParams(), 4, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            SequenceVariation variant = new SequenceVariation(1, 10, "MABCDEFGHIJKLMNOP", "WACDEFGHIK", ""); // frameshift
+            Assert.AreEqual("MABCDEFGHIJKLMNOP1WACDEFGHIK", pepe4.SequenceVariantString(variant, true));
         }
 
         [Test]
@@ -610,7 +629,7 @@ namespace Test
             modP.Add(5, mp);
 
             Dictionary<int, List<Modification>> proteinPMods = new Dictionary<int, List<Modification>>();
-            proteinPMods.Add(4, new List<Modification>(){ mp});
+            proteinPMods.Add(4, new List<Modification>() { mp });
 
             List<Protein> proteins = new List<Protein>
             {
@@ -628,10 +647,13 @@ namespace Test
                 new Protein("MPEPTIDE", "protein11", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 5, "T", "*", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //stop-gain (can identify)
                 new Protein("MPEKTIDE", "protein12", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 5, "T", "*", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //stop-gain (can't identify)
                 new Protein("MPEPTIPEPEPTIPE", "protein13", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(7, 7, "P", "D", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
+                new Protein("MPEPTIDE", "protein14", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(8, 9, "E", "EK", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //peptide becomes longer, and cleavage site is created but cannot be identified
+                new Protein("MPEPTIDE", "protein15", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(9, 13, "*", "KMPEP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), // stop loss at end of original protein that cannot be identified
             };
 
             DigestionParams dp = new DigestionParams(minPeptideLength: 2);
             DigestionParams dp2 = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
+            DigestionParams dp3 = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
 
             var protein0_variant = proteins.ElementAt(0).GetVariantProteins().ElementAt(0);
             var protein1_variant = proteins.ElementAt(1).GetVariantProteins().ElementAt(0);
@@ -647,6 +669,8 @@ namespace Test
             var protein11_variant = proteins.ElementAt(11).GetVariantProteins().ElementAt(0);
             var protein12_variant = proteins.ElementAt(12).GetVariantProteins().ElementAt(0);
             var protein13_variant = proteins.ElementAt(13).GetVariantProteins().ElementAt(0);
+            var protein14_variant = proteins.ElementAt(14).GetVariantProteins().ElementAt(0);
+            var protein15_variant = proteins.ElementAt(15).GetVariantProteins().ElementAt(0);
 
             List<Modification> digestMods = new List<Modification>();
 
@@ -660,14 +684,16 @@ namespace Test
             var protein6_peptide = protein6_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
             var protein7_peptide = protein7_variant.Digest(dp, digestMods, digestMods).ElementAt(1);
             var protein8_peptide = protein8_variant.Digest(dp, digestMods, digestMods).ElementAt(1);
-            var protein9_peptide = protein9_variant.Digest(dp, digestMods, digestMods).ElementAt(0);  
+            var protein9_peptide = protein9_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein10_peptide = protein10_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein11_peptide = protein11_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
             var protein11_peptide2 = protein11_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein12_peptide = protein12_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
             var protein13_peptide = protein13_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
+            var protein14_peptide = protein14_variant.Digest(dp3, digestMods, digestMods).ElementAt(0);
+            var protein15_peptide = protein15_variant.Digest(dp3, digestMods, digestMods).ElementAt(0);
 
-            Assert.AreEqual((true,true), protein0_peptide.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, true), protein0_peptide.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein0_peptide2.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein1_peptide.IntersectsAndIdentifiesVariation(protein1_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((true, true), protein2_peptide.IntersectsAndIdentifiesVariation(protein2_variant.AppliedSequenceVariations.ElementAt(0)));
@@ -683,12 +709,14 @@ namespace Test
             Assert.AreEqual((false, true), protein11_peptide2.IntersectsAndIdentifiesVariation(protein11_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((false, false), protein12_peptide.IntersectsAndIdentifiesVariation(protein12_variant.AppliedSequenceVariations.ElementAt(0)));
             Assert.AreEqual((false, true), protein13_peptide.IntersectsAndIdentifiesVariation(protein13_variant.AppliedSequenceVariations.ElementAt(0)));
+            Assert.AreEqual((true, false), protein14_peptide.IntersectsAndIdentifiesVariation(protein14_variant.AppliedSequenceVariations.ElementAt(0)));// the peptide crosses the variant but the newly genrated cleavage site makes the same peptide as without the variant
+            Assert.AreEqual((false, false), protein15_peptide.IntersectsAndIdentifiesVariation(protein15_variant.AppliedSequenceVariations.ElementAt(0)));// the peptide does not cross the variant, and the stop loss adds addition amino acids, but it creates the same peptide as without the variant
 
             Assert.AreEqual("P4V", protein0_peptide.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("P4V", protein0_peptide2.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("PT4KT", protein1_peptide.SequenceVariantString(protein1_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("P4PPP", protein2_peptide.SequenceVariantString(protein2_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("PPP4P", protein3_peptide.SequenceVariantString(protein3_variant.AppliedSequenceVariations.ElementAt(0), true));            
+            Assert.AreEqual("PPP4P", protein3_peptide.SequenceVariantString(protein3_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("PTA4KT", protein5_peptide.SequenceVariantString(protein5_variant.AppliedSequenceVariations.ElementAt(0), true));
             Assert.AreEqual("KKA4K", protein6_peptide.SequenceVariantString(protein6_variant.AppliedSequenceVariations.ElementAt(0), false));
             Assert.AreEqual("P4V[type:mod on V]", protein7_peptide.SequenceVariantString(protein7_variant.AppliedSequenceVariations.ElementAt(0), true));
@@ -698,7 +726,7 @@ namespace Test
             Assert.AreEqual("T5*", protein11_peptide.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
             Assert.AreEqual("T5*", protein11_peptide2.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
             Assert.AreEqual("P7D", protein13_peptide.SequenceVariantString(protein13_variant.AppliedSequenceVariations.ElementAt(0), false));
-        }        
+        }
 
         [Test]
         public static void BreakDeserializationMethod()
