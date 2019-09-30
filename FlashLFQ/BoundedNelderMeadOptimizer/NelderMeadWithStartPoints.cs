@@ -33,7 +33,7 @@ namespace FlashLFQ.BoundedNelderMeadOptimizer
         readonly Random m_random;
         readonly IParameterSampler m_sampler;
         readonly int m_maxFunctionEvaluations;
-        readonly double startingValue;
+        readonly double[] startingValue;
         int m_totalFunctionEvaluations;
 
         /// <summary>
@@ -56,9 +56,9 @@ namespace FlashLFQ.BoundedNelderMeadOptimizer
         /// <param name="gamma">Coefficient for expansion part of the algorithm (default is 2)</param>
         /// <param name="rho">Coefficient for contraction part of the algorithm (default is -0.5)</param>
         /// <param name="sigma">Coefficient for shrink part of the algorithm (default is 0.5)</param>
-        public NelderMeadWithStartPoints(ParameterBounds[] parameters, int maxRestarts = 8, double noImprovementThreshold = 0.001,
+        public NelderMeadWithStartPoints(ParameterBounds[] parameters, double[] startingValue, int maxRestarts = 8, double noImprovementThreshold = 0.001,
             int maxIterationsWithoutImprovement = 5, int maxIterationsPrRestart = 0, int maxFunctionEvaluations = 0,
-            double alpha = 1, double gamma = 2, double rho = -0.5, double sigma = 0.5, double startingValue = 1.0)
+            double alpha = 1, double gamma = 2, double rho = -0.5, double sigma = 0.5)
         {
             if (parameters == null) { throw new ArgumentNullException("parameters"); }
             if (maxIterationsWithoutImprovement <= 0) { throw new ArgumentNullException("maxIterationsWithoutImprovement must be at least 1"); }
@@ -76,8 +76,8 @@ namespace FlashLFQ.BoundedNelderMeadOptimizer
             m_maxFunctionEvaluations = maxFunctionEvaluations;
             this.startingValue = startingValue;
 
-            m_random = new Random(startingValue.GetHashCode());
-            m_sampler = new RandomUniform(startingValue.GetHashCode());
+            m_random = new Random(startingValue[0].GetHashCode());
+            m_sampler = new RandomUniform(startingValue[0].GetHashCode());
         }
         /// <summary>
         /// Optimization using Globalized bounded Nelder-Mead method.
@@ -107,7 +107,7 @@ namespace FlashLFQ.BoundedNelderMeadOptimizer
             double[] initialPoint = new double[dim];
             for (int i = 0; i < initialPoint.Length; i++)
             {
-                initialPoint[i] = startingValue;
+                initialPoint[i] = startingValue[i];
             }
 
             for (int restarts = 0; restarts < m_maxRestarts; restarts++)

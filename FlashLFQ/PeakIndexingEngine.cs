@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ThermoRawFileReader;
 
 namespace FlashLFQ
 {
@@ -75,18 +76,18 @@ namespace FlashLFQ
             else if (ext == ".RAW")
             {
                 var tempList = new List<MsDataScan>();
+                ThermoDynamicData dynamicConnection = null;
 
                 try
                 {
-                    ThermoRawFileReader.ThermoRawFileReaderData.InitiateDynamicConnection(fileInfo.FullFilePathWithExtension);
-                    
+                    dynamicConnection = new ThermoDynamicData(fileInfo.FullFilePathWithExtension);
+
                     // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                    int[] msOrders = ThermoRawFileReader.ThermoRawFileReaderData.GetMsOrdersByScanInDynamicConnection();
-                    for (int i = 0; i < msOrders.Length; i++)
+                    for (int i = 0; i < dynamicConnection.MsOrdersByScan.Length; i++)
                     {
-                        if (msOrders[i] == 1)
+                        if (dynamicConnection.MsOrdersByScan[i] == 1)
                         {
-                            tempList.Add(ThermoRawFileReader.ThermoRawFileReaderData.GetOneBasedScanFromDynamicConnection(i + 1));
+                            tempList.Add(dynamicConnection.GetOneBasedScanFromDynamicConnection(i + 1));
                         }
                         else
                         {
@@ -94,11 +95,14 @@ namespace FlashLFQ
                         }
                     }
 
-                    ThermoRawFileReader.ThermoRawFileReaderData.CloseDynamicConnection();
+                    dynamicConnection.CloseDynamicConnection();
                 }
                 catch (FileNotFoundException)
                 {
-                    ThermoRawFileReader.ThermoRawFileReaderData.CloseDynamicConnection();
+                    if (dynamicConnection != null)
+                    {
+                        dynamicConnection.CloseDynamicConnection();
+                    }
 
                     if (!silent)
                     {
@@ -109,7 +113,10 @@ namespace FlashLFQ
                 }
                 catch (Exception e)
                 {
-                    ThermoRawFileReader.ThermoRawFileReaderData.CloseDynamicConnection();
+                    if (dynamicConnection != null)
+                    {
+                        dynamicConnection.CloseDynamicConnection();
+                    }
 
                     if (!silent)
                     {

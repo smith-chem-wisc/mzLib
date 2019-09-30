@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,7 +13,8 @@ namespace FlashLFQ
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public double SplitRT;
         public readonly bool IsMbrPeak;
-
+        public double MbrScore;
+        
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
@@ -80,7 +82,18 @@ namespace FlashLFQ
                     Intensity = Apex.Intensity;
                 }
 
-                MassError = Identifications.Min(p => ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - p.monoisotopicMass) / p.monoisotopicMass) * 1e6);
+                MassError = double.NaN;
+
+                foreach (var id in Identifications)
+                {
+                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
+
+                    if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < MassError)
+                    {
+                        MassError = massErrorForId;
+                    }
+                }
+
                 NumChargeStatesObserved = IsotopicEnvelopes.Select(p => p.ChargeState).Distinct().Count();
             }
             else
@@ -117,7 +130,7 @@ namespace FlashLFQ
             sb.Append(string.Join("|", Identifications.Select(p => p.BaseSequence).Distinct()) + '\t');
             sb.Append(string.Join("|", Identifications.Select(p => p.ModifiedSequence).Distinct()) + '\t');
 
-            var t = Identifications.SelectMany(p => p.proteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
+            var t = Identifications.SelectMany(p => p.ProteinGroups.Select(v => v.ProteinGroupName)).Distinct().OrderBy(p => p);
             if (t.Any())
             {
                 sb.Append(string.Join(";", t) + '\t');
@@ -127,18 +140,18 @@ namespace FlashLFQ
                 sb.Append("" + '\t');
             }
 
-            sb.Append("" + Identifications.First().monoisotopicMass + '\t');
+            sb.Append("" + Identifications.First().MonoisotopicMass + '\t');
             if (!IsMbrPeak)
             {
-                sb.Append("" + Identifications.First().ms2RetentionTimeInMinutes + '\t');
+                sb.Append("" + Identifications.First().Ms2RetentionTimeInMinutes + '\t');
             }
             else
             {
                 sb.Append("" + '\t');
             }
 
-            sb.Append("" + Identifications.First().precursorChargeState + '\t');
-            sb.Append("" + ClassExtensions.ToMz(Identifications.First().monoisotopicMass, Identifications.First().precursorChargeState) + '\t');
+            sb.Append("" + Identifications.First().PrecursorChargeState + '\t');
+            sb.Append("" + ClassExtensions.ToMz(Identifications.First().MonoisotopicMass, Identifications.First().PrecursorChargeState) + '\t');
             sb.Append("" + Intensity + "\t");
 
             if (Apex != null)
@@ -176,7 +189,6 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError + "\t");
-            //sb.Append(string.Join(",", IsotopicEnvelopes.OrderBy(p => p.ChargeState).ThenBy(p => p.IndexedPeak.ZeroBasedMs1ScanIndex).Select(p => p.ToString())));
 
             return sb.ToString();
         }

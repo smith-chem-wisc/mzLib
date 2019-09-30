@@ -57,14 +57,14 @@ namespace MassSpectrometry
         /// </summary>
         public MzSpectrum MassSpectrum { get; protected set; }
 
-        public int OneBasedScanNumber { get; }
+        public int OneBasedScanNumber { get; private set; }
         public int MsnOrder { get; }
         public double RetentionTime { get; }
         public Polarity Polarity { get; }
         public MZAnalyzerType MzAnalyzer { get; }
         public MzRange ScanWindowRange { get; }
         public string ScanFilter { get; }
-        public string NativeId { get; }
+        public string NativeId { get; private set; }
         public bool IsCentroid { get; }
         public double TotalIonCurrent { get; }
         public double? InjectionTime { get; }
@@ -190,6 +190,21 @@ namespace MassSpectrometry
         public void SetOneBasedPrecursorScanNumber(int value)
         {
             this.OneBasedPrecursorScanNumber = value;
+        }
+
+        public void SetOneBasedScanNumber(int value)
+        {
+            this.OneBasedScanNumber = value;
+        }
+
+        public void SetNativeID(string value)
+        {
+            this.NativeId = value;
+        }
+
+        public void SetIsolationMz(double value)
+        {
+            this.IsolationMz = value;
         }
 
         private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)

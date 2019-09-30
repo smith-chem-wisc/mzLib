@@ -70,10 +70,10 @@ namespace Proteomics
         /// <param name="originalProtein"></param>
         /// <param name="silacSequence"></param>
         /// <param name="silacAccession"></param>
-        public Protein(Protein originalProtein, string silacSequence, string silacAccession)
+        public Protein(Protein originalProtein, string silacSequence)
         {
             BaseSequence = silacSequence;
-            Accession = silacAccession;
+            Accession = originalProtein.Accession;
             NonVariantProtein = originalProtein.NonVariantProtein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
@@ -224,7 +224,7 @@ namespace Proteomics
         /// Gets peptides for digestion of a protein
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, bool FilterNGlycanMotif = false)
+            List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
         {
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
@@ -247,15 +247,10 @@ namespace Proteomics
                 modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, digestionParams.FragmentationTerminus, allKnownFixedModifications);
             }
 
-            
-            if (FilterNGlycanMotif)
-            {
-                return FilterNGlycanPeptides(modifiedPeptides);
-            }
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac);
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
             }
 
             return modifiedPeptides;
@@ -278,85 +273,216 @@ namespace Proteomics
             }
         }
 
-        internal IEnumerable<PeptideWithSetModifications> FilterNGlycanPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides)
-        {
-            List<Modification> modifications = new List<Modification>();
-
-            //N-glycan motif avoid u be proline. u is anything except P defined in 'ModificationLocalization.MotifMatches'
-            string[] motifs = new string[] {"Nut", "Nus" };
-
-            foreach (var mtf in motifs)
-            {
-                if (ModificationMotif.TryGetMotif(mtf, out ModificationMotif aMotif))
-                {
-                    Modification modWithMotif = new Modification(_target: aMotif, _locationRestriction: "Anywhere.");
-                    modifications.Add(modWithMotif);
-                }
-            }
-
-            foreach (PeptideWithSetModifications pwsm in originalPeptides)
-            {
-                bool hasMotif = false;
-                foreach (var modWithMotif in modifications)
-                {
-                    for (int r = 0; r < pwsm.Length; r++)
-                    {
-                        //Skip postion already modified.
-                        if (pwsm.AllModsOneIsNterminus.Keys.Contains(r + 2))
-                        {
-                            continue;
-                        }
-
-                        if (ModificationLocalization.ModFits(modWithMotif, pwsm.BaseSequence, r + 1, pwsm.Length, r + 1))
-                        {
-                            hasMotif = true;
-                            break;
-                        }
-                    }
-                }
-                if (hasMotif)
-                {
-                    yield return pwsm;
-                }
-            }
-            
-        }
-
         /// <summary>
         /// Add additional peptides with SILAC amino acids
         /// </summary>
-        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels, bool generateUnlabeledProteins)
+        internal IEnumerable<PeptideWithSetModifications> GetSilacPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, List<SilacLabel> silacLabels, bool generateUnlabeledProteins, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels)
         {
-            //unlabeled peptides
-            if (generateUnlabeledProteins)
+            //if this is a multiplex experiment (pooling multiple samples, not a turnover), then only create the fully unlabeled/labeled peptides
+            if (turnoverLabels == null)
             {
+                //unlabeled peptides
+                if (generateUnlabeledProteins)
+                {
+                    foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                    {
+                        yield return pwsm;
+                    }
+                }
+
+                //fully labeled peptides
+                foreach (SilacLabel label in silacLabels)
+                {
+                    Protein silacProtein = GenerateFullyLabeledSilacProtein(label);
+                    foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                    {
+                        //duplicate the peptides with the updated protein sequence that contains only silac labels
+                        yield return new PeptideWithSetModifications(silacProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);
+                    }
+                }
+            }
+            else //if this is a turnover experiment, we want to be able to look for peptides containing mixtures of heavy and light amino acids (typically occurs for missed cleavages)
+            {
+                (SilacLabel startLabel, SilacLabel endLabel) turnoverLabelsValue = turnoverLabels.Value;
+                SilacLabel startLabel = turnoverLabelsValue.startLabel;
+                SilacLabel endLabel = turnoverLabelsValue.endLabel;
+
+                //This allows you to move from one label to another (rather than unlabeled->labeled or labeled->unlabeled). Useful for when your lab is swimming in cash and you have stock in a SILAC company
+                if (startLabel != null && endLabel != null) //if neither the start nor end conditions are unlabeled, then generate fully labeled proteins using the "startLabel" (otherwise maintain the unlabeled)
+                {
+                    Protein silacStartProtein = GenerateFullyLabeledSilacProtein(startLabel);
+                    PeptideWithSetModifications[] originalPeptideArray = originalPeptides.ToArray();
+                    for (int i = 0; i < originalPeptideArray.Length; i++)
+                    {
+                        PeptideWithSetModifications pwsm = originalPeptideArray[i];
+                        //duplicate the peptides with the updated protein sequence that contains only silac labels
+                        originalPeptideArray[i] = new PeptideWithSetModifications(silacStartProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);
+                    }
+                    originalPeptides = originalPeptideArray;
+
+                    //modify the end label amino acids to recognize the new "original" amino acid
+                    //get the residues that were changed
+                    List<SilacLabel> originalLabels = new List<SilacLabel> { startLabel };
+                    if (startLabel.AdditionalLabels != null)
+                    {
+                        originalLabels.AddRange(startLabel.AdditionalLabels);
+                    }
+                    SilacLabel startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == endLabel.OriginalAminoAcid).FirstOrDefault();
+                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ? 
+                        endLabel : 
+                        new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, endLabel.AminoAcidLabel, endLabel.LabelChemicalFormula, endLabel.ConvertMassDifferenceToDouble());
+                    if (endLabel.AdditionalLabels != null)
+                    {
+                        foreach (SilacLabel additionalLabel in endLabel.AdditionalLabels)
+                        {
+                            startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == additionalLabel.OriginalAminoAcid).FirstOrDefault();
+                            updatedEndLabel.AddAdditionalSilacLabel(
+                                startLabelWithSharedOriginalAminoAcid == null ?
+                                additionalLabel :
+                                new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, additionalLabel.AminoAcidLabel, additionalLabel.LabelChemicalFormula, additionalLabel.ConvertMassDifferenceToDouble()));
+                        }
+                    }
+
+                    //double check that all labeled amino acids can become unlabeled/relabeled
+                    if(startLabel.AdditionalLabels!=null)
+                    {
+                        foreach(SilacLabel originalLabel in originalLabels)
+                        {
+                            if(updatedEndLabel.OriginalAminoAcid!= originalLabel.AminoAcidLabel && 
+                                (updatedEndLabel.AdditionalLabels==null || !updatedEndLabel.AdditionalLabels.Any(x=>x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
+                            {
+                                updatedEndLabel.AddAdditionalSilacLabel(new SilacLabel(originalLabel.AminoAcidLabel, originalLabel.OriginalAminoAcid, originalLabel.LabelChemicalFormula, originalLabel.ConvertMassDifferenceToDouble()));
+                            }
+                        }
+                    }
+                    endLabel = updatedEndLabel;
+                }
+
+                //add all unlabeled (or if no unlabeled, then the startLabeled) peptides
                 foreach (PeptideWithSetModifications pwsm in originalPeptides)
                 {
                     yield return pwsm;
                 }
-            }
 
-            //labeled peptides
-            foreach (SilacLabel label in silacLabels)
-            {
-                string updatedBaseSequence = BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel);
-                string updatedAccession = Accession + label.MassDifference;
-                if (label.AdditionalLabels != null) //if there is more than one label per replicate (i.e both R and K were labeled in a sample before pooling)
+                //the order (below) matters when neither labels are null, because the fully labeled "start" has already been created above, so we want to use the end label here if it's not unlabeled (null)
+                SilacLabel label = endLabel ?? startLabel; //pick the labeled (not the unlabeled). If no unlabeled, take the endLabel
+
+                Protein silacEndProtein = GenerateFullyLabeledSilacProtein(label);
+
+                //add all peptides containing any label (may also contain unlabeled) 
+                if (label.AdditionalLabels == null) //if there's only one (which is common)
                 {
-                    foreach (SilacLabel additionalLabel in label.AdditionalLabels)
+                    //get the residues to change
+                    char originalResidue = label.OriginalAminoAcid;
+                    char labeledResidue = label.AminoAcidLabel;
+
+                    //label peptides
+                    foreach (PeptideWithSetModifications pwsm in originalPeptides)
                     {
-                        updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
-                        updatedAccession += additionalLabel.MassDifference;
+                        //find the indexes in the base sequence for labeling
+                        char[] baseSequenceArray = pwsm.BaseSequence.ToArray();
+                        List<int> indexesOfResiduesToBeLabeled = new List<int>();
+                        for (int c = 0; c < baseSequenceArray.Length; c++)
+                        {
+                            if (baseSequenceArray[c] == originalResidue)
+                            {
+                                indexesOfResiduesToBeLabeled.Add(c);
+                            }
+                        }
+                        //if there's something to label
+                        if (indexesOfResiduesToBeLabeled.Count != 0)
+                        {
+                            List<PeptideWithSetModifications> pwsmsForCombinatorics = new List<PeptideWithSetModifications> { pwsm };
+                            for (int a = 0; a < indexesOfResiduesToBeLabeled.Count; a++)
+                            {
+                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new List<PeptideWithSetModifications>();
+                                foreach (PeptideWithSetModifications pwsmCombination in pwsmsForCombinatorics)
+                                {
+                                    char[] combinatoricBaseSequenceArray = pwsmCombination.BaseSequence.ToArray();
+                                    combinatoricBaseSequenceArray[indexesOfResiduesToBeLabeled[a]] = labeledResidue;
+                                    string updatedBaseSequence = string.Concat(combinatoricBaseSequenceArray);
+
+                                    PeptideWithSetModifications labeledPwsm = new PeptideWithSetModifications(silacEndProtein, pwsm.DigestionParams,
+                                        pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory,
+                                        pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods, updatedBaseSequence);
+                                    yield return labeledPwsm; //return
+                                    localPwsmsForCombinatorics.Add(labeledPwsm); //add so it can be used again
+                                }
+                                pwsmsForCombinatorics.AddRange(localPwsmsForCombinatorics);
+                            }
+                        }
                     }
                 }
-                Protein silacProtein = new Protein(this, updatedBaseSequence, updatedAccession);
-
-                foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                else //if there are more than one (i.e. K and R are labeled)
                 {
-                    //duplicate the peptides with the updated protein sequence that contains only silac labels
-                    yield return new PeptideWithSetModifications(silacProtein, pwsm.DigestionParams, pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory, pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods);
+                    //get the residues to change
+                    char[] originalResidues = new char[label.AdditionalLabels.Count + 1];
+                    char[] labeledResidues = new char[label.AdditionalLabels.Count + 1];
+                    originalResidues[0] = label.OriginalAminoAcid;
+                    labeledResidues[0] = label.AminoAcidLabel;
+                    for (int i = 0; i < label.AdditionalLabels.Count; i++)
+                    {
+                        originalResidues[i + 1] = label.AdditionalLabels[i].OriginalAminoAcid;
+                        labeledResidues[i + 1] = label.AdditionalLabels[i].AminoAcidLabel;
+                    }
+
+                    //label peptides
+                    foreach (PeptideWithSetModifications pwsm in originalPeptides)
+                    {
+                        //find the indexes in the base sequence for labeling
+                        char[] baseSequenceArray = pwsm.BaseSequence.ToArray();
+                        Dictionary<int, char> indexesOfResiduesToBeLabeled = new Dictionary<int, char>();
+                        for (int peptideResidueIndex = 0; peptideResidueIndex < baseSequenceArray.Length; peptideResidueIndex++)
+                        {
+                            for (int silacResidue = 0; silacResidue < originalResidues.Length; silacResidue++)
+                            {
+                                if (baseSequenceArray[peptideResidueIndex] == originalResidues[silacResidue])
+                                {
+                                    indexesOfResiduesToBeLabeled.Add(peptideResidueIndex, labeledResidues[silacResidue]);
+                                }
+                            }
+                        }
+                        //if there's something to label
+                        if (indexesOfResiduesToBeLabeled.Count != 0)
+                        {
+                            List<PeptideWithSetModifications> pwsmsForCombinatorics = new List<PeptideWithSetModifications> { pwsm };
+                            foreach (KeyValuePair<int, char> kvp in indexesOfResiduesToBeLabeled)
+                            {
+                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new List<PeptideWithSetModifications>();
+                                foreach (PeptideWithSetModifications pwsmCombination in pwsmsForCombinatorics)
+                                {
+                                    char[] combinatoricBaseSequenceArray = pwsmCombination.BaseSequence.ToArray();
+                                    combinatoricBaseSequenceArray[kvp.Key] = kvp.Value;
+                                    string updatedBaseSequence = string.Concat(combinatoricBaseSequenceArray);
+
+                                    PeptideWithSetModifications labeledPwsm = new PeptideWithSetModifications(silacEndProtein, pwsm.DigestionParams,
+                                        pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory,
+                                        pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods, updatedBaseSequence);
+                                    yield return labeledPwsm; //return
+                                    localPwsmsForCombinatorics.Add(labeledPwsm); //add so it can be used again
+                                }
+                                pwsmsForCombinatorics.AddRange(localPwsmsForCombinatorics);
+                            }
+                        }
+                    }
                 }
             }
+        }
+
+        /// <summary>
+        /// Generates a protein that is fully labeled with the specified silac label
+        /// </summary>
+        private Protein GenerateFullyLabeledSilacProtein(SilacLabel label)
+        {
+            string updatedBaseSequence = BaseSequence.Replace(label.OriginalAminoAcid, label.AminoAcidLabel);
+            if (label.AdditionalLabels != null) //if there is more than one label per replicate (i.e both R and K were labeled in a sample before pooling)
+            {
+                foreach (SilacLabel additionalLabel in label.AdditionalLabels)
+                {
+                    updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
+                }
+            }
+            return new Protein(this, updatedBaseSequence);
         }
 
         /// <summary>

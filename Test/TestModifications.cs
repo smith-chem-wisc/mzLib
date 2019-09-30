@@ -137,11 +137,14 @@ namespace Test
         {
             Protein originalProtein = new Protein("ACDEFGHIKAKAK", "TEST");
             List<PeptideWithSetModifications> originalDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
+
             //Multiple SILAC labels
             Residue lysine = Residue.GetResidue('K');
+            Residue arginine = Residue.GetResidue('R');
             Residue heavyLabel = new Residue("heavy", 'a', "aaa", ChemicalFormula.ParseFormula("C{13}6H12N2O"), ModificationSites.All); //Lysine +6
             Residue heavierLabel = new Residue("heavier", 'b', "bbb", ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //Lysine +8
-            List<Residue> residuesToAdd = new List<Residue> { heavyLabel, heavierLabel };
+            Residue heavyArginine = new Residue("heavyR", 'c', "ccc", ChemicalFormula.ParseFormula("C{13}6H5N{15}4O"), ModificationSites.All); //Arginine +10
+            List<Residue> residuesToAdd = new List<Residue> { heavyLabel, heavierLabel, heavyArginine };
             Residue.AddNewResiduesToDictionary(residuesToAdd);
             List<SilacLabel> silacLabels = new List<SilacLabel>
             {
@@ -174,7 +177,41 @@ namespace Test
             Assert.IsTrue(silacLabels[0].AdditionalLabels.Count == 2);
             silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels).ToList();
             Assert.IsTrue(silacDigest.Count == 9);
+
+            //Turnover
+            silacLabels = new List<SilacLabel>
+            {
+                new SilacLabel('K','b', heavierLabel.ThisChemicalFormula.Formula, heavierLabel.MonoisotopicMass - lysine.MonoisotopicMass)
+            };
+            silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels, (null, silacLabels[0])).ToList();
+            Assert.IsTrue(silacDigest.Count == 14);
+            silacDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), silacLabels, (silacLabels[0], null)).ToList();
+            Assert.IsTrue(silacDigest.Count == 14);
+
+            silacLabels = new List<SilacLabel>
+            {
+                new SilacLabel('K','a', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass),
+                new SilacLabel('K','b', heavierLabel.ThisChemicalFormula.Formula, heavierLabel.MonoisotopicMass - lysine.MonoisotopicMass)
+            };
+            silacDigest = originalProtein.Digest(new DigestionParams(generateUnlabeledProteinsForSilac: false), new List<Modification>(), new List<Modification>(), silacLabels, (silacLabels[1], silacLabels[0])).ToList();
+            Assert.IsTrue(silacDigest.Count == 14);
+
+            originalProtein = new Protein("ACDEFGHIKARAK", "TEST");
+            silacLabels[1].AddAdditionalSilacLabel(new SilacLabel('R', 'c', heavyArginine.ThisChemicalFormula.Formula, heavyArginine.MonoisotopicMass - arginine.MonoisotopicMass));
+            silacDigest = originalProtein.Digest(new DigestionParams(generateUnlabeledProteinsForSilac: false), new List<Modification>(), new List<Modification>(), silacLabels, (silacLabels[1], silacLabels[0])).ToList();
+            Assert.IsTrue(silacDigest.Count == 14);
+
+            silacLabels = new List<SilacLabel>
+            {
+                new SilacLabel('K','a', heavyLabel.ThisChemicalFormula.Formula, heavyLabel.MonoisotopicMass - lysine.MonoisotopicMass),
+                new SilacLabel('K','b', heavierLabel.ThisChemicalFormula.Formula, heavierLabel.MonoisotopicMass - lysine.MonoisotopicMass)
+            };
+            silacLabels[0].AddAdditionalSilacLabel(new SilacLabel('R', 'c', heavyArginine.ThisChemicalFormula.Formula, heavyArginine.MonoisotopicMass - arginine.MonoisotopicMass));
+            silacDigest = originalProtein.Digest(new DigestionParams(generateUnlabeledProteinsForSilac: false), new List<Modification>(), new List<Modification>(), silacLabels, (silacLabels[1], silacLabels[0])).ToList();
+            Assert.IsTrue(silacDigest.Count == 14);
         }
+
+
 
         [Test]
         public void ModificationCollectionTest()

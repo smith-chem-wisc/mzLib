@@ -39,6 +39,22 @@ namespace Proteomics
             }
         }
 
+        /// <summary>
+        /// This method exists for conversion of Silac labels, which take double inputs
+        /// Although a double object could be saved, it clutters tomls
+        /// </summary>
+        /// <returns></returns>
+        public double ConvertMassDifferenceToDouble()
+        {
+            string substring = MassDifference.Substring(1);
+            double value = Convert.ToDouble(substring);
+            if (MassDifference[0] == '-')
+            {
+                value *= -1;
+            }
+            return value;
+        }
+
         /// this parameterless constructor needs to exist to read the toml.
         /// if you can figure out a way to get rid of it, feel free...
         /// this is also encountered in MetaMorpheus's "CommonParameters.cs" if you find a solution.

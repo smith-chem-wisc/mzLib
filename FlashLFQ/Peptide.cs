@@ -7,17 +7,20 @@ namespace FlashLFQ
     public class Peptide
     {
         public readonly string Sequence;
-        private Dictionary<SpectraFileInfo, double> intensities;
-        private Dictionary<SpectraFileInfo, DetectionType> detectionTypes;
-        public HashSet<ProteinGroup> proteinGroups;
+        public readonly string BaseSequence;
+        private Dictionary<SpectraFileInfo, double> Intensities;
+        private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
+        public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
 
-        public Peptide(string sequence, bool useForProteinQuant)
+        public Peptide(string sequence, string baseSequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups)
         {
             Sequence = sequence;
-            intensities = new Dictionary<SpectraFileInfo, double>();
-            detectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
-            proteinGroups = new HashSet<ProteinGroup>();
+            BaseSequence = baseSequence;
+            Intensities = new Dictionary<SpectraFileInfo, double>();
+            DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
+            this.ProteinGroups = proteinGroups;
+
             this.UseForProteinQuant = useForProteinQuant;
         }
 
@@ -25,6 +28,7 @@ namespace FlashLFQ
         {
             var sb = new StringBuilder();
             sb.Append("Sequence" + "\t");
+            sb.Append("Base Sequence" + "\t");
             sb.Append("Protein Groups" + "\t");
             sb.Append("Gene Names" + "\t");
             sb.Append("Organism" + "\t");
@@ -41,7 +45,7 @@ namespace FlashLFQ
 
         public double GetIntensity(SpectraFileInfo fileInfo)
         {
-            if (intensities.TryGetValue(fileInfo, out double intensity))
+            if (Intensities.TryGetValue(fileInfo, out double intensity))
             {
                 return intensity;
             }
@@ -53,19 +57,19 @@ namespace FlashLFQ
 
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
         {
-            if (intensities.ContainsKey(fileInfo))
+            if (Intensities.ContainsKey(fileInfo))
             {
-                intensities[fileInfo] = intensity;
+                Intensities[fileInfo] = intensity;
             }
             else
             {
-                intensities.Add(fileInfo, intensity);
+                Intensities.Add(fileInfo, intensity);
             }
         }
 
         public DetectionType GetDetectionType(SpectraFileInfo fileInfo)
         {
-            if (detectionTypes.TryGetValue(fileInfo, out DetectionType detectionType))
+            if (DetectionTypes.TryGetValue(fileInfo, out DetectionType detectionType))
             {
                 return detectionType;
             }
@@ -77,13 +81,13 @@ namespace FlashLFQ
 
         public void SetDetectionType(SpectraFileInfo fileInfo, DetectionType detectionType)
         {
-            if (detectionTypes.ContainsKey(fileInfo))
+            if (DetectionTypes.ContainsKey(fileInfo))
             {
-                detectionTypes[fileInfo] = detectionType;
+                DetectionTypes[fileInfo] = detectionType;
             }
             else
             {
-                detectionTypes.Add(fileInfo, detectionType);
+                DetectionTypes.Add(fileInfo, detectionType);
             }
         }
 
@@ -91,9 +95,22 @@ namespace FlashLFQ
         {
             StringBuilder str = new StringBuilder();
             str.Append(Sequence + "\t");
-            str.Append(string.Join(";", proteinGroups.Select(p => p.ProteinGroupName).Distinct()) + "\t");
-            str.Append(string.Join(";", proteinGroups.Select(p => p.GeneName).Distinct()) + "\t");
-            str.Append(string.Join(";", proteinGroups.Select(p => p.Organism).Distinct()) + "\t");
+            str.Append(BaseSequence + "\t");
+
+            var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
+            
+            var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
+            var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
+            var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();
+
+            str.Append(proteinsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
+                orderedProteinGroups.Any() ? orderedProteinGroups.First().ProteinGroupName + "\t" : "\t");
+
+            str.Append(genesCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.GeneName)) + "\t" :
+                orderedProteinGroups.Any() ? orderedProteinGroups.First().GeneName + "\t" : "\t");
+
+            str.Append(organismsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.Organism)) + "\t" :
+                orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
 
             foreach (var file in rawFiles)
             {
@@ -115,6 +132,11 @@ namespace FlashLFQ
         public override int GetHashCode()
         {
             return Sequence.GetHashCode();
+        }
+
+        public bool UnambiguousPeptideQuant()
+        {
+            return Intensities.Values.Any(p => p > 0) && DetectionTypes.Values.Any(p => p != DetectionType.MSMSAmbiguousPeakfinding);
         }
     }
 }
