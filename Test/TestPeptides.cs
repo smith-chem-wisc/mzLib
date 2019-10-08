@@ -778,7 +778,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestPyrolysine()
+        public static void TestPyrrolysine()
         {
             Peptide mom = new Peptide("MOM");
             double momMass = mom.MonoisotopicMass;
