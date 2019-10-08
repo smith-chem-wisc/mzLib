@@ -561,15 +561,22 @@ namespace Proteomics.ProteolyticDigestion
                             //get the AA that follows the peptide sequence fromt he variant protein (AKA the first AA of the varaint)
                             PeptideWithSetModifications nextAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedEndResidueInProtein + 1, OneBasedEndResidueInProtein + 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
 
-                            // get the AA that follows the peptide sequence in the original protein (without any applied variants)
-                            PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
-                            bool newSite = nTerminalResidue.Contains(nextAA_Variant.BaseSequence);
-                            bool oldSite = nTerminalResidue.Contains(nextAA_Original.BaseSequence);
-                            // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
-                            if (newSite == true && oldSite == false)
+                            // checks to make sure the original protein has an amino acid following the peptide (an issue with stop loss variants or variatns that add AA after the previous stop residue)
+                            // no else statement because if the peptide end residue was the previous protein stop site, there is no way to truly identify the variant. 
+                            // if the peptide were to extend into the stop loss region then the peptide would intesect the variant and this code block would not be triggered.
+                            if (Protein.NonVariantProtein.Length >= OneBasedEndResidueInProtein + 1)
                             {
-                                identifies = true;
+                                // get the AA that follows the peptide sequence in the original protein (without any applied variants)
+                                PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                                bool newSite = nTerminalResidue.Contains(nextAA_Variant.BaseSequence);
+                                bool oldSite = nTerminalResidue.Contains(nextAA_Original.BaseSequence);
+                                // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
+                                if (newSite == true && oldSite == false)
+                                {
+                                    identifies = true;
+                                }
                             }
+
                         }
                         //for stop gain varations that cause peptide
                         else
@@ -621,8 +628,8 @@ namespace Proteomics.ProteolyticDigestion
                 var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
                     .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
                     .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (modResidueScale), kv => kv.Value);
-                PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, startAtNTerm ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
-                return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(startAtNTerm ? 0 : 1)}";
+                PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, applied.OneBasedBeginPosition == 1 ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
+                return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(applied.OneBasedBeginPosition == 1 ? 0 : 1)}";
             }
             //if the variant caused a cleavage site leading the the peptide sequence (variant does not intersect but is identified)
             else
