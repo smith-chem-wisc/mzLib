@@ -192,7 +192,7 @@ namespace Test
             if (File.Exists(ptmlistfilename))
                 File.Delete(ptmlistfilename); // refresh the ptmlist in case this test has been updated
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            Assert.AreEqual(341, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(345, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
