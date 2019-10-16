@@ -1,24 +1,16 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net471</TargetFrameworks>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net471'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
-    <DefineConstants>ONLYNETSTANDARD</DefineConstants>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net471|AnyCPU'">
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-  </PropertyGroup>
-
-  <ItemGroup Condition="'$(TargetFramework)'=='net471'">
-    <Reference Include="System.Management" />
+  <ItemGroup>
+    <PackageReference Include="Easy.Common" Version="3.5.0" />
+    <PackageReference Include="Microsoft.Win32.Registry" Version="4.6.0" />
   </ItemGroup>
 
 </Project>

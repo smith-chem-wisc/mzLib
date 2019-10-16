@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
 namespace Proteomics.Fragmentation
 {
@@ -50,7 +51,7 @@ namespace Proteomics.Fragmentation
         /// </summary>
         public override string ToString()
         {
-            return ProductType + "" + TerminusFragment.FragmentNumber + ";" + NeutralMass + "-" + NeutralLoss;
+            return ProductType + "" + TerminusFragment.FragmentNumber + ";" + Math.Round(NeutralMass, 11) + "-" + Math.Round(NeutralLoss, 11);
         }
 
         public override bool Equals(object obj)
