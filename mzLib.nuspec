@@ -17,7 +17,7 @@
     </dependencies>
   </metadata>
   <files>
-    <file src="Chemistry\bin\Release\netcoreapp3.0\BayesianEstimation.dll" target="lib\netcoreapp3.0" />
+    <file src="BayesianEstimation\bin\Release\netcoreapp3.0\BayesianEstimation.dll" target="lib\netcoreapp3.0" />
     <file src="Chemistry\bin\Release\netcoreapp3.0\Chemistry.dll" target="lib\netcoreapp3.0" />
     <file src="FlashLFQ\bin\Release\netcoreapp3.0\FlashLFQ.dll" target="lib\netcoreapp3.0" />
     <file src="MassSpectrometry\bin\Release\netcoreapp3.0\MassSpectrometry.dll" target="lib\netcoreapp3.0" />
