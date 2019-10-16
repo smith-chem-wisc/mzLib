@@ -62,7 +62,7 @@ namespace MzLibUtil
             }
             catch
             {
-                return "UNDETERMINED-BIT PROCESSOR";
+                return "UNDETERMINED-BIT";
             }
         }
 
