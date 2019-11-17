@@ -551,37 +551,7 @@ namespace Test
 
             Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
         }
-
-        [Test]
-        public static void TestCompactPeptideSerialization()
-        {
-            // purpose of this test is to serialize/deserialize a CompactPeptide and make sure the deserialized peptide
-            // has the same properties as before it was serialized. This peptide is unmodified
-            string sequence = "PEPTIDE";
-            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0);
-            CompactPeptide cp = new CompactPeptide(p, FragmentationTerminus.Both);
-            CompactPeptide deserializedCp = null;
-
-            string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestCompactPeptideSerialization");
-            System.IO.Directory.CreateDirectory(dir);
-            string path = System.IO.Path.Combine(dir, "myCompactPeptideIndex.ind");
-
-            var messageTypes = typeof(CompactPeptide);
-            var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
-
-            using (var file = System.IO.File.Create(path))
-            {
-                ser.Serialize(file, cp);
-            }
-
-            using (var file = System.IO.File.OpenRead(path))
-            {
-                deserializedCp = (CompactPeptide)ser.Deserialize(file);
-            }
-
-            Assert.That(cp.Equals(deserializedCp));
-        }
-
+        
         [Test]
         public static void TestSerializationPeptideFromString()
         {

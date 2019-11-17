@@ -108,7 +108,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         monoMass += mod.MonoisotopicMass.Value;
                     }
-                    monoMass += BaseSequence.Select(b => Residue.ResidueMonoisotopicMass[b]).Sum();
+                    monoMass += BaseSequence.Sum(b => Residue.ResidueMonoisotopicMass[b]);
 
                     _monoisotopicMass = monoMass;
                 }
@@ -175,148 +175,290 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Generates theoretical fragments for given dissociation type for this peptide
+        /// Generates theoretical fragments for given dissociation type for this peptide. 
+        /// 
+        /// This code is specifically written to be memory efficient because it is called 
+        /// millions of times for a typical search (i.e., at least once per peptide). If you
+        /// modify this code, BE VERY CAREFUL about allocating new memory, especially objects 
+        /// and collections.
         /// </summary>
         public IEnumerable<Product> Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
         {
-            // molecular ion
-            //yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.None, this.MonoisotopicMass, Length, Length), 0);
+            double cTermMass = WaterMonoisotopicMass;
+            double nTermMass = 0;
 
-            var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+            bool calculateNTermFragments = fragmentationTerminus == FragmentationTerminus.N
+                || fragmentationTerminus == FragmentationTerminus.Both;
 
-            List<(ProductType, int)> skippers = new List<(ProductType, int)>();
-            foreach (var product in productCollection.Where(f => f != ProductType.zDot))
+            bool calculateCTermFragments = fragmentationTerminus == FragmentationTerminus.C
+                || fragmentationTerminus == FragmentationTerminus.Both;
+
+            // n-terminus mod
+            if (calculateNTermFragments)
             {
-                skippers.Add((product, BaseSequence.Length));
-            }
-
-            switch (dissociationType)
-            {
-                case DissociationType.CID:
-                    skippers.Add((ProductType.b, 1));
-                    break;
-                //for LowCID I assume we don't have the first ion on the b-side from any ion type
-                case DissociationType.LowCID:
-                    skippers.Add((ProductType.b, 1));
-                    skippers.Add((ProductType.aDegree, 1));
-                    skippers.Add((ProductType.bDegree, 1));
-                    skippers.Add((ProductType.aStar, 1));
-                    skippers.Add((ProductType.bStar, 1));
-                    break;
-
-                case DissociationType.ETD:
-                case DissociationType.ECD:
-                case DissociationType.EThcD:
-                    skippers.AddRange(GetProlineZIonIndicies());
-                    break;
-            }
-
-            foreach (var productType in productCollection)
-            {
-                // we're separating the N and C terminal masses and computing a separate compact peptide for each one
-                // this speeds calculations up without producing unnecessary terminus fragment info
-                FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
-                NeutralTerminusFragment[] terminalMasses = new CompactPeptide(this, temporaryFragmentationTerminus).TerminalMasses;
-
-                int firstUsableIndex = FullSequence.Length;
-                bool completeFragmentationSeries = true;
-                switch (productType)
+                if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
                 {
-                    case ProductType.aStar:
-                    case ProductType.bStar:
-                    case ProductType.yStar:
-                    case ProductType.aDegree:
-                    case ProductType.bDegree:
-                    case ProductType.yDegree:
-                        {
-                            firstUsableIndex = GetFirstUsableIndex(FullSequence, productType, temporaryFragmentationTerminus);
-                            completeFragmentationSeries = false;
-                        };
-                        break;
-
-                    default:
-                        break;
+                    nTermMass += mod.MonoisotopicMass.Value;
                 }
+            }
 
-                for (int f = 0; f < terminalMasses.Length; f++)
+            // c-terminus mod
+            if (calculateCTermFragments)
+            {
+                if (AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out Modification mod))
                 {
-                    if (completeFragmentationSeries)
+                    cTermMass += mod.MonoisotopicMass.Value;
+                }
+            }
+
+            for (int r = 0; r < BaseSequence.Length - 1; r++)
+            {
+                // n-term fragments
+                if (calculateNTermFragments)
+                {
+                    // get n-term residue mass
+                    if (Residue.TryGetResidue(BaseSequence[r], out Residue residue))
                     {
-                        // fragments with neutral loss
-                        if (AllModsOneIsNterminus.TryGetValue(terminalMasses[f].AminoAcidPosition + 1, out Modification mod) && mod.NeutralLosses != null
+                        nTermMass += residue.MonoisotopicMass;
+                    }
+                    else
+                    {
+                        nTermMass = double.NaN;
+                    }
+
+                    // add side-chain mod
+                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification mod))
+                    {
+                        nTermMass += mod.MonoisotopicMass.Value;
+                    }
+
+                    for (int i = 0; i < DissociationTypeCollection.NTermTemp[dissociationType].Count; i++)
+                    {
+                        yield return new Product(
+                            DissociationTypeCollection.NTermTemp[dissociationType][i],
+                            FragmentationTerminus.N,
+                            nTermMass,// + DissociationTypeCollection.GetMassShiftFromProductType(productType),
+                            r + 1,
+                            r + 1,
+                            0);
+
+                        if (mod != null && mod.NeutralLosses != null
                             && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
                         {
                             foreach (double neutralLoss in neutralLosses)
                             {
-                                if (neutralLoss == 0)
-                                {
-                                    continue;
-                                }
-
-                                for (int n = f; n < terminalMasses.Length; n++)
-                                {
-                                    if (!skippers.Contains((productType, terminalMasses[n].FragmentNumber)))
-                                    {
-                                        yield return new Product(productType, terminalMasses[n], neutralLoss);
-                                    }
-                                }
+                                yield return new Product(
+                                    DissociationTypeCollection.NTermTemp[dissociationType][i],
+                                    FragmentationTerminus.N,
+                                    nTermMass,// + DissociationTypeCollection.GetMassShiftFromProductType(productType) - neutralLoss,
+                                    r + 1,
+                                    r + 1,
+                                    neutralLoss);
                             }
-                        }
-
-                        // "normal" fragment without neutral loss
-                        if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
-                        {
-                            yield return new Product(productType, terminalMasses[f], 0);
-                        }
-                    }
-                    //for certain fragmentation types, we only want to return standard fragments that contain specific amino acids
-                    else if (f >= firstUsableIndex)
-                    {
-                        // "normal" fragment without neutral loss
-                        if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
-                        {
-                            yield return new Product(productType, terminalMasses[f], 0);
                         }
                     }
                 }
-            }
 
-            if (AllModsOneIsNterminus != null)
-            {
-                HashSet<Product> diagnosticIons = new HashSet<Product>();
-
-                foreach (Modification mod in AllModsOneIsNterminus.Values)
+                // c-term fragments
+                if (calculateCTermFragments)
                 {
-                    // molecular ion minus neutral losses
-                    if (mod.NeutralLosses != null && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> losses))
+                    // get c-term residue mass
+                    if (Residue.TryGetResidue(BaseSequence[BaseSequence.Length - r - 1], out Residue residue))
                     {
-                        foreach (double neutralLoss in losses)
+                        cTermMass += residue.MonoisotopicMass;
+                    }
+                    else
+                    {
+                        cTermMass = double.NaN;
+                    }
+
+                    // add side-chain mod
+                    if (AllModsOneIsNterminus.TryGetValue(BaseSequence.Length - r + 1, out Modification mod))
+                    {
+                        cTermMass += mod.MonoisotopicMass.Value;
+                    }
+
+                    for (int i = 0; i < DissociationTypeCollection.CTermTemp[dissociationType].Count; i++)
+                    {
+                        yield return new Product(
+                            DissociationTypeCollection.CTermTemp[dissociationType][i],
+                            FragmentationTerminus.C,
+                            cTermMass,// + DissociationTypeCollection.GetMassShiftFromProductType(productType),
+                            r + 1,
+                            BaseSequence.Length - r,
+                            0);
+
+                        if (mod != null && mod.NeutralLosses != null
+                            && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
                         {
-                            if (neutralLoss != 0)
+                            foreach (double neutralLoss in neutralLosses)
                             {
-                                yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.Both, MonoisotopicMass, 0, 0), neutralLoss);
+                                yield return new Product(
+                                    DissociationTypeCollection.CTermTemp[dissociationType][i],
+                                    FragmentationTerminus.C,
+                                    cTermMass,// + DissociationTypeCollection.GetMassShiftFromProductType(productType) - neutralLoss,
+                                    r + 1,
+                                    BaseSequence.Length - r,
+                                    neutralLoss);
                             }
                         }
                     }
-
-                    // diagnostic ions
-                    if (mod.DiagnosticIons != null && mod.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagIonsForThisModAndDissociationType))
-                    {
-                        foreach (double diagnosticIon in diagIonsForThisModAndDissociationType)
-                        {
-                            int diagnosticIonLabel = (int)Math.Round(diagnosticIon.ToMz(1), 0);
-
-                            // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
-                            diagnosticIons.Add(new Product(ProductType.D, new NeutralTerminusFragment(FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0), 0));
-                        }
-                    }
-                }
-
-                foreach (var diagnosticIon in diagnosticIons)
-                {
-                    yield return diagnosticIon;
                 }
             }
+
+            foreach (var mod in AllModsOneIsNterminus)
+            {
+                if (mod.Value.DiagnosticIons != null && mod.Value.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagIonsForThisModAndDissociationType))
+                {
+                    foreach (double diagnosticIon in diagIonsForThisModAndDissociationType)
+                    {
+                        int diagnosticIonLabel = (int)Math.Round(diagnosticIon.ToMz(1), 0);
+
+                        // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
+                        yield return new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0);
+                    }
+                }
+            }
+
+
+            //// molecular ion
+            ////yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.None, this.MonoisotopicMass, Length, Length), 0);
+
+            //var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus].Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+
+            //List<(ProductType, int)> skippers = new List<(ProductType, int)>();
+            //foreach (var product in productCollection.Where(f => f != ProductType.zDot))
+            //{
+            //    skippers.Add((product, BaseSequence.Length));
+            //}
+
+            //switch (dissociationType)
+            //{
+            //    case DissociationType.CID:
+            //        skippers.Add((ProductType.b, 1));
+            //        break;
+            //    //for LowCID I assume we don't have the first ion on the b-side from any ion type
+            //    case DissociationType.LowCID:
+            //        skippers.Add((ProductType.b, 1));
+            //        skippers.Add((ProductType.aDegree, 1));
+            //        skippers.Add((ProductType.bDegree, 1));
+            //        skippers.Add((ProductType.aStar, 1));
+            //        skippers.Add((ProductType.bStar, 1));
+            //        break;
+
+            //    case DissociationType.ETD:
+            //    case DissociationType.ECD:
+            //    case DissociationType.EThcD:
+            //        skippers.AddRange(GetProlineZIonIndicies());
+            //        break;
+            //}
+
+            //foreach (var productType in productCollection)
+            //{
+            //    // we're separating the N and C terminal masses and computing a separate compact peptide for each one
+            //    // this speeds calculations up without producing unnecessary terminus fragment info
+            //    FragmentationTerminus temporaryFragmentationTerminus = TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus[productType];
+            //    NeutralTerminusFragment[] terminalMasses = new CompactPeptide(this, temporaryFragmentationTerminus).TerminalMasses;
+
+            //    int firstUsableIndex = FullSequence.Length;
+            //    bool completeFragmentationSeries = true;
+            //    switch (productType)
+            //    {
+            //        case ProductType.aStar:
+            //        case ProductType.bStar:
+            //        case ProductType.yStar:
+            //        case ProductType.aDegree:
+            //        case ProductType.bDegree:
+            //        case ProductType.yDegree:
+            //            {
+            //                firstUsableIndex = GetFirstUsableIndex(FullSequence, productType, temporaryFragmentationTerminus);
+            //                completeFragmentationSeries = false;
+            //            };
+            //            break;
+
+            //        default:
+            //            break;
+            //    }
+
+            //    for (int f = 0; f < terminalMasses.Length; f++)
+            //    {
+            //        if (completeFragmentationSeries)
+            //        {
+            //            // fragments with neutral loss
+            //            if (AllModsOneIsNterminus.TryGetValue(terminalMasses[f].AminoAcidPosition + 1, out Modification mod) && mod.NeutralLosses != null
+            //                && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
+            //            {
+            //                foreach (double neutralLoss in neutralLosses)
+            //                {
+            //                    if (neutralLoss == 0)
+            //                    {
+            //                        continue;
+            //                    }
+
+            //                    for (int n = f; n < terminalMasses.Length; n++)
+            //                    {
+            //                        if (!skippers.Contains((productType, terminalMasses[n].FragmentNumber)))
+            //                        {
+            //                            yield return new Product(productType, terminalMasses[n], neutralLoss);
+            //                        }
+            //                    }
+            //                }
+            //            }
+
+            //            // "normal" fragment without neutral loss
+            //            if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
+            //            {
+            //                yield return new Product(productType, terminalMasses[f], 0);
+            //            }
+            //        }
+            //        //for certain fragmentation types, we only want to return standard fragments that contain specific amino acids
+            //        else if (f >= firstUsableIndex)
+            //        {
+            //            // "normal" fragment without neutral loss
+            //            if (!skippers.Contains((productType, terminalMasses[f].FragmentNumber)))
+            //            {
+            //                yield return new Product(productType, terminalMasses[f], 0);
+            //            }
+            //        }
+            //    }
+            //}
+
+            //if (AllModsOneIsNterminus != null)
+            //{
+            //    HashSet<Product> diagnosticIons = new HashSet<Product>();
+
+            //    foreach (Modification mod in AllModsOneIsNterminus.Values)
+            //    {
+            //        // molecular ion minus neutral losses
+            //        if (mod.NeutralLosses != null && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> losses))
+            //        {
+            //            foreach (double neutralLoss in losses)
+            //            {
+            //                if (neutralLoss != 0)
+            //                {
+            //                    yield return new Product(ProductType.M, new NeutralTerminusFragment(FragmentationTerminus.Both, MonoisotopicMass, 0, 0), neutralLoss);
+            //                }
+            //            }
+            //        }
+
+            //        // diagnostic ions
+            //        if (mod.DiagnosticIons != null && mod.DiagnosticIons.TryGetValue(dissociationType, out List<double> diagIonsForThisModAndDissociationType))
+            //        {
+            //            foreach (double diagnosticIon in diagIonsForThisModAndDissociationType)
+            //            {
+            //                int diagnosticIonLabel = (int)Math.Round(diagnosticIon.ToMz(1), 0);
+
+            //                // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
+            //                diagnosticIons.Add(new Product(ProductType.D, new NeutralTerminusFragment(FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0), 0));
+            //            }
+            //        }
+            //    }
+
+            //    foreach (var diagnosticIon in diagnosticIons)
+            //    {
+            //        yield return diagnosticIon;
+            //    }
+            //}
         }
 
         //we want to return products for all peptide fragments containing specific amino acids specified in the dictionary
@@ -637,7 +779,7 @@ namespace Proteomics.ProteolyticDigestion
                 return $"{applied.OriginalSequence}{ applied.OneBasedBeginPosition}{applied.VariantSequence}";
             }
         }
-        
+
         /// <summary>
         /// Takes an individual peptideWithSetModifications and determines if applied variations from the protein are found within its length
         /// </summary>

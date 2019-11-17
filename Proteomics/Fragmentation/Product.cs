@@ -6,20 +6,25 @@ namespace Proteomics.Fragmentation
     {
         public readonly double NeutralMass;
         public readonly ProductType ProductType;
-        public readonly NeutralTerminusFragment TerminusFragment;
         public readonly double NeutralLoss;
+        public readonly FragmentationTerminus Terminus;
+        public readonly int FragmentNumber;
+        public readonly int AminoAcidPosition;
 
         /// <summary>
         /// A product is the individual neutral fragment from an MS dissociation. A fragmentation product here contains one of the two termini (N- or C-). 
         /// The ProductType describes where along the backbone the fragmentaiton occurred (e.g. b-, y-, c-, zdot-). The neutral loss mass (if any) that 
         /// occurred from a mod on the fragment is listed as a mass. Finally the neutral mass of the whole fragment is provided.
         /// </summary>
-        public Product(ProductType productType, NeutralTerminusFragment terminusFragment, double neutralLoss)
+        public Product(ProductType productType, FragmentationTerminus terminus, double neutralMass,
+            int fragmentNumber, int aminoAcidPosition, double neutralLoss)
         {
-            TerminusFragment = terminusFragment;
+            NeutralMass = DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(neutralMass, productType) - neutralLoss;
             ProductType = productType;
             NeutralLoss = neutralLoss;
-            NeutralMass = DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(terminusFragment.NeutralMass, productType) - neutralLoss;
+            Terminus = terminus;
+            FragmentNumber = fragmentNumber;
+            AminoAcidPosition = aminoAcidPosition;
         }
 
         public string Annotation
@@ -33,7 +38,7 @@ namespace Proteomics.Fragmentation
                 // for "normal" fragments this is just the fragment number (e.g., the 3 in the b3 ion)
                 // for diagnostic ions, it's the m/z assuming z=1
                 // (e.g., a diagnostic ion with neutral mass 100 Da will be reported as the D101 fragment)
-                sb.Append(TerminusFragment.FragmentNumber);
+                sb.Append(FragmentNumber);
 
                 if (NeutralLoss != 0)
                 {
@@ -50,7 +55,7 @@ namespace Proteomics.Fragmentation
         /// </summary>
         public override string ToString()
         {
-            return ProductType + "" + TerminusFragment.FragmentNumber + ";" + NeutralMass + "-" + NeutralLoss;
+            return ProductType + "" + FragmentNumber + ";" + NeutralMass + "-" + NeutralLoss;
         }
 
         public override bool Equals(object obj)
@@ -58,7 +63,8 @@ namespace Proteomics.Fragmentation
             Product other = (Product)obj;
 
             return this.ProductType == other.ProductType
-                && this.TerminusFragment.Equals(other.TerminusFragment)
+                && this.NeutralMass == other.NeutralMass
+                && this.FragmentNumber == other.FragmentNumber
                 && this.NeutralLoss == other.NeutralLoss;
         }
 

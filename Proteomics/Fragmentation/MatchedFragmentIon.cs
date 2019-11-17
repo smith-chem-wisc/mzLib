@@ -70,7 +70,7 @@ namespace Proteomics.Fragmentation
         public override string ToString()
         {
             // we add the blank space in the tostring because the values are treated like integers and looked up as index in the enum instead of being converted to just string and concatenated
-            return NeutralTheoreticalProduct.ProductType + "" + NeutralTheoreticalProduct.TerminusFragment.FragmentNumber + "+" + Charge + "\t;" + NeutralTheoreticalProduct.NeutralMass;
+            return NeutralTheoreticalProduct.ProductType + "" + NeutralTheoreticalProduct.FragmentNumber + "+" + Charge + "\t;" + NeutralTheoreticalProduct.NeutralMass;
         }
 
         public override bool Equals(object obj)

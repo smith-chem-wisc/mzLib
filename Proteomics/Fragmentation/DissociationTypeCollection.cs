@@ -22,6 +22,16 @@ namespace Proteomics.Fragmentation
             { DissociationType.ISCID, new List<ProductType>() }
         };
 
+        public static Dictionary<DissociationType, List<ProductType>> NTermTemp = new Dictionary<DissociationType, List<ProductType>>
+        {
+            { DissociationType.HCD, new List<ProductType> { ProductType.b } }
+        };
+
+        public static Dictionary<DissociationType, List<ProductType>> CTermTemp = new Dictionary<DissociationType, List<ProductType>>
+        {
+            { DissociationType.HCD, new List<ProductType> { ProductType.y } }
+        };
+
         private static Dictionary<ProductType, double?> NeutralMassShiftFromProductType = new Dictionary<ProductType, double?>
         {
             { ProductType.a, null},//-C -O
