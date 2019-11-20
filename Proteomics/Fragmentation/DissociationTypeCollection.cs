@@ -64,7 +64,7 @@ namespace Proteomics.Fragmentation
             { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
         };
-        
+
         private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToNTermMassCaps = new Dictionary<DissociationType, (double[], double[])>();
 
         /// <summary>
@@ -97,27 +97,24 @@ namespace Proteomics.Fragmentation
             {
                 if (!shift.HasValue)
                 {
-                    lock (NeutralMassShiftFromProductType)
+                    // compute formula
+                    switch (productType)
                     {
-                        // compute formula
-                        switch (productType)
-                        {
-                            case ProductType.a: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1").MonoisotopicMass; break;
-                            case ProductType.aStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1N-1H-3").MonoisotopicMass; break;
-                            case ProductType.aDegree: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-2H-2").MonoisotopicMass; break; // -46.0054793036,-C -O2 -H2
-                            case ProductType.b: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
-                            case ProductType.bStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N-1H-3").MonoisotopicMass; break;// -17.02654910112, -N -H3
-                            case ProductType.bDegree: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H-2O-1").MonoisotopicMass; break;// -18.01056468403, -H2 -O1
-                            case ProductType.c: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N1H3").MonoisotopicMass; break;// 17.02654910112, +N1 +H3
-                            case ProductType.x: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C1O2").MonoisotopicMass; break;// 43.98982923914, +C1 +O2
-                            case ProductType.y: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass; break;// 18.01056468403, +O +H2
-                            case ProductType.yStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
-                            case ProductType.yDegree: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
-                            case ProductType.zDot: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1N-1H-1").MonoisotopicMass + Constants.ElectronMass + Constants.ProtonMass; break; //1.991840552567, +O -NH + e- + p+
-                            case ProductType.zPlusOne: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N:
-                            case ProductType.M: NeutralMassShiftFromProductType[productType] = 0; break;// no change
-                            case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
-                        }
+                        case ProductType.a: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1").MonoisotopicMass; break;
+                        case ProductType.aStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-1N-1H-3").MonoisotopicMass; break;
+                        case ProductType.aDegree: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C-1O-2H-2").MonoisotopicMass; break; // -46.0054793036,-C -O2 -H2
+                        case ProductType.b: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
+                        case ProductType.bStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N-1H-3").MonoisotopicMass; break;// -17.02654910112, -N -H3
+                        case ProductType.bDegree: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H-2O-1").MonoisotopicMass; break;// -18.01056468403, -H2 -O1
+                        case ProductType.c: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("N1H3").MonoisotopicMass; break;// 17.02654910112, +N1 +H3
+                        case ProductType.x: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("C1O2").MonoisotopicMass; break;// 43.98982923914, +C1 +O2
+                        case ProductType.y: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("H2O1").MonoisotopicMass; break;// 18.01056468403, +O +H2
+                        case ProductType.yStar: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H-1N-1").MonoisotopicMass; break;// 0.98401558291000057, +O -H -N
+                        case ProductType.yDegree: NeutralMassShiftFromProductType[productType] = 0; break;// 0, no change
+                        case ProductType.zDot: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1N-1H-1").MonoisotopicMass + Constants.ElectronMass + Constants.ProtonMass; break; //1.991840552567, +O -NH + e- + p+
+                        case ProductType.zPlusOne: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N:
+                        case ProductType.M: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+                        case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                     }
                 }
 
