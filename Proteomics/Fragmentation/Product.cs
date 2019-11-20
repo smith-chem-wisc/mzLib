@@ -2,7 +2,7 @@
 
 namespace Proteomics.Fragmentation
 {
-    public class Product
+    public struct Product
     {
         public readonly double NeutralMass;
         public readonly ProductType ProductType;
@@ -19,7 +19,7 @@ namespace Proteomics.Fragmentation
         public Product(ProductType productType, FragmentationTerminus terminus, double neutralMass,
             int fragmentNumber, int aminoAcidPosition, double neutralLoss)
         {
-            NeutralMass = DissociationTypeCollection.ProductTypeSpecificFragmentNeutralMass(neutralMass, productType) - neutralLoss;
+            NeutralMass = neutralMass;
             ProductType = productType;
             NeutralLoss = neutralLoss;
             Terminus = terminus;
@@ -49,13 +49,13 @@ namespace Proteomics.Fragmentation
                 return sb.ToString();
             }
         }
-
+        
         /// <summary>
         /// Summarizes a Product into a string for debug purposes
         /// </summary>
         public override string ToString()
         {
-            return ProductType + "" + FragmentNumber + ";" + NeutralMass + "-" + NeutralLoss;
+            return ProductType + "" + FragmentNumber + ";" + NeutralMass.ToString("F5") + "-" + string.Format("{0:0.##}", NeutralLoss);
         }
 
         public override bool Equals(object obj)

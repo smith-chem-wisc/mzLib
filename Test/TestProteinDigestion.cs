@@ -51,15 +51,17 @@ namespace Test
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
 
-            var test = pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var test = new List<Product>();
+            pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both, test);
 
-            foreach (var huh in pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
+            foreach (var huh in test)
             {
                 Assert.IsTrue(huh.NeutralMass > 0);
             }
             var pep2 = ye[1];
+            pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both, test);
             Assert.IsTrue(pep2.MonoisotopicMass > 0);
-            foreach (var huh in pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
+            foreach (var huh in test)
             {
                 Assert.IsTrue(huh.NeutralMass > 0);
             }
@@ -92,21 +94,25 @@ namespace Test
             Assert.AreEqual(2, ye.Count);
             var pep1 = ye[0];
             Assert.IsTrue(pep1.MonoisotopicMass > 0);
-            foreach (var huh in pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
+
+            var fragments = new List<Product>();
+            pep1.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
+            foreach (var huh in fragments)
             {
                 Assert.IsTrue(huh.NeutralMass > 0);
             }
 
             var pep2 = ye[1];
             Assert.IsNaN(pep2.MonoisotopicMass);
-            var cool = pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToArray();
+            var cool = new List<Product>();
+            pep2.Fragment(DissociationType.HCD, FragmentationTerminus.Both, cool);
             Assert.IsTrue(cool[0].NeutralMass > 0);
             Assert.IsTrue(cool[1].NeutralMass > 0);
-            Assert.IsTrue(cool[3].NeutralMass > 0);
-            Assert.IsTrue(double.IsNaN(cool[2].NeutralMass));
+            Assert.IsTrue(cool[2].NeutralMass > 0);
+            Assert.IsTrue(double.IsNaN(cool[3].NeutralMass));
             Assert.IsTrue(double.IsNaN(cool[4].NeutralMass));
             Assert.IsTrue(double.IsNaN(cool[5].NeutralMass));
-            Assert.IsTrue(cool.Length == 6);
+            Assert.IsTrue(cool.Count == 6);
         }
 
         [Test]
@@ -129,7 +135,7 @@ namespace Test
 
             double m1 = 5 * GetElement("H").PrincipalIsotope.AtomicMass + Residue.ResidueMonoisotopicMass['M'] + GetElement("O").PrincipalIsotope.AtomicMass;
 
-            m1 = Math.Round((double)m1, 9, MidpointRounding.AwayFromZero);
+            m1 = Math.Round(m1, 9, MidpointRounding.AwayFromZero);
 
             double m2 = ye.Last().MonoisotopicMass;
             double m3 = m1 - m2;
@@ -294,7 +300,8 @@ namespace Test
             Assert.That(new HashSet<int>(peptide.AllModsOneIsNterminus.Keys).SetEquals(new HashSet<int>() { 5, 16 }));
 
             // calculate fragments. just check that they exist and it doesn't crash
-            List<Product> theoreticalFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            List<Product> theoreticalFragments = new List<Product>();
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theoreticalFragments);
             Assert.That(theoreticalFragments.Count > 0);
         }
     }

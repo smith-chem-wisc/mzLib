@@ -208,7 +208,8 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
@@ -217,16 +218,16 @@ namespace Test
 
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
 
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
             //evaluate C-terminal masses
             var cTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).ToList();
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 248 };
-            Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
+            CollectionAssert.AreEquivalent(expectedCTerminalMasses, cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0)));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;248.100836242-0" };
-            Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
+            CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
         }
 
         [Test]
@@ -238,23 +239,24 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
             Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.019094739-0", "b2;306.061687827-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.01909-0", "b2;306.06169-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
             //evaluate C-terminal masses
             var cTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).ToList();
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 248 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;248.100836242-0" };
-            Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
+            CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
         }
 
         [Test]
@@ -266,14 +268,15 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 226 };
             Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0" };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             //evaluate C-terminal masses
@@ -281,7 +284,7 @@ namespace Test
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 199, 328 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;199.024574042-0", "y2;328.067167131-0" };
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;199.02457-0", "y2;328.06717-0" };
             Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
         }
 
@@ -294,7 +297,8 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
@@ -303,7 +307,7 @@ namespace Test
 
             Assert.That(expectedNTerminalMasses.SetEquals(foundNTerminalMasses));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;306.061687827-0" };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;306.06169-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             //evaluate C-terminal masses
@@ -313,7 +317,7 @@ namespace Test
 
             Assert.That(expectedCTerminalMasses.SetEquals(foundCTerminalMasses));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;328.067167131-0" };
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;328.06717-0" };
             Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
         }
 
@@ -326,14 +330,15 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306, 79, 208 };
             Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.019094739-0", "b2;306.061687827-0", "b1;79.04219916561-97.97689557339", "b2;208.08479225361-97.97689557339" };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.01909-0", "b2;306.06169-0", "b1;79.04220-97.98", "b2;208.08479-97.98" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             //evaluate C-terminal masses
@@ -341,7 +346,7 @@ namespace Test
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 248 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;248.100836242-0" };
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
             Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
         }
 
@@ -354,7 +359,8 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //var nTerminalMasses = aCompactPeptide.TerminalMasses.Where(v => v.Terminus == FragmentationTerminus.N);
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
@@ -363,7 +369,7 @@ namespace Test
 
             Assert.That(expectedNTerminalMasses.SetEquals(foundNTerminalMasses));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0" };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             //evaluate C-terminal masses
@@ -371,10 +377,10 @@ namespace Test
             HashSet<int> foundCTerminalMasses = new HashSet<int>(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0)).ToList());
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 199, 328, 101, 230 };
 
-            Assert.That(expectedCTerminalMasses.SetEquals(foundCTerminalMasses));
+            CollectionAssert.AreEquivalent(expectedCTerminalMasses, foundCTerminalMasses);
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;199.024574042-0", "y2;328.067167131-0", "y1;101.04767846861-97.97689557339", "y2;230.09027155761-97.97689557339" };
-            Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;199.02457-0", "y2;328.06717-0", "y1;101.04768-97.98", "y2;230.09027-97.98" };
+            CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
         }
 
         [Test]
@@ -386,14 +392,15 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var n = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 97, 306, 208 };
             Assert.That(expectedNTerminalMasses.SetEquals(n.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;306.061687827-0", "b2;208.08479225361-97.97689557339" };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;306.06169-0", "b2;208.08479-97.98" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             //evaluate C-terminal masses
@@ -401,7 +408,7 @@ namespace Test
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 328, 230 };
             Assert.That(expectedCTerminalMasses.SetEquals(c.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;328.067167131-0", "y2;230.09027155761-97.97689557339" };
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;328.06717-0", "y2;230.09027-97.98" };
             Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
         }
 
@@ -414,14 +421,15 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.AnyActivationType, FragmentationTerminus.Both);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.AnyActivationType, FragmentationTerminus.Both, theseTheoreticalFragments);
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306, 79, 208 };
             Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.019094739-0", "b2;306.061687827-0", "b1;79.04219916561-97.97689557339", "b2;208.08479225361-97.97689557339" };
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.01909-0", "b2;306.06169-0", "b1;79.04220-97.98", "b2;208.08479-97.98" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             //evaluate C-terminal masses
@@ -429,7 +437,7 @@ namespace Test
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 248 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;248.100836242-0" };
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
             Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
         }
 
@@ -442,23 +450,24 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             //evaluate N-terminal masses
             var nTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).ToList();
             HashSet<int> expectedNTerminalMasses = new HashSet<int> { 177, 306 };
             Assert.That(expectedNTerminalMasses.SetEquals(nTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.019094739-0", "b2;306.061687827-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;177.01909-0", "b2;306.06169-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
             //evaluate C-terminal masses
             var cTerminalMasses = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).ToList();
             HashSet<int> expectedCTerminalMasses = new HashSet<int> { 119, 248 };
             Assert.That(expectedCTerminalMasses.SetEquals(cTerminalMasses.Select(v => (int)Math.Round(v.NeutralMass, 0))));
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.058243153-0", "y2;248.100836242-0" };
-            Assert.That(expectedCTerminalMassesLabels.SetEquals(cTerminalMassesLabels));
+            HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
+            CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
         }
 
         [Test]
@@ -468,53 +477,54 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.N);
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.N, theseTheoreticalFragments);
             var nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.AnyActivationType, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.AnyActivationType, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.CID, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.CID, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "b2;226.095356938-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            expectedNTerminalMassesLabels = new HashSet<string> { "b2;226.09536-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.ECD, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.ECD, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "c1;114.079312951-0", "c2;243.121906039-0" };
-            Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
+            expectedNTerminalMassesLabels = new HashSet<string> { "c1;114.07931-0", "c2;243.12191-0" };
+            CollectionAssert.AreEquivalent(expectedNTerminalMassesLabels, nTerminalMassesLabels);
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "c1;114.079312951-0", "c2;243.121906039-0" };
+            expectedNTerminalMassesLabels = new HashSet<string> { "c1;114.07931-0", "c2;243.12191-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.EThcD, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.EThcD, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0", "c1;114.079312951-0", "c2;243.121906039-0" };
+            expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0", "c1;114.07931-0", "c2;243.12191-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.ISCID, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.ISCID, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
             expectedNTerminalMassesLabels = new HashSet<string> { };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom] = new List<ProductType> { };
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.Custom, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.Custom, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
             expectedNTerminalMassesLabels = new HashSet<string> { };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.IRMPD, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.IRMPD, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
-            expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276385-0", "b2;226.095356938-0" };
+            expectedNTerminalMassesLabels = new HashSet<string> { "b1;97.05276-0", "b2;226.09536-0" };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
 
-            theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.PQD, FragmentationTerminus.N);
+            aPeptideWithSetModifications.Fragment(DissociationType.PQD, FragmentationTerminus.N, theseTheoreticalFragments);
             nTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.N).Select(f => f.ToString()).ToList();
             expectedNTerminalMassesLabels = new HashSet<string> { };
             Assert.That(expectedNTerminalMassesLabels.SetEquals(nTerminalMassesLabels));
@@ -529,11 +539,12 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             //evaluate N-terminal masses
             var diagnosticIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.D).ToList();
-            Assert.AreEqual("D99;97.976895573-0", diagnosticIons.First().ToString());
+            Assert.AreEqual("D99;97.97690-0", diagnosticIons.First().ToString());
         }
 
         [Test]
@@ -541,15 +552,29 @@ namespace Test
         {
             Protein p = new Protein("PTE", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
-            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } }, _diagnosticIons: new Dictionary<DissociationType, List<double>> { { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } } });
+            Modification phosphorylation = new Modification(
+                _originalId: "phospho", 
+                _modificationType: "CommonBiological", 
+                _target: motif, 
+                _locationRestriction: "Anywhere.", 
+                _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), 
+                _neutralLosses: new Dictionary<DissociationType, List<double>>
+                {
+                    { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } }
+                }, 
+                _diagnosticIons: new Dictionary<DissociationType, List<double>>
+                {
+                    { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } }
+                });
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             //evaluate N-terminal masses
             var molecularIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.M).ToList();
-            Assert.AreEqual("M0;327.14303540761-97.97689557339", molecularIons.First().ToString());
+            Assert.AreEqual("M0;327.14304-97.98", molecularIons.First().ToString());
         }
 
         [Test]
@@ -561,7 +586,8 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             //evaluate N-terminal masses
             var diagnosticIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.D).ToList();
@@ -577,7 +603,8 @@ namespace Test
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
 
-            var theseTheoreticalFragments = aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             //evaluate N-terminal masses
             var molecularIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.M).ToList();
@@ -616,7 +643,8 @@ namespace Test
         {
             PeptideWithSetModifications myPeptide = new PeptideWithSetModifications(fullSequence, new Dictionary<string, Modification>());
 
-            var theseTheoreticalFragments = myPeptide.Fragment(dissociationType, FragmentationTerminus.Both);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
+            var theseTheoreticalFragments = new List<Product>();
+            myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, theseTheoreticalFragments);//Note that dissociation type here intentionally mismatched to dissociation type in modification constructor
 
             Assert.AreEqual(aStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.aStar).Count());
             Assert.AreEqual(bStarCount, theseTheoreticalFragments.Where(f => f.ProductType == ProductType.bStar).Count());
@@ -744,28 +772,50 @@ namespace Test
         {
             Protein protein = new Protein("PEPTIDE", "accession");
             PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            var fragments = new List<Product>();
 
-            Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.b }, p.Fragment(DissociationType.HCD, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.y }, p.Fragment(DissociationType.HCD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.HCD, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
+            p.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, p.Fragment(DissociationType.ETD, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.c }, p.Fragment(DissociationType.ETD, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, p.Fragment(DissociationType.ETD, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.ETD, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
+            p.Fragment(DissociationType.HCD, FragmentationTerminus.N, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.b }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
-            Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, p.Fragment(DissociationType.CID, FragmentationTerminus.Both).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.b }, p.Fragment(DissociationType.CID, FragmentationTerminus.N).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { ProductType.y }, p.Fragment(DissociationType.CID, FragmentationTerminus.C).Select(b => b.ProductType).Distinct().ToList());
-            Assert.AreEqual(new List<ProductType> { }, p.Fragment(DissociationType.CID, FragmentationTerminus.None).Select(b => b.ProductType).Distinct().ToList());
+            p.Fragment(DissociationType.HCD, FragmentationTerminus.C, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.HCD, FragmentationTerminus.None, fragments);
+            Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.N, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.c }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.C, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.None, fragments);
+            Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.CID, FragmentationTerminus.Both, fragments);
+            CollectionAssert.AreEquivalent(new List<ProductType> {  ProductType.b, ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.CID, FragmentationTerminus.N, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.b }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.CID, FragmentationTerminus.C, fragments);
+            Assert.AreEqual(new List<ProductType> { ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
+
+            p.Fragment(DissociationType.CID, FragmentationTerminus.None, fragments);
+            Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
         }
 
         [Test]
         public static void Test_MatchedFragmentIonToString()
         {
             Product P = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
-            MatchedFragmentIon m = new MatchedFragmentIon(P, 1, 1, 1);
+            MatchedFragmentIon m = new MatchedFragmentIon(ref P, 1, 1, 1);
             Assert.AreEqual("b1+1\t;1", m.ToString());
         }
 
@@ -777,7 +827,8 @@ namespace Test
             Protein protein = new Protein("PEPTIDE", "accession");
             PeptideWithSetModifications p = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 7, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
 
-            var f = p.Fragment(DissociationType.CID, FragmentationTerminus.Both);
+            var f = new List<Product>();
+            p.Fragment(DissociationType.CID, FragmentationTerminus.Both, f);
             Assert.AreEqual(11, f.Count());
 
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
@@ -794,8 +845,10 @@ namespace Test
             PeptideWithSetModifications modifiedPwsm = pwsmList.Where(z => z.AllModsOneIsNterminus.Count == 1).First();
             PeptideWithSetModifications unmodifiedPwsm = pwsmList.Where(z => z.AllModsOneIsNterminus.Count == 0).First();
 
-            IEnumerable<Product> modifiedPwsmFragments = modifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both);
-            IEnumerable<Product> unmodifiedPwsmFragments = unmodifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both);
+            List<Product> modifiedPwsmFragments = new List<Product>();
+            modifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedPwsmFragments);
+            List<Product> unmodifiedPwsmFragments = new List<Product>();
+            unmodifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedPwsmFragments);
             Assert.AreEqual(11, modifiedPwsmFragments.Count());
             Assert.AreEqual(11, unmodifiedPwsmFragments.Count());
 
@@ -810,8 +863,8 @@ namespace Test
             modifiedPwsm = pwsmList.Where(z => z.AllModsOneIsNterminus.Count == 1).First();
             unmodifiedPwsm = pwsmList.Where(z => z.AllModsOneIsNterminus.Count == 0).First();
 
-            modifiedPwsmFragments = modifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both);
-            unmodifiedPwsmFragments = unmodifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both);
+            modifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedPwsmFragments);
+            unmodifiedPwsm.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedPwsmFragments);
             Assert.AreEqual(11, modifiedPwsmFragments.Count());
             Assert.AreEqual(11, unmodifiedPwsmFragments.Count());
         }
@@ -827,7 +880,8 @@ namespace Test
             IEnumerable<PeptideWithSetModifications> pwsmList = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>());
             IEnumerable<PeptideWithSetModifications> digestionProducts = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>());
             PeptideWithSetModifications myPeptide = digestionProducts.First();
-            IEnumerable<Product> myFragments = myPeptide.Fragment(dissociationType, FragmentationTerminus.Both);
+            List<Product> myFragments = new List<Product>();
+            myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, myFragments);
             Assert.AreEqual(fragmentCount, myFragments.Count());
         }
 
@@ -835,7 +889,8 @@ namespace Test
         public static void CheckProlineFragments()
         {
             PeptideWithSetModifications p = new PeptideWithSetModifications("MPEPTIDE", new Dictionary<string, Modification>());
-            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+            var fragments = new List<Product>();
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
@@ -849,7 +904,8 @@ namespace Test
         public static void CheckProlineFragments2()
         {
             PeptideWithSetModifications p = new PeptideWithSetModifications("MTETTIDE", new Dictionary<string, Modification>());
-            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+            var fragments = new List<Product>();
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
@@ -863,7 +919,8 @@ namespace Test
         public static void CheckProlineFragments3()
         {
             PeptideWithSetModifications p = new PeptideWithSetModifications("METPIPEEEE", new Dictionary<string, Modification>());
-            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+            var fragments = new List<Product>();
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
@@ -879,7 +936,8 @@ namespace Test
             ModificationMotif.TryGetMotif("P", out var motif);
             Modification m = new Modification("TEST", "", "OK", null, motif, "Anywhere.", null, 20);
             PeptideWithSetModifications p = new PeptideWithSetModifications("METP[OK:TEST]IPEEEE", new Dictionary<string, Modification> { { "TEST", m } });
-            var fragments = p.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+            var fragments = new List<Product>();
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
 
             var z = fragments.Where(f => f.ProductType == ProductType.zDot).ToList();
 
@@ -893,13 +951,13 @@ namespace Test
         public static void TestFragmentAnnotations()
         {
             Product p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
+            MatchedFragmentIon f = new MatchedFragmentIon(ref p, 400.0, 1000.0, 3);
 
             Assert.That(p.Annotation == "b2-30.30");
             Assert.That(f.Annotation == "(b2-30.30)+3");
 
             p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 0);
-            f = new MatchedFragmentIon(p, 400.0, 1000.0, 3);
+            f = new MatchedFragmentIon(ref p, 400.0, 1000.0, 3);
 
             Assert.That(p.Annotation == "b2");
             Assert.That(f.Annotation == "b2+3");
@@ -908,8 +966,8 @@ namespace Test
         [Test]
         public static void TestFragmentErrors()
         {
-            Product p = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f = new MatchedFragmentIon(p, 159.5, 1000.0, 3);
+            Product p = new Product(ProductType.b, FragmentationTerminus.N, 475.205, 2, 3, 30.3);
+            MatchedFragmentIon f = new MatchedFragmentIon(ref p, 159.5, 1000.0, 3);
 
             double experMass = f.Mz.ToMass(f.Charge);
             double theorMass = p.NeutralMass;
@@ -923,11 +981,11 @@ namespace Test
         public static void TestFragmentEquality()
         {
             Product p1 = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f1 = new MatchedFragmentIon(p1, 400.0, 1000.0, 3);
-            
+            MatchedFragmentIon f1 = new MatchedFragmentIon(ref p1, 400.0, 1000.0, 3);
+
             Product p2 = new Product(ProductType.b, FragmentationTerminus.N, 505.505, 2, 3, 30.3);
-            MatchedFragmentIon f2 = new MatchedFragmentIon(p2, 400.0, 1000.0, 3);
-            
+            MatchedFragmentIon f2 = new MatchedFragmentIon(ref p2, 400.0, 1000.0, 3);
+
             Assert.AreEqual(p1, p2);
             Assert.AreEqual(f1, f2);
         }
@@ -947,74 +1005,14 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications("P[TestType:Test]E[TestType:Test]P[TestType:Test]TIDE",
                 new Dictionary<string, Modification> { { "Test", modWithDiagnosticIons } });
 
-            var fragments = p.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var fragments = new List<Product>();
+            p.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
 
             var diagnosticIons = fragments.Where(f => f.ProductType == ProductType.D).ToList();
 
             // if there are 3 diagnostic ions (one for each mod on the peptide),
             // diagnostic ions are being incorrectly duplicated!
             Assert.That(diagnosticIons.Count == 1);
-        }
-
-        [Test]
-        public static void TestFragmentSpeed()
-        {
-            string pathToProteinDatabase = @"C:\Mass Spec Data\mouse\uniprot-filtered-reviewed%3Ayes+AND+organism%3A_Mus+musculus+%28Mouse%29+%5B10--.fasta";
-
-            var proteins = ProteinDbLoader.LoadProteinFasta(
-                pathToProteinDatabase,
-                true, DecoyType.Reverse, false,
-                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex,
-                ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
-
-            var digestParams = new DigestionParams();
-
-            List<PeptideWithSetModifications> peptides = new List<PeptideWithSetModifications>();
-
-            Parallel.ForEach(Partitioner.Create(0, proteins.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = -1 },
-                (range, loopState) =>
-                {
-                    List<PeptideWithSetModifications> threadPeptides = new List<PeptideWithSetModifications>();
-
-                    for (int i = range.Item1; i < range.Item2; i++)
-                    {
-                        var protein = proteins[i];
-
-                        foreach (var peptide in protein.Digest(digestParams, new List<Modification>(),
-                            // uncomment this for variable oxidation
-                            //variableMods 
-                            new List<Modification>()
-                            ))
-                        {
-                            threadPeptides.Add(peptide);
-                        }
-                    }
-
-                    lock (peptides)
-                    {
-                        peptides.AddRange(threadPeptides);
-                    }
-                });
-
-            // fragmentation test speed
-
-            uint kk = 0;
-
-            Parallel.ForEach(Partitioner.Create(0, peptides.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = -1 },
-                (range, loopState) =>
-                {
-                    for (int i = range.Item1; i < range.Item2; i++)
-                    {
-                        var peptide = peptides[i];
-
-                        foreach (var fragment in peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both))
-                        {
-                            kk++;
-                        }
-                    }
-                });
         }
     }
 }
