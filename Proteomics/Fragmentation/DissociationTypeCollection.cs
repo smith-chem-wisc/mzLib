@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Proteomics.Fragmentation
 {
@@ -22,6 +23,29 @@ namespace Proteomics.Fragmentation
             { DissociationType.ISCID, new List<ProductType>() }
         };
 
+        public static List<ProductType> GetTerminusSpecificProductTypesFromDissociation(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        {
+            if (!TerminusSpecificProductTypesFromDissociation.TryGetValue((dissociationType, fragmentationTerminus), out List<ProductType> productTypes))
+            {
+                lock (TerminusSpecificProductTypesFromDissociation)
+                {
+                    var productCollection = TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[fragmentationTerminus]
+                        .Intersect(DissociationTypeCollection.ProductsFromDissociationType[dissociationType]);
+
+                    if (!TerminusSpecificProductTypesFromDissociation.TryGetValue((dissociationType, fragmentationTerminus), out productTypes))
+                    {
+                        productTypes = productCollection.ToList();
+                        TerminusSpecificProductTypesFromDissociation.Add((dissociationType, fragmentationTerminus), productTypes);
+                    }
+                }
+            }
+
+            return productTypes;
+        }
+
+        private static Dictionary<(DissociationType, FragmentationTerminus), List<ProductType>> TerminusSpecificProductTypesFromDissociation
+            = new Dictionary<(DissociationType, FragmentationTerminus), List<ProductType>>();
+
         private static Dictionary<ProductType, double?> NeutralMassShiftFromProductType = new Dictionary<ProductType, double?>
         {
             { ProductType.a, null},//-C -O
@@ -41,19 +65,31 @@ namespace Proteomics.Fragmentation
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
         };
 
-        //From http://www.matrixscience.com/help/fragmentation_help.html
-        //Low Energy CID -- In low energy CID(i.e.collision induced dissociation in a triple quadrupole or an ion trap) a peptide carrying a positive charge fragments mainly along its backbone, 
-        //generating predominantly b and y ions. In addition, for fragments containing RKNQ, peaks are seen for ions that have lost ammonia (-17 Da) denoted a*, b* and y*. For fragments containing 
-        //STED, loss of water(-18 Da) is denoted a°, b° and y°. Satellite ions from side chain cleavage are not observed.
-        public static Dictionary<ProductType, List<char>> ProductTypeAminoAcidSpecificites = new Dictionary<ProductType, List<char>>
+        private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
+
+        /// <summary>
+        /// This function is used in performance-critical functions, such as fragmenting peptides. The first double array is the N-terminal mass shifts for
+        /// the given dissociation type; the second array is the C-terminal mass shifts.
+        /// </summary>
+        public static (double[], double[]) GetNAndCTerminalMassShiftsForDissociationType(DissociationType dissociationType)
         {
-            {ProductType.aStar, new List<char>{ 'R', 'K', 'N', 'Q'} },
-            {ProductType.bStar, new List<char>{ 'R', 'K', 'N', 'Q'} },
-            {ProductType.yStar, new List<char>{ 'R', 'K', 'N', 'Q'} },
-            {ProductType.aDegree, new List<char>{ 'S', 'T', 'E', 'D'} },
-            {ProductType.bDegree, new List<char>{ 'S', 'T', 'E', 'D'} },
-            {ProductType.yDegree, new List<char>{ 'S', 'T', 'E', 'D'} }
-        };
+            if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out var massShifts))
+            {
+                lock (DissociationTypeToTerminusMassShift)
+                {
+                    if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out massShifts))
+                    {
+                        DissociationTypeToTerminusMassShift.Add(dissociationType,
+                        (GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N).Select(p => GetMassShiftFromProductType(p)).ToArray(),
+                        GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C).Select(p => GetMassShiftFromProductType(p)).ToArray()));
+
+                        massShifts = DissociationTypeToTerminusMassShift[dissociationType];
+                    }
+                }
+            }
+
+            return massShifts;
+        }
 
         public static double GetMassShiftFromProductType(ProductType productType)
         {
