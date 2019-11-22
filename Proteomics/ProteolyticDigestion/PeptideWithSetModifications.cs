@@ -190,7 +190,7 @@ namespace Proteomics.ProteolyticDigestion
 
             products.Clear();
 
-            var massCaps = DissociationTypeCollection.GetNAndCTerminalMassCapsForDissociationType(dissociationType);
+            var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftForDissociationType(dissociationType);
 
             double cTermMass = 0;
             double nTermMass = 0;
@@ -244,8 +244,10 @@ namespace Proteomics.ProteolyticDigestion
                 // n-term fragments
                 if (calculateNTermFragments)
                 {
+                    char nTermResidue = BaseSequence[r];
+
                     // get n-term residue mass
-                    if (Residue.TryGetResidue(BaseSequence[r], out Residue residue))
+                    if (Residue.TryGetResidue(nTermResidue, out Residue residue))
                     {
                         nTermMass += residue.MonoisotopicMass;
                     }
@@ -263,12 +265,12 @@ namespace Proteomics.ProteolyticDigestion
                     // handle star and degree ions for low-res CID
                     if (dissociationType == DissociationType.LowCID)
                     {
-                        if (BaseSequence[r] == 'R' || BaseSequence[r] == 'K' || BaseSequence[r] == 'N' || BaseSequence[r] == 'Q')
+                        if (nTermResidue == 'R' || nTermResidue == 'K' || nTermResidue == 'N' || nTermResidue == 'Q')
                         {
                             haveSeenNTermStarIon = true;
                         }
 
-                        if (BaseSequence[r] == 'S' || BaseSequence[r] == 'T' || BaseSequence[r] == 'E' || BaseSequence[r] == 'D')
+                        if (nTermResidue == 'S' || nTermResidue == 'T' || nTermResidue == 'E' || nTermResidue == 'D')
                         {
                             haveSeenNTermDegreeIon = true;
                         }
@@ -338,8 +340,10 @@ namespace Proteomics.ProteolyticDigestion
                 CTerminusFragments:
                 if (calculateCTermFragments)
                 {
+                    char cTermResidue = BaseSequence[BaseSequence.Length - r - 1];
+
                     // get c-term residue mass
-                    if (Residue.TryGetResidue(BaseSequence[BaseSequence.Length - r - 1], out Residue residue))
+                    if (Residue.TryGetResidue(cTermResidue, out Residue residue))
                     {
                         cTermMass += residue.MonoisotopicMass;
                     }
@@ -357,14 +361,12 @@ namespace Proteomics.ProteolyticDigestion
                     // handle star and degree ions for low-res CID
                     if (dissociationType == DissociationType.LowCID)
                     {
-                        if (BaseSequence[BaseSequence.Length - r - 1] == 'R' || BaseSequence[BaseSequence.Length - r - 1] == 'K'
-                            || BaseSequence[BaseSequence.Length - r - 1] == 'N' || BaseSequence[BaseSequence.Length - r - 1] == 'Q')
+                        if (cTermResidue == 'R' || cTermResidue == 'K' || cTermResidue == 'N' || cTermResidue == 'Q')
                         {
                             haveSeenCTermStarIon = true;
                         }
 
-                        if (BaseSequence[BaseSequence.Length - r - 1] == 'S' || BaseSequence[BaseSequence.Length - r - 1] == 'T'
-                            || BaseSequence[BaseSequence.Length - r - 1] == 'E' || BaseSequence[BaseSequence.Length - r - 1] == 'D')
+                        if (cTermResidue == 'S' || cTermResidue == 'T' || cTermResidue == 'E' || cTermResidue == 'D')
                         {
                             haveSeenCTermDegreeIon = true;
                         }
@@ -374,7 +376,7 @@ namespace Proteomics.ProteolyticDigestion
                     for (int i = 0; i < cTermProductTypes.Count; i++)
                     {
                         // skip zDot ions for proline residues for ETD/ECD/EThcD
-                        if (BaseSequence[BaseSequence.Length - r - 1] == 'P'
+                        if (cTermResidue == 'P'
                             && (dissociationType == DissociationType.ECD || dissociationType == DissociationType.ETD || dissociationType == DissociationType.EThcD)
                             && cTermProductTypes[i] == ProductType.zDot)
                         {

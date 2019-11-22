@@ -65,30 +65,30 @@ namespace Proteomics.Fragmentation
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
         };
 
-        private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToNTermMassCaps = new Dictionary<DissociationType, (double[], double[])>();
+        private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
 
         /// <summary>
-        /// This function is used in performance-critical functions, such as fragmenting peptides. The first double array is the N-terminal mass caps for
-        /// the key dissociation type; the second array is the C-terminal mass caps.
+        /// This function is used in performance-critical functions, such as fragmenting peptides. The first double array is the N-terminal mass shift for
+        /// the given dissociation type; the second array is the C-terminal mass shift.
         /// </summary>
-        public static (double[], double[]) GetNAndCTerminalMassCapsForDissociationType(DissociationType dissociationType)
+        public static (double[], double[]) GetNAndCTerminalMassShiftForDissociationType(DissociationType dissociationType)
         {
-            if (!DissociationTypeToNTermMassCaps.TryGetValue(dissociationType, out var massCaps))
+            if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out var massShifts))
             {
-                lock (DissociationTypeToNTermMassCaps)
+                lock (DissociationTypeToTerminusMassShift)
                 {
-                    if (!DissociationTypeToNTermMassCaps.TryGetValue(dissociationType, out massCaps))
+                    if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out massShifts))
                     {
-                        DissociationTypeToNTermMassCaps.Add(dissociationType,
+                        DissociationTypeToTerminusMassShift.Add(dissociationType,
                         (GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N).Select(p => GetMassShiftFromProductType(p)).ToArray(),
                         GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C).Select(p => GetMassShiftFromProductType(p)).ToArray()));
 
-                        massCaps = DissociationTypeToNTermMassCaps[dissociationType];
+                        massShifts = DissociationTypeToTerminusMassShift[dissociationType];
                     }
                 }
             }
 
-            return massCaps;
+            return massShifts;
         }
 
         public static double GetMassShiftFromProductType(ProductType productType)
