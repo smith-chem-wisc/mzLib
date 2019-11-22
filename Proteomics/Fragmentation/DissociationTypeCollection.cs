@@ -68,10 +68,10 @@ namespace Proteomics.Fragmentation
         private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
 
         /// <summary>
-        /// This function is used in performance-critical functions, such as fragmenting peptides. The first double array is the N-terminal mass shift for
-        /// the given dissociation type; the second array is the C-terminal mass shift.
+        /// This function is used in performance-critical functions, such as fragmenting peptides. The first double array is the N-terminal mass shifts for
+        /// the given dissociation type; the second array is the C-terminal mass shifts.
         /// </summary>
-        public static (double[], double[]) GetNAndCTerminalMassShiftForDissociationType(DissociationType dissociationType)
+        public static (double[], double[]) GetNAndCTerminalMassShiftsForDissociationType(DissociationType dissociationType)
         {
             if (!DissociationTypeToTerminusMassShift.TryGetValue(dissociationType, out var massShifts))
             {

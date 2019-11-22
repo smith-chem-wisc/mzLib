@@ -190,7 +190,7 @@ namespace Proteomics.ProteolyticDigestion
 
             products.Clear();
 
-            var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftForDissociationType(dissociationType);
+            var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftsForDissociationType(dissociationType);
 
             double cTermMass = 0;
             double nTermMass = 0;
