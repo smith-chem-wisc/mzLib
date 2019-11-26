@@ -1,0 +1,637 @@
+<?xml version="1.0" ?>
+<mzLibProteinDb>
+  <entry>
+    <accession>P33778</accession>
+    <name>transcript:ENST00000615966</name>
+    <protein>
+      <recommendedName>
+        <fullName>Histone H2B type 1-B</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">HIST1H2BB</name>
+      <name type="synonym">H2BFF</name>
+      <name type="primary">HIST1H2BB</name>
+      <name type="accession">MSTRG.34970</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="9606" />
+    <dbReference type="PubMed" id="1916825" />
+    <dbReference type="DOI" id="10.1016/0888-7543(91)90183-F" />
+    <dbReference type="PubMed" id="12408966" />
+    <dbReference type="DOI" id="10.1006/geno.2002.6850" />
+    <dbReference type="PubMed" id="15489334" />
+    <dbReference type="DOI" id="10.1101/gr.2596504" />
+    <dbReference type="PubMed" id="11709551" />
+    <dbReference type="DOI" id="10.1074/jbc.M107894200" />
+    <dbReference type="PubMed" id="12757711" />
+    <dbReference type="DOI" id="10.1016/S0092-8674(03)00355-6" />
+    <dbReference type="PubMed" id="16307923" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2005.09.025" />
+    <dbReference type="PubMed" id="16283522" />
+    <dbReference type="DOI" id="10.1007/s11010-005-8285-1" />
+    <dbReference type="PubMed" id="16713563" />
+    <dbReference type="DOI" id="10.1016/j.cell.2006.04.029" />
+    <dbReference type="PubMed" id="19608861" />
+    <dbReference type="DOI" id="10.1126/science.1175371" />
+    <dbReference type="PubMed" id="21925322" />
+    <dbReference type="DOI" id="10.1016/j.cell.2011.08.008" />
+    <dbReference type="PubMed" id="21726816" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2011.05.015" />
+    <dbReference type="PubMed" id="22389435" />
+    <dbReference type="DOI" id="10.1074/mcp.M111.015875" />
+    <dbReference type="PubMed" id="23824326" />
+    <dbReference type="DOI" id="10.1101/gad.211037.112" />
+    <dbReference type="PubMed" id="24681537" />
+    <dbReference type="DOI" id="10.1038/nchembio.1497" />
+    <dbReference type="PubMed" id="27105113" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2016.03.014" />
+    <dbReference type="PubMed" id="27105115" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2016.03.036" />
+    <dbReference type="EMBL" id="X57127">
+      <property type="protein sequence ID" value="CAA40406.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="AF531285">
+      <property type="protein sequence ID" value="AAN06685.1" />
+      <property type="molecule type" value="Genomic_DNA" />
+    </dbReference>
+    <dbReference type="EMBL" id="BC096728">
+      <property type="protein sequence ID" value="AAH96728.1" />
+      <property type="molecule type" value="mRNA" />
+    </dbReference>
+    <dbReference type="CCDS" id="CCDS4575.1" />
+    <dbReference type="PIR" id="I37445">
+      <property type="entry name" value="I37445" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_066406.1">
+      <property type="nucleotide sequence ID" value="NM_021062.2" />
+    </dbReference>
+    <dbReference type="UniGene" id="Hs.553494" />
+    <dbReference type="PDB" id="3X1S">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.81" />
+      <property type="chains" value="D/H=2-126" />
+    </dbReference>
+    <dbReference type="PDB" id="3X1U">
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.25" />
+      <property type="chains" value="D/H=3-126" />
+    </dbReference>
+    <dbReference type="PDBsum" id="3X1S" />
+    <dbReference type="PDBsum" id="3X1U" />
+    <dbReference type="ProteinModelPortal" id="P33778" />
+    <dbReference type="SMR" id="P33778" />
+    <dbReference type="BioGrid" id="109271">
+      <property type="interactions" value="57" />
+    </dbReference>
+    <dbReference type="CORUM" id="P33778" />
+    <dbReference type="DIP" id="DIP-47505N" />
+    <dbReference type="IntAct" id="P33778">
+      <property type="interactions" value="14" />
+    </dbReference>
+    <dbReference type="MINT" id="P33778" />
+    <dbReference type="STRING" id="9606.ENSP00000350580" />
+    <dbReference type="iPTMnet" id="P33778" />
+    <dbReference type="PhosphoSitePlus" id="P33778" />
+    <dbReference type="SwissPalm" id="P33778" />
+    <dbReference type="BioMuta" id="HIST1H2BB" />
+    <dbReference type="DMDM" id="462236" />
+    <dbReference type="MaxQB" id="P33778" />
+    <dbReference type="PaxDb" id="P33778" />
+    <dbReference type="PeptideAtlas" id="P33778" />
+    <dbReference type="PRIDE" id="P33778" />
+    <dbReference type="ProteomicsDB" id="54927" />
+    <dbReference type="TopDownProteomics" id="P33778" />
+    <dbReference type="DNASU" id="3018" />
+    <dbReference type="Ensembl" id="ENST00000615966">
+      <property type="protein sequence ID" value="ENSP00000482674" />
+      <property type="gene ID" value="ENSG00000276410" />
+    </dbReference>
+    <dbReference type="GeneID" id="3018" />
+    <dbReference type="KEGG" id="hsa:3018" />
+    <dbReference type="UCSC" id="uc003nfu.4">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="CTD" id="3018" />
+    <dbReference type="EuPathDB" id="HostDB:ENSG00000276410.2" />
+    <dbReference type="GeneCards" id="HIST1H2BB" />
+    <dbReference type="HGNC" id="HGNC:4751">
+      <property type="gene designation" value="HIST1H2BB" />
+    </dbReference>
+    <dbReference type="HPA" id="HPA042205" />
+    <dbReference type="HPA" id="HPA043013" />
+    <dbReference type="HPA" id="HPA048671" />
+    <dbReference type="MIM" id="602803">
+      <property type="type" value="gene" />
+    </dbReference>
+    <dbReference type="neXtProt" id="NX_P33778" />
+    <dbReference type="OpenTargets" id="ENSG00000276410" />
+    <dbReference type="PharmGKB" id="PA29126" />
+    <dbReference type="eggNOG" id="KOG1744">
+      <property type="taxonomic scope" value="Eukaryota" />
+    </dbReference>
+    <dbReference type="eggNOG" id="ENOG4111NV5">
+      <property type="taxonomic scope" value="LUCA" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00760000118976" />
+    <dbReference type="HOGENOM" id="HOG000231213" />
+    <dbReference type="HOVERGEN" id="HBG007774" />
+    <dbReference type="InParanoid" id="P33778" />
+    <dbReference type="KO" id="K11252" />
+    <dbReference type="OMA" id="YTSANQI" />
+    <dbReference type="PhylomeDB" id="P33778" />
+    <dbReference type="TreeFam" id="TF300212" />
+    <dbReference type="Reactome" id="R-HSA-1221632">
+      <property type="pathway name" value="Meiotic synapsis" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-171306">
+      <property type="pathway name" value="Packaging Of Telomere Ends" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-1912408">
+      <property type="pathway name" value="Pre-NOTCH Transcription and Translation" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-201722">
+      <property type="pathway name" value="Formation of the beta-catenin:TCF transactivating complex" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-212300">
+      <property type="pathway name" value="PRC2 methylates histones and DNA" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-2299718">
+      <property type="pathway name" value="Condensation of Prophase Chromosomes" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-2559580">
+      <property type="pathway name" value="Oxidative Stress Induced Senescence" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-2559582">
+      <property type="pathway name" value="Senescence-Associated Secretory Phenotype (SASP)" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-2559586">
+      <property type="pathway name" value="DNA Damage/Telomere Stress Induced Senescence" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-3214815">
+      <property type="pathway name" value="HDACs deacetylate histones" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-3214847">
+      <property type="pathway name" value="HATs acetylate histones" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-427359">
+      <property type="pathway name" value="SIRT1 negatively regulates rRNA expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-427389">
+      <property type="pathway name" value="ERCC6 (CSB) and EHMT2 (G9a) positively regulate rRNA expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-427413">
+      <property type="pathway name" value="NoRC negatively regulates rRNA expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5250924">
+      <property type="pathway name" value="B-WICH complex positively regulates rRNA expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5334118">
+      <property type="pathway name" value="DNA methylation" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5578749">
+      <property type="pathway name" value="Transcriptional regulation by small RNAs" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5617472">
+      <property type="pathway name" value="Activation of anterior HOX genes in hindbrain development during early embryogenesis" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5625886">
+      <property type="pathway name" value="Activated PKN1 stimulates transcription of AR (androgen receptor) regulated genes KLK2 and KLK3" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5689880">
+      <property type="pathway name" value="Ub-specific processing proteases" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5693565">
+      <property type="pathway name" value="Recruitment and ATM-mediated phosphorylation of repair and signaling proteins at DNA double strand breaks" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5693571">
+      <property type="pathway name" value="Nonhomologous End-Joining (NHEJ)" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-5693607">
+      <property type="pathway name" value="Processing of DNA double-strand break ends" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-606279">
+      <property type="pathway name" value="Deposition of new CENPA-containing nucleosomes at the centromere" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-69473">
+      <property type="pathway name" value="G2/M DNA damage checkpoint" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-73728">
+      <property type="pathway name" value="RNA Polymerase I Promoter Opening" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-73777">
+      <property type="pathway name" value="RNA Polymerase I Chain Elongation" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8866654">
+      <property type="pathway name" value="E3 ubiquitin ligases ubiquitinate target proteins" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8936459">
+      <property type="pathway name" value="RUNX1 regulates genes involved in megakaryocyte differentiation and platelet function" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-8939236">
+      <property type="pathway name" value="RUNX1 regulates transcription of genes involved in differentiation of HSCs" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-9018519">
+      <property type="pathway name" value="Estrogen-dependent gene expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-912446">
+      <property type="pathway name" value="Meiotic recombination" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-HSA-977225">
+      <property type="pathway name" value="Amyloid fiber formation" />
+    </dbReference>
+    <dbReference type="SIGNOR" id="P33778" />
+    <dbReference type="ChiTaRS" id="HIST1H2BB">
+      <property type="organism name" value="human" />
+    </dbReference>
+    <dbReference type="GeneWiki" id="HIST1H2BB" />
+    <dbReference type="GenomeRNAi" id="3018" />
+    <dbReference type="PRO" id="PR:P33778" />
+    <dbReference type="Proteomes" id="UP000005640">
+      <property type="component" value="Chromosome 6" />
+    </dbReference>
+    <dbReference type="Bgee" id="ENSG00000276410">
+      <property type="expression patterns" value="Expressed in 68 organ(s), highest expression level in lung" />
+    </dbReference>
+    <dbReference type="CleanEx" id="HS_HIST1H2BB" />
+    <dbReference type="Genevisible" id="P33778">
+      <property type="organism ID" value="HS" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005829">
+      <property type="term" value="C:cytosol" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000784">
+      <property type="term" value="C:nuclear chromosome, telomeric region" />
+      <property type="evidence" value="ECO:0007005" />
+      <property type="project" value="BHF-UCL" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005654">
+      <property type="term" value="C:nucleoplasm" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="HPA" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000786">
+      <property type="term" value="C:nucleosome" />
+      <property type="evidence" value="ECO:0000303" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005634">
+      <property type="term" value="C:nucleus" />
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="UniProtKB" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003677">
+      <property type="term" value="F:DNA binding" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046982">
+      <property type="term" value="F:protein heterodimerization activity" />
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="InterPro" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006334">
+      <property type="term" value="P:nucleosome assembly" />
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0016567">
+      <property type="term" value="P:protein ubiquitination" />
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="Reactome" />
+    </dbReference>
+    <dbReference type="Gene3D" id="1.10.20.10">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR009072">
+      <property type="entry name" value="Histone-fold" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR007125">
+      <property type="entry name" value="Histone_H2A/H2B/H3" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR000558">
+      <property type="entry name" value="Histone_H2B" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR23428">
+      <property type="entry name" value="PTHR23428" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00125">
+      <property type="entry name" value="Histone" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PRINTS" id="PR00621">
+      <property type="entry name" value="HISTONEH2B" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00427">
+      <property type="entry name" value="H2B" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF47113">
+      <property type="entry name" value="SSF47113" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00357">
+      <property type="entry name" value="HISTONE_H2B" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="3X1S" />
+    <dbReference type="PDB" id="3X1U" />
+    <dbReference type="UniProtKB" id="P23527" />
+    <dbReference type="UniProtKB" id="P58876" />
+    <dbReference type="UniProtKB" id="P62807" />
+    <dbReference type="UniProtKB" id="Q00729" />
+    <dbReference type="UniProtKB" id="Q5QNW6" />
+    <dbReference type="UniProtKB" id="Q64475" />
+    <dbReference type="UniProtKB" id="Q96A08" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="126" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N-acetylproline on P">
+      <location>
+        <position position="2" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="6" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="6" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="6" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-butyryllysine on K">
+      <location>
+        <position position="6" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="6" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="13" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="13" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="13" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="15" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="16" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="16" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-butyryllysine on K">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="24" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="24" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="24" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="25" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="35" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="35" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-crotonyllysine on K">
+      <location>
+        <position position="35" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="35" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="37" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="44" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-methyllysine on K">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6,N6-dimethyllysine on K">
+      <location>
+        <position position="58" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="58" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Dimethylated arginine on R">
+      <location>
+        <position position="80" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6,N6,N6-trimethyllysine on K">
+      <location>
+        <position position="86" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="86" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="86" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="86" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Omega-N-methylarginine on R">
+      <location>
+        <position position="87" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Omega-N-methylarginine on R">
+      <location>
+        <position position="93" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="109" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-methyllysine on K">
+      <location>
+        <position position="109" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphothreonine on T">
+      <location>
+        <position position="116" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-malonyllysine on K">
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="117" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(2-hydroxyisobutyryl)lysine on K">
+      <location>
+        <position position="121" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-(beta-hydroxybutyryl)lysine on K">
+      <location>
+        <position position="121" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="121" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="6\t26043282\t.\tT\tA\t10.20\t.\tANN=A|stop_gained|HIGH|HIST1H2BB|MSTRG.34970|transcript|transcript:ENST00000615966|protein_coding|1/1|c.376A&gt;T|p.Lys126*|376/381|376/381|126/126||\tGT:AD:DP:GQ:PL\t0/1:12,2:14:38:38,0,398">
+      <original>K</original>
+      <variation>*</variation>
+      <location>
+        <position position="126" />
+      </location>
+    </feature>
+    <sequence length="126">MPEPSKSAPAPKKGSKKAITKAQKKDGKKRKRSRKESYSIYVYKVLKQVHPDTGISSKAMGIMNSFVNDIFERIAGEASRLAHYNKRSTITSREIQTAVRLLLPGELAKHAVSEGTKAVTKYTSSK</sequence>
+  </entry>
+</mzLibProteinDb>

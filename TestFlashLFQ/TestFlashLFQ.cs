@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
@@ -36,8 +37,8 @@ namespace Test
         public static void TestFlashLfq()
         {
             // get the raw file paths
-            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -47,7 +48,7 @@ namespace Test
             Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true);
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
 
             // run the engine
             var results = engine.Run();
@@ -75,14 +76,16 @@ namespace Test
             results.WriteResults(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
+                null,
+                true);
         }
 
         [Test]
         public static void TestEvelopQuantification()
         {
             Loaders.LoadElements();
-            
+
             double monoIsotopicMass = 1350.65681;
             double massOfAveragine = 111.1254;
             double numberOfAveragines = monoIsotopicMass / massOfAveragine;
@@ -94,15 +97,15 @@ namespace Test
             double averageS = 0.0417 * numberOfAveragines;
 
             ChemicalFormula myFormula = ChemicalFormula.ParseFormula(
-                "C" + (int)Math.Round(averageC) + 
-                "H" + (int)Math.Round(averageH) + 
-                "O" + (int)Math.Round(averageO) + 
-                "N" + (int)Math.Round(averageN) + 
+                "C" + (int)Math.Round(averageC) +
+                "H" + (int)Math.Round(averageH) +
+                "O" + (int)Math.Round(averageO) +
+                "N" + (int)Math.Round(averageN) +
                 "S" + (int)Math.Round(averageS));
 
 
             // get the raw file paths
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -124,8 +127,8 @@ namespace Test
         {
             // ********************************* check biorep normalization *********************************
             // get the raw file paths
-            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -142,8 +145,8 @@ namespace Test
             Assert.That(int1 == int2);
 
             // ********************************* check condition normalization *********************************
-            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "b", 0, 0, 0);
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "b", 0, 0, 0);
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
@@ -156,8 +159,8 @@ namespace Test
             Assert.That(int3 == int4);
 
             // ********************************* check techrep normalization *********************************
-            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
@@ -173,10 +176,10 @@ namespace Test
             Assert.That(int1 == int5);
 
             // ********************************* check fraction normalization *********************************
-            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            var raw2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 1);
-            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 0);
-            var mzml2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 1, 0, 1);
+            raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            var raw2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 1);
+            mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            var mzml2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 1);
 
             id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
             id2 = new Identification(raw2, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
@@ -194,8 +197,8 @@ namespace Test
         [Test]
         public static void TestFlashLfqMergeResults()
         {
-            SpectraFileInfo rawA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzmlA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo rawA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzmlA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
             var pgA = new ProteinGroup("MyProtein", "gene", "org");
@@ -210,8 +213,8 @@ namespace Test
             // run the engine
             var resultsA = engineA.Run();
 
-            SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-raw.raw"), "b", 0, 0, 0);
-            SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "b", 0, 1, 0);
+            SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "b", 0, 0, 0);
+            SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "b", 0, 1, 0);
 
             // create some PSMs
             var pgB = new ProteinGroup("MyProtein", "gene", "org");
@@ -234,70 +237,6 @@ namespace Test
         }
 
         [Test]
-        public static void TestFlashLfqAdvancedProteinQuant()
-        {
-            List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> { "PEPTIDE", "MYPEPTIDE", "VVVVVPEPTIDE" };
-            double[,] amounts = new double[2, 3] { { 1000000, 1000000, 1000000 },
-                                                   { 2000000, 2000000, 900000 } };
-            Loaders.LoadElements();
-
-            // generate mzml files (3 peptides each)
-            for (int f = 0; f < filesToWrite.Count; f++)
-            {
-                // 1 MS1 scan per peptide
-                MsDataScan[] scans = new MsDataScan[3];
-
-                for (int p = 0; p < pepSequences.Count; p++)
-                {
-                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
-                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
-                    double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
-                    double[] intensities = dist.Intensities.Select(v => v * amounts[f, p]).ToArray();
-
-                    // add the scan
-                    scans[p] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: p + 1, msnOrder: 1, isCentroid: true,
-                        polarity: Polarity.Positive, retentionTime: 1.0 + (p / 10.0), scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
-                        mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (p + 1));
-                }
-
-                // write the .mzML
-                IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
-                    Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[f] + ".mzML"), false);
-            }
-
-            // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
-            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
-
-            // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE", 799.35996, 1.01, 1, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(file1, "MYPEPTIDE", "MYPEPTIDE", 1093.46377, 1.11, 1, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(file1, "VVVVVPEPTIDE", "VVVVVPEPTIDE", 1294.70203, 1.21, 1, new List<ProteinGroup> { pg });
-
-            Identification id4 = new Identification(file2, "PEPTIDE", "PEPTIDE", 799.35996, 1.01, 1, new List<ProteinGroup> { pg });
-            Identification id5 = new Identification(file2, "MYPEPTIDE", "MYPEPTIDE", 1093.46377, 1.11, 1, new List<ProteinGroup> { pg });
-            Identification id6 = new Identification(file2, "VVVVVPEPTIDE", "VVVVVPEPTIDE", 1294.70203, 1.21, 1, new List<ProteinGroup> { pg });
-
-            // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6 }, normalize: false, advancedProteinQuant: true);
-
-            // run the engine
-            var results = engine.Run();
-
-            // third peptide should be low-weighted
-            // protein should be ~sum of first two peptide intensities (a little lower, because some smaller isotope peaks get skipped)
-            double file1ProteinIntensity = results.ProteinGroups["MyProtein"].GetIntensity(file1);
-            Assert.That(file1ProteinIntensity < 2e6);
-            Assert.That(file1ProteinIntensity > 1e6);
-
-            double file2ProteinIntensity = results.ProteinGroups["MyProtein"].GetIntensity(file2);
-            Assert.That(file2ProteinIntensity < 4e6);
-            Assert.That(file2ProteinIntensity > 3e6);
-        }
-
-        [Test]
         public static void TestFlashLfqMatchBetweenRuns()
         {
             List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
@@ -305,7 +244,7 @@ namespace Test
             double intensity = 1e6;
 
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
-            double[] file2Rt = new double[] { 1.015, 1.030, 1.039, 1.050, 1.065 };
+            double[] file2Rt = new double[] { 1.00, 1.025, 1.04, 1.055, 1.070 };
 
             Loaders.LoadElements();
 
@@ -390,95 +329,6 @@ namespace Test
 
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file1) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file2) > 0);
-        }
-
-        [Test]
-        public static void TestFlashLfqMatchBetweenRunsProteinQuant()
-        {
-            List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV" };
-            double intensity = 1e6;
-
-            double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
-            double[] file2Rt = new double[] { 1.015, 1.030, 1.036, 1.050, 1.065 };
-
-            Loaders.LoadElements();
-
-            // generate mzml files (5 peptides each)
-            for (int f = 0; f < filesToWrite.Count; f++)
-            {
-                // 1 MS1 scan per peptide
-                MsDataScan[] scans = new MsDataScan[5];
-
-                for (int p = 0; p < pepSequences.Count; p++)
-                {
-                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
-                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
-                    double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
-                    double[] intensities = dist.Intensities.Select(v => v * intensity).ToArray();
-                    double rt;
-                    if (f == 0)
-                    {
-                        rt = file1Rt[p];
-                    }
-                    else
-                    {
-                        rt = file2Rt[p];
-                    }
-
-                    // add the scan
-                    scans[p] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: p + 1, msnOrder: 1, isCentroid: true,
-                        polarity: Polarity.Positive, retentionTime: rt, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
-                        mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (p + 1));
-                }
-
-                // write the .mzML
-                IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
-                    Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[f] + ".mzML"), false);
-            }
-
-            // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
-            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "b", 0, 0, 0);
-
-            // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            var myMbrProteinGroup = new ProteinGroup("MyMbrProtein", "MbrGene", "org");
-
-            Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(file1, "PEPTIDEV", "PEPTIDEV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { myMbrProteinGroup });
-            Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
-
-            Identification id6 = new Identification(file2, "PEPTIDE", "PEPTIDE",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id7 = new Identification(file2, "PEPTIDEV", "PEPTIDEV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
-            // missing ID 8 - MBR feature
-            Identification id9 = new Identification(file2, "PEPTIDEVVV", "PEPTIDEVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id10 = new Identification(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
-                new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
-
-            // test with top3 protein quant engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
-            var results = engine.Run();
-
-            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
-            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
-
-            // test with advanced protein quant engine
-            engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true, advancedProteinQuant: true);
-            results = engine.Run();
-
-            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file1) > 0);
-            Assert.That(results.ProteinGroups["MyMbrProtein"].GetIntensity(file2) == 0);
         }
 
         [Test]
@@ -731,79 +581,33 @@ namespace Test
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
+
+            var peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup>());
+            var peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\t\t\t\t0\tNotDetected\t");
+
+            peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup });
+            peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession\tGene\tOrganism\t0\tNotDetected\t");
+
+            peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { proteinGroup, new ProteinGroup("Accession2", "Gene2", "Organism2") });
+            peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.That(peptideString == "PEPTIDE\tPEPTIDE\tAccession;Accession2\tGene;Gene2\tOrganism;Organism2\t0\tNotDetected\t");
         }
 
         [Test]
         public static void TestNotFound()
         {
-            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", true);
+            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", "SEQ", true, new HashSet<ProteinGroup>());
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
-        }
-
-        [Test]
-        public static void TestMergePeaks()
-        {
-            string fileToWrite = "myMzml.mzML";
-            string peptide = "PEPTIDE";
-            double intensity = 1e6;
-
-            Loaders.LoadElements();
-
-            // generate mzml file
-            MsDataScan[] scans = new MsDataScan[5];
-            double[] intensityMultipliers = { 1, 3, 1, 1, 1 };
-
-            for (int s = 0; s < scans.Length; s++)
-            {
-                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
-                IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
-                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
-                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
-
-                if (s == 2 || s == 3)
-                {
-                    mz = new[] { 401.0 };
-                    intensities = new[] { 1000.0 };
-                }
-
-                // add the scan
-                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
-                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
-                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
-            }
-
-            // write the .mzML
-            IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
-
-            // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
-
-            // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-
-            Identification id1 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.1 + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.4 + 0.001, 1, new List<ProteinGroup> { pg });
-
-            // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2 });
-
-            // run the engine
-            var results = engine.Run();
-            ChromatographicPeak peak = results.Peaks.First().Value.First();
-
-            Assert.That(results.Peaks.First().Value.Count == 1);
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.1);
         }
 
         [Test]
         public static void TestAmbiguous()
         {
             // get the raw file paths
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -828,68 +632,8 @@ namespace Test
             results.WriteResults(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"));
-        }
-
-        [Test]
-        public static void TestPeakMerging()
-        {
-            string fileToWrite = "myMzml.mzML";
-            string peptide = "PEPTIDE";
-            double intensity = 1e6;
-
-            Loaders.LoadElements();
-
-            // generate mzml file
-
-            // 1 MS1 scan per peptide
-            MsDataScan[] scans = new MsDataScan[10];
-            double[] intensityMultipliers = { 1, 3, 5, 10, 5, 3, 1, 1, 1, 1 };
-
-            for (int s = 0; s < scans.Length; s++)
-            {
-                ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
-                IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
-                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
-                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
-
-                if (s == 7 || s == 8)
-                {
-                    mz = new[] { 401.0 };
-                    intensities = new[] { 1000.0 };
-                }
-
-                // add the scan
-                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
-                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
-                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
-            }
-
-            // write the .mzML
-            IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
-                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
-
-            // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
-
-            // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-
-            Identification id1 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(file1, peptide, peptide,
-                new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.9 + 0.001, 1, new List<ProteinGroup> { pg });
-
-            // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2 });
-
-            // run the engine
-            var results = engine.Run();
-            ChromatographicPeak peak = results.Peaks.First().Value.First();
-
-            Assert.That(peak.Apex.IndexedPeak.RetentionTime == 1.3);
-            Assert.That(peak.IsotopicEnvelopes.Count == 8);
-            Assert.That(results.Peaks.First().Value.Count == 1);
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
+                null, true);
         }
 
         [Test]
@@ -965,7 +709,7 @@ namespace Test
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
             Identification id10 = new Identification(file2, "PEPTIEDVVVV", "PEPTIEDVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
-            
+
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
 
@@ -982,7 +726,7 @@ namespace Test
 
             Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
 
-            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory,@"SilacTest.mzML"), "", 0, 0, 0);
+            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"SilacTest.mzML"), "", 0, 0, 0);
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
@@ -997,6 +741,321 @@ namespace Test
                 );
             var results = engine.Run();
             Assert.IsTrue(results.PeptideModifiedSequences.Count == 2);
+        }
+
+        [Test]
+        public static void TestBayesianProteinQuantification()
+        {
+            // this mostly just tests that the Bayesian quant algorithm produces "reasonable"
+            // estimates of the posterior error probability (PEP) and mean differences.
+
+            // the idea here is to create a protein, assign some peptides with intensities to it,
+            // and compute the probability that the protein is changing between the conditions "a" and "b".
+            // the intensities in condition "b" are about double that of condition "a", and the results
+            // of the Bayesian estimation should reflect that.
+            ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
+            var p = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
+
+            var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0),
+                new SpectraFileInfo("a2", "a", 1, 0, 0),
+                new SpectraFileInfo("a3", "a", 2, 0, 0),
+                new SpectraFileInfo("b1", "b", 0, 0, 0),
+                new SpectraFileInfo("b2", "b", 1, 0, 0),
+                new SpectraFileInfo("b3", "b", 2, 0, 0)
+            };
+
+            var res = new FlashLfqResults(files, new List<Identification>
+            {
+                new Identification(null, "SEQUENCE", "SEQUENCE", 0, 0, 0, new List<ProteinGroup>{ new ProteinGroup("Accession", "Gene", "Organism") })
+            });
+
+            FlashLFQ.Peptide peptide = res.PeptideModifiedSequences.First().Value;
+            ProteinGroup proteinGroup = res.ProteinGroups.First().Value;
+
+            peptide.SetIntensity(files[0], 900);
+            peptide.SetIntensity(files[1], 1000);
+            peptide.SetIntensity(files[2], 1100);
+
+            peptide.SetIntensity(files[3], 1950);
+            peptide.SetIntensity(files[4], 2000);
+            peptide.SetIntensity(files[5], 2050);
+
+            var engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 0);
+            engine.Run();
+
+            var quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+
+            Assert.That(Math.Round(quantResult.NullHypothesisCutoff.Value, 3) == 0.202);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.176);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.007);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
+
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"bayesianProteinQuant.tsv");
+            res.WriteResults(null, null, null, filepath, true);
+
+            var textResults = File.ReadAllLines(filepath);
+            Assert.That(textResults.Length == 2);
+            var line = textResults[1].Split(new char[] { '\t' });
+            Assert.That(Math.Round(double.Parse(line[12]), 3) == 0.176);
+            File.Delete(filepath);
+
+            // try with defined fold-change cutoff
+            proteinGroup.ConditionToQuantificationResults.Clear();
+            engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 1, foldChangeCutoff: 0.8);
+            engine.Run();
+
+            quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.179);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.013);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
+
+            // try with some missing values
+            peptide.SetIntensity(files[1], 0);
+            peptide.SetIntensity(files[5], 0);
+
+            proteinGroup.ConditionToQuantificationResults.Clear();
+            engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 2, foldChangeCutoff: 0.5);
+            engine.Run();
+
+            quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.478);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.010);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 2);
+
+            // try with paired samples
+            peptide.SetIntensity(files[0], 100);
+            peptide.SetIntensity(files[1], 1000);
+            peptide.SetIntensity(files[2], 10000);
+
+            peptide.SetIntensity(files[3], 210);
+            peptide.SetIntensity(files[4], 2200);
+            peptide.SetIntensity(files[5], 21500);
+
+            proteinGroup.ConditionToQuantificationResults.Clear();
+            engine = new ProteinQuantificationEngine(res, maxThreads: 1, baseCondition: "a", randomSeed: 3, pairedSamples: true);
+            engine.Run();
+
+            quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.098);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.103);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
+            Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
+        }
+
+        [Test]
+        public static void RealDataMbrTest()
+        {
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
+
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("f1r1"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("f1r2"))
+                {
+                    file = f1r2;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[21]);
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[24].Split(new char[] { '|' });
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                ids.Add(id);
+            }
+
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1);
+            var results = engine.Run();
+
+            var f1r1MbrResults = results
+                .PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
+
+            Assert.That(f1r1MbrResults.Count >= 135);
+
+            var f1r2MbrResults = results.PeptideModifiedSequences
+                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
+
+            Assert.That(f1r2MbrResults.Count >= 79);
+
+            List<(double, double)> peptideIntensities = new List<(double, double)>();
+
+            foreach (var peptide in f1r1MbrResults)
+            {
+                double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
+                double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
+                peptideIntensities.Add((mbrIntensity, msmsIntensity));
+            }
+
+            double corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+            Assert.That(corr > 0.8);
+
+            peptideIntensities.Clear();
+            foreach (var peptide in f1r2MbrResults)
+            {
+                double mbrIntensity = Math.Log(peptide.Value.GetIntensity(f1r2));
+                double msmsIntensity = Math.Log(peptide.Value.GetIntensity(f1r1));
+                peptideIntensities.Add((mbrIntensity, msmsIntensity));
+            }
+
+            corr = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
+
+            Assert.That(corr > 0.7);
+
+            // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
+            // has to be observed in a condition for match-between-runs
+            f1r1.Condition = "b";
+            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
+            results = engine.Run();
+            var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            var proteinsObservedInF2 = ids.Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
+            var proteinsObservedInF1ButNotF2 = proteinsObservedInF1.Except(proteinsObservedInF2).ToList();
+            foreach (ProteinGroup protein in proteinsObservedInF1ButNotF2)
+            {
+                Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
+            }
+        }
+
+        [Test]
+        public static void ProteoformPeakfindingTest()
+        {
+            Loaders.LoadElements();
+            string sequence =
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
+                "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE";
+
+            int charge = 7;
+
+            MsDataScan[] scans = new MsDataScan[10];
+
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(sequence).GetChemicalFormula();
+
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+            double[] mz = dist.Masses.Select(v => v.ToMz(charge)).ToArray();
+            double[] intensities = dist.Intensities.Select(v => v * 1e7).ToArray();
+
+            List<double> filteredMzs = new List<double>();
+            List<double> filteredIntensities = new List<double>();
+
+            for (int i = 0; i < mz.Length; i++)
+            {
+                if (intensities[i] < 1000)
+                {
+                    continue;
+                }
+
+                filteredMzs.Add(mz[i]);
+                filteredIntensities.Add(intensities[i]);
+            }
+
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double rt = s + 0.1;
+
+                // add the scan
+                scans[s] = new MsDataScan(massSpectrum: new MzSpectrum(filteredMzs.ToArray(), filteredIntensities.ToArray(), false),
+                    oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: rt, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // write the .mzML
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "testFile.mzML");
+            IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans), path, false);
+
+            // set up spectra file info
+            SpectraFileInfo file1 = new SpectraFileInfo(path, "a", 0, 0, 0);
+
+            // create the PSM
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id1 = new Identification(file1, sequence, sequence,
+                cf.MonoisotopicMass, scans[0].RetentionTime + 0.001, charge, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+
+            // run the engine
+            var results = engine.Run();
+
+            Assert.That((int)results.PeptideModifiedSequences[sequence].GetIntensity(file1) == 1386491);
+            ChromatographicPeak peak = results.Peaks[file1].First(p => p.Identifications.First().ModifiedSequence == sequence);
+            Assert.That(Math.Round(peak.MassError, 3) == 0);
+            Assert.That(peak.IsotopicEnvelopes.Count == 10);
+        }
+
+        [Test]
+        public static void TestUseSharedPeptidesForQuant()
+        {
+            ProteinGroup pg1 = new ProteinGroup("Accession1", "Gene1", "Organism");
+            ProteinGroup pg2 = new ProteinGroup("Accession2", "Gene2", "Organism");
+
+            var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0)
+            };
+
+            // this peptide is shared between protein groups
+            var id = new Identification(files[0], "PEPTIDE", "PEPTIDE", 0, 0, 1, new List<ProteinGroup> { pg1, pg2 });
+
+            // this is unique to a single protein group
+            var id2 = new Identification(files[0], "PEPTIDEA", "PEPTIDEA", 0, 0, 1, new List<ProteinGroup> { pg1 });
+
+            var res = new FlashLfqResults(files, new List<Identification> { id, id2 });
+
+            res.PeptideModifiedSequences["PEPTIDE"].SetIntensity(files[0], 1000); // shared peptide
+            res.PeptideModifiedSequences["PEPTIDEA"].SetIntensity(files[0], 2000); // unique peptide
+            res.PeptideModifiedSequences["PEPTIDE"].SetDetectionType(files[0], DetectionType.MSMS);
+            res.PeptideModifiedSequences["PEPTIDEA"].SetDetectionType(files[0], DetectionType.MSMS);
+
+            res.CalculateProteinResultsTop3(useSharedPeptides: true);
+            Assert.That(res.ProteinGroups["Accession1"].GetIntensity(files[0]) == 3000); // protein intensity should be the sum of shared+unique peptides
+
+            res.CalculateProteinResultsTop3(useSharedPeptides: false);
+            Assert.That(res.ProteinGroups["Accession1"].GetIntensity(files[0]) == 2000); // protein intensity should be from the unique peptide only
         }
     }
 }

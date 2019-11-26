@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\NUnit3TestAdapter.3.11.0\build\net35\NUnit3TestAdapter.props" Condition="Exists('..\packages\NUnit3TestAdapter.3.11.0\build\net35\NUnit3TestAdapter.props')" />
-  <Import Project="..\packages\NUnit.3.11.0\build\NUnit.props" Condition="Exists('..\packages\NUnit.3.11.0\build\NUnit.props')" />
+  <Import Project="..\packages\NUnit3TestAdapter.3.14.0\build\net35\NUnit3TestAdapter.props" Condition="Exists('..\packages\NUnit3TestAdapter.3.14.0\build\net35\NUnit3TestAdapter.props')" />
+  <Import Project="..\packages\NUnit.3.12.0\build\NUnit.props" Condition="Exists('..\packages\NUnit.3.12.0\build\NUnit.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -33,15 +33,20 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MathNet.Numerics, Version=4.8.1.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathNet.Numerics.4.8.1\lib\net461\MathNet.Numerics.dll</HintPath>
+    </Reference>
     <Reference Include="NetSerializer, Version=4.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\NetSerializer.4.1.0\lib\net45\NetSerializer.dll</HintPath>
     </Reference>
-    <Reference Include="nunit.framework, Version=3.11.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
-      <HintPath>..\packages\NUnit.3.11.0\lib\net45\nunit.framework.dll</HintPath>
+    <Reference Include="nunit.framework, Version=3.12.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\packages\NUnit.3.12.0\lib\net45\nunit.framework.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ValueTuple" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -49,13 +54,13 @@
     <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
+    <Compile Include="TestBayesianEstimation.cs" />
     <Compile Include="TestModFits.cs" />
-    <Compile Include="TestMoreProtease.cs" />
     <Compile Include="TestProteinDigestion.cs" />
     <Compile Include="TestProteinProperties.cs" />
+    <Compile Include="TestRawFileReader.cs" />
     <Compile Include="TestSeqCoverage.cs" />
     <Compile Include="TestDigestionMotif.cs" />
-    <Compile Include="TestMetaMorpheus.cs" />
     <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseTests\TestDatabaseLoaders.cs" />
@@ -65,7 +70,6 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="FixtureSetUp.cs" />
     <Compile Include="TestAminoAcids.cs" />
-    <Compile Include="TestChromatogram.cs" />
     <Compile Include="TestMsDataFile.cs" />
     <Compile Include="TestFragments.cs" />
     <Compile Include="TestModifications.cs" />
@@ -81,6 +85,10 @@
     <Compile Include="TestSpectra.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj">
+      <Project>{2306BB69-886C-4B18-8329-B575079DFD67}</Project>
+      <Name>BayesianEstimation</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{cbe368bb-fc84-458d-8099-87a63d17aa3b}</Project>
       <Name>Chemistry</Name>
@@ -113,9 +121,9 @@
       <Project>{4ab6ba94-b70c-4570-9ea6-165746d5b8e8}</Project>
       <Name>Proteomics</Name>
     </ProjectReference>
-    <ProjectReference Include="..\Spectra\Spectra.csproj">
-      <Project>{088E4FCB-D580-4BAD-A811-A1796A7666D2}</Project>
-      <Name>Spectra</Name>
+    <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj">
+      <Project>{552eabd1-7a7c-4c52-bf3d-4eedd70e7e89}</Project>
+      <Name>ThermoRawFileReader</Name>
     </ProjectReference>
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
@@ -145,6 +153,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="DatabaseTests\Isoform.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="DatabaseTests\isoformTest.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Include="DatabaseTests\mzlibReducedMzXCorr.tsv">
@@ -181,6 +192,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="DatabaseTests\DecoyVariants.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\StopGain.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="DatabaseTests\IndelDecoy.xml">
@@ -271,6 +285,19 @@
     <Content Include="DatabaseTests\SeqVarSymbolWeirdness2.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="DataFiles\05-13-16_cali_MS_60K-res_MS.raw">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataFiles\small.RAW">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataFiles\testFileWMS2.raw">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DatabaseTests\VariantModsGPTMD.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <SubType>Designer</SubType>
+    </Content>
     <Content Include="ModificationTests\CommonArtifacts.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -353,7 +380,7 @@
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\NUnit.3.11.0\build\NUnit.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NUnit.3.11.0\build\NUnit.props'))" />
-    <Error Condition="!Exists('..\packages\NUnit3TestAdapter.3.11.0\build\net35\NUnit3TestAdapter.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NUnit3TestAdapter.3.11.0\build\net35\NUnit3TestAdapter.props'))" />
+    <Error Condition="!Exists('..\packages\NUnit.3.12.0\build\NUnit.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NUnit.3.12.0\build\NUnit.props'))" />
+    <Error Condition="!Exists('..\packages\NUnit3TestAdapter.3.14.0\build\net35\NUnit3TestAdapter.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\NUnit3TestAdapter.3.14.0\build\net35\NUnit3TestAdapter.props'))" />
   </Target>
 </Project>

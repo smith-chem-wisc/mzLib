@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using ThermoRawFileReader;
 
 namespace FlashLFQ
 {
@@ -74,58 +75,56 @@ namespace FlashLFQ
             }
             else if (ext == ".RAW")
             {
-#if NETFRAMEWORK
-                using (var thermoDynamicConnection =
-                    IO.Thermo.ThermoDynamicData.InitiateDynamicConnection(fileInfo.FullFilePathWithExtension))
+                var tempList = new List<MsDataScan>();
+                ThermoDynamicData dynamicConnection = null;
+
+                try
                 {
-                    var tempList = new List<MsDataScan>();
+                    dynamicConnection = new ThermoDynamicData(fileInfo.FullFilePathWithExtension);
 
-                    try
+                    // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
+                    for (int i = 0; i < dynamicConnection.MsOrdersByScan.Length; i++)
                     {
-                        // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
-                        int[] msOrders = thermoDynamicConnection.ThermoGlobalParams.MsOrderByScan;
-                        for (int i = 0; i < msOrders.Length; i++)
+                        if (dynamicConnection.MsOrdersByScan[i] == 1)
                         {
-                            if (msOrders[i] == 1)
-                            {
-                                tempList.Add(thermoDynamicConnection.GetOneBasedScan(i + 1));
-                            }
-                            else
-                            {
-                                tempList.Add(null);
-                            }
+                            tempList.Add(dynamicConnection.GetOneBasedScanFromDynamicConnection(i + 1));
                         }
-                    }
-                    catch (FileNotFoundException)
-                    {
-                        thermoDynamicConnection.Dispose();
-
-                        if (!silent)
+                        else
                         {
-                            Console.WriteLine("\nCan't find .raw file" + fileInfo.FullFilePathWithExtension + "\n");
-                        }
-
-                        return false;
-                    }
-                    catch (Exception e)
-                    {
-                        thermoDynamicConnection.Dispose();
-
-                        if (!silent)
-                        {
-                            throw new MzLibException("FlashLFQ Error: Problem opening .raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
+                            tempList.Add(null);
                         }
                     }
 
-                    msDataScans = tempList.ToArray();
+                    dynamicConnection.CloseDynamicConnection();
                 }
-#else
-                if (!silent)
+                catch (FileNotFoundException)
                 {
-                    Console.WriteLine("Cannot open RAW with .NETStandard code - are you on Linux? " + fileInfo.FullFilePathWithExtension);
+                    if (dynamicConnection != null)
+                    {
+                        dynamicConnection.CloseDynamicConnection();
+                    }
+
+                    if (!silent)
+                    {
+                        Console.WriteLine("\nCan't find .raw file" + fileInfo.FullFilePathWithExtension + "\n");
+                    }
+
+                    return false;
                 }
-                return false;
-#endif
+                catch (Exception e)
+                {
+                    if (dynamicConnection != null)
+                    {
+                        dynamicConnection.CloseDynamicConnection();
+                    }
+
+                    if (!silent)
+                    {
+                        throw new MzLibException("FlashLFQ Error: Problem opening .raw file " + fileInfo.FullFilePathWithExtension + "; " + e.Message);
+                    }
+                }
+
+                msDataScans = tempList.ToArray();
             }
             else
             {
