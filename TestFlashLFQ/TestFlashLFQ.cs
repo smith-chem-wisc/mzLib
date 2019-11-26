@@ -787,9 +787,9 @@ namespace Test
 
             var quantResult = proteinGroup.ConditionToQuantificationResults["b"];
 
-            Assert.That(Math.Round(quantResult.NullHypothesisCutoff.Value, 3) == 0.366);
-            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.082);
-            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 0.996);
+            Assert.That(Math.Round(quantResult.NullHypothesisCutoff.Value, 3) == 0.202);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.176);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.007);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
 
@@ -799,7 +799,7 @@ namespace Test
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 2);
             var line = textResults[1].Split(new char[] { '\t' });
-            Assert.That(Math.Round(double.Parse(line[11]), 3) == 0.082);
+            Assert.That(Math.Round(double.Parse(line[12]), 3) == 0.176);
             File.Delete(filepath);
 
             // try with defined fold-change cutoff
@@ -810,7 +810,7 @@ namespace Test
             quantResult = proteinGroup.ConditionToQuantificationResults["b"];
 
             Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.179);
-            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.014);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.013);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
 
@@ -825,7 +825,7 @@ namespace Test
             quantResult = proteinGroup.ConditionToQuantificationResults["b"];
 
             Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.478);
-            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.357);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.010);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 2);
 
@@ -844,8 +844,8 @@ namespace Test
 
             quantResult = proteinGroup.ConditionToQuantificationResults["b"];
 
-            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.077);
-            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.110);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.098);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.103);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
             Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
         }

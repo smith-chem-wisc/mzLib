@@ -61,7 +61,6 @@
     <Compile Include="TestRawFileReader.cs" />
     <Compile Include="TestSeqCoverage.cs" />
     <Compile Include="TestDigestionMotif.cs" />
-    <Compile Include="TestMetaMorpheus.cs" />
     <Compile Include="TestMgf.cs" />
     <Compile Include="TestMzML.cs" />
     <Compile Include="DatabaseTests\TestDatabaseLoaders.cs" />

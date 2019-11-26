@@ -39,6 +39,7 @@ namespace FlashLFQ
         public readonly int McmcSteps;
         public readonly int McmcBurninSteps;
         public readonly bool UseSharedPeptidesForProteinQuant;
+        public readonly bool PairedSamples;
         public readonly int? RandomSeed;
 
         // structures used in the FlashLFQ engine
@@ -75,6 +76,7 @@ namespace FlashLFQ
             int mcmcSteps = 3000,
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
+            bool pairedSamples = false,
             int? randomSeed = null)
         {
             Loaders.LoadElements();
@@ -103,6 +105,7 @@ namespace FlashLFQ
             Normalize = normalize;
             MaxThreads = maxThreads;
             BayesianProteinQuant = bayesianProteinQuant;
+            PairedSamples = pairedSamples;
             ProteinQuantBaseCondition = proteinQuantBaseCondition;
             ProteinQuantFoldChangeCutoff = proteinQuantFoldChangeCutoff;
             McmcSteps = mcmcSteps;
@@ -226,7 +229,7 @@ namespace FlashLFQ
                         }
 
                         new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
-                            ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps).Run();
+                            ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps, PairedSamples).Run();
                     }
                     catch (Exception e)
                     {

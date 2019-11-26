@@ -47,6 +47,7 @@ namespace Proteomics.AminoAcidPolymer
             {"Methionine",     new Residue("Methionine", 'M', "Met",ChemicalFormula.ParseFormula("C5H9NOS"),  ModificationSites.M)},
             {"Phenylalanine",  new Residue("Phenylalanine", 'F', "Phe",ChemicalFormula.ParseFormula("C9H9NO"),  ModificationSites.F)},
             {"Proline",        new Residue("Proline", 'P', "Pro",ChemicalFormula.ParseFormula("C5H7NO"),  ModificationSites.P)},
+            {"Pyrrolysine",     new Residue("Pyrrolysine", 'O', "Pyl",ChemicalFormula.ParseFormula("C12H19N3O2"),  ModificationSites.P)},
             {"Selenocysteine", new Residue("Selenocysteine", 'U', "Sec",ChemicalFormula.ParseFormula("C3H5NOSe"),  ModificationSites.U)},
             {"Serine",         new Residue("Serine", 'S', "Ser",ChemicalFormula.ParseFormula("C3H5NO2"),  ModificationSites.S)},
             {"Threonine",      new Residue("Threonine", 'T', "Thr",ChemicalFormula.ParseFormula("C4H7NO2"),  ModificationSites.T)},
@@ -76,7 +77,7 @@ namespace Proteomics.AminoAcidPolymer
             ResiduesDictionary["Leucine"],
             ResiduesDictionary["Methionine"],
             ResiduesDictionary["Asparagine"],
-            null, // O
+            ResiduesDictionary["Pyrrolysine"], // O
             ResiduesDictionary["Proline"],
             ResiduesDictionary["Glutamine"],
             ResiduesDictionary["Arginine"],
@@ -113,7 +114,7 @@ namespace Proteomics.AminoAcidPolymer
             ResiduesDictionary["Leucine"].MonoisotopicMass,
             ResiduesDictionary["Methionine"].MonoisotopicMass,
             ResiduesDictionary["Asparagine"].MonoisotopicMass,
-            double.NaN, // O
+            ResiduesDictionary["Pyrrolysine"].MonoisotopicMass, // O
             ResiduesDictionary["Proline"].MonoisotopicMass,
             ResiduesDictionary["Glutamine"].MonoisotopicMass,
             ResiduesDictionary["Arginine"].MonoisotopicMass,
