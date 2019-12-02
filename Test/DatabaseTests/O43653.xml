@@ -1,0 +1,766 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="2000-12-01" modified="2019-10-16" version="159">
+<accession>O43653</accession>
+<accession>Q6UW92</accession>
+<name>PSCA_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>Prostate stem cell antigen</fullName>
+</recommendedName>
+</protein>
+<gene>
+<name type="primary">PSCA</name>
+<name type="ORF">UNQ206/PRO232</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<name type="common">Human</name>
+<dbReference type="NCBI Taxonomy" id="9606"/>
+<lineage>
+<taxon>Eukaryota</taxon>
+<taxon>Metazoa</taxon>
+<taxon>Chordata</taxon>
+<taxon>Craniata</taxon>
+<taxon>Vertebrata</taxon>
+<taxon>Euteleostomi</taxon>
+<taxon>Mammalia</taxon>
+<taxon>Eutheria</taxon>
+<taxon>Euarchontoglires</taxon>
+<taxon>Primates</taxon>
+<taxon>Haplorrhini</taxon>
+<taxon>Catarrhini</taxon>
+<taxon>Hominidae</taxon>
+<taxon>Homo</taxon>
+</lineage>
+</organism>
+<reference key="1">
+<citation type="journal article" date="1998" name="Proc. Natl. Acad. Sci. U.S.A." volume="95" first="1735" last="1740">
+<title>Prostate stem cell antigen: a cell surface marker overexpressed in prostate cancer.</title>
+<authorList>
+<person name="Reiter R.E."/>
+<person name="Gu Z."/>
+<person name="Watabe T."/>
+<person name="Thomas G."/>
+<person name="Szigeti K."/>
+<person name="Davis E."/>
+<person name="Wahl M."/>
+<person name="Nisitani S."/>
+<person name="Yamashiro J."/>
+<person name="le Beau M.M."/>
+<person name="Losa M."/>
+<person name="Witte O.N."/>
+</authorList>
+<dbReference type="PubMed" id="9465086"/>
+<dbReference type="DOI" id="10.1073/pnas.95.4.1735"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [MRNA]</scope>
+<scope>SUBCELLULAR LOCATION</scope>
+<scope>GLYCOSYLATION</scope>
+<source>
+<tissue>Prostatic carcinoma</tissue>
+</source>
+</reference>
+<reference key="2">
+<citation type="journal article" date="2000" name="Biochem. Biophys. Res. Commun." volume="275" first="783" last="788">
+<title>Reduced expression of PSCA, a member of the LY-6 family of cell surface antigens, in bladder, esophagus, and stomach tumors.</title>
+<authorList>
+<person name="Bahrenberg G."/>
+<person name="Brauers A."/>
+<person name="Joost H.G."/>
+<person name="Jakse G."/>
+</authorList>
+<dbReference type="PubMed" id="10973799"/>
+<dbReference type="DOI" id="10.1006/bbrc.2000.3393"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [MRNA]</scope>
+<source>
+<tissue>Urothelium</tissue>
+</source>
+</reference>
+<reference key="3">
+<citation type="journal article" date="2006" name="Nature" volume="439" first="331" last="335">
+<title>DNA sequence and analysis of human chromosome 8.</title>
+<authorList>
+<person name="Nusbaum C."/>
+<person name="Mikkelsen T.S."/>
+<person name="Zody M.C."/>
+<person name="Asakawa S."/>
+<person name="Taudien S."/>
+<person name="Garber M."/>
+<person name="Kodira C.D."/>
+<person name="Schueler M.G."/>
+<person name="Shimizu A."/>
+<person name="Whittaker C.A."/>
+<person name="Chang J.L."/>
+<person name="Cuomo C.A."/>
+<person name="Dewar K."/>
+<person name="FitzGerald M.G."/>
+<person name="Yang X."/>
+<person name="Allen N.R."/>
+<person name="Anderson S."/>
+<person name="Asakawa T."/>
+<person name="Blechschmidt K."/>
+<person name="Bloom T."/>
+<person name="Borowsky M.L."/>
+<person name="Butler J."/>
+<person name="Cook A."/>
+<person name="Corum B."/>
+<person name="DeArellano K."/>
+<person name="DeCaprio D."/>
+<person name="Dooley K.T."/>
+<person name="Dorris L. III"/>
+<person name="Engels R."/>
+<person name="Gloeckner G."/>
+<person name="Hafez N."/>
+<person name="Hagopian D.S."/>
+<person name="Hall J.L."/>
+<person name="Ishikawa S.K."/>
+<person name="Jaffe D.B."/>
+<person name="Kamat A."/>
+<person name="Kudoh J."/>
+<person name="Lehmann R."/>
+<person name="Lokitsang T."/>
+<person name="Macdonald P."/>
+<person name="Major J.E."/>
+<person name="Matthews C.D."/>
+<person name="Mauceli E."/>
+<person name="Menzel U."/>
+<person name="Mihalev A.H."/>
+<person name="Minoshima S."/>
+<person name="Murayama Y."/>
+<person name="Naylor J.W."/>
+<person name="Nicol R."/>
+<person name="Nguyen C."/>
+<person name="O'Leary S.B."/>
+<person name="O'Neill K."/>
+<person name="Parker S.C.J."/>
+<person name="Polley A."/>
+<person name="Raymond C.K."/>
+<person name="Reichwald K."/>
+<person name="Rodriguez J."/>
+<person name="Sasaki T."/>
+<person name="Schilhabel M."/>
+<person name="Siddiqui R."/>
+<person name="Smith C.L."/>
+<person name="Sneddon T.P."/>
+<person name="Talamas J.A."/>
+<person name="Tenzin P."/>
+<person name="Topham K."/>
+<person name="Venkataraman V."/>
+<person name="Wen G."/>
+<person name="Yamazaki S."/>
+<person name="Young S.K."/>
+<person name="Zeng Q."/>
+<person name="Zimmer A.R."/>
+<person name="Rosenthal A."/>
+<person name="Birren B.W."/>
+<person name="Platzer M."/>
+<person name="Shimizu N."/>
+<person name="Lander E.S."/>
+</authorList>
+<dbReference type="PubMed" id="16421571"/>
+<dbReference type="DOI" id="10.1038/nature04406"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+</reference>
+<reference key="4">
+<citation type="journal article" date="2003" name="Genome Res." volume="13" first="2265" last="2270">
+<title>The secreted protein discovery initiative (SPDI), a large-scale effort to identify novel human secreted and transmembrane proteins: a bioinformatics assessment.</title>
+<authorList>
+<person name="Clark H.F."/>
+<person name="Gurney A.L."/>
+<person name="Abaya E."/>
+<person name="Baker K."/>
+<person name="Baldwin D.T."/>
+<person name="Brush J."/>
+<person name="Chen J."/>
+<person name="Chow B."/>
+<person name="Chui C."/>
+<person name="Crowley C."/>
+<person name="Currell B."/>
+<person name="Deuel B."/>
+<person name="Dowd P."/>
+<person name="Eaton D."/>
+<person name="Foster J.S."/>
+<person name="Grimaldi C."/>
+<person name="Gu Q."/>
+<person name="Hass P.E."/>
+<person name="Heldens S."/>
+<person name="Huang A."/>
+<person name="Kim H.S."/>
+<person name="Klimowski L."/>
+<person name="Jin Y."/>
+<person name="Johnson S."/>
+<person name="Lee J."/>
+<person name="Lewis L."/>
+<person name="Liao D."/>
+<person name="Mark M.R."/>
+<person name="Robbie E."/>
+<person name="Sanchez C."/>
+<person name="Schoenfeld J."/>
+<person name="Seshagiri S."/>
+<person name="Simmons L."/>
+<person name="Singh J."/>
+<person name="Smith V."/>
+<person name="Stinson J."/>
+<person name="Vagts A."/>
+<person name="Vandlen R.L."/>
+<person name="Watanabe C."/>
+<person name="Wieand D."/>
+<person name="Woods K."/>
+<person name="Xie M.-H."/>
+<person name="Yansura D.G."/>
+<person name="Yi S."/>
+<person name="Yu G."/>
+<person name="Yuan J."/>
+<person name="Zhang M."/>
+<person name="Zhang Z."/>
+<person name="Goddard A.D."/>
+<person name="Wood W.I."/>
+<person name="Godowski P.J."/>
+<person name="Gray A.M."/>
+</authorList>
+<dbReference type="PubMed" id="12975309"/>
+<dbReference type="DOI" id="10.1101/gr.1293003"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA]</scope>
+</reference>
+<reference key="5">
+<citation type="journal article" date="2004" name="Genome Res." volume="14" first="2121" last="2127">
+<title>The status, quality, and expansion of the NIH full-length cDNA project: the Mammalian Gene Collection (MGC).</title>
+<authorList>
+<consortium name="The MGC Project Team"/>
+</authorList>
+<dbReference type="PubMed" id="15489334"/>
+<dbReference type="DOI" id="10.1101/gr.2596504"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA]</scope>
+<source>
+<tissue>Melanoma</tissue>
+</source>
+</reference>
+<reference key="6">
+<citation type="journal article" date="2004" name="Protein Sci." volume="13" first="2819" last="2824">
+<title>Signal peptide prediction based on analysis of experimentally verified cleavage sites.</title>
+<authorList>
+<person name="Zhang Z."/>
+<person name="Henzel W.J."/>
+</authorList>
+<dbReference type="PubMed" id="15340161"/>
+<dbReference type="DOI" id="10.1110/ps.04682504"/>
+</citation>
+<scope>PROTEIN SEQUENCE OF 12-26</scope>
+</reference>
+<reference key="7">
+<citation type="journal article" date="2000" name="Oncogene" volume="19" first="1288" last="1296">
+<title>Prostate stem cell antigen (PSCA) expression increases with high gleason score, advanced stage and bone metastasis in prostate cancer.</title>
+<authorList>
+<person name="Gu Z."/>
+<person name="Thomas G."/>
+<person name="Yamashiro J."/>
+<person name="Shintaku I.P."/>
+<person name="Dorey F."/>
+<person name="Raitano A."/>
+<person name="Witte O.N."/>
+<person name="Said J.W."/>
+<person name="Loda M."/>
+<person name="Reiter R.E."/>
+</authorList>
+<dbReference type="PubMed" id="10713670"/>
+<dbReference type="DOI" id="10.1038/sj.onc.1203426"/>
+</citation>
+<scope>TISSUE SPECIFICITY</scope>
+</reference>
+<reference key="8">
+<citation type="journal article" date="2008" name="Nat. Genet." volume="40" first="730" last="740">
+<title>Genetic variation in PSCA is associated with susceptibility to diffuse-type gastric cancer.</title>
+<authorList>
+<consortium name="The study group of millennium genome project for cancer"/>
+<person name="Sakamoto H."/>
+<person name="Yoshimura K."/>
+<person name="Saeki N."/>
+<person name="Katai H."/>
+<person name="Shimoda T."/>
+<person name="Matsuno Y."/>
+<person name="Saito D."/>
+<person name="Sugimura H."/>
+<person name="Tanioka F."/>
+<person name="Kato S."/>
+<person name="Matsukura N."/>
+<person name="Matsuda N."/>
+<person name="Nakamura T."/>
+<person name="Hyodo I."/>
+<person name="Nishina T."/>
+<person name="Yasui W."/>
+<person name="Hirose H."/>
+<person name="Hayashi M."/>
+<person name="Toshiro E."/>
+<person name="Ohnami S."/>
+<person name="Sekine A."/>
+<person name="Sato Y."/>
+<person name="Totsuka H."/>
+<person name="Ando M."/>
+<person name="Takemura R."/>
+<person name="Takahashi Y."/>
+<person name="Ohdaira M."/>
+<person name="Aoki K."/>
+<person name="Honmyo I."/>
+<person name="Chiku S."/>
+<person name="Aoyagi K."/>
+<person name="Sasaki H."/>
+<person name="Ohnami S."/>
+<person name="Yanagihara K."/>
+<person name="Yoon K.-A."/>
+<person name="Kook M.-C."/>
+<person name="Lee Y.-S."/>
+<person name="Park S.R."/>
+<person name="Kim C.G."/>
+<person name="Choi I.J."/>
+<person name="Yoshida T."/>
+<person name="Nakamura Y."/>
+<person name="Hirohashi S."/>
+</authorList>
+<dbReference type="PubMed" id="18488030"/>
+<dbReference type="DOI" id="10.1038/ng.152"/>
+</citation>
+<scope>FUNCTION</scope>
+<scope>TISSUE SPECIFICITY</scope>
+<scope>INDUCTION</scope>
+<scope>ASSOCIATION WITH SUSCEPTIBILITY TO DIFFUSE-TYPE GASTRIC CANCER</scope>
+<scope>VARIANT LYS-30</scope>
+</reference>
+<reference key="9">
+<citation type="journal article" date="2009" name="Nat. Genet." volume="41" first="991" last="995">
+<title>Genetic variation in the prostate stem cell antigen gene PSCA confers susceptibility to urinary bladder cancer.</title>
+<authorList>
+<person name="Wu X."/>
+<person name="Ye Y."/>
+<person name="Kiemeney L.A."/>
+<person name="Sulem P."/>
+<person name="Rafnar T."/>
+<person name="Matullo G."/>
+<person name="Seminara D."/>
+<person name="Yoshida T."/>
+<person name="Saeki N."/>
+<person name="Andrew A.S."/>
+<person name="Dinney C.P."/>
+<person name="Czerniak B."/>
+<person name="Zhang Z.F."/>
+<person name="Kiltie A.E."/>
+<person name="Bishop D.T."/>
+<person name="Vineis P."/>
+<person name="Porru S."/>
+<person name="Buntinx F."/>
+<person name="Kellen E."/>
+<person name="Zeegers M.P."/>
+<person name="Kumar R."/>
+<person name="Rudnai P."/>
+<person name="Gurzau E."/>
+<person name="Koppova K."/>
+<person name="Mayordomo J.I."/>
+<person name="Sanchez M."/>
+<person name="Saez B."/>
+<person name="Lindblom A."/>
+<person name="de Verdier P."/>
+<person name="Steineck G."/>
+<person name="Mills G.B."/>
+<person name="Schned A."/>
+<person name="Guarrera S."/>
+<person name="Polidoro S."/>
+<person name="Chang S.C."/>
+<person name="Lin J."/>
+<person name="Chang D.W."/>
+<person name="Hale K.S."/>
+<person name="Majewski T."/>
+<person name="Grossman H.B."/>
+<person name="Thorlacius S."/>
+<person name="Thorsteinsdottir U."/>
+<person name="Aben K.K."/>
+<person name="Witjes J.A."/>
+<person name="Stefansson K."/>
+<person name="Amos C.I."/>
+<person name="Karagas M.R."/>
+<person name="Gu J."/>
+</authorList>
+<dbReference type="PubMed" id="19648920"/>
+<dbReference type="DOI" id="10.1038/ng.421"/>
+</citation>
+<scope>ASSOCIATION WITH SUSCEPTIBILITY TO URINARY BLADDER CANCER</scope>
+</reference>
+<reference key="10">
+<citation type="journal article" date="2015" name="Neurobiol. Aging" volume="36" first="1629" last="1638">
+<title>Prostate stem cell antigen interacts with nicotinic acetylcholine receptors and is affected in Alzheimer's disease.</title>
+<authorList>
+<person name="Jensen M.M."/>
+<person name="Arvaniti M."/>
+<person name="Mikkelsen J.D."/>
+<person name="Michalski D."/>
+<person name="Pinborg L.H."/>
+<person name="Haertig W."/>
+<person name="Thomsen M.S."/>
+</authorList>
+<dbReference type="PubMed" id="25680266"/>
+<dbReference type="DOI" id="10.1016/j.neurobiolaging.2015.01.001"/>
+</citation>
+<scope>FUNCTION</scope>
+<scope>INTERACTION WITH CHRNA4</scope>
+<scope>TISSUE SPECIFICITY</scope>
+</reference>
+<comment type="function">
+<text evidence="5">May be involved in the regulation of cell proliferation. Has a cell-proliferation inhibition activity in vitro.</text>
+</comment>
+<comment type="function">
+<text evidence="10">May act as a modulator of nicotinic acetylcholine receptors (nAChRs) activity. In vitro inhibits nicotine-induced signaling probably implicating alpha-3:beta-2- or alpha-7-containing nAChRs.</text>
+</comment>
+<comment type="subunit">
+<text evidence="7">Interacts with CHRNA4.</text>
+</comment>
+<comment type="subcellular location">
+<subcellularLocation>
+<location evidence="8">Cell membrane</location>
+<topology evidence="8">Lipid-anchor</topology>
+<topology evidence="8">GPI-anchor</topology>
+</subcellularLocation>
+</comment>
+<comment type="tissue specificity">
+<text evidence="3 5 7">Highly expressed in prostate (basal, secretory and neuroendocrine epithelium cells). Also found in bladder (transitional epithelium), placenta (trophoblasts), stomach (neuroendocrine cells), colon (neuroendocrine cells) and kidney (collecting ducts). Overexpressed in prostate cancers and expression is correlated with tumor stage, grade and androgen-independence. Highly expressed in prostate cancer bone metastases. Expressed in gastric epithelial cells, mainly in the isthmus (at protein level). Not detected in normal intestinal epithelium (at protein level). Expressed in brain cortex; expression is significantly increased in the front cortex of Alzheimer disease patients.</text>
+</comment>
+<comment type="induction">
+<text evidence="5">Down-regulated in gastric cancer cells.</text>
+</comment>
+<comment type="PTM">
+<text evidence="8">N-glycosylated.</text>
+</comment>
+<comment type="polymorphism">
+<text evidence="5 6">Genetic variations in PSCA may influence susceptibility to some cancers. A polymorphism gives rise to an upstream methionine which produces a longer protein of 123 residues associated with various cancers including diffuse-type gastric cancer and urinary bladder cancer.</text>
+</comment>
+<comment type="sequence caution" evidence="9">
+<conflict type="erroneous initiation">
+<sequence resource="EMBL-CDS" id="AAC39607" version="1"/>
+</conflict>
+<text>Extended N-terminus.</text>
+</comment>
+<comment type="sequence caution" evidence="9">
+<conflict type="erroneous initiation">
+<sequence resource="EMBL-CDS" id="AAH23582" version="1"/>
+</conflict>
+<text>Extended N-terminus.</text>
+</comment>
+<comment type="sequence caution" evidence="9">
+<conflict type="erroneous initiation">
+<sequence resource="EMBL-CDS" id="AAH65183" version="1"/>
+</conflict>
+<text>Extended N-terminus.</text>
+</comment>
+<comment type="sequence caution" evidence="9">
+<conflict type="erroneous initiation">
+<sequence resource="EMBL-CDS" id="AAQ89271" version="1"/>
+</conflict>
+<text>Extended N-terminus.</text>
+</comment>
+<comment type="sequence caution" evidence="9">
+<conflict type="erroneous initiation">
+<sequence resource="EMBL-CDS" id="CAB97347" version="1"/>
+</conflict>
+<text>Extended N-terminus.</text>
+</comment>
+<comment type="online information" name="Atlas of Genetics and Cytogenetics in Oncology and Haematology">
+<link uri="http://atlasgeneticsoncology.org/Genes/PSCAID41881ch8q24.html"/>
+</comment>
+<dbReference type="EMBL" id="AF043498">
+<property type="protein sequence ID" value="AAC39607.1"/>
+<property type="status" value="ALT_INIT"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="EMBL" id="AJ297436">
+<property type="protein sequence ID" value="CAB97347.1"/>
+<property type="status" value="ALT_INIT"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="EMBL" id="AC108002">
+<property type="status" value="NOT_ANNOTATED_CDS"/>
+<property type="molecule type" value="Genomic_DNA"/>
+</dbReference>
+<dbReference type="EMBL" id="AY358912">
+<property type="protein sequence ID" value="AAQ89271.1"/>
+<property type="status" value="ALT_INIT"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="EMBL" id="BC023582">
+<property type="protein sequence ID" value="AAH23582.1"/>
+<property type="status" value="ALT_INIT"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="EMBL" id="BC065183">
+<property type="protein sequence ID" value="AAH65183.1"/>
+<property type="status" value="ALT_INIT"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="CCDS" id="CCDS47925.2"/>
+<dbReference type="RefSeq" id="NP_005663.2">
+<property type="nucleotide sequence ID" value="NM_005672.4"/>
+</dbReference>
+<dbReference type="IntAct" id="O43653">
+<property type="interactions" value="6"/>
+</dbReference>
+<dbReference type="STRING" id="9606.ENSP00000301258"/>
+<dbReference type="ChEMBL" id="CHEMBL3712961"/>
+<dbReference type="iPTMnet" id="O43653"/>
+<dbReference type="PhosphoSitePlus" id="O43653"/>
+<dbReference type="BioMuta" id="PSCA"/>
+<dbReference type="EPD" id="O43653"/>
+<dbReference type="jPOST" id="O43653"/>
+<dbReference type="MassIVE" id="O43653"/>
+<dbReference type="PaxDb" id="O43653"/>
+<dbReference type="PeptideAtlas" id="O43653"/>
+<dbReference type="PRIDE" id="O43653"/>
+<dbReference type="ProteomicsDB" id="49089"/>
+<dbReference type="Ensembl" id="ENST00000301258">
+<property type="protein sequence ID" value="ENSP00000301258"/>
+<property type="gene ID" value="ENSG00000167653"/>
+</dbReference>
+<dbReference type="GeneID" id="8000"/>
+<dbReference type="KEGG" id="hsa:8000"/>
+<dbReference type="UCSC" id="uc003ywu.4">
+<property type="organism name" value="human"/>
+</dbReference>
+<dbReference type="CTD" id="8000"/>
+<dbReference type="DisGeNET" id="8000"/>
+<dbReference type="GeneCards" id="PSCA"/>
+<dbReference type="HGNC" id="HGNC:9500">
+<property type="gene designation" value="PSCA"/>
+</dbReference>
+<dbReference type="HPA" id="HPA030783"/>
+<dbReference type="HPA" id="HPA056418"/>
+<dbReference type="MIM" id="602470">
+<property type="type" value="gene"/>
+</dbReference>
+<dbReference type="neXtProt" id="NX_O43653"/>
+<dbReference type="OpenTargets" id="ENSG00000167653"/>
+<dbReference type="eggNOG" id="ENOG410JCNA">
+<property type="taxonomic scope" value="Eukaryota"/>
+</dbReference>
+<dbReference type="eggNOG" id="ENOG4111DN6">
+<property type="taxonomic scope" value="LUCA"/>
+</dbReference>
+<dbReference type="GeneTree" id="ENSGT00940000153378"/>
+<dbReference type="HOGENOM" id="HOG000035114"/>
+<dbReference type="InParanoid" id="O43653"/>
+<dbReference type="OMA" id="AALQCYS"/>
+<dbReference type="PhylomeDB" id="O43653"/>
+<dbReference type="TreeFam" id="TF336080"/>
+<dbReference type="Reactome" id="R-HSA-163125">
+<property type="pathway name" value="Post-translational modification: synthesis of GPI-anchored proteins"/>
+</dbReference>
+<dbReference type="ChiTaRS" id="PSCA">
+<property type="organism name" value="human"/>
+</dbReference>
+<dbReference type="Pharos" id="O43653"/>
+<dbReference type="PRO" id="PR:O43653"/>
+<dbReference type="Proteomes" id="UP000005640">
+<property type="component" value="Chromosome 8"/>
+</dbReference>
+<dbReference type="Bgee" id="ENSG00000167653">
+<property type="expression patterns" value="Expressed in 85 organ(s), highest expression level in fundus of stomach"/>
+</dbReference>
+<dbReference type="ExpressionAtlas" id="O43653">
+<property type="expression patterns" value="baseline and differential"/>
+</dbReference>
+<dbReference type="GO" id="GO:0031225">
+<property type="term" value="C:anchored component of membrane"/>
+<property type="evidence" value="ECO:0000501"/>
+<property type="project" value="UniProtKB-KW"/>
+</dbReference>
+<dbReference type="GO" id="GO:0070062">
+<property type="term" value="C:extracellular exosome"/>
+<property type="evidence" value="ECO:0007005"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="GO" id="GO:0005576">
+<property type="term" value="C:extracellular region"/>
+<property type="evidence" value="ECO:0000304"/>
+<property type="project" value="Reactome"/>
+</dbReference>
+<dbReference type="GO" id="GO:0016020">
+<property type="term" value="C:membrane"/>
+<property type="evidence" value="ECO:0000318"/>
+<property type="project" value="GO_Central"/>
+</dbReference>
+<dbReference type="GO" id="GO:0005886">
+<property type="term" value="C:plasma membrane"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="HPA"/>
+</dbReference>
+<dbReference type="GO" id="GO:0033130">
+<property type="term" value="F:acetylcholine receptor binding"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="GO" id="GO:0070373">
+<property type="term" value="P:negative regulation of ERK1 and ERK2 cascade"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="GO" id="GO:0099601">
+<property type="term" value="P:regulation of neurotransmitter receptor activity"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="InterPro" id="IPR016054">
+<property type="entry name" value="LY6_UPA_recep-like"/>
+</dbReference>
+<dbReference type="Pfam" id="PF00021">
+<property type="entry name" value="UPAR_LY6"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="SMART" id="SM00134">
+<property type="entry name" value="LU"/>
+<property type="match status" value="1"/>
+</dbReference>
+<proteinExistence type="evidence at protein level"/>
+<keyword id="KW-1003">Cell membrane</keyword>
+<keyword id="KW-0181">Complete proteome</keyword>
+<keyword id="KW-0903">Direct protein sequencing</keyword>
+<keyword id="KW-1015">Disulfide bond</keyword>
+<keyword id="KW-0325">Glycoprotein</keyword>
+<keyword id="KW-0336">GPI-anchor</keyword>
+<keyword id="KW-0449">Lipoprotein</keyword>
+<keyword id="KW-0472">Membrane</keyword>
+<keyword id="KW-0621">Polymorphism</keyword>
+<keyword id="KW-1185">Reference proteome</keyword>
+<keyword id="KW-0732">Signal</keyword>
+<feature type="signal peptide" evidence="4">
+<location>
+<begin position="1"/>
+<end position="11"/>
+</location>
+</feature>
+<feature type="chain" description="Prostate stem cell antigen" id="PRO_0000036162">
+<location>
+<begin position="12"/>
+<end position="86"/>
+</location>
+</feature>
+<feature type="propeptide" description="Removed in mature form" id="PRO_0000036163" evidence="2">
+<location>
+<begin position="86"/>
+<end position="114"/>
+</location>
+</feature>
+<feature type="domain" description="UPAR/Ly6">
+<location>
+<begin position="12"/>
+<end position="86"/>
+</location>
+</feature>
+<feature type="lipid moiety-binding region" description="GPI-anchor amidated serine" evidence="2">
+<location>
+<position position="86"/>
+</location>
+</feature>
+<feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="2">
+<location>
+<position position="31"/>
+</location>
+</feature>
+<feature type="disulfide bond" evidence="1">
+<location>
+<begin position="14"/>
+<end position="39"/>
+</location>
+</feature>
+<feature type="disulfide bond" evidence="1">
+<location>
+<begin position="17"/>
+<end position="26"/>
+</location>
+</feature>
+<feature type="disulfide bond" evidence="1">
+<location>
+<begin position="32"/>
+<end position="57"/>
+</location>
+</feature>
+<feature type="disulfide bond" evidence="1">
+<location>
+<begin position="61"/>
+<end position="77"/>
+</location>
+</feature>
+<feature type="disulfide bond" evidence="1">
+<location>
+<begin position="78"/>
+<end position="83"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In dbSNP:rs2294008." id="VAR_080777" evidence="5 6">
+<original>M</original>
+<variation>MKAVLLALLM</variation>
+<location>
+<position position="1"/>
+</location>
+</feature>
+<feature type="sequence variant" description="In dbSNP:rs3736001." id="VAR_020173" evidence="5">
+<original>E</original>
+<variation>K</variation>
+<location>
+<position position="30"/>
+</location>
+</feature>
+<feature type="sequence conflict" description="In Ref. 3; AC108002." ref="3" evidence="9">
+<original>M</original>
+<variation>T</variation>
+<location>
+<position position="1"/>
+</location>
+</feature>
+<evidence key="1" type="ECO:0000250">
+<source>
+<dbReference type="UniProtKB" id="P0DP57"/>
+</source>
+</evidence>
+<evidence key="2" type="ECO:0000255"/>
+<evidence key="3" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="10713670"/>
+</source>
+</evidence>
+<evidence key="4" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="15340161"/>
+</source>
+</evidence>
+<evidence key="5" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="18488030"/>
+</source>
+</evidence>
+<evidence key="6" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="19648920"/>
+</source>
+</evidence>
+<evidence key="7" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="25680266"/>
+</source>
+</evidence>
+<evidence key="8" type="ECO:0000269">
+<source>
+<dbReference type="PubMed" id="9465086"/>
+</source>
+</evidence>
+<evidence key="9" type="ECO:0000305"/>
+<evidence key="10" type="ECO:0000305">
+<source>
+<dbReference type="PubMed" id="25680266"/>
+</source>
+</evidence>
+<sequence length="114" mass="11959" checksum="65B3683767990740" modified="2018-10-10" version="2" precursor="true">MAGLALQPGTALLCYSCKAQVSNEDCLQVENCTQLGEQCWTARIRAVGLLTVISKGCSLNCVDDSQDYYVGKKNITCCDTDLCNASGAHALQPAAAILALLPALGLLLWGPGQL</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms
+Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

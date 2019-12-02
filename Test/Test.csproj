@@ -194,6 +194,9 @@
     <Content Include="DatabaseTests\DecoyVariants.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="DatabaseTests\O43653.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="DatabaseTests\StopGain.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

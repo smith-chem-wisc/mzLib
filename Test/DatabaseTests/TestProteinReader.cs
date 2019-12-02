@@ -366,6 +366,8 @@ CF   O1
         public static void TestSlideDecoyXML()
         {
             var nice = new List<Modification>();
+
+            //modifications, disulfides
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, nice, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
 
@@ -388,6 +390,10 @@ CF   O1
                 Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedBeginPosition - 1], 'C');
                 Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
             }
+
+            //sequence variants, just test it didn't hang up
+            ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, nice, false,
+    new string[] { "exclude_me" }, out un);
         }
 
         [Test]
