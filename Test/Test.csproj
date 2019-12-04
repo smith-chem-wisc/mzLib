@@ -31,6 +31,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <OutputPath>bin\x64\Debug\</OutputPath>
     <LangVersion>latest</LangVersion>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="MathNet.Numerics, Version=4.8.1.0, Culture=neutral, processorArchitecture=MSIL">
@@ -54,6 +55,7 @@
     <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
+    <Compile Include="TestMergeBoxCarScans.cs" />
     <Compile Include="TestBayesianEstimation.cs" />
     <Compile Include="TestModFits.cs" />
     <Compile Include="TestProteinDigestion.cs" />
@@ -97,6 +99,10 @@
       <Project>{ACE491E5-AC71-4B19-99C9-A947E92EB6C1}</Project>
       <Name>FlashLFQ</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ManagedThermoHelperLayer\ClassLibrary1.vcxproj">
+      <Project>{cdd56f70-d42f-4e86-a232-65f955cef6ec}</Project>
+      <Name>ManagedThermoHelperLayer</Name>
+    </ProjectReference>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj">
       <Project>{6febb7ed-0be6-4493-817e-cefd4cbe61dd}</Project>
       <Name>MassSpectrometry</Name>
@@ -125,6 +131,10 @@
       <Project>{552eabd1-7a7c-4c52-bf3d-4eedd70e7e89}</Project>
       <Name>ThermoRawFileReader</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Thermo\Thermo.csproj">
+      <Project>{24dc85ff-e97b-4140-9614-77dd8fddd32f}</Project>
+      <Name>Thermo</Name>
+    </ProjectReference>
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj">
       <Project>{16f857b5-4942-4fa2-b198-bd4d14c1b2e4}</Project>
       <Name>UsefulProteomicsDatabases</Name>
@@ -134,6 +144,9 @@
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="20170802_QEp1_FlMe_SA_BOX0_SILAC_BoxCar_SLICED.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -172,6 +185,9 @@
     </None>
     <None Include="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="MessedUpOnPurpose.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="packages.config" />
     <None Include="tester.mgf">
