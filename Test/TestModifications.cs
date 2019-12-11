@@ -381,7 +381,8 @@ namespace Test
 
             // check unmodified
             var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
-            var fragments = unmodPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var fragments = new List<Product>();
+            unmodPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
             var myUnmodFragmentMasses = fragments.Select(v => (int)Math.Round(v.NeutralMass.ToMz(1), 1)).ToList();
             HashSet<int> expectedMzs = new HashSet<int> { 98, 227, 324, 425, 538, 653, 703, 574, 477, 376, 263, 148 };
 
@@ -406,7 +407,8 @@ namespace Test
 
             // check unmodified
             var unmodPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 0).First();
-            var myUnmodFragments = unmodPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var myUnmodFragments = new List<Product>();
+            unmodPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, myUnmodFragments);
             var neutralMasses = new List<double>();
             neutralMasses.AddRange(myUnmodFragments.Select(m => m.NeutralMass).ToList());
             var expectedMasses = new List<double> { 97, 226, 323, 424, 537, 652, 147, 262, 375, 476, 573, 702 };
@@ -426,7 +428,8 @@ namespace Test
             // with oxidation, no neutral loss
             var modPeptide = ye.Where(p => p.AllModsOneIsNterminus.Count == 1).First();
 
-            var myModFragments = modPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var myModFragments = new List<Product>();
+            modPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, myModFragments);
             neutralMasses = new List<double>();
             neutralMasses.AddRange(myModFragments.Select(m => m.NeutralMass).ToList());
             expectedMasses = new List<double> { 97, 226, 323, 440, 553, 668, 147, 262, 375, 492, 589, 718 };
@@ -462,13 +465,14 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count > 0).First();
 
-            var myModFragments = peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var myModFragments = new List<Product>();
+            peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both, myModFragments);
             HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass.ToMz(1)).ToList());
             HashSet<int> expectedMasses = new HashSet<int> { 98,227, 324, 407, 520, 635, 505, 618, 733, //b-ions with and without neutral loss
             148, 263, 376, 459, 556, 685, 557, 654, 783, //y-ions with and without neutral loss
             782}; //molecular ion with neutral loss
 
-            Assert.That(neutralMasses.SetEquals(expectedMasses));
+            CollectionAssert.AreEquivalent(neutralMasses, expectedMasses);
         }
 
         [Test]
@@ -497,13 +501,14 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 2).First();
 
-            var myModFragments = peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var myModFragments = new List<Product>();
+            peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both, myModFragments);
             HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass.ToMz(1)).ToList());
             HashSet<int> expectedMasses = new HashSet<int> { 98, 227, 355, 536, 649, 764, 438, 551, 666, 338, 519, 632, 747, // b-ions with and without neutral losses
                                                              148, 263, 376, 557, 685, 814, 668, 797, 459, 587, 716, //y ions with and without neutral losses
                                                                813, 894, }; //molecular ion with neutral losses (phospho and ammonia respectively)
 
-            Assert.That(neutralMasses.SetEquals(expectedMasses));
+            CollectionAssert.AreEquivalent(neutralMasses, expectedMasses);
         }
 
         [Test]
@@ -531,17 +536,19 @@ namespace Test
 
             var peptideWithNeutralMassMod = ye.Where(v => v.AllModsOneIsNterminus.Count == 1).First();
 
-            var myModFragmentsHCD = peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both);
+            var myModFragmentsHCD = new List<Product>();
+            peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both, myModFragmentsHCD);
 
             var neutralMassesHCD = myModFragmentsHCD.Select(m => (int)m.NeutralMass.ToMz(1));
             var expectedMassesHCD = new HashSet<int> { 98, 227, 324, 407, 520, 635, 505, 618, 733,// b-ions with and without neutral loss
                                                         148, 263, 376, 459, 556, 685, 557, 654, 783,//y-ions with and without neutral loss
                                                         782};// molecular ion with neutral loss
 
-            Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
+            CollectionAssert.AreEquivalent(expectedMassesHCD, neutralMassesHCD);
 
             //Now try the other half
-            var myModFragmentsETD = peptideWithNeutralMassMod.Fragment(DissociationType.ETD, FragmentationTerminus.Both);
+            var myModFragmentsETD = new List<Product>();
+            peptideWithNeutralMassMod.Fragment(DissociationType.ETD, FragmentationTerminus.Both, myModFragmentsETD);
 
             var neutralMassesETD = myModFragmentsETD.Select(m => (int)m.NeutralMass.ToMz(1));
             var expectedMassesETD = new HashSet<int> { 115, 244, 341, 505, 618, 733, 522, 635, 750,  // c-ions and c-17 ions
@@ -549,39 +556,9 @@ namespace Test
             133, 248, 361, 525, 622, 751, 542, 639, 768,         // z+1 and z+1-17 ions
             863 };//Molecular ions minus ammonia
 
-            Assert.That(expectedMassesHCD.SetEquals(neutralMassesHCD));
+            CollectionAssert.AreEquivalent(expectedMassesHCD, neutralMassesHCD);
         }
-
-        [Test]
-        public static void TestCompactPeptideSerialization()
-        {
-            // purpose of this test is to serialize/deserialize a CompactPeptide and make sure the deserialized peptide
-            // has the same properties as before it was serialized. This peptide is unmodified
-            string sequence = "PEPTIDE";
-            PeptideWithSetModifications p = new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>(), 0, null, null, 0, 7, 0);
-            CompactPeptide cp = new CompactPeptide(p, FragmentationTerminus.Both);
-            CompactPeptide deserializedCp = null;
-
-            string dir = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "TestCompactPeptideSerialization");
-            System.IO.Directory.CreateDirectory(dir);
-            string path = System.IO.Path.Combine(dir, "myCompactPeptideIndex.ind");
-
-            var messageTypes = typeof(CompactPeptide);
-            var ser = new NetSerializer.Serializer(new List<Type> { messageTypes });
-
-            using (var file = System.IO.File.Create(path))
-            {
-                ser.Serialize(file, cp);
-            }
-
-            using (var file = System.IO.File.OpenRead(path))
-            {
-                deserializedCp = (CompactPeptide)ser.Deserialize(file);
-            }
-
-            Assert.That(cp.Equals(deserializedCp));
-        }
-
+        
         [Test]
         public static void TestSerializationPeptideFromString()
         {
@@ -616,10 +593,13 @@ namespace Test
             Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
             Assert.That(deserializedPeptide.SequenceWithChemicalFormulas == peptide.SequenceWithChemicalFormulas);
 
-            List<double> deserializedPeptideFragments = deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
-                .Select(v => v.NeutralMass).ToList();
-            List<double> peptideFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
-                .Select(v => v.NeutralMass).ToList();
+            var products = new List<Product>();
+
+            deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
         }
@@ -659,10 +639,13 @@ namespace Test
             Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
             Assert.That(deserializedPeptide.SequenceWithChemicalFormulas == peptide.SequenceWithChemicalFormulas);
 
-            List<double> deserializedPeptideFragments = deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
-                .Select(v => v.NeutralMass).ToList();
-            List<double> peptideFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
-                .Select(v => v.NeutralMass).ToList();
+            var products = new List<Product>();
+
+            deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
         }
@@ -716,10 +699,13 @@ namespace Test
             Assert.That(deserializedPeptide.MonoisotopicMass == peptide.MonoisotopicMass);
             Assert.That(deserializedPeptide.SequenceWithChemicalFormulas == peptide.SequenceWithChemicalFormulas);
 
-            List<double> deserializedPeptideFragments = deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
-                .Select(v => v.NeutralMass).ToList();
-            List<double> peptideFragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both)
-                .Select(v => v.NeutralMass).ToList();
+            var products = new List<Product>();
+
+            deserializedPeptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            List<double> deserializedPeptideFragments = products.Select(v => v.NeutralMass).ToList();
+
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            List<double> peptideFragments = products.Select(v => v.NeutralMass).ToList();
 
             Assert.That(deserializedPeptideFragments.SequenceEqual(peptideFragments));
         }
@@ -736,9 +722,11 @@ namespace Test
             PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
             Assert.That(peptide.FullSequence == "[testModType:acetylation on P]PEPTIDE");
 
-            var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var fragments = new List<Product>();
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
+
             var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
-            Assert.That(roundedFragments.SequenceEqual(new int[] { 139, 268, 365, 466, 579, 694, 147, 262, 375, 476, 573, 702 }));
+            CollectionAssert.AreEquivalent(roundedFragments, new int[] { 139, 268, 365, 466, 579, 694, 147, 262, 375, 476, 573, 702 });
         }
 
         [Test]
@@ -753,9 +741,11 @@ namespace Test
             PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
             Assert.That(peptide.FullSequence == "PEPTIDE[testModType:acetylation on E]");
 
-            var fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+            var fragments = new List<Product>();
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
+
             var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
-            Assert.That(roundedFragments.SequenceEqual(new int[] { 97, 226, 323, 424, 537, 652, 189, 304, 417, 518, 615, 744 }));
+            CollectionAssert.AreEquivalent(roundedFragments, new int[] { 97, 226, 323, 424, 537, 652, 189, 304, 417, 518, 615, 744 });
         }
     }
 }

@@ -128,6 +128,7 @@ namespace ThermoRawFileReader
             double? ms2IsolationWidth = null;
             int? precursorScanNumber = null;
             double? isolationMz = null;
+            string HcdEnergy = null;
             ActivationType activationType = ActivationType.Any;
 
             var trailer = rawFile.GetTrailerExtraInformation(scanNumber);
@@ -172,6 +173,10 @@ namespace ThermoRawFileReader
                     precursorScanNumber = int.Parse(values[i], CultureInfo.InvariantCulture) <= 1 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
+                {
+                    HcdEnergy = values[i];
                 }
             }
 
@@ -254,7 +259,8 @@ namespace ThermoRawFileReader
                 isolationWidth: ms2IsolationWidth,
                 dissociationType: GetDissociationType(activationType),
                 oneBasedPrecursorScanNumber: precursorScanNumber,
-                selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz);
+                selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
+                hcdEnergy: HcdEnergy);
         }
 
         private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams, int scanNumber, string scanFilter, int scanOrder)
