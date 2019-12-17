@@ -659,6 +659,11 @@
 <position position="86"/>
 </location>
 </feature>
+<feature type="modified residue" description="Phosphothreonine; by PKC" evidence="2">
+<location>
+<position position="10"/>
+</location>
+</feature>
 <feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="2">
 <location>
 <position position="31"/>

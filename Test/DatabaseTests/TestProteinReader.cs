@@ -365,10 +365,8 @@ CF   O1
         [Test]
         public static void TestSlideDecoyXML()
         {
-            var nice = new List<Modification>();
-
             //modifications, disulfides
-            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, nice, false,
+            var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, UniProtPtms, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
@@ -392,9 +390,10 @@ CF   O1
             }
 
             //sequence variants, test it didn't hang up
-            ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, nice, false,
+            ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, UniProtPtms, false,
     new string[] { "exclude_me" }, out un);
 
+            Assert.AreEqual(ok2[1].OneBasedPossibleLocalizedModifications.First().Key, 13);
             var decoyVariants = ok2[1].SequenceVariations.ToList();
             Assert.AreEqual(decoyVariants[0].VariantSequence, "MLAAKLVMLL"); //variant should shuffle but keep initiator methionine
             Assert.AreEqual(decoyVariants[0].OneBasedBeginPosition, 1);//shouldn't have changed

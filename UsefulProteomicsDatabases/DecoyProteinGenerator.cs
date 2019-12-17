@@ -287,7 +287,8 @@ namespace UsefulProteomicsDatabases
 
                 List<DisulfideBond> decoy_disulfides_slide = new List<DisulfideBond>();
                 List<SpliceSite> spliceSitesSlide = new List<SpliceSite>();
-                Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, protein.BaseSequence.StartsWith("M", StringComparison.Ordinal), numSlides, protein);
+                bool initMet = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein);
 
                 var slided_sequence = new string(sequenceArraySlided);
 
@@ -298,11 +299,11 @@ namespace UsefulProteomicsDatabases
                 }
                 foreach (DisulfideBond disulfideBond in protein.DisulfideBonds) //these actually need the same cysteines...
                 {
-                    decoy_disulfides_slide.Add(new DisulfideBond(GetOldShuffleIndex(disulfideBond.OneBasedBeginPosition - 1, numSlides, slided_sequence.Length, false) + 1, GetOldShuffleIndex(disulfideBond.OneBasedEndPosition - 1, numSlides, slided_sequence.Length, false) + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
+                    decoy_disulfides_slide.Add(new DisulfideBond(GetNewSlidedIndex(disulfideBond.OneBasedBeginPosition - 1, numSlides, slided_sequence.Length, initMet) + 1, GetNewSlidedIndex(disulfideBond.OneBasedEndPosition - 1, numSlides, slided_sequence.Length, initMet) + 1, "DECOY DISULFIDE BOND: " + disulfideBond.Description));
                 }
-                foreach (SpliceSite spliceSite in protein.SpliceSites) //these actually need the same cysteines...
+                foreach (SpliceSite spliceSite in protein.SpliceSites)
                 {
-                    spliceSitesSlide.Add(new SpliceSite(GetOldShuffleIndex(spliceSite.OneBasedBeginPosition - 1, numSlides, slided_sequence.Length, false) + 1, GetOldShuffleIndex(spliceSite.OneBasedEndPosition - 1, numSlides, slided_sequence.Length, false) + 1, "DECOY SPLICE SITE: " + spliceSite.Description));
+                    spliceSitesSlide.Add(new SpliceSite(GetNewSlidedIndex(spliceSite.OneBasedBeginPosition - 1, numSlides, slided_sequence.Length, initMet) + 1, GetNewSlidedIndex(spliceSite.OneBasedEndPosition - 1, numSlides, slided_sequence.Length, initMet) + 1, "DECOY SPLICE SITE: " + spliceSite.Description));
                 }
 
                 //TODO:
@@ -322,7 +323,7 @@ namespace UsefulProteomicsDatabases
                     char[] variationArraySlided = sv.VariantSequence.ToArray();
 
                     //if initiator methionine, then don't move it
-                    if (sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal))
+                    if (sv.OneBasedBeginPosition == 1 && initMet)
                     {
                         //shuffle non initiator methionine amino acids
                         if (numSlidesHere % variationArraySlided.Length == 0)
@@ -331,13 +332,13 @@ namespace UsefulProteomicsDatabases
                         }
                         for (int i = 0; i < variationArraySlided.Length; i++)
                         {
-                            variationArraySlided[i] = variationArrayUnslided[GetOldShuffleIndex(i, numSlidesHere, variationArrayUnslided.Length, true)];
+                            variationArraySlided[i] = variationArrayUnslided[GetOldSlidedIndex(i, numSlidesHere, variationArrayUnslided.Length, true)];
                         }
                         decoyVariationsSlide.Add(new SequenceVariation(1, "M", new string(variationArraySlided), "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
                     }
                     else
                     {
-                        int decoy_begin = GetOldShuffleIndex(sv.OneBasedBeginPosition, numSlidesHere, sequenceArrayUnslided.Length, protein.BaseSequence.StartsWith("M", StringComparison.Ordinal));
+                        int decoy_begin = GetNewSlidedIndex(sv.OneBasedBeginPosition - 1, numSlidesHere, sequenceArrayUnslided.Length, initMet) + 1;
                         int decoy_end = decoy_begin + sv.OneBasedEndPosition - sv.OneBasedBeginPosition;
 
                         //shuffle the variant sequence
@@ -347,7 +348,7 @@ namespace UsefulProteomicsDatabases
                         }
                         for (int i = 0; i < variationArraySlided.Length; i++)
                         {
-                            variationArraySlided[i] = variationArrayUnslided[GetOldShuffleIndex(i, numSlidesHere, variationArrayUnslided.Length, protein.BaseSequence.StartsWith("M", StringComparison.Ordinal))];
+                            variationArraySlided[i] = variationArrayUnslided[GetOldSlidedIndex(i, numSlidesHere, variationArrayUnslided.Length, initMet)];
                         }
 
                         decoyVariationsSlide.Add(new SequenceVariation(decoy_begin, decoy_end, sv.OriginalSequence, new string(variationArraySlided), "DECOY VARIANT: " + sv.Description));
@@ -370,7 +371,7 @@ namespace UsefulProteomicsDatabases
             }
             for (int i = startIndex; i < sequenceArraySlided.Length; i++)
             {
-                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldShuffleIndex(i, numSlides, protein.BaseSequence.Length, initiatorMethionine)];
+                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, protein.BaseSequence.Length, initiatorMethionine)];
             }
 
             Dictionary<int, List<Modification>> decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
@@ -382,7 +383,7 @@ namespace UsefulProteomicsDatabases
                 }
                 else
                 {
-                    decoyModifications.Add(GetOldShuffleIndex(kvp.Key - 1, numSlides, protein.BaseSequence.Length, initiatorMethionine) + 1, kvp.Value);
+                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, protein.BaseSequence.Length, initiatorMethionine)+1, kvp.Value);
                 }
             }
 
@@ -391,16 +392,16 @@ namespace UsefulProteomicsDatabases
 
 
         /// <summary>
-        /// Not sure...
+        /// Given a new index, i, return the index of the amino acid from the unslided array
         /// </summary>
         /// <param name="i"></param>
         /// <param name="numSlides"></param>
         /// <param name="sequenceLength"></param>
         /// <param name="methioninePresent"></param>
         /// <returns></returns>
-        private static int GetOldShuffleIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
+        private static int GetOldSlidedIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
         {
-            if (sequenceLength>1 && !(i==0 && methioninePresent)) //can't shuffle a single amino acid or the initiator methionine
+            if (sequenceLength > 1 && !(i == 0 && methioninePresent)) //can't shuffle a single amino acid or the initiator methionine
             {
                 if (methioninePresent)
                 {
@@ -441,6 +442,68 @@ namespace UsefulProteomicsDatabases
                     else
                     {
                         oldIndex = (sequenceLength * 2) - oldIndex - 1;
+                    }
+                }
+            }
+            else
+            {
+                return i;
+            }
+        }
+
+
+        /// <summary>
+        /// Given an old index, i, return the index of the amino acid from the slided array
+        /// useful for figuring out where modifications went
+        /// </summary>
+        /// <param name="i"></param>
+        /// <param name="numSlides"></param>
+        /// <param name="sequenceLength"></param>
+        /// <param name="methioninePresent"></param>
+        /// <returns></returns>
+        private static int GetNewSlidedIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
+        {
+            if (sequenceLength > 1 && !(i == 0 && methioninePresent)) //can't shuffle a single amino acid or the initiator methionine
+            {
+                if (methioninePresent)
+                {
+                    i--;
+                    sequenceLength--;
+                }
+                bool positiveDirection = i % 2 == 1;
+                int newIndex = i;
+
+                if (positiveDirection)
+                {
+                    newIndex += numSlides;
+                }
+                else
+                {
+                    newIndex -= numSlides;
+                }
+
+                while (true)
+                {
+                    if (newIndex < 0)
+                    {
+                        positiveDirection = true;
+                    }
+                    else if (newIndex >= sequenceLength)
+                    {
+                        positiveDirection = false;
+                    }
+                    else
+                    {
+                        return methioninePresent ? newIndex + 1 : newIndex;
+                    }
+
+                    if (positiveDirection)
+                    {
+                        newIndex = (newIndex * -1) - 1;
+                    }
+                    else
+                    {
+                        newIndex = (sequenceLength * 2) - newIndex - 1;
                     }
                 }
             }
