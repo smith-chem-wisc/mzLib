@@ -25,11 +25,8 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
-using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -553,15 +550,15 @@ namespace Test
             Protein p = new Protein("PTE", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
             Modification phosphorylation = new Modification(
-                _originalId: "phospho", 
-                _modificationType: "CommonBiological", 
-                _target: motif, 
-                _locationRestriction: "Anywhere.", 
-                _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), 
+                _originalId: "phospho",
+                _modificationType: "CommonBiological",
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"),
                 _neutralLosses: new Dictionary<DissociationType, List<double>>
                 {
                     { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } }
-                }, 
+                },
                 _diagnosticIons: new Dictionary<DissociationType, List<double>>
                 {
                     { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } }
@@ -799,7 +796,7 @@ namespace Test
             Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.CID, FragmentationTerminus.Both, fragments);
-            CollectionAssert.AreEquivalent(new List<ProductType> {  ProductType.b, ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
+            CollectionAssert.AreEquivalent(new List<ProductType> { ProductType.b, ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.CID, FragmentationTerminus.N, fragments);
             Assert.AreEqual(new List<ProductType> { ProductType.b }, fragments.Select(b => b.ProductType).Distinct().ToList());
@@ -898,6 +895,18 @@ namespace Test
             var expected = new[] { 1, 2, 3, 4, 6, 8 };
 
             Assert.That(expected.SequenceEqual(ionNums));
+        }
+
+        [Test]
+        public static void TestFragmentationList()
+        {
+            PeptideWithSetModifications p = new PeptideWithSetModifications("MPEPTIDE", new Dictionary<string, Modification>());
+            var fragments = new List<Product>();
+            p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
+
+            var fragments2 = p.MemoryInefficientFragment(DissociationType.ETD, FragmentationTerminus.Both);
+
+            Assert.That(fragments.SequenceEqual(fragments2));
         }
 
         [Test]

@@ -506,7 +506,18 @@ namespace Proteomics.ProteolyticDigestion
                 products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
             }
         }
-        
+
+        /// <summary>
+        /// Generates theoretical fragments for given dissociation type for this peptide.
+        /// This is a non-memory efficient way of calling the Fragment method.
+        /// </summary>
+        public List<Product> MemoryInefficientFragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus)
+        {
+            List<Product> products = new List<Product>();
+            this.Fragment(dissociationType, fragmentationTerminus, products);
+            return products;
+        }
+
         public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
         {
             string essentialSequence = BaseSequence;
