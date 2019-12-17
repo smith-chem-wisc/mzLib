@@ -307,7 +307,7 @@ namespace UsefulProteomicsDatabases
 
                 //TODO:
                 //Variants in slided and random decoys can have long reaching consequences.
-                //The simplest situation (SAAV) allows for the amino acid to be substituted, but others (e.g. splicing or insertions) create a new numbers or combinations of amino acids.
+                //The simplest situation (SAAV) allows for the amino acid to be substituted, but others (e.g. splicing or insertions) create new numbers or combinations of amino acids.
                 //In these more complex situations, the two targets (unmodified and variant) appear largely homologous with the exception of the variant site.
                 //However, the two decoys from these targets are noticeably different when the amino acids are randomized, 
                 //such that the number of unique decoy peptides produced are likely to outweight the number of unique target peptides produced.
@@ -317,33 +317,41 @@ namespace UsefulProteomicsDatabases
                 List<SequenceVariation> decoyVariationsSlide = new List<SequenceVariation>();
                 foreach (SequenceVariation sv in protein.SequenceVariations)
                 {
+                    int numSlidesHere = numSlides;
                     char[] variationArrayUnslided = sv.VariantSequence.ToArray();
                     char[] variationArraySlided = sv.VariantSequence.ToArray();
 
-                    bool varInitM = false;
-                    if (sv.OneBasedBeginPosition == 1)
+                    //if initiator methionine, then don't move it
+                    if (sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal))
                     {
-                        varInitM = sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
-                        if (!varInitM)
+                        //shuffle non initiator methionine amino acids
+                        if (numSlidesHere % variationArraySlided.Length == 0)
                         {
-                            decoyVariationsSlide.Add(new SequenceVariation(1, "M", "", "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
+                            numSlidesHere++;
                         }
+                        for (int i = 0; i < variationArraySlided.Length; i++)
+                        {
+                            variationArraySlided[i] = variationArrayUnslided[GetOldShuffleIndex(i, numSlidesHere, variationArrayUnslided.Length, true)];
+                        }
+                        decoyVariationsSlide.Add(new SequenceVariation(1, "M", new string(variationArraySlided), "DECOY VARIANT: Initiator Methionine Change in " + sv.Description));
                     }
-
-                    int decoy_end = protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2 +
-                        Convert.ToInt32(sv.OneBasedEndPosition == slided_sequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
-                    int decoy_begin = decoy_end - sv.OriginalSequence.Length + 1;
-
-                    if (numSlides % variationArraySlided.Length == 0)
+                    else
                     {
-                        numSlides++;
-                    }
-                    for (int i = 0; i < variationArraySlided.Length; i++)
-                    {
-                        variationArraySlided[i] = variationArrayUnslided[GetOldShuffleIndex(i, numSlides, variationArrayUnslided.Length, varInitM)];
-                    }
+                        int decoy_begin = GetOldShuffleIndex(sv.OneBasedBeginPosition, numSlidesHere, sequenceArrayUnslided.Length, protein.BaseSequence.StartsWith("M", StringComparison.Ordinal));
+                        int decoy_end = decoy_begin + sv.OneBasedEndPosition - sv.OneBasedBeginPosition;
 
-                    decoyVariationsSlide.Add(new SequenceVariation(decoy_begin, decoy_end, sv.OriginalSequence, new string(variationArraySlided), "DECOY VARIANT: " + sv.Description));
+                        //shuffle the variant sequence
+                        if (numSlidesHere % variationArraySlided.Length == 0)
+                        {
+                            numSlidesHere++;
+                        }
+                        for (int i = 0; i < variationArraySlided.Length; i++)
+                        {
+                            variationArraySlided[i] = variationArrayUnslided[GetOldShuffleIndex(i, numSlidesHere, variationArrayUnslided.Length, protein.BaseSequence.StartsWith("M", StringComparison.Ordinal))];
+                        }
+
+                        decoyVariationsSlide.Add(new SequenceVariation(decoy_begin, decoy_end, sv.OriginalSequence, new string(variationArraySlided), "DECOY VARIANT: " + sv.Description));
+                    }
                 }
                 var decoyProteinSlide = new Protein(slided_sequence, "DECOY_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
                     protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);

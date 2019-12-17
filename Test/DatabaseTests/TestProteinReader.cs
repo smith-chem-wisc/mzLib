@@ -391,9 +391,14 @@ CF   O1
                 Assert.AreEqual(ok2[1].BaseSequence[bond.OneBasedEndPosition - 1], 'C');
             }
 
-            //sequence variants, just test it didn't hang up
+            //sequence variants, test it didn't hang up
             ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, nice, false,
     new string[] { "exclude_me" }, out un);
+
+            var decoyVariants = ok2[1].SequenceVariations.ToList();
+            Assert.AreEqual(decoyVariants[0].VariantSequence, "MLAAKLVMLL"); //variant should shuffle but keep initiator methionine
+            Assert.AreEqual(decoyVariants[0].OneBasedBeginPosition, 1);//shouldn't have changed
+            Assert.AreEqual(decoyVariants[1].OneBasedBeginPosition, 10); //30-20
         }
 
         [Test]
