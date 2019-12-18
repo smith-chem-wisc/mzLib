@@ -59,6 +59,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             FullSequence = sequence;
+            _baseSequence = GetBaseSequenceFromFullSequence(sequence);
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
@@ -847,7 +848,7 @@ namespace Proteomics.ProteolyticDigestion
         public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
         {
             GetModsAfterDeserialization(idToMod);
-            Protein = accessionToProtein[ProteinAccession];
+            GetProteinAfterDeserialization(accessionToProtein);
             _digestionParams = dp;
         }
 
@@ -909,6 +910,40 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 //else do nothing
             }
+        }
+
+        private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
+        {
+            Protein protein = null;
+
+            if (ProteinAccession != null && !idToProtein.TryGetValue(ProteinAccession, out protein))
+            {
+                throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
+            }
+
+            Protein = protein;
+        }
+
+        private string GetBaseSequenceFromFullSequence(string fullSequence)
+        {
+            StringBuilder sb = new StringBuilder();
+            int bracketCount = 0;
+            foreach(char c in fullSequence)
+            {
+                if(c=='[')
+                {
+                    bracketCount++;
+                }
+                else if (c==']')
+                {
+                    bracketCount--;
+                }
+                else if(bracketCount==0)
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
         }
 
         private void DetermineFullSequence()
