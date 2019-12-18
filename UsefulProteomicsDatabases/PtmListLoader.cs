@@ -229,43 +229,36 @@ namespace UsefulProteomicsDatabases
 
                         case "DR": // External database links!
                             var splitStringDR = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
-                            try
+                            if(_databaseReference==null)
                             {
-                                _databaseReference.TryGetValue(splitStringDR[0], out IList<string> val);
+                                _databaseReference = new Dictionary<string, IList<string>>();
+                                _databaseReference.Add(splitStringDR[0], new List<string> { splitStringDR[1] });
+                            }
+                            else if(_databaseReference.TryGetValue(splitStringDR[0], out IList<string> val))
+                            {
                                 val.Add(splitStringDR[1]);
                             }
-                            catch
+                            else
                             {
-                                if (_databaseReference == null)
-                                {
-                                    _databaseReference = new Dictionary<string, IList<string>>();
-                                    _databaseReference.Add(splitStringDR[0], new List<string> { splitStringDR[1] });
-                                }
-                                else
-                                {
-                                    _databaseReference.Add(splitStringDR[0], new List<string> { splitStringDR[1] });
-                                }
-                            }
+                                _databaseReference.Add(splitStringDR[0], new List<string> { splitStringDR[1] });
+                            }                            
                             break;
 
                         case "TR": // External database links!
                             var splitStringTR = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
-                            try
+
+                            if (_taxonomicRange == null)
                             {
-                                _taxonomicRange.TryGetValue(splitStringTR[0], out IList<string> val);
+                                _taxonomicRange = new Dictionary<string, IList<string>>();
+                                _taxonomicRange.Add(splitStringTR[0], new List<string> { splitStringTR[1] });
+                            }
+                            else if (_taxonomicRange.TryGetValue(splitStringTR[0], out IList<string> val))
+                            {
                                 val.Add(splitStringTR[1]);
                             }
-                            catch
+                            else
                             {
-                                if (_taxonomicRange == null)
-                                {
-                                    _taxonomicRange = new Dictionary<string, IList<string>>();
-                                    _taxonomicRange.Add(splitStringTR[0], new List<string> { splitStringTR[1] });
-                                }
-                                else
-                                {
-                                    _taxonomicRange.Add(splitStringTR[0], new List<string> { splitStringTR[1] });
-                                }
+                                _taxonomicRange.Add(splitStringTR[0], new List<string> { splitStringTR[1] });
                             }
                             break;
 
