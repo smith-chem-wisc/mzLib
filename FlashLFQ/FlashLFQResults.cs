@@ -27,9 +27,16 @@ namespace FlashLFQ
 
             foreach (Identification id in identifications)
             {
-                if (!PeptideModifiedSequences.ContainsKey(id.ModifiedSequence))
+                if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
                     PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.BaseSequence, id.UseForProteinQuant, id.ProteinGroups));
+                }
+                else
+                {
+                    foreach (ProteinGroup pg in id.ProteinGroups)
+                    {
+                        peptide.ProteinGroups.Add(pg);
+                    }
                 }
 
                 foreach (ProteinGroup proteinGroup in id.ProteinGroups)
