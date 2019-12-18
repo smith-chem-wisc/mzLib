@@ -924,7 +924,7 @@ namespace Proteomics.ProteolyticDigestion
             Protein = protein;
         }
 
-        private string GetBaseSequenceFromFullSequence(string fullSequence)
+        public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
