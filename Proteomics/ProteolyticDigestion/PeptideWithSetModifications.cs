@@ -853,7 +853,7 @@ namespace Proteomics.ProteolyticDigestion
 
         private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
         {
-            var _allModsOneIsNterminus = new Dictionary<int, Modification>();
+            _allModsOneIsNterminus = new Dictionary<int, Modification>();
             int currentModStart = 0;
             int currentModificationLocation = 1;
             bool currentlyReadingMod = false;
