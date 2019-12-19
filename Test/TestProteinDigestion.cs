@@ -6,8 +6,12 @@ using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -303,6 +307,49 @@ namespace Test
             List<Product> theoreticalFragments = new List<Product>();
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theoreticalFragments);
             Assert.That(theoreticalFragments.Count > 0);
+        }
+
+        [Test]
+        public static void TestBigDigestion()
+        {
+            string databasePath = @"C:\Data\__Databases\uniprot-filtered-reviewed_HomoSapiens.fasta";
+
+            var errors = new List<string>();
+            var proteins = ProteinDbLoader.LoadProteinFasta(databasePath, true, DecoyType.Reverse, false, out errors);
+
+            ModificationMotif.TryGetMotif("M", out var motif);
+            Modification oxidationOfM = new Modification(_originalId: "Oxidation", _modificationType: "Variable", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 16);
+
+            List<Modification> variableMods = new List<Modification> { oxidationOfM };
+            List<Modification> fixedMods = new List<Modification>();
+            DigestionParams digestParams = new DigestionParams();
+
+            var t = new List<PeptideWithSetModifications>(8000000);
+
+            Parallel.ForEach(Partitioner.Create(0, proteins.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount - 1 },
+                (range, loopState) =>
+                {
+                    List<int> listOfCleaveSites = new List<int>(1000);
+                    List<PeptideWithSetModifications> threadPeptides = new List<PeptideWithSetModifications>(2000000);
+                    Queue<(int, Modification)> mods = new Queue<(int, Modification)>();
+
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        var protein = proteins[i];
+
+                        foreach (PeptideWithSetModifications peptide in protein.NewFasterDigestion(digestParams, fixedMods, variableMods, listOfCleaveSites, mods))
+                        //foreach (PeptideWithSetModifications peptide in protein.Digest(digestParams, fixedMods, variableMods))
+                        {
+                            threadPeptides.Add(peptide);
+                        }
+                    }
+
+                    lock (t)
+                    {
+                        t.AddRange(threadPeptides);
+                    }
+                });
         }
     }
 }

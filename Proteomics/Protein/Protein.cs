@@ -256,6 +256,154 @@ namespace Proteomics
             return modifiedPeptides;
         }
 
+        public IEnumerable<PeptideWithSetModifications> NewFasterDigestion(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
+            List<Modification> variableModifications, List<int> listOfCleaveSites = null, Queue<(int, Modification)> variableModPositions = null)
+        {
+            var oxidationOnM = new Modification();
+
+            var digestionMotifs = digestionParams.Protease.DigestionMotifs;
+
+            if (listOfCleaveSites == null)
+            {
+                listOfCleaveSites = new List<int>();
+            }
+            else
+            {
+                listOfCleaveSites.Clear();
+            }
+
+            if (variableModPositions == null)
+            {
+                variableModPositions = new Queue<(int, Modification)>();
+            }
+            else
+            {
+                variableModPositions.Clear();
+            }
+
+            GetCleaveSites(digestionParams, listOfCleaveSites);
+
+            int startResidue;
+            int endIndex;
+            int endResidue;
+            int length;
+            int positionToStartLookingForNewMods = 0;
+
+            for (int startIndex = 0; startIndex < listOfCleaveSites.Count; startIndex++)
+            {
+                startResidue = listOfCleaveSites[startIndex];
+
+                for (int missedCleavages = 0; missedCleavages <= digestionParams.MaxMissedCleavages; missedCleavages++)
+                {
+                    endIndex = startIndex + 1 + missedCleavages;
+
+                    if (endIndex >= listOfCleaveSites.Count)
+                    {
+                        break;
+                    }
+
+                    endResidue = listOfCleaveSites[endIndex];
+
+                    GetVariableModificationSites(variableModPositions, startResidue, positionToStartLookingForNewMods, endResidue, variableModifications);
+                    positionToStartLookingForNewMods = endResidue + 1;
+
+                    length = endResidue - startResidue + 1;
+
+                    if (length >= digestionParams.MinPeptideLength)
+                    {
+                        yield return new PeptideWithSetModifications(this, digestionParams, startResidue + 1, endResidue + 1, CleavageSpecificity.Full,
+                            "", missedCleavages, new Dictionary<int, Modification>(), 0);
+
+                        // TODO no combinatorics yet
+                        // TODO fixed mods
+                        foreach (var variableModPosition in variableModPositions)
+                        {
+                            yield return new PeptideWithSetModifications(this, digestionParams, startResidue + 1, endResidue + 1, CleavageSpecificity.Full,
+                                "", missedCleavages, new Dictionary<int, Modification> { { variableModPosition.Item1, variableModPosition.Item2 } }, 0);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void GetCleaveSites(DigestionParams digestionParams, List<int> listOfCleaveSites)
+        {
+            for (int r = 0; r < BaseSequence.Length; r++)
+            {
+                int cutSiteIndex = -1;
+                bool cleavagePrevented = false;
+
+                for (int c = 0; c < digestionParams.Protease.DigestionMotifs.Count; c++)
+                {
+                    var motif = digestionParams.Protease.DigestionMotifs[c];
+
+                    var motifResults = motif.Fits(BaseSequence, r);
+                    bool motifFits = motifResults.Item1;
+                    bool motifPreventsCleavage = motifResults.Item2;
+
+                    if (motifFits && r + motif.CutIndex < BaseSequence.Length)
+                    {
+                        cutSiteIndex = Math.Max(r + motif.CutIndex - 1, cutSiteIndex);
+                    }
+
+                    if (motifPreventsCleavage) // if any motif prevents cleave
+                    {
+                        cleavagePrevented = true;
+                    }
+                }
+
+                // if no motif prevents cleave
+                if (!cleavagePrevented && cutSiteIndex != -1)
+                {
+                    listOfCleaveSites.Add(cutSiteIndex);
+                }
+            }
+
+            if (listOfCleaveSites.Count == 0 || listOfCleaveSites.First() != 0)
+            {
+                listOfCleaveSites.Insert(0, 0);
+            }
+
+            if (listOfCleaveSites.Last() != BaseSequence.Length - 1)
+            {
+                listOfCleaveSites.Add(BaseSequence.Length - 1);
+            }
+        }
+
+        public void GetVariableModificationSites(Queue<(int, Modification)> modSites, int start, int positionToStartLookingForNewMods, int end, List<Modification> variableModifications)
+        {
+            while (modSites.Count != 0 && modSites.Peek().Item1 < start)
+            {
+                modSites.Dequeue();
+            }
+
+            for (int r = positionToStartLookingForNewMods; r < end; r++)
+            {
+                int peptideOneBasedIndex = r - start + 1;
+                int peptideLength = end - start + 1;
+                int proteinOneBasedIndex = r + 1;
+
+                if (OneBasedPossibleLocalizedModifications.TryGetValue(r, out var modsAtThisLocation))
+                {
+                    for (int m = 0; m < modsAtThisLocation.Count; m++)
+                    {
+                        modSites.Enqueue((r, modsAtThisLocation[m]));
+                    }
+                }
+
+                for (int m = 0; m < variableModifications.Count; m++)
+                {
+                    var variableMod = variableModifications[m];
+                    var motif = variableMod.Target;
+                    
+                    if (ModificationLocalization.ModFits(variableMod, BaseSequence, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex))
+                    {
+                        modSites.Enqueue((r, variableMod));
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// Remove terminal modifications from the C-terminus of SingleN peptides and the N-terminus of SingleC peptides/
         /// These terminal modifications create redundant entries and increase search time
@@ -328,8 +476,8 @@ namespace Proteomics
                         originalLabels.AddRange(startLabel.AdditionalLabels);
                     }
                     SilacLabel startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == endLabel.OriginalAminoAcid).FirstOrDefault();
-                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ? 
-                        endLabel : 
+                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ?
+                        endLabel :
                         new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, endLabel.AminoAcidLabel, endLabel.LabelChemicalFormula, endLabel.ConvertMassDifferenceToDouble());
                     if (endLabel.AdditionalLabels != null)
                     {
@@ -344,12 +492,12 @@ namespace Proteomics
                     }
 
                     //double check that all labeled amino acids can become unlabeled/relabeled
-                    if(startLabel.AdditionalLabels!=null)
+                    if (startLabel.AdditionalLabels != null)
                     {
-                        foreach(SilacLabel originalLabel in originalLabels)
+                        foreach (SilacLabel originalLabel in originalLabels)
                         {
-                            if(updatedEndLabel.OriginalAminoAcid!= originalLabel.AminoAcidLabel && 
-                                (updatedEndLabel.AdditionalLabels==null || !updatedEndLabel.AdditionalLabels.Any(x=>x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
+                            if (updatedEndLabel.OriginalAminoAcid != originalLabel.AminoAcidLabel &&
+                                (updatedEndLabel.AdditionalLabels == null || !updatedEndLabel.AdditionalLabels.Any(x => x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
                             {
                                 updatedEndLabel.AddAdditionalSilacLabel(new SilacLabel(originalLabel.AminoAcidLabel, originalLabel.OriginalAminoAcid, originalLabel.LabelChemicalFormula, originalLabel.ConvertMassDifferenceToDouble()));
                             }

@@ -1,5 +1,6 @@
 ﻿using Proteomics;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -43,143 +44,157 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1)
         {
-            List<Protein> decoyProteins = new List<Protein>();
-            Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
+            Protein[] decoyProteins = new Protein[proteins.Count];
+
+            if (proteins.Count == 0)
             {
-                // reverse sequence
-                // Do not include the initiator methionine in reversal!!!
-                char[] sequenceArray = protein.BaseSequence.ToCharArray();
-                bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
-                if (startsWithM)
-                {
-                    Array.Reverse(sequenceArray, 1, protein.BaseSequence.Length - 1);
-                }
-                else
-                {
-                    Array.Reverse(sequenceArray);
-                }
-                string reversedSequence = new string(sequenceArray);
+                return decoyProteins.ToList();
+            }
 
-                // reverse nonvariant sequence
-                // Do not include the initiator methionine in reversal!!!
-                char[] nonVariantSequenceArray = protein.NonVariantProtein.BaseSequence.ToCharArray();
-                if (protein.NonVariantProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
-                {
-                    Array.Reverse(nonVariantSequenceArray, 1, protein.NonVariantProtein.BaseSequence.Length - 1);
-                }
-                else
-                {
-                    Array.Reverse(nonVariantSequenceArray);
-                }
-                string reversedNonVariantSequence = new string(nonVariantSequenceArray);
-
-                // reverse modifications
-                Dictionary<int, List<Modification>> decoyModifications = null;
-                if (startsWithM)
-                {
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
-                    foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
+            Parallel.ForEach(Partitioner.Create(0, proteins.Count),
+                    new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
+                    (range, loopState) =>
                     {
-                        if (kvp.Key > 1)
+                        for (int i = range.Item1; i < range.Item2; i++)
                         {
-                            decoyModifications.Add(protein.BaseSequence.Length - kvp.Key + 2, kvp.Value);
+                            Protein targetProtein = proteins[i];
+
+                            // reverse sequence
+                            // Do not include the initiator methionine in reversal!!!
+                            char[] sequenceArray = targetProtein.BaseSequence.ToCharArray();
+                            bool startsWithM = targetProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                            if (startsWithM)
+                            {
+                                Array.Reverse(sequenceArray, 1, targetProtein.BaseSequence.Length - 1);
+                            }
+                            else
+                            {
+                                Array.Reverse(sequenceArray);
+                            }
+                            string reversedSequence = new string(sequenceArray);
+
+                            // reverse nonvariant sequence
+                            // Do not include the initiator methionine in reversal!!!
+                            char[] nonVariantSequenceArray = targetProtein.NonVariantProtein.BaseSequence.ToCharArray();
+                            if (targetProtein.NonVariantProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                            {
+                                Array.Reverse(nonVariantSequenceArray, 1, targetProtein.NonVariantProtein.BaseSequence.Length - 1);
+                            }
+                            else
+                            {
+                                Array.Reverse(nonVariantSequenceArray);
+                            }
+                            string reversedNonVariantSequence = new string(nonVariantSequenceArray);
+
+                            // reverse modifications
+                            Dictionary<int, List<Modification>> decoyModifications = null;
+                            if (startsWithM)
+                            {
+                                decoyModifications = new Dictionary<int, List<Modification>>(targetProtein.OneBasedPossibleLocalizedModifications.Count);
+                                foreach (var kvp in targetProtein.OneBasedPossibleLocalizedModifications)
+                                {
+                                    if (kvp.Key > 1)
+                                    {
+                                        decoyModifications.Add(targetProtein.BaseSequence.Length - kvp.Key + 2, kvp.Value);
+                                    }
+                                    else if (kvp.Key == 1)
+                                    {
+                                        decoyModifications.Add(1, kvp.Value);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                decoyModifications = new Dictionary<int, List<Modification>>(targetProtein.OneBasedPossibleLocalizedModifications.Count);
+                                foreach (var kvp in targetProtein.OneBasedPossibleLocalizedModifications)
+                                {
+                                    decoyModifications.Add(targetProtein.BaseSequence.Length - kvp.Key + 1, kvp.Value);
+                                }
+                            }
+
+                            // reverse proteolysis products
+                            List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
+                            foreach (ProteolysisProduct pp in targetProtein.ProteolysisProducts)
+                            {
+                                // maintain lengths and approx position
+                                if (startsWithM)
+                                {
+                                    decoyPP.Add(new ProteolysisProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"DECOY {pp.Type}"));
+                                }
+                                else
+                                {
+                                    decoyPP.Add(new ProteolysisProduct(targetProtein.BaseSequence.Length - pp.OneBasedEndPosition + 1, targetProtein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"DECOY {pp.Type}"));
+                                }
+                            }
+
+                            List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
+                            foreach (DisulfideBond disulfideBond in targetProtein.DisulfideBonds)
+                            {
+                                // maintain the cysteine localizations
+                                if (startsWithM)
+                                {
+                                    decoyDisulfides.Add(new DisulfideBond(disulfideBond.OneBasedBeginPosition == 1 ? 1 : targetProtein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 2, targetProtein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 2, $"DECOY {disulfideBond.Description}"));
+                                }
+                                else
+                                {
+                                    decoyDisulfides.Add(new DisulfideBond(targetProtein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 1, targetProtein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 1, $"DECOY {disulfideBond.Description}"));
+                                }
+                            }
+
+                            // reverse splice sites
+                            List<SpliceSite> spliceSites = new List<SpliceSite>();
+                            foreach (SpliceSite spliceSite in targetProtein.SpliceSites)
+                            {
+                                // maintain the starting methionine localization
+                                if (startsWithM && spliceSite.OneBasedBeginPosition == 1 && spliceSite.OneBasedEndPosition == 1)
+                                {
+                                    spliceSites.Add(new SpliceSite(1, 1, $"DECOY {spliceSite.Description}"));
+                                }
+                                // maintain length, can't maintain localization to starting methionine in this case
+                                else if (startsWithM && spliceSite.OneBasedBeginPosition == 1)
+                                {
+                                    int end = targetProtein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1;
+                                    int begin = end - spliceSite.OneBasedEndPosition + spliceSite.OneBasedBeginPosition;
+                                    spliceSites.Add(new SpliceSite(begin, end, $"DECOY {spliceSite.Description}"));
+                                }
+                                else if (startsWithM)
+                                {
+                                    spliceSites.Add(new SpliceSite(targetProtein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 2, targetProtein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 2, $"DECOY {spliceSite.Description}"));
+                                }
+                                // maintain length and localization
+                                else
+                                {
+                                    spliceSites.Add(new SpliceSite(targetProtein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 1, targetProtein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1, $"DECOY {spliceSite.Description}"));
+                                }
+                            }
+
+                            List<SequenceVariation> decoyVariations = ReverseSequenceVariations(targetProtein.SequenceVariations, targetProtein.NonVariantProtein, reversedNonVariantSequence);
+                            List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(targetProtein.AppliedSequenceVariations, targetProtein, reversedSequence);
+
+                            var decoyProtein = new Protein(
+                                reversedSequence,
+                                "DECOY_" + targetProtein.Accession,
+                                targetProtein.Organism,
+                                targetProtein.GeneNames.ToList(),
+                                decoyModifications,
+                                decoyPP,
+                                targetProtein.Name,
+                                targetProtein.FullName,
+                                true,
+                                targetProtein.IsContaminant,
+                                null,
+                                decoyVariations,
+                                decoyAppliedVariations,
+                                targetProtein.SampleNameForVariants,
+                                decoyDisulfides,
+                                spliceSites,
+                                targetProtein.DatabaseFilePath);
+
+                            decoyProteins[i] = decoyProtein;
                         }
-                        else if (kvp.Key == 1)
-                        {
-                            decoyModifications.Add(1, kvp.Value);
-                        }
-                    }
-                }
-                else
-                {
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
-                    foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
-                    {
-                        decoyModifications.Add(protein.BaseSequence.Length - kvp.Key + 1, kvp.Value);
-                    }
-                }
+                    });
 
-                // reverse proteolysis products
-                List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
-                foreach (ProteolysisProduct pp in protein.ProteolysisProducts)
-                {
-                    // maintain lengths and approx position
-                    if (startsWithM)
-                    {
-                        decoyPP.Add(new ProteolysisProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"DECOY {pp.Type}"));
-                    }
-                    else
-                    {
-                        decoyPP.Add(new ProteolysisProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"DECOY {pp.Type}"));
-                    }
-                }
-
-                List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
-                foreach (DisulfideBond disulfideBond in protein.DisulfideBonds)
-                {
-                    // maintain the cysteine localizations
-                    if (startsWithM)
-                    {
-                        decoyDisulfides.Add(new DisulfideBond(disulfideBond.OneBasedBeginPosition == 1 ? 1 : protein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 2, protein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 2, $"DECOY {disulfideBond.Description}"));
-                    }
-                    else
-                    {
-                        decoyDisulfides.Add(new DisulfideBond(protein.BaseSequence.Length - disulfideBond.OneBasedEndPosition + 1, protein.BaseSequence.Length - disulfideBond.OneBasedBeginPosition + 1, $"DECOY {disulfideBond.Description}"));
-                    }
-                }
-
-                // reverse splice sites
-                List<SpliceSite> spliceSites = new List<SpliceSite>();
-                foreach (SpliceSite spliceSite in protein.SpliceSites)
-                {
-                    // maintain the starting methionine localization
-                    if (startsWithM && spliceSite.OneBasedBeginPosition == 1 && spliceSite.OneBasedEndPosition == 1)
-                    {
-                        spliceSites.Add(new SpliceSite(1, 1, $"DECOY {spliceSite.Description}"));
-                    }
-                    // maintain length, can't maintain localization to starting methionine in this case
-                    else if (startsWithM && spliceSite.OneBasedBeginPosition == 1)
-                    {
-                        int end = protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1;
-                        int begin = end - spliceSite.OneBasedEndPosition + spliceSite.OneBasedBeginPosition;
-                        spliceSites.Add(new SpliceSite(begin, end, $"DECOY {spliceSite.Description}"));
-                    }
-                    else if (startsWithM)
-                    {
-                        spliceSites.Add(new SpliceSite(protein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 2, protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 2, $"DECOY {spliceSite.Description}"));
-                    }
-                    // maintain length and localization
-                    else
-                    {
-                        spliceSites.Add(new SpliceSite(protein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 1, protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1, $"DECOY {spliceSite.Description}"));
-                    }
-                }
-
-                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.NonVariantProtein, reversedNonVariantSequence);
-                List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
-
-                var decoyProtein = new Protein(
-                    reversedSequence,
-                    "DECOY_" + protein.Accession,
-                    protein.Organism,
-                    protein.GeneNames.ToList(),
-                    decoyModifications,
-                    decoyPP,
-                    protein.Name,
-                    protein.FullName,
-                    true,
-                    protein.IsContaminant,
-                    null,
-                    decoyVariations,
-                    decoyAppliedVariations,
-                    protein.SampleNameForVariants,
-                    decoyDisulfides,
-                    spliceSites,
-                    protein.DatabaseFilePath);
-
-                lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
-            });
-            return decoyProteins;
+            return decoyProteins.ToList();
         }
 
         private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, Protein protein, string reversedSequence)
@@ -361,7 +376,7 @@ namespace UsefulProteomicsDatabases
             return decoyProteins;
         }
 
-        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
+        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods(char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
         {
             // Do not include the initiator methionine in shuffle!!!
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -383,7 +398,7 @@ namespace UsefulProteomicsDatabases
                 }
                 else
                 {
-                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, protein.BaseSequence.Length, initiatorMethionine)+1, kvp.Value);
+                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key - 1, numSlides, protein.BaseSequence.Length, initiatorMethionine) + 1, kvp.Value);
                 }
             }
 

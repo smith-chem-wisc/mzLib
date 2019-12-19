@@ -12,7 +12,19 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide
     {
-        public string FullSequence { get; private set; } //sequence with modifications
+        public string FullSequence
+        {
+            get
+            {
+                if (_fullSequence == null)
+                {
+                    DetermineFullSequence();
+                }
+
+                return _fullSequence;
+            }
+        }
+
         public readonly int NumFixedMods;
 
         /// <summary>
@@ -26,6 +38,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
+        private string _fullSequence;
 
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
@@ -38,7 +51,6 @@ namespace Proteomics.ProteolyticDigestion
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
-            DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
         }
@@ -58,7 +70,7 @@ namespace Proteomics.ProteolyticDigestion
                 throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
             }
 
-            FullSequence = sequence;
+            _fullSequence = sequence;
             _baseSequence = GetBaseSequenceFromFullSequence(sequence);
             GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
@@ -928,17 +940,17 @@ namespace Proteomics.ProteolyticDigestion
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
-            foreach(char c in fullSequence)
+            foreach (char c in fullSequence)
             {
-                if(c=='[')
+                if (c == '[')
                 {
                     bracketCount++;
                 }
-                else if (c==']')
+                else if (c == ']')
                 {
                     bracketCount--;
                 }
-                else if(bracketCount==0)
+                else if (bracketCount == 0)
                 {
                     sb.Append(c);
                 }
@@ -973,7 +985,7 @@ namespace Proteomics.ProteolyticDigestion
                 subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
             }
 
-            FullSequence = subsequence.ToString();
+            _fullSequence = subsequence.ToString();
         }
 
         private void UpdateCleavageSpecificity()

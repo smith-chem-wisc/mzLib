@@ -8,7 +8,7 @@ namespace Proteomics
         {
             // First find the capital letter...
             var motif = attemptToLocalize.Target;
-            var motifStartLocation = motif.ToString().IndexOf(motif.ToString().First(b => char.IsUpper(b)));
+            var motifStartLocation = motif.FirstIndexOfUpper;
 
             // Look up starting at and including the capital letter
             var proteinToMotifOffset = proteinOneBasedIndex - motifStartLocation - 1;
@@ -47,11 +47,12 @@ namespace Proteomics
         private static bool MotifMatches(char motifChar, char sequenceChar)
         {
             char upperMotifChar = char.ToUpper(motifChar);
-            return upperMotifChar.Equals('X')
-                || upperMotifChar.Equals(sequenceChar)
-                || upperMotifChar.Equals('B') && new[] { 'D', 'N' }.Contains(sequenceChar)
-                || upperMotifChar.Equals('J') && new[] { 'I', 'L' }.Contains(sequenceChar)
-                || upperMotifChar.Equals('Z') && new[] { 'E', 'Q' }.Contains(sequenceChar);
+
+            return (upperMotifChar == sequenceChar)
+                || (upperMotifChar == 'X')
+                || (upperMotifChar == 'B' && new[] { 'D', 'N' }.Contains(sequenceChar))
+                || (upperMotifChar == 'J' && new[] { 'I', 'L' }.Contains(sequenceChar))
+                || (upperMotifChar == 'Z' && new[] { 'E', 'Q' }.Contains(sequenceChar));
         }
     }
 }

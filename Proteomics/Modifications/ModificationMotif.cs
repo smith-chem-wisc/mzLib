@@ -6,11 +6,13 @@ namespace Proteomics
     public class ModificationMotif
     {
         private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
-        private readonly string motifString;
+        public readonly string MotifString;
+        public readonly int FirstIndexOfUpper;
 
         private ModificationMotif(string motif)
         {
-            motifString = motif;
+            MotifString = motif;
+            FirstIndexOfUpper = MotifString.IndexOf(motif.ToString().First(b => char.IsUpper(b)));
         }
 
         /// <summary>
@@ -34,17 +36,17 @@ namespace Proteomics
         {
             ModificationMotif m = o as ModificationMotif;
             return m != null
-                && m.motifString == motifString;
+                && m.MotifString == MotifString;
         }
 
         public override int GetHashCode()
         {
-            return motifString.GetHashCode();
+            return MotifString.GetHashCode();
         }
 
         public override string ToString()
         {
-            return motifString;
+            return MotifString;
         }
     }
 }

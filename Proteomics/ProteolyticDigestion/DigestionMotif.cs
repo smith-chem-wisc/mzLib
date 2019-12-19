@@ -117,6 +117,12 @@ namespace Proteomics.ProteolyticDigestion
             char currentResidue;
             int m;
 
+            // this check handles most proteases quickly (cleave at K, R, etc.)
+            if (InducingCleavage.Length == 1 && !MotifMatches(InducingCleavage[0], sequence[location]))
+            {
+                return (false, false);
+            }
+
             // check for inducing cleavage
             for (m = 0; m < InducingCleavage.Length && fits; m++) // handle patterns
             {
@@ -163,11 +169,11 @@ namespace Proteomics.ProteolyticDigestion
 
         private bool MotifMatches(char motifChar, char sequenceChar)
         {
-            return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludeFromWildcard)
-                || motifChar.Equals(sequenceChar)
-                || motifChar.Equals('B') && B.Contains(sequenceChar)
-                || motifChar.Equals('J') && J.Contains(sequenceChar)
-                || motifChar.Equals('Z') && Z.Contains(sequenceChar);
+            return motifChar == sequenceChar
+                || (motifChar == 'X' && !sequenceChar.ToString().Equals(ExcludeFromWildcard))
+                || (motifChar == 'B' && B.Contains(sequenceChar))
+                || (motifChar == 'J' && J.Contains(sequenceChar))
+                || (motifChar == 'Z' && Z.Contains(sequenceChar));
         }
     }
 }

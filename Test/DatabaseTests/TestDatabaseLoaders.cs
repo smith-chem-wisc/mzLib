@@ -49,7 +49,7 @@ namespace Test
         [Test]
         public static void LoadIsoforms()
         {            
-            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, out var errors);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409_2", protein[1].Accession);
             Assert.AreEqual("Q13409_3", protein[2].Accession);
@@ -159,7 +159,7 @@ namespace Test
             Loaders.LoadElements();
 
             var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
-            Assert.AreEqual(2677, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(2679, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -210,7 +210,7 @@ namespace Test
 
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
-            Assert.AreEqual(3022, sampleModList.Count());
+            Assert.AreEqual(3024, sampleModList.Count());
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
@@ -489,8 +489,7 @@ namespace Test
         public static void IsoformReadTest()
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\isoformTest.fasta");
-            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, out var dbErrors);
 
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }

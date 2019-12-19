@@ -23,7 +23,7 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
-        
+
         public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
         public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
 
@@ -51,6 +51,8 @@ namespace UsefulProteomicsDatabases
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
         {
+            Loaders.LoadElements();
+
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
@@ -151,11 +153,21 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Load a protein fasta database, using regular expressions to get various aspects of the headers. The first regex capture group is used as each field.
+        /// UniProt accession regexes are used by default, if the regex parameters are null.
         /// </summary>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant,
-            FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex,
-            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors, int maxThreads = -1)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
+            FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1)
         {
+            Loaders.LoadElements();
+
+            // use uniprot regex by default
+            accessionRegex = accessionRegex ?? UniprotAccessionRegex;
+            fullNameRegex = fullNameRegex ?? UniprotFullNameRegex;
+            nameRegex = nameRegex ?? UniprotNameRegex;
+            geneNameRegex = geneNameRegex ?? UniprotGeneNameRegex;
+            organismRegex = organismRegex ?? UniprotOrganismRegex;
+
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
             string accession = null;
@@ -377,8 +389,10 @@ namespace UsefulProteomicsDatabases
 
         public static string SanitizeAminoAcidSequence(string originalSequence, char replacementCharacter)
         {
+            // replace non-unicode characters
             string cleaned = UnicodeRegex.Replace(originalSequence, replacementCharacter.ToString());
 
+            // replace unknown amino acids
             for (int r = 0; r < cleaned.Length; r++)
             {
                 if (!Residue.TryGetResidue(cleaned[r], out Residue res))
