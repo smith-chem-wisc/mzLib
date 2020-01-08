@@ -119,6 +119,10 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj">
+      <Project>{2306BB69-886C-4B18-8329-B575079DFD67}</Project>
+      <Name>BayesianEstimation</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj">
       <Project>{CBE368BB-FC84-458D-8099-87A63D17AA3B}</Project>
       <Name>Chemistry</Name>

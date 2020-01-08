@@ -12,6 +12,7 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
+        public double IonizationEfficiency;
 
         public Peptide(string sequence, string baseSequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups)
         {

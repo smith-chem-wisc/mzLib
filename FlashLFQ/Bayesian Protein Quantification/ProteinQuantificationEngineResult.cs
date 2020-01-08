@@ -12,32 +12,32 @@ namespace FlashLFQ
         public readonly string BaseCondition;
         public readonly string TreatmentCondition;
         public readonly double FoldChangePointEstimate;
-        public readonly double ConditionIntensityPointEstimate;
         public readonly double StandardDeviationPointEstimate;
         public readonly double NuPointEstimate;
+
+        public readonly double ConditionIntensityPointEstimate;
 
         // the HDI_95 is the "95% highest density interval". this is the interval where 95% of the 
         // probability density is contained (in this case, for the estimate of the mean). 
         // it can be thought of as analogous to a 95% confidence interval.
         public readonly (double, double) MeanHDI_95;
-
-        public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;
+        
+        public int minNValidMmts;
         public double PosteriorErrorProbability { get; private set; }
         public double FalseDiscoveryRate { get; set; }
         public double? NullHypothesisCutoff { get; set; }
 
-        public ProteinQuantificationEngineResult(ProteinGroup protein, string condition1, string condition2, double[] mus, double[] sds, double[] nus,
-            List<(Peptide, List<double>)> fcs, double referenceIntensity)
+        protected ProteinQuantificationEngineResult(ProteinGroup protein, string condition1, string condition2, double[] mus, double[] sds, double[] nus)
         {
             this.protein = protein;
             this.BaseCondition = condition1;
             this.TreatmentCondition = condition2;
-            this.PeptideFoldChangeMeasurements = fcs;
+            //this.PeptideFoldChangeMeasurements = fcs;
             this.FoldChangePointEstimate = mus.Median();
             this.StandardDeviationPointEstimate = sds.Median();
             this.NuPointEstimate = nus.Median();
             this.MeanHDI_95 = Util.GetHighestDensityInterval(mus, 0.95);
-            this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
+            //this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
         }
 
         /// <summary>
@@ -96,9 +96,9 @@ namespace FlashLFQ
 
         public override string ToString()
         {
-            int nPeptides = PeptideFoldChangeMeasurements.Count;
-            int nMeasurements = PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
-            var measurementsString = PeptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F4"))));
+            //int nPeptides = PeptideFoldChangeMeasurements.Count;
+            //int nMeasurements = PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
+            //var measurementsString = PeptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F4"))));
 
             return
                 protein.ProteinGroupName + "\t" +
@@ -110,9 +110,9 @@ namespace FlashLFQ
                 FoldChangePointEstimate + "\t" +
                 StandardDeviationPointEstimate + "\t" +
                 ConditionIntensityPointEstimate + "\t" +
-                nPeptides + "\t" +
-                nMeasurements + "\t" +
-                string.Join(",", measurementsString) + "\t" +
+                //nPeptides + "\t" +
+                //nMeasurements + "\t" +
+                //string.Join(",", measurementsString) + "\t" +
                 PosteriorErrorProbability + "\t" +
                 FalseDiscoveryRate + "\t\t";
         }
