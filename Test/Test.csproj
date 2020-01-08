@@ -107,6 +107,9 @@
     <None Update="DatabaseTests\mzlibReducedMzXCorr.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\O43653.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\oblm.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
