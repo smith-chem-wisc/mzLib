@@ -122,14 +122,16 @@ namespace MassSpectrometry
             return MzSpectrum.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
         }
 
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,
+            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
         {
             if (IsolationRange == null)
             {
                 yield break;
             }
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
-                                                  .Where(b => b.peaks.Any(cc => isolationRange.Contains(cc.mz))))
+            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), 
+                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
+                                                  .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz))))
             {
                 yield return haha;
             }

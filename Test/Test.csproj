@@ -53,6 +53,7 @@
   <ItemGroup>
     <Compile Include="DatabaseTests\TestVariantProtein.cs" />
     <Compile Include="FakeMsDataFile.cs" />
+    <Compile Include="Ms2ScanWithSpecificMass.cs" />
     <Compile Include="SpectrumProcessingAndFiltering.cs" />
     <Compile Include="TestBayesianEstimation.cs" />
     <Compile Include="TestModFits.cs" />
