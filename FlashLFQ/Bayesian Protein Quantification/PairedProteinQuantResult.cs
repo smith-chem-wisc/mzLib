@@ -1,8 +1,7 @@
-﻿using System;
+﻿using MathNet.Numerics.Statistics;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
@@ -10,12 +9,145 @@ namespace FlashLFQ
     {
         public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;
 
-        public PairedProteinQuantResult(ProteinGroup protein, string condition1, string condition2, double[] mus, double[] sds, double[] nus, 
-            List<(Peptide peptide, List<double> foldChanges)> fcs) 
-            : base(protein, condition1, condition2, mus, sds, nus)
+        public PairedProteinQuantResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition,
+            bool useSharedPeptides, FlashLfqResults results, Dictionary<(Peptide, string, int), double> peptideToSampleQuantity)
+            : base(protein, peptides, controlCondition, treatmentCondition)
         {
-            this.PeptideFoldChangeMeasurements = fcs;
-            //this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
+            PeptideFoldChangeMeasurements = GetPeptideFoldChanges(useSharedPeptides, results, peptideToSampleQuantity);
+        }
+
+        /// <summary>
+        /// Estimates the fold-change between conditions for a protein, given its constituent peptides' fold change measurements.
+        /// </summary>
+        public void EstimateProteinFoldChange(int? randomSeed, int nBurnin, int n, double nullHypothesisCutoff = double.NaN)
+        {
+            bool skepticalPrior = !double.IsNaN(nullHypothesisCutoff);
+            
+            var res = ProteinQuantificationEngine.FitProteinQuantModel(
+                measurements: PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).ToList(),
+                skepticalPrior: skepticalPrior,
+                paired: true,
+                randomSeed: randomSeed,
+                burnin: nBurnin,
+                n: n,
+                nullHypothesisCutoff: nullHypothesisCutoff);
+
+            if (!skepticalPrior)
+            {
+                this.FoldChangePointEstimate = res.mus.Median();
+                this.StandardDeviationPointEstimate = res.sds.Median();
+                this.NuPointEstimate = res.sds.Median();
+            }
+            else
+            {
+                this.NullHypothesisInterval = nullHypothesisCutoff;
+                this.CalculatePosteriorErrorProbability(res.mus);
+            }
+        }
+        
+        public override string ToString()
+        {
+            int nPeptides = PeptideFoldChangeMeasurements.Count;
+            int nMeasurements = PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
+            var measurementsString = string.Join(",", PeptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F3")))));
+
+            if (measurementsString.Length > 32000)
+            {
+                measurementsString = "Too long for Excel";
+            }
+
+            return
+                Protein.ProteinGroupName + "\t" +
+                Protein.GeneName + "\t" +
+                Protein.Organism + "\t" +
+                ControlCondition + "\t" +
+                TreatmentCondition + "\t" +
+                NullHypothesisInterval.Value + "\t" +
+                FoldChangePointEstimate + "\t" +
+                StandardDeviationPointEstimate + "\t" +
+                ControlConditionIntensity + "\t" +
+                TreatmentConditionIntensity + "\t" +
+                nPeptides + "\t" +
+                nMeasurements + "\t" +
+                measurementsString + "\t" +
+                PosteriorErrorProbability + "\t" +
+                FalseDiscoveryRate + "\t\t";
+        }
+
+        public static new string TabSeparatedHeader()
+        {
+            return
+                "Protein Group" + "\t" +
+                "Gene" + "\t" +
+                "Organism" + "\t" +
+                "Control Condition" + "\t" +
+                "Treatment Condition" + "\t" +
+                "Log2 Fold-Change Cutoff" + "\t" +
+                "Protein Log2 Fold-Change" + "\t" +
+                "Standard Deviation of Peptide Log2 Fold-Changes" + "\t" +
+                "Protein Intensity in Control Condition" + "\t" +
+                "Protein Intensity in Treatment Condition" + "\t" +
+                "Number of Peptides" + "\t" +
+                "Number of Fold-Change Measurements" + "\t" +
+                "List of Fold-Change Measurements Grouped by Peptide" + "\t" +
+                "Posterior Error Probability" + "\t" +
+                "False Discovery Rate" + "\t\t";
+        }
+        
+        /// <summary>
+        /// Computes a list of fold-change measurements between the constituent peptides of this protein between the control and treatment condition.
+        /// </summary>
+        private List<(Peptide peptide, List<double> foldChanges)> GetPeptideFoldChanges(bool useSharedPeptides, FlashLfqResults flashLfqResults,
+            Dictionary<(Peptide, string, int), double> PeptideToSampleQuantity)
+        {
+            List<(Peptide, List<double>)> allPeptideFoldChanges = new List<(Peptide, List<double>)>();
+
+            int numSamples = flashLfqResults.SpectraFiles.Where(p => p.Condition == ControlCondition).Max(p => p.BiologicalReplicate) + 1;
+
+            foreach (Peptide peptide in Peptides)
+            {
+                if (!peptide.UseForProteinQuant || (!useSharedPeptides && peptide.ProteinGroups.Count > 1))
+                {
+                    continue;
+                }
+
+                List<double> peptideFoldChanges = new List<double>();
+
+                for (int sample = 0; sample < numSamples; sample++)
+                {
+                    if (PeptideToSampleQuantity.TryGetValue((peptide, ControlCondition, sample), out double controlIntensity)
+                        && PeptideToSampleQuantity.TryGetValue((peptide, TreatmentCondition, sample), out double treatmentIntensity))
+                    {
+                        double? foldChange = GetLogFoldChange(controlIntensity, treatmentIntensity);
+
+                        if (foldChange != null)
+                        {
+                            peptideFoldChanges.Add(foldChange.Value);
+                            NMeasurements++;
+                        }
+                    }
+                }
+
+                allPeptideFoldChanges.Add((peptide, peptideFoldChanges));
+            }
+
+            return allPeptideFoldChanges;
+        }
+        
+        /// <summary>
+        /// Computes the log-fold change between two intensities. If there is an error (e.g., one of the intensities is zero), 
+        /// null is returned.
+        /// </summary>
+        private double? GetLogFoldChange(double intensity1, double intensity2)
+        {
+            double logFoldChange = Math.Log(intensity2, 2) - Math.Log(intensity1, 2);
+
+            if (!double.IsNaN(logFoldChange) && !double.IsInfinity(logFoldChange))
+            {
+                return logFoldChange;
+            }
+
+            return null;
         }
     }
 }

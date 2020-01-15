@@ -289,17 +289,27 @@ namespace FlashLFQ
                         return;
                     }
 
+                    string tabSepHeader = null;
+
+                    if (firstProteinQuantResults.First().Value is PairedProteinQuantResult)
+                    {
+                        tabSepHeader = PairedProteinQuantResult.TabSeparatedHeader();
+                    }
+                    else
+                    {
+                        tabSepHeader = UnpairedProteinQuantResult.TabSeparatedHeader();
+                    }
+
                     foreach (var condition in firstProteinQuantResults.Keys)
                     {
-                        header.Append(ProteinQuantificationEngineResult.TabSeparatedHeader());
+                        header.Append(tabSepHeader);
 
                         int p = 0;
-
-                        // sort by protein false discovery rate, then by number of fold-change measurements
+                        
+                        // sort by protein false discovery rate, then by number of measurements
                         foreach (var protein in ProteinGroups
                             .OrderBy(v => v.Value.ConditionToQuantificationResults[condition].FalseDiscoveryRate)
-                            //.ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].PeptideFoldChangeMeasurements.SelectMany(b => b.foldChanges).Count())
-                            )
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].NMeasurements))
                         {
                             proteinStringBuilders[p].Append(
                                 protein.Value.ConditionToQuantificationResults[condition].ToString());
