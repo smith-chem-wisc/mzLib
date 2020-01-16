@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MathNet.Numerics.Statistics;
+using System;
 using System.Collections.Generic;
 
 namespace MassSpectrometry
@@ -6,7 +7,7 @@ namespace MassSpectrometry
     public class IsotopicEnvelope
     {
         public readonly List<(double mz, double intensity)> Peaks;
-        public readonly double MonoisotopicMass;
+        public double MonoisotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
         public readonly double StDev;
@@ -36,9 +37,14 @@ namespace MassSpectrometry
                 0;
         }
 
-        public void AddToIsotopeScore(double valueToAdd)
+        public void AggregateChargeState(IsotopicEnvelope chargeStateEnvelope)
         {
-            Score += valueToAdd;
+            Score += chargeStateEnvelope.Score;
+        }
+
+        public void SetMedianMonoisotopicMass(List<double> monoisotopicMassPredictions)
+        {
+            MonoisotopicMass = monoisotopicMassPredictions.Median();
         }
     }
 }

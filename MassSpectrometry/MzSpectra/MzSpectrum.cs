@@ -21,6 +21,7 @@ using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -230,17 +231,11 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Shortreed's idea for top-down ms1 deconvolution (Jan. 6, 2020)
-        /// Useful for non-isotopically resolved envelopes
+        /// Potential utility for non-isotopically resolved envelopes
         /// deconvolute the whole spectrum by treating every peak as charge 1, 2, 3, etc and recording the masses
         /// do a histogram to find which masses have multiple charge states: those are the real species
-        /// Could possibly avoid doing the whole spectrum by just targeting the area of interest
+        /// Could possibly avoid doing the whole spectrum by just targeting areas of interest
         /// </summary>
-        /// <param name="theRange"></param>
-        /// <param name="minAssumedChargeState"></param>
-        /// <param name="maxAssumedChargeState"></param>
-        /// <param name="deconvolutionTolerancePpm"></param>
-        /// <param name="intensityRatioLimit"></param>
-        /// <returns></returns>
         //public IEnumerable<IsotopicEnvelope> TopDownDeconvolution(int minAssumedChargeState, int maxAssumedChargeState)
         //{
         //    //cycle through all charge states
@@ -260,9 +255,9 @@ namespace MassSpectrometry
             (int start, int end) indexes = ExtractIndices(theRange.Minimum, theRange.Maximum);
             //find most intense peak in the range
             double maxIntensity = 0;
-            for(int index = indexes.start; index<indexes.end; index++)
+            for (int index = indexes.start; index < indexes.end; index++)
             {
-                if(YArray[index]>maxIntensity)
+                if (YArray[index] > maxIntensity)
                 {
                     maxIntensity = YArray[index];
                 }
@@ -271,13 +266,37 @@ namespace MassSpectrometry
             for (int candidateForMostIntensePeakIndex = indexes.start; candidateForMostIntensePeakIndex < indexes.end; candidateForMostIntensePeakIndex++)
             {
                 double candidateForMostIntensePeakIntensity = YArray[candidateForMostIntensePeakIndex];
-                if (candidateForMostIntensePeakIntensity * 20 >= maxIntensity) //ignore peptides that are over 10 times less intense than the most intense peak in the range.
+                if (candidateForMostIntensePeakIntensity * 100 >= maxIntensity) //ignore peptides that are over 100 times less intense than the most intense peak in the range (heuristic from Top-Down yeast)
                 {
                     IsotopicEnvelope bestIsotopeEnvelopeForThisPeak = null;
 
                     double candidateForMostIntensePeakMz = XArray[candidateForMostIntensePeakIndex];
 
-                    for (int chargeState = minAssumedChargeState; chargeState <= maxAssumedChargeState; chargeState++)
+                    //insert awesome Lei code here
+                    HashSet<int> allPossibleChargeStates = new HashSet<int>();
+                    for (int i = candidateForMostIntensePeakIndex + 1; i < XArray.Length; i++)
+                    {
+                        double deltaMass = XArray[i] - candidateForMostIntensePeakMz;
+                        if (deltaMass < 1.1)
+                        {
+                            int charge = (int)Math.Floor(1 / deltaMass);
+                            if (charge >= minAssumedChargeState && charge <= maxAssumedChargeState)
+                            {
+                                allPossibleChargeStates.Add(charge);
+                            }
+                            charge++;
+                            if (charge >= minAssumedChargeState && charge <= maxAssumedChargeState)
+                            {
+                                allPossibleChargeStates.Add(charge);
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    foreach(int chargeState in allPossibleChargeStates)
                     {
                         double testMostIntenseMass = candidateForMostIntensePeakMz.ToMass(chargeState);
 
@@ -290,20 +309,30 @@ namespace MassSpectrometry
                         {
                             break;
                         }
-
-                        IsotopicEnvelope test = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
-                            testMostIntenseMass, chargeState, deconvolutionTolerancePpm, intensityRatioLimit);
-                        if (test.Peaks.Count >= 2 && (bestIsotopeEnvelopeForThisPeak==null || test.Score > bestIsotopeEnvelopeForThisPeak.Score))
+                        if (massIndex != 0 && mostIntenseMasses[massIndex] - testMostIntenseMass > testMostIntenseMass - mostIntenseMasses[massIndex - 1])
                         {
-                            if (test.Charge >= 5) //look for other charge states if we suspect there to be multiple charge states
-                            {
-                                ObserveAdjacentChargeStates(test, candidateForMostIntensePeakMz, massIndex, deconvolutionTolerancePpm, intensityRatioLimit, minAssumedChargeState, maxAssumedChargeState);
-                            }
+                            massIndex--;
+                        }
 
-                            bestIsotopeEnvelopeForThisPeak = test;
+                        List<double> monoisotopicMassPredictions = new List<double>();
+                        IsotopicEnvelope test = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
+                            testMostIntenseMass, chargeState, deconvolutionTolerancePpm, intensityRatioLimit, monoisotopicMassPredictions);
+                        
+                        if (test.Peaks.Count >= 2) //if there are at least two isotopes
+                        {
+                            //look for other charge states, using them for scoring and monoisotopic mass estimates
+                            //need to use this method before comparing scores because it changes the score of the test envelope
+                            int numOtherChargeStatesObserved = ObserveAdjacentChargeStates(test, candidateForMostIntensePeakMz, massIndex, deconvolutionTolerancePpm, intensityRatioLimit, minAssumedChargeState, maxAssumedChargeState, monoisotopicMassPredictions);
+
+                            //is this the best charge state for this peak?
+                            if ((bestIsotopeEnvelopeForThisPeak == null || test.Score > bestIsotopeEnvelopeForThisPeak.Score) && //and the score is better for this charge state than others
+                             (test.Charge / 5 <= numOtherChargeStatesObserved)) //and if we suspect there to be multiple charge states and there are (higher the charge, more states expected)
+                            {
+                               test.SetMedianMonoisotopicMass(monoisotopicMassPredictions);
+                                bestIsotopeEnvelopeForThisPeak = test;
+                            }
                         }
                     }
-
                     if (bestIsotopeEnvelopeForThisPeak != null)
                     {
                         isolatedMassesAndCharges.Add(bestIsotopeEnvelopeForThisPeak);
@@ -326,7 +355,7 @@ namespace MassSpectrometry
             }
         }
 
-        public IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
+        public IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
             double[] theoreticalMasses = allMasses[massIndex];
             double[] theoreticalIntensities = allIntensities[massIndex];
@@ -335,17 +364,19 @@ namespace MassSpectrometry
             var listOfRatios = new List<double> { theoreticalIntensities[0] / candidateForMostIntensePeakIntensity }; // theoreticalIntensities and theoreticalMasses are sorted by intensity, so first is most intense
             // Assuming the test peak is most intense...
             // Try to find the rest of the isotopes!
-            double differenceBetweenTheorAndActualMass = testMostIntenseMass - mostIntenseMasses[massIndex]; //mass difference actual-theoretical
+            double differenceBetweenTheorAndActualMass = testMostIntenseMass - theoreticalMasses[0]; //mass difference actual-theoretical for the tallest peak (not necessarily the monoisotopic)
             double totalIntensity = candidateForMostIntensePeakIntensity;
-
+            double monoisotopicMass = testMostIntenseMass - diffToMonoisotopic[massIndex]; //get the  monoisotopic by taking the most intense mass minus the expected mass difference between most intense and monoisotopic
+            monoisotopicMassPredictions.Add(monoisotopicMass); 
             for (int indexToLookAt = 1; indexToLookAt < theoreticalIntensities.Length; indexToLookAt++) //cycle through all theoretical peaks in this envelope from most intense to least intense
             {
-                double theorMassThatTryingToFind = theoreticalMasses[indexToLookAt] + differenceBetweenTheorAndActualMass; //get the mass to look for
-                var closestPeakToTheorMass = GetClosestPeakIndex(theorMassThatTryingToFind.ToMz(chargeState)); //find the experimental peak
-                var closestPeakmz = XArray[closestPeakToTheorMass.Value];
-                var closestPeakIntensity = YArray[closestPeakToTheorMass.Value];
+                double theorMassThatTryingToFind = theoreticalMasses[indexToLookAt] + differenceBetweenTheorAndActualMass; //get the expected mass of the next most intense peak
+                int closestPeakToTheorMass = GetClosestPeakIndex(theorMassThatTryingToFind.ToMz(chargeState)); //find the experimental peak for that mass
+                double closestPeakmz = XArray[closestPeakToTheorMass];
+                double closestPeakIntensity = YArray[closestPeakToTheorMass];
+                double closestPeakMass = closestPeakmz.ToMass(chargeState);
                 //if the peak is within the deconvolution tolerance, has the correct intensity, and hasn't already been observed
-                if (Math.Abs(closestPeakmz.ToMass(chargeState) - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
+                if (Math.Abs(closestPeakMass - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
                     && Peak2satisfiesRatio(theoreticalIntensities[0], theoreticalIntensities[indexToLookAt], candidateForMostIntensePeakIntensity, closestPeakIntensity, intensityRatioLimit)
                     && !listOfObservedPeaks.Contains((closestPeakmz, closestPeakIntensity)))
                 {
@@ -353,6 +384,10 @@ namespace MassSpectrometry
                     listOfObservedPeaks.Add((closestPeakmz, closestPeakIntensity)); //add to observed list
                     totalIntensity += closestPeakIntensity; //add intensity
                     listOfRatios.Add(theoreticalIntensities[indexToLookAt] / closestPeakIntensity); //add ratio
+                    double monoisotopicMassFromThisPeak = monoisotopicMass + closestPeakMass - theorMassThatTryingToFind;
+                    if(monoisotopicMassFromThisPeak>14096.630 && monoisotopicMassFromThisPeak<14096.631)
+                    { }
+                    monoisotopicMassPredictions.Add(monoisotopicMassFromThisPeak);
                 }
                 else
                 {
@@ -360,24 +395,29 @@ namespace MassSpectrometry
                 }
             }
 
-            var extrapolatedMonoisotopicMass = testMostIntenseMass - diffToMonoisotopic[massIndex]; // Optimized for proteoforms!!
-            var lowestMass = listOfObservedPeaks.Min(b => b.Item1).ToMass(chargeState); // But may actually observe this small peak
-            var monoisotopicMass = Math.Abs(extrapolatedMonoisotopicMass - lowestMass) < 0.5 ? lowestMass : extrapolatedMonoisotopicMass;
-            //This is a horrible way to determine the monoisotopic mass that does not use other isotopes for mass accuracy
+            //This is a (seemingly) horrible way to determine the monoisotopic mass that does not use other isotopes for mass accuracy
+            //double extrapolatedMonoisotopicMass = testMostIntenseMass - diffToMonoisotopic[massIndex]; // Optimized for proteoforms!!
+            //double lowestMass = listOfObservedPeaks.Min(b => b.Item1).ToMass(chargeState); // But may actually observe this small peak
+            //double monoisotopicMass = Math.Abs(extrapolatedMonoisotopicMass - lowestMass) < 0.5 ? lowestMass : extrapolatedMonoisotopicMass; //why would you want this.
 
             return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, MathNet.Numerics.Statistics.Statistics.StandardDeviation(listOfRatios), massIndex);
         }
 
-        public void ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor)
+        public int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor, List<double> monoisotopicMassPredictions)
         {
             //look for the higher and lower charge state to confirm this thing exists
             //look lower
+            int numAdjacentChargeStatesObserved = 0;
             int originalZ = originalEnvelope.Charge;
             double mostAbundantNeutralIsotope = mostIntensePeakMz.ToMass(originalZ);
 
             for (int lowerZ = originalZ - 1; lowerZ >= minChargeToLookFor; lowerZ--)
             {
-                if (!FindChargeStateOfMass(originalEnvelope, lowerZ, mostAbundantNeutralIsotope, massIndex, deconvolutionTolerancePpm, intensityRatioLimit))
+                if (FindChargeStateOfMass(originalEnvelope, lowerZ, mostAbundantNeutralIsotope, massIndex, deconvolutionTolerancePpm, intensityRatioLimit, monoisotopicMassPredictions))
+                {
+                    numAdjacentChargeStatesObserved++;
+                }
+                else
                 {
                     break;
                 }
@@ -385,34 +425,44 @@ namespace MassSpectrometry
 
             for (int higherZ = originalZ + 1; higherZ<=maxChargeToLookFor; higherZ++)
             {
-                if (!FindChargeStateOfMass(originalEnvelope, higherZ, mostAbundantNeutralIsotope, massIndex, deconvolutionTolerancePpm, intensityRatioLimit))
+                if (FindChargeStateOfMass(originalEnvelope, higherZ, mostAbundantNeutralIsotope, massIndex, deconvolutionTolerancePpm, intensityRatioLimit, monoisotopicMassPredictions))
+                {
+                    numAdjacentChargeStatesObserved++;
+                }
+                else
                 {
                     break;
                 }
             }
+            return numAdjacentChargeStatesObserved;
         }
 
-        private bool FindChargeStateOfMass(IsotopicEnvelope originalEnvelope, int zToInvestigate, double mostAbundantNeutralIsotopeToInvestigate, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit)
+        private bool FindChargeStateOfMass(IsotopicEnvelope originalEnvelope, int zToInvestigate, double mostAbundantNeutralIsotopeToInvestigate, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
-            double mostAbundantIsotopeMzForThisZ = mostAbundantNeutralIsotopeToInvestigate.ToMz(zToInvestigate);
+            double mostAbundantIsotopeMzForThisZTheoretical = mostAbundantNeutralIsotopeToInvestigate.ToMz(zToInvestigate);
             //let's go find that peak!
-            int observedPeakIndex = Array.BinarySearch(XArray, mostAbundantIsotopeMzForThisZ);
-            if (observedPeakIndex < 0)
+            int observedPeakIndex = GetClosestPeakIndex(mostAbundantIsotopeMzForThisZTheoretical);
+
+            double mostAbundantIsotopeMzObserved = XArray[observedPeakIndex];
+            double mostAbundantIsotopeMassObserved = mostAbundantIsotopeMzObserved.ToMass(zToInvestigate);
+            //make sure it's within range
+            if (Math.Abs(mostAbundantIsotopeMassObserved - mostAbundantNeutralIsotopeToInvestigate) / mostAbundantNeutralIsotopeToInvestigate * 1e6 <= deconvolutionTolerancePpm)
             {
-                observedPeakIndex = ~observedPeakIndex;
-            }
-            if (observedPeakIndex == XArray.Length)
-            {
-                return false;
-            }
-            IsotopicEnvelope test = FindIsotopicEnvelope(massIndex, XArray[observedPeakIndex], YArray[observedPeakIndex], mostAbundantNeutralIsotopeToInvestigate,
-                zToInvestigate, deconvolutionTolerancePpm, intensityRatioLimit);
-            
-            //Want add this isotope score to the previous one. We have more peaks that support this mass than just the original isotopic envelope
-            if (test.Score != 0)
-            {
-                originalEnvelope.AddToIsotopeScore(test.Score);
-                return true;
+                IsotopicEnvelope test = FindIsotopicEnvelope(massIndex, mostAbundantIsotopeMzObserved, YArray[observedPeakIndex], mostAbundantIsotopeMassObserved,
+                    zToInvestigate, deconvolutionTolerancePpm, intensityRatioLimit, monoisotopicMassPredictions);
+
+                //Want add this isotope score to the previous one. We have more peaks that support this mass than just the original isotopic envelope
+                if (test.Score != 0)
+                {
+                    originalEnvelope.AggregateChargeState(test);
+                    return true;
+                }
+                else
+                {
+                    //remove the test mass from this failed isotopic envelope
+                    monoisotopicMassPredictions.RemoveAt(monoisotopicMassPredictions.Count - 1);
+                    return false;
+                }
             }
             else
             {
@@ -506,8 +556,8 @@ namespace MassSpectrometry
                 }
             }
 
-            this.YArray = intensites.ToArray();
-            this.XArray = masses.ToArray();
+            YArray = intensites.ToArray();
+            XArray = masses.ToArray();
             Array.Sort(this.XArray, this.YArray);
             XcorrProcessed = true;
         }
@@ -535,12 +585,8 @@ namespace MassSpectrometry
             }
         }
 
-        public int? GetClosestPeakIndex(double x)
+        public int GetClosestPeakIndex(double x)
         {
-            if (Size == 0)
-            {
-                return null;
-            }
             int index = Array.BinarySearch(XArray, x);
             if (index >= 0)
             {
@@ -588,7 +634,7 @@ namespace MassSpectrometry
             {
                 return null;
             }
-            return XArray[GetClosestPeakIndex(x).Value];
+            return XArray[GetClosestPeakIndex(x)];
         }
 
         public int NumPeaksWithinRange(double minX, double maxX)

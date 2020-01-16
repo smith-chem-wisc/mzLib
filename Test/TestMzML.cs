@@ -38,7 +38,7 @@ namespace Test
         public static void zzzzztesttest()
         {
             string origDataFile = @"D:\170710_Desktop\Chemistry\Smith Research\TopDown\2019-12-10-10-50-45\Task1-CalibrateTask\2805_2807.mzml";
-            FilteringParams filter = new FilteringParams(200, .01, null, null, false, false, true);
+            FilteringParams filter = new FilteringParams();
             MsDataFile file = Mzml.LoadAllStaticData(origDataFile, filter, 6);
             Ms2ScanWithSpecificMass[] arrayOfMs2ScansSortedByMass = GetMs2Scans(file, origDataFile).OrderBy(b => b.PrecursorMass).ToArray();
             List<string> lines = new List<string>();
@@ -46,7 +46,7 @@ namespace Test
             {
                 lines.Add(scan.OneBasedScanNumber.ToString() + '\t' + scan.PrecursorMass.ToString() + '\t' + scan.PrecursorCharge.ToString());
             }
-            File.WriteAllLines(@"D:\170710_Desktop\Chemistry\Smith Research\TopDown\output_ChargeStateObservation.txt", lines);
+            File.WriteAllLines(@"D:\170710_Desktop\Chemistry\Smith Research\TopDown\output_ChargeStateObservationIsotopeMass.txt", lines);
         }
 
         public static IEnumerable<Ms2ScanWithSpecificMass> GetMs2Scans(MsDataFile myMSDataFile, string fullFilePath)
