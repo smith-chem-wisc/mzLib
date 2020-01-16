@@ -21,6 +21,8 @@ namespace FlashLFQ
         /// </summary>
         public void EstimateProteinFoldChange(int? randomSeed, int nBurnin, int n, double nullHypothesisCutoff = double.NaN)
         {
+            IsStatisticallyValid = this.PeptideFoldChangeMeasurements.Count > 1;
+
             bool skepticalPrior = !double.IsNaN(nullHypothesisCutoff);
             
             var res = ProteinQuantificationEngine.FitProteinQuantModel(

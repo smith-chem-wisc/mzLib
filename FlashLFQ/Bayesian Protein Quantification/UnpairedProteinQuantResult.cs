@@ -11,6 +11,7 @@ namespace FlashLFQ
         public readonly Dictionary<string, double[]> ConditionToMeanEstimates;
         public readonly Dictionary<string, double[]> ConditionToSdEstimates;
         public readonly Dictionary<string, double[]> ConditionToSkepticalPriorMuEstimates;
+        public readonly Dictionary<string, HashSet<Peptide>> ConditionToPeptidesUsedForQuant;
 
         public UnpairedProteinQuantResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition,
             bool useSharedPeptides, FlashLfqResults results, Dictionary<(Peptide, string, int), double> peptideToSampleQuantity, List<int> randomSeeds, int nBurnin)
@@ -20,6 +21,7 @@ namespace FlashLFQ
             ConditionToMeanEstimates = new Dictionary<string, double[]>();
             ConditionToSdEstimates = new Dictionary<string, double[]>();
             ConditionToSkepticalPriorMuEstimates = new Dictionary<string, double[]>();
+            ConditionToPeptidesUsedForQuant = new Dictionary<string, HashSet<Peptide>>();
 
             GetPeptideSampleQuantities(useSharedPeptides, results, peptideToSampleQuantity, randomSeeds, nBurnin);
         }
@@ -27,6 +29,9 @@ namespace FlashLFQ
         public void EstimateProteinFoldChange(int? randomSeed, int nBurnin, int nSteps, 
             double controlNullHypothesisInterval = double.NaN, double treatmentNullHypothesisInterval = double.NaN)
         {
+            IsStatisticallyValid = this.ConditionsWithPeptideSampleQuantities[ControlCondition].Count > 1 
+                && this.ConditionsWithPeptideSampleQuantities[TreatmentCondition].Count > 1;
+
             bool skepticalPrior = !double.IsNaN(controlNullHypothesisInterval) || !double.IsNaN(treatmentNullHypothesisInterval);
             double propagatedNullInterval = Math.Sqrt(Math.Pow(controlNullHypothesisInterval, 2) + Math.Pow(treatmentNullHypothesisInterval, 2));
 
@@ -164,6 +169,8 @@ namespace FlashLFQ
         {
             if (!ConditionsWithPeptideSampleQuantities.ContainsKey(ControlCondition))
             {
+                ConditionToPeptidesUsedForQuant.Add(ControlCondition, new HashSet<Peptide>());
+
                 int numSamples = flashLfqResults.SpectraFiles.Where(p => p.Condition == ControlCondition).Max(p => p.BiologicalReplicate) + 1;
                 ConditionsWithPeptideSampleQuantities.Add(ControlCondition, new List<double>());
                 List<double> peptideSampleIntensities = new List<double>();
@@ -207,6 +214,7 @@ namespace FlashLFQ
                     {
                         foreach (double intensity in peptideSampleIntensities)
                         {
+                            ConditionToPeptidesUsedForQuant[ControlCondition].Add(peptide);
                             ConditionsWithPeptideSampleQuantities[ControlCondition].Add(Math.Log(intensity / peptide.IonizationEfficiency, 2));
                             NMeasurements++;
                         }
@@ -216,6 +224,7 @@ namespace FlashLFQ
 
             if (!ConditionsWithPeptideSampleQuantities.ContainsKey(TreatmentCondition))
             {
+                ConditionToPeptidesUsedForQuant.Add(TreatmentCondition, new HashSet<Peptide>());
                 ConditionsWithPeptideSampleQuantities.Add(TreatmentCondition, new List<double>());
 
                 for (int i = 0; i < Peptides.Count; i++)
@@ -230,6 +239,7 @@ namespace FlashLFQ
                         {
                             if (PeptideToSampleQuantity.TryGetValue((peptide, TreatmentCondition, sample), out double sampleIntensity) && sampleIntensity > 0)
                             {
+                                ConditionToPeptidesUsedForQuant[TreatmentCondition].Add(peptide);
                                 ConditionsWithPeptideSampleQuantities[TreatmentCondition].Add(Math.Log(sampleIntensity / peptide.IonizationEfficiency, 2));
                                 NMeasurements++;
                             }

@@ -1,6 +1,4 @@
-﻿using BayesianEstimation;
-using MathNet.Numerics.Statistics;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -30,6 +28,7 @@ namespace FlashLFQ
         public double FalseDiscoveryRate { get; set; }
         public double? NullHypothesisInterval { get; set; }
         public int NMeasurements { get; protected set; }
+        public bool IsStatisticallyValid { get; protected set; }
 
         protected ProteinQuantificationEngineResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition)
         {
@@ -66,6 +65,12 @@ namespace FlashLFQ
                 return;
             }
 
+            if (!IsStatisticallyValid)
+            {
+                PosteriorErrorProbability = 1;
+                return;
+            }
+
             int numIncreasing = musWithSkepticalPrior.Count(p => p > NullHypothesisInterval);
             int numDecreasing = musWithSkepticalPrior.Count(p => p < -NullHypothesisInterval);
 
@@ -92,7 +97,7 @@ namespace FlashLFQ
 
             PosteriorErrorProbability = nullHypothesisCount / musWithSkepticalPrior.Length;
         }
-        
+
         protected static string TabSeparatedHeader()
         {
             return "";

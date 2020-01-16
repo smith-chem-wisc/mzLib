@@ -1,4 +1,5 @@
 ﻿using BayesianEstimation;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
@@ -38,7 +39,7 @@ namespace FlashLFQ
         private readonly MersenneTwister Rng;
         private Dictionary<ProteinGroup, List<Peptide>> ProteinsWithConstituentPeptides;
         private Dictionary<(Peptide, string, int), double> PeptideToSampleQuantity;
-        private List<(double, double)> PeptideIntensityNoiseEstimates;
+        private Dictionary<string, List<(double, double)>> PeptideIntensityNoiseEstimates;
         public Dictionary<(ProteinGroup, string), (double, double)> ProteinAndConditionToNullHypothesisInterval { get; private set; }
         public readonly int RandomSeed;
 
@@ -168,6 +169,34 @@ namespace FlashLFQ
                 //    nullHypothesisTreatment = NullHypothesisInterval == null ? DetermineExperimentalNull(treatmentCondition).Item2 : NullHypothesisInterval.Value;
                 //}
 
+                Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        ProteinGroup protein = proteinList[i].Key;
+
+                        (double, double) nullHypInterval = ProteinAndConditionToNullHypothesisInterval[(protein, treatmentCondition)];
+                        double nullHypControl = nullHypInterval.Item1;
+                        double nullHypTreatment = nullHypInterval.Item2;
+
+                        ProteinQuantificationEngineResult result = protein.ConditionToQuantificationResults[treatmentCondition];
+
+                        if (PairedSamples)
+                        {
+                            var pairedResult = (PairedProteinQuantResult)result;
+                            pairedResult.EstimateProteinFoldChange(randomSeedsForEachProtein[protein][1], BurnInSteps, McmcSteps, nullHypTreatment);
+                        }
+                        else
+                        {
+                            var unpairedResult = (UnpairedProteinQuantResult)result;
+                            unpairedResult.EstimateProteinFoldChange(randomSeedsForEachProtein[protein][1], BurnInSteps, McmcSteps, nullHypControl, nullHypTreatment);
+                        }
+                    }
+                });
+            }
+
+            foreach (string treatmentCondition in treatmentConditions)
+            {
                 Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
                 {
                     for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
@@ -384,27 +413,144 @@ namespace FlashLFQ
             }
 
             // per-protein null interval based on peptide-level noise data (preferred)
-            if (PeptideIntensityNoiseEstimates != null)
+            if (PeptideIntensityNoiseEstimates.All(p => p.Value != null))
             {
-                foreach (string condition in conditions.Where(p => p != ControlCondition))
+                foreach (string treatmentCondition in conditions.Where(p => p != ControlCondition))
                 {
                     foreach (var proteinWithPeptides in ProteinsWithConstituentPeptides)
                     {
                         ProteinGroup protein = proteinWithPeptides.Key;
                         List<Peptide> peptides = proteinWithPeptides.Value;
 
-                        (double, double) proteinSpecificNull;
+                        (double, double) proteinSpecificNull = (0, 0);
 
                         if (PairedSamples)
                         {
-
+                            //TODO
                         }
                         else
                         {
+                            double controlNullInterval = 0;
+                            double treatmentNullInterval = 0;
+                            var controlPeptides = ((UnpairedProteinQuantResult)protein.ConditionToQuantificationResults[treatmentCondition]).ConditionToPeptidesUsedForQuant[ControlCondition];
+                            var treatmentPeptides = ((UnpairedProteinQuantResult)protein.ConditionToQuantificationResults[treatmentCondition]).ConditionToPeptidesUsedForQuant[treatmentCondition];
 
+                            // treatment
+                            List<StudentT> normals = new List<StudentT>();
+
+                            foreach (var peptide in treatmentPeptides)
+                            {
+                                int nMeasurements = 0;
+                                int samples = Results.SpectraFiles.Where(p => p.Condition == treatmentCondition).Max(p => p.BiologicalReplicate) + 1;
+                                for (int i = 0; i < samples; i++)
+                                {
+                                    if (PeptideToSampleQuantity.TryGetValue((peptide, treatmentCondition, i), out double intensity) && intensity > 0)
+                                    {
+                                        nMeasurements++;
+                                    }
+                                }
+
+                                var log2Noise = GetNoiseFromPeptide(peptide, treatmentCondition);
+
+                                if (log2Noise == null)
+                                {
+                                    continue;
+                                }
+
+                                StudentT n = new StudentT(0, log2Noise.Value, 1.0);
+
+                                for (int i = 0; i < nMeasurements; i++)
+                                {
+                                    normals.Add(n);
+                                }
+                            }
+
+                            if (!normals.Any())
+                            {
+                                treatmentNullInterval = 1.0;
+                            }
+                            else
+                            {
+                                for (double n = 0.01; n < 100; n += 0.01)
+                                {
+                                    double total = 0;
+
+                                    foreach (StudentT normal in normals)
+                                    {
+                                        double area = normal.CumulativeDistribution(n) - normal.CumulativeDistribution(-n);
+                                        total += area;
+                                    }
+
+                                    double fraction = total / normals.Count;
+
+                                    if (fraction >= 0.5)
+                                    {
+                                        treatmentNullInterval = n;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // control
+                            normals = new List<StudentT>();
+
+                            foreach (var peptide in controlPeptides)
+                            {
+                                int nMeasurements = 0;
+                                int samples = Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Max(p => p.BiologicalReplicate) + 1;
+                                for (int i = 0; i < samples; i++)
+                                {
+                                    if (PeptideToSampleQuantity.TryGetValue((peptide, ControlCondition, i), out double intensity) && intensity > 0)
+                                    {
+                                        nMeasurements++;
+                                    }
+                                }
+
+                                var log2Noise = GetNoiseFromPeptide(peptide, ControlCondition);
+
+                                if (log2Noise == null)
+                                {
+                                    continue;
+                                }
+
+                                StudentT n = new StudentT(0, log2Noise.Value, 1.0);
+
+                                for (int i = 0; i < nMeasurements; i++)
+                                {
+                                    normals.Add(n);
+                                }
+                            }
+
+                            if (!normals.Any())
+                            {
+                                controlNullInterval = 1.0;
+                            }
+                            else
+                            {
+                                for (double n = 0.01; n < 100; n += 0.01)
+                                {
+                                    double total = 0;
+
+                                    foreach (StudentT normal in normals)
+                                    {
+                                        double area = normal.CumulativeDistribution(n) - normal.CumulativeDistribution(-n);
+                                        total += area;
+                                    }
+
+                                    double fraction = total / normals.Count;
+
+                                    if (fraction >= 0.5)
+                                    {
+                                        controlNullInterval = n;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            proteinSpecificNull = (controlNullInterval, treatmentNullInterval);
                         }
 
-                        ProteinAndConditionToNullHypothesisInterval.Add((protein, condition), proteinSpecificNull);
+                        ProteinAndConditionToNullHypothesisInterval.Add((protein, treatmentCondition), proteinSpecificNull);
                     }
                 }
 
@@ -502,20 +648,28 @@ namespace FlashLFQ
         private void DeterminePeptideNoiseValues()
         {
             var peptides = Results.PeptideModifiedSequences.Values.ToList();
-            PeptideIntensityNoiseEstimates = new List<(double, double)>();
-
-            if (peptides.Count < 100)
-            {
-                PeptideIntensityNoiseEstimates = null;
-                return;
-            }
+            PeptideIntensityNoiseEstimates = new Dictionary<string, List<(double, double)>>();
 
             var conditions = Results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
 
-            List<(double, double)> peptideIntensityToStdev = new List<(double, double)>();
+            foreach (var condition in conditions)
+            {
+                PeptideIntensityNoiseEstimates.Add(condition, new List<(double, double)>());
+            }
 
+            if (peptides.Count < 100)
+            {
+                foreach (var condition in conditions)
+                {
+                    PeptideIntensityNoiseEstimates[condition] = null;
+                }
+
+                return;
+            }
+            
             foreach (string condition in conditions)
             {
+                List<(double, double)> peptideIntensityToStdev = new List<(double, double)>();
                 var samples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
 
                 List<double> intensities = new List<double>();
@@ -539,73 +693,97 @@ namespace FlashLFQ
                         peptideIntensityToStdev.Add((median, stdev));
                     }
                 }
-            }
 
-            if (peptideIntensityToStdev.Count < 100)
-            {
-                PeptideIntensityNoiseEstimates = null;
-                return;
-            }
-
-            peptideIntensityToStdev.Sort((x, y) => y.Item1.CompareTo(x.Item1));
-            var queue = new Queue<(double, double)>(peptideIntensityToStdev);
-
-            int numPeptidesPerBin = Math.Min(100, peptideIntensityToStdev.Count / 10);
-
-            List<List<(double, double)>> peptideIntensitiesAndStdevBinned = new List<List<(double, double)>>();
-            List<(double, double)> bin = new List<(double, double)>();
-
-            while (queue.Any())
-            {
-                var element = queue.Dequeue();
-                bin.Add(element);
-
-                if (bin.Count == numPeptidesPerBin)
+                if (peptideIntensityToStdev.Count < 100)
                 {
-                    peptideIntensitiesAndStdevBinned.Add(bin);
-                    bin = new List<(double, double)>();
+                    PeptideIntensityNoiseEstimates[condition] = null;
+                    return;
                 }
-            }
 
-            Dictionary<int, int> randomSeeds = new Dictionary<int, int>();
-            for (int i = 0; i < peptideIntensitiesAndStdevBinned.Count; i++)
-            {
-                randomSeeds.Add(i, Rng.NextFullRangeInt32());
-            }
+                peptideIntensityToStdev.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+                var queue = new Queue<(double, double)>(peptideIntensityToStdev);
 
-            Parallel.ForEach(Partitioner.Create(0, peptideIntensitiesAndStdevBinned.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
-            {
-                for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                int numPeptidesPerBin = Math.Min(100, peptideIntensityToStdev.Count / 10);
+
+                List<List<(double, double)>> peptideIntensitiesAndStdevBinned = new List<List<(double, double)>>();
+                List<(double, double)> bin = new List<(double, double)>();
+
+                while (queue.Any())
                 {
-                    var theBin = peptideIntensitiesAndStdevBinned[i];
+                    var element = queue.Dequeue();
+                    bin.Add(element);
 
-                    var stdevs = theBin.Select(p => p.Item2).ToList();
-                    var res = FitProteinQuantModel(stdevs, false, false, randomSeeds[i], BurnInSteps, 1000, 0);
-                    double stdevEstimate = res.mus.Median();
-                    double intensityEstimate = theBin.Select(p => p.Item1).Median();
-
-                    lock (PeptideIntensityNoiseEstimates)
+                    if (bin.Count == numPeptidesPerBin)
                     {
-                        PeptideIntensityNoiseEstimates.Add((intensityEstimate, stdevEstimate));
+                        peptideIntensitiesAndStdevBinned.Add(bin);
+                        bin = new List<(double, double)>();
                     }
                 }
-            });
 
-            PeptideIntensityNoiseEstimates.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+                Dictionary<int, int> randomSeeds = new Dictionary<int, int>();
+                for (int i = 0; i < peptideIntensitiesAndStdevBinned.Count; i++)
+                {
+                    randomSeeds.Add(i, Rng.NextFullRangeInt32());
+                }
+
+                Parallel.ForEach(Partitioner.Create(0, peptideIntensitiesAndStdevBinned.Count),
+                    new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                    {
+                        for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                        {
+                            var theBin = peptideIntensitiesAndStdevBinned[i];
+
+                            var stdevs = theBin.Select(p => p.Item2).ToList();
+                            var res = FitProteinQuantModel(stdevs, false, false, randomSeeds[i], BurnInSteps, 1000, 0);
+                            double stdevEstimate = res.mus.Median();
+                            double intensityEstimate = theBin.Select(p => p.Item1).Median();
+
+                            var estimates = PeptideIntensityNoiseEstimates[condition];
+
+                            lock (estimates)
+                            {
+                                estimates.Add((intensityEstimate, stdevEstimate));
+                            }
+                        }
+                    });
+
+                PeptideIntensityNoiseEstimates[condition].Sort((x, y) => y.Item1.CompareTo(x.Item1));
+            }
         }
 
-        private double GetNoiseFromPeptideIntensity(double intensity)
+        private double? GetNoiseFromPeptide(Peptide peptide, string condition)
         {
-            double logIntensity = Math.Log(intensity, 2);
+            int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+
+            List<double> peptideIntensities = new List<double>();
+            for (int s = 0; s < numSamples; s++)
+            {
+                peptideIntensities.Add(PeptideToSampleQuantity[(peptide, condition, s)]);
+            }
+
+            if (peptideIntensities.Count < 1)
+            {
+                return null;
+            }
+
+            double medianIntensity = peptideIntensities.Median();
+
+            if (double.IsNaN(medianIntensity) || double.IsInfinity(medianIntensity))
+            {
+                return null;
+            }
+
+            double logIntensity = Math.Log(medianIntensity, 2);
 
             double noiseEstimate = 0;
 
-            for (int i = 0; i < PeptideIntensityNoiseEstimates.Count; i++)
-            {
-                noiseEstimate = PeptideIntensityNoiseEstimates[i].Item2;
+            var noiseEstimatesForCondition = PeptideIntensityNoiseEstimates[condition];
 
-                if (i == PeptideIntensityNoiseEstimates.Count - 1 || logIntensity > PeptideIntensityNoiseEstimates[i + 1].Item2)
+            for (int i = 0; i < noiseEstimatesForCondition.Count; i++)
+            {
+                noiseEstimate = noiseEstimatesForCondition[i].Item2;
+
+                if (i == noiseEstimatesForCondition.Count - 1 || logIntensity > noiseEstimatesForCondition[i + 1].Item1)
                 {
                     break;
                 }
@@ -620,7 +798,8 @@ namespace FlashLFQ
         private void CalculateFalseDiscoveryRates(List<ProteinQuantificationEngineResult> bayesianProteinQuantificationResults)
         {
             var bayesianQuantResults = bayesianProteinQuantificationResults
-                .OrderByDescending(p => 1.0 - p.PosteriorErrorProbability)
+                .OrderByDescending(p => p.IsStatisticallyValid)
+                .ThenByDescending(p => 1.0 - p.PosteriorErrorProbability)
                 .ThenByDescending(p => p.NMeasurements)
                 .ToList();
 
