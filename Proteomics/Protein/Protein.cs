@@ -3,6 +3,7 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Combinatorics.Collections;
 
 namespace Proteomics
 {
@@ -257,9 +258,11 @@ namespace Proteomics
         }
 
         public IEnumerable<PeptideWithSetModifications> NewFasterDigestion(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
-            List<Modification> variableModifications, List<int> listOfCleaveSites = null, Queue<(int, Modification)> variableModPositions = null)
+            List<Modification> variableModifications, List<int> temp1 = null, List<(int location, Modification mod)> temp2 = null)
         {
             var oxidationOnM = new Modification();
+            var listOfCleaveSites = temp1;
+            var variableAndAnnotatedModPositions = temp2;
 
             var digestionMotifs = digestionParams.Protease.DigestionMotifs;
 
@@ -272,26 +275,26 @@ namespace Proteomics
                 listOfCleaveSites.Clear();
             }
 
-            if (variableModPositions == null)
+            if (variableAndAnnotatedModPositions == null)
             {
-                variableModPositions = new Queue<(int, Modification)>();
+                variableAndAnnotatedModPositions = new List<(int, Modification)>();
             }
             else
             {
-                variableModPositions.Clear();
+                variableAndAnnotatedModPositions.Clear();
             }
 
             GetCleaveSites(digestionParams, listOfCleaveSites);
 
-            int startResidue;
+            int zeroBasedStartResidueInProtein;
             int endIndex;
-            int endResidue;
-            int length;
+            int zeroBasedEndResidueInProtein;
+            int peptideLength;
             int positionToStartLookingForNewMods = 0;
 
             for (int startIndex = 0; startIndex < listOfCleaveSites.Count; startIndex++)
             {
-                startResidue = listOfCleaveSites[startIndex];
+                zeroBasedStartResidueInProtein = listOfCleaveSites[startIndex];
 
                 for (int missedCleavages = 0; missedCleavages <= digestionParams.MaxMissedCleavages; missedCleavages++)
                 {
@@ -302,24 +305,93 @@ namespace Proteomics
                         break;
                     }
 
-                    endResidue = listOfCleaveSites[endIndex];
+                    zeroBasedEndResidueInProtein = listOfCleaveSites[endIndex];
 
-                    GetVariableModificationSites(variableModPositions, startResidue, positionToStartLookingForNewMods, endResidue, variableModifications);
-                    positionToStartLookingForNewMods = endResidue + 1;
+                    GetVariableAndAnnotatedModificationSites(variableAndAnnotatedModPositions, zeroBasedStartResidueInProtein, positionToStartLookingForNewMods, zeroBasedEndResidueInProtein, variableModifications);
 
-                    length = endResidue - startResidue + 1;
-
-                    if (length >= digestionParams.MinPeptideLength)
+                    if (zeroBasedEndResidueInProtein + 1 > positionToStartLookingForNewMods)
                     {
-                        yield return new PeptideWithSetModifications(this, digestionParams, startResidue + 1, endResidue + 1, CleavageSpecificity.Full,
-                            "", missedCleavages, new Dictionary<int, Modification>(), 0);
+                        positionToStartLookingForNewMods = zeroBasedEndResidueInProtein + 1;
+                    }
 
-                        // TODO no combinatorics yet
-                        // TODO fixed mods
-                        foreach (var variableModPosition in variableModPositions)
+                    peptideLength = zeroBasedEndResidueInProtein - zeroBasedStartResidueInProtein + 1;
+
+                    if (peptideLength >= digestionParams.MinPeptideLength)
+                    {
+                        var fixedMods = new Dictionary<int, Modification>();
+
+                        // fixed mods
+                        int numFixedMods = 0;
+                        for (int fixedModLocation = zeroBasedStartResidueInProtein; fixedModLocation < zeroBasedEndResidueInProtein; fixedModLocation++)
                         {
-                            yield return new PeptideWithSetModifications(this, digestionParams, startResidue + 1, endResidue + 1, CleavageSpecificity.Full,
-                                "", missedCleavages, new Dictionary<int, Modification> { { variableModPosition.Item1, variableModPosition.Item2 } }, 0);
+                            int peptideOneBasedIndex = fixedModLocation - zeroBasedStartResidueInProtein + 1;
+                            int proteinOneBasedIndex = fixedModLocation + 1;
+
+                            foreach (Modification fixedMod in allKnownFixedModifications)
+                            {
+                                if (ModificationLocalization.ModFits(fixedMod, BaseSequence, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex)
+                                    && !fixedMods.ContainsKey(peptideOneBasedIndex + 1))
+                                {
+                                    fixedMods.Add(peptideOneBasedIndex + 1, fixedMod);
+                                    numFixedMods++;
+                                }
+                            }
+                        }
+
+                        yield return new PeptideWithSetModifications(this, digestionParams, zeroBasedStartResidueInProtein + 1,
+                            zeroBasedEndResidueInProtein + 1, CleavageSpecificity.Full,
+                            "", missedCleavages, fixedMods, numFixedMods);
+
+                        // fixed, variable, annotated mods
+                        foreach (var variableOrAnnotatedMod in variableAndAnnotatedModPositions)
+                        {
+                            int locationOfModInPeptide = variableOrAnnotatedMod.location - zeroBasedStartResidueInProtein + 2;
+                            var fixedAndVariableMods = fixedMods.ToDictionary(p => p.Key, v => v.Value);
+
+                            if (!fixedAndVariableMods.ContainsKey(locationOfModInPeptide))
+                            {
+                                fixedAndVariableMods.Add(locationOfModInPeptide, variableOrAnnotatedMod.mod);
+
+                                yield return new PeptideWithSetModifications(this, digestionParams, zeroBasedStartResidueInProtein + 1,
+                                    zeroBasedEndResidueInProtein + 1, CleavageSpecificity.Full,
+                                    "", missedCleavages, fixedAndVariableMods, numFixedMods);
+                            }
+                        }
+
+                        // fixed mods, variable/annotated mod combinatorics
+                        if (variableAndAnnotatedModPositions.Count > 1)
+                        {
+                            int nIsoforms = 0;
+                            var combos = new Combinations<(int location, Modification mod)>(variableAndAnnotatedModPositions, 2);
+
+                            foreach (var combo in combos)
+                            {
+                                var modsForPeptideWithVariableMods = fixedMods.ToDictionary(p => p.Key, v => v.Value);
+
+                                // add the mods for this combo
+                                foreach (var variableModPosition in combo)
+                                {
+                                    int locationOfModInPeptide = variableModPosition.location - zeroBasedStartResidueInProtein + 2;
+
+                                    if (!modsForPeptideWithVariableMods.ContainsKey(locationOfModInPeptide))
+                                    {
+                                        modsForPeptideWithVariableMods.Add(locationOfModInPeptide, variableModPosition.mod);
+                                    }
+                                }
+
+                                if (nIsoforms < digestionParams.MaxModificationIsoforms)
+                                {
+                                    yield return new PeptideWithSetModifications(this, digestionParams, zeroBasedStartResidueInProtein + 1,
+                                           zeroBasedEndResidueInProtein + 1, CleavageSpecificity.Full,
+                                           "", missedCleavages, modsForPeptideWithVariableMods, numFixedMods);
+
+                                    nIsoforms++;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
@@ -370,11 +442,11 @@ namespace Proteomics
             }
         }
 
-        public void GetVariableModificationSites(Queue<(int, Modification)> modSites, int start, int positionToStartLookingForNewMods, int end, List<Modification> variableModifications)
+        public void GetVariableAndAnnotatedModificationSites(List<(int, Modification)> modSites, int start, int positionToStartLookingForNewMods, int end, List<Modification> variableModifications)
         {
-            while (modSites.Count != 0 && modSites.Peek().Item1 < start)
+            while (modSites.Count != 0 && modSites[0].Item1 < start)
             {
-                modSites.Dequeue();
+                modSites.Remove(modSites[0]);
             }
 
             for (int r = positionToStartLookingForNewMods; r < end; r++)
@@ -383,22 +455,24 @@ namespace Proteomics
                 int peptideLength = end - start + 1;
                 int proteinOneBasedIndex = r + 1;
 
+                // database-annotated mods
                 if (OneBasedPossibleLocalizedModifications.TryGetValue(r, out var modsAtThisLocation))
                 {
                     for (int m = 0; m < modsAtThisLocation.Count; m++)
                     {
-                        modSites.Enqueue((r, modsAtThisLocation[m]));
+                        modSites.Add((r, modsAtThisLocation[m]));
                     }
                 }
 
+                // variable mods
                 for (int m = 0; m < variableModifications.Count; m++)
                 {
                     var variableMod = variableModifications[m];
                     var motif = variableMod.Target;
-                    
+
                     if (ModificationLocalization.ModFits(variableMod, BaseSequence, peptideOneBasedIndex, peptideLength, proteinOneBasedIndex))
                     {
-                        modSites.Enqueue((r, variableMod));
+                        modSites.Add((r, variableMod));
                     }
                 }
             }

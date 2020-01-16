@@ -312,16 +312,20 @@ namespace Test
         [Test]
         public static void TestBigDigestion()
         {
-            string databasePath = @"C:\Data\__Databases\uniprot-filtered-reviewed_HomoSapiens.fasta";
+            string databasePath = @"G:\My Drive\Mass Spec Data and Protein Databases\MM_Vignette\uniprot-filtered-reviewed_yes+AND+organism__Homo+sapiens+(Human)+[96--.fasta";
 
             var errors = new List<string>();
-            var proteins = ProteinDbLoader.LoadProteinFasta(databasePath, true, DecoyType.Reverse, false, out errors);
+            var proteins = ProteinDbLoader.LoadProteinFasta(databasePath, true, DecoyType.Reverse, false, out errors)
+                //.Take(100)
+                .ToList();
 
             ModificationMotif.TryGetMotif("M", out var motif);
+            ModificationMotif.TryGetMotif("C", out var fixedmotif);
             Modification oxidationOfM = new Modification(_originalId: "Oxidation", _modificationType: "Variable", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 16);
+            Modification carbOfC = new Modification(_originalId: "Carbamidomethyl", _modificationType: "Fixed", _target: fixedmotif, _locationRestriction: "Anywhere.", _monoisotopicMass: 57);
 
             List<Modification> variableMods = new List<Modification> { oxidationOfM };
-            List<Modification> fixedMods = new List<Modification>();
+            List<Modification> fixedMods = new List<Modification> { carbOfC };
             DigestionParams digestParams = new DigestionParams();
 
             var t = new List<PeptideWithSetModifications>(8000000);
@@ -332,7 +336,7 @@ namespace Test
                 {
                     List<int> listOfCleaveSites = new List<int>(1000);
                     List<PeptideWithSetModifications> threadPeptides = new List<PeptideWithSetModifications>(2000000);
-                    Queue<(int, Modification)> mods = new Queue<(int, Modification)>();
+                    List<(int, Modification)> mods = new List<(int, Modification)>();
 
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
