@@ -37,7 +37,7 @@ namespace MassSpectrometry
                 0;
         }
 
-        public void AggregateChargeState(IsotopicEnvelope chargeStateEnvelope)
+        public void AggregateChargeStateScore(IsotopicEnvelope chargeStateEnvelope)
         {
             Score += chargeStateEnvelope.Score;
         }
