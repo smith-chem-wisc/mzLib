@@ -1,33 +1,31 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net471;netstandard2.0</TargetFrameworks>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
-  
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net471'">
-    <DefineConstants>NETFRAMEWORK</DefineConstants>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
-  
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net471|AnyCPU'">
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   
   <ItemGroup>
+    <PackageReference Include="MathNet.Numerics" Version="4.8.1" />
+    <PackageReference Include="NetSerializer" Version="4.1.1" />
+    <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzML\MzML.csproj" />
-    <ProjectReference Include="..\Spectra\Spectra.csproj" />
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="Accord.Math" Version="3.8.0" />
-    <PackageReference Include="NetSerializer" Version="4.1.0" />
-    <PackageReference Include="SharpLearning.Containers" Version="[0.28.0]" />
-    <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />
-  </ItemGroup>
-  
+
 </Project>

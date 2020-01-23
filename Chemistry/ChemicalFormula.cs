@@ -287,7 +287,7 @@ namespace Chemistry
             else
             {
                 Elements[element] += count;
-                if (Elements[element] == 0)
+                if (Elements[element] <= 0)
                     Elements.Remove(element);
             }
             formulaString = null;
@@ -307,7 +307,7 @@ namespace Chemistry
             else
             {
                 Isotopes[isotope] += count;
-                if (Isotopes[isotope] == 0)
+                if (Isotopes[isotope] <= 0)
                     Isotopes.Remove(isotope);
             }
             formulaString = null;
