@@ -265,7 +265,8 @@ namespace MassSpectrometry
                 }
             }
 
-            //foreach peak
+            //go through each peak in the selected range and assume it is the most intense peak of its isotopic envelope (if it's not, it will hopefully get a low score)
+            //cycle through possible charge states and select the one that has the best score (fit) with the averagine model
             for (int candidateForMostIntensePeakIndex = indexes.start; candidateForMostIntensePeakIndex < indexes.end; candidateForMostIntensePeakIndex++)
             {
                 double candidateForMostIntensePeakIntensity = YArray[candidateForMostIntensePeakIndex];
@@ -322,7 +323,9 @@ namespace MassSpectrometry
                             massIndex--;
                         }
 
-                        List<double> monoisotopicMassPredictions = new List<double>(); //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass
+                        //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass and is populated in "FindIsotopicEnvelope"
+                        List<double> monoisotopicMassPredictions = new List<double>(); 
+
                         //Look for other isotopes using the assumed charge state
                         IsotopicEnvelope test = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
                             testMostIntenseMass, chargeState, deconvolutionTolerancePpm, intensityRatioLimit, monoisotopicMassPredictions);
