@@ -327,21 +327,21 @@ namespace MassSpectrometry
                         List<double> monoisotopicMassPredictions = new List<double>(); 
 
                         //Look for other isotopes using the assumed charge state
-                        IsotopicEnvelope test = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
+                        IsotopicEnvelope putativeIsotopicEnvelope = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
                             testMostIntenseMass, chargeState, deconvolutionTolerancePpm, intensityRatioLimit, monoisotopicMassPredictions);
 
-                        if (test.Peaks.Count >= 2) //if there are at least two isotopes
+                        if (putativeIsotopicEnvelope.Peaks.Count >= 2) //if there are at least two isotopes
                         {
                             //look for other charge states, using them for scoring and monoisotopic mass estimates
                             //need to use this method before comparing scores because it changes the score of the test envelope
-                            int numOtherChargeStatesObserved = ObserveAdjacentChargeStates(test, candidateForMostIntensePeakMz, massIndex, deconvolutionTolerancePpm, intensityRatioLimit, minAssumedChargeState, maxAssumedChargeState, monoisotopicMassPredictions);
+                            int numOtherChargeStatesObserved = ObserveAdjacentChargeStates(putativeIsotopicEnvelope, candidateForMostIntensePeakMz, massIndex, deconvolutionTolerancePpm, intensityRatioLimit, minAssumedChargeState, maxAssumedChargeState, monoisotopicMassPredictions);
 
                             //is this the best charge state for this peak?
-                            if ((bestIsotopeEnvelopeForThisPeak == null || test.Score > bestIsotopeEnvelopeForThisPeak.Score) && //and the score is better for this charge state than others
-                             (test.Charge / 5 <= numOtherChargeStatesObserved)) //and if we suspect there to be multiple charge states and there are (higher the charge, more states expected, z=5, need 2 charge states, z=10, need 3 charge states, etc
+                            if ((bestIsotopeEnvelopeForThisPeak == null || putativeIsotopicEnvelope.Score > bestIsotopeEnvelopeForThisPeak.Score) && //and the score is better for this charge state than others
+                             (putativeIsotopicEnvelope.Charge / 5 <= numOtherChargeStatesObserved)) //and if we suspect there to be multiple charge states and there are (higher the charge, more states expected, z=5, need 2 charge states, z=10, need 3 charge states, etc
                             {
-                                test.SetMedianMonoisotopicMass(monoisotopicMassPredictions); //take the median mass from all of the isotopes (this is fine tuning!)
-                                bestIsotopeEnvelopeForThisPeak = test;
+                                putativeIsotopicEnvelope.SetMedianMonoisotopicMass(monoisotopicMassPredictions); //take the median mass from all of the isotopes (this is fine tuning!)
+                                bestIsotopeEnvelopeForThisPeak = putativeIsotopicEnvelope;
                             }
                         }
                     }
