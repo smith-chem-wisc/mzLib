@@ -1082,26 +1082,28 @@ namespace Test
                 new SpectraFileInfo("a3", "a", 2, 0, 0),
                 new SpectraFileInfo("a4", "a", 3, 0, 0),
 
-                new SpectraFileInfo("b1", "b", 0, 0, 0),
-                new SpectraFileInfo("b2", "b", 1, 0, 0),
-                new SpectraFileInfo("b3", "b", 2, 0, 0),
-                new SpectraFileInfo("b4", "b", 3, 0, 0),
+                //new SpectraFileInfo("b1", "b", 0, 0, 0),
+                //new SpectraFileInfo("b2", "b", 1, 0, 0),
+                //new SpectraFileInfo("b3", "b", 2, 0, 0),
+                //new SpectraFileInfo("b4", "b", 3, 0, 0),
 
                 new SpectraFileInfo("c1", "c", 0, 0, 0),
                 new SpectraFileInfo("c2", "c", 1, 0, 0),
                 new SpectraFileInfo("c3", "c", 2, 0, 0),
                 new SpectraFileInfo("c4", "c", 3, 0, 0),
 
-                new SpectraFileInfo("d1", "d", 0, 0, 0),
-                new SpectraFileInfo("d2", "d", 1, 0, 0),
-                new SpectraFileInfo("d3", "d", 2, 0, 0),
-                new SpectraFileInfo("d4", "d", 3, 0, 0),
+                //new SpectraFileInfo("d1", "d", 0, 0, 0),
+                //new SpectraFileInfo("d2", "d", 1, 0, 0),
+                //new SpectraFileInfo("d3", "d", 2, 0, 0),
+                //new SpectraFileInfo("d4", "d", 3, 0, 0),
 
-                new SpectraFileInfo("e1", "e", 0, 0, 0),
-                new SpectraFileInfo("e2", "e", 1, 0, 0),
-                new SpectraFileInfo("e3", "e", 2, 0, 0),
-                new SpectraFileInfo("e4", "e", 3, 0, 0),
+                //new SpectraFileInfo("e1", "e", 0, 0, 0),
+                //new SpectraFileInfo("e2", "e", 1, 0, 0),
+                //new SpectraFileInfo("e3", "e", 2, 0, 0),
+                //new SpectraFileInfo("e4", "e", 3, 0, 0),
             };
+
+            var filesDictionary = files.ToDictionary(p => p.Condition + (p.BiologicalReplicate + 1), v => v);
 
             var res = new FlashLfqResults(files, new List<Identification>());
 
@@ -1150,17 +1152,99 @@ namespace Test
                 }
 
                 FlashLFQ.Peptide peptide = new FlashLFQ.Peptide(sequence, "", true, new HashSet<ProteinGroup> { proteinGroup });
-
-                double[] data = new double[files.Count];
-                int offset = 5;
-
-                for (int i = offset; i < offset + files.Count; i++)
-                {
-                    data[i - offset] = double.Parse(split[i]);
-
-                    peptide.SetIntensity(files[i - offset], data[i - offset]);
-                }
                 
+                int offset = 5;
+                
+                //a
+                int fileNumber = 1;
+                for (int i = offset + 0; i < offset + 0 + 4; i++)
+                {
+                    int globalFileNumber = i - offset;
+                    double intensity = double.Parse(split[i]);
+
+                    if (filesDictionary.TryGetValue("a" + fileNumber, out var spectraFileInfo))
+                    {
+                        peptide.SetIntensity(spectraFileInfo, intensity);
+
+                        var detectionType = (DetectionType)Enum.Parse(typeof(DetectionType), split[i + 20]);
+                        peptide.SetDetectionType(spectraFileInfo, detectionType);
+                    }
+
+                    fileNumber++;
+                }
+
+                //b
+                fileNumber = 1;
+                for (int i = offset + 4; i < offset + 4 + 4; i++)
+                {
+                    int globalFileNumber = i - offset;
+                    double intensity = double.Parse(split[i]);
+
+                    if (filesDictionary.TryGetValue("b" + fileNumber, out var spectraFileInfo))
+                    {
+                        peptide.SetIntensity(spectraFileInfo, intensity);
+
+                        var detectionType = (DetectionType)Enum.Parse(typeof(DetectionType), split[i + 20]);
+                        peptide.SetDetectionType(spectraFileInfo, detectionType);
+                    }
+
+                    fileNumber++;
+                }
+
+                //c
+                fileNumber = 1;
+                for (int i = offset + 8; i < offset + 8 + 4; i++)
+                {
+                    int globalFileNumber = i - offset;
+                    double intensity = double.Parse(split[i]);
+
+                    if (filesDictionary.TryGetValue("c" + fileNumber, out var spectraFileInfo))
+                    {
+                        peptide.SetIntensity(spectraFileInfo, intensity);
+
+                        var detectionType = (DetectionType)Enum.Parse(typeof(DetectionType), split[i + 20]);
+                        peptide.SetDetectionType(spectraFileInfo, detectionType);
+                    }
+
+                    fileNumber++;
+                }
+
+                //d
+                fileNumber = 1;
+                for (int i = offset + 12; i < offset + 12 + 4; i++)
+                {
+                    int globalFileNumber = i - offset;
+                    double intensity = double.Parse(split[i]);
+
+                    if (filesDictionary.TryGetValue("d" + fileNumber, out var spectraFileInfo))
+                    {
+                        peptide.SetIntensity(spectraFileInfo, intensity);
+
+                        var detectionType = (DetectionType)Enum.Parse(typeof(DetectionType), split[i + 20]);
+                        peptide.SetDetectionType(spectraFileInfo, detectionType);
+                    }
+
+                    fileNumber++;
+                }
+
+                //e
+                fileNumber = 1;
+                for (int i = offset + 16; i < offset + 16 + 4; i++)
+                {
+                    int globalFileNumber = i - offset;
+                    double intensity = double.Parse(split[i]);
+
+                    if (filesDictionary.TryGetValue("e" + fileNumber, out var spectraFileInfo))
+                    {
+                        peptide.SetIntensity(spectraFileInfo, intensity);
+
+                        var detectionType = (DetectionType)Enum.Parse(typeof(DetectionType), split[i + 20]);
+                        peptide.SetDetectionType(spectraFileInfo, detectionType);
+                    }
+
+                    fileNumber++;
+                }
+
                 res.PeptideModifiedSequences.Add(peptide.Sequence, peptide);
             }
 

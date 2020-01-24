@@ -7,7 +7,7 @@ namespace FlashLFQ
     public class ProteinFoldChangeEstimationModel : Model
     {
         public ProteinFoldChangeEstimationModel(double priorMuMean, double priorMuSd, double muInitialGuess,
-            double priorSdStart, double priorSdEnd, double sdInitialGuess, double priorNuExponent, double nuInitialGuess) : base()
+            MultiGammaDistribution sdPrior, double sdInitialGuess, double priorNuExponent, double nuInitialGuess) : base()
         {
             modelParameters = new Parameter[3];
 
@@ -22,18 +22,32 @@ namespace FlashLFQ
                 muInitialGuess);
 
             // sigma (standard deviation)
-            // continuous uniform prior (see Kruschke 2013 J Exper Psych)
-            modelParameters[1] = new Parameter(
-                new ContinuousUniform(priorSdStart, priorSdEnd),
-                new List<(double, double)> { (0, double.PositiveInfinity) },
-                sdInitialGuess);
+            if (sdPrior != null)
+            {
+                modelParameters[1] = new Parameter(
+                    sdPrior,
+                    new List<(double, double)> { (0, double.PositiveInfinity) },
+                    sdInitialGuess);
+            }
+            else
+            {
+                // continuous uniform prior (see Kruschke 2013 J Exper Psych)
+                modelParameters[1] = new Parameter(
+                    new ContinuousUniform(sdInitialGuess / 1000, sdInitialGuess * 1000),
+                    new List<(double, double)> { (0, double.PositiveInfinity) },
+                    sdInitialGuess);
+            }
 
             // nu (sometimes referred to as "degrees of freedom")
             // exponential prior (see Kruschke 2013 J Exper Psych)
             modelParameters[2] = new Parameter(
-                new Exponential(priorNuExponent),
+                new Exponential(3.0),
                 new List<(double, double)> { (0, double.PositiveInfinity) },
                 nuInitialGuess);
+            //modelParameters[2] = new Parameter(
+            //        new ContinuousUniform(1, 100),
+            //        new List<(double, double)> { (0, double.PositiveInfinity) },
+            //        nuInitialGuess);
         }
 
         protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint)

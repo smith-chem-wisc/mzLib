@@ -35,7 +35,7 @@ namespace FlashLFQ
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
         public readonly string ProteinQuantBaseCondition;
-        public readonly double? ProteinQuantFoldChangeCutoff;
+        public readonly double ProteinQuantFoldChangeCutoff;
         public readonly int McmcSteps;
         public readonly int McmcBurninSteps;
         public readonly bool UseSharedPeptidesForProteinQuant;
@@ -72,7 +72,7 @@ namespace FlashLFQ
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
             string proteinQuantBaseCondition = null,
-            double? proteinQuantFoldChangeCutoff = null,
+            double proteinQuantFoldChangeCutoff = 0.1375,
             int mcmcSteps = 3000,
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,

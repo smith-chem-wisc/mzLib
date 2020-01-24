@@ -20,8 +20,8 @@ namespace FlashLFQ
         public double NuPointEstimate { get; protected set; }
 
         // intensities
-        public double ControlConditionIntensity { get; protected set; }
-        public double TreatmentConditionIntensity { get; protected set; }
+        public double ControlConditionIntensity { get; set; }
+        public double TreatmentConditionIntensity { get; set; }
 
         // additional statistics (PEP, FDR, null interval width)
         public double PosteriorErrorProbability { get; private set; }

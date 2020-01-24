@@ -24,7 +24,7 @@ namespace FlashLFQ
             IsStatisticallyValid = this.PeptideFoldChangeMeasurements.Count > 1;
 
             bool skepticalPrior = !double.IsNaN(nullHypothesisCutoff);
-            
+
             var res = ProteinQuantificationEngine.FitProteinQuantModel(
                 measurements: PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).ToList(),
                 skepticalPrior: skepticalPrior,
@@ -32,7 +32,8 @@ namespace FlashLFQ
                 randomSeed: randomSeed,
                 burnin: nBurnin,
                 n: n,
-                nullHypothesisCutoff: nullHypothesisCutoff);
+                nullHypothesisInterval: nullHypothesisCutoff,
+                sdPrior: null); //TODO
 
             if (!skepticalPrior)
             {
