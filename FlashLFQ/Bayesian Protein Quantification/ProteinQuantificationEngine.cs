@@ -6,7 +6,6 @@ using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -884,7 +883,7 @@ namespace FlashLFQ
             }
 
             proteinSpecificNullHypothesis += Math.Abs(intensityDependentBiasForThisProtein);
-            
+
             return proteinSpecificNullHypothesis;
         }
 
@@ -921,7 +920,7 @@ namespace FlashLFQ
         private void AssignProteinIntensities()
         {
             // calculate reference intensities
-            var ProteinToBaseConditionIntensity = new Dictionary<ProteinGroup, double>();
+            var ProteinToControlConditionIntensity = new Dictionary<ProteinGroup, double>();
 
             var numBRef = Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
 
@@ -961,8 +960,8 @@ namespace FlashLFQ
                     double top3 = intensities.OrderByDescending(p => p).Take(3).Sum();
                     referenceProteinIntensity = top3;
                 }
-
-                ProteinToBaseConditionIntensity.Add(protein.Key, referenceProteinIntensity);
+                
+                ProteinToControlConditionIntensity.Add(protein.Key, referenceProteinIntensity);
 
                 foreach (var res in protein.Key.ConditionToQuantificationResults)
                 {
@@ -970,6 +969,40 @@ namespace FlashLFQ
                     res.Value.TreatmentConditionIntensity = referenceProteinIntensity * Math.Pow(2, res.Value.FoldChangePointEstimate);
                 }
             }
+
+
+            ////TODO: assign per-sample protein intensities
+            //foreach (var protein in Results.ProteinGroups)
+            //{
+            //    foreach (var file in Results.SpectraFiles)
+            //    {
+            //        protein.Value.SetIntensity(file, 0);
+            //    }
+
+            //    if (ProteinsWithConstituentPeptides.TryGetValue(protein.Value, out var peptides))
+            //    {
+            //        foreach (var file in Results.SpectraFiles)
+            //        {
+            //            List<double> abundances = new List<double>();
+
+            //            foreach (var peptide in peptides)
+            //            {
+            //                if (peptide.IonizationEfficiency == 0)
+            //                {
+            //                    continue;
+            //                }
+
+            //                double peptideIntensity = peptide.GetIntensity(file);
+            //                double abundance = peptideIntensity / peptide.IonizationEfficiency;
+            //                abundances.Add(abundance);
+            //            }
+
+            //            double proteinAbundance = abundances.Any() ? abundances.Median() : 0;
+            //            double proteinIntensity = proteinAbundance * ProteinToControlConditionIntensity[protein.Value];
+            //            protein.Value.SetIntensity(file, proteinIntensity);
+            //        }
+            //    }
+            //}
         }
     }
 }

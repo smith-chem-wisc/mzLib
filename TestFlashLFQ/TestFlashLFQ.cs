@@ -1254,7 +1254,7 @@ namespace Test
                 controlCondition: "a", randomSeed: 0, mcmcSteps: 3000);
             engine.Run();
 
-            res.WriteResults(null, null, null, @"C:\Data\ionstarSample\Bayesian.tsv", true);
+            res.WriteResults(null, null, @"C:\Data\ionstarSample\ProteinIntensities.tsv", @"C:\Data\ionstarSample\Bayesian.tsv", true);
         }
     }
 }
