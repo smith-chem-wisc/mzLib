@@ -69,7 +69,7 @@ namespace FlashLFQ
             {
                 var samples = ConditionsWithPeptideSampleQuantities[TreatmentCondition];
                 
-                var (mus, sds, nus) = ProteinQuantificationEngine.FitProteinQuantModel(samples, skepticalPrior, false, randomSeed, nBurnin, nSteps,
+                var (mus, sds, nus) = ProteinQuantificationEngine.FitProteinQuantModel(samples, skepticalPrior, false, randomSeed2, nBurnin, nSteps,
                     treatmentNullHypothesisInterval, treatmentSigmaPrior);
 
                 treatmentMus = mus;
