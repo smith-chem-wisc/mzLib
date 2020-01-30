@@ -33,7 +33,8 @@ namespace FlashLFQ
                 burnin: nBurnin,
                 n: n,
                 nullHypothesisInterval: nullHypothesisCutoff,
-                sdPrior: null); //TODO
+                sdPrior: null,
+                nuPrior: null); //TODO
 
             if (!skepticalPrior)
             {

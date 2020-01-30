@@ -25,6 +25,23 @@ namespace BayesianEstimation
                 rateInitialGuess);
         }
 
+        public GammaDistributionModel(Gamma shapePrior, double shapeInitialGuess, Gamma ratePrior, double rateInitialGuess) : base()
+        {
+            modelParameters = new Parameter[2];
+
+            // shape
+            modelParameters[0] = new Parameter(
+                shapePrior,
+                new List<(double, double)> { (0, double.PositiveInfinity) },
+                shapeInitialGuess);
+
+            // rate
+            modelParameters[1] = new Parameter(
+                ratePrior,
+                new List<(double, double)> { (0, double.PositiveInfinity) },
+                rateInitialGuess);
+        }
+
         protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint)
         {
             return Gamma.PDF(paramProposals[0], paramProposals[1], datapoint);

@@ -7,7 +7,7 @@ namespace FlashLFQ
     public class ProteinFoldChangeEstimationModel : Model
     {
         public ProteinFoldChangeEstimationModel(double priorMuMean, double priorMuSd, double muInitialGuess,
-            MultiGammaDistribution sdPrior, double sdInitialGuess, double priorNuExponent, double nuInitialGuess) : base()
+            IContinuousDistribution sdPrior, double sdInitialGuess, IContinuousDistribution nuPrior, double nuInitialGuess) : base()
         {
             modelParameters = new Parameter[3];
 
@@ -40,10 +40,21 @@ namespace FlashLFQ
 
             // nu (sometimes referred to as "degrees of freedom")
             // exponential prior (see Kruschke 2013 J Exper Psych)
-            modelParameters[2] = new Parameter(
-                new Exponential(3.0),
+            if (nuPrior != null)
+            {
+                modelParameters[2] = new Parameter(
+                nuPrior,
                 new List<(double, double)> { (0, double.PositiveInfinity) },
                 nuInitialGuess);
+            }
+            else
+            {
+                modelParameters[2] = new Parameter(
+                //new Exponential(1.0 / 29.0),
+                new ContinuousUniform(0, 100),
+                new List<(double, double)> { (0, double.PositiveInfinity) },
+                nuInitialGuess);
+            }
             //modelParameters[2] = new Parameter(
             //        new ContinuousUniform(1, 100),
             //        new List<(double, double)> { (0, double.PositiveInfinity) },
