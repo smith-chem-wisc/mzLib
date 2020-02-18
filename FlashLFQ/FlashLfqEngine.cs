@@ -72,7 +72,7 @@ namespace FlashLFQ
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
             string proteinQuantBaseCondition = null,
-            double proteinQuantFoldChangeCutoff = 0.1375,
+            double proteinQuantFoldChangeCutoff = 0.585,
             int mcmcSteps = 3000,
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,

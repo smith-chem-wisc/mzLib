@@ -1,4 +1,5 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using BayesianEstimation;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,7 +27,7 @@ namespace FlashLFQ
             bool skepticalPrior = !double.IsNaN(nullHypothesisCutoff);
 
             var res = ProteinQuantificationEngine.FitProteinQuantModel(
-                measurements: PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).ToList(),
+                measurements: PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges.Select(v => new Datum(v, 1))).ToList(), //TODO: weight
                 skepticalPrior: skepticalPrior,
                 paired: true,
                 randomSeed: randomSeed,
@@ -34,7 +35,8 @@ namespace FlashLFQ
                 n: n,
                 nullHypothesisInterval: nullHypothesisCutoff,
                 sdPrior: null,
-                nuPrior: null); //TODO
+                nuPrior: null,
+                minimumNu: 10); //TODO
 
             if (!skepticalPrior)
             {

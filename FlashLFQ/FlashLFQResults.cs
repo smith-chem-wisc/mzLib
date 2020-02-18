@@ -305,10 +305,9 @@ namespace FlashLFQ
                         header.Append(tabSepHeader);
 
                         int p = 0;
-                        
+
                         // sort by protein false discovery rate, then by number of measurements
                         foreach (var protein in ProteinGroups
-                            .Where(v => v.Value.ConditionToQuantificationResults[condition].IsStatisticallyValid) //DEBUG
                             .OrderBy(v => v.Value.ConditionToQuantificationResults[condition].FalseDiscoveryRate)
                             .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].NMeasurements))
                         {

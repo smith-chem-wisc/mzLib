@@ -1,5 +1,6 @@
 ﻿using BayesianEstimation;
 using MathNet.Numerics.Distributions;
+using System;
 using System.Collections.Generic;
 
 namespace FlashLFQ
@@ -7,7 +8,7 @@ namespace FlashLFQ
     public class ProteinFoldChangeEstimationModel : Model
     {
         public ProteinFoldChangeEstimationModel(double priorMuMean, double priorMuSd, double muInitialGuess,
-            IContinuousDistribution sdPrior, double sdInitialGuess, IContinuousDistribution nuPrior, double nuInitialGuess) : base()
+            IContinuousDistribution sdPrior, double sdInitialGuess, IContinuousDistribution nuPrior, double nuInitialGuess, double minimumNu = 2) : base()
         {
             modelParameters = new Parameter[3];
 
@@ -24,6 +25,11 @@ namespace FlashLFQ
             // sigma (standard deviation)
             if (sdPrior != null)
             {
+                if (sdPrior != null && sdPrior.Mode > 0)
+                {
+                    sdInitialGuess = sdPrior.Mode;
+                }
+
                 modelParameters[1] = new Parameter(
                     sdPrior,
                     new List<(double, double)> { (0, double.PositiveInfinity) },
@@ -39,31 +45,28 @@ namespace FlashLFQ
             }
 
             // nu (sometimes referred to as "degrees of freedom")
-            // exponential prior (see Kruschke 2013 J Exper Psych)
             if (nuPrior != null)
             {
                 modelParameters[2] = new Parameter(
                 nuPrior,
-                new List<(double, double)> { (0, double.PositiveInfinity) },
-                nuInitialGuess);
+                new List<(double, double)> { (minimumNu, double.PositiveInfinity) },
+                Math.Max(minimumNu + 1, nuInitialGuess));
             }
             else
             {
+                var dist = new Normal(30, 12);
+                // truncated normal distribution
+                // assumes most data are normally distributed, with relatively conservative outlier rejection
                 modelParameters[2] = new Parameter(
-                //new Exponential(1.0 / 29.0),
-                new ContinuousUniform(0, 100),
-                new List<(double, double)> { (0, double.PositiveInfinity) },
-                nuInitialGuess);
+                dist,
+                new List<(double, double)> { (minimumNu, double.PositiveInfinity) },
+                dist.Mode);
             }
-            //modelParameters[2] = new Parameter(
-            //        new ContinuousUniform(1, 100),
-            //        new List<(double, double)> { (0, double.PositiveInfinity) },
-            //        nuInitialGuess);
         }
 
-        protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint)
+        protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint)
         {
-            return StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint);
+            return StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.DataValue) * datapoint.Weight;
         }
     }
 }

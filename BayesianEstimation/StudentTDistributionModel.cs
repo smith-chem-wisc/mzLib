@@ -34,9 +34,9 @@ namespace BayesianEstimation
                 nuInitialGuess);
         }
 
-        protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint)
+        protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint)
         {
-            return StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint);
+            return StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.DataValue) * datapoint.Weight;
         }
     }
 }

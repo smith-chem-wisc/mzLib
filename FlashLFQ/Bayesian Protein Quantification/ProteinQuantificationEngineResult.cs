@@ -29,6 +29,7 @@ namespace FlashLFQ
         public double? NullHypothesisInterval { get; set; }
         public int NMeasurements { get; protected set; }
         public bool IsStatisticallyValid { get; protected set; }
+        public double BayesFactor { get; protected set; }
 
         protected ProteinQuantificationEngineResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition)
         {
@@ -96,6 +97,13 @@ namespace FlashLFQ
             }
 
             PosteriorErrorProbability = nullHypothesisCount / musWithSkepticalPrior.Length;
+
+            BayesFactor = alternativeHypothesisCount / nullHypothesisCount;
+
+            if (double.IsPositiveInfinity(BayesFactor))
+            {
+                BayesFactor = musWithSkepticalPrior.Length;
+            }
         }
 
         protected static string TabSeparatedHeader()
