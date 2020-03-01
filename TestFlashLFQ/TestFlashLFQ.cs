@@ -1090,9 +1090,9 @@ namespace Test
             var files = new List<SpectraFileInfo>
             {
                 new SpectraFileInfo("a1", "a", 0, 0, 0),
-                new SpectraFileInfo("a2", "a", 1, 0, 0),
-                new SpectraFileInfo("a3", "a", 2, 0, 0),
-                new SpectraFileInfo("a4", "a", 3, 0, 0),
+                //new SpectraFileInfo("a2", "a", 1, 0, 0),
+                //new SpectraFileInfo("a3", "a", 2, 0, 0),
+                //new SpectraFileInfo("a4", "a", 3, 0, 0),
 
                 //new SpectraFileInfo("b1", "b", 0, 0, 0),
                 //new SpectraFileInfo("b2", "b", 1, 0, 0),
@@ -1100,9 +1100,9 @@ namespace Test
                 //new SpectraFileInfo("b4", "b", 3, 0, 0),
 
                 new SpectraFileInfo("c1", "c", 0, 0, 0),
-                new SpectraFileInfo("c2", "c", 1, 0, 0),
-                new SpectraFileInfo("c3", "c", 2, 0, 0),
-                new SpectraFileInfo("c4", "c", 3, 0, 0),
+                //new SpectraFileInfo("c2", "c", 1, 0, 0),
+                //new SpectraFileInfo("c3", "c", 2, 0, 0),
+                //new SpectraFileInfo("c4", "c", 3, 0, 0),
 
                 //new SpectraFileInfo("d1", "d", 0, 0, 0),
                 //new SpectraFileInfo("d2", "d", 1, 0, 0),

@@ -100,7 +100,7 @@ namespace FlashLFQ
         public void Run()
         {
             Setup();
-            EstimateIntensityDependentPeptideUncertainty();
+            EstimateIntensityDependentUncertainty();
             EstimateProteinFoldChanges();
             EstimateIntensityDependentBias();
             PerformHypothesisTesting();
@@ -620,7 +620,7 @@ namespace FlashLFQ
             return (nullHypothesisControl, nullHypothesisTreatment);
         }
 
-        private void EstimateIntensityDependentPeptideUncertainty()
+        private void EstimateIntensityDependentUncertainty()
         {
             var conditions = Results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
 
@@ -975,10 +975,10 @@ namespace FlashLFQ
                              {
                                  continue;
                              }
-
+                             
                              double pooledVarianceOfSd = variancesOfPeptideSdForThisProtein.Count > 1
                                 ? variancesOfPeptideSdForThisProtein.Average() + variancesOfPeptideSdForThisProtein.Variance()
-                                : variancesOfPeptideSdForThisProtein.Average();
+                                : variancesOfPeptideSdForThisProtein.Count > 0 ? variancesOfPeptideSdForThisProtein.Average() : Math.Max(pooledVariance, 0.1);
 
                              double pooledSigma = Math.Sqrt(pooledVariance);
 
@@ -1183,6 +1183,12 @@ namespace FlashLFQ
                             }
                         }
                     }
+                }
+
+                // if there are no proteins w/ at least 3 peptides, there are no measurement to estimate the bias
+                if (!peptideMmtsRelativeToProtein.Any())
+                {
+                    return;
                 }
 
                 peptideMmtsRelativeToProtein.Sort((x, y) => y.Item1.CompareTo(x.Item1));
