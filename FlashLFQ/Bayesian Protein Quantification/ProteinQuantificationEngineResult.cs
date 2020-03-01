@@ -16,6 +16,7 @@ namespace FlashLFQ
 
         // mu, sigma, nu estimates
         public double FoldChangePointEstimate { get; protected set; }
+        public double UncertaintyInFoldChangeEstimate { get; protected set; }
         public double StandardDeviationPointEstimate { get; protected set; }
         public double NuPointEstimate { get; protected set; }
 
@@ -30,6 +31,7 @@ namespace FlashLFQ
         public int NMeasurements { get; protected set; }
         public bool IsStatisticallyValid { get; protected set; }
         public double BayesFactor { get; protected set; }
+        public double ProbabilityOfFalsePositive { get; set; }
 
         protected ProteinQuantificationEngineResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition)
         {
@@ -72,30 +74,9 @@ namespace FlashLFQ
                 return;
             }
 
-            int numIncreasing = musWithSkepticalPrior.Count(p => p > NullHypothesisInterval);
-            int numDecreasing = musWithSkepticalPrior.Count(p => p < -NullHypothesisInterval);
-
-            // if something goes wrong and none of the following "if" statements are triggered, then PEP will evaluate to 1.0
-            double nullHypothesisCount = musWithSkepticalPrior.Length;
-            double alternativeHypothesisCount = 0;
-
-            if (numIncreasing >= numDecreasing && numIncreasing > 0)
-            {
-                nullHypothesisCount = musWithSkepticalPrior.Count(p => p < NullHypothesisInterval);
-                alternativeHypothesisCount = numIncreasing;
-            }
-            else if (numIncreasing < numDecreasing)
-            {
-                nullHypothesisCount = musWithSkepticalPrior.Count(p => p > -NullHypothesisInterval);
-                alternativeHypothesisCount = numDecreasing;
-            }
-            // this doesn't need to be here, but it's here for logical completeness
-            else if (musWithSkepticalPrior.All(p => Math.Abs(p) <= NullHypothesisInterval))
-            {
-                nullHypothesisCount = musWithSkepticalPrior.Length;
-                alternativeHypothesisCount = 0;
-            }
-
+            double nullHypothesisCount = musWithSkepticalPrior.Count(p => Math.Abs(p) < NullHypothesisInterval);
+            double alternativeHypothesisCount = musWithSkepticalPrior.Length - nullHypothesisCount;
+            
             PosteriorErrorProbability = nullHypothesisCount / musWithSkepticalPrior.Length;
 
             BayesFactor = alternativeHypothesisCount / nullHypothesisCount;

@@ -8,9 +8,19 @@ namespace FlashLFQ
     public class ProteinFoldChangeEstimationModel : Model
     {
         public ProteinFoldChangeEstimationModel(double priorMuMean, double priorMuSd, double muInitialGuess,
-            IContinuousDistribution sdPrior, double sdInitialGuess, IContinuousDistribution nuPrior, double nuInitialGuess, double minimumNu = 2) : base()
+            IContinuousDistribution sdPrior, double sdInitialGuess, IContinuousDistribution nuPrior, double nuInitialGuess,
+            double minimumNu = 2, double minimumSd = 0) : base()
         {
             modelParameters = new Parameter[3];
+
+            if (double.IsNaN(minimumSd) || minimumSd < 0)
+            {
+                minimumSd = 0;
+            }
+            if (double.IsNaN(minimumNu) || minimumNu < 1)
+            {
+                minimumNu = 1;
+            }
 
             // mu (mean)
             // t-distributed prior
@@ -25,14 +35,9 @@ namespace FlashLFQ
             // sigma (standard deviation)
             if (sdPrior != null)
             {
-                if (sdPrior != null && sdPrior.Mode > 0)
-                {
-                    sdInitialGuess = sdPrior.Mode;
-                }
-
                 modelParameters[1] = new Parameter(
                     sdPrior,
-                    new List<(double, double)> { (0, double.PositiveInfinity) },
+                    new List<(double, double)> { (minimumSd, double.PositiveInfinity) },
                     sdInitialGuess);
             }
             else
@@ -54,7 +59,7 @@ namespace FlashLFQ
             }
             else
             {
-                var dist = new Normal(30, 12);
+                var dist = new Normal(30, 15);
                 // truncated normal distribution
                 // assumes most data are normally distributed, with relatively conservative outlier rejection
                 modelParameters[2] = new Parameter(
@@ -66,7 +71,7 @@ namespace FlashLFQ
 
         protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint)
         {
-            return StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.DataValue) * datapoint.Weight;
+            return Math.Pow(StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.DataValue), datapoint.Weight);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
@@ -1067,6 +1068,11 @@ namespace Test
         [Test]
         public static void TestBigBayesianIonStar()
         {
+            //Normal n = new Normal(0, 1);
+            //double q3 = n.InverseCumulativeDistribution(0.9);
+            //double temp = n.InverseCumulativeDistribution(0.6) - n.InverseCumulativeDistribution(0.4);
+            //double q3ToMedian = n.Density(q3) / n.Density(n.Median);
+
             Loaders.LoadElements();
 
             var ecoliProteins = UsefulProteomicsDatabases.ProteinDbLoader.LoadProteinFasta(
@@ -1127,7 +1133,7 @@ namespace Test
                 string proteinName = split[2];
 
                 string organism = "";
-
+                
                 if (humanProteins.ContainsKey(proteinName))
                 {
                     organism = "HUMAN";
@@ -1261,7 +1267,7 @@ namespace Test
             var engine = new ProteinQuantificationEngine(res,
                 Environment.ProcessorCount - 1,
                 //1,
-                controlCondition: "a", randomSeed: 0, mcmcSteps: 3000, foldChangeCutoff: 0.05);
+                controlCondition: "a", randomSeed: 0, mcmcSteps: 1000, foldChangeCutoff: 0.1);
             engine.Run();
 
             try
@@ -1535,7 +1541,7 @@ namespace Test
             var engine = new ProteinQuantificationEngine(res,
                 Environment.ProcessorCount - 1,
                 //1,
-                controlCondition: "ups1", randomSeed: 0, mcmcSteps: 3000, foldChangeCutoff: 0.05);
+                controlCondition: "ups1", randomSeed: 0, mcmcSteps: 3000, foldChangeCutoff: 0.1);
             engine.Run();
 
             try
@@ -1617,7 +1623,7 @@ namespace Test
                 string sequence = split[0];
                 string proteinName = split[2];
 
-                if (proteinName.Contains("CON__"))
+                if (proteinName.Contains("CON__") || proteinName.Contains(";"))
                 {
                     continue;
                 }
@@ -1704,7 +1710,7 @@ namespace Test
             var engine = new ProteinQuantificationEngine(res,
                 Environment.ProcessorCount - 1,
                 //1,
-                controlCondition: "ecoli 1x", randomSeed: 0, mcmcSteps: 3000, foldChangeCutoff: 0.05);
+                controlCondition: "ecoli 1x", randomSeed: 0, mcmcSteps: 1000, foldChangeCutoff: 0.1);
             engine.Run();
 
             try
@@ -1715,60 +1721,6 @@ namespace Test
             {
                 res.WriteResults(null, null, @"C:\Data\Ecoli_Human_Spikein\ProteinIntensities.tsv", @"C:\Data\Ecoli_Human_Spikein\Bayesian.tsv", true);
             }
-
-            List<string> output = new List<string>();
-            output.Add(FlashLFQ.Peptide.TabSeparatedHeader(files));
-
-            foreach (var peptide in res.PeptideModifiedSequences)
-            {
-                if (peptide.Value.IonizationEfficiency == 0)
-                {
-                    continue;
-                }
-
-                StringBuilder str = new StringBuilder();
-                str.Append(peptide.Value.Sequence + "\t");
-                str.Append(peptide.Value.BaseSequence + "\t");
-
-                var orderedProteinGroups = peptide.Value.ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
-
-                var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
-                var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
-                var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();
-
-                str.Append(proteinsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
-                    orderedProteinGroups.Any() ? orderedProteinGroups.First().ProteinGroupName + "\t" : "\t");
-
-                str.Append(genesCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.GeneName)) + "\t" :
-                    orderedProteinGroups.Any() ? orderedProteinGroups.First().GeneName + "\t" : "\t");
-
-                str.Append(organismsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.Organism)) + "\t" :
-                    orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
-
-                List<double> intensities = new List<double>();
-
-                foreach (var spectraFile in files)
-                {
-                    double intensity = peptide.Value.GetIntensity(spectraFile);
-
-                    if (intensity > 0)
-                    {
-                        str.Append(Math.Log(peptide.Value.GetIntensity(spectraFile) / peptide.Value.IonizationEfficiency, 2) + "\t");
-                    }
-                    else
-                    {
-                        str.Append("" + "\t");
-                    }
-                }
-                foreach (var spectraFile in files)
-                {
-                    str.Append(peptide.Value.GetDetectionType(spectraFile) + "\t");
-                }
-
-                output.Add(str.ToString());
-            }
-
-            File.WriteAllLines(@"C:\Data\Ecoli_Human_Spikein\normalizedPeptideQuantities.tsv", output);
         }
     }
 }

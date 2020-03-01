@@ -11,7 +11,7 @@ namespace FlashLFQ
         public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;
 
         public PairedProteinQuantResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition,
-            bool useSharedPeptides, FlashLfqResults results, Dictionary<(Peptide, string, int), double> peptideToSampleQuantity)
+            bool useSharedPeptides, FlashLfqResults results, Dictionary<(Peptide, string, int), (double, DetectionType)> peptideToSampleQuantity)
             : base(protein, peptides, controlCondition, treatmentCondition)
         {
             PeptideFoldChangeMeasurements = GetPeptideFoldChanges(useSharedPeptides, results, peptideToSampleQuantity);
@@ -34,9 +34,7 @@ namespace FlashLFQ
                 burnin: nBurnin,
                 n: n,
                 nullHypothesisInterval: nullHypothesisCutoff,
-                sdPrior: null,
-                nuPrior: null,
-                minimumNu: 10); //TODO
+                sdPrior: null); //TODO
 
             if (!skepticalPrior)
             {
@@ -104,7 +102,7 @@ namespace FlashLFQ
         /// Computes a list of fold-change measurements between the constituent peptides of this protein between the control and treatment condition.
         /// </summary>
         private List<(Peptide peptide, List<double> foldChanges)> GetPeptideFoldChanges(bool useSharedPeptides, FlashLfqResults flashLfqResults,
-            Dictionary<(Peptide, string, int), double> PeptideToSampleQuantity)
+            Dictionary<(Peptide, string, int), (double, DetectionType)> PeptideToSampleQuantity)
         {
             List<(Peptide, List<double>)> allPeptideFoldChanges = new List<(Peptide, List<double>)>();
 
@@ -121,10 +119,10 @@ namespace FlashLFQ
 
                 for (int sample = 0; sample < numSamples; sample++)
                 {
-                    if (PeptideToSampleQuantity.TryGetValue((peptide, ControlCondition, sample), out double controlIntensity)
-                        && PeptideToSampleQuantity.TryGetValue((peptide, TreatmentCondition, sample), out double treatmentIntensity))
+                    if (PeptideToSampleQuantity.TryGetValue((peptide, ControlCondition, sample), out var controlIntensity)
+                        && PeptideToSampleQuantity.TryGetValue((peptide, TreatmentCondition, sample), out var treatmentIntensity))
                     {
-                        double? foldChange = GetLogFoldChange(controlIntensity, treatmentIntensity);
+                        double? foldChange = GetLogFoldChange(controlIntensity.Item1, treatmentIntensity.Item1);
 
                         if (foldChange != null)
                         {
