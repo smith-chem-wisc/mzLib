@@ -193,14 +193,7 @@ namespace FlashLFQ
             // normalize
             if (Normalize)
             {
-                try
-                {
-                    new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
-                }
-                catch (Exception e)
-                {
-                    throw new MzLibException("A crash occured in FlashLFQ during the intensity normalization process:\n" + e.Message);
-                }
+                new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
             }
 
             // calculate peptide intensities 
@@ -221,20 +214,13 @@ namespace FlashLFQ
                 }
                 else
                 {
-                    try
+                    if (!Silent)
                     {
-                        if (!Silent)
-                        {
-                            Console.WriteLine("Running Bayesian protein quantification analysis");
-                        }
+                        Console.WriteLine("Running Bayesian protein quantification analysis");
+                    }
 
-                        new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
-                            ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps, PairedSamples).Run();
-                    }
-                    catch (Exception e)
-                    {
-                        throw new MzLibException("A crash occured in FlashLFQ during the Bayesian protein quantification process:\n" + e.Message);
-                    }
+                    new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
+                        ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps, PairedSamples).Run();
                 }
             }
 

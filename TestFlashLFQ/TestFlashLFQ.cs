@@ -1090,9 +1090,9 @@ namespace Test
             var files = new List<SpectraFileInfo>
             {
                 new SpectraFileInfo("a1", "a", 0, 0, 0),
-                //new SpectraFileInfo("a2", "a", 1, 0, 0),
-                //new SpectraFileInfo("a3", "a", 2, 0, 0),
-                //new SpectraFileInfo("a4", "a", 3, 0, 0),
+                new SpectraFileInfo("a2", "a", 1, 0, 0),
+                new SpectraFileInfo("a3", "a", 2, 0, 0),
+                new SpectraFileInfo("a4", "a", 3, 0, 0),
 
                 //new SpectraFileInfo("b1", "b", 0, 0, 0),
                 //new SpectraFileInfo("b2", "b", 1, 0, 0),
@@ -1100,9 +1100,9 @@ namespace Test
                 //new SpectraFileInfo("b4", "b", 3, 0, 0),
 
                 new SpectraFileInfo("c1", "c", 0, 0, 0),
-                //new SpectraFileInfo("c2", "c", 1, 0, 0),
-                //new SpectraFileInfo("c3", "c", 2, 0, 0),
-                //new SpectraFileInfo("c4", "c", 3, 0, 0),
+                new SpectraFileInfo("c2", "c", 1, 0, 0),
+                new SpectraFileInfo("c3", "c", 2, 0, 0),
+                new SpectraFileInfo("c4", "c", 3, 0, 0),
 
                 //new SpectraFileInfo("d1", "d", 0, 0, 0),
                 //new SpectraFileInfo("d2", "d", 1, 0, 0),
@@ -1133,7 +1133,7 @@ namespace Test
                 string proteinName = split[2];
 
                 string organism = "";
-                
+
                 if (humanProteins.ContainsKey(proteinName))
                 {
                     organism = "HUMAN";
@@ -1283,90 +1283,6 @@ namespace Test
         [Test]
         public static void TestUpsDataSet()
         {
-            //Loaders.LoadElements();
-            //Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
-
-            //var files = new List<SpectraFileInfo>
-            //{
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS1_01.raw", "ups1", 0, 0, 0),
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS1_02.raw", "ups1", 1, 0, 0),
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS1_03.raw", "ups1", 2, 0, 0),
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS1_04.raw", "ups1", 3, 0, 0),
-
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS2_01.raw", "ups2", 0, 0, 0),
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS2_02.raw", "ups2", 1, 0, 0),
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS2_03.raw", "ups2", 2, 0, 0),
-            //    new SpectraFileInfo(@"C:\Data\UPS_Ecoli_Mix\20130510_EXQ1_IgPa_QC_UPS2_04.raw", "ups2", 3, 0, 0),
-            //};
-
-            //var psmFile = @"C:\Data\UPS_Ecoli_Mix\2020-02-03-12-51-38\Task1-SearchTask\AllPSMs.psmtsv";
-
-            //StreamReader reader = new StreamReader(psmFile);
-            //List<Identification> ids = new List<Identification>();
-
-            //int lineNumber = 0;
-            //while (reader.Peek() > 0)
-            //{
-            //    lineNumber++;
-            //    var line = reader.ReadLine();
-            //    var split = line.Split(new char[] { '\t' });
-
-            //    if (lineNumber == 1)
-            //    {
-            //        continue;
-            //    }
-
-
-
-            //    SpectraFileInfo fileInfo = files.First(p => p.FilenameWithoutExtension == split[0]);
-            //    string baseSequence = split[12];
-            //    string fullSequence = split[13];
-
-            //    if (fullSequence.Contains("|"))
-            //    {
-            //        continue;
-            //    }
-
-            //    double monoMass = double.Parse(split[21]);
-            //    double ms2Rt = double.Parse(split[2]);
-            //    int charge = (int)double.Parse(split[6]);
-            //    List<ProteinGroup> pgs = new List<ProteinGroup>();
-            //    double pep = double.Parse(split[52]);
-            //    double qValue = double.Parse(split[48]);
-            //    bool decoy = split[37].Contains('D');
-            //    if (qValue > 0.01)
-            //    {
-            //        break;
-            //    }
-            //    if (decoy)
-            //    {
-            //        continue;
-            //    }
-
-            //    var proteinNames = split[24].Split(new char[] { ';' });
-
-            //    foreach (var proteinName in proteinNames)
-            //    {
-            //        if (allProteinGroups.TryGetValue(proteinName, out var pg))
-            //        {
-            //            pgs.Add(pg);
-            //        }
-            //        else
-            //        {
-            //            pg = new ProteinGroup(proteinName, "", "");
-            //            allProteinGroups.Add(proteinName, pg);
-            //            pgs.Add(pg);
-            //        }
-            //    }
-
-            //    var id = new Identification(fileInfo, baseSequence, fullSequence, monoMass, ms2Rt, charge, pgs, null, true, pep);
-            //    ids.Add(id);
-            //}
-
-            //var engine = new FlashLfqEngine(ids, normalize: true, matchBetweenRuns: true);
-            //var results = engine.Run();
-            //results.WriteResults(null, @"C:\Data\UPS_Ecoli_Mix\peptideQuantWithPep.tsv", null, null, true);
-
             Loaders.LoadElements();
 
             var files = new List<SpectraFileInfo>

@@ -71,7 +71,7 @@ namespace FlashLFQ
             {
                 diffs[i] = treatmentMus[i] - controlMus[i];
             }
-
+            
             if (!skepticalPrior)
             {
                 this.FoldChangePointEstimate = diffs.Median();
@@ -177,8 +177,13 @@ namespace FlashLFQ
             Dictionary<(Peptide, string, int), (double, DetectionType)> PeptideToSampleQuantity, List<int> randomSeeds, int nBurnin)
         {
             List<string> conditions = new List<string> { ControlCondition, TreatmentCondition };
+            foreach (var condition in conditions)
+            {
+                ConditionsWithPeptideSampleQuantities.Add(condition, new List<Datum>());
+            }
 
             int peptidesIdentifiedByMsmsInBothConditions = 0;
+
             for (int i = 0; i < Peptides.Count; i++)
             {
                 Peptide peptide = Peptides[i];
@@ -217,7 +222,7 @@ namespace FlashLFQ
             {
                 Peptide peptide = Peptides[i];
                 int randomSeed = randomSeeds[i];
-                
+
                 if (!peptide.UseForProteinQuant || (!useSharedPeptides && peptide.ProteinGroups.Count > 1))
                 {
                     continue;
