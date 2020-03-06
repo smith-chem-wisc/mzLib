@@ -6,7 +6,7 @@
         {
             OneBasedBeginPosition = oneBasedBegin;
             OneBasedEndPosition = oneBasedEnd;
-            Description = description ?? "";
+            Description = new SpliceSiteDescription(description);
         }
 
         public SpliceSite(int oneBasedPosition, string description)
@@ -16,7 +16,7 @@
 
         public int OneBasedBeginPosition { get; }
         public int OneBasedEndPosition { get; }
-        public string Description { get; }
+        public SpliceSiteDescription Description { get; }
 
         public override bool Equals(object obj)
         {
@@ -24,7 +24,7 @@
             return s != null
                 && s.OneBasedBeginPosition == OneBasedBeginPosition
                 && s.OneBasedEndPosition == OneBasedEndPosition
-                && s.Description == Description;
+                && s.Description.Description == Description.Description;
         }
 
         public override int GetHashCode()

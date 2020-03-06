@@ -289,7 +289,8 @@ namespace UsefulProteomicsDatabases
                 HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
-                HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+                HashSet<SpliceSite> spliceSites = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+                HashSet<SpliceVariant> spliceVars = new HashSet<SpliceVariant>(proteins.Value.SelectMany(p => p.SpliceVariants));
 
                 Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
                 foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
@@ -321,7 +322,8 @@ namespace UsefulProteomicsDatabases
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList()
+                    spliceSites: spliceSites.ToList(),
+                    spliceVariants: spliceVars.ToList()
                     );
             }
         }

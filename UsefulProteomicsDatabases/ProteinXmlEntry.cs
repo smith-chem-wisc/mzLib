@@ -34,6 +34,7 @@ namespace UsefulProteomicsDatabases
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
         public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
+        public List<SpliceVariant> SpliceVariants { get; private set; } = new List<SpliceVariant>();
         public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
@@ -195,7 +196,7 @@ namespace UsefulProteomicsDatabases
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
+                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation, SpliceVariants);
             }
             Clear();
             return result;
@@ -262,6 +263,20 @@ namespace UsefulProteomicsDatabases
                 {
                     SpliceSites.Add(new SpliceSite(OneBasedFeaturePosition, FeatureDescription));
                 }
+            }
+            else if (FeatureType == "splice variant")
+            {
+                ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
+                if (OneBasedBeginPosition != null && OneBasedEndPosition != null)   // has a begin and end position
+                {
+                    SpliceVariants.Add(new SpliceVariant((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                }
+                else if (OneBasedFeaturePosition >= 1)                              // has only a position (no begin and end)
+                {
+                    SpliceVariants.Add(new SpliceVariant(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                }
+                AnnotatedVariantMods = new List<(int, string)>();
+                OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
             }
             OneBasedBeginPosition = null;
             OneBasedEndPosition = null;
@@ -382,6 +397,7 @@ namespace UsefulProteomicsDatabases
             SequenceVariations = new List<SequenceVariation>();
             DisulfideBonds = new List<DisulfideBond>();
             SpliceSites = new List<SpliceSite>();
+            SpliceVariants = new List<SpliceVariant>();
             DatabaseReferences = new List<DatabaseReference>();
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;

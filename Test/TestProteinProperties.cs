@@ -84,6 +84,26 @@ namespace Test
         }
 
         [Test]
+        public void TestHashAndEqualsSpliceVariant()
+        {
+            SpliceVariant sv1 = new SpliceVariant(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SpliceVariant sv2 = new SpliceVariant(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SpliceVariant sv22 = new SpliceVariant(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 3, new[] { new Modification("mod") }.ToList() } });
+            SpliceVariant sv222 = new SpliceVariant(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("another") }.ToList() } });
+            SpliceVariant sv3 = new SpliceVariant(1, "MAA", "MAA", "description", null);
+            SpliceVariant sv4 = new SpliceVariant(1, "MAA", "MAA", null, new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SpliceVariant sv5 = new SpliceVariant(1, null, null, "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SpliceVariant sv6 = new SpliceVariant(2, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            Assert.AreEqual(sv1, sv2);
+            Assert.AreNotEqual(sv1, sv22);
+            Assert.AreNotEqual(sv1, sv222);
+            Assert.AreNotEqual(sv1, sv3);
+            Assert.AreNotEqual(sv1, sv4);
+            Assert.AreNotEqual(sv1, sv5);
+            Assert.AreNotEqual(sv1, sv6);
+        }
+
+        [Test]
         public void TestHashAndEqualsDisulfide()
         {
             DisulfideBond bond7 = new DisulfideBond(1, 2, "description");
@@ -169,6 +189,45 @@ namespace Test
             Assert.AreNotEqual(pp, pa);
             Assert.AreNotEqual(pp, paa);
             Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
+        }
+
+        [Test]
+        public static void TestSpliceSiteDescriptionConstructor()
+        {
+            string s = @"chrm\t+\t12\t34\t56\t78";
+            SpliceSiteDescription d = new SpliceSiteDescription(s);
+            Assert.AreEqual("chrm", d.ChromosomeName);
+            Assert.AreEqual("+", d.Strand);
+            Assert.AreEqual(12, d.Start);
+            Assert.AreEqual(34, d.End);
+            Assert.AreEqual(56, d.NextStart);
+            Assert.AreEqual(78, d.NextEnd);
+            Assert.IsNull(d.Novel);
+
+            s = @"chrm\t+\t12\t34\t56\t78\tTrue";
+            d = new SpliceSiteDescription(s);
+            Assert.AreEqual("chrm", d.ChromosomeName);
+            Assert.AreEqual("+", d.Strand);
+            Assert.AreEqual(12, d.Start);
+            Assert.AreEqual(34, d.End);
+            Assert.AreEqual(56, d.NextStart);
+            Assert.AreEqual(78, d.NextEnd);
+            Assert.IsTrue(d.Novel);
+        }
+        [Test]
+        public static void TestSpliceSiteNovel()
+        {
+            SpliceSiteDescription d = new SpliceSiteDescription(@"chrm\t+\t12\t34\t56\t78");
+            Assert.IsNull(d.Novel);
+            d.Novel = true;
+            Assert.IsTrue(d.Novel);
+            Assert.AreEqual(@"chrm\t+\t12\t34\t56\t78\tTrue", d.Description);
+            d.Novel = false;
+            Assert.IsFalse(d.Novel);
+            Assert.AreEqual(@"chrm\t+\t12\t34\t56\t78\tFalse", d.Description);
+            d.Novel = null;
+            Assert.IsNull(d.Novel);
+            Assert.AreEqual(@"chrm\t+\t12\t34\t56\t78", d.Description);
         }
     }
 }

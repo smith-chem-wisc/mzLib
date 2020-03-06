@@ -319,6 +319,9 @@ namespace Test
             List<SequenceVariation> sequenceVariations = new List<SequenceVariation> { new SequenceVariation(3,"Q", "N", "replace Q by N"),
             new SequenceVariation(3,4,"QE", "NN", "replace QE by NN")};
 
+            List<SpliceVariant> spliceVariants = new List<SpliceVariant> { new SpliceVariant(2, 3, "", "", "missing E and Q"),
+            new SpliceVariant(5, "N", "NQ", "replace N by NQ") };
+
             List<DisulfideBond> disulfideBonds = new List<DisulfideBond> { new DisulfideBond(1, "ds1"), new DisulfideBond(2, 3, "ds2") };
 
             Protein p1 = new Protein(
@@ -333,6 +336,7 @@ namespace Test
                 isContaminant: true,
                 databaseReferences: databaseReferences,
                 sequenceVariations: sequenceVariations,
+                spliceVariants: spliceVariants,
                 disulfideBonds: disulfideBonds,
                 databaseFilePath: Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bnueiwhf.xml"));
 
@@ -386,6 +390,17 @@ namespace Test
             Assert.AreEqual(p1.SequenceVariations.Last().OneBasedEndPosition, ok[0].SequenceVariations.Last().OneBasedEndPosition);
             Assert.AreEqual(p1.SequenceVariations.Last().OriginalSequence, ok[0].SequenceVariations.Last().OriginalSequence);
             Assert.AreEqual(p1.SequenceVariations.Last().VariantSequence, ok[0].SequenceVariations.Last().VariantSequence);
+
+            Assert.AreEqual(p1.SpliceVariants.First().Description, ok[0].SpliceVariants.First().Description);
+            Assert.AreEqual(p1.SpliceVariants.First().OneBasedBeginPosition, ok[0].SpliceVariants.First().OneBasedBeginPosition);
+            Assert.AreEqual(p1.SpliceVariants.First().OneBasedEndPosition, ok[0].SpliceVariants.First().OneBasedEndPosition);
+            Assert.AreEqual(p1.SpliceVariants.First().OriginalSequence, ok[0].SpliceVariants.First().OriginalSequence);
+            Assert.AreEqual(p1.SpliceVariants.First().VariantSequence, ok[0].SpliceVariants.First().VariantSequence);
+            Assert.AreEqual(p1.SpliceVariants.Last().Description, ok[0].SpliceVariants.Last().Description);
+            Assert.AreEqual(p1.SpliceVariants.Last().OneBasedBeginPosition, ok[0].SpliceVariants.Last().OneBasedBeginPosition);
+            Assert.AreEqual(p1.SpliceVariants.Last().OneBasedEndPosition, ok[0].SpliceVariants.Last().OneBasedEndPosition);
+            Assert.AreEqual(p1.SpliceVariants.Last().OriginalSequence, ok[0].SpliceVariants.Last().OriginalSequence);
+            Assert.AreEqual(p1.SpliceVariants.Last().VariantSequence, ok[0].SpliceVariants.Last().VariantSequence);
         }
 
         [Test]
@@ -432,6 +447,48 @@ namespace Test
             Assert.AreEqual(ok[0].SequenceVariations.First().Description, ok2[0].SequenceVariations.First().Description);
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
+        }
+
+        [Test]
+        public void TestReadWriteSpliceSites()
+        {
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"splices1.xml"), true, DecoyType.None,
+                null, false, new List<string>(), out Dictionary<string, Modification> un);
+            Assert.IsNull(ok[0].SpliceSites.First().Description.Novel);
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_spliceSite.xml"));
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_spliceSite.xml"), true, DecoyType.None,
+                null, false, new List<string>(), out un);
+
+            Assert.AreEqual(ok[0].SpliceSites.Count(), ok2[0].SpliceSites.Count());
+            Assert.AreEqual(ok[0].SpliceSites.First().OneBasedBeginPosition, ok2[0].SpliceSites.First().OneBasedBeginPosition);
+            Assert.AreEqual(ok[0].SpliceSites.First().OneBasedEndPosition, ok2[0].SpliceSites.First().OneBasedEndPosition);
+            Assert.AreEqual(ok[0].SpliceSites.First().Description, ok2[0].SpliceSites.First().Description);
+            Assert.IsNull(ok2[0].SpliceSites.First().Description.Novel);
+
+            ok[0].SpliceSites.First().Description.Novel = true;
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_spliceSite.xml"));
+            ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_spliceSite.xml"), true, DecoyType.None,
+                null, false, new List<string>(), out un);
+
+            Assert.IsTrue(ok2[0].SpliceSites.First().Description.Novel);
+        }
+
+        [Test]
+        public void TestReadWriteSpliceVars()
+        {
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"spliceVar.xml"), true, DecoyType.None,
+                null, false, new List<string>(), out Dictionary<string, Modification> un);
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_spliceVar.xml"));
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_spliceVar.xml"), true, DecoyType.None,
+                null, false, new List<string>(), out un);
+
+            Assert.AreEqual(ok[0].SpliceVariants.Count(), ok2[0].SpliceVariants.Count());
+            Assert.AreEqual(ok[0].SpliceVariants.First().OneBasedBeginPosition, ok2[0].SpliceVariants.First().OneBasedBeginPosition);
+            Assert.AreEqual(ok[0].SpliceVariants.First().OneBasedEndPosition, ok2[0].SpliceVariants.First().OneBasedEndPosition);
+            Assert.AreEqual(ok[0].SpliceVariants.First().Description, ok2[0].SpliceVariants.First().Description);
+            Assert.AreEqual(ok[0].SpliceVariants.First().OriginalSequence, ok2[0].SpliceVariants.First().OriginalSequence);
+            Assert.AreEqual(ok[0].SpliceVariants.First().VariantSequence, ok2[0].SpliceVariants.First().VariantSequence);
         }
 
         [Test]

@@ -154,6 +154,33 @@ namespace Test
         }
 
         [Test]
+        public static void SpliceVariantXmlTest()
+        {
+            var protein = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "spliceVar.xml"),
+                true, DecoyType.None, null, false, null, out var unknownModifications);
+            Assert.AreEqual(1, protein.Count());
+            Assert.AreEqual(4, protein[0].NonVariantProtein.SpliceVariants.Count());
+            var spliceVars = protein[0].NonVariantProtein.SpliceVariants.ToList();
+
+            Assert.AreEqual("In isoform E.", spliceVars[0].Description);
+            Assert.AreEqual("V", spliceVars[0].OriginalSequence);
+            Assert.AreEqual("VRC", spliceVars[0].VariantSequence);
+            Assert.AreEqual(1, spliceVars[0].OneBasedBeginPosition);
+            Assert.AreEqual(1, spliceVars[0].OneBasedEndPosition);
+
+            Assert.AreEqual("", spliceVars[1].OriginalSequence);
+            Assert.AreEqual("", spliceVars[1].VariantSequence);
+            Assert.AreEqual(3, spliceVars[1].OneBasedBeginPosition);
+            Assert.AreEqual(6, spliceVars[1].OneBasedEndPosition);
+
+            Assert.AreEqual(7, spliceVars[2].OneBasedBeginPosition);
+            Assert.AreEqual(13, spliceVars[2].OneBasedEndPosition);
+
+            Assert.AreEqual(14, spliceVars[3].OneBasedBeginPosition);
+            Assert.AreEqual(17, spliceVars[3].OneBasedEndPosition);
+        }
+
+        [Test]
         public static void XmlTest_2entry()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),

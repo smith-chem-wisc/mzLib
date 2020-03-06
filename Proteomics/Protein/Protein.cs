@@ -30,7 +30,7 @@ namespace Proteomics
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, List<SpliceVariant> spliceVariants = null)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -61,6 +61,7 @@ namespace Proteomics
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
             SpliceSites = spliceSites ?? new List<SpliceSite>();
+            SpliceVariants = spliceVariants ?? new List<SpliceVariant>();
         }
 
         /// <summary>
@@ -91,6 +92,7 @@ namespace Proteomics
             DatabaseReferences = originalProtein.DatabaseReferences;
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
+            SpliceVariants = originalProtein.SpliceVariants;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
         }
 
@@ -119,6 +121,7 @@ namespace Proteomics
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
+                  spliceVariants: new List<SpliceVariant>(protein.SpliceVariants),
                   databaseFilePath: protein.DatabaseFilePath)
         {
             NonVariantProtein = protein.NonVariantProtein;
@@ -152,6 +155,7 @@ namespace Proteomics
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
+        public IEnumerable<SpliceVariant> SpliceVariants { get; }
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }

@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<mzLibProteinDb>
+  <entry>
+    <accession>SpliceVarAccession</accession>
+    <gene />
+    <feature type="splice variant" description="In isoform E." id="spliceVar1" evidence="13">
+      <original>V</original>
+      <variation>VRC</variation>
+      <location>
+        <position position="1"/>
+      </location>
+    </feature>
+    <feature type="splice variant" description="In isoform 4." id="spliceVar2" evidence="3">
+      <location>
+        <begin position="3"/>
+        <end position="6"/>
+      </location>
+    </feature>
+    <feature type="splice variant" description="In isoform norm." id="spliceVar3" evidence="3">
+      <original>ICFYYQI</original>
+      <variation>GGL</variation>
+      <location>
+        <begin position="7"/>
+        <end position="13"/>
+      </location>
+    </feature>
+    <feature type="splice variant" description="In isoform A." id="spliceVar4" evidence="3">
+      <original>LTSL</original>
+      <variation>PPP</variation>
+      <location>
+        <position position="14"/>
+      </location>
+    </feature>
+    <sequence length="17">VWAMLPICFYYQILTSL</sequence>
+  </entry>
+</mzLibProteinDb>

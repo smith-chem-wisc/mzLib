@@ -48,7 +48,7 @@ namespace Test
         }
         [Test]
         public static void LoadIsoforms()
-        {            
+        {
             var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409_2", protein[1].Accession);
@@ -61,7 +61,7 @@ namespace Test
             Assert.AreEqual("Q14103_3", protein[8].Accession);
             Assert.AreEqual("Q14103_4", protein[9].Accession);
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
-            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));           
+            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"), true, DecoyType.None, null, false, null, out var unknownMod);
             Assert.AreEqual("Q13409", proteinXml[0].Accession);
             Assert.AreEqual("Q13409_2", proteinXml[1].Accession);

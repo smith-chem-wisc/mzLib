@@ -223,7 +223,7 @@ namespace UsefulProteomicsDatabases
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "splice site");
-                        writer.WriteAttributeString("description", hm.Description);
+                        writer.WriteAttributeString("description", hm.Description.ToString());
                         writer.WriteStartElement("location");
                         if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
                         {
@@ -239,6 +239,40 @@ namespace UsefulProteomicsDatabases
                             writer.WriteStartElement("end");
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
+                        }
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // feature
+                    }
+
+                    foreach (var hm in protein.SpliceVariants)
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "splice variant"); //TODO should id be stored or not written?
+                        writer.WriteAttributeString("description", hm.Description);
+                        if (!hm.VariantSequence.Equals(""))
+                        {
+                            writer.WriteStartElement("original");
+                            writer.WriteString(hm.OriginalSequence);
+                            writer.WriteEndElement(); // original
+                            writer.WriteStartElement("variation");
+                            writer.WriteString(hm.VariantSequence);
+                            writer.WriteEndElement(); // variation
+                        }
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement(); // position
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement(); // begin
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement(); // end
                         }
                         writer.WriteEndElement(); // location
                         writer.WriteEndElement(); // feature

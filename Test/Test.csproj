@@ -206,6 +206,9 @@
     <None Update="DatabaseTests\splices8.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\spliceVar.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\StopGain.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
