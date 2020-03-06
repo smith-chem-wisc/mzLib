@@ -176,6 +176,8 @@ namespace Proteomics
         /// </summary>
         public string SampleNameForVariants { get; }
 
+        public double Probability { get; set; } // for protein pep project
+
         public int Length
         {
             get
