@@ -593,13 +593,18 @@ namespace FlashLFQ
         {
             var proteinRes = (UnpairedProteinQuantResult)protein.ConditionToQuantificationResults[treatmentCondition];
 
-            double nullHypothesisControl = (proteinRes.hdi95Control.hdi_end - proteinRes.hdi95Control.hdi_start) / 2;
-            double nullHypothesisTreatment = (proteinRes.hdi95Treatment.hdi_end - proteinRes.hdi95Treatment.hdi_start) / 2;
+            double nullHypothesisControl = 1;
+            double nullHypothesisTreatment = 1;
 
             if (FoldChangeCutoff.HasValue)
             {
-                nullHypothesisControl += Math.Sqrt(Math.Pow(FoldChangeCutoff.Value, 2) / 2);
-                nullHypothesisTreatment += Math.Sqrt(Math.Pow(FoldChangeCutoff.Value, 2) / 2);
+                nullHypothesisControl = Math.Sqrt(Math.Pow(FoldChangeCutoff.Value, 2) / 2);
+                nullHypothesisTreatment = Math.Sqrt(Math.Pow(FoldChangeCutoff.Value, 2) / 2);
+            }
+            else if (proteinRes.IsStatisticallyValid)
+            {
+                nullHypothesisControl = (proteinRes.hdi95Control.hdi_end - proteinRes.hdi95Control.hdi_start) / 2;
+                nullHypothesisTreatment = (proteinRes.hdi95Treatment.hdi_end - proteinRes.hdi95Treatment.hdi_start) / 2;
             }
 
             return (nullHypothesisControl, nullHypothesisTreatment);
