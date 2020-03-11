@@ -1,7 +1,6 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
-using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
@@ -10,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -1267,7 +1265,7 @@ namespace Test
             var engine = new ProteinQuantificationEngine(res,
                 Environment.ProcessorCount - 1,
                 //1,
-                controlCondition: "a", randomSeed: 0, mcmcSteps: 1000, foldChangeCutoff: 0.1);
+                controlCondition: "a", randomSeed: 0, mcmcSteps: 1000, foldChangeCutoff: 0.05);
             engine.Run();
 
             try
@@ -1475,51 +1473,52 @@ namespace Test
         {
             Loaders.LoadElements();
 
-            string file = @"C:\Data\Ecoli_Human_Spikein\FlashLFQ_2020-02-06-17-00-47\QuantifiedPeptides.tsv";
+            //string file = @"C:\Data\Ecoli_Human_Spikein\FlashLFQ_2020-02-06-17-00-47\QuantifiedPeptides.tsv";
+            string file = @"C:\Data\Ecoli_Human_Spikein\mbr_peptide_intensities.tsv";
 
             var files = new List<SpectraFileInfo>
             {
-                new SpectraFileInfo("1x-1-1", "ecoli 1x", 0, 0, 0),
-                new SpectraFileInfo("1x-1-2", "ecoli 1x", 0, 0, 1),
-                new SpectraFileInfo("1x-1-3", "ecoli 1x", 0, 0, 2),
-                new SpectraFileInfo("1x-1-4", "ecoli 1x", 0, 0, 3),
-                new SpectraFileInfo("1x-1-5", "ecoli 1x", 0, 0, 4),
-                new SpectraFileInfo("1x-1-6", "ecoli 1x", 0, 0, 5),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF1R1", "ecoli 1x", 0, 0, 0),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF2R1", "ecoli 1x", 0, 0, 1),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF3R1", "ecoli 1x", 0, 0, 2),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF4R1", "ecoli 1x", 0, 0, 3),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF5R1", "ecoli 1x", 0, 0, 4),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF6R1", "ecoli 1x", 0, 0, 5),
 
-                new SpectraFileInfo("1x-2-1", "ecoli 1x", 1, 0, 0),
-                new SpectraFileInfo("1x-2-2", "ecoli 1x", 1, 0, 1),
-                new SpectraFileInfo("1x-2-3", "ecoli 1x", 1, 0, 2),
-                new SpectraFileInfo("1x-2-4", "ecoli 1x", 1, 0, 3),
-                new SpectraFileInfo("1x-2-5", "ecoli 1x", 1, 0, 4),
-                new SpectraFileInfo("1x-2-6", "ecoli 1x", 1, 0, 5),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF1R2", "ecoli 1x", 1, 0, 0),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF2R2", "ecoli 1x", 1, 0, 1),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF3R2", "ecoli 1x", 1, 0, 2),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF4R2", "ecoli 1x", 1, 0, 3),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF5R2", "ecoli 1x", 1, 0, 4),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF6R2", "ecoli 1x", 1, 0, 5),
 
-                new SpectraFileInfo("1x-3-1", "ecoli 1x", 2, 0, 0),
-                new SpectraFileInfo("1x-3-2", "ecoli 1x", 2, 0, 1),
-                new SpectraFileInfo("1x-3-3", "ecoli 1x", 2, 0, 2),
-                new SpectraFileInfo("1x-3-4", "ecoli 1x", 2, 0, 3),
-                new SpectraFileInfo("1x-3-5", "ecoli 1x", 2, 0, 4),
-                new SpectraFileInfo("1x-3-6", "ecoli 1x", 2, 0, 5),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF1R3", "ecoli 1x", 2, 0, 0),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF2R3", "ecoli 1x", 2, 0, 1),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF3R3", "ecoli 1x", 2, 0, 2),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF4R4", "ecoli 1x", 2, 0, 3),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF5R5", "ecoli 1x", 2, 0, 4),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_1xF6R6", "ecoli 1x", 2, 0, 5),
 
-                new SpectraFileInfo("2x-1-1", "ecoli 2x", 0, 0, 0),
-                new SpectraFileInfo("2x-1-2", "ecoli 2x", 0, 0, 1),
-                new SpectraFileInfo("2x-1-3", "ecoli 2x", 0, 0, 2),
-                new SpectraFileInfo("2x-1-4", "ecoli 2x", 0, 0, 3),
-                new SpectraFileInfo("2x-1-5", "ecoli 2x", 0, 0, 4),
-                new SpectraFileInfo("2x-1-6", "ecoli 2x", 0, 0, 5),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF1R1", "ecoli 2x", 0, 0, 0),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF2R1", "ecoli 2x", 0, 0, 1),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF3R1", "ecoli 2x", 0, 0, 2),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF4R1", "ecoli 2x", 0, 0, 3),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF5R1", "ecoli 2x", 0, 0, 4),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF6R1", "ecoli 2x", 0, 0, 5),
 
-                new SpectraFileInfo("2x-2-1", "ecoli 2x", 1, 0, 0),
-                new SpectraFileInfo("2x-2-2", "ecoli 2x", 1, 0, 1),
-                new SpectraFileInfo("2x-2-3", "ecoli 2x", 1, 0, 2),
-                new SpectraFileInfo("2x-2-4", "ecoli 2x", 1, 0, 3),
-                new SpectraFileInfo("2x-2-5", "ecoli 2x", 1, 0, 4),
-                new SpectraFileInfo("2x-2-6", "ecoli 2x", 1, 0, 5),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF1R2", "ecoli 2x", 1, 0, 0),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF2R2", "ecoli 2x", 1, 0, 1),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF3R2", "ecoli 2x", 1, 0, 2),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF4R2", "ecoli 2x", 1, 0, 3),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF5R2", "ecoli 2x", 1, 0, 4),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF6R2", "ecoli 2x", 1, 0, 5),
 
-                new SpectraFileInfo("2x-3-1", "ecoli 2x", 2, 0, 0),
-                new SpectraFileInfo("2x-3-2", "ecoli 2x", 2, 0, 1),
-                new SpectraFileInfo("2x-3-3", "ecoli 2x", 2, 0, 2),
-                new SpectraFileInfo("2x-3-4", "ecoli 2x", 2, 0, 3),
-                new SpectraFileInfo("2x-3-5", "ecoli 2x", 2, 0, 4),
-                new SpectraFileInfo("2x-3-6", "ecoli 2x", 2, 0, 5),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF1R3", "ecoli 2x", 2, 0, 0),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF2R3", "ecoli 2x", 2, 0, 1),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF3R3", "ecoli 2x", 2, 0, 2),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF4R3", "ecoli 2x", 2, 0, 3),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF5R3", "ecoli 2x", 2, 0, 4),
+                new SpectraFileInfo("09-07-18_EcoliSpikeIn_2xF6R3", "ecoli 2x", 2, 0, 5),
             };
 
             var filesDictionary = files.ToDictionary(p => p.Condition + "_" + (p.BiologicalReplicate + 1) + "_" + (p.Fraction + 1), v => v);
@@ -1569,6 +1568,11 @@ namespace Test
 
                 ProteinGroup proteinGroup = null;
 
+
+                //DEBUG - peptide quant
+                //proteinName = sequence;
+
+
                 if (!proteinGroups.TryGetValue(proteinName, out proteinGroup))
                 {
                     proteinGroup = new ProteinGroup(proteinName, "", organism);
@@ -1615,9 +1619,9 @@ namespace Test
 
                         var detectionType = (DetectionType)Enum.Parse(typeof(DetectionType), split[i + 36]);
                         peptide.SetDetectionType(spectraFileInfo, detectionType);
-                    }
 
-                    fileNumber++;
+                        fileNumber++;
+                    }
                 }
 
                 res.PeptideModifiedSequences.Add(peptide.Sequence, peptide);
@@ -1637,6 +1641,257 @@ namespace Test
             {
                 res.WriteResults(null, null, @"C:\Data\Ecoli_Human_Spikein\ProteinIntensities.tsv", @"C:\Data\Ecoli_Human_Spikein\Bayesian.tsv", true);
             }
+
+            var falsePositives = res.ProteinGroups
+                .Where(p => p.Value.Organism == "HUMAN" && p.Value.ConditionToQuantificationResults["ecoli 2x"].ProbabilityOfFalsePositive < 0.4)
+                .ToList();
+
+            List<string> output = new List<string>();
+            List<string> conditions = new List<string> { "ecoli 1x", "ecoli 2x" };
+
+            foreach (var protein in falsePositives)
+            {
+                var proteinQuantResult = (UnpairedProteinQuantResult)protein.Value.ConditionToQuantificationResults["ecoli 2x"];
+
+                foreach (var peptide in proteinQuantResult.Peptides)
+                {
+                    if (peptide.IonizationEfficiency == 0)
+                    {
+                        continue;
+                    }
+
+                    List<(double, DetectionType, int)> intensities = new List<(double, DetectionType, int)>();
+
+                    foreach (var condition in conditions)
+                    {
+                        int numSamplesInGroup = res.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+
+                        for (int sample = 0; sample < numSamplesInGroup; sample++)
+                        {
+                            int numFractions = 6;
+                            (double, DetectionType, int) bestMeasurementForSample = (0, DetectionType.NotDetected, 0);
+
+                            for (int f = 0; f < numFractions; f++)
+                            {
+                                SpectraFileInfo spectraFile = files.First(p => p.Condition == condition && p.BiologicalReplicate == sample && p.Fraction == f);
+
+                                double intensity = peptide.GetIntensity(spectraFile);
+                                DetectionType detectionType = peptide.GetDetectionType(spectraFile);
+
+                                if (intensity > bestMeasurementForSample.Item1)
+                                {
+                                    bestMeasurementForSample = (intensity, detectionType, f + 1);
+                                }
+                            }
+
+                            intensities.Add(bestMeasurementForSample);
+                        }
+                    }
+
+                    string outputString = peptide.Sequence + "\t" + protein.Key + "\t" + proteinQuantResult.ProbabilityOfFalsePositive + "\t";
+
+                    for (int i = 0; i < intensities.Count; i++)
+                    {
+                        if (intensities[i].Item1 == 0)
+                        {
+                            outputString += "" + "\t" + intensities[i].Item2 + "\t" + intensities[i].Item3 + "\t";
+                        }
+                        else
+                        {
+                            outputString += Math.Log(intensities[i].Item1 / peptide.IonizationEfficiency, 2) + "\t" + intensities[i].Item2 + "\t" + intensities[i].Item3 + "\t";
+                        }
+                    }
+
+                    output.Add(outputString);
+                }
+            }
+            File.WriteAllLines(@"C:\Data\Ecoli_Human_Spikein\FalsePositiveProteinSummary.tsv", output);
+        }
+
+        [Test]
+        public static void BigRunTest()
+        {
+            string psmFile = @"C:\Data\ionstarSample\msms.txt";
+            StreamReader sr = new StreamReader(psmFile);
+
+            List<Identification> ids = new List<Identification>();
+
+            Dictionary<string, SpectraFileInfo> fileInfos = new Dictionary<string, SpectraFileInfo>
+            {
+                { "B02_06_161103_A1_HCD_OT_4ul", new SpectraFileInfo(@"C:\Data\ionstarSample\B02_06_161103_A1_HCD_OT_4ul.mzML", "a", 0, 0, 0) },
+                { "B02_07_161103_A2_HCD_OT_4ul", new SpectraFileInfo(@"C:\Data\ionstarSample\B02_07_161103_A2_HCD_OT_4ul.mzML", "a", 1, 0, 0) },
+                //{ "B02_16_161103_A3_HCD_OT_4ul", new SpectraFileInfo(@"C:\Data\ionstarSample\B02_16_161103_A3_HCD_OT_4ul.mzML", "a", 2, 0, 0) },
+                //{ "B02_17_161103_A4_HCD_OT_4ul", new SpectraFileInfo(@"C:\Data\ionstarSample\B02_17_161103_A4_HCD_OT_4ul.mzML", "a", 3, 0, 0) },
+            };
+
+            Dictionary<string, ProteinGroup> proteinGroups = new Dictionary<string, ProteinGroup>();
+
+            int lineNum = 0;
+            while (sr.Peek() >= 0)
+            {
+                lineNum++;
+                var line = sr.ReadLine();
+                var split = line.Split(new char[] { '\t' });
+
+                if (lineNum == 1)
+                {
+                    continue;
+                }
+
+                string fileName = split[0];
+                if (!fileInfos.TryGetValue(fileName, out var file))
+                {
+                    continue;
+                }
+
+                string modSequence = split[7];
+                string baseSequence = split[3];
+                double mass = double.Parse(split[22]);
+                int charge = int.Parse(split[15]);
+                double ms2Rt = double.Parse(split[25]);
+                string[] protein = split[12].Split(new char[] { ';' });
+                List<ProteinGroup> pgs = new List<ProteinGroup>();
+
+                foreach (var proteinName in protein)
+                {
+                    if (proteinGroups.TryGetValue(proteinName, out var proteinGroup))
+                    {
+                        pgs.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        var pg = new ProteinGroup(proteinName, "", "");
+                        proteinGroups.Add(proteinName, pg);
+                        pgs.Add(pg);
+                    }
+                }
+
+                var id = new Identification(file, baseSequence, modSequence, mass, ms2Rt, charge, pgs);
+                ids.Add(id);
+            }
+
+            FlashLfqEngine e = new FlashLfqEngine(ids, matchBetweenRuns: true);
+            var results = e.Run();
+            results.WriteResults(@"C:\Data\ionstarSample\mbr_peaks.tsv", @"C:\Data\ionstarSample\mbr_peptide_intensities.tsv", null, null, true);
+        }
+
+        [Test]
+        public static void BigRunTestFractionated()
+        {
+            string psmFile = @"C:\Data\Ecoli_Human_Spikein\txt\msms.txt";
+            StreamReader sr = new StreamReader(psmFile);
+
+            List<Identification> ids = new List<Identification>();
+
+            Dictionary<string, SpectraFileInfo> fileInfos = new Dictionary<string, SpectraFileInfo>
+            {
+                { "09-07-18_EcoliSpikeIn_1xF1R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF1R1.mzML", "ecoli 1x", 0, 0, 0) },
+                { "09-07-18_EcoliSpikeIn_1xF2R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF2R1.mzML", "ecoli 1x", 0, 0, 1) },
+                { "09-07-18_EcoliSpikeIn_1xF3R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF3R1.mzML", "ecoli 1x", 0, 0, 2) },
+                { "09-07-18_EcoliSpikeIn_1xF4R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF4R1.mzML", "ecoli 1x", 0, 0, 3) },
+                { "09-07-18_EcoliSpikeIn_1xF5R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF5R1.mzML", "ecoli 1x", 0, 0, 4) },
+                { "09-07-18_EcoliSpikeIn_1xF6R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF6R1.mzML", "ecoli 1x", 0, 0, 5) },
+
+                //{ "09-07-18_EcoliSpikeIn_1xF1R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF1R2.mzML", "ecoli 1x", 1, 0, 0) },
+                //{ "09-07-18_EcoliSpikeIn_1xF2R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF2R2.mzML", "ecoli 1x", 1, 0, 1) },
+                //{ "09-07-18_EcoliSpikeIn_1xF3R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF3R2.mzML", "ecoli 1x", 1, 0, 2) },
+                //{ "09-07-18_EcoliSpikeIn_1xF4R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF4R2.mzML", "ecoli 1x", 1, 0, 3) },
+                //{ "09-07-18_EcoliSpikeIn_1xF5R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF5R2.mzML", "ecoli 1x", 1, 0, 4) },
+                //{ "09-07-18_EcoliSpikeIn_1xF6R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF6R2.mzML", "ecoli 1x", 1, 0, 5) },
+
+                //{ "09-07-18_EcoliSpikeIn_1xF1R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF1R3.mzML", "ecoli 1x", 2, 0, 0) },
+                //{ "09-07-18_EcoliSpikeIn_1xF2R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF2R3.mzML", "ecoli 1x", 2, 0, 1) },
+                //{ "09-07-18_EcoliSpikeIn_1xF3R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF3R3.mzML", "ecoli 1x", 2, 0, 2) },
+                //{ "09-07-18_EcoliSpikeIn_1xF4R4", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF4R4.mzML", "ecoli 1x", 2, 0, 3) },
+                //{ "09-07-18_EcoliSpikeIn_1xF5R5", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF5R5.mzML", "ecoli 1x", 2, 0, 4) },
+                //{ "09-07-18_EcoliSpikeIn_1xF6R6", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_1xF6R6.mzML", "ecoli 1x", 2, 0, 5) },
+
+                //{ "09-07-18_EcoliSpikeIn_2xF1R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF1R1.mzML", "ecoli 2x", 0, 0, 0) },
+                //{ "09-07-18_EcoliSpikeIn_2xF2R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF2R1.mzML", "ecoli 2x", 0, 0, 1) },
+                //{ "09-07-18_EcoliSpikeIn_2xF3R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF3R1.mzML", "ecoli 2x", 0, 0, 2) },
+                //{ "09-07-18_EcoliSpikeIn_2xF4R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF4R1.mzML", "ecoli 2x", 0, 0, 3) },
+                //{ "09-07-18_EcoliSpikeIn_2xF5R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF5R1.mzML", "ecoli 2x", 0, 0, 4) },
+                //{ "09-07-18_EcoliSpikeIn_2xF6R1", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF6R1.mzML", "ecoli 2x", 0, 0, 5) },
+
+                //{ "09-07-18_EcoliSpikeIn_2xF1R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF1R2.mzML", "ecoli 2x", 1, 0, 0) },
+                //{ "09-07-18_EcoliSpikeIn_2xF2R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF2R2.mzML", "ecoli 2x", 1, 0, 1) },
+                //{ "09-07-18_EcoliSpikeIn_2xF3R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF3R2.mzML", "ecoli 2x", 1, 0, 2) },
+                //{ "09-07-18_EcoliSpikeIn_2xF4R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF4R2.mzML", "ecoli 2x", 1, 0, 3) },
+                //{ "09-07-18_EcoliSpikeIn_2xF5R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF5R2.mzML", "ecoli 2x", 1, 0, 4) },
+                //{ "09-07-18_EcoliSpikeIn_2xF6R2", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF6R2.mzML", "ecoli 2x", 1, 0, 5) },
+
+                //{ "09-07-18_EcoliSpikeIn_2xF1R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF1R3.mzML", "ecoli 2x", 2, 0, 0) },
+                //{ "09-07-18_EcoliSpikeIn_2xF2R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF2R3.mzML", "ecoli 2x", 2, 0, 1) },
+                //{ "09-07-18_EcoliSpikeIn_2xF3R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF3R3.mzML", "ecoli 2x", 2, 0, 2) },
+                //{ "09-07-18_EcoliSpikeIn_2xF4R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF4R3.mzML", "ecoli 2x", 2, 0, 3) },
+                //{ "09-07-18_EcoliSpikeIn_2xF5R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF5R3.mzML", "ecoli 2x", 2, 0, 4) },
+                //{ "09-07-18_EcoliSpikeIn_2xF6R3", new SpectraFileInfo(@"C:\Data\Ecoli_Human_Spikein\09-07-18_EcoliSpikeIn_2xF6R3.mzML", "ecoli 2x", 2, 0, 5) },
+            };
+
+            Dictionary<string, ProteinGroup> proteinGroups = new Dictionary<string, ProteinGroup>();
+
+            int lineNum = 0;
+            while (sr.Peek() >= 0)
+            {
+                lineNum++;
+                var line = sr.ReadLine();
+                var split = line.Split(new char[] { '\t' });
+
+                if (lineNum == 1)
+                {
+                    continue;
+                }
+
+                string fileName = split[0];
+                if (!fileInfos.TryGetValue(fileName, out var file))
+                {
+                    continue;
+                }
+
+                string modSequence = split[7];
+                string baseSequence = split[3];
+                double mass = double.Parse(split[20]);
+                int charge = int.Parse(split[13]);
+                double ms2Rt = double.Parse(split[24]);
+                string[] protein = split[12].Split(new char[] { ';' });
+                List<ProteinGroup> pgs = new List<ProteinGroup>();
+
+                foreach (var proteinName in protein)
+                {
+                    if (proteinGroups.TryGetValue(proteinName, out var proteinGroup))
+                    {
+                        pgs.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        string organism = "";
+
+                        if (proteinName.Contains("HUMAN") && !proteinName.Contains("ECOLX"))
+                        {
+                            organism = "HUMAN";
+                        }
+                        else if (!proteinName.Contains("HUMAN") && proteinName.Contains("ECOLX"))
+                        {
+                            organism = "ECOLX";
+                        }
+
+                        var pg = new ProteinGroup(proteinName, "", organism);
+                        proteinGroups.Add(proteinName, pg);
+                        pgs.Add(pg);
+                    }
+                }
+
+                var id = new Identification(file, baseSequence, modSequence, mass, ms2Rt, charge, pgs);
+                ids.Add(id);
+            }
+
+            var filesWithIds = ids.Select(p => p.FileInfo).Distinct();
+
+            FlashLfqEngine e = new FlashLfqEngine(ids, matchBetweenRuns: true, normalize: true);//, maxThreads: Environment.ProcessorCount - 1, bayesianProteinQuant: true,
+                                                                                                //proteinQuantBaseCondition: "ecoli 1x", proteinQuantFoldChangeCutoff: 0.1, randomSeed: 0);
+            var results = e.Run();
+            results.WriteResults(@"C:\Data\Ecoli_Human_Spikein\mbr_peaks.tsv", @"C:\Data\Ecoli_Human_Spikein\mbr_peptide_intensities.tsv", null, null, true);
+            //results.WriteResults(@"C:\Data\Ecoli_Human_Spikein\mbr_peaks.tsv", @"C:\Data\Ecoli_Human_Spikein\mbr_peptide_intensities.tsv", null, @"C:\Data\Ecoli_Human_Spikein\new_bayesian.tsv", true);
         }
     }
 }

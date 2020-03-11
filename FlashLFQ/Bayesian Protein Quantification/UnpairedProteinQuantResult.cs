@@ -20,8 +20,6 @@ namespace FlashLFQ
         public int NMeasurementsTreatment;
         public (double hdi_start, double hdi_end) hdi95Control;
         public (double hdi_start, double hdi_end) hdi95Treatment;
-        public double Bias;
-        public double UncertaintyInBias;
 
         public UnpairedProteinQuantResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition,
             bool useSharedPeptides, FlashLfqResults results, Dictionary<(Peptide, string, int), (double, DetectionType)> peptideToSampleQuantity,
@@ -71,14 +69,16 @@ namespace FlashLFQ
             {
                 diffs[i] = treatmentMus[i] - controlMus[i];
             }
-            
+
             if (!skepticalPrior)
             {
                 this.FoldChangePointEstimate = diffs.Median();
 
-                var hdi = Util.GetHighestDensityInterval(diffs, 0.95);
-                UncertaintyInFoldChangeEstimate = hdi.hdi_end - hdi.hdi_start;
+                double uncertaintyInControl = (hdi95Control.hdi_end - hdi95Control.hdi_start) / 2;
+                double uncertaintyInTreatment = (hdi95Treatment.hdi_end - hdi95Treatment.hdi_start) / 2;
 
+                UncertaintyInFoldChangeEstimate = Math.Sqrt(Math.Pow(uncertaintyInControl, 2) + Math.Pow(uncertaintyInTreatment, 2));
+                
                 // propagate SD
                 double[] propagatedSds = new double[Math.Min(controlSds.Length, treatmentSds.Length)];
                 if (!IsStatisticallyValid)
@@ -227,43 +227,7 @@ namespace FlashLFQ
                 {
                     continue;
                 }
-
-                foreach (var condition in conditions)
-                {
-                    int nonZeroIntensitySamples = 0;
-                    int mbrSamples = 0;
-
-                    int numSamplesInGroup = flashLfqResults.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
-
-                    for (int sample = 0; sample < numSamplesInGroup; sample++)
-                    {
-                        double intensity = PeptideToSampleQuantity[(peptide, condition, sample)].Item1;
-                        DetectionType detectionType = PeptideToSampleQuantity[(peptide, condition, sample)].Item2;
-
-                        if (intensity > 0)
-                        {
-                            if (detectionType == DetectionType.MBR)
-                            {
-                                mbrSamples++;
-                            }
-
-                            nonZeroIntensitySamples++;
-                        }
-                    }
-
-                    if (mbrSamples == nonZeroIntensitySamples)
-                    {
-                        if (peptidesIdentifiedByMsmsInBothConditions > 2)
-                        {
-                            peptide.ProteinQuantWeight = 0;
-                        }
-                        else
-                        {
-                            peptide.ProteinQuantWeight = 0.3;
-                        }
-                    }
-                }
-
+                
                 foreach (string condition in conditions)
                 {
                     if (!ConditionsWithPeptideSampleQuantities.ContainsKey(condition))
@@ -272,8 +236,7 @@ namespace FlashLFQ
                     }
 
                     int numSamplesInGroup = flashLfqResults.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
-                    List<Datum> peptideLogIntensities = new List<Datum>();
-                    List<Datum> peptideLogIntensitiesMsMsOnly = new List<Datum>();
+                    List<(double, DetectionType)> peptideLogIntensities = new List<(double, DetectionType)>();
 
                     for (int sample = 0; sample < numSamplesInGroup; sample++)
                     {
@@ -282,21 +245,20 @@ namespace FlashLFQ
 
                         if (intensity > 0)
                         {
-                            peptideLogIntensities.Add(new Datum(dataValue: Math.Log(intensity, 2), weight: peptide.ProteinQuantWeight));
-
-                            if (detectionType == DetectionType.MSMS)
-                            {
-                                peptideLogIntensitiesMsMsOnly.Add(new Datum(dataValue: Math.Log(intensity, 2), weight: peptide.ProteinQuantWeight));
-                            }
+                            peptideLogIntensities.Add((Math.Log(intensity, 2), detectionType));
                         }
                     }
-
+                    
                     // estimate ionization efficiency
                     if (condition == ControlCondition && peptide.IonizationEfficiency == 0)
                     {
-                        if (peptideLogIntensities.Count > 0)
+                        if (peptideLogIntensities.Count > 1)
                         {
-                            peptide.IonizationEfficiency = Math.Pow(2, peptideLogIntensities.Select(p => p.DataValue).Median());
+                            var intensities = peptideLogIntensities.Select(p => p.Item1).ToList();
+
+                            double medianIntensity = intensities.Median();
+
+                            peptide.IonizationEfficiency = Math.Pow(2, medianIntensity);
                         }
                     }
 
@@ -304,11 +266,12 @@ namespace FlashLFQ
                     {
                         List<Datum> ionizationEfficiencyNormalizedData = new List<Datum>();
 
-                        foreach (Datum logIntensity in peptideLogIntensities)
+                        foreach (var logIntensity in peptideLogIntensities)
                         {
-                            double linearIntensity = Math.Pow(2, logIntensity.DataValue);
+                            double linearIntensity = Math.Pow(2, logIntensity.Item1);
 
-                            ionizationEfficiencyNormalizedData.Add(new Datum(Math.Log(linearIntensity / peptide.IonizationEfficiency, 2), logIntensity.Weight));
+                            ionizationEfficiencyNormalizedData.Add(
+                                new Datum(Math.Log(linearIntensity / peptide.IonizationEfficiency, 2), weight: 1));
                         }
 
                         ConditionsWithPeptideSampleQuantities[condition].AddRange(ionizationEfficiencyNormalizedData);

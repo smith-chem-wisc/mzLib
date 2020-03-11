@@ -13,22 +13,15 @@ namespace FlashLFQ
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
         public double IonizationEfficiency;
-        public double ProteinQuantWeight;
 
         public Peptide(string sequence, string baseSequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups)
         {
-            ProteinQuantWeight = 1;
             Sequence = sequence;
             BaseSequence = baseSequence;
             Intensities = new Dictionary<SpectraFileInfo, double>();
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             this.ProteinGroups = proteinGroups;
-
             this.UseForProteinQuant = useForProteinQuant;
-            if (!UseForProteinQuant)
-            {
-                ProteinQuantWeight = 0;
-            }
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
