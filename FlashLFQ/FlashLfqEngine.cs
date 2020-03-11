@@ -25,7 +25,7 @@ namespace FlashLFQ
         public readonly int NumIsotopesRequired;
         public readonly bool IdSpecificChargeState;
         public readonly bool Normalize;
-        public readonly double MinDiscFactorToCutAt;
+        public readonly double DiscriminationFactorToCutPeak;
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -36,7 +36,7 @@ namespace FlashLFQ
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
         public readonly string ProteinQuantBaseCondition;
-        public readonly double ProteinQuantFoldChangeCutoff;
+        public readonly double? ProteinQuantFoldChangeCutoff;
         public readonly int McmcSteps;
         public readonly int McmcBurninSteps;
         public readonly bool UseSharedPeptidesForProteinQuant;
@@ -73,7 +73,7 @@ namespace FlashLFQ
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
             string proteinQuantBaseCondition = null,
-            double proteinQuantFoldChangeCutoff = 0.585,
+            double? proteinQuantFoldChangeCutoff = null,
             int mcmcSteps = 3000,
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
@@ -126,7 +126,7 @@ namespace FlashLFQ
 
             PeakfindingPpmTolerance = 20.0;
             MissedScansAllowed = 1;
-            MinDiscFactorToCutAt = 0.6;
+            DiscriminationFactorToCutPeak = 0.6;
         }
 
         public FlashLfqResults Run()
@@ -1265,7 +1265,7 @@ namespace FlashLFQ
                     double discriminationFactor =
                         (timepoint.Intensity - valleyTimePoint.Intensity) / timepoint.Intensity;
 
-                    if (discriminationFactor > MinDiscFactorToCutAt &&
+                    if (discriminationFactor > DiscriminationFactorToCutPeak &&
                         (indexOfValley + iter < timePointsForApexZ.Count && indexOfValley + iter >= 0))
                     {
                         IsotopicEnvelope secondValleyTimepoint = timePointsForApexZ[indexOfValley + iter];
@@ -1273,7 +1273,7 @@ namespace FlashLFQ
                         discriminationFactor =
                             (timepoint.Intensity - secondValleyTimepoint.Intensity) / timepoint.Intensity;
 
-                        if (discriminationFactor > MinDiscFactorToCutAt)
+                        if (discriminationFactor > DiscriminationFactorToCutPeak)
                         {
                             cutThisPeak = true;
                             break;
