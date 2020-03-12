@@ -33,7 +33,7 @@ namespace FlashLFQ
         private readonly bool UseSharedPeptides;
         private readonly bool PairedSamples;
         private readonly string ControlCondition;
-        private double? FoldChangeCutoff;
+        private double FoldChangeCutoff;
         private readonly int BurnInSteps;
         private readonly int McmcSteps;
         private readonly MersenneTwister Rng;
@@ -44,7 +44,7 @@ namespace FlashLFQ
         public readonly int RandomSeed;
 
         public ProteinQuantificationEngine(FlashLfqResults results, int maxThreads, string controlCondition, bool useSharedPeptides = false,
-            double? foldChangeCutoff = null, int? randomSeed = null, int mcmcBurninSteps = 1000, int mcmcSteps = 3000, bool pairedSamples = false)
+            double foldChangeCutoff = 0.1, int? randomSeed = null, int mcmcBurninSteps = 1000, int mcmcSteps = 3000, bool pairedSamples = false)
         {
             if (string.IsNullOrWhiteSpace(controlCondition))
             {
@@ -88,10 +88,7 @@ namespace FlashLFQ
                 throw new NotImplementedException();
             }
 
-            if (foldChangeCutoff.HasValue)
-            {
-                foldChangeCutoff = Math.Abs(foldChangeCutoff.Value);
-            }
+            FoldChangeCutoff = Math.Abs(foldChangeCutoff);
         }
 
         /// <summary>
@@ -593,18 +590,13 @@ namespace FlashLFQ
         {
             var proteinRes = (UnpairedProteinQuantResult)protein.ConditionToQuantificationResults[treatmentCondition];
 
-            double nullHypothesisControl = 1;
-            double nullHypothesisTreatment = 1;
-
-            if (FoldChangeCutoff.HasValue)
+            double nullHypothesisControl = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
+            double nullHypothesisTreatment = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
+            
+            if (proteinRes.IsStatisticallyValid)
             {
-                nullHypothesisControl = Math.Sqrt(Math.Pow(FoldChangeCutoff.Value, 2) / 2);
-                nullHypothesisTreatment = Math.Sqrt(Math.Pow(FoldChangeCutoff.Value, 2) / 2);
-            }
-            else if (proteinRes.IsStatisticallyValid)
-            {
-                nullHypothesisControl = (proteinRes.hdi95Control.hdi_end - proteinRes.hdi95Control.hdi_start) / 2;
-                nullHypothesisTreatment = (proteinRes.hdi95Treatment.hdi_end - proteinRes.hdi95Treatment.hdi_start) / 2;
+                nullHypothesisControl = Math.Max(nullHypothesisControl, (proteinRes.hdi95Control.hdi_end - proteinRes.hdi95Control.hdi_start) / 2);
+                nullHypothesisTreatment = Math.Max(nullHypothesisTreatment, (proteinRes.hdi95Treatment.hdi_end - proteinRes.hdi95Treatment.hdi_start) / 2);
             }
 
             return (nullHypothesisControl, nullHypothesisTreatment);
