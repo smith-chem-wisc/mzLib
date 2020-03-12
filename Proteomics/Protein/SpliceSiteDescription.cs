@@ -27,7 +27,7 @@ namespace Proteomics
             // Parse novel bool
             if (spliceFields.Length > 6)
             {
-                Novel = bool.Parse(spliceFields[6]);
+                _novel = bool.Parse(spliceFields[6]);
             }
         }
 
@@ -38,15 +38,16 @@ namespace Proteomics
         public int End { get; }
         public int NextStart { get; }
         public int NextEnd { get; }
-
+        private bool? _novel;
         // Updates Description when setting Novel
-        public bool? Novel { get { return Novel; } 
+        public bool? Novel { get { return _novel; } 
             set { 
-                Novel = value;
+                if (_novel == value) { return; }
+                _novel = value;
                 if (Description.Split(@"\t").Length == 7)
                 {
-                    Description = value == null ? Description.Substring(0, Description.LastIndexOf(@"\t")) :
-                        Description.Substring(0, Description.LastIndexOf(@"\t")) + @"\t" + value;
+                    Description = value == null ? Description.Substring(0, Description.LastIndexOf(@"\t", System.StringComparison.Ordinal)) :
+                        Description.Substring(0, Description.LastIndexOf(@"\t", System.StringComparison.Ordinal)) + @"\t" + value;
                 }
                 else
                 {
