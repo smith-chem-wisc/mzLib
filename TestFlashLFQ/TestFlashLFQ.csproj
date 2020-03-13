@@ -28,7 +28,7 @@
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\Test\Test.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
-    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj">
+    <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
   </ItemGroup>
 
   <ItemGroup>
