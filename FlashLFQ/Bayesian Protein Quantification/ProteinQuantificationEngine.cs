@@ -999,7 +999,7 @@ namespace FlashLFQ
                 // pi is the estimated proportion of false-positives in the entire set of hypothesis tests.
                 // it is estimated by finding the largest proportion of the data where the average Bayes 
                 // factor is less than one
-                double pi = 1;
+                double pi = 0.8;
 
                 for (int i = 0; i < bayesFactorsAscending.Count; i++)
                 {

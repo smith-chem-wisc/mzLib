@@ -316,11 +316,6 @@ namespace Test
 
             Assert.That(results.Peaks[file2].Count == 5);
             Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
-            //Assert.That(results.PeptideModifiedSequences["PEPTIDEVV"].GetPosteriorErrorProbability(file1) == 0.1);
-            //Assert.That(results.PeptideModifiedSequences["PEPTIDEVV"].GetPosteriorErrorProbability(file2) == 0.1);
-
-            // fake file, shouldn't exist, error probability should be 1
-            //Assert.That(results.PeptideModifiedSequences["PEPTIDEVV"].GetPosteriorErrorProbability(new SpectraFileInfo("", "", 0, 0, 0)) == 1);
 
             var peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
             var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence ==
@@ -787,38 +782,26 @@ namespace Test
             peptide.SetIntensity(files[4], 2000);
             peptide.SetIntensity(files[5], 2050);
 
-            var engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 0);
+            var engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 0, foldChangeCutoff: 0.1);
             engine.Run();
 
-            var quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+            var quantResult = (UnpairedProteinQuantResult)proteinGroup.ConditionToQuantificationResults["b"];
 
-            //Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 0.202);
-            //Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.176);
-            //Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.007);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
+            Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 0.827);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.149);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.000);
+            Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["a"].Count == 3);
+            Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 3);
 
-            //string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"bayesianProteinQuant.tsv");
-            //res.WriteResults(null, null, null, filepath, true);
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"bayesianProteinQuant.tsv");
+            res.WriteResults(null, null, null, filepath, true);
 
-            //var textResults = File.ReadAllLines(filepath);
-            //Assert.That(textResults.Length == 2);
-            //var line = textResults[1].Split(new char[] { '\t' });
-            //Assert.That(Math.Round(double.Parse(line[12]), 3) == 0.176);
-            //File.Delete(filepath);
-
-            // try with defined fold-change cutoff
-            proteinGroup.ConditionToQuantificationResults.Clear();
-            engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 1, foldChangeCutoff: 0.8);
-            engine.Run();
-
-            quantResult = proteinGroup.ConditionToQuantificationResults["b"];
-
-            //Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.179);
-            //Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.013);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 3);
-
+            var textResults = File.ReadAllLines(filepath);
+            Assert.That(textResults.Length == 2);
+            var line = textResults[1].Split(new char[] { '\t' });
+            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.413);
+            File.Delete(filepath);
+            
             // try with some missing values
             peptide.SetIntensity(files[1], 0);
             peptide.SetIntensity(files[5], 0);
@@ -827,27 +810,28 @@ namespace Test
             engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 2, foldChangeCutoff: 0.5);
             engine.Run();
 
-            quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+            quantResult = (UnpairedProteinQuantResult)proteinGroup.ConditionToQuantificationResults["b"];
 
-            //Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.478);
-            //Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.010);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.Count == 1);
-            //Assert.That(quantResult.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count() == 2);
+            Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 10.087);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.967);
+            Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 0.922);
+            Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["a"].Count == 2);
+            Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 2);
 
-            // try with paired samples
-            peptide.SetIntensity(files[0], 100);
-            peptide.SetIntensity(files[1], 1000);
-            peptide.SetIntensity(files[2], 10000);
+            //// try with paired samples
+            //peptide.SetIntensity(files[0], 100);
+            //peptide.SetIntensity(files[1], 1000);
+            //peptide.SetIntensity(files[2], 10000);
 
-            peptide.SetIntensity(files[3], 210);
-            peptide.SetIntensity(files[4], 2200);
-            peptide.SetIntensity(files[5], 21500);
+            //peptide.SetIntensity(files[3], 210);
+            //peptide.SetIntensity(files[4], 2200);
+            //peptide.SetIntensity(files[5], 21500);
 
-            proteinGroup.ConditionToQuantificationResults.Clear();
-            engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 3, pairedSamples: true);
-            engine.Run();
+            //proteinGroup.ConditionToQuantificationResults.Clear();
+            //engine = new ProteinQuantificationEngine(res, maxThreads: 1, controlCondition: "a", randomSeed: 3, pairedSamples: true);
+            //engine.Run();
 
-            quantResult = proteinGroup.ConditionToQuantificationResults["b"];
+            //quantResult = proteinGroup.ConditionToQuantificationResults["b"];
 
             //Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.098);
             //Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.103);
@@ -916,12 +900,12 @@ namespace Test
                 .PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS).ToList();
 
-            Assert.That(f1r1MbrResults.Count >= 135);
+            Assert.That(f1r1MbrResults.Count >= 132);
 
             var f1r2MbrResults = results.PeptideModifiedSequences
                 .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR).ToList();
 
-            Assert.That(f1r2MbrResults.Count >= 79);
+            Assert.That(f1r2MbrResults.Count >= 77);
 
             List<(double, double)> peptideIntensities = new List<(double, double)>();
 

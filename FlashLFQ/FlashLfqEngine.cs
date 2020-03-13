@@ -458,7 +458,7 @@ namespace FlashLFQ
                 ppmErrors.Add(peak.MassError);
             }
 
-            if (acceptorFileIdentifiedPeaks.Count < 10)
+            if (acceptorFileIdentifiedPeaks.Count < 3)
             {
                 return;
             }
