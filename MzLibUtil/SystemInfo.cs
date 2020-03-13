@@ -1,14 +1,12 @@
-﻿using Microsoft.Win32;
+﻿using Easy.Common;
+using Microsoft.Win32;
 using System;
 using System.Diagnostics;
-
-#if ONLYNETSTANDARD
-#else
-
-using System.Management;
-
-#endif
-
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace MzLibUtil
@@ -21,10 +19,7 @@ namespace MzLibUtil
 
             fullSystemString.Append(SystemProse() + "\n");
 
-            fullSystemString.Append(DotNet());
-            fullSystemString.Append(MsFileReader_FileIo());
-            fullSystemString.Append(MsFileReader_Fregistry());
-            fullSystemString.Append(MsFileReader_XRawfile2());
+            fullSystemString.Append(".NET version: " + GetDotNetVersion());
 
             return fullSystemString.ToString();
         }
@@ -33,59 +28,27 @@ namespace MzLibUtil
         {
             StringBuilder fullSystemProse = new StringBuilder();
 
-            fullSystemProse.Append("Data files were processed on a " + GetManufacturer() + " computer ");
-            fullSystemProse.Append("using " + WindowsOperatingSystemVersion());
+            fullSystemProse.Append("Data files were processed on a computer ");
+            fullSystemProse.Append("running " + GetOperatingSystem());
             fullSystemProse.Append(" with a " + GetCpuRegister());
-            fullSystemProse.Append(" and " + ProcessorCount() + " cores ");
-            fullSystemProse.Append("operating at " + GetMaxClockSpeed() + "GHz ");
+            fullSystemProse.Append(" " + GetProcessorName() + " processor");
+            fullSystemProse.Append(" with " + ProcessorCount() + " threads ");
+            
             fullSystemProse.Append("and " + InstalledRam() + "GB installed RAM.");
 
             return fullSystemProse.ToString();
         }
 
-        private static string GetManufacturer()
+        private static string GetOperatingSystem()
         {
-            string computerModel = "UNDETERMINED";
-#if ONLYNETSTANDARD
-            return computerModel;
-#else
             try
             {
-                System.Management.SelectQuery query = new System.Management.SelectQuery(@"Select * from Win32_ComputerSystem");
-
-                using (System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher(query))
-                {
-                    foreach (System.Management.ManagementObject process in searcher.Get())
-                    {
-                        process.Get();
-                        computerModel = process["Manufacturer"].ToString() + " " + process["Model"].ToString();
-                    }
-                }
-                return computerModel;
+                return RuntimeInformation.OSDescription;
             }
             catch
             {
-                return computerModel;
+                return "UNKNOWN OPERATING SYSTEM";
             }
-#endif
-        }
-
-        private static string GetWindowsOs()
-        {
-#if ONLYNETSTANDARD
-            return "UNDETERMINED OPERATING SYSTEM";
-#else
-            try
-            {
-                var reg = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
-
-                return ((string)reg.GetValue("ProductName"));
-            }
-            catch
-            {
-                return "UNDETERMINED OPERATING SYSTEM";
-            }
-#endif
         }
 
         private static string GetCpuRegister()
@@ -93,102 +56,150 @@ namespace MzLibUtil
             try
             {
                 if (Environment.Is64BitOperatingSystem)
-                    return "64-Bit processor";
+                    return "64-bit";
                 else
-                    return "32-Bit processor";
+                    return "32-bit";
             }
             catch
             {
-                return "UNDETERMINED-BIT PROCESSOR";
+                return "UNDETERMINED-BIT";
             }
         }
 
-        private static string GetMaxClockSpeed()
+        /// <summary>
+        /// Gets the name of the machine's processor
+        /// // see https://github.com/NimaAra/Easy.Common/blob/master/Easy.Common/DiagnosticReport/DiagnosticReport.cs
+        /// </summary>
+        private static string GetProcessorName()
         {
-#if ONLYNETSTANDARD
-            return "UNDETERMINED";
-#else
+            string processorName = "UNKNOWN";
+
             try
             {
-                RegistryKey registrykeyHKLM = Registry.LocalMachine;
-                string keyPath = @"HARDWARE\DESCRIPTION\System\CentralProcessor\0";
-                RegistryKey registrykeyCPU = registrykeyHKLM.OpenSubKey(keyPath, false);
-                string MHz = registrykeyCPU.GetValue("~MHz").ToString();
-                double numericalMHz = Convert.ToDouble(MHz) / 1000d;
-                registrykeyCPU.Close();
-                return numericalMHz.ToString();
-            }
-            catch
-            {
-                return "UNDETERMINED";
-            }
-#endif
-        }
-
-        private static string WindowsOperatingSystemVersion()
-        {
-            try
-            {
-                return ("Windows version " + Environment.OSVersion.Version.ToString());
-            }
-            catch
-            {
-                return "UNDETERMINED OPERATING SYSTEM";
-            }
-        }
-
-        private static string DotNet()
-        {
-#if ONLYNETSTANDARD
-            return "Windows .Net Version could not be determined.\n";
-#else
-            try
-            {
-                const string subkey = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full\";
-
-                using (RegistryKey ndpKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry32).OpenSubKey(subkey))
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    if (ndpKey != null && ndpKey.GetValue("Release") != null)
+                    var key = Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0\");
+                    processorName = key?.GetValue("ProcessorNameString").ToString() ?? "Not Found";
+                }
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    const string CPUFile = "/proc/cpuinfo";
+                    var cpuLine = File.ReadLines(CPUFile)
+                        .FirstOrDefault(l => l.StartsWith("model name", StringComparison.InvariantCultureIgnoreCase));
+
+                    if (cpuLine != null)
                     {
-                        return ".NET Framework Version: " + CheckFor45PlusVersion((int)ndpKey.GetValue("Release"));
+                        const string Separator = ": ";
+                        var startIdx = cpuLine.IndexOf(Separator, StringComparison.Ordinal) + Separator.Length;
+                        processorName = cpuLine.Substring(startIdx, cpuLine.Length - startIdx);
                     }
-                    else
-                    {
-                        return ".NET Framework Version 4.5 or later is not detected.";
-                    }
+                }
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    processorName = AsBashCommand("sysctl -n machdep.cpu.brand_string").TrimEnd();
                 }
             }
             catch
             {
-                return "Windows .Net Version could not be determined.\n";
+
             }
-#endif
+
+            return processorName;
         }
 
+        /// <summary>
+        /// see https://github.com/NimaAra/Easy.Common/blob/master/Easy.Common/DiagnosticReport/DiagnosticReport.cs
+        /// </summary>
+        private static string AsBashCommand(string command)
+        {
+            var escapedArgs = command.Replace("\"", "\\\"");
+            var p = new Process
+            {
+                EnableRaisingEvents = true,
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "sh",
+                    Arguments = $"-c \"{escapedArgs}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            p.Start();
+            var result = p.StandardOutput.ReadToEnd();
+            p.WaitForExit();
+            return result;
+        }
+
+        private static string GetDotNetVersion()
+        {
+            try
+            {
+                return RuntimeInformation.FrameworkDescription;
+            }
+            catch
+            {
+                return "UNKNOWN .NET VERSION";
+            }
+        }
+
+        /// <summary>
+        /// see https://github.com/NimaAra/Easy.Common/blob/master/Easy.Common/DiagnosticReport/DiagnosticReport.cs
+        /// </summary>
         private static string InstalledRam()
         {
-#if ONLYNETSTANDARD
-            return "UNKNOWN ";
-#else
+            string amountOfRamInGb = "UNKNOWN ";
+
             try
             {
-                string Query = "SELECT Capacity FROM Win32_PhysicalMemory";
-                ManagementObjectSearcher searcher = new ManagementObjectSearcher(Query);
-
-                UInt64 Capacity = 0;
-                foreach (ManagementObject WniPART in searcher.Get())
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    Capacity += Convert.ToUInt64(WniPART.Properties["Capacity"].Value);
+                    GetPhysicallyInstalledSystemMemory(out var installedMemoryKb);
+                    amountOfRamInGb = ((long)UnitConverter.KiloBytesToMegaBytes(installedMemoryKb).MegaBytesToGigaBytes()).ToString("F0");
                 }
 
-                return ((Capacity / 1073741824).ToString());
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    const string MemFile = "/proc/meminfo";
+                    var memLine = File.ReadLines(MemFile)
+                        .FirstOrDefault(l => l.StartsWith("MemTotal:", StringComparison.InvariantCultureIgnoreCase));
+
+                    if (memLine != null)
+                    {
+                        const string BeginSeparator = ":";
+                        const string EndSeparator = "kB";
+                        var startIdx = memLine.IndexOf(BeginSeparator, StringComparison.Ordinal) + BeginSeparator.Length;
+                        var endIdx = memLine.IndexOf(EndSeparator, StringComparison.Ordinal);
+                        var memStr = memLine.Substring(startIdx, endIdx - startIdx);
+                        amountOfRamInGb = (long.Parse(memStr) / 1000_000).ToString();
+                    }
+                }
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    var memStr = AsBashCommand("sysctl -n hw.memsize");
+                    amountOfRamInGb = (long.Parse(memStr) / 1000_000_000).ToString();
+                }
             }
             catch
             {
-                return "UNKNOWN ";
+                
             }
-#endif
+
+            return amountOfRamInGb;
         }
+
+        /// <summary>
+        /// see https://github.com/NimaAra/Easy.Common/blob/master/Easy.Common/DiagnosticReport/DiagnosticReport.cs
+        /// <see href="https://msdn.microsoft.com/en-us/library/windows/desktop/cc300158(v=vs.85).aspx"/>
+        /// </summary>
+        [DllImport("kernel32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetPhysicallyInstalledSystemMemory(out long totalMemoryInKilobytes);
 
         private static string ProcessorCount()
         {
@@ -198,85 +209,8 @@ namespace MzLibUtil
             }
             catch
             {
-                return "AN UNKNOWN NUMBER OF ";
+                return "AN UNKNOWN NUMBER OF";
             }
-        }
-
-        private static string MsFileReader_FileIo()
-        {
-            try
-            {
-                FileVersionInfo myFileVersionInfo = FileVersionInfo.GetVersionInfo(@"C:\Program Files\Thermo\MSFileReader\Fileio_x64.dll");
-                return ("Thermo MSFileReader " + myFileVersionInfo.FileDescription + "\t\t" +
-                              "Version: " + myFileVersionInfo.FileVersion + "\n");
-            }
-            catch
-            {
-                return @"C:\Program Files\Thermo\MSFileReader\Fileio_x64.dll MISSING\n";
-            }
-        }
-
-        private static string MsFileReader_Fregistry()
-        {
-            try
-            {
-                FileVersionInfo myFileVersionInfo = FileVersionInfo.GetVersionInfo(@"C:\Program Files\Thermo\MSFileReader\fregistry_x64.dll");
-                return ("Thermo MSFileReader " + myFileVersionInfo.FileDescription + "\t\t" +
-                              "Version: " + myFileVersionInfo.FileVersion + "\n");
-            }
-            catch
-            {
-                return @"C:\Program Files\Thermo\MSFileReader\fregistry_x64.dll MISSING\n";
-            }
-        }
-
-        private static string MsFileReader_XRawfile2()
-        {
-            try
-            {
-                FileVersionInfo myFileVersionInfo = FileVersionInfo.GetVersionInfo(@"C:\Program Files\Thermo\MSFileReader\XRawfile2_x64.dll");
-                return ("Thermo MSFileReader " + myFileVersionInfo.FileDescription + "\t\t" +
-                              "Version: " + myFileVersionInfo.FileVersion + "\n");
-            }
-            catch
-            {
-                return @"C:\Program Files\Thermo\MSFileReader\XRawfile2_x64.dll MISSING\n";
-            }
-        }
-
-        private static string CheckFor45PlusVersion(int releaseKey)
-        {
-            if (releaseKey >= 460798)
-            {
-                return "4.7 or later";
-            }
-            if (releaseKey >= 394802)
-            {
-                return "4.6.2";
-            }
-            if (releaseKey >= 394254)
-            {
-                return "4.6.1";
-            }
-            if (releaseKey >= 393295)
-            {
-                return "4.6";
-            }
-            if ((releaseKey >= 379893))
-            {
-                return "4.5.2";
-            }
-            if ((releaseKey >= 378675))
-            {
-                return "4.5.1";
-            }
-            if ((releaseKey >= 378389))
-            {
-                return "4.5";
-            }
-            // This code should never execute. A non-null release key should mean
-            // that 4.5 or later is installed.
-            return "No 4.5 or later version detected";
         }
     }
 }
