@@ -56,7 +56,7 @@ namespace Test
                     priorNuExponent: 1.0 / 29.0, nuInitialGuess: 5), 
                 seed: 0);
 
-            // burn in and then sample the MCMC chain
+            // burn in and then sample the MCMC chain 
             sampler.Run(1000, 1000);
 
             var chain = sampler.MarkovChain;
