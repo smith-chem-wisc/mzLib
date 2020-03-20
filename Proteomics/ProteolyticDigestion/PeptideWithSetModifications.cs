@@ -443,7 +443,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // add side-chain mod
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+                if (AllModsOneIsNterminus.TryGetValue(2, out Modification mod))
                 {
                     cTermMass += mod.MonoisotopicMass.Value;
                 }
