@@ -223,12 +223,12 @@ namespace ThermoRawFileReader
 
             if (isolationMz.HasValue)
             {
-                int? closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
-
-                if (closest.HasValue)
+                if (spectrum.Size != 0)
                 {
-                    double mz = spectrum.XArray[closest.Value];
-                    double intensity = spectrum.YArray[closest.Value];
+                    int closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
+
+                    double mz = spectrum.XArray[closest];
+                    double intensity = spectrum.YArray[closest];
 
                     if (Math.Abs(mz - isolationMz.Value) < 0.1)
                     {

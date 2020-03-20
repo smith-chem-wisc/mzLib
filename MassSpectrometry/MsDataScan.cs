@@ -122,14 +122,16 @@ namespace MassSpectrometry
             return MzSpectrum.Get64Bitarray(GetNoiseDataBaseline(NoiseData));
         }
 
-        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
+        public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,
+            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
         {
             if (IsolationRange == null)
             {
                 yield break;
             }
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
-                                                  .Where(b => b.peaks.Any(cc => isolationRange.Contains(cc.mz))))
+            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), 
+                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
+                                                  .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz))))
             {
                 yield return haha;
             }
@@ -162,9 +164,9 @@ namespace MassSpectrometry
             {
                 throw new MzLibException("Could not define precursor ion because the precursor scan contains no peaks");
             }
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(IsolationMz.Value);
-            SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
-            SelectedIonMZ = precursorSpectrum.XArray[thePeak.Value];
+            int thePeak = precursorSpectrum.GetClosestPeakIndex(IsolationMz.Value);
+            SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
+            SelectedIonMZ = precursorSpectrum.XArray[thePeak];
         }
 
         public void ComputeSelectedPeakIntensity(MzSpectrum precursorSpectrum)
@@ -173,9 +175,9 @@ namespace MassSpectrometry
             {
                 throw new MzLibException("Could not compute selected peak intensity because the precursor scan contains no peaks");
             }
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ.Value);
-            SelectedIonIntensity = precursorSpectrum.YArray[thePeak.Value];
-            SelectedIonMZ = precursorSpectrum.XArray[thePeak.Value];
+            int thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMZ.Value);
+            SelectedIonIntensity = precursorSpectrum.YArray[thePeak];
+            SelectedIonMZ = precursorSpectrum.XArray[thePeak];
         }
 
         public void ComputeMonoisotopicPeakIntensity(MzSpectrum precursorSpectrum)
@@ -184,9 +186,9 @@ namespace MassSpectrometry
             {
                 throw new MzLibException("Could not compute monoisotopic peak intensity because the precursor scan contains no peaks");
             }
-            var thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
-            SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak.Value];
-            SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak.Value];
+            int thePeak = precursorSpectrum.GetClosestPeakIndex(SelectedIonMonoisotopicGuessMz.Value);
+            SelectedIonMonoisotopicGuessIntensity = precursorSpectrum.YArray[thePeak];
+            SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak];
         }
 
         public void SetOneBasedPrecursorScanNumber(int value)
