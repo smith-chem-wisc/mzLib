@@ -430,6 +430,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // zDot generates one more ion...
+            //ETD will cleave between N - C bond.So ETD will remove a NH3 from the N-terminal amino acid, and generate(MH + minus NH3) ion
             if (cTermProductTypes.Contains(ProductType.zDot) && BaseSequence[0] != 'P')
             {
                 // get c-term residue mass
@@ -443,7 +444,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // add side-chain mod
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+                if (AllModsOneIsNterminus.TryGetValue(2, out Modification mod))
                 {
                     cTermMass += mod.MonoisotopicMass.Value;
                 }
