@@ -629,7 +629,7 @@ namespace Test
 
             Assert.That(theseTheoreticalFragments.Count == 22);
             Assert.That(theseTheoreticalFragments.Last().Annotation == "zDot8");
-            Assert.That(theseTheoreticalFragments.Last().NeutralMass > 1824);
+            Assert.That(theseTheoreticalFragments.Last().NeutralMass > 1842);
         }
 
         [Test]
