@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
@@ -801,7 +802,7 @@ namespace Test
             var line = textResults[1].Split(new char[] { '\t' });
             Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.413);
             File.Delete(filepath);
-            
+
             // try with some missing values
             peptide.SetIntensity(files[1], 0);
             peptide.SetIntensity(files[5], 0);
@@ -1045,6 +1046,100 @@ namespace Test
 
             res.CalculateProteinResultsTop3(useSharedPeptides: false);
             Assert.That(res.ProteinGroups["Accession1"].GetIntensity(files[0]) == 2000); // protein intensity should be from the unique peptide only
+        }
+
+        [Test]
+        public static void TestIntensityDependentProteinQuant()
+        {
+            // create the files, peptides, and proteins
+            int numTotalProteins = 200;
+            int numDifferentiallyAbundant = (int)(numTotalProteins * 0.3);
+            
+            Random randomSource = new Random(0);
+            List<ProteinGroup> pgs = new List<ProteinGroup>();
+            List<Identification> ids = new List<Identification>();
+
+            var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0),
+                new SpectraFileInfo("a2", "a", 1, 0, 0),
+                new SpectraFileInfo("a3", "a", 2, 0, 0),
+                new SpectraFileInfo("b1", "b", 0, 0, 0),
+                new SpectraFileInfo("b2", "b", 1, 0, 0),
+                new SpectraFileInfo("b3", "b", 2, 0, 0)
+            };
+
+            for (int i = 0; i < numTotalProteins; i++)
+            {
+                string organism = i < numDifferentiallyAbundant ? "changing" : "not_changing";
+
+                var pg = new ProteinGroup("protein_" + i, "", organism);
+
+                for (int j = 0; j < 3; j++)
+                {
+                    string peptideName = "peptide_" + i + "_" + j;
+
+                    foreach (var file in files)
+                    {
+                        var id = new Identification(file, peptideName, peptideName, 0, 0, 0, new List<ProteinGroup> { pg });
+                        ids.Add(id);
+                    }
+                }
+
+                pgs.Add(pg);
+            }
+
+            var res = new FlashLfqResults(files, ids);
+
+            // set intensity values
+            var differentiallyAbundantProteins = new HashSet<ProteinGroup>(pgs.Take(numDifferentiallyAbundant));
+            Normal n = new Normal(20, 5, randomSource);
+
+            foreach (var peptide in res.PeptideModifiedSequences)
+            {
+                var protein = peptide.Value.ProteinGroups.First();
+
+                bool differentiallyAbundant = differentiallyAbundantProteins.Contains(protein);
+
+                double groupAIntensity = 0;
+                double groupBIntensity = 0;
+                while (groupAIntensity <= 0)
+                {
+                    groupAIntensity = n.Sample();
+                }
+
+                if (differentiallyAbundant)
+                {
+                    groupBIntensity = groupAIntensity + 1;
+                }
+                else
+                {
+                    groupBIntensity = groupAIntensity;
+                }
+
+                foreach (var file in files)
+                {
+                    if (file.Condition == "a")
+                    {
+                        double noise = Normal.Sample(randomSource, 0, 1 / (groupAIntensity * 0.1));
+                        double fileIntensity = Math.Pow(2, groupAIntensity + noise);
+                        peptide.Value.SetIntensity(file, fileIntensity);
+                    }
+                    else
+                    {
+                        double noise = Normal.Sample(randomSource, 0, 1 / (groupBIntensity * 0.1));
+                        double fileIntensity = Math.Pow(2, groupBIntensity + noise);
+                        peptide.Value.SetIntensity(file, fileIntensity);
+                    }
+                }
+            }
+
+            // run the protein quant engine
+            ProteinQuantificationEngine engine = new ProteinQuantificationEngine(res, 1, "a", false, 0.1, 0, 1000, 1000, false);
+            engine.Run();
+
+            // test the quant engine results
+            //res.WriteResults(null, @"C:\Users\rmillikin\Desktop\proteinQuantUnitTest\peptides.tsv", null, @"C:\Users\rmillikin\Desktop\proteinQuantUnitTest\bayes.tsv", true);
         }
     }
 }
