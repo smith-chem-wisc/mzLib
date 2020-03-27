@@ -1152,5 +1152,40 @@ namespace Test
                 Assert.That(proteinsBelow5percentFdr.Count > 30);
             }
         }
+
+        [Test]
+        public static void TestAmbiguousFraction()
+        {
+            SpectraFileInfo fraction1 = new SpectraFileInfo("", "", 0, 0, fraction: 0);
+            SpectraFileInfo fraction2 = new SpectraFileInfo("", "", 0, 0, fraction: 1);
+            Identification id1 = new Identification(fraction1, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
+
+            Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
+            Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
+
+            ChromatographicPeak peak1 = new ChromatographicPeak(id1, false, fraction1);
+            ChromatographicPeak peak2 = new ChromatographicPeak(id2, false, fraction1);
+            peak2.Identifications.Add(id3);
+
+            peak1.ResolveIdentifications();
+            peak2.ResolveIdentifications();
+
+            peak1.IsotopicEnvelopes.Add(new FlashLFQ.IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 1000));
+            peak2.IsotopicEnvelopes.Add(new FlashLFQ.IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 10000));
+
+            peak1.CalculateIntensityForThisFeature(false);
+            peak2.CalculateIntensityForThisFeature(false);
+
+            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
+            res.Peaks[fraction1].Add(peak1);
+            res.Peaks[fraction2].Add(peak2);
+            res.CalculatePeptideResults();
+
+            var peptides = res.PeptideModifiedSequences;
+            Assert.That(peptides["peptide1"].GetIntensity(fraction1) == 0);
+            Assert.That(peptides["peptide1"].GetIntensity(fraction2) == 0);
+            Assert.That(peptides["peptide2"].GetIntensity(fraction1) == 0);
+            Assert.That(peptides["peptide2"].GetIntensity(fraction2) == 0);
+        }
     }
 }
