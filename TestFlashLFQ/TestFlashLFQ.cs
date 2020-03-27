@@ -800,7 +800,7 @@ namespace Test
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 2);
             var line = textResults[1].Split(new char[] { '\t' });
-            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.413);
+            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.149);
             File.Delete(filepath);
 
             // try with some missing values
