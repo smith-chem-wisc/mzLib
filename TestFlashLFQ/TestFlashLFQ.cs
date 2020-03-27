@@ -1186,6 +1186,11 @@ namespace Test
             Assert.That(peptides["peptide1"].GetIntensity(fraction2) == 0);
             Assert.That(peptides["peptide2"].GetIntensity(fraction1) == 0);
             Assert.That(peptides["peptide2"].GetIntensity(fraction2) == 0);
+
+            Assert.That(peptides["peptide1"].GetDetectionType(fraction1) == DetectionType.MSMS);
+            Assert.That(peptides["peptide1"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
+            Assert.That(peptides["peptide2"].GetDetectionType(fraction1) == DetectionType.NotDetected);
+            Assert.That(peptides["peptide2"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
         }
     }
 }
