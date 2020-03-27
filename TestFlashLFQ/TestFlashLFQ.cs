@@ -1079,7 +1079,7 @@ namespace Test
 
                     var pg = new ProteinGroup("protein_" + i, "", organism);
 
-                    for (int j = 0; j < 3; j++)
+                    for (int j = 0; j < 4; j++)
                     {
                         string peptideName = "peptide_" + i + "_" + j;
 
@@ -1149,7 +1149,7 @@ namespace Test
                 var fdp = proteinsBelow5percentFdr.Count(p => p.Protein.Organism == "not_changing") / (double)proteinsBelow5percentFdr.Count;
 
                 Assert.That(fdp < 0.05);
-                Assert.That(proteinsBelow5percentFdr.Count > 30);
+                Assert.That(proteinsBelow5percentFdr.Count >= 50);
             }
         }
 
