@@ -391,7 +391,7 @@ namespace FlashLFQ
                         // sort by protein false discovery rate, then by number of measurements
                         foreach (var protein in ProteinGroups
                             .OrderByDescending(v => v.Value.ConditionToQuantificationResults[condition].IsStatisticallyValid)
-                            .ThenBy(v => v.Value.ConditionToQuantificationResults[condition].ProbabilityOfFalsePositive)
+                            .ThenBy(v => v.Value.ConditionToQuantificationResults[condition].PosteriorErrorProbability)
                             .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].Peptides.Count))
                         {
                             proteinStringBuilders[p].Append(

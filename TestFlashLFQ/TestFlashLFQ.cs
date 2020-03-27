@@ -1051,15 +1051,19 @@ namespace Test
         [Test]
         public static void TestIntensityDependentProteinQuant()
         {
-            // create the files, peptides, and proteins
-            int numTotalProteins = 200;
-            int numDifferentiallyAbundant = (int)(numTotalProteins * 0.3);
-            
-            Random randomSource = new Random(0);
-            List<ProteinGroup> pgs = new List<ProteinGroup>();
-            List<Identification> ids = new List<Identification>();
+            List<double> diffAbundantFractions = new List<double> { 0.2 };
 
-            var files = new List<SpectraFileInfo>
+            foreach (var differentiallyAbundantFraction in diffAbundantFractions)
+            {
+                // create the files, peptides, and proteins
+                int numTotalProteins = 300;
+                int numDifferentiallyAbundant = (int)(numTotalProteins * differentiallyAbundantFraction);
+
+                Random randomSource = new Random(0);
+                List<ProteinGroup> pgs = new List<ProteinGroup>();
+                List<Identification> ids = new List<Identification>();
+
+                var files = new List<SpectraFileInfo>
             {
                 new SpectraFileInfo("a1", "a", 0, 0, 0),
                 new SpectraFileInfo("a2", "a", 1, 0, 0),
@@ -1069,77 +1073,84 @@ namespace Test
                 new SpectraFileInfo("b3", "b", 2, 0, 0)
             };
 
-            for (int i = 0; i < numTotalProteins; i++)
-            {
-                string organism = i < numDifferentiallyAbundant ? "changing" : "not_changing";
-
-                var pg = new ProteinGroup("protein_" + i, "", organism);
-
-                for (int j = 0; j < 3; j++)
+                for (int i = 0; i < numTotalProteins; i++)
                 {
-                    string peptideName = "peptide_" + i + "_" + j;
+                    string organism = i < numDifferentiallyAbundant ? "changing" : "not_changing";
 
-                    foreach (var file in files)
+                    var pg = new ProteinGroup("protein_" + i, "", organism);
+
+                    for (int j = 0; j < 3; j++)
                     {
-                        var id = new Identification(file, peptideName, peptideName, 0, 0, 0, new List<ProteinGroup> { pg });
-                        ids.Add(id);
+                        string peptideName = "peptide_" + i + "_" + j;
+
+                        foreach (var file in files)
+                        {
+                            var id = new Identification(file, peptideName, peptideName, 0, 0, 0, new List<ProteinGroup> { pg });
+                            ids.Add(id);
+                        }
                     }
+
+                    pgs.Add(pg);
                 }
 
-                pgs.Add(pg);
-            }
+                var res = new FlashLfqResults(files, ids);
 
-            var res = new FlashLfqResults(files, ids);
+                // set intensity values
+                var differentiallyAbundantProteins = new HashSet<ProteinGroup>(pgs.Take(numDifferentiallyAbundant));
+                Normal n = new Normal(20, 5, randomSource);
 
-            // set intensity values
-            var differentiallyAbundantProteins = new HashSet<ProteinGroup>(pgs.Take(numDifferentiallyAbundant));
-            Normal n = new Normal(20, 5, randomSource);
-
-            foreach (var peptide in res.PeptideModifiedSequences)
-            {
-                var protein = peptide.Value.ProteinGroups.First();
-
-                bool differentiallyAbundant = differentiallyAbundantProteins.Contains(protein);
-
-                double groupAIntensity = 0;
-                double groupBIntensity = 0;
-                while (groupAIntensity <= 0)
+                foreach (var peptide in res.PeptideModifiedSequences)
                 {
-                    groupAIntensity = n.Sample();
-                }
+                    var protein = peptide.Value.ProteinGroups.First();
 
-                if (differentiallyAbundant)
-                {
-                    groupBIntensity = groupAIntensity + 1;
-                }
-                else
-                {
-                    groupBIntensity = groupAIntensity;
-                }
+                    bool differentiallyAbundant = differentiallyAbundantProteins.Contains(protein);
 
-                foreach (var file in files)
-                {
-                    if (file.Condition == "a")
+                    double groupAIntensity = 0;
+                    double groupBIntensity = 0;
+                    while (groupAIntensity <= 0)
                     {
-                        double noise = Normal.Sample(randomSource, 0, 1 / (groupAIntensity * 0.1));
-                        double fileIntensity = Math.Pow(2, groupAIntensity + noise);
-                        peptide.Value.SetIntensity(file, fileIntensity);
+                        groupAIntensity = n.Sample();
+                    }
+
+                    if (differentiallyAbundant)
+                    {
+                        groupBIntensity = groupAIntensity + 1;
                     }
                     else
                     {
-                        double noise = Normal.Sample(randomSource, 0, 1 / (groupBIntensity * 0.1));
-                        double fileIntensity = Math.Pow(2, groupBIntensity + noise);
-                        peptide.Value.SetIntensity(file, fileIntensity);
+                        groupBIntensity = groupAIntensity;
+                    }
+
+                    foreach (var file in files)
+                    {
+                        if (file.Condition == "a")
+                        {
+                            double noise = Normal.Sample(randomSource, 0, 1 / (groupAIntensity * 0.1));
+                            double fileIntensity = Math.Pow(2, groupAIntensity + noise);
+                            peptide.Value.SetIntensity(file, fileIntensity);
+                        }
+                        else
+                        {
+                            double noise = Normal.Sample(randomSource, 0, 1 / (groupBIntensity * 0.1));
+                            double fileIntensity = Math.Pow(2, groupBIntensity + noise);
+                            peptide.Value.SetIntensity(file, fileIntensity);
+                        }
                     }
                 }
+
+                // run the protein quant engine
+                ProteinQuantificationEngine engine = new ProteinQuantificationEngine(res, -1, "a", false, 0.1, 0, 1000, 1000, false);
+                engine.Run();
+
+                // test the quant engine results
+                var proteinQuantResults = res.ProteinGroups.Values.Select(p => (UnpairedProteinQuantResult)p.ConditionToQuantificationResults["b"]).ToList();
+
+                var proteinsBelow5percentFdr = proteinQuantResults.Where(p => p.FalseDiscoveryRate < 0.05).ToList();
+                var fdp = proteinsBelow5percentFdr.Count(p => p.Protein.Organism == "not_changing") / (double)proteinsBelow5percentFdr.Count;
+
+                Assert.That(fdp < 0.05);
+                Assert.That(proteinsBelow5percentFdr.Count > 30);
             }
-
-            // run the protein quant engine
-            ProteinQuantificationEngine engine = new ProteinQuantificationEngine(res, 1, "a", false, 0.1, 0, 1000, 1000, false);
-            engine.Run();
-
-            // test the quant engine results
-            //res.WriteResults(null, @"C:\Users\rmillikin\Desktop\proteinQuantUnitTest\peptides.tsv", null, @"C:\Users\rmillikin\Desktop\proteinQuantUnitTest\bayes.tsv", true);
         }
     }
 }
