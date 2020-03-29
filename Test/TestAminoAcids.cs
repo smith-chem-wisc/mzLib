@@ -19,11 +19,13 @@
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public sealed class TestAminoAcids
     {
         private static Stopwatch Stopwatch { get; set; }

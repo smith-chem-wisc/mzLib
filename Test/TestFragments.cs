@@ -35,6 +35,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestFragments
     {
         private Peptide _mockPeptideEveryAminoAcid;
