@@ -475,8 +475,7 @@ namespace FlashLFQ
                         else
                         {
                             result = new UnpairedProteinQuantResult(protein, ProteinsWithConstituentPeptides[protein], ControlCondition,
-                                treatmentCondition, UseSharedPeptides, Results, PeptideToSampleQuantity,
-                                randomSeedsForEachProtein[protein], BurnInSteps);
+                                treatmentCondition, UseSharedPeptides, Results, PeptideToSampleQuantity);
                         }
 
                         protein.ConditionToQuantificationResults.Add(treatmentCondition, result);
@@ -592,7 +591,7 @@ namespace FlashLFQ
 
             double nullHypothesisControl = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
             double nullHypothesisTreatment = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
-            
+
             if (proteinRes.IsStatisticallyValid)
             {
                 nullHypothesisControl = Math.Max(nullHypothesisControl, (proteinRes.hdi95Control.hdi_end - proteinRes.hdi95Control.hdi_start) / 2);
@@ -729,6 +728,7 @@ namespace FlashLFQ
                                 double mean = peptideMeans.Median();
 
                                 double sd = Math.Min(peptideMeans.InterquartileRange() / 1.34896, peptideMeans.StandardDeviation());
+                                sd = Math.Max(0.01, sd);
 
                                 AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(
                                     peptideMeans.ToArray(),
@@ -971,9 +971,7 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Calculates the false discovery rate of each protein from the Bayes factors.
-        /// https://arxiv.org/pdf/1311.3981.pdf
-        /// </summary>
+        /// Calculates the false discovery rate of each protein from their posterior error probabilities.
         private void CalculateFalseDiscoveryRates()
         {
             var proteinList = ProteinsWithConstituentPeptides.ToList();
@@ -984,50 +982,15 @@ namespace FlashLFQ
                 var bayesianQuantResults = proteinList
                     .Select(p => p.Key.ConditionToQuantificationResults[treatmentCondition])
                     .OrderByDescending(p => p.IsStatisticallyValid)
-                    .ThenByDescending(p => p.BayesFactor)
-                    .ThenByDescending(p => Math.Abs(p.FoldChangePointEstimate / p.UncertaintyInFoldChangeEstimate))
+                    .ThenBy(p => p.PosteriorErrorProbability)
+                    .ThenByDescending(p => p.Peptides.Count)
                     .ToList();
 
-                var bayesFactorsAscending = bayesianQuantResults
-                    .Where(p => p.IsStatisticallyValid)
-                    .Select(p => p.BayesFactor)
-                    .OrderBy(p => p)
-                    .ToList();
-
-                var runningListOfBayesFactors = new List<double>();
-
-                // pi is the estimated proportion of false-positives in the entire set of hypothesis tests.
-                // it is estimated by finding the largest proportion of the data where the average Bayes 
-                // factor is less than one
-                double pi = 0.8;
-
-                for (int i = 0; i < bayesFactorsAscending.Count; i++)
-                {
-                    runningListOfBayesFactors.Add(bayesFactorsAscending[i]);
-                    double averageBayesFactor = runningListOfBayesFactors.Average();
-
-                    if (averageBayesFactor < 1)
-                    {
-                        pi = (i + 1) / ((double)bayesFactorsAscending.Count);
-                    }
-                }
-
+                List<double> posteriorErrorProbabilities = new List<double>();
                 foreach (var bayesianQuantResult in bayesianQuantResults)
                 {
-                    double bayesFactor = bayesianQuantResult.BayesFactor;
-
-                    // vi is the probability that the alternative hypothesis is true, if accepted
-                    double vi = ((1 - pi) * bayesFactor) / (pi + (1 - pi) * bayesFactor);
-
-                    bayesianQuantResult.ProbabilityOfFalsePositive = 1 - vi;
-                }
-
-                List<double> PosteriorProbabilitiesOfTrueAlternative = new List<double>();
-
-                for (int p = 0; p < bayesianQuantResults.Count; p++)
-                {
-                    PosteriorProbabilitiesOfTrueAlternative.Add(bayesianQuantResults[p].ProbabilityOfFalsePositive);
-                    bayesianQuantResults[p].FalseDiscoveryRate = PosteriorProbabilitiesOfTrueAlternative.Average();
+                    posteriorErrorProbabilities.Add(bayesianQuantResult.PosteriorErrorProbability);
+                    bayesianQuantResult.FalseDiscoveryRate = posteriorErrorProbabilities.Average();
                 }
             }
         }

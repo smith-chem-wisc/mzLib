@@ -31,7 +31,6 @@ namespace FlashLFQ
         public int NMeasurements { get; protected set; }
         public bool IsStatisticallyValid { get; protected set; }
         public double BayesFactor { get; protected set; }
-        public double ProbabilityOfFalsePositive { get; set; }
 
         protected ProteinQuantificationEngineResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition)
         {

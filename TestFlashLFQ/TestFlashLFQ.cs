@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using NUnit.Framework;
@@ -799,9 +800,9 @@ namespace Test
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 2);
             var line = textResults[1].Split(new char[] { '\t' });
-            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.413);
+            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.149);
             File.Delete(filepath);
-            
+
             // try with some missing values
             peptide.SetIntensity(files[1], 0);
             peptide.SetIntensity(files[5], 0);
@@ -1045,6 +1046,151 @@ namespace Test
 
             res.CalculateProteinResultsTop3(useSharedPeptides: false);
             Assert.That(res.ProteinGroups["Accession1"].GetIntensity(files[0]) == 2000); // protein intensity should be from the unique peptide only
+        }
+
+        [Test]
+        public static void TestIntensityDependentProteinQuant()
+        {
+            List<double> diffAbundantFractions = new List<double> { 0.2 };
+
+            foreach (var differentiallyAbundantFraction in diffAbundantFractions)
+            {
+                // create the files, peptides, and proteins
+                int numTotalProteins = 300;
+                int numDifferentiallyAbundant = (int)(numTotalProteins * differentiallyAbundantFraction);
+
+                Random randomSource = new Random(0);
+                List<ProteinGroup> pgs = new List<ProteinGroup>();
+                List<Identification> ids = new List<Identification>();
+
+                var files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("a1", "a", 0, 0, 0),
+                new SpectraFileInfo("a2", "a", 1, 0, 0),
+                new SpectraFileInfo("a3", "a", 2, 0, 0),
+                new SpectraFileInfo("b1", "b", 0, 0, 0),
+                new SpectraFileInfo("b2", "b", 1, 0, 0),
+                new SpectraFileInfo("b3", "b", 2, 0, 0)
+            };
+
+                for (int i = 0; i < numTotalProteins; i++)
+                {
+                    string organism = i < numDifferentiallyAbundant ? "changing" : "not_changing";
+
+                    var pg = new ProteinGroup("protein_" + i, "", organism);
+
+                    for (int j = 0; j < 4; j++)
+                    {
+                        string peptideName = "peptide_" + i + "_" + j;
+
+                        foreach (var file in files)
+                        {
+                            var id = new Identification(file, peptideName, peptideName, 0, 0, 0, new List<ProteinGroup> { pg });
+                            ids.Add(id);
+                        }
+                    }
+
+                    pgs.Add(pg);
+                }
+
+                var res = new FlashLfqResults(files, ids);
+
+                // set intensity values
+                var differentiallyAbundantProteins = new HashSet<ProteinGroup>(pgs.Take(numDifferentiallyAbundant));
+                Normal n = new Normal(20, 5, randomSource);
+
+                foreach (var peptide in res.PeptideModifiedSequences)
+                {
+                    var protein = peptide.Value.ProteinGroups.First();
+
+                    bool differentiallyAbundant = differentiallyAbundantProteins.Contains(protein);
+
+                    double groupAIntensity = 0;
+                    double groupBIntensity = 0;
+                    while (groupAIntensity <= 0)
+                    {
+                        groupAIntensity = n.Sample();
+                    }
+
+                    if (differentiallyAbundant)
+                    {
+                        groupBIntensity = groupAIntensity + 1;
+                    }
+                    else
+                    {
+                        groupBIntensity = groupAIntensity;
+                    }
+
+                    foreach (var file in files)
+                    {
+                        if (file.Condition == "a")
+                        {
+                            double noise = Normal.Sample(randomSource, 0, 1 / (groupAIntensity * 0.1));
+                            double fileIntensity = Math.Pow(2, groupAIntensity + noise);
+                            peptide.Value.SetIntensity(file, fileIntensity);
+                        }
+                        else
+                        {
+                            double noise = Normal.Sample(randomSource, 0, 1 / (groupBIntensity * 0.1));
+                            double fileIntensity = Math.Pow(2, groupBIntensity + noise);
+                            peptide.Value.SetIntensity(file, fileIntensity);
+                        }
+                    }
+                }
+
+                // run the protein quant engine
+                ProteinQuantificationEngine engine = new ProteinQuantificationEngine(res, -1, "a", false, 0.1, 0, 1000, 1000, false);
+                engine.Run();
+
+                // test the quant engine results
+                var proteinQuantResults = res.ProteinGroups.Values.Select(p => (UnpairedProteinQuantResult)p.ConditionToQuantificationResults["b"]).ToList();
+
+                var proteinsBelow5percentFdr = proteinQuantResults.Where(p => p.FalseDiscoveryRate < 0.05).ToList();
+                var fdp = proteinsBelow5percentFdr.Count(p => p.Protein.Organism == "not_changing") / (double)proteinsBelow5percentFdr.Count;
+
+                Assert.That(fdp < 0.05);
+                Assert.That(proteinsBelow5percentFdr.Count >= 50);
+            }
+        }
+
+        [Test]
+        public static void TestAmbiguousFraction()
+        {
+            SpectraFileInfo fraction1 = new SpectraFileInfo("", "", 0, 0, fraction: 0);
+            SpectraFileInfo fraction2 = new SpectraFileInfo("", "", 0, 0, fraction: 1);
+            Identification id1 = new Identification(fraction1, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
+
+            Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
+            Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
+
+            ChromatographicPeak peak1 = new ChromatographicPeak(id1, false, fraction1);
+            ChromatographicPeak peak2 = new ChromatographicPeak(id2, false, fraction1);
+            peak2.Identifications.Add(id3);
+
+            peak1.ResolveIdentifications();
+            peak2.ResolveIdentifications();
+
+            peak1.IsotopicEnvelopes.Add(new FlashLFQ.IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 1000));
+            peak2.IsotopicEnvelopes.Add(new FlashLFQ.IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 10000));
+
+            peak1.CalculateIntensityForThisFeature(false);
+            peak2.CalculateIntensityForThisFeature(false);
+
+            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
+            res.Peaks[fraction1].Add(peak1);
+            res.Peaks[fraction2].Add(peak2);
+            res.CalculatePeptideResults();
+
+            var peptides = res.PeptideModifiedSequences;
+            Assert.That(peptides["peptide1"].GetIntensity(fraction1) == 0);
+            Assert.That(peptides["peptide1"].GetIntensity(fraction2) == 0);
+            Assert.That(peptides["peptide2"].GetIntensity(fraction1) == 0);
+            Assert.That(peptides["peptide2"].GetIntensity(fraction2) == 0);
+
+            Assert.That(peptides["peptide1"].GetDetectionType(fraction1) == DetectionType.MSMS);
+            Assert.That(peptides["peptide1"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
+            Assert.That(peptides["peptide2"].GetDetectionType(fraction1) == DetectionType.NotDetected);
+            Assert.That(peptides["peptide2"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
         }
     }
 }
