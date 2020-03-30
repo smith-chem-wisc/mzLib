@@ -592,12 +592,6 @@ namespace FlashLFQ
             double nullHypothesisControl = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
             double nullHypothesisTreatment = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
 
-            if (proteinRes.IsStatisticallyValid)
-            {
-                nullHypothesisControl = Math.Max(nullHypothesisControl, (proteinRes.hdi95Control.hdi_end - proteinRes.hdi95Control.hdi_start) / 2);
-                nullHypothesisTreatment = Math.Max(nullHypothesisTreatment, (proteinRes.hdi95Treatment.hdi_end - proteinRes.hdi95Treatment.hdi_start) / 2);
-            }
-
             return (nullHypothesisControl, nullHypothesisTreatment);
         }
 
@@ -971,7 +965,9 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Calculates the false discovery rate of each protein from their posterior error probabilities.
+        /// Calculates the false discovery rate of each protein from the Bayes factors.
+        /// https://arxiv.org/pdf/1311.3981.pdf
+        /// </summary>
         private void CalculateFalseDiscoveryRates()
         {
             var proteinList = ProteinsWithConstituentPeptides.ToList();
@@ -982,15 +978,33 @@ namespace FlashLFQ
                 var bayesianQuantResults = proteinList
                     .Select(p => p.Key.ConditionToQuantificationResults[treatmentCondition])
                     .OrderByDescending(p => p.IsStatisticallyValid)
-                    .ThenBy(p => p.PosteriorErrorProbability)
+                    .ThenByDescending(p => p.BayesFactor)
                     .ThenByDescending(p => p.Peptides.Count)
                     .ToList();
 
-                List<double> posteriorErrorProbabilities = new List<double>();
+                var bayesFactors = bayesianQuantResults.Where(p => p.IsStatisticallyValid).Select(p => p.BayesFactor).ToList();
+                var validResults = bayesianQuantResults.Where(p => p.IsStatisticallyValid).ToList();
+
+                // pi_0 is the estimated proportion of false-positives in the set of hypothesis tests
+                double pi_0 = validResults.Count(p => Math.Abs(p.FoldChangePointEstimate) < p.UncertaintyInFoldChangeEstimate || Math.Abs(p.FoldChangePointEstimate) < FoldChangeCutoff)
+                    / (double)validResults.Count;
+
                 foreach (var bayesianQuantResult in bayesianQuantResults)
                 {
-                    posteriorErrorProbabilities.Add(bayesianQuantResult.PosteriorErrorProbability);
-                    bayesianQuantResult.FalseDiscoveryRate = posteriorErrorProbabilities.Average();
+                    double bayesFactor = bayesianQuantResult.BayesFactor;
+
+                    // vi is the probability that the alternative hypothesis is true, if accepted
+                    double vi = ((1 - pi_0) * bayesFactor) / (pi_0 + (1 - pi_0) * bayesFactor);
+
+                    bayesianQuantResult.PosteriorErrorProbability = 1 - vi;
+                }
+
+                List<double> PosteriorErrorProbabilities = new List<double>();
+
+                for (int p = 0; p < bayesianQuantResults.Count; p++)
+                {
+                    PosteriorErrorProbabilities.Add(bayesianQuantResults[p].PosteriorErrorProbability);
+                    bayesianQuantResults[p].FalseDiscoveryRate = PosteriorErrorProbabilities.Average();
                 }
             }
         }

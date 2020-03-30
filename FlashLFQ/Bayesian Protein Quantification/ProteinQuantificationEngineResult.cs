@@ -25,7 +25,7 @@ namespace FlashLFQ
         public double TreatmentConditionIntensity { get; set; }
 
         // additional statistics (PEP, FDR, null interval width)
-        public double PosteriorErrorProbability { get; private set; }
+        public double PosteriorErrorProbability { get; set; }
         public double FalseDiscoveryRate { get; set; }
         public double? NullHypothesisInterval { get; set; }
         public int NMeasurements { get; protected set; }

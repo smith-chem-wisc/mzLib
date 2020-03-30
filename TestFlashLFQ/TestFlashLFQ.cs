@@ -17,6 +17,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestFlashLFQ
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -1051,7 +1052,7 @@ namespace Test
         [Test]
         public static void TestIntensityDependentProteinQuant()
         {
-            List<double> diffAbundantFractions = new List<double> { 0.2 };
+            List<double> diffAbundantFractions = new List<double> { 0.1 };
 
             foreach (var differentiallyAbundantFraction in diffAbundantFractions)
             {
@@ -1148,8 +1149,13 @@ namespace Test
                 var proteinsBelow5percentFdr = proteinQuantResults.Where(p => p.FalseDiscoveryRate < 0.05).ToList();
                 var fdp = proteinsBelow5percentFdr.Count(p => p.Protein.Organism == "not_changing") / (double)proteinsBelow5percentFdr.Count;
 
+                // require FDR control
                 Assert.That(fdp < 0.05);
-                Assert.That(proteinsBelow5percentFdr.Count >= 50);
+
+                // require 80% sensitivity
+                // in this unit test there are 4 peptides per protein
+                // if the number of peptides is increased, the classifier will be more sensitive
+                Assert.That(proteinsBelow5percentFdr.Count >= proteinQuantResults.Count * differentiallyAbundantFraction * 0.8);
             }
         }
 
