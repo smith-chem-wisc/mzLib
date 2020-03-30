@@ -989,6 +989,10 @@ namespace FlashLFQ
                 double pi_0 = validResults.Count(p => Math.Abs(p.FoldChangePointEstimate) < p.UncertaintyInFoldChangeEstimate || Math.Abs(p.FoldChangePointEstimate) < FoldChangeCutoff)
                     / (double)validResults.Count;
 
+                // assume at least half the data is not changing
+                // if less than half the data is changing, that is OK - the result will just be conservative
+                pi_0 = Math.Max(pi_0, 0.5);
+
                 foreach (var bayesianQuantResult in bayesianQuantResults)
                 {
                     double bayesFactor = bayesianQuantResult.BayesFactor;

@@ -789,8 +789,8 @@ namespace Test
 
             var quantResult = (UnpairedProteinQuantResult)proteinGroup.ConditionToQuantificationResults["b"];
 
-            Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 0.827);
-            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.149);
+            Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 0.100);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.008);
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 1.000);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["a"].Count == 3);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 3);
@@ -801,7 +801,7 @@ namespace Test
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 2);
             var line = textResults[1].Split(new char[] { '\t' });
-            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.149);
+            Assert.That(Math.Round(double.Parse(line[17]), 3) == 0.008);
             File.Delete(filepath);
 
             // try with some missing values
@@ -814,8 +814,8 @@ namespace Test
 
             quantResult = (UnpairedProteinQuantResult)proteinGroup.ConditionToQuantificationResults["b"];
 
-            Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 10.087);
-            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 0.967);
+            Assert.That(Math.Round(quantResult.NullHypothesisInterval.Value, 3) == 0.500);
+            Assert.That(Math.Round(quantResult.PosteriorErrorProbability, 3) == 1.000);
             Assert.That(Math.Round(quantResult.FoldChangePointEstimate, 3) == 0.922);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["a"].Count == 2);
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 2);
