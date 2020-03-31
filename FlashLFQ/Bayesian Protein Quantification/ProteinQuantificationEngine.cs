@@ -982,16 +982,39 @@ namespace FlashLFQ
                     .ThenByDescending(p => p.Peptides.Count)
                     .ToList();
 
-                var bayesFactors = bayesianQuantResults.Where(p => p.IsStatisticallyValid).Select(p => p.BayesFactor).ToList();
+                var bayesFactorsAscending = bayesianQuantResults
+                    .Where(p => p.IsStatisticallyValid)
+                    .Select(p => p.BayesFactor)
+                    .OrderBy(p => p)
+                    .ToList();
+
                 var validResults = bayesianQuantResults.Where(p => p.IsStatisticallyValid).ToList();
 
-                // pi_0 is the estimated proportion of false-positives in the set of hypothesis tests
-                double pi_0 = validResults.Count(p => Math.Abs(p.FoldChangePointEstimate) < p.UncertaintyInFoldChangeEstimate || Math.Abs(p.FoldChangePointEstimate) < FoldChangeCutoff)
+                // pi_0 is the proportion of false-positives in the set of hypothesis tests
+                // it can be estimated by finding the largest set of tests where the average bayes factor is less than one (https://arxiv.org/pdf/1311.3981.pdf)
+                double pi_0_bayesFactors = 0;
+
+                var runningListOfBayesFactors = new List<double>();
+
+                for (int i = 0; i < bayesFactorsAscending.Count; i++)
+                {
+                    double numTestsSoFar = i + 1;
+                    runningListOfBayesFactors.Add(bayesFactorsAscending[i]);
+                    double averageBayesFactor = runningListOfBayesFactors.Average();
+
+                    if (averageBayesFactor < 1)
+                    {
+                        pi_0_bayesFactors = numTestsSoFar / bayesFactorsAscending.Count;
+                    }
+                }
+
+                // the above pi_0 can be an underestimate if uncertainty in the data is high
+                // pi_0 can be estimated by the proportion of data where the mean estimate is less than the uncertainty in the mean
+                double pi_0_uncertainty = validResults.Count(p => Math.Abs(p.FoldChangePointEstimate) < p.UncertaintyInFoldChangeEstimate || Math.Abs(p.FoldChangePointEstimate) < FoldChangeCutoff)
                     / (double)validResults.Count;
 
-                // assume at least half the data is not changing
-                // if less than half the data is changing, that is OK - the result will just be conservative
-                pi_0 = Math.Max(pi_0, 0.5);
+                // pi_0 is the maximum of the two above pi_0 estimates
+                double pi_0 = Math.Max(pi_0_uncertainty, pi_0_bayesFactors);
 
                 foreach (var bayesianQuantResult in bayesianQuantResults)
                 {
