@@ -263,13 +263,16 @@ namespace FlashLFQ
             if (Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count() == 1
                 && !PairedSamples)
             {
-                EstimateIonizationEfficiencies();
+                EstimateIonizationEfficienciesIfControlConditionHasOneSample();
             }
 
-            DetermineIonizationEfficiencies();
+            EstimateIonizationEfficiencies();
         }
 
-        private void EstimateIonizationEfficiencies()
+        /// <summary>
+        /// This method is only used if the control condition has 1 sample. In more typical cases, "EstimateIonizationEfficiencies" is called instead.
+        /// </summary>
+        private void EstimateIonizationEfficienciesIfControlConditionHasOneSample()
         {
             List<string> conditions = new List<string> { ControlCondition };
             conditions.AddRange(TreatmentConditions);
@@ -405,6 +408,9 @@ namespace FlashLFQ
             });
         }
 
+        /// <summary>
+        /// Called by the EstimateIonizationEfficienciesIfControlConditionHasOneSample method.
+        /// </summary>
         private double CalculateIonizationEfficiencyEstimationError(List<List<List<(double, DetectionType)>>> intensitiesByGroup,
             double[] ionizationEfficiencyEstimations)
         {
@@ -441,7 +447,7 @@ namespace FlashLFQ
             return totalError;
         }
 
-        private void DetermineIonizationEfficiencies()
+        private void EstimateIonizationEfficiencies()
         {
             var proteinList = ProteinsWithConstituentPeptides.ToList();
 

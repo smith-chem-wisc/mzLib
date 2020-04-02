@@ -13,9 +13,9 @@ namespace FlashLFQ
         {
             modelParameters = new Parameter[3];
 
-            if (double.IsNaN(minimumSd) || minimumSd < 0)
+            if (double.IsNaN(minimumSd) || minimumSd <= 0)
             {
-                minimumSd = 0;
+                minimumSd = 0.001;
             }
             if (double.IsNaN(minimumNu) || minimumNu < 1)
             {
