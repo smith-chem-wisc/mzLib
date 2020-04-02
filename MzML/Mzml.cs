@@ -192,6 +192,11 @@ namespace IO.MzML
             var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
             MsDataScan[] scans = new MsDataScan[numSpecta];
 
+            if (scans.Length == 0)
+            {
+                throw new MzLibException("The file contained zero scans and could not be loaded: " + filePath);
+            }
+
             Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
             {
                 for (int i = fff.Item1; i < fff.Item2; i++)

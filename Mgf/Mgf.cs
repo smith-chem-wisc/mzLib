@@ -138,6 +138,11 @@ namespace IO.Mgf
 
             SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
 
+            if (scans.Count == 0)
+            {
+                throw new MzLibException("The file contained zero scans and could not be loaded: " + filePath);
+            }
+
             return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }
 

@@ -18,6 +18,11 @@ namespace ThermoRawFileReader
         {
             InitiateDynamicConnection(filePath);
             MsOrdersByScan = GetMsOrdersByScanInDynamicConnection();
+
+            if (MsOrdersByScan.Length == 0)
+            {
+                throw new MzLibException("The file contained zero scans and could not be loaded: " + filePath);
+            }
         }
 
         /// <summary>
@@ -76,7 +81,6 @@ namespace ThermoRawFileReader
             }
 
             dynamicConnection.SelectInstrument(Device.MS, 1);
-            GetMsOrdersByScanInDynamicConnection();
         }
 
         /// <summary>
