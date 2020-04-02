@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<indexedmzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.2_idx.xsd">
+  <mzML xmlns="http://psi.hupo.org/ms/mzml" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://psi.hupo.org/ms/mzml http://psidev.info/files/ms/mzML/xsd/mzML1.1.0.xsd" id="SmallCalibratible_Yeast" version="1.1.0">
+    <cvList count="2">
+      <cv id="MS" fullName="Proteomics Standards Initiative Mass Spectrometry Ontology" version="4.0.1" URI="http://psidev.cvs.sourceforge.net/*checkout*/psidev/psi/psi-ms/mzML/controlledVocabulary/psi-ms.obo"/>
+      <cv id="UO" fullName="Unit Ontology" version="12:10:2011" URI="http://obo.cvs.sourceforge.net/*checkout*/obo/obo/ontology/phenotype/unit.obo"/>
+    </cvList>
+    <fileDescription>
+      <fileContent>
+        <cvParam cvRef="MS" accession="MS:1000579" name="MS1 spectrum" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000580" name="MSn spectrum" value=""/>
+      </fileContent>
+      <sourceFileList count="1">
+        <sourceFile id="RAW1" name="SmallCalibratible_Yeast.raw" location="file:///C:\Data\SlicedYeastRawFiles">
+          <cvParam cvRef="MS" accession="MS:1000768" name="Thermo nativeID format" value=""/>
+          <cvParam cvRef="MS" accession="MS:1000563" name="Thermo RAW format" value=""/>
+          <cvParam cvRef="MS" accession="MS:1000569" name="SHA-1" value="4ede32545182c06b031abc46e29802452427783d"/>
+        </sourceFile>
+      </sourceFileList>
+    </fileDescription>
+    <referenceableParamGroupList count="1">
+      <referenceableParamGroup id="CommonInstrumentParams">
+        <cvParam cvRef="MS" accession="MS:1001742" name="LTQ Orbitrap Velos" value=""/>
+        <cvParam cvRef="MS" accession="MS:1000529" name="instrument serial number" value="SN03001B"/>
+      </referenceableParamGroup>
+    </referenceableParamGroupList>
+    <softwareList count="2">
+      <software id="Xcalibur" version="2.6.0">
+        <cvParam cvRef="MS" accession="MS:1000532" name="Xcalibur" value=""/>
+      </software>
+      <software id="pwiz" version="3.0.10875">
+        <cvParam cvRef="MS" accession="MS:1000615" name="ProteoWizard software" value=""/>
+      </software>
+    </softwareList>
+    <instrumentConfigurationList count="2">
+      <instrumentConfiguration id="IC1">
+        <referenceableParamGroupRef ref="CommonInstrumentParams"/>
+        <componentList count="3">
+          <source order="1">
+            <cvParam cvRef="MS" accession="MS:1000398" name="nanoelectrospray" value=""/>
+            <cvParam cvRef="MS" accession="MS:1000485" name="nanospray inlet" value=""/>
+          </source>
+          <analyzer order="2">
+            <cvParam cvRef="MS" accession="MS:1000484" name="orbitrap" value=""/>
+          </analyzer>
+          <detector order="3">
+            <cvParam cvRef="MS" accession="MS:1000624" name="inductive detector" value=""/>
+          </detector>
+        </componentList>
+        <softwareRef ref="Xcalibur"/>
+      </instrumentConfiguration>
+      <instrumentConfiguration id="IC2">
+        <referenceableParamGroupRef ref="CommonInstrumentParams"/>
+        <componentList count="3">
+          <source order="1">
+            <cvParam cvRef="MS" accession="MS:1000398" name="nanoelectrospray" value=""/>
+            <cvParam cvRef="MS" accession="MS:1000485" name="nanospray inlet" value=""/>
+          </source>
+          <analyzer order="2">
+            <cvParam cvRef="MS" accession="MS:1000083" name="radial ejection linear ion trap" value=""/>
+          </analyzer>
+          <detector order="3">
+            <cvParam cvRef="MS" accession="MS:1000253" name="electron multiplier" value=""/>
+          </detector>
+        </componentList>
+        <softwareRef ref="Xcalibur"/>
+      </instrumentConfiguration>
+    </instrumentConfigurationList>
+    <dataProcessingList count="1">
+      <dataProcessing id="pwiz_Reader_Thermo_conversion">
+        <processingMethod order="0" softwareRef="pwiz">
+          <cvParam cvRef="MS" accession="MS:1000544" name="Conversion to mzML" value=""/>
+        </processingMethod>
+        <processingMethod order="1" softwareRef="pwiz">
+          <cvParam cvRef="MS" accession="MS:1000035" name="peak picking" value=""/>
+          <userParam name="Thermo/Xcalibur peak picking"/>
+        </processingMethod>
+      </dataProcessing>
+    </dataProcessingList>
+    <run id="SmallCalibratible_Yeast" defaultInstrumentConfigurationRef="IC1" startTimeStamp="2018-04-14T22:09:00Z" defaultSourceFileRef="RAW1">
+      <spectrumList count="0" defaultDataProcessingRef="pwiz_Reader_Thermo_conversion">
+          
+      </spectrumList>
+      <chromatogramList count="1" defaultDataProcessingRef="pwiz_Reader_Thermo_conversion">
+        <chromatogram index="0" id="TIC" defaultArrayLength="142">
+          <cvParam cvRef="MS" accession="MS:1000235" name="total ion current chromatogram" value=""/>
+          <binaryDataArrayList count="2">
+            <binaryDataArray encodedLength="1420">
+              <cvParam cvRef="MS" accession="MS:1000523" name="64-bit float" value=""/>
+              <cvParam cvRef="MS" accession="MS:1000574" name="zlib compression" value=""/>
+              <cvParam cvRef="MS" accession="MS:1000595" name="time array" value="" unitCvRef="UO" unitAccession="UO:0000031" unitName="minute"/>
+              <binary>eJwtlH00FXYYx23VKWULqxG2Tol0FFvClxrfO7mTvHUVZ40Sqxau2TRZMZc25eWqRMPFjrde5CXVTm6oNkTnNETm7a46h8zdKdJJmjXb7w9/PX89b5/v8308NGFat0XghUXpn5csBj+rvfmkSB+0NZoozDUAV6x28s4wBB0OrHv41hKwelTrUG8Mnq7Oi7+yDLzlMJldYwKWjNyoKTMF93ak62Sbgc21NlGl74Hp8y72miwHW5J7IpTmYHaDc6tiFdhdtuTgEQuwKmqy4IUleLxwzcFd1mDKjK5NwFrwn/XWY7J14HLFfUsfG/D5Km3+HVvQL0fj47EBzClJvkR7cLDGytDJQeR9cOqxoyNosiVnoxTgaNmUssYJzO2LDzJ1Acfdi2WGruChZ5Zd+gTnVGQN6krAwwaKrKUfg6E7q085uoHysH51wGYwsvVPKxMpeDH6geFpTzCufc1g/lbQVeeCd4GX4LGpUXbGG/xJ4vbfXF/wu98XN2f4g0PKu+aJ28HA8vnG0TvAGU3jnaAAcHjK4d/+QLBAHuXlGyTmeBVxWRoMvmO7ycxzF6j82m2fZDfYr5O4qCUEfFD/aGT/XlAaWVi+bR9o1DBq7bF/Nv8L0PqjW4qtBwTHmRcZ4eHgvd090tAIsGKiyzs0Enzq6j56WA7Wq845D0cJ3SL1VgfEgKlTukrvg2Cfa2i79Bvwl4iKN4JjwdsTAdGyQ6JfraYrPA5sd4lPCf4W7FSlbTc+AqrK9GxVieD9EJOUEwrQQt6o7koCn5T6B7ocBRsMo5Y/PCZ46XWWdhwHNxvdv3Y3VdTpFY3SQMf6NqPWdLD8eez33ZmgoiGwyuvkLM9sMHwHvkzNEVx0arPiz4DbbxweT/4RXDb195vKXFDf7u0Fx/IEx1xXtSJf1Je8eyJOJXhHjwTGFIADldNB8kJxd+oYn/4iUFvh/0paCib/HKi3uQzcE7miTVIOrgwaUzudBafsOlY1nwN721TarZVg/F8R0fZVYOIhY4VdteCoVcrX1oB1w3X+zpfA+esMcuxqwXkSuURzGXwWUnQ+8Rp4fqn6emwdOPKoUrVXDSa9n3D2q+tCx+JjrRH1oOxxpkFYA+g5t9FzW6O491sne6pugNMLuzLcm8Di3VELXZpn67cIvn4nW8xvg+bdV4s2tIIY1OQWtQn/jAwN+P0m/DMnLBzt4r4sX8tcO8DYT/rtN3SKfZOnzzjdE3vs26LI7xJ6L93ZtL4XzB8anzDrA18XVz436gdDPj0gWzgAZnU3W02KmGY4f+i6RugbPJw+9AdoP5VgkfAQLN0oHDks/kF3w9CSx6BpU2qP3oj4B2v94l6KWHBT94cFo2CQVcq9PC3Y9MzgQ4sxwWdP0q9XxsGwq5kVli/En5B1PrWYFH5LWOmb9RL8Hz1B7Tc=</binary>
+            </binaryDataArray>
+            <binaryDataArray encodedLength="944">
+              <cvParam cvRef="MS" accession="MS:1000523" name="64-bit float" value=""/>
+              <cvParam cvRef="MS" accession="MS:1000574" name="zlib compression" value=""/>
+              <cvParam cvRef="MS" accession="MS:1000515" name="intensity array" value="" unitCvRef="MS" unitAccession="MS:1000131" unitName="number of detector counts"/>
+              <binary>eJwlk2lIVVEUhS9ImokJoZUVeUUNNTUcoiyV6xD2yhxSsxzylprpazCSMlR60h+HnCj6EZRPrFQolCANQbtOmGVKEmiocSsb0CgTCSrJeN/5tdhn77PW3uvsI0mSuWB7T7gkSfpyVpoFte/eSRZU73YkWFBqqtxtQaW6q4+6lFWHLWhuyUi3oPzvhsDusyfI1yfFw2O3IxyeNboGTs6kUBfYBK/8I/CABU2qVS/3tOZkeOe9DeQdJ8mbP7hGiv7UYeIH5YnwO2w4Sd3cwf3wf7rnxvnPUPrTZf9+zmdHMqkbKUPf/KudemXMOZrzP4YA6rrGt4GXLruADsvMKydElOFD/Os4+GOfxsL/SGEO89vBl/Ct3D9Hfb6KD9JoTR75yLgQ6h92D3B/0E7oZuvMJ68zHqO+YMIX3brEUXxZrrkg8vX0b7KvioLvcXEwsct7f9AzRvhZsT4CHptUd/T6dinwxUw/p67QPxv9ZtcjnLf6iHfKmRL357zQV0oMQfDU/XVEr834gtjKlEq8NOFHndK/D97Y4SHidAP7I22uxn+1uIS5zMFTvJ+pvOOLYsnbn+GeOu5DX3JoFH6ptcnskeoWIvZkS4BKPD/L3Gp2LfrKwFf4tVIDvugf9+Kn3l66B52GBd5dumXHnsjHM/FFLfoteEyN9C8VnxK+hAUZud9ZkQO+Oy/0jW92otNSyj15LGcT9dU1+GF6djGGfpYn2VvJeoU5tarbYv/Sg5hffdWWS/2idoh8lh+6atwsc5vCnZhLCnXiHRTbafZFWhst+vddQM/c2FAk9JvYG/2ovfiv7Yv8M2XrN/6DbifDb/a4VkC+1Yt5tPwh9LTrM/xvLezzau5Jjc7EaRtldE+HiPmc3K9wfjOa/6I/KcQn7aqnK1hpEyB8uSPesTfLAz7rpUHmy+1kHtNSXgb5Htv+8P9uyyYv</binary>
+            </binaryDataArray>
+          </binaryDataArrayList>
+        </chromatogram>
+      </chromatogramList>
+    </run>
+  </mzML>
+  <indexList count="2">
+    <index name="spectrum">
+    </index>
+    <index name="chromatogram">
+      <offset idRef="TIC">1441766</offset>
+    </index>
+  </indexList>
+  <indexListOffset>1445342</indexListOffset>
+  <fileChecksum>9193c5186ed5d828310b72d8c3f2233a88a2afc4</fileChecksum>
+</indexedmzML>

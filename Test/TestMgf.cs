@@ -1,4 +1,5 @@
 ﻿using IO.Mgf;
+using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.IO;
@@ -54,6 +55,15 @@ namespace Test
             Assert.AreEqual(165, ya2.Size);
             var ya3 = a.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
+        }
+
+        [Test]
+        public void LoadZeroScanMgf()
+        {
+            string fileName = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\zeroScanMzml.mgf");
+            File.WriteAllLines(fileName, new string[] { });
+            Assert.Throws<MzLibException>(() => Mgf.LoadAllStaticData(fileName));
+            File.Delete(fileName);
         }
     }
 }

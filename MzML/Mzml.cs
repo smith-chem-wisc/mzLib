@@ -189,7 +189,7 @@ namespace IO.MzML
                     Path.GetFileNameWithoutExtension(filePath));
             }
 
-            var numSpecta = _mzMLConnection.run.spectrumList.spectrum.Length;
+            var numSpecta = _mzMLConnection.run.spectrumList.spectrum == null ? 0 : _mzMLConnection.run.spectrumList.spectrum.Length;
             MsDataScan[] scans = new MsDataScan[numSpecta];
 
             if (scans.Length == 0)

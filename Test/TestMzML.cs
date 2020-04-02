@@ -93,6 +93,12 @@ namespace Test
         }
 
         [Test]
+        public void LoadZeroScanMzml()
+        {
+            Assert.Throws<MzLibException>(() => Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\zeroScanMzml.mzML")));
+        }
+
+        [Test]
         public static void TestPeakTrimmingWithOneWindow()
         {
             int numPeaks = 200;
@@ -103,7 +109,7 @@ namespace Test
 
             for (int mz = 400; mz < 1600; mz++)
             {
-                myPeaks.Add((mz, 10d*(double)mz));
+                myPeaks.Add((mz, 10d * (double)mz));
             }
 
             double myMaxIntensity = myPeaks.Max(p => p.intensity);
@@ -1379,6 +1385,7 @@ namespace Test
             Assert.AreEqual(3, fakeMzml.GetAllScansList().ElementAt(5).OneBasedPrecursorScanNumber);
             Assert.AreEqual(1, fakeMzml1.GetAllScansList().ElementAt(3).OneBasedPrecursorScanNumber);
         }
+
 
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
