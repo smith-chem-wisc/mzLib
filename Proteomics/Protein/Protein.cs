@@ -40,7 +40,7 @@ namespace Proteomics
             Name = name;
             Organism = organism;
             FullName = fullName;
-            IsDecoy = isDecoy;
+            IsDecoy = isDecoy || Accession.Contains("DECOY") || Accession.StartsWith("REV_");
             IsContaminant = isContaminant;
             DatabaseFilePath = databaseFilePath;
             SampleNameForVariants = sampleNameForVariants;
@@ -78,7 +78,7 @@ namespace Proteomics
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
-            IsDecoy = originalProtein.IsDecoy;
+            IsDecoy = originalProtein.IsDecoy || Accession.Contains("DECOY") || Accession.StartsWith("REV_");
             IsContaminant = originalProtein.IsContaminant;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             SampleNameForVariants = originalProtein.SampleNameForVariants;

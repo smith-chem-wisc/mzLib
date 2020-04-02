@@ -504,5 +504,143 @@ namespace Test
 
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }
+
+        [Test]
+        public static void TestLoadingDecoyFromXmlDatabase_NoDecoys()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\loadDecoyFromDb.xml");
+            Protein prot = new Protein("PEPTIDE", "myAccession");
+
+            // write the protein to a file
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { prot }, filepath);
+            Assert.That(File.Exists(filepath));
+
+            // generate a reversed decoy
+            var proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unknownMods);
+            Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            Assert.That(proteins.Count == 2);
+
+            // write the database that includes the decoy
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins, filepath);
+            Assert.That(File.Exists(filepath));
+
+            // load the database with no decoys
+            proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out unknownMods);
+            Assert.That(proteins.Count(p => p.IsDecoy) == 0);
+            Assert.That(proteins.Count == 1);
+
+            File.Delete(filepath);
+        }
+
+        [Test]
+        public static void TestLoadingDecoyFromXmlDatabase_ReverseDecoys()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\loadDecoyFromDb.xml");
+            Protein prot = new Protein("PEPTIDE", "myAccession");
+
+            // write the protein to a file
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { prot }, filepath);
+            Assert.That(File.Exists(filepath));
+
+            // generate a reversed decoy
+            var proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unknownMods);
+            Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            Assert.That(proteins.Count == 2);
+
+            // write the database that includes the reversed decoy
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins, filepath);
+            Assert.That(File.Exists(filepath));
+
+            // load the database, specifying slide decoys
+            proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.Slide, new List<Modification>(), false, new List<string>(), out unknownMods);
+            Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            Assert.That(proteins.Count == 2);
+
+            string decoySeq = proteins.First(p => p.IsDecoy).BaseSequence;
+            string targetSeq = proteins.First(p => !p.IsDecoy).BaseSequence;
+
+            // protein list should include original reversed decoy, not the slide decoy
+            Assert.That(new string(decoySeq.Reverse().ToArray()) == targetSeq);
+
+            File.Delete(filepath);
+        }
+
+        [Test]
+        public static void TestLoadingDecoyFromXmlDatabase_SlidedDecoys()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\loadDecoyFromDb.xml");
+            Protein prot = new Protein("PEPTIDE", "myAccession");
+
+            // write the protein to a file
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { prot }, filepath);
+            Assert.That(File.Exists(filepath));
+
+            // generate a slide decoy
+            var proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.Slide, new List<Modification>(), false, new List<string>(), out var unknownMods);
+            Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            Assert.That(proteins.Count == 2);
+
+            // write the database that includes the slide decoy
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins, filepath);
+            Assert.That(File.Exists(filepath));
+
+            // load the database, specifying reverse decoys
+            proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out unknownMods);
+            Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            Assert.That(proteins.Count == 2);
+
+            string decoySeq = proteins.First(p => p.IsDecoy).BaseSequence;
+            string targetSeq = proteins.First(p => !p.IsDecoy).BaseSequence;
+
+            // protein list should include original slide decoy, not the reverse decoy
+            Assert.That(decoySeq == "EIDPTPE");
+
+            File.Delete(filepath);
+        }
+
+        [Test]
+        public static void TestLoadingDecoyFromFastaDatabase_NoDecoys()
+        {
+
+        }
+
+        [Test]
+        public static void TestLoadingDecoyFromFastaDatabase_ReverseDecoys()
+        {
+            //string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\loadDecoyFromDb.fasta");
+            //Protein prot = new Protein("PEPTIDE", "myAccession");
+
+            //// write the protein to a file
+            //ProteinDbWriter.WriteFastaDatabase(new List<Protein> { prot }, filepath, ">");
+            //Assert.That(File.Exists(filepath));
+
+            //// generate a reversed decoy
+            //var proteins = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unknownMods);
+            //Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            //Assert.That(proteins.Count == 2);
+
+            //// write the database that includes the reversed decoy
+            //ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins, filepath);
+            //Assert.That(File.Exists(filepath));
+
+            //// load the database, specifying slide decoys
+            //proteins = ProteinDbLoader.LoadProteinXML(filepath, true, DecoyType.Slide, new List<Modification>(), false, new List<string>(), out unknownMods);
+            //Assert.That(proteins.Count(p => p.IsDecoy) == 1);
+            //Assert.That(proteins.Count == 2);
+
+            //string decoySeq = proteins.First(p => p.IsDecoy).BaseSequence;
+            //string targetSeq = proteins.First(p => !p.IsDecoy).BaseSequence;
+
+            //// protein list should include original reversed decoy, not the slide decoy
+            //Assert.That(new string(decoySeq.Reverse().ToArray()) == targetSeq);
+
+            //File.Delete(filepath);
+        }
+
+        [Test]
+        public static void TestLoadingDecoyFromFastaDatabase_SlidedDecoys()
+        {
+
+        }
     }
 }

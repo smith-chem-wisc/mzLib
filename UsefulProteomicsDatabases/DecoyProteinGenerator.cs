@@ -20,6 +20,7 @@ namespace UsefulProteomicsDatabases
         {
             if (decoyType == DecoyType.None)
             {
+                proteins.RemoveAll(p => p.IsDecoy);
                 return new List<Protein>();
             }
             else if (decoyType == DecoyType.Reverse)
@@ -43,9 +44,15 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1)
         {
-            List<Protein> decoyProteins = new List<Protein>();
+            List<Protein> decoyProteins = proteins.Where(p => p.IsDecoy).ToList();
+            proteins.RemoveAll(p => p.IsDecoy);
+
+            HashSet<string> decoyProteinAccessions = new HashSet<string>(decoyProteins.Select(p => p.Accession));
+
             Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
+                string decoyAccession = "DECOY_" + protein.Accession;
+
                 // reverse sequence
                 // Do not include the initiator methionine in reversal!!!
                 char[] sequenceArray = protein.BaseSequence.ToCharArray();
@@ -160,7 +167,7 @@ namespace UsefulProteomicsDatabases
 
                 var decoyProtein = new Protein(
                     reversedSequence,
-                    "DECOY_" + protein.Accession,
+                    decoyAccession,
                     protein.Organism,
                     protein.GeneNames.ToList(),
                     decoyModifications,
@@ -177,7 +184,11 @@ namespace UsefulProteomicsDatabases
                     spliceSites,
                     protein.DatabaseFilePath);
 
-                lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
+                if (!decoyProteinAccessions.Contains(decoyAccession))
+                {
+                    lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
+                }
+
             });
             return decoyProteins;
         }
@@ -278,9 +289,15 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         private static List<Protein> GenerateSlideDecoys(List<Protein> proteins, int maxThreads = -1)
         {
-            List<Protein> decoyProteins = new List<Protein>();
+            List<Protein> decoyProteins = proteins.Where(p => p.IsDecoy).ToList();
+            proteins.RemoveAll(p => p.IsDecoy);
+
+            HashSet<string> decoyProteinAccessions = new HashSet<string>(decoyProteins.Select(p => p.Accession));
+
             Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
+                string decoyAccession = "DECOY_" + protein.Accession;
+
                 int numSlides = 20;
                 char[] sequenceArrayUnslided = protein.BaseSequence.ToCharArray();
                 char[] sequenceArraySlided = protein.BaseSequence.ToCharArray();
@@ -354,14 +371,18 @@ namespace UsefulProteomicsDatabases
                         decoyVariationsSlide.Add(new SequenceVariation(decoy_begin, decoy_end, sv.OriginalSequence, new string(variationArraySlided), "DECOY VARIANT: " + sv.Description));
                     }
                 }
-                var decoyProteinSlide = new Protein(slided_sequence, "DECOY_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
+                var decoyProteinSlide = new Protein(slided_sequence, decoyAccession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
                     protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);
-                lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
+
+                if (!decoyProteinAccessions.Contains(decoyAccession))
+                {
+                    lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
+                }
             });
             return decoyProteins;
         }
 
-        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
+        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods(char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
         {
             // Do not include the initiator methionine in shuffle!!!
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -383,7 +404,7 @@ namespace UsefulProteomicsDatabases
                 }
                 else
                 {
-                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, protein.BaseSequence.Length, initiatorMethionine)+1, kvp.Value);
+                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key - 1, numSlides, protein.BaseSequence.Length, initiatorMethionine) + 1, kvp.Value);
                 }
             }
 
