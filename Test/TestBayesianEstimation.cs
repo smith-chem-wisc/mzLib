@@ -4,11 +4,13 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public static class TestBayesianEstimation
     {
         private static Stopwatch Stopwatch { get; set; }

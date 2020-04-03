@@ -12,6 +12,7 @@ namespace FlashLFQ
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
+        public double IonizationEfficiency;
 
         public Peptide(string sequence, string baseSequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups)
         {
@@ -20,7 +21,6 @@ namespace FlashLFQ
             Intensities = new Dictionary<SpectraFileInfo, double>();
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
             this.ProteinGroups = proteinGroups;
-
             this.UseForProteinQuant = useForProteinQuant;
         }
 
@@ -98,7 +98,7 @@ namespace FlashLFQ
             str.Append(BaseSequence + "\t");
 
             var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
-            
+
             var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
             var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
             var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();

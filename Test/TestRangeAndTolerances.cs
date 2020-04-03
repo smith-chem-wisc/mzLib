@@ -24,6 +24,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRangeAndTolerances
     {
         private static Stopwatch Stopwatch { get; set; }
