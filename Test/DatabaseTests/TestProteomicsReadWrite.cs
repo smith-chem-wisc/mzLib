@@ -13,6 +13,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestProteomicsReadWrite
     {
         private static Stopwatch Stopwatch { get; set; }

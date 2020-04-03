@@ -1,4 +1,5 @@
 ﻿using MathNet.Numerics.Distributions;
+using System;
 using System.Collections.Generic;
 
 namespace BayesianEstimation
@@ -34,9 +35,9 @@ namespace BayesianEstimation
                 nuInitialGuess);
         }
 
-        protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint)
+        protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint)
         {
-            return StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint);
+            return Math.Pow(StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.DataValue), datapoint.Weight);
         }
     }
 }

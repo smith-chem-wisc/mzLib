@@ -4,12 +4,14 @@ using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public sealed class TestDeconvolution
     {
         [Test]

@@ -9,6 +9,7 @@ using ThermoRawFileReader;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRawFileReader
     {
         [Test]
