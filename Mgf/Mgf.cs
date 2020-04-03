@@ -14,7 +14,7 @@ namespace IO.Mgf
 
         private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
-            indexedScans = new MsDataScan[scans[scans.Length - 1].OneBasedScanNumber];
+            indexedScans = scans.Any() ? new MsDataScan[scans[scans.Length - 1].OneBasedScanNumber] : new MsDataScan[0];
             foreach (MsDataScan scan in scans)
             {
                 indexedScans[scan.OneBasedScanNumber - 1] = scan;
@@ -137,11 +137,6 @@ namespace IO.Mgf
             }
 
             SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
-
-            if (scans.Count == 0)
-            {
-                throw new MzLibException("The file contained zero scans and could not be loaded: " + filePath);
-            }
 
             return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }

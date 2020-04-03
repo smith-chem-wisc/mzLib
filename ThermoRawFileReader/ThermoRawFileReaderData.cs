@@ -60,9 +60,28 @@ namespace ThermoRawFileReader
             rawFileAccessor.SelectInstrument(Device.MS, 1);
             var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
 
+            string sendCheckSum;
+            using (FileStream stream = File.OpenRead(filePath))
+            {
+                using (SHA1Managed sha = new SHA1Managed())
+                {
+                    byte[] checksum = sha.ComputeHash(stream);
+                    sendCheckSum = BitConverter.ToString(checksum)
+                        .Replace("-", string.Empty);
+                }
+            }
+
+            SourceFile sourceFile = new SourceFile(
+                @"Thermo nativeID format",
+                @"Thermo RAW format",
+                sendCheckSum,
+                @"SHA-1",
+                filePath,
+                Path.GetFileNameWithoutExtension(filePath));
+
             if (msDataScans.Length == 0)
             {
-                throw new MzLibException("The file contained zero scans and could not be loaded: " + filePath);
+                return new ThermoRawFileReaderData(msDataScans, sourceFile);
             }
 
             Parallel.ForEach(Partitioner.Create(0, msDataScans.Length), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
@@ -85,25 +104,6 @@ namespace ThermoRawFileReader
             });
 
             rawFileAccessor.Dispose();
-
-            string sendCheckSum;
-            using (FileStream stream = File.OpenRead(filePath))
-            {
-                using (SHA1Managed sha = new SHA1Managed())
-                {
-                    byte[] checksum = sha.ComputeHash(stream);
-                    sendCheckSum = BitConverter.ToString(checksum)
-                        .Replace("-", string.Empty);
-                }
-            }
-
-            SourceFile sourceFile = new SourceFile(
-                @"Thermo nativeID format",
-                @"Thermo RAW format",
-                sendCheckSum,
-                @"SHA-1",
-                filePath,
-                Path.GetFileNameWithoutExtension(filePath));
 
             return new ThermoRawFileReaderData(msDataScans, sourceFile);
         }

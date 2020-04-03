@@ -95,7 +95,8 @@ namespace Test
         [Test]
         public void LoadZeroScanMzml()
         {
-            Assert.Throws<MzLibException>(() => Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\zeroScanMzml.mzML")));
+            var mzML = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DataFiles\zeroScanMzml.mzML"));
+            // no assertions - just don't crash
         }
 
         [Test]

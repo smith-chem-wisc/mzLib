@@ -194,7 +194,7 @@ namespace IO.MzML
 
             if (scans.Length == 0)
             {
-                throw new MzLibException("The file contained zero scans and could not be loaded: " + filePath);
+                return new Mzml(scans, sourceFile);
             }
 
             Parallel.ForEach(Partitioner.Create(0, numSpecta), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
