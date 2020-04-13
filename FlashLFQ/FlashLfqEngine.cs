@@ -26,6 +26,7 @@ namespace FlashLFQ
         public readonly bool IdSpecificChargeState;
         public readonly bool Normalize;
         public readonly double DiscriminationFactorToCutPeak;
+        public readonly bool AllowOverlappingEnvelopes; //used for silac with large peptides
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -63,6 +64,7 @@ namespace FlashLFQ
             bool idSpecificChargeState = false,
             bool silent = false,
             int maxThreads = -1,
+            bool allowOverlappingEnvelopes = false,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -105,6 +107,7 @@ namespace FlashLFQ
             RequireMsmsIdInCondition = requireMsmsIdInCondition;
             Normalize = normalize;
             MaxThreads = maxThreads;
+            AllowOverlappingEnvelopes = allowOverlappingEnvelopes;
             BayesianProteinQuant = bayesianProteinQuant;
             PairedSamples = pairedSamples;
             ProteinQuantBaseCondition = proteinQuantBaseCondition;
@@ -1129,8 +1132,8 @@ namespace FlashLFQ
                 }
 
                 double corrWithPadding = Correlation.Pearson(massShiftToIsotopePeaks[0].Select(p => p.expIntensity), massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
-                double corrShiftedLeft = Correlation.Pearson(massShiftToIsotopePeaks[-1].Select(p => p.expIntensity), massShiftToIsotopePeaks[-1].Select(p => p.theorIntensity));
-                double corrShiftedRight = Correlation.Pearson(massShiftToIsotopePeaks[1].Select(p => p.expIntensity), massShiftToIsotopePeaks[1].Select(p => p.theorIntensity));
+                double corrShiftedLeft = AllowOverlappingEnvelopes ? -1 : Correlation.Pearson(massShiftToIsotopePeaks[-1].Select(p => p.expIntensity), massShiftToIsotopePeaks[-1].Select(p => p.theorIntensity));
+                double corrShiftedRight = AllowOverlappingEnvelopes ? -1 : Correlation.Pearson(massShiftToIsotopePeaks[1].Select(p => p.expIntensity), massShiftToIsotopePeaks[1].Select(p => p.theorIntensity));
 
                 if (double.IsNaN(corrShiftedLeft))
                 {
