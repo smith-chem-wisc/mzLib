@@ -322,7 +322,7 @@ namespace MassSpectrometry
                 foreach (var isotopicEnvelope in allAggregateGroups[scanIndex - minScan.Value])
                 {
                     DeconvolutionFeatureWithMassesAndScans matchingGroup = null;
-                    var mass = isotopicEnvelope.monoisotopicMass;
+                    var mass = isotopicEnvelope.MonoisotopicMass;
                     foreach (var possibleGroup in currentListOfGroups)
                     {
                         var possibleGroupMass = possibleGroup.Mass;

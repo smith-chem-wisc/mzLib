@@ -25,7 +25,7 @@ namespace BayesianEstimation
         private double[] proposedState;
         private MersenneTwister random;
         private Model model;
-        private double[] data;
+        private Datum[] data;
         private readonly double[] logSd;
         private readonly double[] acceptanceCount;
         private readonly int batchSize;
@@ -34,7 +34,13 @@ namespace BayesianEstimation
         /// <summary>
         /// Construct the adaptive Metropolis within Gibbs sampler.
         /// </summary>
-        public AdaptiveMetropolisWithinGibbs(double[] data, Model model, int batch_size = 3, int? seed = null)
+        public AdaptiveMetropolisWithinGibbs(double[] data, Model model, int batch_size = 3, int? seed = null) 
+            : this(data.Select(p => new Datum(p, 1)).ToArray(), model, batch_size, seed)
+        {
+
+        }
+
+        public AdaptiveMetropolisWithinGibbs(Datum[] data, Model model, int batch_size = 3, int? seed = null)
         {
             if (seed != null)
             {
@@ -53,7 +59,7 @@ namespace BayesianEstimation
             currentState = new double[model.modelParameters.Length];
             proposedState = new double[model.modelParameters.Length];
 
-            for(int i = 0; i < currentState.Length; i++)
+            for (int i = 0; i < currentState.Length; i++)
             {
                 currentState[i] = model.modelParameters[i].initialGuess;
             }

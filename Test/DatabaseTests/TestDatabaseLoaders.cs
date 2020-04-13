@@ -30,6 +30,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestDatabaseLoaders
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -157,9 +158,13 @@ namespace Test
         public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {
             Loaders.LoadElements();
+            string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
+            string uniProtPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
 
-            var unimodMods = Loaders.LoadUnimod(Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml")).ToList();
-            Assert.AreEqual(2679, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            // UniModPTMs
+            var unimodMods = Loaders.LoadUnimod(uniModPath).ToList();
+            Assert.AreEqual(2677, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -177,7 +182,9 @@ namespace Test
             }
 
             Assert.AreEqual(2, neutralLossCount);
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+
+            // PsiMod PTMs
+            var psiModDeserialized = Loaders.LoadPsiMod(psiModPath);
 
             // N6,N6,N6-trimethyllysine
             var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
@@ -188,12 +195,11 @@ namespace Test
 
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
-            string ptmlistfilename = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
-            if (File.Exists(ptmlistfilename))
-                File.Delete(ptmlistfilename); // refresh the ptmlist in case this test has been updated
-            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            // UniProt PTMs
+            var uniprotPtms = Loaders.LoadUniprot(uniProtPath, formalChargesDictionary).ToList();
             Assert.AreEqual(345, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
+            // write UniProt and UniMod PTMs to a file
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
                 foreach (var nice in uniprotPtms)
@@ -208,9 +214,10 @@ namespace Test
                 }
             }
 
+            // read in the file and make sure that it has the same number of PTMs
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
-            Assert.AreEqual(3024, sampleModList.Count());
+            Assert.AreEqual(uniprotPtms.Count + unimodMods.Count, sampleModList.Count());
 
             List<Modification> myOtherList = new List<Modification>();
             foreach (Modification mod in sampleModList)
@@ -224,6 +231,10 @@ namespace Test
             var thisMod = myOtherList.First();
             Assert.IsTrue(thisMod.MonoisotopicMass > 42);
             Assert.IsTrue(thisMod.MonoisotopicMass < 43);
+
+            File.Delete(uniModPath);
+            File.Delete(psiModPath);
+            File.Delete(uniProtPath);
         }
 
         /// <summary>

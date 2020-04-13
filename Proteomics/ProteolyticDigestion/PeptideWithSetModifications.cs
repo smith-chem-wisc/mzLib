@@ -20,13 +20,11 @@ namespace Proteomics.ProteolyticDigestion
         /// The key indicates which residue modification is on (with 1 being N terminus).
         /// </summary>
         [NonSerialized] private Dictionary<int, Modification> _allModsOneIsNterminus; //we currently only allow one mod per position
-
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-        private readonly string DigestionParamString; // used to get digestion param object after deserialization
         private readonly string ProteinAccession; // used to get protein object after deserialization
 
         /// <summary>
@@ -42,7 +40,6 @@ namespace Proteomics.ProteolyticDigestion
             _digestionParams = digestionParams;
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
-            DigestionParamString = digestionParams.ToString();
             UpdateCleavageSpecificity();
         }
 
@@ -62,17 +59,14 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             FullSequence = sequence;
-            GetModsAfterDeserialization(allKnownMods, out _baseSequence);
+            _baseSequence = GetBaseSequenceFromFullSequence(sequence);
+            GetModsAfterDeserialization(allKnownMods);
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
 
             if (p != null)
             {
                 ProteinAccession = p.Accession;
-            }
-            if (digestionParams != null)
-            {
-                DigestionParamString = digestionParams.ToString();
             }
         }
 
@@ -436,6 +430,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // zDot generates one more ion...
+            //ETD will cleave between N - C bond.So ETD will remove a NH3 from the N-terminal amino acid, and generate(MH + minus NH3) ion
             if (cTermProductTypes.Contains(ProductType.zDot) && BaseSequence[0] != 'P')
             {
                 // get c-term residue mass
@@ -449,7 +444,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 // add side-chain mod
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+                if (AllModsOneIsNterminus.TryGetValue(2, out Modification mod))
                 {
                     cTermMass += mod.MonoisotopicMass.Value;
                 }
@@ -506,7 +501,7 @@ namespace Proteomics.ProteolyticDigestion
                 products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
             }
         }
-        
+
         public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
         {
             string essentialSequence = BaseSequence;
@@ -851,26 +846,17 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
-        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein)
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
         {
-            GetModsAfterDeserialization(idToMod, out string baseSequence);
+            GetModsAfterDeserialization(idToMod);
             GetProteinAfterDeserialization(accessionToProtein);
-            GetDigestionParamsAfterDeserialization();
+            _digestionParams = dp;
         }
 
-        private void GetDigestionParamsAfterDeserialization()
-        {
-            if (DigestionParamString != null)
-            {
-                _digestionParams = DigestionParams.FromString(DigestionParamString);
-            }
-        }
-
-        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod, out string baseSequence)
+        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
         {
             _allModsOneIsNterminus = new Dictionary<int, Modification>();
-            StringBuilder baseSequenceSb = new StringBuilder();
-            StringBuilder currentModification = new StringBuilder();
+            int currentModStart = 0;
             int currentModificationLocation = 1;
             bool currentlyReadingMod = false;
             int bracketCount = 0;
@@ -878,77 +864,53 @@ namespace Proteomics.ProteolyticDigestion
             for (int r = 0; r < FullSequence.Length; r++)
             {
                 char c = FullSequence[r];
-
-                switch (c)
+                if (c == '[')
                 {
-                    case '[':
-                        currentlyReadingMod = true;
-
-                        if (bracketCount > 0)
-                        {
-                            currentModification.Append(c);
-                        }
-
-                        bracketCount++;
-
-                        break;
-
-                    case ']':
-                        string modId = null;
-                        bracketCount--;
-
-                        if (bracketCount == 0)
-                        {
-                            try
-                            {
-                                string modString = currentModification.ToString();
-                                int splitIndex = modString.IndexOf(':');
-                                string modType = modString.Substring(0, splitIndex);
-                                modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
-                            }
-                            catch (Exception e)
-                            {
-                                throw new MzLibUtil.MzLibException(
-                                    "Error while trying to parse string into peptide: " + e.Message);
-                            }
-
-                            if (!idToMod.TryGetValue(modId, out Modification mod))
-                            {
-                                throw new MzLibUtil.MzLibException(
-                                    "Could not find modification while reading string: " + FullSequence);
-                            }
-
-                            if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
-                            {
-                                currentModificationLocation = baseSequenceSb.Length + 2;
-                            }
-
-                            AllModsOneIsNterminus.Add(currentModificationLocation, mod);
-                            currentlyReadingMod = false;
-                            currentModification = new StringBuilder();
-                        }
-                        else
-                        {
-                            currentModification.Append(c);
-                        }
-
-                        break;
-
-                    default:
-                        if (currentlyReadingMod)
-                        {
-                            currentModification.Append(c);
-                        }
-                        else
-                        {
-                            currentModificationLocation++;
-                            baseSequenceSb.Append(c);
-                        }
-                        break;
+                    currentlyReadingMod = true;
+                    if (bracketCount == 0)
+                    {
+                        currentModStart = r + 1;
+                    }
+                    bracketCount++;
                 }
+                else if (c == ']')
+                {
+                    string modId = null;
+                    bracketCount--;
+                    if (bracketCount == 0)
+                    {
+                        try
+                        {
+                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
+                            string modString = FullSequence.Substring(currentModStart, r - currentModStart);
+                            int splitIndex = modString.IndexOf(':');
+                            string modType = modString.Substring(0, splitIndex);
+                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new MzLibUtil.MzLibException(
+                                "Error while trying to parse string into peptide: " + e.Message);
+                        }
+                        if (!idToMod.TryGetValue(modId, out Modification mod))
+                        {
+                            throw new MzLibUtil.MzLibException(
+                                "Could not find modification while reading string: " + FullSequence);
+                        }
+                        if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
+                        {
+                            currentModificationLocation = BaseSequence.Length + 2;
+                        }
+                        _allModsOneIsNterminus.Add(currentModificationLocation, mod);
+                        currentlyReadingMod = false;
+                    }
+                }
+                else if (!currentlyReadingMod)
+                {
+                    currentModificationLocation++;
+                }
+                //else do nothing
             }
-
-            baseSequence = baseSequenceSb.ToString();
         }
 
         private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
@@ -961,6 +923,28 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             Protein = protein;
+        }
+
+        public static string GetBaseSequenceFromFullSequence(string fullSequence)
+        {
+            StringBuilder sb = new StringBuilder();
+            int bracketCount = 0;
+            foreach(char c in fullSequence)
+            {
+                if(c=='[')
+                {
+                    bracketCount++;
+                }
+                else if (c==']')
+                {
+                    bracketCount--;
+                }
+                else if(bracketCount==0)
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
         }
 
         private void DetermineFullSequence()

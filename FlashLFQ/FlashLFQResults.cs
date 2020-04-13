@@ -27,9 +27,16 @@ namespace FlashLFQ
 
             foreach (Identification id in identifications)
             {
-                if (!PeptideModifiedSequences.ContainsKey(id.ModifiedSequence))
+                if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
                     PeptideModifiedSequences.Add(id.ModifiedSequence, new Peptide(id.ModifiedSequence, id.BaseSequence, id.UseForProteinQuant, id.ProteinGroups));
+                }
+                else
+                {
+                    foreach (ProteinGroup pg in id.ProteinGroups)
+                    {
+                        peptide.ProteinGroups.Add(pg);
+                    }
                 }
 
                 foreach (ProteinGroup proteinGroup in id.ProteinGroups)
@@ -149,12 +156,92 @@ namespace FlashLFQ
                         string sequence = id.ModifiedSequence;
 
                         double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
-                        double fractionAmbiguous = (ambiguousPeak.Intensity + alreadyRecordedIntensity) / alreadyRecordedIntensity;
+                        double fractionAmbiguous = ambiguousPeak.Intensity / (alreadyRecordedIntensity + ambiguousPeak.Intensity);
 
                         if (fractionAmbiguous > 0.3)
                         {
                             PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, 0);
                             PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                        }
+                    }
+                }
+            }
+
+            HandleAmbiguityInFractions();
+        }
+
+        private void HandleAmbiguityInFractions()
+        {
+            // handle ambiguous peaks in fractionated data
+            // if the largest fraction intensity is ambiguous, zero out the other fractions for the sample
+            var sampleGroups = SpectraFiles.GroupBy(p => p.Condition);
+            foreach (var sampleGroup in sampleGroups)
+            {
+                var samples = sampleGroup.Select(p => p).GroupBy(p => p.BiologicalReplicate);
+
+                foreach (var sample in samples)
+                {
+                    // skip unfractionated samples
+                    if (sample.Select(p => p.Fraction).Distinct().Count() == 1)
+                    {
+                        continue;
+                    }
+
+                    var peaksForEachSequence = new Dictionary<(SpectraFileInfo, string), List<ChromatographicPeak>>();
+
+                    foreach (SpectraFileInfo file in sample)
+                    {
+                        foreach (ChromatographicPeak peak in Peaks[file])
+                        {
+                            foreach (Identification id in peak.Identifications)
+                            {
+                                if (peaksForEachSequence.TryGetValue((file, id.ModifiedSequence), out var peaks))
+                                {
+                                    peaks.Add(peak);
+                                }
+                                else
+                                {
+                                    peaksForEachSequence.Add((file, id.ModifiedSequence), new List<ChromatographicPeak> { peak });
+                                }
+                            }
+                        }
+                    }
+
+                    var peptides = PeptideModifiedSequences.Values.ToList();
+                    List<(double, DetectionType)> fractionIntensitiesWithDetectionTypes = new List<(double, DetectionType)>();
+                    foreach (var peptide in peptides)
+                    {
+                        fractionIntensitiesWithDetectionTypes.Clear();
+                        bool ambiguityObservedInSample = false;
+
+                        foreach (SpectraFileInfo file in sample)
+                        {
+                            double fractionIntensity = peptide.GetIntensity(file);
+                            DetectionType detectionType = peptide.GetDetectionType(file);
+
+                            if (detectionType == DetectionType.MSMSAmbiguousPeakfinding)
+                            {
+                                ambiguityObservedInSample = true;
+
+                                fractionIntensity = peaksForEachSequence[(file, peptide.Sequence)].Sum(p => p.Intensity);
+                            }
+
+                            fractionIntensitiesWithDetectionTypes.Add((fractionIntensity, detectionType));
+                        }
+
+                        if (ambiguityObservedInSample)
+                        {
+                            (double, DetectionType) highestIntensity = fractionIntensitiesWithDetectionTypes.OrderByDescending(p => p.Item1).First();
+
+                            DetectionType highestFractionIntensityDetectionType = highestIntensity.Item2;
+                            if (highestFractionIntensityDetectionType == DetectionType.MSMSAmbiguousPeakfinding)
+                            {
+                                // highest fraction intensity is ambiguous - zero out the other fractions
+                                foreach (SpectraFileInfo file in sample)
+                                {
+                                    peptide.SetIntensity(file, 0);
+                                }
+                            }
                         }
                     }
                 }
@@ -225,7 +312,9 @@ namespace FlashLFQ
                 {
                     output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
 
-                    foreach (var peak in Peaks.SelectMany(p => p.Value))
+                    foreach (var peak in Peaks.SelectMany(p => p.Value)
+                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                        .ThenByDescending(p => p.Intensity))
                     {
                         output.WriteLine(peak.ToString());
                     }
@@ -282,16 +371,28 @@ namespace FlashLFQ
                         return;
                     }
 
+                    string tabSepHeader = null;
+
+                    if (firstProteinQuantResults.First().Value is PairedProteinQuantResult)
+                    {
+                        tabSepHeader = PairedProteinQuantResult.TabSeparatedHeader();
+                    }
+                    else
+                    {
+                        tabSepHeader = UnpairedProteinQuantResult.TabSeparatedHeader();
+                    }
+
                     foreach (var condition in firstProteinQuantResults.Keys)
                     {
-                        header.Append(ProteinQuantificationEngineResult.TabSeparatedHeader());
+                        header.Append(tabSepHeader);
 
                         int p = 0;
 
-                        // sort by protein false discovery rate, then by number of fold-change measurements
+                        // sort by protein false discovery rate, then by number of measurements
                         foreach (var protein in ProteinGroups
-                            .OrderBy(v => v.Value.ConditionToQuantificationResults[condition].FalseDiscoveryRate)
-                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].PeptideFoldChangeMeasurements.SelectMany(b => b.foldChanges).Count()))
+                            .OrderByDescending(v => v.Value.ConditionToQuantificationResults[condition].IsStatisticallyValid)
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].BayesFactor)
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].Peptides.Count))
                         {
                             proteinStringBuilders[p].Append(
                                 protein.Value.ConditionToQuantificationResults[condition].ToString());
