@@ -1034,6 +1034,8 @@ namespace FlashLFQ
 
         public List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> xic, Identification identification, int chargeState)
         {
+            double isotopicVarianceWithAverageine = AllowOverlappingEnvelopes ? 8.0 : 4.0;
+            double corrRequired = AllowOverlappingEnvelopes ? 0.1 : 0.7;
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _modifiedSequenceToIsotopicDistribution[identification.ModifiedSequence];
 
@@ -1086,7 +1088,7 @@ namespace FlashLFQ
                                 peak.ZeroBasedMs1ScanIndex, isotopeTolerance, chargeState);
 
                             if (isotopePeak == null
-                                || isotopePeak.Intensity < theoreticalIsotopeIntensity / 4.0 || isotopePeak.Intensity > theoreticalIsotopeIntensity * 4.0)
+                                || isotopePeak.Intensity < theoreticalIsotopeIntensity / isotopicVarianceWithAverageine || isotopePeak.Intensity > theoreticalIsotopeIntensity * isotopicVarianceWithAverageine)
                             {
                                 break;
                             }
@@ -1105,7 +1107,7 @@ namespace FlashLFQ
                 {
                     continue;
                 }
-
+                
                 double corr = Correlation.Pearson(massShiftToIsotopePeaks[0].Select(p => p.expIntensity), massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
 
                 // check correlation of experimental isotope intensities to the theoretical abundances
@@ -1144,7 +1146,7 @@ namespace FlashLFQ
                     corrShiftedRight = -1;
                 }
 
-                if (corr > 0.7 && (corrShiftedLeft - corrWithPadding < 0.1 && corrShiftedRight - corrWithPadding < 0.1))
+                if (corr > corrRequired && (corrShiftedLeft - corrWithPadding < 0.1 && corrShiftedRight - corrWithPadding < 0.1))
                 {
                     // impute unobserved isotope peak intensities
                     for (int i = 0; i < experimentalIsotopeIntensities.Length; i++)

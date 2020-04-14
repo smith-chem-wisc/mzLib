@@ -84,6 +84,38 @@ namespace Test
         }
 
         [Test]
+        public static void TestSilacPairsQuantification()
+        {
+            Loaders.LoadElements();
+
+            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyK", 'a', "aaa", ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All) });
+
+            List<Identification> ids = new List<Identification>();
+            string[] lines = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles","SilacTestFile_Ids.txt"));
+
+            SpectraFileInfo info = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SilacTestFile_8DaOnK.mzML"), "a", 1, 1, 1);
+            foreach (string s in lines)
+            {
+                string[] line = s.Split('\t');
+                ids.Add(new Identification(info, line[0], line[0],
+                    Convert.ToDouble(line[1]), Convert.ToDouble(line[2]), Convert.ToInt32(line[3]),
+                    new List<ProteinGroup> { new ProteinGroup("group", "gene", "organism") }));
+            }
+            // run FlashLFQ
+            var flashLfqEngine = new FlashLfqEngine(ids,
+                allowOverlappingEnvelopes: true, //if silac
+                silent: true);
+            var results = flashLfqEngine.Run();
+            Assert.IsTrue(results.Peaks.Count == 1);
+            var values = results.Peaks.First().Value;
+            Assert.IsTrue(values.Count == 2);
+            Assert.IsTrue(values[0].Identifications.Count == 15);
+            Assert.IsTrue(values[1].Identifications.Count == 15);
+            double heavyToLightRatio = values[0].Intensity / values[1].Intensity;
+            Assert.IsTrue(heavyToLightRatio < 1.7 && heavyToLightRatio > 1.3);
+        }
+
+        [Test]
         public static void TestEvelopQuantification()
         {
             Loaders.LoadElements();

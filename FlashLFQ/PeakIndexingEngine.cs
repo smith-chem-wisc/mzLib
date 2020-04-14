@@ -241,25 +241,31 @@ namespace FlashLFQ
             int ceilingMz = (int)Math.Ceiling(tolerance.GetMaximumValue(theorMass).ToMz(chargeState) * BinsPerDalton);
             int floorMz = (int)Math.Floor(tolerance.GetMinimumValue(theorMass).ToMz(chargeState) * BinsPerDalton);
 
+            //go through possible mz range for this charge state
             for (int j = floorMz; j <= ceilingMz; j++)
             {
+                //get peaks for this mz
                 if (j < _indexedPeaks.Length && _indexedPeaks[j] != null)
                 {
                     List<IndexedMassSpectralPeak> bin = _indexedPeaks[j];
-                    int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex);
+                    int index = BinarySearchForIndexedPeak(bin, zeroBasedScanIndex); //get the scan closest to this scan
 
-                    for (int i = index; i < bin.Count; i++)
+                    //foreach peak
+                    for (int i = index; i < bin.Count; i++) //binarysearch is imperfect and requires this QA step
                     {
                         IndexedMassSpectralPeak peak = bin[i];
 
-                        if (peak.ZeroBasedMs1ScanIndex > zeroBasedScanIndex)
+                        //if the peak is less than
+                        if (peak.ZeroBasedMs1ScanIndex > zeroBasedScanIndex) //if we passed the target scan, quit
                         {
                             break;
                         }
-
+                        if(i!=index)
+                        { }
                         double expMass = peak.Mz.ToMass(chargeState);
 
-                        if (tolerance.Within(expMass, theorMass) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex
+                        bool test = tolerance.Within(expMass, theorMass);
+                        if (tolerance.Within(expMass, theorMass) && peak.ZeroBasedMs1ScanIndex == zeroBasedScanIndex //must be the right scan
                             && (bestPeak == null || Math.Abs(expMass - theorMass) < Math.Abs(bestPeak.Mz.ToMass(chargeState) - theorMass)))
                         {
                             bestPeak = peak;
