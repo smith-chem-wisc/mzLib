@@ -5,14 +5,16 @@
         public readonly IndexedMassSpectralPeak IndexedPeak;
         public readonly int ChargeState;
 
-        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity)
+        public IsotopicEnvelope(IndexedMassSpectralPeak monoisotopicPeak, int chargeState, double intensity, double corr)
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
             Intensity = intensity / chargeState;
+            PearsonCorrelationToTheoretical = corr;
         }
 
         public double Intensity { get; private set; }
+        public readonly double PearsonCorrelationToTheoretical;
 
         public void Normalize(double normalizationFactor)
         {

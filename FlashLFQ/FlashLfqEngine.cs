@@ -27,6 +27,7 @@ namespace FlashLFQ
         public readonly bool Normalize;
         public readonly double DiscriminationFactorToCutPeak;
         public readonly bool AllowOverlappingEnvelopes; //used for silac with large peptides
+        public readonly bool MeasureStableIsotopeAbundance; //used when C13 abundance is not ~1.1%
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -65,6 +66,7 @@ namespace FlashLFQ
             bool silent = false,
             int maxThreads = -1,
             bool allowOverlappingEnvelopes = false,
+            bool measureStableIsotopeAbundance = false,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -108,6 +110,7 @@ namespace FlashLFQ
             Normalize = normalize;
             MaxThreads = maxThreads;
             AllowOverlappingEnvelopes = allowOverlappingEnvelopes;
+            MeasureStableIsotopeAbundance = measureStableIsotopeAbundance;
             BayesianProteinQuant = bayesianProteinQuant;
             PairedSamples = pairedSamples;
             ProteinQuantBaseCondition = proteinQuantBaseCondition;
@@ -137,9 +140,8 @@ namespace FlashLFQ
             _globalStopwatch.Start();
             _ms1Scans = new Dictionary<SpectraFileInfo, Ms1ScanInfo[]>();
             _results = new FlashLfqResults(_spectraFileInfo, _allIdentifications);
-
-            // build m/z index keys
-            CalculateTheoreticalIsotopeDistributions();
+                   
+            Dictionary<SpectraFileInfo, double> fileToC13Abundance = new Dictionary<SpectraFileInfo, double>();
 
             // quantify each file
             foreach (var spectraFile in _spectraFileInfo)
@@ -151,8 +153,13 @@ namespace FlashLFQ
                     continue;
                 }
 
+                if (MeasureStableIsotopeAbundance)
+                {
+                    fileToC13Abundance[spectraFile] = DetermineAbundanceOfCarbon13(spectraFile);
+                }
+
                 // quantify peaks using this file's IDs first
-                QuantifyMs2IdentifiedPeptides(spectraFile);
+                QuantifyMs2IdentifiedPeptides(spectraFile, true);
 
                 // write the indexed peaks for MBR later
                 if (MatchBetweenRuns)
@@ -181,6 +188,17 @@ namespace FlashLFQ
                     if (!Silent)
                     {
                         Console.WriteLine("Doing match-between-runs for " + spectraFile.FilenameWithoutExtension);
+                    }
+
+                    //update the c13 ratio
+                    if (MeasureStableIsotopeAbundance)
+                    {
+                        var carbon = PeriodicTable.GetElement("C");
+                        var isotopes = carbon.Isotopes.ToList();
+                        double bestC13Abundance = fileToC13Abundance[spectraFile];
+                        isotopes.First(p => p.Neutrons == 7).RelativeAbundance = bestC13Abundance;
+                        isotopes.First(p => p.Neutrons == 6).RelativeAbundance = 1 - bestC13Abundance;
+                        CalculateTheoreticalIsotopeDistributions();
                     }
 
                     QuantifyMatchBetweenRunsPeaks(spectraFile);
@@ -243,6 +261,36 @@ namespace FlashLFQ
             }
 
             return _results;
+        }
+
+        private double DetermineAbundanceOfCarbon13(SpectraFileInfo spectraFile)
+        {
+            var carbon = PeriodicTable.GetElement("C");
+            var isotopes = carbon.Isotopes.ToList();
+            double c12plusc13Abundance = isotopes.Where(p => p.Neutrons == 6 || p.Neutrons == 7).Sum(p => p.RelativeAbundance);
+            double normalAbundance = isotopes.First(p => p.Neutrons == 7).RelativeAbundance;
+            List<(double, double)> c13AbundanceTrials = new List<(double, double)>();
+            for (double c13TestAbundance = 0.001; c13TestAbundance < 0.05; c13TestAbundance += 0.001)
+            {
+                c13TestAbundance = Math.Round(c13TestAbundance, 3);
+                isotopes.First(p => p.Neutrons == 7).RelativeAbundance = c13TestAbundance;
+                isotopes.First(p => p.Neutrons == 6).RelativeAbundance = 1 - c13TestAbundance;
+                CalculateTheoreticalIsotopeDistributions();
+                QuantifyMs2IdentifiedPeptides(spectraFile, false);
+                RunErrorChecking(spectraFile);
+                var peaks = _results.Peaks[spectraFile];
+                double sum = peaks.Where(p => p.Apex != null).Sum(p => p.Apex.PearsonCorrelationToTheoretical);
+                peaks.Clear();
+                c13AbundanceTrials.Add((c13TestAbundance, sum));
+            }
+
+            //update the model with the best distribution
+            double bestC13Abundance = c13AbundanceTrials.OrderByDescending(p => p.Item2).First().Item1;
+            isotopes.First(p => p.Neutrons == 7).RelativeAbundance = bestC13Abundance;
+            isotopes.First(p => p.Neutrons == 6).RelativeAbundance = 1 - bestC13Abundance;
+            CalculateTheoreticalIsotopeDistributions();
+
+            return bestC13Abundance;
         }
 
         /// <summary>
@@ -347,7 +395,7 @@ namespace FlashLFQ
             }
         }
 
-        private void QuantifyMs2IdentifiedPeptides(SpectraFileInfo fileInfo)
+        private void QuantifyMs2IdentifiedPeptides(SpectraFileInfo fileInfo, bool filterEnvelopes)
         {
             if (!Silent)
             {
@@ -367,7 +415,7 @@ namespace FlashLFQ
             var chromatographicPeaks = new ChromatographicPeak[ms2IdsForThisFile.Count];
 
             Parallel.ForEach(Partitioner.Create(0, ms2IdsForThisFile.Count),
-                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                new ParallelOptions { MaxDegreeOfParallelism = 1 },
                 (range, loopState) =>
                 {
                     for (int i = range.Item1; i < range.Item2; i++)
@@ -398,7 +446,7 @@ namespace FlashLFQ
                             xic.RemoveAll(p => !ppmTolerance.Within(p.Mz.ToMass(chargeState), identification.PeakfindingMass));
 
                             // filter by isotopic distribution
-                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState);
+                            List<IsotopicEnvelope> isotopicEnvelopes = GetIsotopicEnvelopes(xic, identification, chargeState, filterEnvelopes);
 
                             // add isotopic envelopes to the chromatographic peak
                             msmsFeature.IsotopicEnvelopes.AddRange(isotopicEnvelopes);
@@ -1032,10 +1080,10 @@ namespace FlashLFQ
             _results.Peaks[spectraFile] = peaks;
         }
 
-        public List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> xic, Identification identification, int chargeState)
+        public List<IsotopicEnvelope> GetIsotopicEnvelopes(List<IndexedMassSpectralPeak> xic, Identification identification, int chargeState, bool filterEnvelopes=true)
         {
-            double isotopicVarianceWithAverageine = AllowOverlappingEnvelopes ? 8.0 : 4.0;
-            double corrRequired = AllowOverlappingEnvelopes ? 0.1 : 0.7;
+            double isotopicVarianceWithAverageine = filterEnvelopes ? 4.0 : 8.0;
+            double corrRequired = filterEnvelopes ? 0.7 : 0.1;
             var isotopicEnvelopes = new List<IsotopicEnvelope>();
             var isotopeMassShifts = _modifiedSequenceToIsotopicDistribution[identification.ModifiedSequence];
 
@@ -1157,7 +1205,7 @@ namespace FlashLFQ
                         }
                     }
 
-                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum()));
+                    isotopicEnvelopes.Add(new IsotopicEnvelope(peak, chargeState, experimentalIsotopeIntensities.Sum(), corr));
                 }
             }
 

@@ -83,7 +83,7 @@ namespace Chemistry
         /// <summary>
         /// The relative natural abundance of this isotope in nature (on Earth)
         /// </summary>
-        public double RelativeAbundance { get; }
+        public double RelativeAbundance { get; set; }
 
         /// <summary>
         /// Returns a textual representation of this isotope in the following format: H{1} He{4} O{16}
