@@ -75,7 +75,7 @@ namespace Test
         public static void ReadMzMlInNewEra()
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
-            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, 1, null, false, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
@@ -618,14 +618,14 @@ namespace Test
         {
             Assert.Throws<AggregateException>(() =>
             {
-                Mzml.LoadAllStaticData(@"tiny.pwiz.1.1.mzML");
+                Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tiny.pwiz.1.1.mzML"));
             }, "Reading profile mode mzmls not supported");
         }
 
         [Test]
         public void LoadMzmlFromConvertedMGFTest()
         {
-            Mzml a = Mzml.LoadAllStaticData(@"tester.mzML");
+            Mzml a = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mzML"));
 
             var ya = a.GetOneBasedScan(1).MassSpectrum;
             Assert.AreEqual(192, ya.Size);
