@@ -2,6 +2,7 @@
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using UsefulProteomicsDatabases;
@@ -80,9 +81,7 @@ namespace IO.Mgf
                             {
                                 if (readingPeaks)
                                 {
-                                    string[] sArray = s.Split(' ');
-                                    mzs.Add(Convert.ToDouble(sArray[0]));
-                                    intensities.Add(Convert.ToDouble(sArray[1]));
+                                    ParsePeakLine(s, mzs, intensities);
                                 }
                                 else
                                 {
@@ -90,9 +89,7 @@ namespace IO.Mgf
                                     if (sArray.Length == 1)
                                     {
                                         readingPeaks = true;
-                                        sArray = s.Split(' ');
-                                        mzs.Add(Convert.ToDouble(sArray[0]));
-                                        intensities.Add(Convert.ToDouble(sArray[1]));
+                                        ParsePeakLine(s, mzs, intensities);
 
                                         if (oldScanNumber == scanNumber) //if there's no recorded scan number, simply index them.
                                         {
@@ -105,7 +102,7 @@ namespace IO.Mgf
                                         {
                                             case "PEPMASS":
                                                 sArray = sArray[1].Split(' ');
-                                                precursorMz = Convert.ToDouble(sArray[0]);
+                                                precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
                                                 break;
 
                                             case "CHARGE":
@@ -122,7 +119,7 @@ namespace IO.Mgf
                                                 break;
 
                                             case "RTINSECONDS":
-                                                rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1]) / 60.0;
+                                                rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1], CultureInfo.InvariantCulture) / 60.0;
                                                 break;
 
                                             default:
@@ -144,6 +141,14 @@ namespace IO.Mgf
         public override MsDataScan GetOneBasedScan(int scanNumber)
         {
             return indexedScans[scanNumber - 1];
+        }
+
+        private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)
+        {
+            var sArray = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            mzs.Add(Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture));
+            intensities.Add(Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture));
         }
     }
 }

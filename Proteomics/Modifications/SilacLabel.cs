@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace Proteomics
@@ -47,7 +48,7 @@ namespace Proteomics
         public double ConvertMassDifferenceToDouble()
         {
             string substring = MassDifference.Substring(1);
-            double value = Convert.ToDouble(substring);
+            double value = Convert.ToDouble(substring, CultureInfo.InvariantCulture);
             if (MassDifference[0] == '-')
             {
                 value *= -1;

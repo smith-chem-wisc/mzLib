@@ -207,7 +207,7 @@ namespace Test
         public static void ProcessXcorrInMzSpectrum()
         {
             Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
-            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "BinGenerationTest.mzML");
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "BinGenerationTest.mzML");
             FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, true);
 
             MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
