@@ -18,12 +18,18 @@ namespace UsefulProteomicsDatabases
         public string Sequence { get; private set; }
         public string FeatureType { get; private set; }
         public string FeatureDescription { get; private set; }
+        public string FeatureId { get; private set; }
         public string SubFeatureType { get; private set; }
         public string SubFeatureDescription { get; private set; }
         public string OriginalValue { get; private set; } = ""; // if no content is found, assume it is empty, not null (e.g. <original>A</original><variation/> for a deletion event)
         public string VariationValue { get; private set; } = "";
         public string DBReferenceType { get; private set; }
         public string DBReferenceId { get; private set; }
+        public bool ReadingIsoform { get; private set; }
+        public string IsoformType { get; private set; }
+        public string IsoformRef { get; private set; }
+        public string IsoformId { get; private set; }
+        public string IsoformName { get; private set; }
         public List<string> PropertyTypes { get; private set; } = new List<string>();
         public List<string> PropertyValues { get; private set; } = new List<string>();
         public int OneBasedFeaturePosition { get; private set; } = -1;
@@ -34,6 +40,8 @@ namespace UsefulProteomicsDatabases
         public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
         public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
         public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
+        public List<SequenceVariation> SpliceSequenceChanges { get; private set; } = new List<SequenceVariation>();
+        public List<SpliceVariant> SpliceVariants { get; private set; } = new List<SpliceVariant>();
         public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new Dictionary<int, List<Modification>>();
         public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
@@ -43,6 +51,7 @@ namespace UsefulProteomicsDatabases
 
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
+        private List<IsoformEntry> IsoformEntries = new List<IsoformEntry>();
 
         /// <summary>
         /// Start parsing a protein XML element
@@ -75,6 +84,10 @@ namespace UsefulProteomicsDatabases
                             Organism = xml.ReadElementString();
                         }
                     }
+                    if (ReadingIsoform)
+                    {
+                        IsoformName = xml.ReadElementString();
+                    }
                     break;
 
                 case "gene":
@@ -98,6 +111,7 @@ namespace UsefulProteomicsDatabases
                 case "feature":
                     FeatureType = xml.GetAttribute("type");
                     FeatureDescription = xml.GetAttribute("description");
+                    FeatureId = xml.GetAttribute("id");
                     break;
 
                 case "subfeature":
@@ -118,6 +132,17 @@ namespace UsefulProteomicsDatabases
                     PropertyValues.Clear();
                     DBReferenceType = xml.GetAttribute("type");
                     DBReferenceId = xml.GetAttribute("id");
+                    break;
+
+                case "isoform":
+                    ReadingIsoform = true;
+                    break;
+
+                case "id":
+                    if (ReadingIsoform)
+                    {
+                        IsoformId = xml.ReadElementString();
+                    }
                     break;
 
                 case "property":
@@ -142,7 +167,15 @@ namespace UsefulProteomicsDatabases
                     break;
 
                 case "sequence":
-                    Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+                    if (ReadingIsoform)
+                    {
+                        IsoformType = xml.GetAttribute("type");
+                        IsoformRef = xml.GetAttribute("ref");
+                    }
+                    else
+                    {
+                        Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
+                    }
                     break;
             }
         }
@@ -166,6 +199,11 @@ namespace UsefulProteomicsDatabases
             {
                 ParseDatabaseReferenceEndElement(xml);
             }
+            else if (xml.Name == "isoform")
+            {
+                ReadingIsoform = false;
+                IsoformEntries.Add(new IsoformEntry(IsoformType, IsoformRef, IsoformId, IsoformName));
+            }
             else if (xml.Name == "gene")
             {
                 ReadingGene = false;
@@ -176,6 +214,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
+                SpliceVariants = ParseSpliceVariants(IsoformEntries, SpliceSequenceChanges);
                 protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications);
             }
             return protein;
@@ -195,7 +234,7 @@ namespace UsefulProteomicsDatabases
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
+                    false, isContaminant, DatabaseReferences, SequenceVariations, SpliceVariants, null, null, DisulfideBonds, SpliceSites, proteinDbLocation);
             }
             Clear();
             return result;
@@ -226,6 +265,17 @@ namespace UsefulProteomicsDatabases
             else if (FeatureType == "peptide" || FeatureType == "propeptide" || FeatureType == "chain" || FeatureType == "signal peptide")
             {
                 ProteolysisProducts.Add(new ProteolysisProduct(OneBasedBeginPosition, OneBasedEndPosition, FeatureType));
+            }
+            else if (FeatureType == "splice variant")
+            {
+                if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                {
+                    SpliceSequenceChanges.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, FeatureId));
+                }
+                else if (OneBasedFeaturePosition >= 1)
+                {
+                    SpliceSequenceChanges.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, FeatureId));
+                }
             }
             else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
             {
@@ -270,6 +320,22 @@ namespace UsefulProteomicsDatabases
             VariationValue = "";
         }
 
+        private static List<SpliceVariant> ParseSpliceVariants(List<IsoformEntry> isoformEntries, List<SequenceVariation> spliceSequenceChanges)
+        {
+            var spliceVariants = new List<SpliceVariant>();
+            foreach (IsoformEntry isoform in isoformEntries)
+            {
+                List<SequenceVariation> spliceVariations = null;
+                if (!string.IsNullOrEmpty(isoform.IsoformRef))
+                {
+                    string[] spliceRefs = SubstituteWhitespace.Split(isoform.IsoformRef);
+                    spliceVariations = spliceSequenceChanges.Where(sv => spliceRefs.Contains(sv.Description.Id)).ToList();
+                }
+                spliceVariants.Add(new SpliceVariant(isoform.IsoformId, isoform.IsoformName, isoform.IsoformType, spliceVariations));
+            }
+            return spliceVariants;
+        }
+        
         private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
         {
@@ -372,6 +438,10 @@ namespace UsefulProteomicsDatabases
             VariationValue = "";
             DBReferenceType = null;
             DBReferenceId = null;
+            IsoformType = null;
+            IsoformRef = null;
+            IsoformName = null;
+            IsoformId = null;
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;
@@ -383,9 +453,28 @@ namespace UsefulProteomicsDatabases
             DisulfideBonds = new List<DisulfideBond>();
             SpliceSites = new List<SpliceSite>();
             DatabaseReferences = new List<DatabaseReference>();
+            SpliceSequenceChanges = new List<SequenceVariation>();
+            SpliceVariants = new List<SpliceVariant>();
+            IsoformEntries = new List<IsoformEntry>();
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;
             ReadingOrganism = false;
+            ReadingIsoform = false;
+        }
+
+        private struct IsoformEntry
+        {
+            public string IsoformType;
+            public string IsoformRef;
+            public string IsoformId;
+            public string IsoformName;
+            public IsoformEntry(string isoformType, string isoformRef, string isoformId, string isoformName)
+            {
+                IsoformType = isoformType;
+                IsoformRef = isoformRef;
+                IsoformId = isoformId;
+                IsoformName = isoformName;
+            }
         }
     }
 }

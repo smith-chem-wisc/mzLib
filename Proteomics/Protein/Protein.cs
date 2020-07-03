@@ -23,13 +23,14 @@ namespace Proteomics
         /// <param name="isContaminant"></param>
         /// <param name="databaseReferences"></param>
         /// <param name="sequenceVariations"></param>
+        /// <param name="spliceVariants"></param>
         /// <param name="disulfideBonds"></param>
         /// <param name="spliceSites"></param>
         /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
-            List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
+            List<SequenceVariation> sequenceVariations = null, List<SpliceVariant> spliceVariants = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
         {
             // Mandatory
@@ -48,6 +49,7 @@ namespace Proteomics
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
+            SpliceVariants = spliceVariants ?? new List<SpliceVariant>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
@@ -117,6 +119,7 @@ namespace Proteomics
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
+                  spliceVariants: new List<SpliceVariant>(protein.SpliceVariants),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
@@ -150,6 +153,8 @@ namespace Proteomics
         public string Organism { get; }
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
+        public IEnumerable<SpliceVariant> SpliceVariants { get; }
+
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter

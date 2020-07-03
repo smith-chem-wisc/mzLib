@@ -13,15 +13,19 @@ namespace Proteomics
         /// <param name="originalSequence"></param>
         /// <param name="variantSequence"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, string id, Dictionary<int, List<Modification>> oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = new SequenceVariantDescription(description);
+            Description = new SequenceVariantDescription(description, id);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
+
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
+            : this(oneBasedBeginPosition, oneBasedEndPosition, originalSequence, variantSequence, description, null, oneBasedModifications)
+        { }
 
         /// <summary>
         /// For variations with only position information (not begin and end).
@@ -34,6 +38,10 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>> oneBasedModifications = null)
             : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
+        { }
+
+        public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, string id, Dictionary<int, List<Modification>> oneBasedModifications = null)
+            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, id, oneBasedModifications)
         { }
 
         /// <summary>

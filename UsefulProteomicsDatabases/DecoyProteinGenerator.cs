@@ -171,6 +171,7 @@ namespace UsefulProteomicsDatabases
                     protein.IsContaminant,
                     null,
                     decoyVariations,
+                    null,
                     decoyAppliedVariations,
                     protein.SampleNameForVariants,
                     decoyDisulfides,
@@ -355,7 +356,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
                 var decoyProteinSlide = new Protein(slided_sequence, "DECOY_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
-                    protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);
+                    protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
             return decoyProteins;
