@@ -18,6 +18,7 @@
 using MassSpectrometry;
 using MzLibUtil;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
@@ -79,8 +80,8 @@ namespace MzIdentML
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
-                           new PpmTolerance(Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture));
                 }
                 catch
                 {
@@ -88,15 +89,15 @@ namespace MzIdentML
                     {
                         var hm = dd111.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                         return hm[0].unitName.Equals("dalton") ?
-                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
-                               new PpmTolerance(Convert.ToDouble(hm[0].value));
+                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture)) :
+                               new PpmTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture));
                     }
                     catch
                     {
                         var hm = dd120.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].ParentTolerance;
                         return hm[0].unitName.Equals("dalton") ?
-                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
-                               new PpmTolerance(Convert.ToDouble(hm[0].value));
+                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture)) :
+                               new PpmTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture));
                     }
                 }
             }
@@ -110,8 +111,8 @@ namespace MzIdentML
                 {
                     var hm = dd110.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                     return hm[0].unitName.Equals("dalton") ?
-                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
-                           new PpmTolerance(Convert.ToDouble(hm[0].value));
+                           (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture)) :
+                           new PpmTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture));
                 }
                 catch
                 {
@@ -119,15 +120,15 @@ namespace MzIdentML
                     {
                         var hm = dd111.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                         return hm[0].unitName.Equals("dalton") ?
-                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
-                               new PpmTolerance(Convert.ToDouble(hm[0].value));
+                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture)) :
+                               new PpmTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture));
                     }
                     catch
                     {
                         var hm = dd120.AnalysisProtocolCollection.SpectrumIdentificationProtocol[0].FragmentTolerance;
                         return hm[0].unitName.Equals("dalton") ?
-                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value)) :
-                               new PpmTolerance(Convert.ToDouble(hm[0].value));
+                               (Tolerance)new AbsoluteTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture)) :
+                               new PpmTolerance(Convert.ToDouble(hm[0].value, CultureInfo.InvariantCulture));
                     }
                 }
             }
@@ -288,7 +289,7 @@ namespace MzIdentML
             {
                 var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
+                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
             }
             catch
             {
@@ -296,13 +297,13 @@ namespace MzIdentML
                 {
                     var cvParam = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
                         Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                    return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
+                    return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
                 }
                 catch
                 {
                     var cvParam = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
                         Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                    return cvParam == null ? -1 : Convert.ToDouble(cvParam.value);
+                    return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
                 }
 
             }
