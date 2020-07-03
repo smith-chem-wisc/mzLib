@@ -29,7 +29,7 @@ namespace UsefulProteomicsDatabases
         public string IsoformType { get; private set; }
         public string IsoformRef { get; private set; }
         public string IsoformId { get; private set; }
-        public string IsoformName { get; private set; }
+        public List<string> IsoformNames { get; private set; } = new List<string>();
         public List<string> PropertyTypes { get; private set; } = new List<string>();
         public List<string> PropertyValues { get; private set; } = new List<string>();
         public int OneBasedFeaturePosition { get; private set; } = -1;
@@ -86,7 +86,7 @@ namespace UsefulProteomicsDatabases
                     }
                     if (ReadingIsoform)
                     {
-                        IsoformName = xml.ReadElementString();
+                        IsoformNames.Add(xml.ReadElementString());
                     }
                     break;
 
@@ -202,7 +202,7 @@ namespace UsefulProteomicsDatabases
             else if (xml.Name == "isoform")
             {
                 ReadingIsoform = false;
-                IsoformEntries.Add(new IsoformEntry(IsoformType, IsoformRef, IsoformId, IsoformName));
+                IsoformEntries.Add(new IsoformEntry(IsoformType, IsoformRef, IsoformId, IsoformNames));
             }
             else if (xml.Name == "gene")
             {
@@ -331,7 +331,7 @@ namespace UsefulProteomicsDatabases
                     string[] spliceRefs = SubstituteWhitespace.Split(isoform.IsoformRef);
                     spliceVariations = spliceSequenceChanges.Where(sv => spliceRefs.Contains(sv.Description.Id)).ToList();
                 }
-                spliceVariants.Add(new SpliceVariant(isoform.IsoformId, isoform.IsoformName, isoform.IsoformType, spliceVariations));
+                spliceVariants.Add(new SpliceVariant(isoform.IsoformId, isoform.IsoformNames, isoform.IsoformType, spliceVariations));
             }
             return spliceVariants;
         }
@@ -440,7 +440,7 @@ namespace UsefulProteomicsDatabases
             DBReferenceId = null;
             IsoformType = null;
             IsoformRef = null;
-            IsoformName = null;
+            IsoformNames = new List<string>();
             IsoformId = null;
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
@@ -467,13 +467,13 @@ namespace UsefulProteomicsDatabases
             public string IsoformType;
             public string IsoformRef;
             public string IsoformId;
-            public string IsoformName;
-            public IsoformEntry(string isoformType, string isoformRef, string isoformId, string isoformName)
+            public List<string> IsoformNames;
+            public IsoformEntry(string isoformType, string isoformRef, string isoformId, List<string> isoformNames)
             {
                 IsoformType = isoformType;
                 IsoformRef = isoformRef;
                 IsoformId = isoformId;
-                IsoformName = isoformName;
+                IsoformNames = isoformNames;
             }
         }
     }
