@@ -106,20 +106,20 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, IEnumerable<SpliceVariant> applicableSpliceVariants, string sampleNameForVariants)
             : this(variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
                   proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
+                  spliceVariants: new List<SpliceVariant>(applicableSpliceVariants ?? new List<SpliceVariant>()),
                   name: GetName(appliedSequenceVariations, protein.Name),
                   fullName: GetName(appliedSequenceVariations, protein.FullName),
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
-                  spliceVariants: new List<SpliceVariant>(protein.SpliceVariants),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath)
@@ -498,6 +498,11 @@ namespace Proteomics
         public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4, int minAlleleDepth = 1)
         {
             return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics, minAlleleDepth);
+        }
+
+        public List<Protein> GetIsoformProteins()
+        {
+            return VariantApplication.ApplyIsoforms(this);
         }
 
         /// <summary>

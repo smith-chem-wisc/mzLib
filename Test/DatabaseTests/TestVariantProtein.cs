@@ -42,7 +42,7 @@ namespace Test
         public static void VariantProtein()
         {
             Protein p = new Protein("MAAA", "accession");
-            Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null);
+            Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null, null);
             Assert.AreEqual(p, v.NonVariantProtein);
         }
 

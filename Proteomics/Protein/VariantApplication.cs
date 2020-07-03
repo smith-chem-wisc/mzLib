@@ -77,7 +77,7 @@ namespace Proteomics
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
-            Protein proteinCopy = new Protein(protein.BaseSequence, protein, null, protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, null);
+            Protein proteinCopy = new Protein(protein.BaseSequence, protein, null, protein.ProteolysisProducts, protein.OneBasedPossibleLocalizedModifications, protein.SpliceVariants, null);
 
             // If there aren't any variants to apply, just return the base protein
             if (uniqueEffectsToApply.Count == 0)
@@ -224,8 +224,18 @@ namespace Proteomics
             List<ProteolysisProduct> adjustedProteolysisProducts = AdjustProteolysisProductIndices(variantGettingApplied, variantSequence, protein, protein.ProteolysisProducts);
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
             List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
+            List<SpliceVariant> adjustedSpliceVariations = AdjustSpliceVariantIndices(variantGettingApplied, variantSequence, protein.SpliceVariants);
 
-            return new Protein(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            return new Protein(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, adjustedSpliceVariations, individual);
+        }
+
+        internal static List<Protein> ApplyIsoforms(Protein protein)
+        {
+            //return ApplyVariants(protein, )
+            // apply the sequence variations in the splice variants, substituting in the original sequence and nothing for the variant sequence when they're not present
+            // apply them as homozygous
+
+            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -279,6 +289,12 @@ namespace Proteomics
                 }
             }
             return variations;
+        }
+
+        public static List<SpliceVariant> AdjustSpliceVariantIndices(SequenceVariation variantGettingApplied, string variantAppliedProteinSequence, IEnumerable<SpliceVariant> spliceVariant)
+        {
+            return spliceVariant.Select(sv => new SpliceVariant(sv.Accession, sv.Names, sv.Type, AdjustSequenceVariationIndices(variantGettingApplied, variantAppliedProteinSequence, sv.SpliceVariations)))
+                .Where(sv => sv.SpliceVariations.Any()).ToList(); // filter out the sequence variations eliminated
         }
 
         /// <summary>

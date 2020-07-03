@@ -96,7 +96,9 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
+            IEnumerable<Protein> variantProteins = proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth));
+            IEnumerable<Protein> isoformProteins = variantProteins.SelectMany(p => p.GetIsoformProteins());
+            return isoformProteins.ToList();
         }
 
         /// <summary>
@@ -287,6 +289,7 @@ namespace UsefulProteomicsDatabases
                 HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
                 HashSet<ProteolysisProduct> proteolysis = new HashSet<ProteolysisProduct>(proteins.Value.SelectMany(p => p.ProteolysisProducts));
                 HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
+                HashSet<SpliceVariant> spliceVariants = new HashSet<SpliceVariant>(proteins.Value.SelectMany(p => p.SpliceVariants));
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
                 HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
@@ -321,6 +324,7 @@ namespace UsefulProteomicsDatabases
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
+                    spliceVariants: spliceVariants.ToList(),
                     spliceSites: splices.ToList()
                     );
             }
