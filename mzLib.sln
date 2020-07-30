@@ -23,7 +23,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PepXML", "PepXML\PepXML.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Proteomics", "Proteomics\Proteomics.csproj", "{AD3D126D-6359-481B-BE17-69DFB0BC4E40}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ThermoRawFileReader", "ThermoRawFileReader\ThermoRawFileReader.csproj", "{21FD9C16-733F-444A-B4D5-E062C4420F12}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ThermoRaw", "ThermoRaw\ThermoRaw.csproj", "{21FD9C16-733F-444A-B4D5-E062C4420F12}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UsefulProteomicsDatabases", "UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj", "{6A510911-5F37-4314-8176-82772B7E5AE3}"
 EndProject
