@@ -42,7 +42,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="BinGenerationTest.mzML">
+    <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\bad.fasta">
@@ -279,13 +279,13 @@
     <None Update="ModificationTests\ModsWithComments.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="tester.mgf">
+    <None Update="DataFiles\tester.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="tester.mzML">
+    <None Update="DataFiles\tester.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="tiny.pwiz.1.1.mzML">
+    <None Update="DataFiles\tiny.pwiz.1.1.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
