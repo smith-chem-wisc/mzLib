@@ -2,6 +2,7 @@
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -50,8 +51,8 @@ namespace IO.Mgf
 
                     if (char.IsDigit(line[0]) && sArray.Length == 1)
                     {
-                        string[] split = line.Split(peakSplitter);
-                        (double mz, double intensity) peak = (double.Parse(split[0]), double.Parse(split[1]));
+                        string[] split = line.Split(peakSplitter, StringSplitOptions.RemoveEmptyEntries);
+                        (double mz, double intensity) peak = (double.Parse(split[0], CultureInfo.InvariantCulture), double.Parse(split[1], CultureInfo.InvariantCulture));
                         peaks.Add(peak);
                     }
                     else if (line.StartsWith("PEPMASS="))

@@ -197,7 +197,7 @@ namespace Test
 
             // UniProt PTMs
             var uniprotPtms = Loaders.LoadUniprot(uniProtPath, formalChargesDictionary).ToList();
-            Assert.AreEqual(346, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(347, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
             // write UniProt and UniMod PTMs to a file
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
