@@ -34,11 +34,11 @@
     <file src="PepXML\bin\Release\netcoreapp3.0\PepXML.dll" target="lib\netcoreapp3.0" /> 
     <file src="Proteomics\bin\Release\netcoreapp3.0\Proteomics.dll" target="lib\netcoreapp3.0" /> 
     <file src="Proteomics\bin\Release\netcoreapp3.0\ProteolyticDigestion\proteases.tsv" target="lib\netcoreapp3.0\ProteolyticDigestion" /> 
-	<file src="ThermoRawFileReader\bin\Release\netcoreapp3.0\ThermoRaw.dll" target="lib\netcoreapp3.0" /> 
-	<file src="ThermoRawFileReader\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\netcoreapp3.0" /> 
-	<file src="ThermoRawFileReader\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.Data.dll" target="lib\netcoreapp3.0" /> 
-	<file src="ThermoRawFileReader\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\netcoreapp3.0" /> 
-	<file src="ThermoRawFileReader\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\netcoreapp3.0" /> 
+	<file src="ThermoRaw\bin\Release\netcoreapp3.0\ThermoRaw.dll" target="lib\netcoreapp3.0" /> 
+	<file src="ThermoRaw\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\netcoreapp3.0" /> 
+	<file src="ThermoRaw\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.Data.dll" target="lib\netcoreapp3.0" /> 
+	<file src="ThermoRaw\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\netcoreapp3.0" /> 
+	<file src="ThermoRaw\bin\Release\netcoreapp3.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\netcoreapp3.0" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\netcoreapp3.0\UsefulProteomicsDatabases.dll" target="lib\netcoreapp3.0" /> 
   </files>
 </package>
