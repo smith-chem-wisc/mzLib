@@ -4,11 +4,13 @@ using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public static class TestBayesianEstimation
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -56,7 +58,7 @@ namespace Test
                     priorNuExponent: 1.0 / 29.0, nuInitialGuess: 5), 
                 seed: 0);
 
-            // burn in and then sample the MCMC chain
+            // burn in and then sample the MCMC chain 
             sampler.Run(1000, 1000);
 
             var chain = sampler.MarkovChain;

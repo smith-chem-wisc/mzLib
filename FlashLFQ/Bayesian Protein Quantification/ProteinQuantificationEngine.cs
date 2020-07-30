@@ -1,4 +1,5 @@
 ﻿using BayesianEstimation;
+using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
@@ -27,47 +28,43 @@ namespace FlashLFQ
     /// </summary>
     public class ProteinQuantificationEngine
     {
-        private readonly FlashLfqResults results;
+        private readonly FlashLfqResults Results;
         private readonly int MaxThreads;
         private readonly bool UseSharedPeptides;
         private readonly bool PairedSamples;
-        private readonly string BaseCondition;
-        private readonly double? FoldChangeCutoff;
+        private readonly string ControlCondition;
+        private double FoldChangeCutoff;
         private readonly int BurnInSteps;
-        private readonly int NSteps;
+        private readonly int McmcSteps;
         private readonly MersenneTwister Rng;
-        private bool conditionsAreDefined;
         private Dictionary<ProteinGroup, List<Peptide>> ProteinsWithConstituentPeptides;
-        private Dictionary<(Peptide, string, int), double> PeptideToSampleQuantity;
-        private Dictionary<ProteinGroup, double> ProteinToBaseConditionIntensity;
+        private Dictionary<(Peptide, string, int), (double, DetectionType)> PeptideToSampleQuantity;
+        private List<string> TreatmentConditions;
+        private Dictionary<(ProteinGroup, string), StudentT> ProteinAndConditionToSigmaPrior;
         public readonly int RandomSeed;
 
-        /// <summary>
-        /// Constructs the protein quantification engine. 
-        /// 
-        /// "baseCondition" refers to the condition that the protein fold-changes could be calculated relative to.
-        /// 
-        /// If "foldChangeCutoff" is null, the fold-change cutoff will be estimated from the data ("experimental null").
-        /// 
-        /// </summary>
-        public ProteinQuantificationEngine(FlashLfqResults results, int maxThreads, string baseCondition, bool useSharedPeptides = false,
-            double? foldChangeCutoff = null, int? randomSeed = null, int mcmcBurninSteps = 1000, int mcmcSteps = 3000, bool pairedSamples = false)
+        public ProteinQuantificationEngine(FlashLfqResults results, int maxThreads, string controlCondition, bool useSharedPeptides = false,
+            double foldChangeCutoff = 0.1, int? randomSeed = null, int mcmcBurninSteps = 1000, int mcmcSteps = 3000, bool pairedSamples = false)
         {
-            if (string.IsNullOrWhiteSpace(baseCondition))
+            if (string.IsNullOrWhiteSpace(controlCondition))
             {
-                throw new MzLibException("The protein quantification base condition must be defined");
+                throw new MzLibException("A control condition must be defined to run the Bayesian protein quantification");
+            }
+
+            bool conditionsAreDefined = results.SpectraFiles.All(p => !string.IsNullOrWhiteSpace(p.Condition));
+            if (!conditionsAreDefined)
+            {
+                throw new MzLibException("Conditions must be defined to run the Bayesian protein quantification");
             }
 
             this.MaxThreads = maxThreads;
-            this.results = results;
-            UseSharedPeptides = useSharedPeptides;
-            this.BaseCondition = baseCondition;
+            this.Results = results;
+            this.UseSharedPeptides = useSharedPeptides;
+            this.ControlCondition = controlCondition;
             this.FoldChangeCutoff = foldChangeCutoff;
             this.BurnInSteps = mcmcBurninSteps;
-            this.NSteps = mcmcSteps;
+            this.McmcSteps = mcmcSteps;
             this.PairedSamples = pairedSamples;
-
-            conditionsAreDefined = results.SpectraFiles.All(p => !string.IsNullOrWhiteSpace(p.Condition));
 
             if (randomSeed == null)
             {
@@ -80,6 +77,18 @@ namespace FlashLFQ
             }
 
             Rng = new MersenneTwister(RandomSeed);
+
+            // figure out which conditions to compare
+            TreatmentConditions = Results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
+            TreatmentConditions.Remove(ControlCondition);
+
+            //TODO: implement paired samples
+            if (PairedSamples)
+            {
+                throw new NotImplementedException();
+            }
+
+            FoldChangeCutoff = Math.Abs(foldChangeCutoff);
         }
 
         /// <summary>
@@ -88,95 +97,75 @@ namespace FlashLFQ
         public void Run()
         {
             Setup();
+            EstimateIntensityDependentUncertainty();
+            EstimateProteinFoldChanges();
+            PerformHypothesisTesting();
+            CalculateFalseDiscoveryRates();
+            AssignProteinIntensities();
+        }
 
-            // generate a random seed for each protein for the MCMC sampler
-            var randomSeedsForEachProtein = new Dictionary<ProteinGroup, List<int>>();
-            foreach (var protein in ProteinsWithConstituentPeptides)
+        public static (double[] mus, double[] sds, double[] nus) FitProteinQuantModel(List<Datum> measurements, bool skepticalPrior, bool paired,
+            int? randomSeed, int burnin, int n, double nullHypothesisInterval, IContinuousDistribution sdPrior)
+        {
+            int validMeasurements = measurements.Count(p => p.Weight > 0);
+
+            if (validMeasurements < 1)
             {
-                randomSeedsForEachProtein.Add(protein.Key, new List<int> { Rng.NextFullRangeInt32(), Rng.NextFullRangeInt32() });
+                return (new double[] { 0 }, new double[] { double.NaN }, new double[] { double.NaN });
+            }
+            else if (validMeasurements == 1)
+            {
+                double mmt = skepticalPrior ? 0 : measurements.First(p => p.Weight > 0).DataValue;
+
+                return (new double[] { mmt }, new double[] { double.NaN }, new double[] { double.NaN });
             }
 
-            var proteinList = ProteinsWithConstituentPeptides.ToList();
+            // the Math.Max is here because in some edge cases the SD can be 0, which causes a crash
+            double sd = Math.Max(0.001, measurements.Select(p => p.DataValue).StandardDeviation());
 
-            // figure out which conditions to compare
-            var conditions = results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
-            conditions.Remove(BaseCondition);
+            double meanOfData = measurements.Select(p => p.DataValue).Mean();
 
-            double baseConditionExperimentalNull = 0;
-            if (FoldChangeCutoff == null)
-            {
-                baseConditionExperimentalNull = DetermineExperimentalNull(BaseCondition);
-            }
+            // the Math.max is here for cases where the cutoff is very small (e.g., 0)
 
-            // calculate fold-change for each protein
-            foreach (string condition in conditions)
-            {
-                double nullHyp = FoldChangeCutoff == null ?
-                    Math.Max(DetermineExperimentalNull(condition), baseConditionExperimentalNull) : FoldChangeCutoff.Value;
+            // "nullHypothesisCutoff.Value" means that the standard deviation of the Student's t prior probability distribution is 
+            // the null hypothesis (e.g., the fold-change cutoff). so if the fold-change cutoff is 0.3, then the standard deviation 
+            // of the prior probability distribution for mu is 0.3. the "degrees of freedom" (nu) of the prior will always be 1.0.
+            // the reason for this is explained in the ProteinFoldChangeEstimationModel.cs file.
 
-                Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
-                {
-                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
-                    {
-                        ProteinGroup protein = proteinList[i].Key;
+            // The standard deviation of the prior for mu is equal to the null hypothesis because the cumulative probability density of a 
+            // Student's t distribution with nu=1 is 0.5, between -1 * SD and 1 * SD. In other words, 1 standard deviation from the mean is 50%
+            // of the probability. This was chosen because the probability of the null hypothesis and the alternative hypothesis, given no data,
+            // should each be 50%. So in summary, the prior here was chosen because given no data, the initial assumption is that the 
+            // null hypothesis and the alternative hypothesis are equally likely. The datapoints are then used to "convince" the algorithm 
+            // one way or another (towards the null or the alternative), with some estimated probability that either the null or alternative hypothesis
+            // is true.
 
-                        // get the fold-change measurements for the peptides assigned to this protein
-                        List<(Peptide, List<double>)> peptideFoldChanges = GetPeptideFoldChangeMeasurements(protein, BaseCondition, condition, null, null);
-                        int measurementCount = peptideFoldChanges.SelectMany(p => p.Item2).Count();
+            double priorMuSd = skepticalPrior ? nullHypothesisInterval : 20;
+            double priorMuMean = 0;
 
-                        ProteinQuantificationEngineResult result;
+            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(
+                measurements.ToArray(),
+                new ProteinFoldChangeEstimationModel(
+                    priorMuMean: priorMuMean,
+                    priorMuSd: priorMuSd,
+                    muInitialGuess: meanOfData,
+                    sdPrior: sdPrior,
+                    sdInitialGuess: sd,
+                    nuPrior: new Exponential(1.0 / 29.0),
+                    nuInitialGuess: 5,
+                    minimumNu: 1,
+                    minimumSd: sdPrior == null ? 0 : sdPrior.Mode),
+                    seed: randomSeed
+                );
 
-                        if (measurementCount > 1)
-                        {
-                            // run the Bayesian analysis
-                            result = RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
-                                randomSeedsForEachProtein[protein][0], null, false, BurnInSteps, NSteps, out var mus);
+            // burn in and then sample the MCMC chain
+            sampler.Run(burnin, n);
 
-                            RunBayesianProteinQuant(peptideFoldChanges, protein, condition,
-                                randomSeedsForEachProtein[protein][1], nullHyp, true, BurnInSteps, NSteps, out var skepticalMus);
+            double[] mus = sampler.MarkovChain.Select(p => p[0]).ToArray();
+            double[] sds = sampler.MarkovChain.Select(p => p[1]).ToArray();
+            double[] nus = sampler.MarkovChain.Select(p => p[2]).ToArray();
 
-                            result.NullHypothesisCutoff = nullHyp;
-                            result.CalculatePosteriorErrorProbability(skepticalMus);
-                        }
-                        else if (measurementCount == 1)
-                        {
-                            result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
-                                new double[] { peptideFoldChanges.SelectMany(p => p.Item2).First() }, new double[] { double.NaN },
-                                new double[] { double.NaN }, peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
-
-                            result.NullHypothesisCutoff = nullHyp;
-                            result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
-                        }
-                        else
-                        {
-                            result = new ProteinQuantificationEngineResult(protein, BaseCondition, condition,
-                                new double[] { 0.0 }, new double[] { double.NaN }, new double[] { double.NaN },
-                                peptideFoldChanges, ProteinToBaseConditionIntensity[protein]);
-
-                            result.NullHypothesisCutoff = nullHyp;
-                            result.CalculatePosteriorErrorProbability(new double[] { nullHyp });
-                        }
-
-                        protein.ConditionToQuantificationResults.Add(condition, result);
-                    }
-                });
-            }
-
-            // calculate FDR for the condition
-            foreach (var condition in conditions)
-            {
-                var res = proteinList.Select(p => p.Key.ConditionToQuantificationResults[condition]).ToList();
-                CalculateFalseDiscoveryRates(res);
-            }
-
-            // remove temporary conditions
-            if (!conditionsAreDefined)
-            {
-                foreach (var file in results.SpectraFiles)
-                {
-                    file.Condition = "";
-                }
-            }
+            return (mus, sds, nus);
         }
 
         /// <summary>
@@ -184,30 +173,21 @@ namespace FlashLFQ
         /// </summary>
         private void Setup()
         {
-            // temporarily set conditions if they aren't defined
-            if (!conditionsAreDefined)
-            {
-                foreach (var file in results.SpectraFiles)
-                {
-                    file.Condition = file.FullFilePathWithExtension;
-                }
-            }
-
             HashSet<Peptide> sharedPeptides = new HashSet<Peptide>();
 
             // determine shared peptides
             if (!UseSharedPeptides)
             {
-                sharedPeptides = new HashSet<Peptide>(results.PeptideModifiedSequences.Where(p => p.Value.ProteinGroups.Count > 1).Select(p => p.Value));
+                sharedPeptides = new HashSet<Peptide>(Results.PeptideModifiedSequences.Where(p => p.Value.ProteinGroups.Count > 1).Select(p => p.Value));
             }
 
             // match proteins to peptides
-            ProteinsWithConstituentPeptides = results.PeptideModifiedSequences.Values
+            ProteinsWithConstituentPeptides = Results.PeptideModifiedSequences.Values
                 .SelectMany(p => p.ProteinGroups)
                 .Distinct()
                 .ToDictionary(p => p, p => new List<Peptide>());
 
-            foreach (var peptide in results.PeptideModifiedSequences)
+            foreach (var peptide in Results.PeptideModifiedSequences)
             {
                 if (!peptide.Value.UseForProteinQuant || (!UseSharedPeptides && sharedPeptides.Contains(peptide.Value)))
                 {
@@ -229,23 +209,28 @@ namespace FlashLFQ
 
             // calculate peptide biorep intensities
             var allpeptides = ProteinsWithConstituentPeptides.Values.SelectMany(p => p).Distinct().ToList();
-            PeptideToSampleQuantity = new Dictionary<(Peptide, string, int), double>();
-            foreach (var condition in results.SpectraFiles.GroupBy(p => p.Condition))
+            PeptideToSampleQuantity = new Dictionary<(Peptide, string, int), (double, DetectionType)>();
+
+            foreach (var condition in Results.SpectraFiles.GroupBy(p => p.Condition))
             {
-                foreach (var biorep in condition.GroupBy(p => p.BiologicalReplicate))
+                foreach (var sample in condition.GroupBy(p => p.BiologicalReplicate))
                 {
                     foreach (Peptide peptide in allpeptides)
                     {
-                        double biorepIntensity = 0;
+                        double sampleIntensity = 0;
+                        double highestFractionIntensity = 0;
 
-                        foreach (var fraction in biorep.GroupBy(p => p.Fraction))
+                        DetectionType sampleDetectionType = DetectionType.NotDetected;
+
+                        foreach (var fraction in sample.GroupBy(p => p.Fraction))
                         {
                             double fractionIntensity = 0;
                             int nonZeroTechrepCount = 0;
 
                             foreach (var techrep in fraction.GroupBy(p => p.TechnicalReplicate))
                             {
-                                double techrepIntensity = peptide.GetIntensity(techrep.First());
+                                var techrepFile = techrep.First();
+                                double techrepIntensity = peptide.GetIntensity(techrepFile);
 
                                 if (techrepIntensity > 0)
                                 {
@@ -259,17 +244,811 @@ namespace FlashLFQ
                                 fractionIntensity /= nonZeroTechrepCount;
                             }
 
-                            biorepIntensity += fractionIntensity;
+                            sampleIntensity += fractionIntensity;
+
+                            if (fractionIntensity > highestFractionIntensity)
+                            {
+                                highestFractionIntensity = fractionIntensity;
+
+                                DetectionType fractionDetectionType = peptide.GetDetectionType(fraction.First());
+                                sampleDetectionType = fractionDetectionType;
+                            }
                         }
 
-                        PeptideToSampleQuantity.Add((peptide, condition.Key, biorep.Key), biorepIntensity);
+                        PeptideToSampleQuantity.Add((peptide, condition.Key, sample.Key), (sampleIntensity, sampleDetectionType));
                     }
                 }
             }
 
+            if (Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count() == 1
+                && !PairedSamples)
+            {
+                EstimateIonizationEfficienciesIfControlConditionHasOneSample();
+            }
+
+            EstimateIonizationEfficiencies();
+        }
+
+        /// <summary>
+        /// This method is only used if the control condition has 1 sample. In more typical cases, "EstimateIonizationEfficiencies" is called instead.
+        /// </summary>
+        private void EstimateIonizationEfficienciesIfControlConditionHasOneSample()
+        {
+            List<string> conditions = new List<string> { ControlCondition };
+            conditions.AddRange(TreatmentConditions);
+
+            var proteinList = ProteinsWithConstituentPeptides.ToList();
+
+            Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+            {
+                for (int e = partitionRange.Item1; e < partitionRange.Item2; e++)
+                {
+                    ProteinGroup protein = proteinList[e].Key;
+                    List<Peptide> peptides = proteinList[e].Value;
+
+                    List<List<List<(double, DetectionType)>>> intensitiesByGroup = new List<List<List<(double, DetectionType)>>>();
+
+                    foreach (var condition in conditions)
+                    {
+                        int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(v => v.BiologicalReplicate) + 1;
+
+                        List<List<(double, DetectionType)>> conditionIntensities = new List<List<(double, DetectionType)>>();
+
+                        foreach (Peptide peptide in peptides)
+                        {
+                            List<(double, DetectionType)> peptideIntensities = new List<(double, DetectionType)>();
+
+                            for (int s = 0; s < numSamples; s++)
+                            {
+                                var intensity = PeptideToSampleQuantity[(peptide, condition, s)].Item1;
+
+                                if (intensity > 0)
+                                {
+                                    intensity = Math.Log(intensity, 2);
+                                    peptideIntensities.Add((intensity, PeptideToSampleQuantity[(peptide, condition, s)].Item2));
+                                }
+                            }
+
+                            conditionIntensities.Add(peptideIntensities);
+                        }
+
+                        intensitiesByGroup.Add(conditionIntensities);
+                    }
+
+                    if (!intensitiesByGroup.SelectMany(p => p.SelectMany(v => v.Select(k => k))).Any())
+                    {
+                        continue;
+                    }
+
+                    double minIntensity = intensitiesByGroup.SelectMany(p => p.SelectMany(v => v.Select(k => k.Item1))).Min();
+                    double maxIntensity = intensitiesByGroup.SelectMany(p => p.SelectMany(v => v.Select(k => k.Item1))).Max();
+
+                    double[] ionizationEfficiencyEstimations = new double[peptides.Count];
+                    for (int i = 0; i < ionizationEfficiencyEstimations.Length; i++)
+                    {
+                        ionizationEfficiencyEstimations[i] = minIntensity - 5;
+                    }
+
+                    double oldBestError = double.PositiveInfinity;
+                    double bestError = double.PositiveInfinity;
+                    double[] bestIonizationEfficiencyEstimations = new double[peptides.Count];
+
+                    for (int steps = 0; steps < 4; steps++)
+                    {
+                        double step = 0.5;
+
+                        if (steps == 1)
+                        {
+                            step = 0.2;
+                        }
+                        if (steps == 2)
+                        {
+                            step = 0.05;
+                        }
+                        if (steps == 3)
+                        {
+                            step = 0.01;
+                        }
+
+                        for (int peptide = 0; peptide < peptides.Count; peptide++)
+                        {
+                            double start = bestIonizationEfficiencyEstimations[peptide] - (step * 10);
+                            double end = steps == 0 ? maxIntensity + (step * 10) : bestIonizationEfficiencyEstimations[peptide] + (step * 10);
+
+                            for (double i = start; i < end; i += step)
+                            {
+                                ionizationEfficiencyEstimations[peptide] = i;
+                                double error = CalculateIonizationEfficiencyEstimationError(intensitiesByGroup, ionizationEfficiencyEstimations);
+
+                                if (error < bestError)
+                                {
+                                    bestError = error;
+                                    bestIonizationEfficiencyEstimations = ionizationEfficiencyEstimations.ToArray();
+                                }
+                            }
+
+                            ionizationEfficiencyEstimations[peptide] = bestIonizationEfficiencyEstimations[peptide];
+                        }
+
+                        oldBestError = bestError;
+                    }
+
+                    double globalNormFactor = 0;
+
+                    List<double> group1normintensities = new List<double>();
+
+                    for (int p = 0; p < peptides.Count; p++)
+                    {
+                        var group1 = intensitiesByGroup[0][p].Select(v => v.Item1 - bestIonizationEfficiencyEstimations[p]);
+                        group1normintensities.AddRange(group1);
+                    }
+
+                    globalNormFactor = group1normintensities.Median();
+                    if (double.IsNaN(globalNormFactor))
+                    {
+                        globalNormFactor = 0;
+                    }
+
+                    for (int i = 0; i < bestIonizationEfficiencyEstimations.Length; i++)
+                    {
+                        bestIonizationEfficiencyEstimations[i] += globalNormFactor;
+                    }
+
+                    for (int p = 0; p < peptides.Count; p++)
+                    {
+                        if (Results.SpectraFiles.All(s => peptides[p].GetIntensity(s) == 0))
+                        {
+                            peptides[p].IonizationEfficiency = 0;
+                            continue;
+                        }
+
+                        peptides[p].IonizationEfficiency = Math.Pow(2, bestIonizationEfficiencyEstimations[p]);
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// Called by the EstimateIonizationEfficienciesIfControlConditionHasOneSample method.
+        /// </summary>
+        private double CalculateIonizationEfficiencyEstimationError(List<List<List<(double, DetectionType)>>> intensitiesByGroup,
+            double[] ionizationEfficiencyEstimations)
+        {
+            double totalError = 0;
+
+            List<(double, DetectionType)> normalizedAbundances = new List<(double, DetectionType)>();
+
+            // error is the sum of squared errors
+            foreach (var group in intensitiesByGroup)
+            {
+                normalizedAbundances.Clear();
+
+                for (int p = 0; p < group.Count; p++)
+                {
+                    var peptideIntensities = group[p];
+                    var ionizationEfficiencyEstimationGuess = ionizationEfficiencyEstimations[p];
+
+                    normalizedAbundances.AddRange(peptideIntensities.Select(v => (v.Item1 - ionizationEfficiencyEstimationGuess, v.Item2)));
+                }
+
+                double median = normalizedAbundances.Select(p => p.Item1).Median();
+
+                double errorForGroup = 0;
+                foreach (var element in normalizedAbundances)
+                {
+                    double error = Math.Abs(element.Item1 - median);
+
+                    errorForGroup += error;
+                }
+
+                totalError += errorForGroup;
+            }
+
+            return totalError;
+        }
+
+        private void EstimateIonizationEfficiencies()
+        {
+            var proteinList = ProteinsWithConstituentPeptides.ToList();
+
+            foreach (string treatmentCondition in TreatmentConditions)
+            {
+                // generate a random seed for each protein for the MCMC sampler
+                var randomSeedsForEachProtein = new Dictionary<ProteinGroup, List<int>>();
+                foreach (var protein in proteinList)
+                {
+                    randomSeedsForEachProtein.Add(protein.Key, new List<int>());
+
+                    foreach (var peptide in protein.Value)
+                    {
+                        randomSeedsForEachProtein[protein.Key].Add(Rng.NextFullRangeInt32());
+                    }
+                }
+
+                Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        ProteinGroup protein = proteinList[i].Key;
+
+                        ProteinQuantificationEngineResult result;
+
+                        if (PairedSamples)
+                        {
+                            result = new PairedProteinQuantResult(protein, ProteinsWithConstituentPeptides[protein], ControlCondition,
+                                treatmentCondition, UseSharedPeptides, Results, PeptideToSampleQuantity);
+                        }
+                        else
+                        {
+                            result = new UnpairedProteinQuantResult(protein, ProteinsWithConstituentPeptides[protein], ControlCondition,
+                                treatmentCondition, UseSharedPeptides, Results, PeptideToSampleQuantity);
+                        }
+
+                        protein.ConditionToQuantificationResults.Add(treatmentCondition, result);
+                    }
+                });
+            }
+        }
+
+        private void EstimateProteinFoldChanges()
+        {
+            var proteinList = ProteinsWithConstituentPeptides.ToList();
+
+            // calculate fold-change for each protein (diffuse prior)
+            foreach (string treatmentCondition in TreatmentConditions)
+            {
+                // generate a random seed for each protein for the MCMC sampler
+                var randomSeedsForEachProtein = new Dictionary<ProteinGroup, List<int>>();
+                foreach (var protein in proteinList)
+                {
+                    randomSeedsForEachProtein.Add(protein.Key, new List<int> { Rng.NextFullRangeInt32(), Rng.NextFullRangeInt32() });
+                }
+
+                Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        ProteinGroup protein = proteinList[i].Key;
+
+                        ProteinQuantificationEngineResult result = protein.ConditionToQuantificationResults[treatmentCondition];
+
+                        var controlSigmaPrior = ProteinAndConditionToSigmaPrior[(protein, ControlCondition)];
+                        var treatmentSigmaPrior = ProteinAndConditionToSigmaPrior[(protein, treatmentCondition)];
+
+                        if (PairedSamples)
+                        {
+                            ((PairedProteinQuantResult)result).EstimateProteinFoldChange(randomSeedsForEachProtein[protein][0],
+                                BurnInSteps, McmcSteps);
+                        }
+                        else
+                        {
+                            ((UnpairedProteinQuantResult)result).EstimateProteinFoldChange(randomSeedsForEachProtein[protein][0], randomSeedsForEachProtein[protein][1],
+                                BurnInSteps, McmcSteps, controlSigmaPrior: controlSigmaPrior, treatmentSigmaPrior: treatmentSigmaPrior);
+                        }
+                    }
+                });
+            }
+        }
+
+        private void PerformHypothesisTesting()
+        {
+            var proteinList = ProteinsWithConstituentPeptides.ToList();
+
+            foreach (string treatmentCondition in TreatmentConditions)
+            {
+                // generate a random seed for each protein for the MCMC sampler
+                var randomSeedsForEachProtein = new Dictionary<ProteinGroup, List<int>>();
+                foreach (var protein in proteinList)
+                {
+                    randomSeedsForEachProtein.Add(protein.Key, new List<int> { Rng.NextFullRangeInt32(), Rng.NextFullRangeInt32() });
+                }
+
+                Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                {
+                    for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                    {
+                        ProteinGroup protein = proteinList[i].Key;
+                        (double, double) proteinSpecificNullHypothesis = DetermineNullHypothesisWidth(protein, treatmentCondition);
+
+                        ProteinQuantificationEngineResult result = protein.ConditionToQuantificationResults[treatmentCondition];
+
+                        var controlSigmaPrior = ProteinAndConditionToSigmaPrior[(protein, ControlCondition)];
+                        var treatmentSigmaPrior = ProteinAndConditionToSigmaPrior[(protein, treatmentCondition)];
+
+                        if (PairedSamples)
+                        {
+                            var pairedResult = (PairedProteinQuantResult)result;
+
+                            pairedResult.EstimateProteinFoldChange(randomSeedsForEachProtein[protein][0],
+                                BurnInSteps, McmcSteps, proteinSpecificNullHypothesis.Item1);
+                        }
+                        else
+                        {
+                            double controlNullInterval = proteinSpecificNullHypothesis.Item1;
+                            double treatmentNullInterval = proteinSpecificNullHypothesis.Item2;
+
+                            var unpairedResult = (UnpairedProteinQuantResult)result;
+
+                            unpairedResult.EstimateProteinFoldChange(randomSeedsForEachProtein[protein][0], randomSeedsForEachProtein[protein][1],
+                                BurnInSteps, McmcSteps, controlNullInterval, treatmentNullInterval,
+                                controlSigmaPrior, treatmentSigmaPrior);
+                        }
+                    }
+                });
+            }
+        }
+
+        private static double GetUnbiasedSigma(double sigma, int N)
+        {
+            //https://www.jstor.org/stable/pdf/2682923.pdf
+            if (N < 2)
+            {
+                return double.NaN;
+            }
+
+            double cn = 1 + (1.0 / (4 * (N - 1)));
+
+            return sigma * cn;
+        }
+
+        private (double, double) DetermineNullHypothesisWidth(ProteinGroup protein, string treatmentCondition)
+        {
+            var proteinRes = (UnpairedProteinQuantResult)protein.ConditionToQuantificationResults[treatmentCondition];
+
+            double nullHypothesisControl = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
+            double nullHypothesisTreatment = Math.Sqrt(Math.Pow(FoldChangeCutoff, 2) / 2);
+
+            return (nullHypothesisControl, nullHypothesisTreatment);
+        }
+
+        private void EstimateIntensityDependentUncertainty()
+        {
+            var conditions = Results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
+
+            foreach (string condition in conditions)
+            {
+                int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+
+                List<(double, double)> intensityToPeptideDiffToProtein = new List<(double, double)>();
+                List<(double, double)> intensityToStdev = new List<(double, double)>();
+
+                foreach (var proteinWithPeptides in ProteinsWithConstituentPeptides)
+                {
+                    var protein = proteinWithPeptides.Key;
+                    var peptides = proteinWithPeptides.Value;
+
+                    List<(double logIntensity, double logAbundance)> peptideMedianLogAbundances = new List<(double, double)>();
+                    List<double> peptideLogAbundances = new List<double>();
+
+                    int nPeptidesMeasured = 0;
+
+                    foreach (var peptide in peptides)
+                    {
+                        for (int s = 0; s < numSamples; s++)
+                        {
+                            if (PeptideToSampleQuantity[(peptide, condition, s)].Item1 > 0)
+                            {
+                                nPeptidesMeasured++;
+                                break;
+                            }
+                        }
+                    }
+
+                    foreach (var peptide in peptides)
+                    {
+                        if (peptide.IonizationEfficiency == 0)
+                        {
+                            continue;
+                        }
+
+                        List<double> intensities = new List<double>();
+                        for (int s = 0; s < numSamples; s++)
+                        {
+                            double intensity = PeptideToSampleQuantity[(peptide, condition, s)].Item1;
+
+                            if (intensity > 0)
+                            {
+                                intensities.Add(intensity);
+                                peptideLogAbundances.Add(Math.Log(intensity / peptide.IonizationEfficiency, 2));
+                            }
+                        }
+
+                        if (intensities.Count > 0)
+                        {
+                            double peptideMedianIntensity = intensities.Median();
+                            double logMedianIntensity = Math.Log(peptideMedianIntensity, 2);
+                            peptideMedianLogAbundances.Add((logMedianIntensity, Math.Log(peptideMedianIntensity / peptide.IonizationEfficiency, 2)));
+
+                            if (intensities.Count > 1)
+                            {
+                                var stdev = intensities.Select(p => Math.Log(p / peptide.IonizationEfficiency, 2)).StandardDeviation();
+                                stdev = GetUnbiasedSigma(stdev, intensities.Count);
+
+                                intensityToStdev.Add((logMedianIntensity, stdev));
+                            }
+                        }
+                    }
+
+                    double proteinLogAbundance = peptideLogAbundances.Median();
+
+                    foreach (var peptideLogAbundance in peptideMedianLogAbundances)
+                    {
+                        double diff = peptideLogAbundance.logAbundance - proteinLogAbundance;
+                        double logIntensity = peptideLogAbundance.logIntensity;
+
+                        if (diff != 0 && nPeptidesMeasured > 3)
+                        {
+                            intensityToPeptideDiffToProtein.Add((logIntensity, diff));
+                        }
+                    }
+                }
+
+                intensityToPeptideDiffToProtein.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+                intensityToStdev.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+
+                // measure variance of means and mean of means
+                List<(double, double)> meansAndVarianceOfMeans = new List<(double, double)>();
+
+                var queue = new Queue<(double, double)>(intensityToPeptideDiffToProtein);
+
+                int numPeptidesPerBin = Math.Min(100, intensityToPeptideDiffToProtein.Count / 10);
+
+                var peptideIntensitiesAndBiasesBinned = new List<List<(double, double)>>();
+                var bin = new List<(double, double)>();
+
+                while (queue.Any())
+                {
+                    var element = queue.Dequeue();
+                    bin.Add(element);
+
+                    if (bin.Count == numPeptidesPerBin)
+                    {
+                        peptideIntensitiesAndBiasesBinned.Add(bin);
+                        bin = new List<(double, double)>();
+                    }
+                }
+
+                Dictionary<int, List<int>> randomSeeds = new Dictionary<int, List<int>>();
+                for (int i = 0; i < peptideIntensitiesAndBiasesBinned.Count; i++)
+                {
+                    randomSeeds.Add(i, new List<int> { Rng.NextFullRangeInt32(), Rng.NextFullRangeInt32() });
+                }
+
+                if (peptideIntensitiesAndBiasesBinned.Any())
+                {
+                    Parallel.ForEach(Partitioner.Create(0, peptideIntensitiesAndBiasesBinned.Count),
+                        new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                        {
+                            for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                            {
+                                var theBin = peptideIntensitiesAndBiasesBinned[i];
+                                var peptideMeans = theBin.Select(p => p.Item2).ToList();
+                                double intensityEstimate = theBin.Min(p => p.Item1);
+
+                                double mean = peptideMeans.Median();
+
+                                double sd = Math.Min(peptideMeans.InterquartileRange() / 1.34896, peptideMeans.StandardDeviation());
+                                sd = Math.Max(0.01, sd);
+
+                                AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(
+                                    peptideMeans.ToArray(),
+                                    new ProteinFoldChangeEstimationModel(
+                                        priorMuMean: mean,
+                                        priorMuSd: sd * 100,
+                                        muInitialGuess: mean,
+                                        sdPrior: new StudentT(sd, sd * 100, 1),
+                                        sdInitialGuess: sd,
+                                        nuPrior: new Exponential(1.0 / 29.0),
+                                        nuInitialGuess: 5,
+                                        minimumNu: 1,
+                                        minimumSd: 0),
+                                        seed: randomSeeds[i][0]
+                                    );
+
+                                // burn in and then sample the MCMC chain
+                                sampler.Run(BurnInSteps, McmcSteps);
+
+                                double[] mus = sampler.MarkovChain.Select(p => p[0]).ToArray();
+                                double[] sds = sampler.MarkovChain.Select(p => p[1]).ToArray();
+                                double[] nus = sampler.MarkovChain.Select(p => p[2]).ToArray();
+
+
+                                double scale = sds.Median();
+
+                                lock (meansAndVarianceOfMeans)
+                                {
+                                    meansAndVarianceOfMeans.Add((intensityEstimate, Math.Pow(scale, 2)));
+                                }
+                            }
+                        });
+                }
+
+                meansAndVarianceOfMeans.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+
+                List<(double, double, double)> peptideVariances = new List<(double, double, double)>();
+                queue = new Queue<(double, double)>(intensityToStdev);
+
+                numPeptidesPerBin = Math.Min(100, queue.Count / 10);
+
+                var peptideIntensitiesAndSigmasBinned = new List<List<(double, double)>>();
+                bin = new List<(double, double)>();
+
+                while (queue.Any())
+                {
+                    var element = queue.Dequeue();
+                    bin.Add(element);
+
+                    if (bin.Count == numPeptidesPerBin)
+                    {
+                        peptideIntensitiesAndSigmasBinned.Add(bin);
+                        bin = new List<(double, double)>();
+                    }
+                }
+
+                for (int i = 0; i < peptideIntensitiesAndSigmasBinned.Count; i++)
+                {
+                    if (!randomSeeds.ContainsKey(i))
+                    {
+                        randomSeeds.Add(i, new List<int> { Rng.NextFullRangeInt32(), Rng.NextFullRangeInt32() });
+                    }
+                }
+
+                if (peptideIntensitiesAndSigmasBinned.Any())
+                {
+                    Parallel.ForEach(Partitioner.Create(0, peptideIntensitiesAndSigmasBinned.Count),
+                        new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                        {
+                            for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                            {
+                                var theBin = peptideIntensitiesAndSigmasBinned[i];
+                                var sigmas = theBin.Select(p => p.Item2).ToArray();
+                                double intensityEstimate = theBin.Min(p => p.Item1);
+
+                                double iqr15 = sigmas.InterquartileRange() * 1.5;
+                                double median = sigmas.Median();
+                                double q1 = sigmas.Quantile(0.25);
+                                double q3 = sigmas.Quantile(0.75);
+                                var trimmedSds = sigmas.Where(p => p > q1 - iqr15 && p < q3 + iqr15).ToList();
+
+                                double medianSd = trimmedSds.Median();
+                                double medianVariance = Math.Pow(medianSd, 2);
+                                double binVarianceOfSds = trimmedSds.Variance();
+
+                                lock (peptideVariances)
+                                {
+                                    peptideVariances.Add((intensityEstimate, medianVariance, binVarianceOfSds));
+                                }
+                            }
+                        });
+                }
+
+                peptideVariances.Sort((x, y) => y.Item1.CompareTo(x.Item1));
+                CreateProteinSigmaPriors(condition, meansAndVarianceOfMeans, peptideVariances);
+            }
+        }
+
+        private void CreateProteinSigmaPriors(string condition, List<(double, double)> varianceOfPeptideMeans,
+            List<(double intensity, double variance, double varianceOfSd)> peptideVariances)
+        {
+            // meansAndVarianceOfMeans will be empty if every protein has only 1 peptide (e.g., top-down proteoform quant)
+            // peptideVariancesArray will be empty if there is only 1 sample per condition, because within-group variance is unknown
+
+            var list = ProteinsWithConstituentPeptides.ToList();
+
+            if (ProteinAndConditionToSigmaPrior == null)
+            {
+                ProteinAndConditionToSigmaPrior = new Dictionary<(ProteinGroup, string), StudentT>();
+            }
+
+            foreach (var protein in list)
+            {
+                ProteinAndConditionToSigmaPrior.Add((protein.Key, condition), null);
+            }
+
+            int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+
+            Dictionary<int, List<int>> randomSeeds = new Dictionary<int, List<int>>();
+            for (int i = 0; i < ProteinsWithConstituentPeptides.Count; i++)
+            {
+                randomSeeds.Add(i, new List<int> { Rng.NextFullRangeInt32(), Rng.NextFullRangeInt32() });
+            }
+
+            Parallel.ForEach(Partitioner.Create(0, list.Count),
+                    new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
+                     {
+                         for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
+                         {
+                             var protein = list[i].Key;
+                             var peptides = list[i].Value;
+                             var rng2 = new MersenneTwister(seed: randomSeeds[i][1]);
+
+                             // should be an array for each peptide in these 2 lists
+                             List<double> peptideVariancesForThisProtein = new List<double>();
+                             List<double> variancesOfPeptideMeansForThisProtein = new List<double>();
+                             List<double> variancesOfPeptideSdForThisProtein = new List<double>();
+
+                             List<double> intensities = new List<double>();
+
+                             foreach (var peptide in peptides)
+                             {
+                                 intensities.Clear();
+
+                                 if (peptide.IonizationEfficiency == 0)
+                                 {
+                                     continue;
+                                 }
+
+                                 for (int s = 0; s < numSamples; s++)
+                                 {
+                                     double intensity = PeptideToSampleQuantity[(peptide, condition, s)].Item1;
+
+                                     if (intensity > 0)
+                                     {
+                                         intensities.Add(intensity);
+                                     }
+                                 }
+
+                                 if (intensities.Count == 0)
+                                 {
+                                     continue;
+                                 }
+
+                                 foreach (var intensity in intensities)
+                                 {
+                                     double logIntensity = Math.Log(intensity, 2);
+                                     double? bestVarianceOfMeans = null;
+                                     double? bestPeptideVariances = null;
+                                     double? bestVarianceOfVariances = null;
+
+                                     for (int j = 0; j < varianceOfPeptideMeans.Count; j++)
+                                     {
+                                         bestVarianceOfMeans = varianceOfPeptideMeans[j].Item2;
+
+                                         if (j == varianceOfPeptideMeans.Count - 1 || logIntensity > varianceOfPeptideMeans[j + 1].Item1)
+                                         {
+                                             break;
+                                         }
+                                     }
+
+                                     for (int j = 0; j < peptideVariances.Count; j++)
+                                     {
+                                         bestPeptideVariances = peptideVariances[j].Item2;
+                                         bestVarianceOfVariances = peptideVariances[j].varianceOfSd;
+
+                                         if (j == peptideVariances.Count - 1 || logIntensity > peptideVariances[j + 1].Item1)
+                                         {
+                                             break;
+                                         }
+                                     }
+
+                                     if (bestVarianceOfMeans != null)
+                                     {
+                                         variancesOfPeptideMeansForThisProtein.Add(bestVarianceOfMeans.Value);
+                                     }
+
+                                     if (bestPeptideVariances != null)
+                                     {
+                                         peptideVariancesForThisProtein.Add(bestPeptideVariances.Value);
+                                         variancesOfPeptideSdForThisProtein.Add(bestVarianceOfVariances.Value);
+                                     }
+                                 }
+                             }
+
+                             double averageOfVariances = peptideVariancesForThisProtein.Count > 0 ? peptideVariancesForThisProtein.Average() : 0;
+                             double varianceOfMeans = 0;
+
+                             if (variancesOfPeptideMeansForThisProtein.Count == 0)
+                             {
+                                 varianceOfMeans = 0;
+                             }
+                             else
+                             {
+                                 varianceOfMeans = variancesOfPeptideMeansForThisProtein.Average();
+                             }
+
+                             double pooledVariance = averageOfVariances + varianceOfMeans;
+
+                             if (pooledVariance == 0)
+                             {
+                                 continue;
+                             }
+
+                             double pooledVarianceOfSd = variancesOfPeptideSdForThisProtein.Count > 1
+                                ? variancesOfPeptideSdForThisProtein.Average() + variancesOfPeptideSdForThisProtein.Variance()
+                                : variancesOfPeptideSdForThisProtein.Count > 0 ? variancesOfPeptideSdForThisProtein.Average() : pooledVariance;
+
+                             double pooledSigma = Math.Sqrt(pooledVariance);
+                             double sigmaOfSigma = Math.Max(Math.Sqrt(pooledVarianceOfSd), 0.1);
+
+                             var proteinSigmaPrior = new StudentT(pooledSigma, sigmaOfSigma, 1);
+
+                             lock (ProteinAndConditionToSigmaPrior)
+                             {
+                                 ProteinAndConditionToSigmaPrior[(protein, condition)] = proteinSigmaPrior;
+                             }
+                         }
+                     });
+        }
+
+        /// <summary>
+        /// Calculates the false discovery rate of each protein from the Bayes factors.
+        /// https://arxiv.org/pdf/1311.3981.pdf
+        /// </summary>
+        private void CalculateFalseDiscoveryRates()
+        {
+            var proteinList = ProteinsWithConstituentPeptides.ToList();
+
+            // calculate FDR for the condition
+            foreach (string treatmentCondition in TreatmentConditions)
+            {
+                var bayesianQuantResults = proteinList
+                    .Select(p => p.Key.ConditionToQuantificationResults[treatmentCondition])
+                    .OrderByDescending(p => p.IsStatisticallyValid)
+                    .ThenByDescending(p => p.BayesFactor)
+                    .ThenByDescending(p => p.Peptides.Count)
+                    .ToList();
+
+                var bayesFactorsAscending = bayesianQuantResults
+                    .Where(p => p.IsStatisticallyValid)
+                    .Select(p => p.BayesFactor)
+                    .OrderBy(p => p)
+                    .ToList();
+
+                var validResults = bayesianQuantResults.Where(p => p.IsStatisticallyValid).ToList();
+
+                // pi_0 is the proportion of false-positives in the set of hypothesis tests
+                // it can be estimated by finding the largest set of tests where the average bayes factor is less than one (https://arxiv.org/pdf/1311.3981.pdf)
+                double pi_0_bayesFactors = 0;
+
+                var runningListOfBayesFactors = new List<double>();
+
+                for (int i = 0; i < bayesFactorsAscending.Count; i++)
+                {
+                    double numTestsSoFar = i + 1;
+                    runningListOfBayesFactors.Add(bayesFactorsAscending[i]);
+                    double averageBayesFactor = runningListOfBayesFactors.Average();
+
+                    if (averageBayesFactor < 1)
+                    {
+                        pi_0_bayesFactors = numTestsSoFar / bayesFactorsAscending.Count;
+                    }
+                }
+
+                // the above pi_0 can be an underestimate if uncertainty in the data is high
+                // pi_0 can be estimated by the proportion of data where the mean estimate is less than the uncertainty in the mean
+                double pi_0_uncertainty = validResults.Count(p => Math.Abs(p.FoldChangePointEstimate) < p.UncertaintyInFoldChangeEstimate || Math.Abs(p.FoldChangePointEstimate) < FoldChangeCutoff)
+                    / (double)validResults.Count;
+
+                // pi_0 is the maximum of the two above pi_0 estimates
+                double pi_0 = Math.Max(pi_0_uncertainty, pi_0_bayesFactors);
+
+                foreach (var bayesianQuantResult in bayesianQuantResults)
+                {
+                    double bayesFactor = bayesianQuantResult.BayesFactor;
+
+                    // vi is the probability that the alternative hypothesis is true, if accepted
+                    double vi = ((1 - pi_0) * bayesFactor) / (pi_0 + (1 - pi_0) * bayesFactor);
+
+                    bayesianQuantResult.PosteriorErrorProbability = 1 - vi;
+                }
+
+                List<double> PosteriorErrorProbabilities = new List<double>();
+
+                for (int p = 0; p < bayesianQuantResults.Count; p++)
+                {
+                    PosteriorErrorProbabilities.Add(bayesianQuantResults[p].PosteriorErrorProbability);
+                    bayesianQuantResults[p].FalseDiscoveryRate = PosteriorErrorProbabilities.Average();
+                }
+            }
+        }
+
+        private void AssignProteinIntensities()
+        {
             // calculate reference intensities
-            ProteinToBaseConditionIntensity = new Dictionary<ProteinGroup, double>();
-            var numBRef = results.SpectraFiles.Where(p => p.Condition == BaseCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
+            var ProteinToControlConditionIntensity = new Dictionary<ProteinGroup, double>();
+
+            var numBRef = Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
+
             foreach (var protein in ProteinsWithConstituentPeptides)
             {
                 List<double> intensities = new List<double>();
@@ -281,7 +1060,7 @@ namespace FlashLFQ
 
                     for (int b = 0; b < numBRef; b++)
                     {
-                        double intensity = PeptideToSampleQuantity[(peptide, BaseCondition, b)];
+                        double intensity = PeptideToSampleQuantity[(peptide, ControlCondition, b)].Item1;
                         avgIntensity += intensity;
 
                         if (intensity > 0)
@@ -307,324 +1086,47 @@ namespace FlashLFQ
                     referenceProteinIntensity = top3;
                 }
 
-                ProteinToBaseConditionIntensity.Add(protein.Key, referenceProteinIntensity);
-            }
-        }
+                ProteinToControlConditionIntensity.Add(protein.Key, referenceProteinIntensity);
 
-        /// <summary>
-        /// Computes a list of fold-change measurements between the constituent peptides of a protein.
-        /// 
-        /// One of the following must be true:
-        /// ---> condition1 and condition2 are different, and biorep1 and biorep2 are null.
-        /// (This returns a list of peptide fold-changes between the conditions.)
-        /// 
-        /// ---> biorep1 and biorep2 are not null.
-        /// (This returns a list of peptide fold-changes between the defined bioreps of (a) condition(s).)
-        /// </summary>
-        private List<(Peptide, List<double>)> GetPeptideFoldChangeMeasurements(ProteinGroup protein, string condition1, string condition2, int? biorep1, int? biorep2)
-        {
-            List<(Peptide, List<double>)> allPeptideFoldChanges = new List<(Peptide, List<double>)>();
-
-            List<Peptide> peptides = ProteinsWithConstituentPeptides[protein];
-
-            int numB1 = results.SpectraFiles.Where(p => p.Condition == condition1).Max(p => p.BiologicalReplicate) + 1;
-            int numB2 = results.SpectraFiles.Where(p => p.Condition == condition2).Max(p => p.BiologicalReplicate) + 1;
-
-            foreach (var peptide in peptides)
-            {
-                List<double> peptideFoldChanges = new List<double>();
-
-                // fold-changes between different conditions
-                if (biorep1 == null && biorep2 == null && condition1 != condition2)
+                foreach (var res in protein.Key.ConditionToQuantificationResults)
                 {
-                    double[] cond1Intensities = new double[numB1];
-                    double[] cond2Intensities = new double[numB2];
-
-                    for (int b = 0; b < cond1Intensities.Length; b++)
-                    {
-                        cond1Intensities[b] = PeptideToSampleQuantity[(peptide, condition1, b)];
-                    }
-
-                    for (int b = 0; b < cond2Intensities.Length; b++)
-                    {
-                        cond2Intensities[b] = PeptideToSampleQuantity[(peptide, condition2, b)];
-                    }
-
-                    int n = Math.Min(cond1Intensities.Length, cond2Intensities.Length);
-
-                    int valid = 0;
-                    for (int i = 0; i < n; i++)
-                    {
-                        double? foldChange = GetLogFoldChange(cond1Intensities[i], cond2Intensities[i]);
-
-                        if (foldChange != null)
-                        {
-                            peptideFoldChanges.Add(foldChange.Value);
-                            valid++;
-                        }
-                    }
-                    if (valid < n && !PairedSamples)
-                    {
-                        // there is at least one missing value... try to maximize the number of valid fold-change measurements
-                        List<int> condition1Used = new List<int>();
-                        List<int> condition2Used = new List<int>();
-                        peptideFoldChanges.Clear();
-
-                        for (int j = 0; j < cond1Intensities.Length; j++)
-                        {
-                            for (int k = 0; k < cond2Intensities.Length; k++)
-                            {
-                                double? foldChange = GetLogFoldChange(cond1Intensities[j], cond2Intensities[k]);
-
-                                if (foldChange != null && !condition1Used.Contains(j) && !condition2Used.Contains(k))
-                                {
-                                    peptideFoldChanges.Add(foldChange.Value);
-                                    condition1Used.Add(j);
-                                    condition2Used.Add(k);
-                                }
-                            }
-                        }
-                    }
-                }
-                // fold-changes between two bioreps of the same condition
-                else if (biorep1 != null && biorep2 != null && condition1 == condition2)
-                {
-                    double intensity1 = PeptideToSampleQuantity[(peptide, condition1, biorep1.Value)];
-                    double intensity2 = PeptideToSampleQuantity[(peptide, condition2, biorep2.Value)];
-
-                    double? lfc = GetLogFoldChange(intensity1, intensity2);
-
-                    if (lfc != null)
-                    {
-                        peptideFoldChanges.Add(lfc.Value);
-                    }
-                }
-                else
-                {
-                    throw new MzLibException("Problem getting peptide fold-change measurements for protein " + protein.ProteinGroupName);
-                }
-
-                allPeptideFoldChanges.Add((peptide, peptideFoldChanges));
-            }
-
-            return allPeptideFoldChanges;
-        }
-
-        /// <summary>
-        /// Computes the log-fold change between two intensities. If there is an error (e.g., one of the intensities is zero), 
-        /// null is returned.
-        /// </summary>
-        private double? GetLogFoldChange(double intensity1, double intensity2)
-        {
-            double logFoldChange = Math.Log(intensity2, 2) - Math.Log(intensity1, 2);
-
-            if (!double.IsNaN(logFoldChange) && !double.IsInfinity(logFoldChange))
-            {
-                return logFoldChange;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Estimates the fold-change between conditions for a protein, given its constituent peptides' fold change measurements. 
-        /// If "skepticalPrior" is set to true, then the result's estimate of the fold-change between conditions is drawn towards 
-        /// zero. This is useful for estimating the posterior error probability (PEP) that a fold-change is below a certain cutoff.
-        /// </summary>
-        private ProteinQuantificationEngineResult RunBayesianProteinQuant(List<(Peptide, List<double>)> peptideFoldChanges, ProteinGroup protein, string condition, int randomSeed,
-            double? nullHypothesisCutoff, bool skepticalPrior, int burnin, int n, out double[] mus)
-        {
-            if (skepticalPrior && nullHypothesisCutoff == null)
-            {
-                throw new MzLibException("Invalid protein quantification parameters given for protein " + protein.ProteinGroupName);
-            }
-
-            List<double> foldChanges = peptideFoldChanges.SelectMany(p => p.Item2).ToList();
-
-            // the Math.Max is here because in some edge cases the SD can be 0, which causes a crash
-            // also, the prior distribution for SD would be very narrow if SD < 0.001
-            double sd = Math.Max(0.001, foldChanges.StandardDeviation());
-            double mean = foldChanges.Mean();
-
-            // the Math.max is here for cases where the cutoff is very small (e.g., 0)
-
-            // "nullHypothesisCutoff.Value" means that the standard deviation of the Student's t prior probability distribution is 
-            // the null hypothesis (e.g., the fold-change cutoff). so if the fold-change cutoff is 0.3, then the standard deviation 
-            // of the prior probability distribution for mu is 0.3. the "degrees of freedom" (nu) of the prior will always be 1.0.
-            // the reason for this is explained in the ProteinFoldChangeEstimationModel.cs file.
-
-            // The standard deviation of the prior for mu is equal to the null hypothesis because the cumulative probability density of a 
-            // Student's t distribution with nu=1 is 0.5, between -1 * SD and 1 * SD. In other words, 1 standard deviation from the mean is 50%
-            // of the probability. This was chosen because the probability of the null hypothesis and the alternative hypothesis, given no data,
-            // should each be 50%. So in summary, the prior here was chosen because given no data, the initial assumption is that the 
-            // null hypothesis and the alternative hypothesis are equally likely. The datapoints are then used to "convince" the algorithm 
-            // one way or another (towards the null or the alternative), with some estimated probability that either the null or alternative hypothesis
-            // is true.
-            double priorMuSd = Math.Max(0.05, skepticalPrior ? nullHypothesisCutoff.Value : sd * 100);
-            double priorMuMean = skepticalPrior ? 0 : mean;
-
-            AdaptiveMetropolisWithinGibbs sampler = new AdaptiveMetropolisWithinGibbs(
-                foldChanges.ToArray(),
-                new ProteinFoldChangeEstimationModel(
-                    priorMuMean: priorMuMean,
-                    priorMuSd: priorMuSd,
-                    muInitialGuess: mean,
-                    priorSdStart: sd / 1000,
-                    priorSdEnd: sd * 1000,
-                    sdInitialGuess: sd,
-                    priorNuExponent: 1.0 / 29.0,
-                    nuInitialGuess: 5),
-                    seed: randomSeed
-                );
-
-            // burn in and then sample the MCMC chain
-            sampler.Run(burnin, n);
-
-            mus = sampler.MarkovChain.Select(p => p[0]).ToArray();
-            double[] sds = sampler.MarkovChain.Select(p => p[1]).ToArray();
-            double[] nus = sampler.MarkovChain.Select(p => p[2]).ToArray();
-
-            // store the result
-            var result = new ProteinQuantificationEngineResult(
-                protein,
-                BaseCondition,
-                condition,
-                mus,
-                sds,
-                nus,
-                peptideFoldChanges,
-                ProteinToBaseConditionIntensity[protein]
-            );
-
-            return result;
-        }
-
-        /// <summary>
-        /// This function determines a fold-change cutoff from the data. The cutoff is the estimate of the biological variance. 
-        /// If bioreps are defined, the standard deviation of the protein fold-change between bioreps within a condition is used 
-        /// as the cutoff. If the condition only has 1 biorep, then the cutoff is the standard deviation of the protein fold-change 
-        /// between conditions.
-        /// </summary>
-        private double DetermineExperimentalNull(string treatmentCondition)
-        {
-            double experimentalNull;
-
-            int biorepCount = results.SpectraFiles.Where(p => p.Condition == treatmentCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
-
-            if ((PairedSamples || biorepCount == 1) && treatmentCondition == BaseCondition)
-            {
-                return 0;
-            }
-
-            var proteinList = ProteinsWithConstituentPeptides.ToList();
-
-            // generate a random seed for each protein for the MCMC sampler
-            var randomSeedsForEachProtein = new Dictionary<ProteinGroup, List<int>>();
-            foreach (var protein in ProteinsWithConstituentPeptides)
-            {
-                randomSeedsForEachProtein.Add(protein.Key, new List<int> { Rng.NextFullRangeInt32() });
-            }
-
-            var experimentalNullResults = new Dictionary<string, List<ProteinQuantificationEngineResult>>();
-
-            Parallel.ForEach(Partitioner.Create(0, proteinList.Count), new ParallelOptions { MaxDegreeOfParallelism = MaxThreads }, partitionRange =>
-            {
-                for (int i = partitionRange.Item1; i < partitionRange.Item2; i++)
-                {
-                    ProteinGroup protein = proteinList[i].Key;
-
-                    List<(Peptide, List<double>)> peptideFoldChanges = new List<(Peptide, List<double>)>();
-
-                    if (biorepCount > 1)
-                    {
-                        if (!PairedSamples)
-                        {
-                            // get the fold-change measurements for the peptides assigned to this protein between bioreps of this condition
-                            for (int b = 0; b < biorepCount - 1; b++)
-                            {
-                                peptideFoldChanges.AddRange(GetPeptideFoldChangeMeasurements(protein, treatmentCondition, treatmentCondition, b, b + 1));
-                            }
-                        }
-                        else if (PairedSamples)
-                        {
-                            peptideFoldChanges.AddRange(GetPeptideFoldChangeMeasurements(protein, BaseCondition, treatmentCondition, null, null));
-                        }
-                    }
-                    else
-                    {
-                        peptideFoldChanges.AddRange(GetPeptideFoldChangeMeasurements(protein, BaseCondition, treatmentCondition, null, null));
-                    }
-
-                    ProteinQuantificationEngineResult result;
-                    int measurementCount = peptideFoldChanges.SelectMany(p => p.Item2).Count();
-
-                    if (measurementCount > 1)
-                    {
-                        // run the Bayesian analysis
-                        result = RunBayesianProteinQuant(peptideFoldChanges, protein, treatmentCondition,
-                        randomSeedsForEachProtein[protein][0], null, false, 500, 500, out var mus);
-
-                        lock (experimentalNullResults)
-                        {
-                            experimentalNullResults.Add(protein.ProteinGroupName, new List<ProteinQuantificationEngineResult> { result });
-                        }
-                    }
-                    else
-                    {
-                        continue;
-                    }
-                }
-            });
-
-            double stdDev = 0;
-
-            // this is a weird case where there are very few proteins in the data...
-            if (experimentalNullResults.Count < 10)
-            {
-                if (experimentalNullResults.Any())
-                {
-                    stdDev = experimentalNullResults.SelectMany(p => p.Value).Select(p => p.StandardDeviationPointEstimate).Average();
-                }
-                else
-                {
-                    // TODO: not sure what to do here.. there were no protein quant results for this condition
-                    // for now the cutoff is just made to be a fold-change of 1.0, but maybe an exception should be thrown...
-
-                    // the experimental null is 3 * stdDev so the fold-change cutoff will end up being 1.0
-                    stdDev = 1.0 / 3.0;
-
-                    //throw new MzLibException("Could not determine experimental null for condition " + treatmentCondition);
+                    res.Value.ControlConditionIntensity = referenceProteinIntensity;
+                    res.Value.TreatmentConditionIntensity = referenceProteinIntensity * Math.Pow(2, res.Value.FoldChangePointEstimate);
                 }
             }
-            else
-            {
-                stdDev = experimentalNullResults.SelectMany(p => p.Value).Select(p => p.FoldChangePointEstimate).InterquartileRange() / 1.34896;
-            }
 
-            experimentalNull = 3.0 * stdDev;
+            //TODO: assign per-sample protein intensities
+            //foreach (var protein in Results.ProteinGroups)
+            //{
+            //    foreach (var file in Results.SpectraFiles)
+            //    {
+            //        protein.Value.SetIntensity(file, 0);
+            //    }
 
-            return experimentalNull;
-        }
+            //    if (ProteinsWithConstituentPeptides.TryGetValue(protein.Value, out var peptides))
+            //    {
+            //        foreach (var file in Results.SpectraFiles)
+            //        {
+            //            List<double> abundances = new List<double>();
 
-        /// <summary>
-        /// Calculates the false discovery rate of each protein from the Bayesian-estimated PEP values.
-        /// </summary>
-        private void CalculateFalseDiscoveryRates(List<ProteinQuantificationEngineResult> bayesianProteinQuantificationResults)
-        {
-            var bayesianQuantResults = bayesianProteinQuantificationResults
-                .OrderByDescending(p => 1.0 - p.PosteriorErrorProbability)
-                .ThenByDescending(p => p.PeptideFoldChangeMeasurements.SelectMany(v => v.foldChanges).Count())
-                .ToList();
+            //            foreach (var peptide in peptides)
+            //            {
+            //                if (peptide.IonizationEfficiency == 0)
+            //                {
+            //                    continue;
+            //                }
 
-            double runningPEP = 0;
-            double qValue = 0;
+            //                double peptideIntensity = peptide.GetIntensity(file);
+            //                double abundance = peptideIntensity / peptide.IonizationEfficiency;
+            //                abundances.Add(abundance);
+            //            }
 
-            for (int p = 0; p < bayesianQuantResults.Count; p++)
-            {
-                runningPEP += bayesianQuantResults[p].PosteriorErrorProbability;
-                qValue = runningPEP / (p + 1);
-                bayesianQuantResults[p].FalseDiscoveryRate = qValue;
-            }
+            //            double proteinAbundance = abundances.Any() ? abundances.Median() : 0;
+            //            double proteinIntensity = proteinAbundance * ProteinToControlConditionIntensity[protein.Value];
+            //            protein.Value.SetIntensity(file, proteinIntensity);
+            //        }
+            //    }
+            //}
         }
     }
 }

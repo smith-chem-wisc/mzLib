@@ -13,6 +13,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestProteomicsReadWrite
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -488,7 +489,7 @@ namespace Test
 
             // just test the string sanitation method alone
             var sanitized = ProteinDbLoader.SanitizeAminoAcidSequence(messedUpSequence, 'X');
-            Assert.That(sanitized == "PRXXEINX");
+            Assert.That(sanitized == "PROXEINX");
 
             // test reading from a fasta
             Protein protein = new Protein(messedUpSequence, "accession");
@@ -500,13 +501,14 @@ namespace Test
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex, out var a);
 
-            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PRXXEINX");
+            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
 
             // digest and fragment to check that there isn't a crash
             var peptides = fastaProteins.First().Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
             foreach (PeptideWithSetModifications peptide in peptides)
             {
-                List<Product> fragments = peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both).ToList();
+                List<Product> fragments = new List<Product>();
+                peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
             }
 
             // test reading from an XML
@@ -514,7 +516,7 @@ namespace Test
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, xmlPath);
             var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unk);
 
-            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PRXXEINX");
+            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
         }
     }
 }

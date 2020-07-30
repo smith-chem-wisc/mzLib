@@ -128,6 +128,7 @@ namespace IO.ThermoRaw
             double? ms2IsolationWidth = null;
             int? precursorScanNumber = null;
             double? isolationMz = null;
+            string HcdEnergy = null;
             ActivationType activationType = ActivationType.Any;
 
             var trailer = rawFile.GetTrailerExtraInformation(scanNumber);
@@ -172,6 +173,10 @@ namespace IO.ThermoRaw
                     precursorScanNumber = int.Parse(values[i], CultureInfo.InvariantCulture) <= 1 ?
                         (int?)null :
                         int.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
+                {
+                    HcdEnergy = values[i];
                 }
             }
 
@@ -218,12 +223,12 @@ namespace IO.ThermoRaw
 
             if (isolationMz.HasValue)
             {
-                int? closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
-
-                if (closest.HasValue)
+                if (spectrum.Size != 0)
                 {
-                    double mz = spectrum.XArray[closest.Value];
-                    double intensity = spectrum.YArray[closest.Value];
+                    int closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
+
+                    double mz = spectrum.XArray[closest];
+                    double intensity = spectrum.YArray[closest];
 
                     if (Math.Abs(mz - isolationMz.Value) < 0.1)
                     {
@@ -254,7 +259,8 @@ namespace IO.ThermoRaw
                 isolationWidth: ms2IsolationWidth,
                 dissociationType: GetDissociationType(activationType),
                 oneBasedPrecursorScanNumber: precursorScanNumber,
-                selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz);
+                selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
+                hcdEnergy: HcdEnergy);
         }
 
         private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams, int scanNumber, string scanFilter, int scanOrder)

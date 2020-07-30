@@ -4,12 +4,14 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class TestDigestionMotif
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -243,15 +245,6 @@ namespace Test
             dp = new DigestionParams(protease: "Arg-C"); //default searchModeType is Full
             proteaseString = dp.ToString().Split(',')[6];
             Assert.IsTrue(proteaseString.Equals("Arg-C"));
-        }
-
-        [Test]
-        public static void TestDigestionParamsSerializeDeserialize()
-        {
-            DigestionParams weirdDigestionParams = new DigestionParams("Asp-N", 77, 88, 99, 69, InitiatorMethionineBehavior.Cleave, 420, CleavageSpecificity.Unknown, Proteomics.Fragmentation.FragmentationTerminus.None, false);
-            string serializedString = weirdDigestionParams.ToString();
-            DigestionParams deserializedDigestionParams = DigestionParams.FromString(serializedString);
-            Assert.AreEqual(weirdDigestionParams, deserializedDigestionParams);
         }
 
         [Test]

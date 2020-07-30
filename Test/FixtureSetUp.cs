@@ -16,12 +16,14 @@
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
 using NUnit.Framework;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using UsefulProteomicsDatabases;
 
 namespace Test
 {
     [SetUpFixture]
+    [ExcludeFromCodeCoverage]
     public class MySetUpClass
     {
         [OneTimeSetUp]

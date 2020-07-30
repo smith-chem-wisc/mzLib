@@ -8,6 +8,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestProteinProperties
     {
         private static Stopwatch Stopwatch { get; set; }

@@ -1,42 +1,43 @@
-﻿using BayesianEstimation;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace FlashLFQ
 {
-    public class ProteinQuantificationEngineResult
+    public abstract class ProteinQuantificationEngineResult
     {
-        public readonly ProteinGroup protein;
-        public readonly string BaseCondition;
+        // protein and peptides
+        public readonly ProteinGroup Protein;
+        public readonly List<Peptide> Peptides;
+
+        // conditions
+        public readonly string ControlCondition;
         public readonly string TreatmentCondition;
-        public readonly double FoldChangePointEstimate;
-        public readonly double ConditionIntensityPointEstimate;
-        public readonly double StandardDeviationPointEstimate;
-        public readonly double NuPointEstimate;
 
-        // the HDI_95 is the "95% highest density interval". this is the interval where 95% of the 
-        // probability density is contained (in this case, for the estimate of the mean). 
-        // it can be thought of as analogous to a 95% confidence interval.
-        public readonly (double, double) MeanHDI_95;
+        // mu, sigma, nu estimates
+        public double FoldChangePointEstimate { get; protected set; }
+        public double UncertaintyInFoldChangeEstimate { get; protected set; }
+        public double StandardDeviationPointEstimate { get; protected set; }
+        public double NuPointEstimate { get; protected set; }
 
-        public readonly List<(Peptide peptide, List<double> foldChanges)> PeptideFoldChangeMeasurements;
-        public double PosteriorErrorProbability { get; private set; }
+        // intensities
+        public double ControlConditionIntensity { get; set; }
+        public double TreatmentConditionIntensity { get; set; }
+
+        // additional statistics (PEP, FDR, null interval width)
+        public double PosteriorErrorProbability { get; set; }
         public double FalseDiscoveryRate { get; set; }
-        public double? NullHypothesisCutoff { get; set; }
+        public double? NullHypothesisInterval { get; set; }
+        public int NMeasurements { get; protected set; }
+        public bool IsStatisticallyValid { get; protected set; }
+        public double BayesFactor { get; protected set; }
 
-        public ProteinQuantificationEngineResult(ProteinGroup protein, string condition1, string condition2, double[] mus, double[] sds, double[] nus,
-            List<(Peptide, List<double>)> fcs, double referenceIntensity)
+        protected ProteinQuantificationEngineResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition)
         {
-            this.protein = protein;
-            this.BaseCondition = condition1;
-            this.TreatmentCondition = condition2;
-            this.PeptideFoldChangeMeasurements = fcs;
-            this.FoldChangePointEstimate = mus.Average();
-            this.StandardDeviationPointEstimate = sds.Average();
-            this.NuPointEstimate = nus.Average();
-            this.MeanHDI_95 = Util.GetHighestDensityInterval(mus, 0.95);
-            this.ConditionIntensityPointEstimate = Math.Pow(2, FoldChangePointEstimate) * referenceIntensity;
+            this.Protein = protein;
+            this.Peptides = peptides;
+            this.ControlCondition = controlCondition;
+            this.TreatmentCondition = treatmentCondition;
         }
 
         /// <summary>
@@ -58,79 +59,36 @@ namespace FlashLFQ
         /// 
         /// Additional MCMC iterations can be performed to determine a more precise estimate of the PEP.
         /// </summary>
-        public void CalculatePosteriorErrorProbability(double[] musWithSkepticalPrior)
+        protected void CalculatePosteriorErrorProbability(double[] musWithSkepticalPrior)
         {
-            if (NullHypothesisCutoff == null || musWithSkepticalPrior == null)
+            if (NullHypothesisInterval == null || musWithSkepticalPrior == null)
             {
                 PosteriorErrorProbability = double.NaN;
                 return;
             }
 
-            int numIncreasing = musWithSkepticalPrior.Count(p => p > NullHypothesisCutoff);
-            int numDecreasing = musWithSkepticalPrior.Count(p => p < -NullHypothesisCutoff);
-
-            // if something goes wrong and none of the following "if" statements are triggered, then PEP will evaluate to 1.0
-            double nullHypothesisCount = musWithSkepticalPrior.Length;
-            double alternativeHypothesisCount = 0;
-
-            if (numIncreasing >= numDecreasing && numIncreasing > 0)
+            if (!IsStatisticallyValid)
             {
-                nullHypothesisCount = musWithSkepticalPrior.Count(p => p < NullHypothesisCutoff);
-                alternativeHypothesisCount = numIncreasing;
-            }
-            else if (numIncreasing < numDecreasing)
-            {
-                nullHypothesisCount = musWithSkepticalPrior.Count(p => p > -NullHypothesisCutoff);
-                alternativeHypothesisCount = numDecreasing;
-            }
-            // this doesn't need to be here, but it's here for logical completeness
-            else if (musWithSkepticalPrior.All(p => Math.Abs(p) <= NullHypothesisCutoff))
-            {
-                nullHypothesisCount = musWithSkepticalPrior.Length;
-                alternativeHypothesisCount = 0;
+                PosteriorErrorProbability = 1;
+                return;
             }
 
+            double nullHypothesisCount = musWithSkepticalPrior.Count(p => Math.Abs(p) < NullHypothesisInterval);
+            double alternativeHypothesisCount = musWithSkepticalPrior.Length - nullHypothesisCount;
+            
             PosteriorErrorProbability = nullHypothesisCount / musWithSkepticalPrior.Length;
+
+            BayesFactor = alternativeHypothesisCount / nullHypothesisCount;
+
+            if (double.IsPositiveInfinity(BayesFactor))
+            {
+                BayesFactor = musWithSkepticalPrior.Length;
+            }
         }
 
-        public override string ToString()
+        protected static string TabSeparatedHeader()
         {
-            int nPeptides = PeptideFoldChangeMeasurements.Count;
-            int nMeasurements = PeptideFoldChangeMeasurements.SelectMany(p => p.foldChanges).Count();
-            var measurementsString = PeptideFoldChangeMeasurements.Select(p => p.peptide.Sequence + ":" + string.Join(";", p.foldChanges.Select(v => v.ToString("F4"))));
-
-            return
-                protein.ProteinGroupName + "\t" +
-                protein.GeneName + "\t" +
-                protein.Organism + "\t" +
-                BaseCondition + "\t" +
-                TreatmentCondition + "\t" +
-                NullHypothesisCutoff.Value + "\t" +
-                FoldChangePointEstimate + "\t" +
-                ConditionIntensityPointEstimate + "\t" +
-                nPeptides + "\t" +
-                nMeasurements + "\t" +
-                string.Join(",", measurementsString) + "\t" +
-                PosteriorErrorProbability + "\t" +
-                FalseDiscoveryRate + "\t\t";
-        }
-
-        public static string TabSeparatedHeader()
-        {
-            return
-                "Protein Group" + "\t" +
-                "Gene" + "\t" +
-                "Organism" + "\t" +
-                "Base Condition" + "\t" +
-                "Treatment Condition" + "\t" +
-                "Log2 Fold-Change Cutoff" + "\t" +
-                "Protein Log2 Fold-Change" + "\t" +
-                "Protein Intensity for Treatment Condition" + "\t" +
-                "Number of Peptides" + "\t" +
-                "Number of Fold-Change Measurements" + "\t" +
-                "List of Fold-Change Measurements Grouped by Peptide" + "\t" +
-                "Posterior Error Probability" + "\t" +
-                "False Discovery Rate" + "\t\t";
+            return "";
         }
     }
 }

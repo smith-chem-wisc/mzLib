@@ -30,6 +30,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestPeptides
     {
         private Peptide _mockPeptideEveryAminoAcid;
@@ -778,6 +779,20 @@ namespace Test
         }
 
         [Test]
+        public static void TestPyrrolysine()
+        {
+            Peptide mom = new Peptide("MOM");
+            double momMass = mom.MonoisotopicMass;
+            Assert.That(517.23926172577, Is.EqualTo(momMass).Within(0.001));
+
+            Peptide mm = new Peptide("MM");
+            double mmMass = mm.MonoisotopicMass;
+
+            double deltaMass = momMass - mmMass;
+            Assert.That(237.1477268648, Is.EqualTo(deltaMass).Within(0.001));
+        }
+
+        [Test]
         public void TestNonSpecificOverride()
         {
             string trypsin = "trypsin";
@@ -807,6 +822,7 @@ namespace Test
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestProtease : IProtease
     {
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)

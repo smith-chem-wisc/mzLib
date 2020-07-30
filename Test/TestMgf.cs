@@ -9,6 +9,7 @@ using System.Collections.Generic;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestMgf
     {
         private static Stopwatch Stopwatch { get; set; }
