@@ -1397,7 +1397,7 @@ namespace Test
             {
                 string append = writeIndexed ? "_indexed" : "_unindexed";
                 string rawPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
-                var raw = IO.ThermoRaw.ThermoRaw.LoadAllStaticData(rawPath);
+                var raw = IO.ThermoRawFileReader.ThermoRawFileReader.LoadAllStaticData(rawPath);
                 string mzmlFilename = Path.GetFileNameWithoutExtension(fileName) + append + ".mzML";
                 fileName = mzmlFilename;
                 string mzmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);

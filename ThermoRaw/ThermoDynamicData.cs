@@ -7,14 +7,14 @@ using ThermoFisher.CommonCore.Data.Interfaces;
 using ThermoFisher.CommonCore.RawFileReader;
 using UsefulProteomicsDatabases;
 
-namespace IO.ThermoRaw
+namespace IO.ThermoRawFileReader
 {
-    public class ThermoRawDynamicData : DynamicDataConnection
+    public class ThermoDynamicData : DynamicDataConnection
     {
         private IRawDataPlus dynamicConnection;
         public readonly int[] MsOrdersByScan;
 
-        public ThermoRawDynamicData(string filePath) : base(filePath)
+        public ThermoDynamicData(string filePath) : base(filePath)
         {
             InitiateDynamicConnection();
             MsOrdersByScan = GetMsOrdersByScanInDynamicConnection();
@@ -100,7 +100,7 @@ namespace IO.ThermoRaw
                 return null;
             }
 
-            return ThermoRaw.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
         }
 
         /// <summary>

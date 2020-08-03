@@ -24,7 +24,7 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzML\MzML.csproj" />
-    <ProjectReference Include="..\ThermoRaw\ThermoRaw.csproj" />
+    <ProjectReference Include="..\ThermoRaw\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 

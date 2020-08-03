@@ -4,7 +4,7 @@ using NUnit.Framework;
 using System;
 using System.Diagnostics;
 using System.IO;
-using IO.ThermoRaw;
+using IO.ThermoRawFileReader;
 
 namespace Test
 {
@@ -27,7 +27,7 @@ namespace Test
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            var a = ThermoRaw.LoadAllStaticData(path, maxThreads: 1);
+            var a = ThermoRawFileReader.LoadAllStaticData(path, maxThreads: 1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var aa = Mzml.LoadAllStaticData(outfile1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
@@ -45,10 +45,10 @@ namespace Test
             stopwatch.Start();
 
             var path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
-            var dynamicConnection1 = new ThermoRawDynamicData(path1);
+            var dynamicConnection1 = new ThermoDynamicData(path1);
 
             var path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
-            var dynamicConnection2 = new ThermoRawDynamicData(path2);
+            var dynamicConnection2 = new ThermoDynamicData(path2);
 
             var msOrders = dynamicConnection1.MsOrdersByScan;
             Assert.That(msOrders != null && msOrders.Length > 0);
@@ -85,7 +85,7 @@ namespace Test
 
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
 
-            var a = ThermoRaw.LoadAllStaticData(path, filterParams, maxThreads: 1);
+            var a = ThermoRawFileReader.LoadAllStaticData(path, filterParams, maxThreads: 1);
             var rawScans = a.GetAllScansList();
             foreach (var scan in rawScans)
             {
@@ -143,8 +143,8 @@ namespace Test
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            ThermoRaw staticRaw = ThermoRaw.LoadAllStaticData(filePath);
-            ThermoRawDynamicData dynamicRaw = new ThermoRawDynamicData(filePath);
+            ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(filePath);
+            ThermoDynamicData dynamicRaw = new ThermoDynamicData(filePath);
 
             foreach (MsDataScan staticScan in staticRaw.GetAllScansList())
             {

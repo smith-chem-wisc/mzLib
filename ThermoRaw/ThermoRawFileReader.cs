@@ -16,18 +16,18 @@ using UsefulProteomicsDatabases;
 // RawFileReader reading tool. Copyright © 2016 by Thermo Fisher Scientific, Inc. All rights reserved.
 // See the full Software Licence Agreement for detailed requirements for use.
 
-namespace IO.ThermoRaw
+namespace IO.ThermoRawFileReader
 {
-    public class ThermoRaw : MsDataFile
+    public class ThermoRawFileReader : MsDataFile
     {
-        protected ThermoRaw(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        protected ThermoRawFileReader(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
         /// <summary>
         /// Loads all scan data from a Thermo .raw file.
         /// </summary>
-        public static ThermoRaw LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
+        public static ThermoRawFileReader LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
         {
             if (!File.Exists(filePath))
             {
@@ -100,7 +100,7 @@ namespace IO.ThermoRaw
                 filePath,
                 Path.GetFileNameWithoutExtension(filePath));
 
-            return new ThermoRaw(msDataScans, sourceFile);
+            return new ThermoRawFileReader(msDataScans, sourceFile);
         }
 
         public static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)

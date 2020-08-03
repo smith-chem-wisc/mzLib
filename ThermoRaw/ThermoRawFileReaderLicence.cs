@@ -1,4 +1,4 @@
-﻿namespace IO.ThermoRaw
+﻿namespace IO.ThermoRawFileReader
 {
     public class ThermoRawFileReaderLicence
     {

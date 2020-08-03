@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using IO.ThermoRaw;
+using IO.ThermoRawFileReader;
 
 namespace FlashLFQ
 {
@@ -76,11 +76,11 @@ namespace FlashLFQ
             else if (ext == ".RAW")
             {
                 var tempList = new List<MsDataScan>();
-                ThermoRawDynamicData dynamicConnection = null;
+                ThermoDynamicData dynamicConnection = null;
 
                 try
                 {
-                    dynamicConnection = new ThermoRawDynamicData(fileInfo.FullFilePathWithExtension);
+                    dynamicConnection = new ThermoDynamicData(fileInfo.FullFilePathWithExtension);
 
                     // use thermo dynamic connection to get the ms1 scans and then dispose of the connection
                     for (int i = 0; i < dynamicConnection.MsOrdersByScan.Length; i++)
