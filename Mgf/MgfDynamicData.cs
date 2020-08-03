@@ -24,8 +24,6 @@ namespace IO.Mgf
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
-            MsDataScan scan = null;
-
             if (reader == null)
             {
                 throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
@@ -37,69 +35,12 @@ namespace IO.Mgf
                 reader.BaseStream.Position = byteOffset;
                 reader.DiscardBufferedData();
 
-                char[] peakSplitter = new char[] { ' ' };
-                List<(double mz, double intensity)> peaks = new List<(double, double)>();
-                int charge = 2; //default when unknown
-                double precursorMz = 0;
-                double rtInMinutes = double.NaN; //default when unknown
-
-                // read the scan data
-                while (reader.Peek() > 0)
-                {
-                    string line = reader.ReadLine();
-                    string[] sArray = line.Split('=');
-
-                    if (char.IsDigit(line[0]) && sArray.Length == 1)
-                    {
-                        string[] split = line.Split(peakSplitter, StringSplitOptions.RemoveEmptyEntries);
-                        (double mz, double intensity) peak = (double.Parse(split[0], CultureInfo.InvariantCulture), double.Parse(split[1], CultureInfo.InvariantCulture));
-                        peaks.Add(peak);
-                    }
-                    else if (line.StartsWith("PEPMASS="))
-                    {
-                        sArray = sArray[1].Split(' ');
-                        precursorMz = double.Parse(sArray[0]);
-                    }
-                    else if (line.StartsWith("CHARGE="))
-                    {
-                        string entry = sArray[1];
-                        charge = int.Parse(entry.Substring(0, entry.Length - 1));
-                        if (entry[entry.Length - 1].Equals("-"))
-                        {
-                            charge *= -1;
-                        }
-                    }
-                    else if (line.StartsWith("RTINSECONDS="))
-                    {
-                        rtInMinutes = double.Parse(sArray[sArray.Length - 1]) / 60.0;
-                    }
-                    else if (line.StartsWith("END IONS"))
-                    {
-                        break;
-                    }
-                }
-
-                double[] mzs = peaks.Select(p => p.mz).ToArray();
-                double[] intensities = peaks.Select(p => p.intensity).ToArray();
-
-                Array.Sort(mzs, intensities);
-                MzRange scanRange = new MzRange(mzs[0], mzs[mzs.Length - 1]);
-
-                // peak filtering
-                if (filterParams != null && intensities.Length > 0 && filterParams.ApplyTrimmingToMsMs)
-                {
-                    MsDataFile.WindowModeHelper(ref intensities, ref mzs, filterParams, scanRange.Minimum, scanRange.Maximum);
-                }
-
-                MzSpectrum spectrum = new MzSpectrum(mzs, intensities, false);
-
-                scan = new MsDataScan(spectrum, scanNumber, 2, true, charge > 0 ? Polarity.Positive : Polarity.Negative,
-                    rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                    intensities.Sum(), 0, null, null, precursorMz, charge, null, precursorMz, null,
-                    DissociationType.Unknown, null, precursorMz);
+                return Mgf.GetNextMsDataOneBasedScanFromConnection(reader, new HashSet<int>(), filterParams, scanNumber);
             }
-
-            return scan;
+            else
+            {
+                throw new MzLibException("The specified scan number: " + scanNumber + " does not exist in " + FilePath);
+            }
         }
 
         public override void CloseDynamicConnection()

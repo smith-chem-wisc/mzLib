@@ -27,7 +27,6 @@
     <ProjectReference Include="..\MzML\MzML.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\Test\Test.csproj" />
-    <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
   </ItemGroup>
