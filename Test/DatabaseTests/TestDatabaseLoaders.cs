@@ -16,6 +16,7 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
 using Chemistry;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -47,9 +48,10 @@ namespace Test
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
+
         [Test]
         public static void LoadIsoforms()
-        {            
+        {
             var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409_2", protein[1].Accession);
@@ -62,7 +64,7 @@ namespace Test
             Assert.AreEqual("Q14103_3", protein[8].Accession);
             Assert.AreEqual("Q14103_4", protein[9].Accession);
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
-            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));           
+            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"), true, DecoyType.None, null, false, null, out var unknownMod);
             Assert.AreEqual("Q13409", proteinXml[0].Accession);
             Assert.AreEqual("Q13409_2", proteinXml[1].Accession);
@@ -495,7 +497,7 @@ namespace Test
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
         }
-        
+
         [Test]
         public static void IsoformReadTest()
         {
@@ -504,6 +506,29 @@ namespace Test
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
 
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
+        }
+
+        [Test]
+        public static void TestListOfAvailableUniProtProteomes()
+        {
+            Dictionary<string,string> proteomesDictionary = ProteinDbRetriever.UniprotProteomesList();
+            Assert.AreEqual(292464, proteomesDictionary.Keys.Count);
+            Assert.AreEqual("Uukuniemi virus (strain S23) (Uuk) (Strain: S23)",proteomesDictionary["UP000008595"]);
+
+            Dictionary<string, string> uniProtColumns = ProteinDbRetriever.UniprotColumnsList();
+            Assert.AreEqual(178, uniProtColumns.Keys.Count);
+            Assert.AreEqual("id", uniProtColumns["Entry"]);
+
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+
+            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
+            ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.Include.yes);
+
+            filepath += "\\UP000008595_reviewed_isoform.fasta.gz";
+
+            Assert.IsTrue(File.Exists(filepath));
+
+            File.Delete(filepath);
         }
     }
 }

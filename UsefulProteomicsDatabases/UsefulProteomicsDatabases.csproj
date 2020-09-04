@@ -19,4 +19,13 @@
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="UniProtKB_columnNamesForProgrammaticAccess.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="UniProtProteomes.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
