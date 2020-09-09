@@ -583,6 +583,13 @@ namespace Test
             returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
             filepath += "\\UP000008595_unreviewed.xml";
             Assert.IsNull(returnedFilePath);
+
+            //we don't support filetypes other than fasta or xml currently
+            //requesting gff or other file formats will return null for now.
+            filepath = "pathDoesNotExists";
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.xml";
+            Assert.IsNull(returnedFilePath);
         }
     }
 }

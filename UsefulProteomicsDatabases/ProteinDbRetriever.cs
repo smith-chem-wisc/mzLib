@@ -74,7 +74,9 @@ namespace UsefulProteomicsDatabases
                         Client.DownloadFile(htmlQueryString, absolutePathToStorageDirectory + filename);
                         return absolutePathToStorageDirectory + filename;
                     }
-                }                
+                }
+                //we don't support other file types yet.
+                return null;
             }
             //a successful search will return the full path
             //a failed search will return null
