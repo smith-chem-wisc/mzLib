@@ -577,6 +577,12 @@ namespace Test
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
             File.Delete(filepath);
+
+            //junk null return
+            filepath = "pathDoesNotExists";
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.xml";
+            Assert.IsNull(returnedFilePath);
         }
     }
 }
