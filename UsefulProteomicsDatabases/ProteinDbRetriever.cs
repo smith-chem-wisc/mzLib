@@ -14,13 +14,15 @@ namespace UsefulProteomicsDatabases
         /// Constructor forms a UniProt search query capable of downloading information from UniProt for storage in a file
         /// It's primary function is to download a proteome, but it could have many other purposes.
         /// A poorly formed query will not return anything, but it won't crash.
+        /// Successful search returns full path. 
+        /// Failed search returns null.
         /// </summary>
         /// <param name="proteomeID">valid proteome ID corresponding to a specific organism (e.g. UP000005640)</param>
         /// <param name="formt">format of retrieved proteome (e.g. fasta or xml)</param>
         /// <param name="reviewed">if yes file contains only reviewd proteins</param>
         /// <param name="compress">if yes file is saved as .gz</param>
         /// <param name="absolutePathToStorageDirectory"></param>
-        public static void RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format, Reviewed reviewed, Compress compress, Include include)
+        public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format, Reviewed reviewed, Compress compress, IncludeIsoforms include)
         {
             if (Directory.Exists(absolutePathToStorageDirectory))
             {
@@ -37,7 +39,7 @@ namespace UsefulProteomicsDatabases
                         filename += "_unreviewed";
                     }
                     //only fasta style proteome allows retrieval of extra isoforms
-                    if(include == Include.yes)
+                    if(include == IncludeIsoforms.yes)
                     {
                         filename += "_isoform";
                     }
@@ -70,9 +72,13 @@ namespace UsefulProteomicsDatabases
                     using (WebClient Client = new WebClient())
                     {
                         Client.DownloadFile(htmlQueryString, absolutePathToStorageDirectory + filename);
+                        return absolutePathToStorageDirectory + filename;
                     }
                 }                
             }
+            //a successful search will return the full path
+            //a failed search will return null
+            return null;
         }
 
         /// <summary>
@@ -152,7 +158,7 @@ namespace UsefulProteomicsDatabases
         /// Include isoform sequences when the format parameter is set to fasta.
         /// Include description of referenced data when the format parameter is set to rdf.
         /// </summary>
-        public enum Include
+        public enum IncludeIsoforms
         {
             yes,
             no

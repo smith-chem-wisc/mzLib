@@ -518,15 +518,20 @@ namespace Test
 
             Dictionary<string, string> uniProtColumns = ProteinDbRetriever.UniprotColumnsList();
             Assert.LessOrEqual(170, uniProtColumns.Keys.Count);
-            Assert.AreEqual("id", uniProtColumns["Entry"]);
+            Assert.AreEqual("id", uniProtColumns["Entry"]);            
+        }
 
+        [Test]
+        public static void TestRetrieveUniProtProteome()
+        {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
 
             //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
-            ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.Include.yes);
+            string returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.yes);
 
             filepath += "\\UP000008595_reviewed_isoform.fasta.gz";
 
+            Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
 
             var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
@@ -547,6 +552,30 @@ namespace Test
                 "KEVNPGAGQRMFNILSYTVKDTDVSDENAFKLMSLSPRHKFHGREPSTSWICMRALPISTIDKLLERILNRERISGSIDNERLAECFKNVMESTLRRKGVFLSEFSRATQKMLDGLSRDMLDFFAEAGLNDDLLLEEEPWLSGLDTFMLDDEAYLEEYNLGPFGVFSVEQEMNTKYYHHLLLD" +
                 "SLVEDVIQKLSLDGLRKLFQEEEAPLEYKKEVIRLLNILQRDASQIKWKSRDLLSENMGLDVDDDMFG", proteinList.Where(p => p.Accession == "P33453").FirstOrDefault().BaseSequence);
 
+            File.Delete(filepath);
+
+            //fasta; unreviewed; non-compressed; no isoforms
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.fasta";
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
+            File.Delete(filepath);
+
+            //xml; reviewed; compresseded; no isoforms
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_reviewed.xml.gz";
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
+            File.Delete(filepath);
+
+            //xml; unreviewed; non-compresseded; no isoforms
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.xml";
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
             File.Delete(filepath);
         }
     }
