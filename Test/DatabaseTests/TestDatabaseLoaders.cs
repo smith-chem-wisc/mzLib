@@ -575,7 +575,7 @@ namespace Test
 
             //we don't support filetypes other than fasta or xml currently
             //requesting gff or other file formats will return null for now.
-            filepath = "pathDoesNotExists";
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
             filepath += "\\UP000008595_unreviewed.xml";
             Assert.IsNull(returnedFilePath);
@@ -599,6 +599,14 @@ namespace Test
             filepath = "bubba";
             downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
             Assert.IsNull(downloadedFilePath);
+        }
+
+        [Test]
+        public static void TestDownloadListOfColumnsAvailableAtUniProt()
+        {
+            var uniProtColumnDictionary = ProteinDbRetriever.UniprotColumnsList();
+            Assert.IsTrue(uniProtColumnDictionary.Keys.Contains("Entry"));
+            Assert.AreEqual("id", uniProtColumnDictionary["Entry"]);
         }
     }
 }

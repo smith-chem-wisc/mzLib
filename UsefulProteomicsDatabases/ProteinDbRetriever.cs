@@ -80,7 +80,11 @@ namespace UsefulProteomicsDatabases
             //a failed search will return null
             return null;
         }
-
+        /// <summary>
+        /// downloades and then returns the filepath to a compressed (.gz), tab-delimited text file of the available proteomes. Line one is the header.
+        /// </summary>
+        /// <param name="filepath">filepath to the downloaded filefilepath</param>
+        /// <returns></returns>
         public static string DownloadAvailableUniProtProteomes(string filepath)
         {
             if (Directory.Exists(filepath))
