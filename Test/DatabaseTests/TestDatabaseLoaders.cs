@@ -599,6 +599,15 @@ namespace Test
             filepath = "bubba";
             downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
             Assert.IsNull(downloadedFilePath);
+
+            //bad file path returns null
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList("badFilePath");
+            Assert.IsNull(uniprotProteoms);
+
+
+            //wrong file extension returns null
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"));
+            Assert.IsNull(uniprotProteoms);
         }
 
         [Test]

@@ -80,6 +80,7 @@ namespace UsefulProteomicsDatabases
             //a failed search will return null
             return null;
         }
+
         /// <summary>
         /// downloades and then returns the filepath to a compressed (.gz), tab-delimited text file of the available proteomes. Line one is the header.
         /// </summary>
@@ -127,24 +128,17 @@ namespace UsefulProteomicsDatabases
             {
                 Dictionary<string, string> dictionaryOfAvailableProteomes = new Dictionary<string, string>();
                 List<string> idNameList = new List<string>();
-                try
+                if (Path.GetExtension(completePathToAvailableUniProtProteomes) == ".gz")
                 {
-                    if(Path.GetExtension(completePathToAvailableUniProtProteomes) == ".gz")
+                    idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
+                    foreach (string item in idNameList)
                     {
-                        idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
-                        foreach (string item in idNameList)
-                        {
-                            var lineValuesArray = item.Split("\t");
-                            dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
-                        }
+                        var lineValuesArray = item.Split("\t");
+                        dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
                     }
                     return dictionaryOfAvailableProteomes;
                 }
-                catch
-                {
-                    //could not read file
-                    return null;
-                }
+                return null;
             }
             //file does not exist
             return null;
