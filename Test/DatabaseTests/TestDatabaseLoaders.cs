@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -510,18 +511,6 @@ namespace Test
         }
 
         [Test]
-        public static void TestListOfAvailableUniProtProteomes()
-        {
-            Dictionary<string,string> proteomesDictionary = ProteinDbRetriever.UniprotProteomesList();
-            Assert.LessOrEqual(290000, proteomesDictionary.Keys.Count);
-            Assert.AreEqual("Uukuniemi virus (strain S23) (Uuk) (Strain: S23)",proteomesDictionary["UP000008595"]);
-
-            Dictionary<string, string> uniProtColumns = ProteinDbRetriever.UniprotColumnsList();
-            Assert.LessOrEqual(170, uniProtColumns.Keys.Count);
-            Assert.AreEqual("id", uniProtColumns["Entry"]);            
-        }
-
-        [Test]
         public static void TestRetrieveUniProtProteome()
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
@@ -590,6 +579,26 @@ namespace Test
             returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
             filepath += "\\UP000008595_unreviewed.xml";
             Assert.IsNull(returnedFilePath);
+        }
+
+        [Test]
+        public static void TestDownloadAvailableUniProtProteomes()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
+            Assert.AreEqual(filepath + "\\availableUniProtProteomes.txt.gz", downloadedFilePath);
+
+            Dictionary<string,string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
+
+            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
+            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
+
+            File.Delete(downloadedFilePath);
+
+            //return null for bad filepath
+            filepath = "bubba";
+            downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
+            Assert.IsNull(downloadedFilePath);
         }
     }
 }

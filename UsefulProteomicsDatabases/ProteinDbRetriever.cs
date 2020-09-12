@@ -1,10 +1,8 @@
-﻿using Proteomics;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Net;
-using System.Text;
 
 namespace UsefulProteomicsDatabases
 {
@@ -14,7 +12,7 @@ namespace UsefulProteomicsDatabases
         /// Constructor forms a UniProt search query capable of downloading information from UniProt for storage in a file
         /// It's primary function is to download a proteome, but it could have many other purposes.
         /// A poorly formed query will not return anything, but it won't crash.
-        /// Successful search returns full path. 
+        /// Successful search returns full path.
         /// Failed search returns null.
         /// </summary>
         /// <param name="proteomeID">valid proteome ID corresponding to a specific organism (e.g. UP000005640)</param>
@@ -30,7 +28,7 @@ namespace UsefulProteomicsDatabases
                 string filename = "\\" + proteomeID;
                 if (format == ProteomeFormat.fasta)
                 {
-                    if(reviewed == Reviewed.yes)
+                    if (reviewed == Reviewed.yes)
                     {
                         filename += "_reviewed";
                     }
@@ -39,7 +37,7 @@ namespace UsefulProteomicsDatabases
                         filename += "_unreviewed";
                     }
                     //only fasta style proteome allows retrieval of extra isoforms
-                    if(include == IncludeIsoforms.yes)
+                    if (include == IncludeIsoforms.yes)
                     {
                         filename += "_isoform";
                     }
@@ -67,7 +65,7 @@ namespace UsefulProteomicsDatabases
                     }
                     htmlQueryString = "https://www.uniprot.org/uniprot/?query=proteome:" + proteomeID + " reviewed:" + reviewed + "&compress=" + compress + "&format=" + format;
                 }
-                if(htmlQueryString.Length > 0)
+                if (htmlQueryString.Length > 0)
                 {
                     using (WebClient Client = new WebClient())
                     {
@@ -83,6 +81,35 @@ namespace UsefulProteomicsDatabases
             return null;
         }
 
+        public static string DownloadAvailableUniProtProteomes(string filepath)
+        {
+            if (Directory.Exists(filepath))
+            {
+                string htmlQueryString = "https://www.uniprot.org/proteomes/?query=*&format=tab&compress=yes&columns=id,name,organism-id,proteincount,busco,cpd,assembly%20representation";
+                string filename = "\\availableUniProtProteomes.txt.gz";
+
+                filepath += filename;
+                using (WebClient Client = new WebClient())
+                {
+                    Client.DownloadFile(htmlQueryString, filepath);
+                }
+
+                if (File.Exists(filepath))
+                {
+                    return filepath;
+                }
+
+                //the download was not successful
+                else
+                {
+                    return null;
+                }
+            }
+
+            //the filepath did not exist
+            return null;
+        }
+
         /// <summary>
         /// The list of available UniProt Proteomes was downloaded 09/03/2020
         /// This is returned as a dictionary
@@ -90,21 +117,37 @@ namespace UsefulProteomicsDatabases
         /// value = Organism
         /// </summary>
         /// <returns></returns>
-        public static Dictionary<string,string> UniprotProteomesList()
+        public static Dictionary<string, string> UniprotProteomesList(string completePathToAvailableUniProtProteomes)
         {
-            string currentDirectory = Directory.GetCurrentDirectory();
-            string filePath = Path.Combine(currentDirectory, "UniProtProteomes.txt");
-            Dictionary<string, string> d = new Dictionary<string, string>();
-            string[] idNameList = File.ReadAllLines(filePath);
-            foreach (string item in idNameList)
+            if (File.Exists(completePathToAvailableUniProtProteomes))
             {
-                var j = item.Split("\t");
-                d.Add(j[0], j[1]);
+                Dictionary<string, string> dictionaryOfAvailableProteomes = new Dictionary<string, string>();
+                List<string> idNameList = new List<string>();
+                try
+                {
+                    if(Path.GetExtension(completePathToAvailableUniProtProteomes) == ".gz")
+                    {
+                        idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
+                        foreach (string item in idNameList)
+                        {
+                            var lineValuesArray = item.Split("\t");
+                            dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
+                        }
+                    }
+                    return dictionaryOfAvailableProteomes;
+                }
+                catch
+                {
+                    //could not read file
+                    return null;
+                }
             }
-            return d;
+            //file does not exist
+            return null;
         }
+
         /// <summary>
-        /// One can retrieve a table of information about specific proteins. 
+        /// One can retrieve a table of information about specific proteins.
         /// This method returns the names of columns that could be included in the table
         /// </summary>
         /// <returns></returns>
@@ -124,6 +167,7 @@ namespace UsefulProteomicsDatabases
             }
             return d;
         }
+
         /// <summary>
         /// This is an enumerated list of a file types available for download at UniProt
         /// </summary>
@@ -140,6 +184,7 @@ namespace UsefulProteomicsDatabases
             list,
             rss
         }
+
         /// <summary>
         /// This designates whether or not unreviewed proteins are included in the downloaded proteome.
         /// </summary>
@@ -148,6 +193,7 @@ namespace UsefulProteomicsDatabases
             yes,
             no
         }
+
         /// <summary>
         /// Compress will cause the table to be downloaded in .gz format
         /// </summary>
@@ -156,6 +202,7 @@ namespace UsefulProteomicsDatabases
             yes,
             no
         }
+
         /// <summary>
         /// Include isoform sequences when the format parameter is set to fasta.
         /// Include description of referenced data when the format parameter is set to rdf.
@@ -165,13 +212,31 @@ namespace UsefulProteomicsDatabases
             yes,
             no
         }
+
         /// <summary>
         /// Columns to select for retrieving results in tab or xls format.
         /// https://www.uniprot.org/help/uniprotkb_column_names
         /// </summary>
         public enum Columns
         {
+        }
 
+        public static IEnumerable<string> ReadAllZippedLines(string filename)
+        {
+            using (var fileStream = File.OpenRead(filename))
+            {
+                using (var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress))
+                {
+                    using (var reader = new StreamReader(gzipStream))
+                    {
+                        string currentLine;
+                        while ((currentLine = reader.ReadLine()) != null)
+                        {
+                            yield return currentLine;
+                        }
+                    }
+                }
+            }
         }
     }
 }
