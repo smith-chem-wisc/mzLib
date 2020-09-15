@@ -195,24 +195,5 @@ namespace Test
                 }
             }
         }
-
-        [Test]
-        public static void TestMemoryMzmlCrash()
-        {
-            //string originalPath = @"C:\Data\SlicedYeastRawFiles\SmallCalibratible_Yeast.raw";
-            //string newPath = @"C:\Data\SlicedYeastRawFiles\SmallCalibratible_Yeast_indexed.mzml";
-
-            //var originalData = ThermoRawFileReader.LoadAllStaticData(originalPath);
-
-            //MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(originalData, newPath, true);
-
-            //MzmlDynamicData ff = new MzmlDynamicData(newPath);
-
-            //MzmlDynamicData ff = new MzmlDynamicData(@"C:\Data\SlicedYeastRawFiles\SmallCalibratible_Yeast.mzML");
-            //var s = ff.GetOneBasedScanFromDynamicConnection(1);
-
-            var hash = MzmlMethods.GetSHA1Hash(@"C:\Data\SlicedYeastRawFiles\SmallCalibratible_Yeast.mzml").Hash;
-            var theHash = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
-        }
     }
 }

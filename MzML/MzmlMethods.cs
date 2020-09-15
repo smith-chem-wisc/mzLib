@@ -1132,7 +1132,7 @@ namespace IO.MzML
                 }
 
                 // write file w/ index to disk
-                indexedMzml.fileChecksum = "dummy";
+                indexedMzml.fileChecksum = "0";
                 using (TextWriter writer = new StreamWriter(outputFile))
                 {
                     writer.NewLine = "\n";
@@ -1154,26 +1154,25 @@ namespace IO.MzML
 
         public static SHA1 GetSHA1Hash(string filePath)
         {
+            string newLine = "\n";
             SHA1 sha1hash = SHA1.Create();
 
             using (StreamReader stream = new StreamReader(filePath))
             {
-                stream.BaseStream.Position = 0;
-                stream.DiscardBufferedData();
-
                 string line;
                 byte[] buffer = new byte[1000000];
                 long totalBytesRead = 0;
+                bool foundChecksumField = false;
 
-                while (stream.Peek() > 0)
+                while (stream.Peek() > 0 && !foundChecksumField)
                 {
-                    line = stream.ReadLine() + "\n";
-                    Array.Clear(buffer, 0, buffer.Length);
+                    line = stream.ReadLine() + newLine;
 
-                    if (line.Trim().StartsWith("<fileChecksum>"))
+                    if (line.Trim().StartsWith("<fileChecksum>", StringComparison.InvariantCultureIgnoreCase))
                     {
                         int f = line.IndexOf('>');
                         line = line.Substring(0, f + 1);
+                        foundChecksumField = true;
                     }
 
                     int bytesRead = Encoding.UTF8.GetBytes(line, 0, line.Length, buffer, 0);
