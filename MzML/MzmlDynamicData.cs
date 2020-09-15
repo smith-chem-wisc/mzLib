@@ -19,7 +19,7 @@ namespace IO.MzML
         private StreamReader reader;
 
         //private XmlSerializer serializer;
-        private static Regex nativeIdScanNumberParser = new Regex(@"(^|\s)scan=(.*?)($|\D)");
+        public static readonly Regex nativeIdScanNumberParser = new Regex(@"(^|\s)scan=(.*?)($|\D)");
 
         public MzmlDynamicData(string filepath) : base(filepath)
         {
@@ -604,7 +604,7 @@ namespace IO.MzML
                     {
                         throw new MzLibException("Could not get nativeID from line: " + line);
                     }
-                    
+
                     if (result.Groups[2].Success)
                     {
                         scanNumber = int.Parse(result.Groups[2].Value);

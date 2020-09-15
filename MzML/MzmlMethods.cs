@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
 namespace IO.MzML
@@ -1012,37 +1014,92 @@ namespace IO.MzML
             {
                 Generated.indexedmzML indexedMzml = new Generated.indexedmzML();
 
-                var inMemoryTextWriter = new MemoryStream();
-
-                //compute total offset
                 indexedMzml.mzML = mzML;
 
-                indexedSerializer.Serialize(inMemoryTextWriter, indexedMzml);
-                string allmzMLData = Encoding.UTF8.GetString(inMemoryTextWriter.ToArray()).Replace("\r\n", "\n");
-
-                long? indexListOffset = allmzMLData.Length;
-
-                //new stream with correct formatting
-
+                // create dummy index (this makes it easier to compute where the index is in the file)
                 indexedMzml.indexList = new Generated.IndexListType
                 {
                     count = "2",
                     index = new Generated.IndexType[2]
                 };
 
-                //starts as spectrum be defualt
+                // write the initial file to disk (just the mzML data in an indexedmzML wrapper, without the completed index)
+                using (TextWriter writer = new StreamWriter(outputFile))
+                {
+                    writer.NewLine = "\n";
+                    indexedSerializer.Serialize(writer, indexedMzml);
+                }
+
+                // open the initial file and compute byte offset of the index, and the byte offset for each scan
+                Dictionary<int, long> SpectrumNumberToByteOffset = new Dictionary<int, long>();
+
+                using (StreamReader reader = new StreamReader(outputFile))
+                {
+                    reader.BaseStream.Position = 0;
+                    reader.DiscardBufferedData();
+
+                    int scanNumber = 0;
+
+                    while (reader.Peek() > 0)
+                    {
+                        long byteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(reader);
+                        var line = reader.ReadLine();
+
+                        for (int i = 0; i < line.Length; i++)
+                        {
+                            char c = line[i];
+
+                            if (c == ' ')
+                            {
+                                // spaces are one byte in utf8 encoding
+                                byteOffset += 1;
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+
+                        line = line.Trim();
+
+                        if (line.StartsWith("<spectrum ", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            Match result = MzmlDynamicData.nativeIdScanNumberParser.Match(line);
+
+                            if (result.Groups[2].Success)
+                            {
+                                scanNumber = int.Parse(result.Groups[2].Value);
+                            }
+                            else
+                            {
+                                scanNumber++;
+                            }
+
+                            SpectrumNumberToByteOffset.Add(scanNumber, byteOffset);
+                        }
+                        if (line.StartsWith("<indexList ", StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            indexedMzml.indexListOffset = byteOffset;
+                        }
+                    }
+                }
+
+                // create the index
+                indexedMzml.indexList = new Generated.IndexListType
+                {
+                    count = "2",
+                    index = new Generated.IndexType[2]
+                };
+
                 var indexname = new Generated.IndexTypeName();
 
-                //spectra naming
                 indexedMzml.indexList.index[0] = new Generated.IndexType
                 {
                     name = indexname,
                 };
 
-                //switch to chromatogram name
                 indexname = Generated.IndexTypeName.chromatogram;
 
-                //chroma naming
                 indexedMzml.indexList.index[1] = new Generated.IndexType
                 {
                     name = indexname,
@@ -1051,75 +1108,87 @@ namespace IO.MzML
                 int numScans = myMsDataFile.NumSpectra;
                 int numChromas = Int32.Parse(mzML.run.chromatogramList.count);
 
-                //now calculate offsets of each scan and chroma
-
                 //add spectra offsets
                 indexedMzml.indexList.index[0].offset = new Generated.OffsetType[numScans];
-                //add chroma offsets
                 indexedMzml.indexList.index[1].offset = new Generated.OffsetType[numChromas];
 
-                int i = 0;
-                int a = 1;
-                int index;
-                //indexOf search returns location fom beginning of line (3 characters short)
-                int offsetFromBeforeScanTag = 3;
-                //spectra offset loop
-                while (i < numScans)
+                foreach (var scan in myMsDataFile.GetAllScansList())
                 {
-                    index = allmzMLData.IndexOf(mzML.run.spectrumList.spectrum[i].id, (a - 1));
-                    if (index != -1)
+                    int i = scan.OneBasedScanNumber - 1;
+                    long byteOffset = SpectrumNumberToByteOffset[scan.OneBasedScanNumber];
+
+                    indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType
                     {
-                        a = index;
-                        indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType
-                        {
-                            idRef = mzML.run.spectrumList.spectrum[i].id,
-                            Value = a + offsetFromBeforeScanTag
-                        };
-                        i++;
-                    }
-                }
-                int offsetFromBeforeChromaTag = 3;
-                index = allmzMLData.IndexOf("id=\"" + mzML.run.chromatogramList.chromatogram[0].id + "\"", (a - 1));
-                if (index != -1)
-                {
-                    a = index;
+                        idRef = mzML.run.spectrumList.spectrum[i].id,
+                        Value = byteOffset
+                    };
+
                     indexedMzml.indexList.index[1].offset[0] = new Generated.OffsetType
                     {
+                        //TODO: this is wrong
                         idRef = mzML.run.chromatogramList.chromatogram[0].id,
-                        Value = a + offsetFromBeforeChromaTag
+                        Value = 2089888
                     };
                 }
-                //offset
-                int offsetFromNullIndexList = 32;
-                indexedMzml.indexListOffset = indexListOffset - offsetFromNullIndexList;
 
-                //compute checksum
-                string chksum = "Dummy";
-
-                indexedMzml.fileChecksum = chksum;
-                indexedSerializer.Serialize(inMemoryTextWriter, indexedMzml);
-
-                string indexedMzmlwithBlankChecksumStream = Encoding.UTF8.GetString(inMemoryTextWriter.ToArray());
-
-                string indexedMzmlwithBlankChecksumString = indexedMzmlwithBlankChecksumStream.Substring(0, indexedMzmlwithBlankChecksumStream.IndexOf("<fileChecksum>", (a - 1)));
-
-                inMemoryTextWriter.Close();
-                inMemoryTextWriter = new MemoryStream(Encoding.UTF8.GetBytes(indexedMzmlwithBlankChecksumString));
-                chksum = BitConverter.ToString(System.Security.Cryptography.SHA1.Create().ComputeHash(inMemoryTextWriter));
-                inMemoryTextWriter.Close();
-
-                chksum = chksum.Replace("-", String.Empty);
-                chksum = chksum.ToLower();
-                indexedMzml.fileChecksum = chksum;
-
-                //finally write the indexedmzml
-                TextWriter writer = new StreamWriter(outputFile)
+                // write file w/ index to disk
+                indexedMzml.fileChecksum = "dummy";
+                using (TextWriter writer = new StreamWriter(outputFile))
                 {
-                    NewLine = "\n"
-                };
-                indexedSerializer.Serialize(writer, indexedMzml);
-                writer.Close();
+                    writer.NewLine = "\n";
+                    indexedSerializer.Serialize(writer, indexedMzml);
+                }
+
+                // compute checksum
+                var hash = GetSHA1Hash(outputFile);
+                indexedMzml.fileChecksum = BitConverter.ToString(hash.Hash).Replace("-", string.Empty).ToLowerInvariant();
+
+                // write the final file w/ index to disk
+                using (TextWriter writer = new StreamWriter(outputFile))
+                {
+                    writer.NewLine = "\n";
+                    indexedSerializer.Serialize(writer, indexedMzml);
+                }
             }
+        }
+
+        public static SHA1 GetSHA1Hash(string filePath)
+        {
+            SHA1 sha1hash = SHA1.Create();
+
+            using (StreamReader stream = new StreamReader(filePath))
+            {
+                stream.BaseStream.Position = 0;
+                stream.DiscardBufferedData();
+
+                string line;
+                byte[] buffer = new byte[1000000];
+                long totalBytesRead = 0;
+
+                while (stream.Peek() > 0)
+                {
+                    line = stream.ReadLine() + "\n";
+                    Array.Clear(buffer, 0, buffer.Length);
+
+                    if (line.Trim().StartsWith("<fileChecksum>"))
+                    {
+                        int f = line.IndexOf('>');
+                        line = line.Substring(0, f + 1);
+                    }
+
+                    int bytesRead = Encoding.UTF8.GetBytes(line, 0, line.Length, buffer, 0);
+                    totalBytesRead += bytesRead;
+
+                    if (bytesRead != 0)
+                    {
+                        sha1hash.TransformBlock(buffer, 0, bytesRead, buffer, 0);
+                    }
+                }
+
+                sha1hash.TransformFinalBlock(buffer, 0, 0);
+            }
+
+            return sha1hash;
         }
     }
 }
