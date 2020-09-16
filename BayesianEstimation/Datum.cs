@@ -7,7 +7,7 @@
         public readonly double? Dimension3;
         public readonly double Weight;
 
-        public Datum(double dataValue, double weight, double? dimension2 = null, double? dimension3 = null)
+        public Datum(double dataValue, double? dimension2 = null, double? dimension3 = null, double weight = 1)
         {
             this.Dimension1 = dataValue;
             this.Weight = weight;
