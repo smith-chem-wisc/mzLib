@@ -115,15 +115,15 @@ namespace FlashLFQ
             }
             else if (validMeasurements == 1)
             {
-                double mmt = skepticalPrior ? 0 : measurements.First(p => p.Weight > 0).DataValue;
+                double mmt = skepticalPrior ? 0 : measurements.First(p => p.Weight > 0).Dimension1;
 
                 return (new double[] { mmt }, new double[] { double.NaN }, new double[] { double.NaN });
             }
 
             // the Math.Max is here because in some edge cases the SD can be 0, which causes a crash
-            double sd = Math.Max(0.001, measurements.Select(p => p.DataValue).StandardDeviation());
+            double sd = Math.Max(0.001, measurements.Select(p => p.Dimension1).StandardDeviation());
 
-            double meanOfData = measurements.Select(p => p.DataValue).Mean();
+            double meanOfData = measurements.Select(p => p.Dimension1).Mean();
 
             // the Math.max is here for cases where the cutoff is very small (e.g., 0)
 
