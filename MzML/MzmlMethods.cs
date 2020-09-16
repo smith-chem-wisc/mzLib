@@ -1031,7 +1031,7 @@ namespace IO.MzML
                 }
 
                 // open the initial file and compute byte offset of the index, and the byte offset for each scan
-                Dictionary<int, long> SpectrumNumberToByteOffset = new Dictionary<int, long>();
+                Dictionary<int, long> spectrumNumberToByteOffset = new Dictionary<int, long>();
 
                 using (StreamReader reader = new StreamReader(outputFile))
                 {
@@ -1075,7 +1075,7 @@ namespace IO.MzML
                                 scanNumber++;
                             }
 
-                            SpectrumNumberToByteOffset.Add(scanNumber, byteOffset);
+                            spectrumNumberToByteOffset.Add(scanNumber, byteOffset);
                         }
                         if (line.StartsWith("<indexList ", StringComparison.InvariantCultureIgnoreCase))
                         {
@@ -1092,14 +1092,12 @@ namespace IO.MzML
                 };
 
                 var indexname = new Generated.IndexTypeName();
-
                 indexedMzml.indexList.index[0] = new Generated.IndexType
                 {
                     name = indexname,
                 };
 
                 indexname = Generated.IndexTypeName.chromatogram;
-
                 indexedMzml.indexList.index[1] = new Generated.IndexType
                 {
                     name = indexname,
@@ -1108,14 +1106,14 @@ namespace IO.MzML
                 int numScans = myMsDataFile.NumSpectra;
                 int numChromas = Int32.Parse(mzML.run.chromatogramList.count);
 
-                //add spectra offsets
+                // add spectra byte offsets
                 indexedMzml.indexList.index[0].offset = new Generated.OffsetType[numScans];
                 indexedMzml.indexList.index[1].offset = new Generated.OffsetType[numChromas];
 
                 foreach (var scan in myMsDataFile.GetAllScansList())
                 {
                     int i = scan.OneBasedScanNumber - 1;
-                    long byteOffset = SpectrumNumberToByteOffset[scan.OneBasedScanNumber];
+                    long byteOffset = spectrumNumberToByteOffset[scan.OneBasedScanNumber];
 
                     indexedMzml.indexList.index[0].offset[i] = new Generated.OffsetType
                     {
@@ -1161,7 +1159,6 @@ namespace IO.MzML
             {
                 string line;
                 byte[] buffer = new byte[1000000];
-                long totalBytesRead = 0;
                 bool foundChecksumField = false;
 
                 while (stream.Peek() > 0 && !foundChecksumField)
@@ -1176,7 +1173,6 @@ namespace IO.MzML
                     }
 
                     int bytesRead = Encoding.UTF8.GetBytes(line, 0, line.Length, buffer, 0);
-                    totalBytesRead += bytesRead;
 
                     if (bytesRead != 0)
                     {
