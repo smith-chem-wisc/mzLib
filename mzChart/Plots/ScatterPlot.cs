@@ -9,7 +9,10 @@ namespace mzPlot
 {
     public class ScatterPlot : Plot
     {
-        public ScatterPlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Creates a scatter plot. The data X value is the X-coordinate, the data Y value is the Y-coordinate.
+        /// </summary>
+        public ScatterPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
             AddScatterPlot(data);
         }

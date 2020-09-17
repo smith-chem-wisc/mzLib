@@ -9,7 +9,10 @@ namespace mzPlot
 {
     public class BarPlot : Plot
     {
-        public BarPlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Creates a bar plot. The data X value is the height of the bar, and the data label is the X-axis label under the bar.
+        /// </summary>
+        public BarPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
             AddBarPlot(data);
         }

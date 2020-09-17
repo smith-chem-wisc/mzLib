@@ -36,17 +36,6 @@ namespace WpfApp1
 
         public void ShowPlot()
         {
-            //Datum dp1 = new Datum(1, 145, label: "test1");
-            //Datum dp2 = new Datum(2, 200, label: "test2");
-            //Datum dp3 = new Datum(5, 45, label: "test3");
-
-            //Normal n = new Normal();
-            //List<Datum> data = new List<Datum>();
-            //for (int i = 0; i < 100; i++)
-            //{
-            //    data.Add(new Datum(n.Sample()));
-            //}
-
             var filePath = ThermoRawFileReader.LoadAllStaticData(@"C:\Data\Yeast\02-15-17_YL-stnd_old-heat.raw");
             Plot s = new XicPlot(thePlotView, new ExtractedIonChromatogram(new List<Datum>()));
 
@@ -67,6 +56,7 @@ namespace WpfApp1
             s.AddTextAnnotationToPlot("PEPTIDE", 100, -10);
 
             s.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
+            s.ExportToPng(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.png", 800, 450);
         }
     }
 }

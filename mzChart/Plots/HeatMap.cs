@@ -8,9 +8,12 @@ namespace mzPlot
 {
     public class HeatMap : Plot
     {
-        public HeatMap(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Creates a heatmap. Not implemented yet.
+        /// </summary>
+        public HeatMap(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
-
+            AddHeatMap(data);
         }
     }
 }

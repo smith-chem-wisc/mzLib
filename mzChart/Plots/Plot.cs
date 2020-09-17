@@ -33,6 +33,9 @@ namespace mzPlot
             }
         }
 
+        /// <summary>
+        /// Adds a scatter plot. The data X value is the X-coordinate, the data Y value is the Y-coordinate.
+        /// </summary>
         public void AddScatterPlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
@@ -66,6 +69,9 @@ namespace mzPlot
             }
         }
 
+        /// <summary>
+        /// Adds a line plot. The data X value is the X-coordinate, the data Y value is the Y-coordinate.
+        /// </summary>
         public void AddLinePlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
@@ -98,6 +104,9 @@ namespace mzPlot
             }
         }
 
+        /// <summary>
+        /// Adds a histogram. The data X value is used to bin the data.
+        /// </summary>
         public void AddHistogram(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
@@ -144,6 +153,9 @@ namespace mzPlot
             }
         }
 
+        /// <summary>
+        /// Adds a spectrum plot. The data X value is the X-coordinate of the spectral line, the data Y value is the height of the spectral line at X.
+        /// </summary>
         public void AddSpectrumPlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
@@ -163,22 +175,18 @@ namespace mzPlot
             }
         }
 
+        /// <summary>
+        /// Adds a pie plot. Not implemented yet.
+        /// </summary>
         public void AddPiePlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
             throw new NotImplementedException();
-
-            if (!data.Any())
-            {
-                return;
-            }
-
-            if (refreshAfterAddingData)
-            {
-                RefreshChart();
-            }
         }
 
+        /// <summary>
+        /// Adds a bar plot. The data X value is the height of the bar, and the data label is the X-axis label under the bar.
+        /// </summary>
         public void AddBarPlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
@@ -219,38 +227,27 @@ namespace mzPlot
             }
         }
 
+        /// <summary>
+        /// Adds a heatmap. Not implemented yet.
+        /// </summary>
         public void AddHeatMap(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
             throw new NotImplementedException();
-
-            if (!data.Any())
-            {
-                return;
-            }
-
-            if (refreshAfterAddingData)
-            {
-                RefreshChart();
-            }
         }
 
+        /// <summary>
+        /// Adds a boxplot. Not implemented yet.
+        /// </summary>
         public void AddBoxPlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
             throw new NotImplementedException();
-
-            if (!data.Any())
-            {
-                return;
-            }
-
-            if (refreshAfterAddingData)
-            {
-                RefreshChart();
-            }
         }
 
+        /// <summary>
+        /// Adds an extracted ion chromatogram.
+        /// </summary>
         public void AddXicPlot(ExtractedIonChromatogram xic, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
@@ -262,6 +259,9 @@ namespace mzPlot
             AddLinePlot(xic.Data, refreshAfterAddingData: refreshAfterAddingData);
         }
 
+        /// <summary>
+        /// Adds text to the plot. The x and y coordinates refer to the location on the chart itself, not on the data x and y axes.
+        /// </summary>
         public void AddTextAnnotationToPlot(string text, double x, double y, OxyColor? textColor = null, double fontSize = 20)
         {
             var annotation = new PlotTextAnnotation()
@@ -279,11 +279,13 @@ namespace mzPlot
             RefreshChart();
         }
 
+        /// <summary>
+        /// Adds text to the plot. The x and y coordinates refer to the location on the data x and y axes, not the chart area on the screen.
+        /// Not implemented yet.
+        /// </summary>
         public void AddTextAnnotationToData(string text, double x, double y, OxyColor? textColor = null, double fontSize = 20)
         {
             throw new NotImplementedException();
-
-            RefreshChart();
         }
 
         /// <summary>
@@ -316,11 +318,15 @@ namespace mzPlot
         }
 
         /// <summary>
-        /// Exports the plot to a .png file. Not implemented yet.
+        /// Exports the plot to a .png file.
         /// </summary>
-        public void ExportToPng(string path)
+        public void ExportToPng(string path, int width = 800, int height = 600)
         {
-            throw new NotImplementedException();
+            using (var s = File.OpenWrite(path))
+            {
+                var pngExporter = new OxyPlot.Wpf.PngExporter { Width = width, Height = height, Background = OxyColors.White };
+                pngExporter.Export(Model, s);
+            }
         }
 
         /// <summary>

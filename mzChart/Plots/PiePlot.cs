@@ -9,7 +9,10 @@ namespace mzPlot
 {
     public class PiePlot : Plot
     {
-        public PiePlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Creates a pie plot. Not implemented yet.
+        /// </summary>
+        public PiePlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
             AddPiePlot(data);
         }

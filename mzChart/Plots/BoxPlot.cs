@@ -8,7 +8,10 @@ namespace mzPlot
 {
     public class BoxPlot : Plot
     {
-        public BoxPlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Creates a boxplot. Not implemented yet.
+        /// </summary>
+        public BoxPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
             AddHistogram(data);
         }

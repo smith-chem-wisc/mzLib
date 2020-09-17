@@ -10,12 +10,15 @@ namespace mzPlot
 {
     public class SpectrumPlot : Plot
     {
-        public SpectrumPlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Plots a mass spectrum. The data X value is the m/z of the spectral line, the data Y value is the intensity (height) of the spectral line.
+        /// </summary>
+        public SpectrumPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
             AddSpectrumPlot(data);
         }
 
-        public SpectrumPlot(PlotView oxyPlotView, MzSpectrum spectrum, List<Datum> dataToAnnotate = null) : base(oxyPlotView)
+        public SpectrumPlot(PlotView oxyPlotView, MzSpectrum spectrum) : base(oxyPlotView)
         {
             List<Datum> spectrumData = new List<Datum>();
 

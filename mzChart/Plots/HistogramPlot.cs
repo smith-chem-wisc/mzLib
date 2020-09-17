@@ -9,7 +9,10 @@ namespace mzPlot
 {
     public class HistogramPlot : Plot
     {
-        public HistogramPlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
+        /// <summary>
+        /// Creates a histogram plot. The data X value is used to bin the data.
+        /// </summary>
+        public HistogramPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
             AddHistogram(data);
         }
