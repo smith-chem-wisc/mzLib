@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
 </Project>

@@ -3,6 +3,7 @@ using OxyPlot.Wpf;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using MzLibUtil;
 
 namespace mzPlot
 {
@@ -10,7 +11,7 @@ namespace mzPlot
     {
         public ScatterPlot(PlotView oxyPlotView, List<Datum> data) : base(oxyPlotView)
         {
-            AddData(PlotType.Scatter, data);
+            AddScatterPlot(data);
         }
     }
 }

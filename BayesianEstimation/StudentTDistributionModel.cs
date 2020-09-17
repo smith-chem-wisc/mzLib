@@ -1,4 +1,5 @@
 ﻿using MathNet.Numerics.Distributions;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 
@@ -37,7 +38,7 @@ namespace BayesianEstimation
 
         protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint)
         {
-            return Math.Pow(StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.Dimension1), datapoint.Weight);
+            return Math.Pow(StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.X), datapoint.Weight);
         }
     }
 }
