@@ -36,27 +36,39 @@ namespace WpfApp1
 
         public void ShowPlot()
         {
-            var filePath = ThermoRawFileReader.LoadAllStaticData(@"C:\Data\Yeast\02-15-17_YL-stnd_old-heat.raw");
-            Plot s = new XicPlot(thePlotView, new ExtractedIonChromatogram(new List<Datum>()));
+            //var filePath = ThermoRawFileReader.LoadAllStaticData(@"C:\Data\Yeast\02-15-17_YL-stnd_old-heat.raw");
+            //Plot s = new XicPlot(thePlotView, new ExtractedIonChromatogram(new List<Datum>()));
 
-            double monoMass = 2965.35071;
+            //double monoMass = 2965.35071;
 
-            for (int i = 0; i < 5; i++)
+            //for (int i = 0; i < 5; i++)
+            //{
+            //    var isotopeXic = Chromatography.ExtractIonChromatogram(
+            //        filePath, 
+            //        mass: monoMass + Constants.C13MinusC12 * i, 
+            //        charge: 3, 
+            //        massTolerance: new PpmTolerance(10), 
+            //        retentionTime: 132.18457);
+
+            //    s.AddXicPlot(isotopeXic);
+            //}
+
+            //s.AddTextAnnotationToPlot("PEPTIDE", 100, -10);
+
+            //s.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
+            //s.ExportToPng(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.png", 800, 450);
+
+            Normal n = new Normal();
+
+            List<Datum> data = new List<Datum>();
+            for (int i = 0; i < 1000; i++)
             {
-                var isotopeXic = Chromatography.ExtractIonChromatogram(
-                    filePath, 
-                    mass: monoMass + Constants.C13MinusC12 * i, 
-                    charge: 3, 
-                    massTolerance: new PpmTolerance(10), 
-                    retentionTime: 132.18457);
-
-                s.AddXicPlot(isotopeXic);
+                data.Add(new Datum(n.Sample()));
             }
 
-            s.AddTextAnnotationToPlot("PEPTIDE", 100, -10);
+            var plot = new HistogramPlot(thePlotView, data, 20);
 
-            s.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
-            s.ExportToPng(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.png", 800, 450);
+            plot.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
         }
     }
 }

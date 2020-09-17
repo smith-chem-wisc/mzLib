@@ -31,7 +31,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLFQ\TestFlashLFQ.csproj", "{0E4C6C07-2FFA-48A9-9C95-7D5489DBCDD2}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzPlot", "mzChart\mzPlot.csproj", "{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzPlot", "mzPlot\mzPlot.csproj", "{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WpfApp1", "WpfApp1\WpfApp1.csproj", "{7C786E8F-A056-42E5-B8D6-8941712DE01A}"
 EndProject

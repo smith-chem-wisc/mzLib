@@ -107,7 +107,7 @@ namespace mzPlot
         /// <summary>
         /// Adds a histogram. The data X value is used to bin the data.
         /// </summary>
-        public void AddHistogram(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
+        public void AddHistogram(IEnumerable<Datum> data, int numBins, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
             if (!data.Any())
@@ -115,36 +115,23 @@ namespace mzPlot
                 return;
             }
 
-            int numBins = data.Count() / 10;
-            numBins = Math.Max(numBins, 1);
-            numBins = Math.Min(numBins, 100);
-
             double min = data.Min(p => p.X);
             double max = data.Max(p => p.X);
 
             double binWidth = (max - min) / numBins;
+            var histogramSeries = new RectangleBarSeries();
 
             double binFloor = min;
-
-            var histXAxis = new CategoryAxis { Position = AxisPosition.Bottom };
-
-            var histogramSeries = new ColumnSeries
-            {
-                Title = seriesTitle,
-            };
-
             for (int i = 0; i < numBins; i++)
             {
                 var binData = data.Where(p => p.X >= binFloor && p.X < binFloor + binWidth);
 
-                histXAxis.Labels.Add(binFloor.ToString("F2"));
-
-                histogramSeries.Items.Add(new ColumnItem(binData.Count()));
+                var bin = new RectangleBarItem(binFloor, 0, binFloor + binWidth, binData.Count());
+                histogramSeries.Items.Add(bin);
 
                 binFloor += binWidth;
             }
 
-            Model.Axes.Add(histXAxis);
             Model.Series.Add(histogramSeries);
 
             if (refreshAfterAddingData)

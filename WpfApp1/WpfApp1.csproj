@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\mzChart\mzPlot.csproj" />
+    <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\MzML\MzML.csproj" />
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
   </ItemGroup>

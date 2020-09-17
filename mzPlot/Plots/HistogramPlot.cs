@@ -12,9 +12,9 @@ namespace mzPlot
         /// <summary>
         /// Creates a histogram plot. The data X value is used to bin the data.
         /// </summary>
-        public HistogramPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
+        public HistogramPlot(PlotView oxyPlotView, IEnumerable<Datum> data, int numBins) : base(oxyPlotView)
         {
-            AddHistogram(data);
+            AddHistogram(data, numBins);
         }
     }
 }

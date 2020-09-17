@@ -13,7 +13,7 @@ namespace mzPlot
         /// </summary>
         public BoxPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
-            AddHistogram(data);
+            AddBoxPlot(data);
         }
     }
 }
