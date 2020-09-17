@@ -15,6 +15,22 @@ namespace mzPlot
         private PlotModel privateModel;
 
         /// <summary>
+        /// The OxyPlot model for the chart.
+        /// </summary>
+        public PlotModel Model
+        {
+            get
+            {
+                return this.privateModel;
+            }
+            set
+            {
+                this.privateModel = value;
+                RefreshChart();
+            }
+        }
+
+        /// <summary>
         /// Clears the current plot.
         /// </summary>
         public void ClearChart()
@@ -24,7 +40,7 @@ namespace mzPlot
         }
 
         /// <summary>
-        /// Refreshes the chart. Call this method after adding a plot to the chart.
+        /// Refreshes the chart.
         /// </summary>
         public void RefreshChart()
         {
@@ -88,7 +104,10 @@ namespace mzPlot
                     break;
             }
 
-            RefreshChart();
+            if (refreshAfterAddingData)
+            {
+                RefreshChart();
+            }
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -97,22 +116,6 @@ namespace mzPlot
         {
             ClearChart();
             plotView.DataContext = this;
-        }
-
-        /// <summary>
-        /// The OxyPlot model for the chart.
-        /// </summary>
-        public PlotModel Model
-        {
-            get
-            {
-                return this.privateModel;
-            }
-            set
-            {
-                this.privateModel = value;
-                RefreshChart();
-            }
         }
 
         protected void NotifyPropertyChanged(string propertyName)
