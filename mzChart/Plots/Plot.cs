@@ -262,6 +262,30 @@ namespace mzPlot
             AddLinePlot(xic.Data, refreshAfterAddingData: refreshAfterAddingData);
         }
 
+        public void AddTextAnnotationToPlot(string text, double x, double y, OxyColor? textColor = null, double fontSize = 20)
+        {
+            var annotation = new PlotTextAnnotation()
+            {
+                Text = text,
+                FontSize = fontSize,
+                Font = "Times New Roman",
+                TextColor = OxyColors.Black,
+                X = x,
+                Y = y
+            };
+
+            this.Model.Annotations.Add(annotation);
+
+            RefreshChart();
+        }
+
+        public void AddTextAnnotationToData(string text, double x, double y, OxyColor? textColor = null, double fontSize = 20)
+        {
+            throw new NotImplementedException();
+
+            RefreshChart();
+        }
+
         /// <summary>
         /// Clears the current plot.
         /// </summary>

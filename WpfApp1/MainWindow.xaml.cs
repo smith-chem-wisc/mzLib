@@ -63,6 +63,10 @@ namespace WpfApp1
 
                 s.AddXicPlot(isotopeXic);
             }
+
+            s.AddTextAnnotationToPlot("PEPTIDE", 100, -10);
+
+            s.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
         }
     }
 }
