@@ -219,6 +219,22 @@ namespace mzPlot
             }
         }
 
+        public void AddHeatMap(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
+            bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
+        {
+            throw new NotImplementedException();
+
+            if (!data.Any())
+            {
+                return;
+            }
+
+            if (refreshAfterAddingData)
+            {
+                RefreshChart();
+            }
+        }
+
         public void AddXicPlot(ExtractedIonChromatogram xic, OxyColor? borderColor = null, OxyColor? fillColor = null, double strokeThickness = 2,
             bool addToLegend = true, string seriesTitle = "", bool refreshAfterAddingData = true)
         {
