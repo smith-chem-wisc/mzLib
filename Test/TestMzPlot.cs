@@ -8,6 +8,7 @@ using BayesianEstimation;
 using System.Threading;
 using OxyPlot.Series;
 using MzLibUtil;
+using System.IO;
 
 namespace Test
 {
@@ -112,8 +113,8 @@ namespace Test
             int numBins = 10;
 
             // just some example data to plot
-            var data = new List<Datum>() 
-            {  
+            var data = new List<Datum>()
+            {
                 new Datum(0),
                 new Datum(0.75),
                 new Datum(0),
@@ -209,6 +210,38 @@ namespace Test
             Assert.That(scatterPoints[0].Y == 5);
             Assert.That(scatterPoints[1].X == 4);
             Assert.That(scatterPoints[1].Y == 6);
+        }
+
+        [Test]
+        public static void TestPdfExport()
+        {
+            // the PlotView is a WPF control that's created in the .xaml code
+            OxyPlot.Wpf.PlotView examplePlotView = new OxyPlot.Wpf.PlotView();
+
+            // create the plot
+            Plot plot = new ScatterPlot(examplePlotView, new List<Datum> { new Datum(0, 1), new Datum(2, 3) });
+
+            string exportPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "testPdfExport.pdf");
+            plot.ExportToPdf(exportPath);
+            Assert.That(File.Exists(exportPath));
+
+            File.Delete(exportPath);
+        }
+
+        [Test]
+        public static void TestPngExport()
+        {
+            // the PlotView is a WPF control that's created in the .xaml code
+            OxyPlot.Wpf.PlotView examplePlotView = new OxyPlot.Wpf.PlotView();
+
+            // create the plot
+            Plot plot = new ScatterPlot(examplePlotView, new List<Datum> { new Datum(0, 1), new Datum(2, 3) });
+
+            string exportPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "testPngExport.png");
+            plot.ExportToPng(exportPath);
+            Assert.That(File.Exists(exportPath));
+
+            File.Delete(exportPath);
         }
     }
 }
