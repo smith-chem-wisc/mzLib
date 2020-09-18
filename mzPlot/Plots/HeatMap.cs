@@ -13,7 +13,7 @@ namespace mzPlot
         /// </summary>
         public HeatMap(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
-            AddHeatMap(data);
+            throw new NotImplementedException();
         }
     }
 }

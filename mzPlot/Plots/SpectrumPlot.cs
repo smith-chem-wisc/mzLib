@@ -1,10 +1,12 @@
 ﻿using BayesianEstimation;
 using MassSpectrometry;
-using OxyPlot.Wpf;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using MzLibUtil;
+using System.Linq;
+using OxyPlot;
+using OxyPlot.Axes;
 
 namespace mzPlot
 {
@@ -13,26 +15,12 @@ namespace mzPlot
         /// <summary>
         /// Plots a mass spectrum. The data X value is the m/z of the spectral line, the data Y value is the intensity (height) of the spectral line.
         /// </summary>
-        public SpectrumPlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
+        public SpectrumPlot(OxyPlot.Wpf.PlotView oxyPlotView, IEnumerable<Datum> data, OxyColor? lineColor = null, double lineThickness = 0.5,
+            string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
+            bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true) : base(oxyPlotView)
         {
-            AddSpectrumPlot(data);
-        }
-
-        public SpectrumPlot(PlotView oxyPlotView, MzSpectrum spectrum) : base(oxyPlotView)
-        {
-            List<Datum> spectrumData = new List<Datum>();
-
-            for (int i = 0; i < spectrum.XArray.Length; i++)
-            {
-                double mz = spectrum.XArray[i];
-                double intensity = spectrum.YArray[i];
-
-                spectrumData.Add(new Datum(mz, intensity));
-            }
-
-            AddSpectrumPlot(spectrumData);
-
-            // TODO: add annotation
+            AddSpectrumPlot(data, lineColor, lineThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle,
+                addToLegend, seriesTitle, refreshAfterAddingData);
         }
     }
 }

@@ -20,6 +20,7 @@ using MassSpectrometry;
 using IO.MzML;
 using IO.ThermoRawFileReader;
 using Chemistry;
+using OxyPlot;
 
 namespace WpfApp1
 {
@@ -37,6 +38,7 @@ namespace WpfApp1
         public void ShowPlot()
         {
             //var filePath = ThermoRawFileReader.LoadAllStaticData(@"C:\Data\Yeast\02-15-17_YL-stnd_old-heat.raw");
+            //var firstMs1Scan = filePath.GetMS1Scans().First(p => p.OneBasedScanNumber == 13638);
             //Plot s = new XicPlot(thePlotView, new ExtractedIonChromatogram(new List<Datum>()));
 
             //double monoMass = 2965.35071;
@@ -58,17 +60,40 @@ namespace WpfApp1
             //s.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
             //s.ExportToPng(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.png", 800, 450);
 
-            Normal n = new Normal();
+            
 
-            List<Datum> data = new List<Datum>();
-            for (int i = 0; i < 1000; i++)
-            {
-                data.Add(new Datum(n.Sample()));
-            }
+            //plot.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
 
-            var plot = new HistogramPlot(thePlotView, data, 20);
+            // Test bar plot
+            List<Datum> data = new List<Datum>() { new Datum(4, label: "test1"), new Datum(6, label: "test2") };
+            Plot plot = new BarPlot(thePlotView, data);
 
-            plot.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\test.pdf", 800, 450);
+            //// test line plot
+            data = new List<Datum>() { new Datum(0, 1), new Datum(1, 4), new Datum(2, 6) };
+            //plot = new LinePlot(thePlotView, data);
+
+            //// test scatter plot
+            plot = new ScatterPlot(thePlotView, data, markerColor: OxyColors.Blue, markerSize: 2, "x axis test", "y axis test", "title", "subtitle");
+
+            //// test spectrum plot
+            //data.Clear();
+            //for (int i = 0; i < firstMs1Scan.MassSpectrum.XArray.Length; i++)
+            //{
+            //    data.Add(new Datum(firstMs1Scan.MassSpectrum.XArray[i], firstMs1Scan.MassSpectrum.YArray[i]));
+            //}
+            //plot = new SpectrumPlot(thePlotView, data);
+
+            //data.Clear();
+
+            //// test histogram
+            //Normal n = new Normal();
+
+            //for (int i = 0; i < 1000; i++)
+            //{
+            //    data.Add(new Datum(n.Sample()));
+            //}
+
+            //plot = new HistogramPlot(thePlotView, data, 20);
         }
     }
 }

@@ -118,7 +118,7 @@ namespace Test
             var datapoint2 = new Datum(2, 3);
 
             // create the plot
-            Plot plot = new HistogramPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 });
+            Plot plot = new HistogramPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 }, 5);
 
             // check to make sure the data was plotted
             Assert.That(plot.Model.Series.Count == 1);

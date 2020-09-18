@@ -14,7 +14,7 @@ namespace mzPlot
         /// </summary>
         public PiePlot(PlotView oxyPlotView, IEnumerable<Datum> data) : base(oxyPlotView)
         {
-            AddPiePlot(data);
+            throw new NotImplementedException();
         }
     }
 }
