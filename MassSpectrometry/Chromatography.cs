@@ -40,14 +40,5 @@ namespace MassSpectrometry
 
             return new ExtractedIonChromatogram(xicData);
         }
-
-        ///// <summary>
-        ///// 
-        ///// </summary>
-        //public static ExtractedIonChromatogram ExtractIonChromatogram(DynamicDataConnection file, double mass, int charge, Tolerance massTolerance,
-        //    double retentionTime, double retentionTimeWindowWidth = 5)
-        //{
-        //    return new ExtractedIonChromatogram();
-        //}
     }
 }

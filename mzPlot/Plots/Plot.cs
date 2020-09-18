@@ -288,30 +288,6 @@ namespace mzPlot
         }
 
         /// <summary>
-        /// Adds a pie plot. Not implemented yet.
-        /// </summary>
-        public void AddPiePlot(IEnumerable<Datum> data, bool refreshAfterAddingData = true)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Adds a heatmap. Not implemented yet.
-        /// </summary>
-        public void AddHeatMap(IEnumerable<Datum> data, bool refreshAfterAddingData = true)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Adds a boxplot. Not implemented yet.
-        /// </summary>
-        public void AddBoxPlot(IEnumerable<Datum> data, bool refreshAfterAddingData = true)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
         /// Adds text to the plot. The x and y coordinates refer to the location on the chart itself, not on the data x and y axes.
         /// </summary>
         public PlotTextAnnotation AddTextAnnotationToPlotArea(string text, double x, double y, OxyColor? textColor = null,
@@ -337,15 +313,6 @@ namespace mzPlot
             RefreshChart();
 
             return annotation;
-        }
-
-        /// <summary>
-        /// Adds text to the plot. The x and y coordinates refer to the location on the data x and y axes, not the chart area on the screen.
-        /// Not implemented yet.
-        /// </summary>
-        public void AddTextAnnotationToData(string text, double x, double y, OxyColor? textColor = null, double fontSize = 20)
-        {
-            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -387,14 +354,6 @@ namespace mzPlot
                 var pngExporter = new OxyPlot.Wpf.PngExporter { Width = width, Height = height, Background = OxyColors.White };
                 pngExporter.Export(Model, s);
             }
-        }
-
-        /// <summary>
-        /// Exports the plot to an .svg file. Not implemented yet.
-        /// </summary>
-        public void ExportToSvg(string path)
-        {
-            throw new NotImplementedException();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

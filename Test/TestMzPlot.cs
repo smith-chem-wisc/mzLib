@@ -243,5 +243,27 @@ namespace Test
 
             File.Delete(exportPath);
         }
+
+        [Test]
+        public static void TestDataToString()
+        {
+            Datum datum = new Datum(0, 1, 2, "test", 0.5);
+            Assert.That(datum.ToString() == "0, 1, 2; test; 0.5");
+        }
+
+        [Test]
+        public static void TestTextAnnotation()
+        {
+            // the PlotView is a WPF control that's created in the .xaml code
+            OxyPlot.Wpf.PlotView examplePlotView = new OxyPlot.Wpf.PlotView();
+
+            // create the plot
+            Plot plot = new ScatterPlot(examplePlotView, new List<Datum> { new Datum(0, 1), new Datum(2, 3) });
+
+            plot.AddTextAnnotationToPlotArea("PEPTIDESEQUENCE", 100, -10);
+
+            Assert.That(plot.Model.Annotations.Count == 1);
+            Assert.That(((PlotTextAnnotation)plot.Model.Annotations[0]).Text == "PEPTIDESEQUENCE");
+        }
     }
 }
