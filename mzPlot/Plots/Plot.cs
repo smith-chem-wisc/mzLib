@@ -235,7 +235,6 @@ namespace mzPlot
 
         /// <summary>
         /// Adds a bar plot. The data X value is the height of the bar, and the data label is the X-axis label under the bar.
-        /// The bar plot can either be grouped or stacked by passing in multiple data with the same label.
         /// </summary>
         public void AddBarPlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null,
             double borderThickness = 1, string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null,

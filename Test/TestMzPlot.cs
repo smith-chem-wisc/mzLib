@@ -89,8 +89,8 @@ namespace Test
             OxyPlot.Wpf.PlotView examplePlotView = new OxyPlot.Wpf.PlotView();
 
             // just some example data to plot
-            var datapoint1 = new Datum(0, 1);
-            var datapoint2 = new Datum(2, 3);
+            var datapoint1 = new Datum(0, label: "category1");
+            var datapoint2 = new Datum(2, label: "category2");
 
             // create the plot
             Plot plot = new BarPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 });
@@ -99,12 +99,10 @@ namespace Test
             Assert.That(plot.Model.Series.Count == 1);
             var series = plot.Model.Series[0];
 
-            var points = ((LineSeries)series).Points;
+            var points = ((ColumnSeries)series).Items;
             Assert.That(points.Count == 2);
-            Assert.That(points[0].X == 0);
-            Assert.That(points[0].Y == 1);
-            Assert.That(points[1].X == 2);
-            Assert.That(points[1].Y == 3);
+            Assert.That(points[0].Value == 0);
+            Assert.That(points[1].Value == 2);
         }
 
         [Test]
@@ -113,23 +111,35 @@ namespace Test
             // the PlotView is a WPF control that's created in the .xaml code
             OxyPlot.Wpf.PlotView examplePlotView = new OxyPlot.Wpf.PlotView();
 
+            int numBins = 10;
+
             // just some example data to plot
-            var datapoint1 = new Datum(0, 1);
-            var datapoint2 = new Datum(2, 3);
+            var data = new List<Datum>() 
+            {  
+                new Datum(0),
+                new Datum(0.75),
+                new Datum(0),
+                new Datum(0.5),
+                new Datum(3),
+                new Datum(3.5),
+                new Datum(3),
+                new Datum(3),
+                new Datum(10),
+                new Datum(10),
+            };
 
             // create the plot
-            Plot plot = new HistogramPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 }, 5);
+            Plot plot = new HistogramPlot(examplePlotView, data, numBins);
 
             // check to make sure the data was plotted
             Assert.That(plot.Model.Series.Count == 1);
             var series = plot.Model.Series[0];
 
-            var points = ((LineSeries)series).Points;
-            Assert.That(points.Count == 2);
-            Assert.That(points[0].X == 0);
-            Assert.That(points[0].Y == 1);
-            Assert.That(points[1].X == 2);
-            Assert.That(points[1].Y == 3);
+            var points = ((RectangleBarSeries)series).Items;
+            Assert.That(points.Count == numBins);
+            Assert.That(points[0].X0 == 0); // bin starts at 0
+            Assert.That(points[0].X1 == 1); // bin ends at 1
+            Assert.That(points[0].Y1 == 4); // 4 data points between 0 and 1
         }
 
         [Test]
@@ -146,13 +156,21 @@ namespace Test
             Plot plot = new SpectrumPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 });
 
             // check to make sure the data was plotted
-            Assert.That(plot.Model.Series.Count == 1);
+            Assert.That(plot.Model.Series.Count == 2);
             var series = plot.Model.Series[0];
 
             var points = ((LineSeries)series).Points;
             Assert.That(points.Count == 2);
             Assert.That(points[0].X == 0);
-            Assert.That(points[0].Y == 1);
+            Assert.That(points[0].Y == 0);
+            Assert.That(points[1].X == 0);
+            Assert.That(points[1].Y == 1);
+
+            series = plot.Model.Series[1];
+            points = ((LineSeries)series).Points;
+            Assert.That(points.Count == 2);
+            Assert.That(points[0].X == 2);
+            Assert.That(points[0].Y == 0);
             Assert.That(points[1].X == 2);
             Assert.That(points[1].Y == 3);
         }
