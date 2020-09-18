@@ -78,8 +78,6 @@ namespace Test
             Assert.That(points[0].Y == 1);
             Assert.That(points[1].X == 2);
             Assert.That(points[1].Y == 3);
-
-            plot.ExportToPdf(@"C:\Data\LVS_TD_Yeast\MSConvertMzml\TestPdfExport.pdf");
         }
 
         [Test]
