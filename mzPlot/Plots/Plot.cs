@@ -338,7 +338,7 @@ namespace mzPlot
         /// </summary>
         public void ExportToPdf(string path, double width = 800, double height = 600)
         {
-            using (var s = File.OpenWrite(path))
+            using (var s = File.Create(path))
             {
                 PdfExporter.Export(Model, s, width, height);
             }
@@ -349,10 +349,23 @@ namespace mzPlot
         /// </summary>
         public void ExportToPng(string path, int width = 800, int height = 600)
         {
-            using (var s = File.OpenWrite(path))
+            using (var s = File.Create(path))
             {
                 var pngExporter = new OxyPlot.Wpf.PngExporter { Width = width, Height = height, Background = OxyColors.White };
                 pngExporter.Export(Model, s);
+            }
+        }
+
+        /// <summary>
+        /// Exports the plot to an .svg file. The resulting .svg files seem to not render properly in Google Chrome, 
+        /// but work in Mozilla Firefox, and Microsoft Internet Explorer/Edge.
+        /// </summary>
+        public void ExportToSvg(string path, int width = 800, int height = 600)
+        {
+            using (var s = File.Create(path))
+            {
+                var svgExporter = new SvgExporter { Width = width, Height = height, UseVerticalTextAlignmentWorkaround = true };
+                svgExporter.Export(Model, s);
             }
         }
 
@@ -362,6 +375,7 @@ namespace mzPlot
         {
             ClearChart();
             plotView.DataContext = this;
+            plotView.Model = Model;
         }
 
         protected void AddLinearAxis(string axisLabel, AxisPosition position)
