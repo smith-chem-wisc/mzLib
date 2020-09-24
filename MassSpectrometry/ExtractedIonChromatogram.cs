@@ -23,7 +23,7 @@ namespace MassSpectrometry
         public IEnumerable<Datum> Data
         {
             // return the data, ordered by retention time
-            get { return XicData.OrderBy(p => p.Z).AsEnumerable(); }
+            get { return XicData.OrderBy(p => p.X).AsEnumerable(); }
         }
     }
 }

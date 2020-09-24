@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using MzLibUtil;
 using System;
 using System.Collections.Concurrent;
@@ -353,6 +354,38 @@ namespace MassSpectrometry
             }
             foreach (var ok in currentListOfGroups)
                 yield return ok;
+        }
+
+        /// <summary>
+        /// Extracts an ion chromatogram from the spectra file, given a mass, charge, retention time, and mass tolerance.
+        /// </summary>
+        public ExtractedIonChromatogram ExtractIonChromatogram(double neutralMass, int charge, Tolerance massTolerance,
+            double retentionTimeInMinutes, int msOrder = 1, double retentionTimeWindowWidthInMinutes = 5)
+        {
+            double theorMz = neutralMass.ToMz(charge);
+            double startRt = retentionTimeInMinutes - retentionTimeWindowWidthInMinutes / 2;
+            double endRt = retentionTimeInMinutes + retentionTimeWindowWidthInMinutes / 2;
+            List<Datum> xicData = new List<Datum>();
+
+            IEnumerable<MsDataScan> scansInRtWindow = GetMsScansInTimeRange(startRt, endRt);
+
+            foreach (MsDataScan scan in scansInRtWindow.Where(p => p.MsnOrder == msOrder))
+            {
+                int ind = scan.MassSpectrum.GetClosestPeakIndex(theorMz);
+
+                double expMz = scan.MassSpectrum.XArray[ind];
+
+                if (massTolerance.Within(expMz.ToMass(charge), neutralMass))
+                {
+                    xicData.Add(new Datum(scan.RetentionTime, scan.MassSpectrum.YArray[ind]));
+                }
+                else
+                {
+                    xicData.Add(new Datum(scan.RetentionTime, 0));
+                }
+            }
+
+            return new ExtractedIonChromatogram(xicData);
         }
 
         protected class ReverseComparer : IComparer<double>
