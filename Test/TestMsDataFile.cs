@@ -192,7 +192,7 @@ namespace Test
             
             var peptide = new PeptideWithSetModifications("KAPAGGAADAAAK", new Dictionary<string, Modification>());
 
-            var xic = Chromatography.ExtractIonChromatogram(data, peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
+            var xic = data.ExtractIonChromatogram(peptide.MonoisotopicMass, 2, new PpmTolerance(10), 24.806);
             Assert.That(xic.Data.Count(p => p.Y > 0) == 4);
         }
 
