@@ -1,5 +1,6 @@
 ﻿using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +36,7 @@ namespace BayesianEstimation
         /// Construct the adaptive Metropolis within Gibbs sampler.
         /// </summary>
         public AdaptiveMetropolisWithinGibbs(double[] data, Model model, int batch_size = 3, int? seed = null) 
-            : this(data.Select(p => new Datum(p, 1)).ToArray(), model, batch_size, seed)
+            : this(data.Select(p => new Datum(p, weight: 1)).ToArray(), model, batch_size, seed)
         {
 
         }

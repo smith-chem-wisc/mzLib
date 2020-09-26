@@ -2,6 +2,7 @@
 using MathNet.Numerics.Distributions;
 using System;
 using System.Collections.Generic;
+using MzLibUtil;
 
 namespace FlashLFQ
 {
@@ -71,7 +72,7 @@ namespace FlashLFQ
 
         protected override double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint)
         {
-            return Math.Pow(StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.DataValue), datapoint.Weight);
+            return Math.Pow(StudentT.PDF(paramProposals[0], paramProposals[1], paramProposals[2], datapoint.X), datapoint.Weight);
         }
     }
 }
