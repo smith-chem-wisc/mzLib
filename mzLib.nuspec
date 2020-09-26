@@ -19,6 +19,7 @@
 		<dependency id="Microsoft.Win32.Registry" version="4.6.0"/>
 		<dependency id="OpenMcdf" version="2.2.1.3"/>
 		<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
+		<dependency id="OxyPlot.Wpf" version="2.0.0"/>
       </group>
     </dependencies>
   </metadata>
@@ -33,6 +34,7 @@
     <file src="MzML\bin\Release\netcoreapp3.0\MzML.dll" target="lib\netcoreapp3.0" />
     <file src="PepXML\bin\Release\netcoreapp3.0\PepXML.dll" target="lib\netcoreapp3.0" /> 
     <file src="Proteomics\bin\Release\netcoreapp3.0\Proteomics.dll" target="lib\netcoreapp3.0" /> 
+	<file src="mzPlot\bin\Release\netcoreapp3.0\mzPlot.dll" target="lib\netcoreapp3.0" /> 
     <file src="Proteomics\bin\Release\netcoreapp3.0\ProteolyticDigestion\proteases.tsv" target="lib\netcoreapp3.0\ProteolyticDigestion" /> 
 	<file src="UsefulProteomicsDatabases\bin\Release\netcoreapp3.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\netcoreapp3.0" /> 
 	<file src="ThermoRawFileReader\bin\Release\netcoreapp3.0\ThermoRawFileReader.dll" target="lib\netcoreapp3.0" /> 
