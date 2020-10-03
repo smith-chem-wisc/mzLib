@@ -19,7 +19,7 @@ namespace mzPlot
             double borderThickness = 1, string xAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
             bool refreshAfterAddingData = true) : base(oxyPlotView)
         {
-            AddHistogram(data, numBins, borderColor, fillColor, borderThickness, xAxisLabel, chartTitle, chartSubtitle, refreshAfterAddingData);
+            AddHistogramSeries(data, numBins, borderColor, fillColor, borderThickness, xAxisLabel, chartTitle, chartSubtitle, refreshAfterAddingData);
         }
     }
 }

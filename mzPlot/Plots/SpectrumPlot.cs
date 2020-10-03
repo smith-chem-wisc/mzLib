@@ -20,7 +20,7 @@ namespace mzPlot
             string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
             bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true) : base(oxyPlotView)
         {
-            AddSpectrumPlot(data, lineColor, lineThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle,
+            AddSpectrumSeries(data, lineColor, lineThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle,
                 addToLegend, seriesTitle, refreshAfterAddingData);
         }
     }

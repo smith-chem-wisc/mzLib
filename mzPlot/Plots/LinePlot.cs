@@ -19,7 +19,7 @@ namespace mzPlot
             string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
             bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true) : base(oxyPlotView)
         {
-            AddLinePlot(data, lineColor, lineThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle, 
+            AddLineSeries(data, lineColor, lineThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle, 
                 addToLegend, seriesTitle, refreshAfterAddingData);
         }
     }

@@ -20,7 +20,7 @@ namespace mzPlot
             string chartSubtitle = null, bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true) 
             : base(oxyPlotView)
         {
-            AddBarPlot(data, borderColor, fillColor, borderThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle,
+            AddBarSeries(data, borderColor, fillColor, borderThickness, xAxisLabel, yAxisLabel, chartTitle, chartSubtitle,
                 addToLegend, seriesTitle, refreshAfterAddingData);
         }
     }

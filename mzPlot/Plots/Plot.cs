@@ -10,6 +10,8 @@ using System.Linq;
 using System.Text;
 using MzLibUtil;
 using MassSpectrometry;
+using System.Drawing;
+using Nett;
 
 namespace mzPlot
 {
@@ -20,6 +22,7 @@ namespace mzPlot
         /// <summary>
         /// The OxyPlot model for the chart.
         /// </summary>
+        [TomlIgnore]
         public PlotModel Model
         {
             get
@@ -36,27 +39,28 @@ namespace mzPlot
         /// <summary>
         /// Adds a scatter plot. The data X value is the X-coordinate, the data Y value is the Y-coordinate.
         /// </summary>
-        public void AddScatterPlot(IEnumerable<Datum> data, OxyColor? markerColor = null, double markerSize = 3,
-            string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
+        public void AddScatterSeries(IEnumerable<Datum> data, Color? markerColor = null, double markerSize = 2,
+            MarkerType markerType = MarkerType.Circle, string xAxisLabel = null, string yAxisLabel = null,
             bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true)
         {
-            SetCommonChartProperties(chartTitle, chartSubtitle);
-
             if (!data.Any())
             {
                 return;
             }
 
+            // add data series
             var scatter = new ScatterSeries
             {
                 Title = seriesTitle,
                 RenderInLegend = addToLegend,
                 MarkerSize = markerSize,
+                MarkerType = markerType
             };
 
             if (markerColor != null)
             {
-                scatter.MarkerFill = markerColor.Value;
+                scatter.MarkerFill = OxyColor.FromArgb(markerColor.Value.A, markerColor.Value.R, markerColor.Value.G, markerColor.Value.B);
+                scatter.MarkerStroke = scatter.MarkerFill;
             }
 
             foreach (Datum datum in data)
@@ -64,14 +68,17 @@ namespace mzPlot
                 scatter.Points.Add(new ScatterPoint(datum.X, datum.Y.Value));
             }
 
-            if (!Model.Axes.Any())
-            {
-                AddLinearAxis(xAxisLabel, AxisPosition.Bottom);
-                AddLinearAxis(yAxisLabel, AxisPosition.Left);
-            }
-
             Model.Series.Add(scatter);
 
+            // add axes
+            if (!Model.Axes.Any())
+            {
+                var xAxis = GetLinearAxis(xAxisLabel, AxisPosition.Bottom);
+                var yAxis = GetLinearAxis(yAxisLabel, AxisPosition.Left);
+                AddAxes(xAxis, yAxis);
+            }
+
+            // refresh chart
             if (refreshAfterAddingData)
             {
                 RefreshChart();
@@ -81,17 +88,16 @@ namespace mzPlot
         /// <summary>
         /// Adds a line plot. The data X value is the X-coordinate, the data Y value is the Y-coordinate.
         /// </summary>
-        public void AddLinePlot(IEnumerable<Datum> data, OxyColor? lineColor = null, double lineThickness = 2,
-            string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
-            bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true)
+        public void AddLineSeries(IEnumerable<Datum> data, OxyColor? lineColor = null, double lineThickness = 2,
+            string xAxisLabel = null, string yAxisLabel = null, bool addToLegend = true, string seriesTitle = null, 
+            bool refreshAfterAddingData = true)
         {
-            SetCommonChartProperties(chartTitle, chartSubtitle);
-
             if (!data.Any())
             {
                 return;
             }
 
+            // add data series
             var line = new LineSeries
             {
                 Title = seriesTitle,
@@ -109,14 +115,17 @@ namespace mzPlot
                 line.Points.Add(new DataPoint(datum.X, datum.Y.Value));
             }
 
-            if (!Model.Axes.Any())
-            {
-                AddLinearAxis(xAxisLabel, AxisPosition.Bottom);
-                AddLinearAxis(yAxisLabel, AxisPosition.Left);
-            }
-
             Model.Series.Add(line);
 
+            // add axes
+            if (!Model.Axes.Any())
+            {
+                var xAxis = GetLinearAxis(xAxisLabel, AxisPosition.Bottom);
+                var yAxis = GetLinearAxis(yAxisLabel, AxisPosition.Left);
+                AddAxes(xAxis, yAxis);
+            }
+
+            // refresh chart
             if (refreshAfterAddingData)
             {
                 RefreshChart();
@@ -126,17 +135,15 @@ namespace mzPlot
         /// <summary>
         /// Adds a histogram. The data X value is used to bin the data.
         /// </summary>
-        public void AddHistogram(IEnumerable<Datum> data, int numBins, OxyColor? borderColor = null, OxyColor? fillColor = null,
-            double borderThickness = 1, string xAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
-            bool refreshAfterAddingData = true)
+        public void AddHistogramSeries(IEnumerable<Datum> data, int numBins, OxyColor? borderColor = null, OxyColor? fillColor = null,
+            double borderThickness = 0, string xAxisLabel = null, bool refreshAfterAddingData = true)
         {
-            SetCommonChartProperties(chartTitle, chartSubtitle);
-
             if (!data.Any())
             {
                 return;
             }
 
+            // add data series
             double min = data.Min(p => p.X);
             double max = data.Max(p => p.X);
 
@@ -165,25 +172,27 @@ namespace mzPlot
                 histogramSeries.StrokeColor = borderColor.Value;
             }
 
-            var xAxis = new LinearAxis()
-            {
-                MajorStep = binWidth,
-                Position = AxisPosition.Bottom,
-                StringFormat = "F2",
-                MinorTickSize = 0,
-                Title = xAxisLabel
-            };
-
-            var yAxis = new LinearAxis() { Position = AxisPosition.Left, MinorTickSize = 0, Title = "Count" };
-
-            if (!Model.Axes.Any())
-            {
-                Model.Axes.Add(xAxis);
-                Model.Axes.Add(yAxis);
-            }
-
             Model.Series.Add(histogramSeries);
 
+            // add axes
+            if (!Model.Axes.Any())
+            {
+                var xAxis = new LinearAxis()
+                {
+                    MajorStep = (max - min) / 5,
+                    Position = AxisPosition.Bottom,
+                    StringFormat = "F2",
+                    MinorTickSize = 0,
+                    Title = xAxisLabel
+                };
+
+                var yAxis = GetLinearAxis("Count", AxisPosition.Left);
+                yAxis.AbsoluteMinimum = 0;
+
+                AddAxes(xAxis, yAxis);
+            }
+
+            // refresh chart
             if (refreshAfterAddingData)
             {
                 RefreshChart();
@@ -194,17 +203,16 @@ namespace mzPlot
         /// Adds a spectrum plot. The data X value is the X-coordinate of the spectral line, the data Y value is the height of 
         /// the spectral line at X.
         /// </summary>
-        public void AddSpectrumPlot(IEnumerable<Datum> data, OxyColor? lineColor = null, double lineThickness = 0.5,
-            string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null, string chartSubtitle = null,
-            bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true)
+        public void AddSpectrumSeries(IEnumerable<Datum> data, OxyColor? lineColor = null, double lineThickness = 0.5,
+            string xAxisLabel = null, string yAxisLabel = null, bool addToLegend = true, string seriesTitle = null, 
+            bool refreshAfterAddingData = true)
         {
-            SetCommonChartProperties(chartTitle, chartSubtitle);
-
             if (!data.Any())
             {
                 return;
             }
 
+            // add data series
             if (!lineColor.HasValue)
             {
                 lineColor = OxyColors.DimGray;
@@ -212,7 +220,7 @@ namespace mzPlot
 
             foreach (Datum datum in data)
             {
-                AddLinePlot(
+                AddLineSeries(
                     data: new List<Datum> { new Datum(datum.X, 0), datum },
                     lineColor: lineColor,
                     lineThickness: lineThickness,
@@ -221,12 +229,16 @@ namespace mzPlot
                     refreshAfterAddingData: false);
             }
 
+            // add axes
             if (!Model.Axes.Any())
             {
-                AddLinearAxis(xAxisLabel, AxisPosition.Bottom);
-                AddLinearAxis(yAxisLabel, AxisPosition.Left);
+                var xAxis = GetLinearAxis(xAxisLabel, AxisPosition.Bottom);
+                var yAxis = GetLinearAxis(yAxisLabel, AxisPosition.Left);
+                yAxis.AbsoluteMinimum = 0;
+                AddAxes(xAxis, yAxis);
             }
 
+            // refresh chart
             if (refreshAfterAddingData)
             {
                 RefreshChart();
@@ -236,10 +248,11 @@ namespace mzPlot
         /// <summary>
         /// Adds a bar plot. The data X value is the height of the bar, and the data label is the X-axis label under the bar.
         /// </summary>
-        public void AddBarPlot(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null,
+        public void AddBarSeries(IEnumerable<Datum> data, OxyColor? borderColor = null, OxyColor? fillColor = null,
             double borderThickness = 1, string xAxisLabel = null, string yAxisLabel = null, string chartTitle = null,
             string chartSubtitle = null, bool addToLegend = true, string seriesTitle = null, bool refreshAfterAddingData = true)
         {
+            // set chart title and subtitle
             SetCommonChartProperties(chartTitle, chartSubtitle);
 
             if (!data.Any())
@@ -247,10 +260,11 @@ namespace mzPlot
                 return;
             }
 
+            // add data series
             var barSeries = new ColumnSeries
             {
                 Title = seriesTitle,
-                RenderInLegend = addToLegend
+                RenderInLegend = addToLegend,
             };
 
             if (borderColor != null)
@@ -265,22 +279,24 @@ namespace mzPlot
                 barSeries.FillColor = fillColor.Value;
             }
 
-            var xAxis = new CategoryAxis { Title = xAxisLabel, Position = AxisPosition.Bottom };
-            xAxis.Labels.AddRange(data.Select(p => p.Label));
-
             foreach (Datum datum in data)
             {
                 barSeries.Items.Add(new ColumnItem(datum.X));
             }
 
-            if (!Model.Axes.Any())
-            {
-                Model.Axes.Add(xAxis);
-                AddLinearAxis(yAxisLabel, AxisPosition.Left);
-            }
-
             Model.Series.Add(barSeries);
 
+            // add axes
+            if (!Model.Axes.Any())
+            {
+                var xAxis = GetCategoryAxis(xAxisLabel, AxisPosition.Bottom);
+                xAxis.Labels.AddRange(data.Select(p => p.Label));
+
+                var yAxis = GetLinearAxis(yAxisLabel, AxisPosition.Left);
+                AddAxes(xAxis, yAxis);
+            }
+
+            // refresh chart
             if (refreshAfterAddingData)
             {
                 RefreshChart();
@@ -290,29 +306,10 @@ namespace mzPlot
         /// <summary>
         /// Adds text to the plot. The x and y coordinates refer to the location on the chart itself, not on the data x and y axes.
         /// </summary>
-        public PlotTextAnnotation AddTextAnnotationToPlotArea(string text, double x, double y, OxyColor? textColor = null,
-            string font = "Times New Roman", double fontSize = 20)
+        public void AddAnnotation(mzPlotAnnotation annotation)
         {
-            var annotation = new PlotTextAnnotation()
-            {
-                Text = text,
-                FontSize = fontSize,
-                Font = font,
-                TextColor = OxyColors.Black,
-                X = x,
-                Y = y
-            };
-
-            if (textColor.HasValue)
-            {
-                annotation.TextColor = textColor.Value;
-            }
-
             Model.Annotations.Add(annotation);
-
             RefreshChart();
-
-            return annotation;
         }
 
         /// <summary>
@@ -369,20 +366,53 @@ namespace mzPlot
             }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected Plot(OxyPlot.Wpf.PlotView plotView)
+        public void SetDefaultColors(List<Color> colors)
         {
-            ClearChart();
-            plotView.DataContext = this;
-            plotView.Model = Model;
+            Model.DefaultColors.Clear();
+
+            foreach (var color in colors)
+            {
+                Model.DefaultColors.Add(OxyColor.FromArgb(color.A, color.R, color.G, color.B));
+            }
         }
 
-        protected void AddLinearAxis(string axisLabel, AxisPosition position)
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected Plot(OxyPlot.Wpf.PlotView plotView, string title, string subtitle)
+        {
+            ClearChart();
+
+            if (plotView != null)
+            {
+                plotView.DataContext = this;
+                plotView.Model = Model;
+            }
+
+            SetCommonChartProperties(title, subtitle);
+        }
+
+        protected void AddAxes(Axis xAxis, Axis yAxis)
+        {
+            Model.Axes.Add(xAxis);
+            Model.Axes.Add(yAxis);
+        }
+
+        protected LinearAxis GetLinearAxis(string axisLabel, AxisPosition position)
         {
             var axis = new LinearAxis() { Title = axisLabel, Position = position, MinorTickSize = 0 };
+            return axis;
+        }
 
-            Model.Axes.Add(axis);
+        protected LogarithmicAxis GetLogarithmicAxis(string axisLabel, AxisPosition position)
+        {
+            var axis = new LogarithmicAxis() { Title = axisLabel, Position = position, MinorTickSize = 0 };
+            return axis;
+        }
+
+        protected CategoryAxis GetCategoryAxis(string axisLabel, AxisPosition position)
+        {
+            var axis = new CategoryAxis() { Title = axisLabel, Position = position, MinorTickSize = 0 };
+            return axis;
         }
 
         protected void NotifyPropertyChanged(string propertyName)
@@ -408,6 +438,7 @@ namespace mzPlot
 
             Model.LegendBorderThickness = 1;
             Model.LegendBorder = OxyColors.Black;
+            Model.LegendBackground = OxyColors.White;
         }
     }
 }

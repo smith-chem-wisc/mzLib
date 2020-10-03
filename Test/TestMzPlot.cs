@@ -43,7 +43,7 @@ namespace Test
             var datapoint2 = new Datum(2, 3);
 
             // create the plot
-            Plot plot = new ScatterPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 }, markerColor: OxyColors.Blue,
+            Plot plot = new ScatterPlot(examplePlotView, new List<Datum> { datapoint1, datapoint2 }, markerColor: System.Drawing.Color.Blue,
                 xAxisLabel: "xAxis", yAxisLabel: "yAxis", chartTitle: "title", chartSubtitle: "subtitle");
 
             // check to make sure the data was plotted
@@ -206,7 +206,7 @@ namespace Test
 
             var datapoint3 = new Datum(4, 5);
             var datapoint4 = new Datum(4, 6);
-            plot.AddScatterPlot(new List<Datum> { datapoint3, datapoint4 });
+            plot.AddScatterSeries(new List<Datum> { datapoint3, datapoint4 });
 
             // check to make sure the data was plotted
             // the chart should have a line plot and a scatter plot on the same chart
@@ -264,8 +264,11 @@ namespace Test
         [Test]
         public static void TestDataToString()
         {
-            Datum datum = new Datum(0, 1, 2, "test", 0.5);
-            Assert.That(datum.ToString() == "0, 1, 2; test; 0.5");
+            Datum datum = new Datum(0, 1, 2, label: "test", weight: 0.5);
+            Assert.That(datum.ToString() == "0.00, 1.00, 2.00; test; 0.50");
+
+            datum = new Datum(0, 1, 2, 0.5, 0.2, 0.1, "test", 0.5);
+            var fff = datum.ToString();
         }
 
         [Test]
@@ -277,7 +280,7 @@ namespace Test
             // create the plot
             Plot plot = new ScatterPlot(examplePlotView, new List<Datum> { new Datum(0, 1), new Datum(2, 3) });
 
-            plot.AddTextAnnotationToPlotArea("PEPTIDESEQUENCE", 100, -10, OxyColors.Blue);
+            plot.AddAnnotation("PEPTIDESEQUENCE", 100, -10, OxyColors.Blue);
 
             Assert.That(plot.Model.Annotations.Count == 1);
             Assert.That(((PlotTextAnnotation)plot.Model.Annotations[0]).Text == "PEPTIDESEQUENCE");
