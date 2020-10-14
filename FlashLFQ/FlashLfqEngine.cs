@@ -444,11 +444,11 @@ namespace FlashLFQ
                 .Count() > 1;
 
             // acceptor file known peaks
-            var acceptorFileIdentifiedPeaks = _results.Peaks[idAcceptorFile].Where(p => p.Apex != null).ToList();
+            var acceptorFileIdentifiedPeaks = _results.Peaks[idAcceptorFile];
             var apexToAcceptorFilePeak = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
 
             List<double> ppmErrors = new List<double>();
-            foreach (var peak in acceptorFileIdentifiedPeaks)
+            foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null))
             {
                 if (!apexToAcceptorFilePeak.ContainsKey(peak.Apex.IndexedPeak))
                 {
@@ -458,7 +458,7 @@ namespace FlashLFQ
                 ppmErrors.Add(peak.MassError);
             }
 
-            if (acceptorFileIdentifiedPeaks.Count < 3)
+            if (ppmErrors.Count < 3)
             {
                 return;
             }
