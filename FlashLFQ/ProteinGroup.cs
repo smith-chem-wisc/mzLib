@@ -65,7 +65,7 @@ namespace FlashLFQ
                     }
                     else
                     {
-                        sb.Append("Intensity_" + sample.First().SampleGroup + (sample.First().Sample + 1) + "\t");
+                        sb.Append("Intensity_" + sample.First().SampleGroup + "_" + (sample.First().Sample + 1) + "\t");
                     }
                 }
             }

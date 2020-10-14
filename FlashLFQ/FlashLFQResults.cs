@@ -300,7 +300,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculateProteinQuantities(bool useSharedPeptides)
+        public void CalculateProteinResultsMedianPolish(bool useSharedPeptides)
         {
             // reset protein intensities to 0
             foreach (var proteinGroup in ProteinGroups)
@@ -386,9 +386,10 @@ namespace FlashLFQ
                     double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, numSamples];
 
                     // populate matrix w/ peptide intensities
-                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup))
+                    int sampleN = 0;
+                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup).OrderBy(p => p.Key))
                     {
-                        foreach (var sample in group.GroupBy(p => p.Sample))
+                        foreach (var sample in group.GroupBy(p => p.Sample).OrderBy(p => p.Key))
                         {
                             foreach (Peptide peptide in peptidesForThisProtein)
                             {
@@ -424,8 +425,17 @@ namespace FlashLFQ
                                 }
 
                                 int sampleNumber = sample.Key;
-                                peptideIntensityMatrix[sampleNumber, peptidesForThisProtein.IndexOf(peptide)] = Math.Log(sampleIntensity, 2);
+                                sampleIntensity = Math.Log(sampleIntensity, 2);
+
+                                if (double.IsInfinity(sampleIntensity))
+                                {
+                                    sampleIntensity = double.NaN;
+                                }
+
+                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide), sampleN] = Math.Log(sampleIntensity, 2);
                             }
+
+                            sampleN++;
                         }
                     }
 
@@ -433,11 +443,12 @@ namespace FlashLFQ
                     MedianPolish(peptideIntensityMatrix, 10, 0.0001, out var rowEffects, out var columnEffects, out var overallEffect);
 
                     // set the sample protein intensities
-                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup))
+                    sampleN = 0;
+                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup).OrderBy(p => p.Key))
                     {
-                        foreach (var sample in group.GroupBy(p => p.Sample))
+                        foreach (var sample in group.GroupBy(p => p.Sample).OrderBy(p => p.Key))
                         {
-                            double sampleProteinIntensity = Math.Pow(2, columnEffects[sample.Key]) * referenceProteinIntensity;
+                            double sampleProteinIntensity = Math.Pow(2, columnEffects[sampleN]) * referenceProteinIntensity;
 
                             // the column effect can be 0 in many cases. sometimes it's a valid value and sometimes it's not.
                             // so we need to check to see if it is actually a valid value
@@ -445,7 +456,7 @@ namespace FlashLFQ
 
                             foreach (var sampleNum in sample)
                             {
-                                if (peptidesForThisProtein.Any(p => !double.IsNaN(p.GetIntensity(sampleNum))))
+                                if (peptidesForThisProtein.Any(p => p.GetIntensity(sampleNum) != 0))
                                 {
                                     isMissingValue = false;
                                     break;
@@ -456,6 +467,8 @@ namespace FlashLFQ
                             {
                                 proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
                             }
+
+                            sampleN++;
                         }
                     }
                 }
