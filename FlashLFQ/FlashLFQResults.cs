@@ -432,7 +432,7 @@ namespace FlashLFQ
                                     sampleIntensity = double.NaN;
                                 }
 
-                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide), sampleN] = Math.Log(sampleIntensity, 2);
+                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide), sampleN] = sampleIntensity;
                             }
 
                             sampleN++;
