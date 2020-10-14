@@ -4,18 +4,18 @@
     {
         public readonly string FullFilePathWithExtension;
         public readonly string FilenameWithoutExtension;
-        public string Condition; // condition/biorep/techrep/fraction info
-        public readonly int BiologicalReplicate;
+        public string SampleGroup;
+        public readonly int Sample;
         public readonly int Fraction;
-        public readonly int TechnicalReplicate;
+        public readonly int Replicate;
 
-        public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
+        public SpectraFileInfo(string fullFilePathWithExtension, string sampleGroup, int sample, int replicate, int fraction)
         {
             this.FullFilePathWithExtension = fullFilePathWithExtension;
             this.FilenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.FullFilePathWithExtension);
-            this.Condition = condition;
-            this.BiologicalReplicate = biorep;
-            this.TechnicalReplicate = techrep;
+            this.SampleGroup = sampleGroup;
+            this.Sample = sample;
+            this.Replicate = replicate;
             this.Fraction = fraction;
         }
 

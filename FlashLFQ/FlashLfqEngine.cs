@@ -87,10 +87,10 @@ namespace FlashLFQ
             _peakIndexingEngine = new PeakIndexingEngine();
 
             _spectraFileInfo = allIdentifications.Select(p => p.FileInfo).Distinct()
-                .OrderBy(p => p.Condition)
-                .ThenBy(p => p.BiologicalReplicate)
+                .OrderBy(p => p.SampleGroup)
+                .ThenBy(p => p.Sample)
                 .ThenBy(p => p.Fraction)
-                .ThenBy(p => p.TechnicalReplicate).ToList();
+                .ThenBy(p => p.Replicate).ToList();
 
             _allIdentifications = allIdentifications;
             PpmTolerance = ppmTolerance;
@@ -206,7 +206,7 @@ namespace FlashLFQ
             // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
             {
-                if (_spectraFileInfo.Count == 1 || _spectraFileInfo.Select(p => p.Condition).Distinct().Count() == 1)
+                if (_spectraFileInfo.Count == 1 || _spectraFileInfo.Select(p => p.SampleGroup).Distinct().Count() == 1)
                 {
                     if (!Silent)
                     {
@@ -438,7 +438,7 @@ namespace FlashLFQ
         private void QuantifyMatchBetweenRunsPeaks(SpectraFileInfo idAcceptorFile)
         {
             bool acceptorSampleIsFractionated = _results.SpectraFiles
-                .Where(p => p.Condition == idAcceptorFile.Condition && p.BiologicalReplicate == idAcceptorFile.BiologicalReplicate)
+                .Where(p => p.SampleGroup == idAcceptorFile.SampleGroup && p.Sample == idAcceptorFile.Sample)
                 .Select(p => p.Fraction)
                 .Distinct()
                 .Count() > 1;
@@ -487,7 +487,7 @@ namespace FlashLFQ
             if (RequireMsmsIdInCondition)
             {
                 // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
-                foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
+                foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.SampleGroup == idAcceptorFile.SampleGroup))
                 {
                     foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
                     {
@@ -521,7 +521,7 @@ namespace FlashLFQ
                 }
 
                 bool donorSampleIsFractionated = _results.SpectraFiles
-                    .Where(p => p.Condition == idDonorFile.Condition && p.BiologicalReplicate == idDonorFile.BiologicalReplicate)
+                    .Where(p => p.SampleGroup == idDonorFile.SampleGroup && p.Sample == idDonorFile.Sample)
                     .Select(p => p.Fraction)
                     .Distinct()
                     .Count() > 1;
@@ -535,8 +535,8 @@ namespace FlashLFQ
                 // this intensity score creates a conservative bias in MBR
                 List<double> listOfFoldChangesBetweenTheFiles = new List<double>();
 
-                if (_spectraFileInfo.Select(p => p.Condition).Distinct().Count() > 1
-                    && idDonorFile.Condition != idAcceptorFile.Condition)
+                if (_spectraFileInfo.Select(p => p.SampleGroup).Distinct().Count() > 1
+                    && idDonorFile.SampleGroup != idAcceptorFile.SampleGroup)
                 {
                     var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
 

@@ -62,11 +62,11 @@ namespace FlashLFQ
         private void NormalizeTechreps()
         {
             var peptides = results.PeptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.SpectraFiles.GroupBy(v => v.Condition);
+            var conditions = results.SpectraFiles.GroupBy(v => v.SampleGroup);
 
             foreach (var condition in conditions)
             {
-                var bioreps = condition.GroupBy(v => v.BiologicalReplicate);
+                var bioreps = condition.GroupBy(v => v.Sample);
 
                 foreach (var biorep in bioreps)
                 {
@@ -130,14 +130,14 @@ namespace FlashLFQ
             }
 
             var peptides = results.PeptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.SpectraFiles.Select(p => p.Condition).Distinct().OrderBy(p => p).ToList();
-            var filesForCond1Biorep1 = results.SpectraFiles.Where(p => p.Condition == conditions[0] && p.BiologicalReplicate == 0 && p.TechnicalReplicate == 0).ToList();
+            var conditions = results.SpectraFiles.Select(p => p.SampleGroup).Distinct().OrderBy(p => p).ToList();
+            var filesForCond1Biorep1 = results.SpectraFiles.Where(p => p.SampleGroup == conditions[0] && p.Sample == 0 && p.Replicate == 0).ToList();
 
             foreach (var condition in conditions)
             {
-                var filesForThisCondition = results.SpectraFiles.Where(p => p.Condition.Equals(condition)).ToList();
+                var filesForThisCondition = results.SpectraFiles.Where(p => p.SampleGroup.Equals(condition)).ToList();
 
-                int numB = filesForThisCondition.Select(p => p.BiologicalReplicate).Distinct().Count();
+                int numB = filesForThisCondition.Select(p => p.Sample).Distinct().Count();
 
                 for (int b = 0; b < numB; b++)
                 {
@@ -153,7 +153,7 @@ namespace FlashLFQ
                         Console.WriteLine("Normalizing condition \"" + condition + "\" biorep " + (b + 1));
                     }
 
-                    var filesForThisBiorep = filesForThisCondition.Where(p => p.BiologicalReplicate == b && p.TechnicalReplicate == 0);
+                    var filesForThisBiorep = filesForThisCondition.Where(p => p.Sample == b && p.Replicate == 0);
 
                     int numF = Math.Max(filesForCond1Biorep1.Max(p => p.Fraction), filesForThisBiorep.Max(p => p.Fraction)) + 1;
 
@@ -242,11 +242,11 @@ namespace FlashLFQ
         private void NormalizeBioreps()
         {
             var peptides = results.PeptideModifiedSequences.Select(v => v.Value).ToList();
-            var conditions = results.SpectraFiles.GroupBy(v => v.Condition).ToList();
+            var conditions = results.SpectraFiles.GroupBy(v => v.SampleGroup).ToList();
 
             double[,] biorepIntensityPair = new double[peptides.Count, 2];
 
-            var firstConditionFirstBiorep = conditions.First().Where(v => v.BiologicalReplicate == 0 && v.TechnicalReplicate == 0);
+            var firstConditionFirstBiorep = conditions.First().Where(v => v.Sample == 0 && v.Replicate == 0);
 
             foreach (var file in firstConditionFirstBiorep)
             {
@@ -258,7 +258,7 @@ namespace FlashLFQ
 
             foreach (var condition in conditions)
             {
-                var bioreps = condition.GroupBy(v => v.BiologicalReplicate);
+                var bioreps = condition.GroupBy(v => v.Sample);
 
                 foreach (var biorep in bioreps)
                 {
@@ -271,7 +271,7 @@ namespace FlashLFQ
 
                     foreach (var fraction in fractions)
                     {
-                        var firstTechrep = fraction.Where(v => v.TechnicalReplicate == 0).First();
+                        var firstTechrep = fraction.Where(v => v.Replicate == 0).First();
 
                         for (int p = 0; p < peptides.Count; p++)
                         {

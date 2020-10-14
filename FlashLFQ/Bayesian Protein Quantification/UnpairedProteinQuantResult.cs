@@ -133,7 +133,7 @@ namespace FlashLFQ
                 treatmentMmtsStringBuilder.Append(peptide.Sequence);
                 treatmentMmtsStringBuilder.Append(":");
 
-                int numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.Condition == ControlCondition).Max(p => p.BiologicalReplicate) + 1;
+                int numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.SampleGroup == ControlCondition).Max(p => p.Sample) + 1;
 
                 for (int sample = 0; sample < numSamplesInGroup; sample++)
                 {
@@ -150,7 +150,7 @@ namespace FlashLFQ
                     }
                 }
 
-                numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.Condition == TreatmentCondition).Max(p => p.BiologicalReplicate) + 1;
+                numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.SampleGroup == TreatmentCondition).Max(p => p.Sample) + 1;
 
                 for (int sample = 0; sample < numSamplesInGroup; sample++)
                 {
@@ -260,7 +260,7 @@ namespace FlashLFQ
                         ConditionsWithPeptideSampleQuantities.Add(condition, new List<Datum>());
                     }
 
-                    int numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
+                    int numSamplesInGroup = FlashLfqResults.SpectraFiles.Where(p => p.SampleGroup == condition).Max(p => p.Sample) + 1;
                     List<(double, DetectionType)> peptideLogIntensities = new List<(double, DetectionType)>();
 
                     for (int sample = 0; sample < numSamplesInGroup; sample++)

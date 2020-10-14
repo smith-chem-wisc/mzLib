@@ -935,7 +935,7 @@ namespace Test
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
-            f1r1.Condition = "b";
+            f1r1.SampleGroup = "b";
             engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1);
             results = engine.Run();
             var proteinsObservedInF1 = ids.Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
@@ -1125,7 +1125,7 @@ namespace Test
 
                     foreach (var file in files)
                     {
-                        if (file.Condition == "a")
+                        if (file.SampleGroup == "a")
                         {
                             double noise = Normal.Sample(randomSource, 0, 1 / (groupAIntensity * 0.1));
                             double fileIntensity = Math.Pow(2, groupAIntensity + noise);

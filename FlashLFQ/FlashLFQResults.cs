@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MathNet.Numerics.Statistics;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -174,10 +175,10 @@ namespace FlashLFQ
         {
             // handle ambiguous peaks in fractionated data
             // if the largest fraction intensity is ambiguous, zero out the other fractions for the sample
-            var sampleGroups = SpectraFiles.GroupBy(p => p.Condition);
+            var sampleGroups = SpectraFiles.GroupBy(p => p.SampleGroup);
             foreach (var sampleGroup in sampleGroups)
             {
-                var samples = sampleGroup.Select(p => p).GroupBy(p => p.BiologicalReplicate);
+                var samples = sampleGroup.Select(p => p).GroupBy(p => p.Sample);
 
                 foreach (var sample in samples)
                 {
@@ -299,6 +300,168 @@ namespace FlashLFQ
             }
         }
 
+        public void CalculateProteinQuantities(bool useSharedPeptides)
+        {
+            // reset protein intensities to 0
+            foreach (var proteinGroup in ProteinGroups)
+            {
+                foreach (SpectraFileInfo file in SpectraFiles)
+                {
+                    proteinGroup.Value.SetIntensity(file, 0);
+                }
+            }
+
+            // associate peptide w/ proteins in a dictionary for easy lookup
+            List<Peptide> peptides = PeptideModifiedSequences.Values.Where(p => p.UnambiguousPeptideQuant()).ToList();
+            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
+
+            foreach (Peptide peptide in peptides)
+            {
+                if (!peptide.UseForProteinQuant || (peptide.ProteinGroups.Count > 1 && !useSharedPeptides))
+                {
+                    continue;
+                }
+
+                foreach (ProteinGroup pg in peptide.ProteinGroups)
+                {
+                    if (proteinGroupToPeptides.TryGetValue(pg, out var peptidesForThisProtein))
+                    {
+                        peptidesForThisProtein.Add(peptide);
+                    }
+                    else
+                    {
+                        proteinGroupToPeptides.Add(pg, new List<Peptide> { peptide });
+                    }
+                }
+            }
+
+            var filesGroupedByCondition = SpectraFiles.GroupBy(p => p.SampleGroup).ToList();
+
+            // quantify each protein
+            foreach (ProteinGroup proteinGroup in ProteinGroups.Values)
+            {
+                if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
+                {
+                    // calculate reference protein intensity
+                    double referenceProteinIntensity = 0;
+                    int topNPeaks = 3;
+
+                    foreach (var group in filesGroupedByCondition)
+                    {
+                        List<double> highestIntensities = new List<double>();
+
+                        foreach (var peptide in peptidesForThisProtein)
+                        {
+                            double max = 0;
+
+                            foreach (var sample in group)
+                            {
+                                double peptideIntensity = peptide.GetIntensity(sample);
+
+                                if (!double.IsNaN(peptideIntensity))
+                                {
+                                    max = Math.Max(max, peptideIntensity);
+                                }
+                            }
+
+                            highestIntensities.Add(max);
+                        }
+
+                        referenceProteinIntensity = highestIntensities.OrderByDescending(p => p).Take(topNPeaks).Sum();
+
+                        if (referenceProteinIntensity > 0)
+                        {
+                            break;
+                        }
+                    }
+
+                    // set up peptide intensity table
+                    int numSamples = 0;
+                    foreach (var condition in SpectraFiles.GroupBy(p => p.SampleGroup))
+                    {
+                        int conditionSamples = condition.Select(p => p.Sample).Distinct().Count();
+                        numSamples += conditionSamples;
+                    }
+
+                    double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, numSamples];
+
+                    // populate matrix w/ peptide intensities
+                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup))
+                    {
+                        foreach (var sample in group.GroupBy(p => p.Sample))
+                        {
+                            foreach (Peptide peptide in peptidesForThisProtein)
+                            {
+                                double sampleIntensity = 0;
+                                double highestFractionIntensity = 0;
+
+                                foreach (var fraction in sample.GroupBy(p => p.Fraction))
+                                {
+                                    double fractionIntensity = 0;
+                                    int replicatesWithValidValues = 0;
+
+                                    foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.Replicate))
+                                    {
+                                        double replicateIntensity = peptide.GetIntensity(replicate);
+
+                                        if (replicateIntensity > 0)
+                                        {
+                                            fractionIntensity += replicateIntensity;
+                                            replicatesWithValidValues++;
+                                        }
+                                    }
+
+                                    if (replicatesWithValidValues > 0)
+                                    {
+                                        fractionIntensity /= replicatesWithValidValues;
+                                    }
+
+                                    if (fractionIntensity > highestFractionIntensity)
+                                    {
+                                        highestFractionIntensity = fractionIntensity;
+                                        sampleIntensity = highestFractionIntensity;
+                                    }
+                                }
+
+                                int sampleNumber = sample.Key;
+                                peptideIntensityMatrix[sampleNumber, peptidesForThisProtein.IndexOf(peptide)] = Math.Log(sampleIntensity, 2);
+                            }
+                        }
+                    }
+
+                    // do median polish protein quantification
+                    MedianPolish(peptideIntensityMatrix, 10, 0.0001, out var rowEffects, out var columnEffects, out var overallEffect);
+
+                    // set the sample protein intensities
+                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup))
+                    {
+                        foreach (var sample in group.GroupBy(p => p.Sample))
+                        {
+                            double sampleProteinIntensity = Math.Pow(2, columnEffects[sample.Key]) * referenceProteinIntensity;
+
+                            // the column effect can be 0 in many cases. sometimes it's a valid value and sometimes it's not.
+                            // so we need to check to see if it is actually a valid value
+                            bool isMissingValue = true;
+
+                            foreach (var sampleNum in sample)
+                            {
+                                if (peptidesForThisProtein.Any(p => !double.IsNaN(p.GetIntensity(sampleNum))))
+                                {
+                                    isMissingValue = false;
+                                    break;
+                                }
+                            }
+
+                            if (!isMissingValue)
+                            {
+                                proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
         {
             if (!silent)
@@ -413,6 +576,170 @@ namespace FlashLFQ
             if (!silent)
             {
                 Console.WriteLine("Finished writing output");
+            }
+        }
+
+        private static void MedianPolish(double[,] table, int maxIter, double tol, out double[] rowEffects, out double[] columnEffects, out double overallEffect)
+        {
+            overallEffect = 0;
+            rowEffects = new double[table.GetLength(0)];
+            columnEffects = new double[table.GetLength(1)];
+            List<double> values = new List<double>();
+            List<double> rowMedians = new List<double>();
+            List<double> columnMedians = new List<double>();
+            double lastIterationSumOfAbsoluteResiduals = 0;
+
+            // compute overall effect
+            foreach (double value in table)
+            {
+                if (!double.IsNaN(value))
+                {
+                    values.Add(value);
+                }
+            }
+
+            if (values.Any())
+            {
+                overallEffect += values.Median();
+            }
+
+            // subtract overall effect from table
+            for (int j = 0; j < table.GetLength(0); j++)
+            {
+                for (int k = 0; k < table.GetLength(1); k++)
+                {
+                    table[j, k] -= overallEffect;
+                }
+            }
+
+            // compute sum of absolute residuals
+            foreach (double value in table)
+            {
+                if (!double.IsNaN(value))
+                {
+                    lastIterationSumOfAbsoluteResiduals += Math.Abs(value);
+                }
+            }
+
+            for (int i = 0; i < maxIter; i++)
+            {
+                rowMedians.Clear();
+                columnMedians.Clear();
+
+                // compute sum of absolute residuals
+                double thisIterationSumOfAbsoluteResiduals = 0;
+                foreach (double value in table)
+                {
+                    if (!double.IsNaN(value))
+                    {
+                        thisIterationSumOfAbsoluteResiduals += Math.Abs(value);
+                    }
+                }
+
+                if (Math.Abs((thisIterationSumOfAbsoluteResiduals - lastIterationSumOfAbsoluteResiduals) / lastIterationSumOfAbsoluteResiduals) < tol && i > 0)
+                {
+                    break;
+                }
+
+                // compute row medians
+                double columnEffectMedian = columnEffects.Median();
+
+                for (int j = 0; j < table.GetLength(0); j++)
+                {
+                    values.Clear();
+
+                    for (int k = 0; k < table.GetLength(1); k++)
+                    {
+                        double value = table[j, k];
+
+                        if (!double.IsNaN(value))
+                        {
+                            values.Add(value);
+                        }
+                    }
+
+                    double rowMedian = 0;
+
+                    if (values.Any())
+                    {
+                        rowMedian = values.Median();
+                    }
+
+                    rowMedians.Add(rowMedian);
+                }
+
+                // add row medians to row effects
+                for (int j = 0; j < table.GetLength(0); j++)
+                {
+                    rowEffects[j] += rowMedians[j];
+                }
+
+                overallEffect += columnEffectMedian;
+
+                // subtract row effects from table
+                for (int j = 0; j < columnEffects.Length; j++)
+                {
+                    columnEffects[j] -= columnEffectMedian;
+                }
+
+                for (int j = 0; j < table.GetLength(0); j++)
+                {
+                    for (int k = 0; k < table.GetLength(1); k++)
+                    {
+                        table[j, k] -= rowMedians[j];
+                    }
+                }
+
+                // compute column medians
+                double rowEffectMedian = rowEffects.Median();
+
+                for (int k = 0; k < table.GetLength(1); k++)
+                {
+                    values.Clear();
+
+                    for (int j = 0; j < table.GetLength(0); j++)
+                    {
+                        double value = table[j, k];
+
+                        if (!double.IsNaN(value))
+                        {
+                            values.Add(value);
+                        }
+                    }
+
+                    double columnMedian = 0;
+
+                    if (values.Any())
+                    {
+                        columnMedian = values.Median();
+                    }
+
+                    columnMedians.Add(columnMedian);
+                }
+
+                // add column medians to column effects
+                for (int k = 0; k < table.GetLength(1); k++)
+                {
+                    columnEffects[k] += columnMedians[k];
+                }
+
+                overallEffect += rowEffectMedian;
+
+                // subtract column effects from table
+                for (int j = 0; j < rowEffects.Length; j++)
+                {
+                    rowEffects[j] -= rowEffectMedian;
+                }
+
+                for (int k = 0; k < table.GetLength(1); k++)
+                {
+                    for (int j = 0; j < table.GetLength(0); j++)
+                    {
+                        table[j, k] -= columnMedians[k];
+                    }
+                }
+
+                lastIterationSumOfAbsoluteResiduals = thisIterationSumOfAbsoluteResiduals;
             }
         }
     }
