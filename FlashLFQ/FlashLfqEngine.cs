@@ -444,11 +444,11 @@ namespace FlashLFQ
                 .Count() > 1;
 
             // acceptor file known peaks
-            var acceptorFileIdentifiedPeaks = _results.Peaks[idAcceptorFile];
+            var acceptorFileIdentifiedPeaks = _results.Peaks[idAcceptorFile].Where(p => p.Apex != null).ToList();
             var apexToAcceptorFilePeak = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
 
             List<double> ppmErrors = new List<double>();
-            foreach (var peak in acceptorFileIdentifiedPeaks.Where(p => p.Apex != null))
+            foreach (var peak in acceptorFileIdentifiedPeaks)
             {
                 if (!apexToAcceptorFilePeak.ContainsKey(peak.Apex.IndexedPeak))
                 {
