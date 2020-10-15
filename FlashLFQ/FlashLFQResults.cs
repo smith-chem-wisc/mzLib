@@ -127,17 +127,21 @@ namespace FlashLFQ
                     ChromatographicPeak bestPeak = sequenceWithPeaks.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
 
-                    if (bestPeak.IsMbrPeak && intensity > 0)
+                    if (bestPeak.PeakType == PeakType.MBR && intensity > 0)
                     {
                         detectionType = DetectionType.MBR;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity > 0)
+                    else if (bestPeak.PeakType == PeakType.MSMS && intensity > 0)
                     {
                         detectionType = DetectionType.MSMS;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity == 0)
+                    else if (bestPeak.PeakType == PeakType.MSMS && intensity == 0)
                     {
                         detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
+                    }
+                    else if (bestPeak.PeakType == PeakType.Imputed)
+                    {
+                        detectionType = DetectionType.Imputed;
                     }
                     else
                     {
@@ -512,13 +516,16 @@ namespace FlashLFQ
 
             if (proteinOutputPath != null)
             {
+                //DEBUG
+                var proteinsToWrite = PeptideModifiedSequences.Values.Where(v => v.ProteinGroups.Count == 1).SelectMany(p => p.ProteinGroups).Distinct();
+
                 using (StreamWriter output = new StreamWriter(proteinOutputPath))
                 {
                     output.WriteLine(ProteinGroup.TabSeparatedHeader(SpectraFiles));
 
-                    foreach (var protein in ProteinGroups.OrderBy(p => p.Key))
+                    foreach (var protein in proteinsToWrite.OrderBy(p => p.ProteinGroupName))
                     {
-                        output.WriteLine(protein.Value.ToString(SpectraFiles));
+                        output.WriteLine(protein.ToString(SpectraFiles));
                     }
                 }
             }

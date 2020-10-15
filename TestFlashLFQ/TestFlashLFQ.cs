@@ -58,14 +58,14 @@ namespace Test
             // check raw results
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
-            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.Peaks[raw].First().PeakType == PeakType.MSMS);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().PeakType == PeakType.MSMS);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
@@ -317,9 +317,9 @@ namespace Test
             var results = engine.Run();
 
             Assert.That(results.Peaks[file2].Count == 5);
-            Assert.That(results.Peaks[file2].Where(p => p.IsMbrPeak).Count() == 1);
+            Assert.That(results.Peaks[file2].Where(p => p.PeakType == PeakType.MBR).Count() == 1);
 
-            var peak = results.Peaks[file2].Where(p => p.IsMbrPeak).First();
+            var peak = results.Peaks[file2].Where(p => p.PeakType == PeakType.MBR).First();
             var otherFilePeak = results.Peaks[file1].Where(p => p.Identifications.First().BaseSequence ==
                 peak.Identifications.First().BaseSequence).First();
 
@@ -327,7 +327,7 @@ namespace Test
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
 
             Assert.That(results.Peaks[file1].Count == 5);
-            Assert.That(results.Peaks[file1].Where(p => p.IsMbrPeak).Count() == 0);
+            Assert.That(results.Peaks[file1].Where(p => p.PeakType == PeakType.MBR).Count() == 0);
 
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file1) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file2) > 0);
@@ -579,7 +579,7 @@ namespace Test
                 new List<ProteinGroup> { proteinGroup });
             string idString = identification.ToString();
 
-            var chromPeak = new ChromatographicPeak(identification, false, spectraFile);
+            var chromPeak = new ChromatographicPeak(identification, PeakType.MSMS, spectraFile);
             string chromPeakString = chromPeak.ToString();
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
@@ -624,7 +624,7 @@ namespace Test
 
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
-            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.Peaks[mzml].First().PeakType == PeakType.MSMS);
             Assert.That(results.Peaks[mzml].First().NumIdentificationsByFullSeq == 2);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) == 0);
             Assert.That(results.PeptideModifiedSequences["EGFQVADGPLRY"].GetIntensity(mzml) == 0);
@@ -1170,8 +1170,8 @@ namespace Test
             Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
             Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
 
-            ChromatographicPeak peak1 = new ChromatographicPeak(id1, false, fraction1);
-            ChromatographicPeak peak2 = new ChromatographicPeak(id2, false, fraction1);
+            ChromatographicPeak peak1 = new ChromatographicPeak(id1, PeakType.MSMS, fraction1);
+            ChromatographicPeak peak2 = new ChromatographicPeak(id2, PeakType.MSMS, fraction1);
             peak2.Identifications.Add(id3);
 
             peak1.ResolveIdentifications();
@@ -1309,6 +1309,74 @@ namespace Test
             Assert.That(double.Parse(protein2Results[6]) == 0);
 
             File.Delete(filepath);
+        }
+
+        [Test]
+        public static void FakeTest()
+        {
+            List<SpectraFileInfo> files = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_06_161103_A1_HCD_OT_4ul.mzML", "a", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_07_161103_A2_HCD_OT_4ul.mzML", "a", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_16_161103_A3_HCD_OT_4ul.mzML", "a", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_17_161103_A4_HCD_OT_4ul.mzML", "a", 3, 0, 0),
+
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_24_161103_C1_HCD_OT_4ul.mzML", "c", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_09_161103_C2_HCD_OT_4ul.mzML", "c", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_14_161103_C3_HCD_OT_4ul.mzML", "c", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_19_161103_C4_HCD_OT_4ul.mzML", "c", 3, 0, 0),
+            };
+
+            var psms = PsmReader.ReadPsms(@"C:\Data\ionstarSample\msms.txt", true, files);
+
+            Loaders.LoadElements();
+
+            var ecoliProteins = UsefulProteomicsDatabases.ProteinDbLoader.LoadProteinFasta(
+                @"C:\Data\__Databases\ecoli.fasta", true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out var a).ToDictionary(p => p.Accession, p => p);
+
+            var humanProteins = UsefulProteomicsDatabases.ProteinDbLoader.LoadProteinFasta(
+                @"C:\Data\__Databases\uniprot-proteome_Homo_sapiens_reviewed.fasta", true, DecoyType.None, false,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out a).ToDictionary(p => p.Accession, p => p);
+
+            foreach (var psm in psms)
+            {
+                var pg = psm.ProteinGroups.First();
+
+                string organism = "";
+
+                if (humanProteins.ContainsKey(pg.ProteinGroupName))
+                {
+                    organism = "HUMAN";
+                }
+                else if (ecoliProteins.ContainsKey(pg.ProteinGroupName))
+                {
+                    if (organism == "HUMAN")
+                    {
+                        organism = "";
+                    }
+                    else
+                    {
+                        organism = "ECOLX";
+                    }
+                }
+
+                pg.Organism = organism;
+            }
+
+            // run w/ impute
+            FlashLfqEngine e = new FlashLfqEngine(psms, normalize: true, matchBetweenRuns: true, impute: true);
+            var res = e.Run();
+
+            res.WriteResults(@"C:\Data\ionstarSample\peaksWImpute.tsv", @"C:\Data\ionstarSample\peptidesWImpute.tsv", @"C:\Data\ionstarSample\proteinsWImpute.tsv", null, true);
+
+            // run w/o impute
+            e = new FlashLfqEngine(psms, normalize: true, matchBetweenRuns: true, impute: false);
+            res = e.Run();
+
+            res.WriteResults(@"C:\Data\ionstarSample\peaksNoImpute.tsv", @"C:\Data\ionstarSample\peptidesNoImpute.tsv", @"C:\Data\ionstarSample\proteinsNoImpute.tsv", null, true);
         }
     }
 }

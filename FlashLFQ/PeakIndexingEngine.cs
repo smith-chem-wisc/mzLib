@@ -15,7 +15,7 @@ namespace FlashLFQ
     {
         private List<IndexedMassSpectralPeak>[] _indexedPeaks;
         private readonly Serializer _serializer;
-        private const int BinsPerDalton = 100;
+        public const int BinsPerDalton = 100;
 
         public PeakIndexingEngine()
         {
@@ -271,7 +271,17 @@ namespace FlashLFQ
             return bestPeak;
         }
 
-        private int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
+        public List<IndexedMassSpectralPeak> GetMzBin(int roundedMz)
+        {
+            if (roundedMz < 0 || roundedMz >= _indexedPeaks.Length)
+            {
+                return null;
+            }
+
+            return _indexedPeaks[roundedMz];
+        }
+
+        public int BinarySearchForIndexedPeak(List<IndexedMassSpectralPeak> indexedPeaks, int zeroBasedScanIndex)
         {
             int m = 0;
             int l = 0;

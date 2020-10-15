@@ -8,7 +8,7 @@ namespace FlashLFQ
     {
         public readonly string ProteinGroupName;
         public readonly string GeneName;
-        public readonly string Organism;
+        public string Organism;
         private Dictionary<SpectraFileInfo, double> Intensities;
         public Dictionary<string, ProteinQuantificationEngineResult> ConditionToQuantificationResults;
 
