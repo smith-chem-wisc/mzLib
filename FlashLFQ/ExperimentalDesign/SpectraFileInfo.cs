@@ -1,22 +1,18 @@
-﻿namespace FlashLFQ
+﻿using System.Collections.Generic;
+
+namespace FlashLFQ
 {
     public class SpectraFileInfo
     {
         public readonly string FullFilePathWithExtension;
         public readonly string FilenameWithoutExtension;
-        public string Condition; // condition/biorep/techrep/fraction info
-        public readonly int BiologicalReplicate;
-        public readonly int Fraction;
-        public readonly int TechnicalReplicate;
+        public readonly List<Sample> Samples;
 
-        public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
+        public SpectraFileInfo(string fullFilePathWithExtension, List<Sample> samples)
         {
             this.FullFilePathWithExtension = fullFilePathWithExtension;
             this.FilenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.FullFilePathWithExtension);
-            this.Condition = condition;
-            this.BiologicalReplicate = biorep;
-            this.TechnicalReplicate = techrep;
-            this.Fraction = fraction;
+            this.Samples = samples;
         }
 
         // files are considered the same if the absolute file path is the same

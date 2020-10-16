@@ -1199,5 +1199,35 @@ namespace Test
             Assert.That(peptides["peptide2"].GetDetectionType(fraction1) == DetectionType.NotDetected);
             Assert.That(peptides["peptide2"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
         }
+
+        [Test]
+        public static void TestExperimentalDesign()
+        {
+            // example of unfractionated LFQ; 1 file, 1 sample
+            SpectraFileInfo lfqFile = new SpectraFileInfo(@"", new List<Sample> { new Sample("A", 0, SampleType.Ms1LabelFree) });
+
+            // example of fractionated LFQ; 3 fractions, all from the same sample
+            Sample sample1 = new Sample("A", 0, SampleType.Ms1LabelFree);
+
+            SpectraFileInfo fraction1 = new SpectraFileInfo(@"C:\Data\Fraction1.raw", new List<Sample> { sample1 });
+            SpectraFileInfo fraction2 = new SpectraFileInfo(@"C:\Data\Fraction2.raw", new List<Sample> { sample1 });
+            SpectraFileInfo fraction3 = new SpectraFileInfo(@"C:\Data\Fraction3.raw", new List<Sample> { sample1 });
+
+            // example of unfractionated SILAC; 1 file, 2 samples (light and heavy)
+            SpectraFileInfo file = new SpectraFileInfo(@"C:\Data\File1.raw", 
+                new List<Sample> 
+                { 
+                    new Sample("Light", 0, SampleType.Ms1Labeled),
+                    new Sample("Heavy", 1, SampleType.Ms1Labeled)
+                });
+
+            // example of fractionated SILAC; 3 fractions, 2 samples (light and heavy)
+            Sample light = new Sample("Light", 0, SampleType.Ms1Labeled);
+            Sample heavy = new Sample("Heavy", 1, SampleType.Ms1Labeled);
+
+            SpectraFileInfo fraction1_silac = new SpectraFileInfo(@"C:\Data\Fraction1.raw", new List<Sample> { light, heavy });
+            SpectraFileInfo fraction2_silac = new SpectraFileInfo(@"C:\Data\Fraction2.raw", new List<Sample> { light, heavy });
+            SpectraFileInfo fraction3_silac = new SpectraFileInfo(@"C:\Data\Fraction3.raw", new List<Sample> { light, heavy });
+        }
     }
 }

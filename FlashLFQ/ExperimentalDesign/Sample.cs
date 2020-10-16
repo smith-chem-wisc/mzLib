@@ -19,14 +19,14 @@ namespace FlashLFQ
     public class Sample
     {
         public readonly string SampleGroup;
-        public readonly string SampleId;
+        public readonly int SampleId;
         public readonly SampleType SampleType;
         public readonly List<SampleComponent> SampleComponents;
 
-        public Sample(string condition, string sampleId, SampleType sampleType)
+        public Sample(string sampleGroup, int sampleNumber, SampleType sampleType)
         {
-            this.SampleGroup = condition;
-            this.SampleId = sampleId;
+            this.SampleGroup = sampleGroup;
+            this.SampleId = sampleNumber;
             this.SampleType = sampleType;
         }
 
