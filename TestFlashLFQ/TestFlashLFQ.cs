@@ -1226,6 +1226,8 @@ namespace Test
             // example of unfractionated SILAC; 1 file, 2 samples (light and heavy)
             SpectraFileInfo silacFile = new SpectraFileInfo(@"C:\Data\File1.raw");
 
+            ChemicalLabel heavyLysine = new ChemicalLabel();
+
             Sample lightSample = new Sample(new List<SampleComponent>
             {
                 new SampleComponent(silacFile, "Light", 0, 0, 0, SampleType.Ms1LabelFree)
@@ -1233,7 +1235,7 @@ namespace Test
 
             Sample heavySample = new Sample(new List<SampleComponent>
             {
-                new SampleComponent(silacFile, "Heavy", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+                new SampleComponent(silacFile, "Heavy", 0, 0, 0, SampleType.Ms1Labeled, heavyLysine)
             });
 
             // example of fractionated SILAC; 3 fractions, 2 samples (light and heavy)
@@ -1250,9 +1252,9 @@ namespace Test
 
             Sample heavySampleFrac = new Sample(new List<SampleComponent>
             {
-                new SampleComponent(fraction1_silac, "Heavy", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction2_silac, "Heavy", 0, 1, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction3_silac, "Heavy", 0, 2, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+                new SampleComponent(fraction1_silac, "Heavy", 0, 0, 0, SampleType.Ms1Labeled, heavyLysine),
+                new SampleComponent(fraction2_silac, "Heavy", 0, 1, 0, SampleType.Ms1Labeled, heavyLysine),
+                new SampleComponent(fraction3_silac, "Heavy", 0, 2, 0, SampleType.Ms1Labeled, heavyLysine)
             });
 
             // example of fractionated TMT; 3 fractions, 11 samples (11-plex)
@@ -1260,18 +1262,21 @@ namespace Test
             SpectraFileInfo fraction2_tmt = new SpectraFileInfo(@"C:\Data\Fraction2.raw");
             SpectraFileInfo fraction3_tmt = new SpectraFileInfo(@"C:\Data\Fraction3.raw");
 
+            ChemicalLabel tmtplex1Label = new ChemicalLabel();
+            ChemicalLabel tmtplex2Label = new ChemicalLabel();
+
             Sample plex1SampleFrac = new Sample(new List<SampleComponent>
             {
-                new SampleComponent(fraction1_tmt, "Plex1", 0, 0, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction2_tmt, "Plex1", 0, 1, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction3_tmt, "Plex1", 0, 2, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+                new SampleComponent(fraction1_tmt, "Plex1", 0, 0, 0, SampleType.MsnLabeled, tmtplex1Label),
+                new SampleComponent(fraction2_tmt, "Plex1", 0, 1, 0, SampleType.MsnLabeled, tmtplex1Label),
+                new SampleComponent(fraction3_tmt, "Plex1", 0, 2, 0, SampleType.MsnLabeled, tmtplex1Label)
             });
 
             Sample plex2SampleFrac = new Sample(new List<SampleComponent>
             {
-                new SampleComponent(fraction1_tmt, "Plex2", 0, 0, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction2_tmt, "Plex2", 0, 1, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction3_tmt, "Plex2", 0, 2, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+                new SampleComponent(fraction1_tmt, "Plex2", 0, 0, 0, SampleType.MsnLabeled, tmtplex2Label),
+                new SampleComponent(fraction2_tmt, "Plex2", 0, 1, 0, SampleType.MsnLabeled, tmtplex2Label),
+                new SampleComponent(fraction3_tmt, "Plex2", 0, 2, 0, SampleType.MsnLabeled, tmtplex2Label)
             });
 
             // ... continue for remaining plexes
