@@ -1316,15 +1316,30 @@ namespace Test
         {
             List<SpectraFileInfo> files = new List<SpectraFileInfo>
             {
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_06_161103_A1_HCD_OT_4ul.mzML", "a", 0, 0, 0),
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_07_161103_A2_HCD_OT_4ul.mzML", "a", 1, 0, 0),
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_16_161103_A3_HCD_OT_4ul.mzML", "a", 2, 0, 0),
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_17_161103_A4_HCD_OT_4ul.mzML", "a", 3, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_06_161103_A1_HCD_OT_4ul.raw", "a", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_07_161103_A2_HCD_OT_4ul.raw", "a", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_16_161103_A3_HCD_OT_4ul.raw", "a", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_17_161103_A4_HCD_OT_4ul.raw", "a", 3, 0, 0),
 
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_24_161103_C1_HCD_OT_4ul.mzML", "c", 0, 0, 0),
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_09_161103_C2_HCD_OT_4ul.mzML", "c", 1, 0, 0),
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_14_161103_C3_HCD_OT_4ul.mzML", "c", 2, 0, 0),
-                new SpectraFileInfo(@"C:\Data\ionstarSample\B02_19_161103_C4_HCD_OT_4ul.mzML", "c", 3, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_001_161103_B1_HCD_OT_4ul.raw", "b", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_08_161103_B2_HCD_OT_4ul.raw", "b", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_15_161103_B3_HCD_OT_4ul.raw", "b", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_18_161103_B4_HCD_OT_4ul.raw", "b", 3, 0, 0),
+
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_24_161103_C1_HCD_OT_4ul.raw", "c", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_09_161103_C2_HCD_OT_4ul.raw", "c", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_14_161103_C3_HCD_OT_4ul.raw", "c", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_19_161103_C4_HCD_OT_4ul.raw", "c", 3, 0, 0),
+
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_22_161103_D1_HCD_OT_4ul.raw", "d", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_11_161103_D2_HCD_OT_4ul.raw", "d", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_12_161103_D3_HCD_OT_4ul.raw", "d", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_21_161103_D4_HCD_OT_4ul.raw", "d", 3, 0, 0),
+
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_23_161103_E1_HCD_OT_4ul.raw", "e", 0, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_10_161103_E2_HCD_OT_4ul.raw", "e", 1, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_13_161103_E3_HCD_OT_4ul.raw", "e", 2, 0, 0),
+                new SpectraFileInfo(@"C:\Data\FlashLFQ\1_IonStar Raw Files\B02_20_161103_E4_HCD_OT_4ul.raw", "e", 3, 0, 0),
             };
 
             var psms = PsmReader.ReadPsms(@"C:\Data\ionstarSample\msms.txt", true, files);

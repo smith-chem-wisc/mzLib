@@ -214,7 +214,7 @@ namespace FlashLFQ
             _results.CalculatePeptideResults();
 
             // do top3 protein quantification
-            _results.CalculateProteinResultsTop3(UseSharedPeptidesForProteinQuant);
+            _results.CalculateProteinResultsMedianPolish(UseSharedPeptidesForProteinQuant);
 
             // do Bayesian protein fold-change analysis
             if (BayesianProteinQuant)
@@ -964,9 +964,15 @@ namespace FlashLFQ
                         index = rtCalibrationCurve.Length - 1;
                     }
 
-                    foreach (Identification id in donorPeak.Identifications)
+                    foreach (var idGroup in donorPeak.Identifications.GroupBy(p => p.ModifiedSequence))
                     {
-                        if (_results.PeptideModifiedSequences[id.ModifiedSequence].GetDetectionType(file) == DetectionType.NotDetected)
+                        var id = idGroup.First();
+                        DetectionType detectionType = _results.PeptideModifiedSequences[id.ModifiedSequence].GetDetectionType(file);
+
+                        // TODO: observe peptide in at least N samples
+
+
+                        if (detectionType == DetectionType.NotDetected || detectionType == DetectionType.MSMSIdentifiedButNotQuantified)
                         {
                             double rtHypothesis = id.Ms2RetentionTimeInMinutes + rtCalibrationCurve[index].RtDiff;
                             var imputedPeak = ImputePeak(id, rtHypothesis, 1, file);
@@ -985,11 +991,17 @@ namespace FlashLFQ
             // get precursor scan to start at
             Ms1ScanInfo[] ms1Scans = _ms1Scans[file];
             int startScanIndex = -1;
+            int scanEndIndex = -1;
+
             foreach (Ms1ScanInfo ms1Scan in ms1Scans)
             {
-                if (ms1Scan.RetentionTime < rt)
+                if (ms1Scan.RetentionTime < rt - rtWindow / 2)
                 {
                     startScanIndex = ms1Scan.ZeroBasedMs1ScanIndex;
+                }
+                else if (ms1Scan.RetentionTime < rt + rtWindow / 2)
+                {
+                    scanEndIndex = ms1Scan.ZeroBasedMs1ScanIndex;
                 }
                 else
                 {
@@ -997,62 +1009,66 @@ namespace FlashLFQ
                 }
             }
 
-            Dictionary<int, List<IndexedMassSpectralPeak>> chargeToMinIntensity = new Dictionary<int, List<IndexedMassSpectralPeak>>();
+            Dictionary<int, List<IndexedMassSpectralPeak>> chargeToPeaks = new Dictionary<int, List<IndexedMassSpectralPeak>>();
 
             int z = id.PrecursorChargeState;
             double mz = id.MonoisotopicMass.ToMz(z);
             int mzStart = (int)Math.Floor((mz - mzTol).ToMz(z) * PeakIndexingEngine.BinsPerDalton);
             int mzEnd = (int)Math.Ceiling((mz + mzTol).ToMz(z) * PeakIndexingEngine.BinsPerDalton);
 
-            for (int scan = startScanIndex; scan < startScanIndex + 1; scan++) // TODO use scan range
+            //for (int scan = startScanIndex; scan < startScanIndex + 1; scan++) // TODO use scan range
+            //{
+            for (int mzBin = mzStart; mzBin <= mzEnd; mzBin++)
             {
-                for (int mzBin = mzStart; mzBin <= mzEnd; mzBin++)
-                {
-                    var bin = _peakIndexingEngine.GetMzBin(mzBin);
+                var bin = _peakIndexingEngine.GetMzBin(mzBin);
 
-                    if (bin == null)
+                if (bin == null)
+                {
+                    continue;
+                }
+
+                int index = _peakIndexingEngine.BinarySearchForIndexedPeak(bin, startScanIndex);
+
+                for (int i = index; i < bin.Count; i++)
+                {
+                    IndexedMassSpectralPeak peak = bin[i];
+
+                    if (peak.ZeroBasedMs1ScanIndex > scanEndIndex)
+                    {
+                        break;
+                    }
+                    if (peak.ZeroBasedMs1ScanIndex < startScanIndex)
                     {
                         continue;
                     }
 
-                    int index = _peakIndexingEngine.BinarySearchForIndexedPeak(bin, scan);
-
-                    for (int i = index; i < bin.Count; i++)
+                    if (chargeToPeaks.TryGetValue(z, out List<IndexedMassSpectralPeak> otherPeaks))
                     {
-                        IndexedMassSpectralPeak peak = bin[i];
-
-                        if (peak.ZeroBasedMs1ScanIndex > scan)
-                        {
-                            break;
-                        }
-                        if (peak.ZeroBasedMs1ScanIndex != scan)
-                        {
-                            continue;
-                        }
-
-                        if (chargeToMinIntensity.TryGetValue(z, out List<IndexedMassSpectralPeak> otherPeaks))
-                        {
-                            otherPeaks.Add(peak);
-                        }
-                        else
-                        {
-                            chargeToMinIntensity.Add(z, new List<IndexedMassSpectralPeak> { peak });
-                        }
+                        otherPeaks.Add(peak);
+                    }
+                    else
+                    {
+                        chargeToPeaks.Add(z, new List<IndexedMassSpectralPeak> { peak });
                     }
                 }
             }
+            //}
 
-            foreach (var imputedValue in chargeToMinIntensity)
+            foreach (var chargeWPeaks in chargeToPeaks)
             {
+                int charge = chargeWPeaks.Key;
+                var peaks = chargeWPeaks.Value;//.OrderByDescending(p => p.Intensity);
+
                 double isotopicEnvelopeIntensity = 0;
+                double mainPeakIntensity = chargeWPeaks.Value.Select(p => p.Intensity).LowerQuartile();
 
                 for (int i = 0; i < isotopeMassShifts.Count; i++)
                 {
-                    double theoreticalIsotopeIntensity = isotopeMassShifts[i].Item2 * imputedValue.Value.Select(p => p.Intensity).Min();
+                    double theoreticalIsotopeIntensity = isotopeMassShifts[i].Item2 * mainPeakIntensity;
                     isotopicEnvelopeIntensity += theoreticalIsotopeIntensity;
                 }
 
-                imputedPeak.IsotopicEnvelopes.Add(new IsotopicEnvelope(imputedValue.Value.First(), imputedValue.Key, isotopicEnvelopeIntensity));
+                imputedPeak.IsotopicEnvelopes.Add(new IsotopicEnvelope(chargeWPeaks.Value.First(), chargeWPeaks.Key, isotopicEnvelopeIntensity));
             }
 
             imputedPeak.CalculateIntensityForThisFeature(Integrate);

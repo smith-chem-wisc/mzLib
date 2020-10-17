@@ -395,6 +395,24 @@ namespace FlashLFQ
                     {
                         foreach (var sample in group.GroupBy(p => p.Sample).OrderBy(p => p.Key))
                         {
+                            List<SpectraFileInfo> msmsSamples = new List<SpectraFileInfo>();
+                            List<SpectraFileInfo> mbrSamples = new List<SpectraFileInfo>();
+
+                            foreach (var peptide in peptidesForThisProtein)
+                            {
+                                foreach (var file in sample)
+                                {
+                                    if (peptide.GetDetectionType(file) == DetectionType.MSMS && peptide.GetIntensity(file) > 0)
+                                    {
+                                        msmsSamples.Add(file);
+                                    }
+                                    else if (peptide.GetDetectionType(file) == DetectionType.MBR && peptide.GetIntensity(file) > 0)
+                                    {
+                                        mbrSamples.Add(file);
+                                    }
+                                }
+                            }
+
                             foreach (Peptide peptide in peptidesForThisProtein)
                             {
                                 double sampleIntensity = 0;
@@ -407,6 +425,14 @@ namespace FlashLFQ
 
                                     foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.Replicate))
                                     {
+                                        DetectionType replicateDetectionType = peptide.GetDetectionType(replicate);
+
+                                        // don't use imputed values if MSMS or MBR was detected for this sample
+                                        if (replicateDetectionType == DetectionType.Imputed && (msmsSamples.Count >= 1 || mbrSamples.Count >= 1))
+                                        {
+                                            continue;
+                                        }
+
                                         double replicateIntensity = peptide.GetIntensity(replicate);
 
                                         if (replicateIntensity > 0)
