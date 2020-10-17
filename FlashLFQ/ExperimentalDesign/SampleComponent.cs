@@ -16,7 +16,7 @@ namespace FlashLFQ
         public readonly SampleType SampleType;
         public readonly ChemicalLabel ChemicalLabel;
 
-        public SampleComponent(string sampleGroup, int sample, int fraction, int replicate, SampleType sampleType, ChemicalLabel label = null)
+        public SampleComponent(SpectraFileInfo file, string sampleGroup, int sample, int fraction, int replicate, SampleType sampleType, ChemicalLabel label = null)
         {
             
         }

@@ -8,11 +8,11 @@ namespace FlashLFQ
         public readonly string FilenameWithoutExtension;
         public readonly List<Sample> Samples;
 
-        public SpectraFileInfo(string fullFilePathWithExtension, List<Sample> samples)
+        public SpectraFileInfo(string fullFilePathWithExtension)
         {
             this.FullFilePathWithExtension = fullFilePathWithExtension;
             this.FilenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.FullFilePathWithExtension);
-            this.Samples = samples;
+            this.Samples = new List<Sample>();
         }
 
         // files are considered the same if the absolute file path is the same

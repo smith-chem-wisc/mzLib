@@ -1204,30 +1204,77 @@ namespace Test
         public static void TestExperimentalDesign()
         {
             // example of unfractionated LFQ; 1 file, 1 sample
-            SpectraFileInfo lfqFile = new SpectraFileInfo(@"", new List<Sample> { new Sample("A", 0, SampleType.Ms1LabelFree) });
+            SpectraFileInfo lfqFile = new SpectraFileInfo(@"C:\Data\MyFile.raw");
+
+            Sample lfqSample = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(lfqFile, "A", 0, 0, 0, SampleType.Ms1LabelFree)
+            });
 
             // example of fractionated LFQ; 3 fractions, all from the same sample
-            Sample sample1 = new Sample("A", 0, SampleType.Ms1LabelFree);
+            SpectraFileInfo fraction1 = new SpectraFileInfo(@"C:\Data\Fraction1.raw");
+            SpectraFileInfo fraction2 = new SpectraFileInfo(@"C:\Data\Fraction2.raw");
+            SpectraFileInfo fraction3 = new SpectraFileInfo(@"C:\Data\Fraction3.raw");
 
-            SpectraFileInfo fraction1 = new SpectraFileInfo(@"C:\Data\Fraction1.raw", new List<Sample> { sample1 });
-            SpectraFileInfo fraction2 = new SpectraFileInfo(@"C:\Data\Fraction2.raw", new List<Sample> { sample1 });
-            SpectraFileInfo fraction3 = new SpectraFileInfo(@"C:\Data\Fraction3.raw", new List<Sample> { sample1 });
+            Sample sample1 = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(fraction1, "A", 0, 0, 0, SampleType.Ms1LabelFree),
+                new SampleComponent(fraction2, "A", 0, 1, 0, SampleType.Ms1LabelFree),
+                new SampleComponent(fraction3, "A", 0, 2, 0, SampleType.Ms1LabelFree),
+            });
 
             // example of unfractionated SILAC; 1 file, 2 samples (light and heavy)
-            SpectraFileInfo file = new SpectraFileInfo(@"C:\Data\File1.raw", 
-                new List<Sample> 
-                { 
-                    new Sample("Light", 0, SampleType.Ms1Labeled),
-                    new Sample("Heavy", 1, SampleType.Ms1Labeled)
-                });
+            SpectraFileInfo silacFile = new SpectraFileInfo(@"C:\Data\File1.raw");
+
+            Sample lightSample = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(silacFile, "Light", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+            });
+
+            Sample heavySample = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(silacFile, "Heavy", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+            });
 
             // example of fractionated SILAC; 3 fractions, 2 samples (light and heavy)
-            Sample light = new Sample("Light", 0, SampleType.Ms1Labeled);
-            Sample heavy = new Sample("Heavy", 1, SampleType.Ms1Labeled);
+            SpectraFileInfo fraction1_silac = new SpectraFileInfo(@"C:\Data\Fraction1.raw");
+            SpectraFileInfo fraction2_silac = new SpectraFileInfo(@"C:\Data\Fraction2.raw");
+            SpectraFileInfo fraction3_silac = new SpectraFileInfo(@"C:\Data\Fraction3.raw");
 
-            SpectraFileInfo fraction1_silac = new SpectraFileInfo(@"C:\Data\Fraction1.raw", new List<Sample> { light, heavy });
-            SpectraFileInfo fraction2_silac = new SpectraFileInfo(@"C:\Data\Fraction2.raw", new List<Sample> { light, heavy });
-            SpectraFileInfo fraction3_silac = new SpectraFileInfo(@"C:\Data\Fraction3.raw", new List<Sample> { light, heavy });
+            Sample lightSampleFrac = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(fraction1_silac, "Light", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction2_silac, "Light", 0, 1, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction3_silac, "Light", 0, 2, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+            });
+
+            Sample heavySampleFrac = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(fraction1_silac, "Heavy", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction2_silac, "Heavy", 0, 1, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction3_silac, "Heavy", 0, 2, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+            });
+
+            // example of fractionated TMT; 3 fractions, 11 samples (11-plex)
+            SpectraFileInfo fraction1_tmt = new SpectraFileInfo(@"C:\Data\Fraction1.raw");
+            SpectraFileInfo fraction2_tmt = new SpectraFileInfo(@"C:\Data\Fraction2.raw");
+            SpectraFileInfo fraction3_tmt = new SpectraFileInfo(@"C:\Data\Fraction3.raw");
+
+            Sample plex1SampleFrac = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(fraction1_tmt, "Plex1", 0, 0, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction2_tmt, "Plex1", 0, 1, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction3_tmt, "Plex1", 0, 2, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+            });
+
+            Sample plex2SampleFrac = new Sample(new List<SampleComponent>
+            {
+                new SampleComponent(fraction1_tmt, "Plex2", 0, 0, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction2_tmt, "Plex2", 0, 1, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
+                new SampleComponent(fraction3_tmt, "Plex2", 0, 2, 0, SampleType.MsnLabeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+            });
+
+            // ... continue for remaining plexes
         }
     }
 }

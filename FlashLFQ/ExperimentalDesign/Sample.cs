@@ -23,11 +23,17 @@ namespace FlashLFQ
         public readonly SampleType SampleType;
         public readonly List<SampleComponent> SampleComponents;
 
-        public Sample(string sampleGroup, int sampleNumber, SampleType sampleType)
+        public Sample(List<SampleComponent> sampleComponents)
         {
-            this.SampleGroup = sampleGroup;
-            this.SampleId = sampleNumber;
-            this.SampleType = sampleType;
+            this.SampleComponents = sampleComponents;
+
+            foreach (var sampleComponent in SampleComponents)
+            {
+                if (!sampleComponent.SpectraFileInfo.Samples.Contains(this))
+                {
+                    sampleComponent.SpectraFileInfo.Samples.Add(this);
+                }
+            }
         }
 
         public override int GetHashCode()
