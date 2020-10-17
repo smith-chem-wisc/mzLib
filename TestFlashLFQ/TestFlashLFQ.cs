@@ -1228,7 +1228,7 @@ namespace Test
 
             Sample lightSample = new Sample(new List<SampleComponent>
             {
-                new SampleComponent(silacFile, "Light", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+                new SampleComponent(silacFile, "Light", 0, 0, 0, SampleType.Ms1LabelFree)
             });
 
             Sample heavySample = new Sample(new List<SampleComponent>
@@ -1243,9 +1243,9 @@ namespace Test
 
             Sample lightSampleFrac = new Sample(new List<SampleComponent>
             {
-                new SampleComponent(fraction1_silac, "Light", 0, 0, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction2_silac, "Light", 0, 1, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C"))),
-                new SampleComponent(fraction3_silac, "Light", 0, 2, 0, SampleType.Ms1Labeled, new ChemicalLabel(ChemicalFormula.ParseFormula("C")))
+                new SampleComponent(fraction1_silac, "Light", 0, 0, 0, SampleType.Ms1LabelFree),
+                new SampleComponent(fraction2_silac, "Light", 0, 1, 0, SampleType.Ms1LabelFree),
+                new SampleComponent(fraction3_silac, "Light", 0, 2, 0, SampleType.Ms1LabelFree)
             });
 
             Sample heavySampleFrac = new Sample(new List<SampleComponent>
