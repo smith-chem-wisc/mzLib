@@ -51,7 +51,7 @@ namespace FlashLFQ
                 throw new MzLibException("A control condition must be defined to run the Bayesian protein quantification");
             }
 
-            bool conditionsAreDefined = results.SpectraFiles.All(p => !string.IsNullOrWhiteSpace(p.SampleGroup));
+            bool conditionsAreDefined = results.SpectraFiles.All(p => !string.IsNullOrWhiteSpace(p.Condition));
             if (!conditionsAreDefined)
             {
                 throw new MzLibException("Conditions must be defined to run the Bayesian protein quantification");
@@ -79,7 +79,7 @@ namespace FlashLFQ
             Rng = new MersenneTwister(RandomSeed);
 
             // figure out which conditions to compare
-            TreatmentConditions = Results.SpectraFiles.Select(p => p.SampleGroup).Distinct().ToList();
+            TreatmentConditions = Results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
             TreatmentConditions.Remove(ControlCondition);
 
             //TODO: implement paired samples
@@ -211,9 +211,9 @@ namespace FlashLFQ
             var allpeptides = ProteinsWithConstituentPeptides.Values.SelectMany(p => p).Distinct().ToList();
             PeptideToSampleQuantity = new Dictionary<(Peptide, string, int), (double, DetectionType)>();
 
-            foreach (var condition in Results.SpectraFiles.GroupBy(p => p.SampleGroup))
+            foreach (var condition in Results.SpectraFiles.GroupBy(p => p.Condition))
             {
-                foreach (var sample in condition.GroupBy(p => p.Sample))
+                foreach (var sample in condition.GroupBy(p => p.BiologicalReplicate))
                 {
                     foreach (Peptide peptide in allpeptides)
                     {
@@ -227,7 +227,7 @@ namespace FlashLFQ
                             double fractionIntensity = 0;
                             int nonZeroTechrepCount = 0;
 
-                            foreach (var techrep in fraction.GroupBy(p => p.Replicate))
+                            foreach (var techrep in fraction.GroupBy(p => p.TechnicalReplicate))
                             {
                                 var techrepFile = techrep.First();
                                 double techrepIntensity = peptide.GetIntensity(techrepFile);
@@ -260,7 +260,7 @@ namespace FlashLFQ
                 }
             }
 
-            if (Results.SpectraFiles.Where(p => p.SampleGroup == ControlCondition).Select(p => p.Sample).Distinct().Count() == 1
+            if (Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count() == 1
                 && !PairedSamples)
             {
                 EstimateIonizationEfficienciesIfControlConditionHasOneSample();
@@ -290,7 +290,7 @@ namespace FlashLFQ
 
                     foreach (var condition in conditions)
                     {
-                        int numSamples = Results.SpectraFiles.Where(p => p.SampleGroup == condition).Max(v => v.Sample) + 1;
+                        int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(v => v.BiologicalReplicate) + 1;
 
                         List<List<(double, DetectionType)>> conditionIntensities = new List<List<(double, DetectionType)>>();
 
@@ -603,11 +603,11 @@ namespace FlashLFQ
 
         private void EstimateIntensityDependentUncertainty()
         {
-            var conditions = Results.SpectraFiles.Select(p => p.SampleGroup).Distinct().ToList();
+            var conditions = Results.SpectraFiles.Select(p => p.Condition).Distinct().ToList();
 
             foreach (string condition in conditions)
             {
-                int numSamples = Results.SpectraFiles.Where(p => p.SampleGroup == condition).Max(p => p.Sample) + 1;
+                int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
 
                 List<(double, double)> intensityToPeptideDiffToProtein = new List<(double, double)>();
                 List<(double, double)> intensityToStdev = new List<(double, double)>();
@@ -845,7 +845,7 @@ namespace FlashLFQ
                 ProteinAndConditionToSigmaPrior.Add((protein.Key, condition), null);
             }
 
-            int numSamples = Results.SpectraFiles.Where(p => p.SampleGroup == condition).Max(p => p.Sample) + 1;
+            int numSamples = Results.SpectraFiles.Where(p => p.Condition == condition).Max(p => p.BiologicalReplicate) + 1;
 
             Dictionary<int, List<int>> randomSeeds = new Dictionary<int, List<int>>();
             for (int i = 0; i < ProteinsWithConstituentPeptides.Count; i++)
@@ -1047,7 +1047,7 @@ namespace FlashLFQ
             // calculate reference intensities
             var ProteinToControlConditionIntensity = new Dictionary<ProteinGroup, double>();
 
-            var numBRef = Results.SpectraFiles.Where(p => p.SampleGroup == ControlCondition).Select(p => p.Sample).Distinct().Count();
+            var numBRef = Results.SpectraFiles.Where(p => p.Condition == ControlCondition).Select(p => p.BiologicalReplicate).Distinct().Count();
 
             foreach (var protein in ProteinsWithConstituentPeptides)
             {

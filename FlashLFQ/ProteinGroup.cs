@@ -53,11 +53,11 @@ namespace FlashLFQ
             sb.Append("Organism" + "\t");
 
             bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-            bool conditionsDefined = spectraFiles.All(p => p.SampleGroup == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.SampleGroup));
+            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
 
-            foreach (var sampleGroup in spectraFiles.GroupBy(p => p.SampleGroup))
+            foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
-                foreach (var sample in sampleGroup.GroupBy(p => p.Sample).OrderBy(p => p.Key))
+                foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                 {
                     if (!conditionsDefined && unfractionated)
                     {
@@ -65,7 +65,7 @@ namespace FlashLFQ
                     }
                     else
                     {
-                        sb.Append("Intensity_" + sample.First().SampleGroup + "_" + (sample.First().Sample + 1) + "\t");
+                        sb.Append("Intensity_" + sample.First().Condition + "_" + (sample.First().BiologicalReplicate + 1) + "\t");
                     }
                 }
             }
@@ -81,11 +81,11 @@ namespace FlashLFQ
             sb.Append(Organism + "\t");
 
             bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-            bool conditionsDefined = spectraFiles.All(p => p.SampleGroup == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.SampleGroup));
+            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
 
-            foreach (var sampleGroup in spectraFiles.GroupBy(p => p.SampleGroup))
+            foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
-                foreach (var sample in sampleGroup.GroupBy(p => p.Sample).OrderBy(p => p.Key))
+                foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                 {
                     if (!conditionsDefined && unfractionated)
                     {

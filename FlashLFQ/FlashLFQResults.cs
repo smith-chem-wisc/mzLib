@@ -175,10 +175,10 @@ namespace FlashLFQ
         {
             // handle ambiguous peaks in fractionated data
             // if the largest fraction intensity is ambiguous, zero out the other fractions for the sample
-            var sampleGroups = SpectraFiles.GroupBy(p => p.SampleGroup);
+            var sampleGroups = SpectraFiles.GroupBy(p => p.Condition);
             foreach (var sampleGroup in sampleGroups)
             {
-                var samples = sampleGroup.Select(p => p).GroupBy(p => p.Sample);
+                var samples = sampleGroup.Select(p => p).GroupBy(p => p.BiologicalReplicate);
 
                 foreach (var sample in samples)
                 {
@@ -300,6 +300,10 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// This method uses the median polish algorithm to calculate protein quantities in each biological replicate.
+        /// See https://mgimond.github.io/ES218/Week11a.html for an example of the median polish algorithm.
+        /// </summary>
         public void CalculateProteinResultsMedianPolish(bool useSharedPeptides)
         {
             // reset protein intensities to 0
@@ -335,14 +339,18 @@ namespace FlashLFQ
                 }
             }
 
-            var filesGroupedByCondition = SpectraFiles.GroupBy(p => p.SampleGroup).ToList();
+            var filesGroupedByCondition = SpectraFiles.GroupBy(p => p.Condition).ToList();
 
             // quantify each protein
             foreach (ProteinGroup proteinGroup in ProteinGroups.Values)
             {
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
-                    // calculate reference protein intensity
+                    // calculate reference protein intensity (top 3 most intense peptides).
+                    // the reference intensity is just a scaling factor because the median polish
+                    // algorithm will return a normalized number that does not scale w/ intensity
+                    // (it's more like a fold-change). so that number will be multiplied by this reference
+                    // intensity to get a protein intensity
                     double referenceProteinIntensity = 0;
                     int topNPeaks = 3;
 
@@ -377,31 +385,33 @@ namespace FlashLFQ
 
                     // set up peptide intensity table
                     int numSamples = 0;
-                    foreach (var condition in SpectraFiles.GroupBy(p => p.SampleGroup))
+                    foreach (var condition in SpectraFiles.GroupBy(p => p.Condition))
                     {
-                        int conditionSamples = condition.Select(p => p.Sample).Distinct().Count();
+                        int conditionSamples = condition.Select(p => p.BiologicalReplicate).Distinct().Count();
                         numSamples += conditionSamples;
                     }
 
                     double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, numSamples];
 
-                    // populate matrix w/ peptide intensities
+                    // populate matrix w/ log2-transformed peptide intensities
                     int sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup).OrderBy(p => p.Key))
+                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
-                        foreach (var sample in group.GroupBy(p => p.Sample).OrderBy(p => p.Key))
+                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                         {
                             foreach (Peptide peptide in peptidesForThisProtein)
                             {
                                 double sampleIntensity = 0;
                                 double highestFractionIntensity = 0;
 
+                                // the fraction w/ the highest intensity is used as the sample intensity for this peptide.
+                                // if there is more than one replicate of the fraction, then the replicate intensities are averaged
                                 foreach (var fraction in sample.GroupBy(p => p.Fraction))
                                 {
                                     double fractionIntensity = 0;
                                     int replicatesWithValidValues = 0;
 
-                                    foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.Replicate))
+                                    foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.TechnicalReplicate))
                                     {
                                         double replicateIntensity = peptide.GetIntensity(replicate);
 
@@ -444,10 +454,14 @@ namespace FlashLFQ
 
                     // set the sample protein intensities
                     sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.SampleGroup).OrderBy(p => p.Key))
+                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
-                        foreach (var sample in group.GroupBy(p => p.Sample).OrderBy(p => p.Key))
+                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                         {
+                            // this step un-logs the protein "intensity". in reality this value is more like a fold-change 
+                            // than an intensity, but unlike a fold-change it's not relative to a particular sample.
+                            // by multiplying this value by the reference protein intensity calculated earlier, then we get 
+                            // a protein intensity value
                             double sampleProteinIntensity = Math.Pow(2, columnEffects[sampleN]) * referenceProteinIntensity;
 
                             // the column effect can be 0 in many cases. sometimes it's a valid value and sometimes it's not.
@@ -592,7 +606,7 @@ namespace FlashLFQ
             }
         }
 
-        private static void MedianPolish(double[,] table, int maxIter, double tol, out double[] rowEffects, out double[] columnEffects, out double overallEffect)
+        private static void MedianPolish(double[,] table, int maxIterations, double improvementCutoff, out double[] rowEffects, out double[] columnEffects, out double overallEffect)
         {
             overallEffect = 0;
             rowEffects = new double[table.GetLength(0)];
@@ -634,7 +648,8 @@ namespace FlashLFQ
                 }
             }
 
-            for (int i = 0; i < maxIter; i++)
+            // iterate the median polish algorithm
+            for (int i = 0; i < maxIterations; i++)
             {
                 rowMedians.Clear();
                 columnMedians.Clear();
@@ -649,7 +664,7 @@ namespace FlashLFQ
                     }
                 }
 
-                if (Math.Abs((thisIterationSumOfAbsoluteResiduals - lastIterationSumOfAbsoluteResiduals) / lastIterationSumOfAbsoluteResiduals) < tol && i > 0)
+                if (Math.Abs((thisIterationSumOfAbsoluteResiduals - lastIterationSumOfAbsoluteResiduals) / lastIterationSumOfAbsoluteResiduals) < improvementCutoff && i > 0)
                 {
                     break;
                 }
