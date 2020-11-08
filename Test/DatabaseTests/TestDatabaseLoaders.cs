@@ -56,28 +56,28 @@ namespace Test
         {
             var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
             Assert.AreEqual("Q13409", protein[0].Accession);
-            Assert.AreEqual("Q13409_2", protein[1].Accession);
-            Assert.AreEqual("Q13409_3", protein[2].Accession);
+            Assert.AreEqual("Q13409-2", protein[1].Accession);
+            Assert.AreEqual("Q13409-3", protein[2].Accession);
             Assert.AreEqual("Q13813", protein[3].Accession);
-            Assert.AreEqual("Q13813_2", protein[4].Accession);
-            Assert.AreEqual("Q13813_3", protein[5].Accession);
+            Assert.AreEqual("Q13813-2", protein[4].Accession);
+            Assert.AreEqual("Q13813-3", protein[5].Accession);
             Assert.AreEqual("Q14103", protein[6].Accession);
-            Assert.AreEqual("Q14103_2", protein[7].Accession);
-            Assert.AreEqual("Q14103_3", protein[8].Accession);
-            Assert.AreEqual("Q14103_4", protein[9].Accession);
+            Assert.AreEqual("Q14103-2", protein[7].Accession);
+            Assert.AreEqual("Q14103-3", protein[8].Accession);
+            Assert.AreEqual("Q14103-4", protein[9].Accession);
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"), true, DecoyType.None, null, false, null, out var unknownMod);
             Assert.AreEqual("Q13409", proteinXml[0].Accession);
-            Assert.AreEqual("Q13409_2", proteinXml[1].Accession);
-            Assert.AreEqual("Q13409_3", proteinXml[2].Accession);
+            Assert.AreEqual("Q13409-2", proteinXml[1].Accession);
+            Assert.AreEqual("Q13409-3", proteinXml[2].Accession);
             Assert.AreEqual("Q13813", proteinXml[3].Accession);
-            Assert.AreEqual("Q13813_2", proteinXml[4].Accession);
-            Assert.AreEqual("Q13813_3", proteinXml[5].Accession);
+            Assert.AreEqual("Q13813-2", proteinXml[4].Accession);
+            Assert.AreEqual("Q13813-3", proteinXml[5].Accession);
             Assert.AreEqual("Q14103", proteinXml[6].Accession);
-            Assert.AreEqual("Q14103_2", proteinXml[7].Accession);
-            Assert.AreEqual("Q14103_3", proteinXml[8].Accession);
-            Assert.AreEqual("Q14103_4", proteinXml[9].Accession);
+            Assert.AreEqual("Q14103-2", proteinXml[7].Accession);
+            Assert.AreEqual("Q14103-3", proteinXml[8].Accession);
+            Assert.AreEqual("Q14103-4", proteinXml[9].Accession);
         }
 
         [Test]
@@ -588,7 +588,7 @@ namespace Test
             string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
             Assert.AreEqual(filepath + "\\availableUniProtProteomes.txt.gz", downloadedFilePath);
 
-            Dictionary<string,string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
+            Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
 
             Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
             Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
@@ -616,6 +616,25 @@ namespace Test
             var uniProtColumnDictionary = ProteinDbRetriever.UniprotColumnsList();
             Assert.IsTrue(uniProtColumnDictionary.Keys.Contains("Entry"));
             Assert.AreEqual("id", uniProtColumnDictionary["Entry"]);
+        }
+
+        [Test]
+        public static void TestHyphenAccession()
+        {
+            string fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "TestHypenAccession.fasta");
+
+            string accession = @">TTLL10-203.TTLL10-202|x|x|x|x|x|TTLL10|x";
+            List<string> output = new List<string> { accession };
+            output.Add("PEPTIDE");
+            File.WriteAllLines(fastaFile, output);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out var errors);
+
+            Assert.That(proteins.First().Accession == "TTLL10-203.TTLL10-202");
+
+            File.Delete(fastaFile);
         }
     }
 }
