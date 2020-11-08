@@ -635,10 +635,6 @@ namespace Test
             Assert.That(proteins.First().Accession == "TTLL10-203.TTLL10-202");
 
             File.Delete(fastaFile);
-
-            // Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, 
-            // ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
-            // ProteinDbLoader.UniprotOrganismRegex, out var errors);
         }
     }
 }
