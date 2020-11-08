@@ -588,7 +588,7 @@ namespace Test
             string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
             Assert.AreEqual(filepath + "\\availableUniProtProteomes.txt.gz", downloadedFilePath);
 
-            Dictionary<string,string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
+            Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
 
             Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
             Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
@@ -616,6 +616,29 @@ namespace Test
             var uniProtColumnDictionary = ProteinDbRetriever.UniprotColumnsList();
             Assert.IsTrue(uniProtColumnDictionary.Keys.Contains("Entry"));
             Assert.AreEqual("id", uniProtColumnDictionary["Entry"]);
+        }
+
+        [Test]
+        public static void TestHyphenAccession()
+        {
+            string fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "TestHypenAccession.fasta");
+
+            string accession = @">TTLL10-203.TTLL10-202|x|x|x|x|x|TTLL10|x";
+            List<string> output = new List<string> { accession };
+            output.Add("PEPTIDE");
+            File.WriteAllLines(fastaFile, output);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex, out var errors);
+
+            Assert.That(proteins.First().Accession == "TTLL10-203.TTLL10-202");
+
+            File.Delete(fastaFile);
+
+            // Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, 
+            // ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
+            // ProteinDbLoader.UniprotOrganismRegex, out var errors);
         }
     }
 }
