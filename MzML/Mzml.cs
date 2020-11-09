@@ -97,8 +97,6 @@ namespace IO.MzML
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             Generated.mzMLType _mzMLConnection;
 
             try

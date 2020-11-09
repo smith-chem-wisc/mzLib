@@ -111,18 +111,6 @@ namespace UsefulProteomicsDatabases
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
-        public static void LoadElements()
-        {
-            // has the periodic table already been loaded?
-            if (PeriodicTable.GetElement(1) != null)
-            {
-                return;
-            }
-
-            // periodic table has not been loaded yet - load it
-            PeriodicTableLoader.Load();
-        }
-
         public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
         {
             if (!File.Exists(unimodLocation))

@@ -80,8 +80,6 @@ namespace FlashLFQ
             bool pairedSamples = false,
             int? randomSeed = null)
         {
-            Loaders.LoadElements();
-
             _globalStopwatch = new Stopwatch();
             _chargeStates = new List<int>();
             _peakIndexingEngine = new PeakIndexingEngine();

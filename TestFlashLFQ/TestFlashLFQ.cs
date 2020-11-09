@@ -86,8 +86,6 @@ namespace Test
         [Test]
         public static void TestEvelopQuantification()
         {
-            Loaders.LoadElements();
-
             double monoIsotopicMass = 1350.65681;
             double massOfAveragine = 111.1254;
             double numberOfAveragines = monoIsotopicMass / massOfAveragine;
@@ -248,7 +246,7 @@ namespace Test
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
             double[] file2Rt = new double[] { 1.00, 1.025, 1.04, 1.055, 1.070 };
 
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             // generate mzml files (5 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)
@@ -340,7 +338,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             // generate mzml file
 
@@ -394,7 +392,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             // generate mzml file
 
@@ -448,7 +446,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             // generate mzml file
 
@@ -508,7 +506,7 @@ namespace Test
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             // generate mzml file
 
@@ -648,7 +646,7 @@ namespace Test
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
             double[] file2Rt = new double[] { 1.015, 1.030, 1.036, 1.050, 1.065 };
 
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             // generate mzml files (5 peptides each)
             for (int f = 0; f < filesToWrite.Count; f++)
@@ -721,7 +719,7 @@ namespace Test
         [Test]
         public static void TestFlashLfqDoesNotRemovePeptides()
         {
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
 
             Residue x = new Residue("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
             Residue lightLysine = Residue.GetResidue('K');
@@ -950,7 +948,7 @@ namespace Test
         [Test]
         public static void ProteoformPeakfindingTest()
         {
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
             string sequence =
                 "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +
                 "PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE" +

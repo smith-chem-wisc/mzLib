@@ -29,8 +29,6 @@ namespace IO.Mgf
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
 

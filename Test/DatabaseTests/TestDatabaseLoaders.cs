@@ -161,7 +161,6 @@ namespace Test
         [Test]
         public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {
-            Loaders.LoadElements();
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
             string uniProtPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
@@ -328,7 +327,7 @@ namespace Test
         [Test]
         public void Modification_read_write_into_proteinDb()
         {
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
             Assert.AreEqual(1, sampleModList.OfType<Modification>().Count());
             Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
@@ -387,7 +386,7 @@ namespace Test
         [Test]
         public void DoNotWriteSameModTwiceAndDoNotWriteInHeaderSinceDifferent()
         {
-            Loaders.LoadElements();
+            //Loaders.LoadElements();
             var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
             Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
             Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());

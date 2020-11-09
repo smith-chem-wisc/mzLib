@@ -63,7 +63,6 @@ namespace IO.Mgf
                 throw new InvalidDataException();
             }
 
-            Loaders.LoadElements();
             reader = new StreamReader(FilePath);
 
             BuildIndex();
