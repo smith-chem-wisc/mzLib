@@ -14,7 +14,7 @@ namespace UsefulProteomicsDatabases
 {
     public static class ProteinDbLoader
     {
-        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.-]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\sOS=", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|([^\|][A-Z0-9_]+)", 1, 1);
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=([^ ]+)", 0, 1);

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace FlashLFQ
@@ -44,41 +45,61 @@ namespace FlashLFQ
             }
         }
 
-        public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
+        public static string TabSeparatedHeader(List<SpectraFileInfo> spectraFiles)
         {
             var sb = new StringBuilder();
             sb.Append("Protein Groups" + "\t");
             sb.Append("Gene Name" + "\t");
             sb.Append("Organism" + "\t");
 
-            foreach (var rawfile in rawFiles)
+            bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
+            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
+
+            foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
-                sb.Append("Intensity_" + rawfile.FilenameWithoutExtension + "\t");
+                foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                {
+                    if (!conditionsDefined && unfractionated)
+                    {
+                        sb.Append("Intensity_" + sample.First().FilenameWithoutExtension + "\t");
+                    }
+                    else
+                    {
+                        sb.Append("Intensity_" + sample.First().Condition + "_" + (sample.First().BiologicalReplicate + 1) + "\t");
+                    }
+                }
             }
 
             return sb.ToString();
         }
 
-        public string ToString(List<SpectraFileInfo> rawFiles)
+        public string ToString(List<SpectraFileInfo> spectraFiles)
         {
-            StringBuilder str = new StringBuilder();
-            str.Append(ProteinGroupName + "\t");
-            str.Append(GeneName + "\t");
-            str.Append(Organism + "\t");
+            StringBuilder sb = new StringBuilder();
+            sb.Append(ProteinGroupName + "\t");
+            sb.Append(GeneName + "\t");
+            sb.Append(Organism + "\t");
 
-            foreach (var file in rawFiles)
+            bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
+            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
+
+            foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
-                if (Intensities.TryGetValue(file, out double intensity))
+                foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                 {
-                    str.Append(intensity + "\t");
-                }
-                else
-                {
-                    str.Append(0 + "\t");
+                    if (!conditionsDefined && unfractionated)
+                    {
+                        sb.Append(GetIntensity(sample.First()) + "\t");
+                    }
+                    else
+                    {
+                        double summedIntensity = sample.Sum(p => GetIntensity(p));
+                        sb.Append(summedIntensity + "\t");
+                    }
                 }
             }
 
-            return str.ToString();
+            return sb.ToString();
         }
 
         public override bool Equals(object obj)

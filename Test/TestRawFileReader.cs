@@ -4,7 +4,7 @@ using NUnit.Framework;
 using System;
 using System.Diagnostics;
 using System.IO;
-using ThermoRawFileReader;
+using IO.ThermoRawFileReader;
 
 namespace Test
 {
@@ -27,7 +27,7 @@ namespace Test
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
-            var a = ThermoRawFileReaderData.LoadAllStaticData(path, maxThreads: 1);
+            var a = ThermoRawFileReader.LoadAllStaticData(path, maxThreads: 1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var aa = Mzml.LoadAllStaticData(outfile1);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(aa, outfile2, true);
@@ -55,7 +55,7 @@ namespace Test
 
             var a = dynamicConnection1.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(a != null);
-            
+
             var b = dynamicConnection2.GetOneBasedScanFromDynamicConnection(1);
             Assert.That(b != null);
 
@@ -66,7 +66,7 @@ namespace Test
 
             dynamicConnection1.CloseDynamicConnection();
             dynamicConnection2.CloseDynamicConnection();
-            
+
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
 
@@ -84,10 +84,10 @@ namespace Test
             var filterParams = new FilteringParams(200, 0.01, 0, 1, false, true, true);
 
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
-            
-            var a = ThermoRawFileReaderData.LoadAllStaticData(path, filterParams, maxThreads: 1);
+
+            var a = ThermoRawFileReader.LoadAllStaticData(path, filterParams, maxThreads: 1);
             var rawScans = a.GetAllScansList();
-            foreach(var scan in rawScans)
+            foreach (var scan in rawScans)
             {
                 Assert.That(scan.MassSpectrum.XArray.Length <= 200);
             }
@@ -95,7 +95,7 @@ namespace Test
             string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", Path.GetFileNameWithoutExtension(infile) + ".mzML");
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(a, outfile1, false);
             var mzml = Mzml.LoadAllStaticData(outfile1, filterParams, maxThreads: 1);
-            
+
             var mzmlScans = mzml.GetAllScansList();
             for (int i = 0; i < mzmlScans.Count; i++)
             {
@@ -133,6 +133,67 @@ namespace Test
             Assert.That(licence.Length > 100);
 
             Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        [Test]
+        [TestCase("small.RAW")]
+        [TestCase("testFileWMS2.raw")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw")]
+        public static void TestDynamicRaw(string fileName)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+
+            ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(filePath);
+            ThermoDynamicData dynamicRaw = new ThermoDynamicData(filePath);
+
+            foreach (MsDataScan staticScan in staticRaw.GetAllScansList())
+            {
+                MsDataScan dynamicScan = dynamicRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
+                Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                Assert.That(dynamicScan.Polarity == staticScan.Polarity);
+                Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
+                Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
+                Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
+                Assert.That(dynamicScan.NativeId == staticScan.NativeId);
+                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
+                Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+
+                Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
+                Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
+                Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
+                Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
+                Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
+                Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
+                Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
+                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
+
+                if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
+                {
+                    Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
+                    Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
+                }
+
+                Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+
+                for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
+                {
+                    double staticMz = staticScan.MassSpectrum.XArray[i];
+                    double staticIntensity = staticScan.MassSpectrum.YArray[i];
+
+                    double dynamicMz = dynamicScan.MassSpectrum.XArray[i];
+                    double dynamicIntensity = dynamicScan.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz == staticMz);
+                    Assert.That(dynamicIntensity == staticIntensity);
+                }
+            }
         }
     }
 }
