@@ -489,13 +489,15 @@ namespace FlashLFQ
             }
         }
 
-        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput,
+            string quantifiedPsmsOutput, bool silent)
         {
             if (!silent)
             {
                 Console.WriteLine("Writing output...");
             }
 
+            // write peaks
             if (peaksOutputPath != null)
             {
                 using (StreamWriter output = new StreamWriter(peaksOutputPath))
@@ -511,6 +513,7 @@ namespace FlashLFQ
                 }
             }
 
+            // write peptides
             if (modPeptideOutputPath != null)
             {
                 using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
@@ -524,6 +527,7 @@ namespace FlashLFQ
                 }
             }
 
+            // write proteins
             if (proteinOutputPath != null)
             {
                 using (StreamWriter output = new StreamWriter(proteinOutputPath))
@@ -537,6 +541,44 @@ namespace FlashLFQ
                 }
             }
 
+            // write PSMs
+            if (quantifiedPsmsOutput != null)
+            {
+                StringBuilder sb = new StringBuilder();
+                Dictionary<Identification, ChromatographicPeak> PsmToPeaks = new Dictionary<Identification, ChromatographicPeak>();
+
+                foreach (var peak in Peaks.SelectMany(p => p.Value).Where(p => !p.IsMbrPeak))
+                {
+                    foreach (var id in peak.Identifications)
+                    {
+                        PsmToPeaks.Add(id, peak);
+                    }
+                }
+
+                using (StreamWriter output = new StreamWriter(quantifiedPsmsOutput))
+                {
+                    output.WriteLine("Identification Scan\tID Sequence\tID Protein\t" + ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var item in PsmToPeaks.OrderBy(p => p.Key.FileInfo.FilenameWithoutExtension)
+                        .ThenByDescending(p => p.Key.ModifiedSequence))
+                    {
+                        sb.Append(item.Key.ScanNumber);
+                        sb.Append("\t");
+                        sb.Append(item.Key.ModifiedSequence);
+                        sb.Append("\t");
+                        sb.Append(string.Join(",", item.Key.ProteinGroups.Select(p => p.ProteinGroupName)));
+                        sb.Append("\t");
+                        sb.Append(item.Value.ToString());
+                        sb.Append("\t");
+
+                        output.WriteLine(sb.ToString());
+
+                        sb.Clear();
+                    }
+                }
+            }
+
+            // write bayesian protein quant
             if (bayesianProteinQuantOutput != null)
             {
                 StringBuilder header = new StringBuilder();

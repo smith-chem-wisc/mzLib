@@ -5,6 +5,7 @@ namespace FlashLFQ
 {
     public class Identification
     {
+        public readonly int ScanNumber;
         public readonly string BaseSequence;
         public readonly string ModifiedSequence;
         public readonly double Ms2RetentionTimeInMinutes;
@@ -17,9 +18,8 @@ namespace FlashLFQ
         public double PeakfindingMass;
         public double PosteriorErrorProbability;
 
-        public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence,
-            double monoisotopicMass,
-            double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups,
+        public Identification(SpectraFileInfo fileInfo, string BaseSequence, string ModifiedSequence, double monoisotopicMass,
+            double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups, int scanNumber = 0,
             ChemicalFormula optionalChemicalFormula = null, bool useForProteinQuant = true, double posteriorErrorProbability = 0)
         {
             this.FileInfo = fileInfo;
@@ -30,6 +30,7 @@ namespace FlashLFQ
             this.PrecursorChargeState = chargeState;
             this.ProteinGroups = new HashSet<ProteinGroup>(proteinGroups);
             this.OptionalChemicalFormula = optionalChemicalFormula;
+            this.ScanNumber = scanNumber;
             UseForProteinQuant = useForProteinQuant;
             PosteriorErrorProbability = posteriorErrorProbability;
         }

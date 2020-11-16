@@ -80,6 +80,7 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
                 null,
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"psms.tsv"),
                 true);
         }
 
@@ -112,8 +113,8 @@ namespace Test
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
-            Identification id3 = new Identification(mzml, "", "1", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg }, myFormula);
-            Identification id4 = new Identification(mzml, "", "2", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg }, myFormula);
+            Identification id3 = new Identification(mzml, "", "1", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg }, optionalChemicalFormula: myFormula);
+            Identification id4 = new Identification(mzml, "", "2", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg }, optionalChemicalFormula: myFormula);
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id3, id4 }, normalize: true);
@@ -635,7 +636,9 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
                 Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
-                null, true);
+                null,
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"psms.tsv"),
+                true);
         }
 
         [Test]
@@ -732,10 +735,14 @@ namespace Test
             FlashLfqEngine engine = new FlashLfqEngine(
                 new List<Identification>
                 {
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
-                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") },null, true),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",
+                        3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") }),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",
+                        3382.733578,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") }),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",
+                        3374.7193792,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") }),
+                    new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWa","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWa",
+                        3382.733578,98.7193782,4,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027+8.014","C3","Mus") }),
                 },
                 ppmTolerance: 5,
                 silent: true,
@@ -796,7 +803,7 @@ namespace Test
             Assert.That(quantResult.ConditionsWithPeptideSampleQuantities["b"].Count == 3);
 
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"bayesianProteinQuant.tsv");
-            res.WriteResults(null, null, null, filepath, true);
+            res.WriteResults(null, null, null, filepath, null, true);
 
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 2);
@@ -1281,7 +1288,7 @@ namespace Test
 
             // write/read the protein quantification output
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"proteinQuant.tsv");
-            res.WriteResults(null, null, filepath, null, true);
+            res.WriteResults(null, null, filepath, null, null, true);
 
             var textResults = File.ReadAllLines(filepath);
             Assert.That(textResults.Length == 3);
