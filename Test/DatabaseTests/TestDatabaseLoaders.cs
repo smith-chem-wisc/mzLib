@@ -54,7 +54,9 @@ namespace Test
         [Test]
         public static void LoadIsoforms()
         {
-            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, 
+                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
+                ProteinDbLoader.UniprotOrganismRegex);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409-2", protein[1].Accession);
             Assert.AreEqual("Q13409-3", protein[2].Accession);
@@ -504,8 +506,8 @@ namespace Test
         public static void IsoformReadTest()
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\isoformTest.fasta");
-            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
 
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }
@@ -523,8 +525,8 @@ namespace Test
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
 
-            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
 
             Assert.AreEqual(4, proteinList.Count);
             Assert.IsTrue(proteinList.Select(p => p.Accession).ToList().Contains("P33453"));
@@ -623,18 +625,55 @@ namespace Test
         {
             string fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "TestHypenAccession.fasta");
 
-            string accession = @">TTLL10-203.TTLL10-202|x|x|x|x|x|TTLL10|x";
-            List<string> output = new List<string> { accession };
+            string header = @">TTLL10-203.TTLL10-202|x|x|x|x|x|TTLL10|x";
+            List<string> output = new List<string> { header };
             output.Add("PEPTIDE");
             File.WriteAllLines(fastaFile, output);
 
-            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
-                ProteinDbLoader.UniprotOrganismRegex, out var errors);
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, out var errors);
 
             Assert.That(proteins.First().Accession == "TTLL10-203.TTLL10-202");
 
             File.Delete(fastaFile);
+        }
+
+        [Test]
+        public static void TestDifferentHeaderStyles()
+        {
+            // uniprot database
+            string fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "uniprot_aifm1.fasta");
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(proteins.Count == 2);
+
+            var targetProtein = proteins.First(p => !p.IsDecoy);
+            Assert.That(targetProtein.Accession == "Q9Z0X1");
+            Assert.That(targetProtein.GeneNames.Count() == 1);
+            Assert.That(targetProtein.GeneNames.First().Item2 == "Aifm1");
+            Assert.That(targetProtein.FullName == "Apoptosis-inducing factor 1, mitochondrial");
+            Assert.That(targetProtein.Name == "AIFM1_MOUSE");
+            Assert.That(targetProtein.Organism == "Mus musculus");
+                
+            // gencode database
+            fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "gencode_mmp20.fa");
+            proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);
+            Assert.That(proteins.Count == 2);
+
+            targetProtein = proteins.First(p => !p.IsDecoy);
+
+            Assert.That(targetProtein.Accession == "ENSMUSP00000034487.2");
+            Assert.That(targetProtein.GeneNames.Count() == 1);
+            Assert.That(targetProtein.GeneNames.First().Item2 == "Mmp20");
+            Assert.That(targetProtein.FullName == "Mmp20-201");
+
+            // ensembl database
+            fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "ensembl_prrc2a.fa");
+            proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);
+            Assert.That(proteins.Count == 2);
+
+            targetProtein = proteins.First(p => !p.IsDecoy);
+            Assert.That(targetProtein.Accession == "ENSP00000372947.2");
+            Assert.That(targetProtein.GeneNames.Count() == 1);
+            Assert.That(targetProtein.GeneNames.First().Item2 == "ENSG00000206427.11");
         }
     }
 }
