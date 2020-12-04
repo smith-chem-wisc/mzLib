@@ -736,5 +736,29 @@ namespace Test
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("[]", new Dictionary<string, Modification>())); // bad mod
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
         }
+
+        [Test]
+        public static void TestReverseDecoyFromTarget()
+        {
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_p);
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_p, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
+            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+
+            Modification nTermAcet = new Modification(_originalId: "n-acetyl", _modificationType: "CommonBiological", _target: null, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"));
+
+            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { {1, nTermAcet },{ 4, phosphorylation }, {9,acetylation } };
+
+            PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
+
+            PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget();
+            Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
+
+            List<Product> decoyProducts = new List<Product>();
+            reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
+
+            Assert.AreEqual(12, decoyProducts.Count);
+        }
     }
 }

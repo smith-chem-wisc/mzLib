@@ -273,6 +273,33 @@ namespace Test
         }
 
         [Test]
+        public static void Test_ProteinDigest_2()
+        {
+            DigestionParams d = new DigestionParams(
+                        maxMissedCleavages: 0,
+                        minPeptideLength: 5,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            ModificationMotif.TryGetMotif("D", out ModificationMotif motif);
+            Modification mod = new Modification(_originalId: "mod1", _modificationType: "mt", _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 10);
+
+            IDictionary<int, List<Modification>> oneBasedModification = new Dictionary<int, List<Modification>>
+            {
+                { 3, new List<Modification>{ mod } }
+            };
+
+            Protein prot1 = new Protein("MEDEEKPEPTIDER", "prot1", oneBasedModifications: oneBasedModification);
+
+
+
+
+            List<PeptideWithSetModifications> allPeptides = prot1.Digest(d, new List<Modification>(),new List<Modification>(),null,null).ToList();
+            //var pep2 = prot1.Digest(d, new List<Modification>(), new List<Modification>()).Last();
+
+            //Assert.AreEqual("MEDEEK", pep1.FullSequence);
+            //Assert.AreEqual("MED[mt:mod1 on D]EEK", pep2.FullSequence);
+        }
+
+        [Test]
         /// <summary>
         /// Tests that a PeptideWithSetModifications object can be parsed correctly from a string, with mod info
         /// </summary>

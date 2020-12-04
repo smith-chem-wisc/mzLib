@@ -985,5 +985,71 @@ namespace Proteomics.ProteolyticDigestion
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }
+
+        public PeptideWithSetModifications GetReverseDecoyFromTarget()
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+            char[] newBase = new char[this.BaseSequence.Length];
+            ProteomicsExtenstionMethods.Fill(newBase, '0');
+            char[] evaporatingBase = this.BaseSequence.ToCharArray();
+            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            foreach (var motif in motifs)
+            {
+                string m = motif.InducingCleavage;
+                List<int> motifLocations = ProteomicsExtenstionMethods.AllIndexesOf(this.BaseSequence, m);
+                foreach (int location in motifLocations)
+                {
+                    char[] motifArray = m.ToCharArray();
+                    for (int i = 0; i < m.Length; i++)
+                    {
+                        newBase[location + i] = motifArray[i];
+
+                        //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
+                        if(this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                        {
+                            newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                        }
+
+                        evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                    }
+                }
+            }
+
+            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            int fillPosition = 0;
+            int extractPosition = this.BaseSequence.Length - 1;
+            while (fillPosition < this.BaseSequence.Length && extractPosition >= 0)
+            {
+                if(evaporatingBase[extractPosition] != '0')
+                {
+                    while(newBase[fillPosition] != '0')
+                    {
+                        fillPosition++;
+                    }
+                    newBase[fillPosition] = evaporatingBase[extractPosition];
+                    if(this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
+                    {
+                        newModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
+                    }
+                    fillPosition++;
+                }
+                extractPosition--;
+            }
+
+            string newBaseString = new string(newBase);
+
+            Protein decoyProtein = new Protein(newBaseString, "DECOY_" + this.Protein.Accession);
+            DigestionParams d = this.DigestionParams;
+
+            return new PeptideWithSetModifications(decoyProtein,d,this.OneBasedStartResidueInProtein,this.OneBasedEndResidueInProtein,this.CleavageSpecificityForFdrCategory,this.PeptideDescription,this.MissedCleavages,newModificationsDictionary,this.NumFixedMods,newBaseString);
+        }
+
+
     }
 }
