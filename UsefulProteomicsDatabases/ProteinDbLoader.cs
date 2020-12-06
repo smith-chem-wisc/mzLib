@@ -12,18 +12,24 @@ using System.Xml;
 
 namespace UsefulProteomicsDatabases
 {
+    public enum FastaHeaderType { UniProt, Ensembl, Gencode, Unknown }
+
     public static class ProteinDbLoader
     {
-        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.-]+)", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\sOS=", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|([^\|][A-Z0-9_]+)", 1, 1);
-        public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=([^ ]+)", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\sGN=", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"[|](.+)[|]", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
-        
+
+        public static readonly FastaHeaderFieldRegex GencodeAccessionRegex = new FastaHeaderFieldRegex("accession", @">(.*?)\|", 0, 1);
+        public static readonly FastaHeaderFieldRegex GencodeFullNameRegex = new FastaHeaderFieldRegex("fullName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
+        public static readonly FastaHeaderFieldRegex GencodeGeneNameRegex = new FastaHeaderFieldRegex("geneName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
+
         public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
         public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
 
@@ -152,10 +158,11 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Load a protein fasta database, using regular expressions to get various aspects of the headers. The first regex capture group is used as each field.
         /// </summary>
-        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant,
-            FastaHeaderFieldRegex accessionRegex, FastaHeaderFieldRegex fullNameRegex, FastaHeaderFieldRegex nameRegex,
-            FastaHeaderFieldRegex geneNameRegex, FastaHeaderFieldRegex organismRegex, out List<string> errors, int maxThreads = -1)
+        public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
+            FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1)
         {
+            FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
             int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
             string accession = null;
@@ -185,6 +192,38 @@ namespace UsefulProteomicsDatabases
 
                     if (line.StartsWith(">"))
                     {
+                        // determine the header type if necessary (this figures out how to parse the different fields in the fasta headers)
+                        if (HeaderType == null && accessionRegex == null)
+                        {
+                            HeaderType = DetectFastaHeaderFormat(line);
+
+                            if (HeaderType == FastaHeaderType.Unknown)
+                            {
+                                throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
+                            }
+
+                            switch (HeaderType)
+                            {
+                                case FastaHeaderType.UniProt:
+                                    accessionRegex = UniprotAccessionRegex;
+                                    fullNameRegex = UniprotFullNameRegex;
+                                    nameRegex = UniprotNameRegex;
+                                    organismRegex = UniprotOrganismRegex;
+                                    geneNameRegex = UniprotGeneNameRegex;
+                                    break;
+                                case FastaHeaderType.Ensembl:
+                                    accessionRegex = EnsemblAccessionRegex;
+                                    fullNameRegex = EnsemblFullNameRegex;
+                                    geneNameRegex = EnsemblGeneNameRegex;
+                                    break;
+                                case FastaHeaderType.Gencode:
+                                    accessionRegex = GencodeAccessionRegex;
+                                    fullNameRegex = GencodeFullNameRegex;
+                                    geneNameRegex = GencodeGeneNameRegex;
+                                    break;
+                            }
+                        }
+
                         accession = ApplyRegex(accessionRegex, line);
                         fullName = ApplyRegex(fullNameRegex, line);
                         name = ApplyRegex(nameRegex, line);
@@ -388,6 +427,42 @@ namespace UsefulProteomicsDatabases
             }
 
             return cleaned;
+        }
+
+        public static FastaHeaderType DetectFastaHeaderFormat(string line)
+        {
+            if (!line.StartsWith(">"))
+            {
+                return FastaHeaderType.Unknown;
+            }
+
+            // check for uniprot header format
+            // uniprot will look like ">sp|ACCESSION ....."
+            // i.e., ">", followed by a two-letter lowercase code, then "|"
+            if (line.Length >= 4 && char.IsLower(line[1]) && char.IsLower(line[2]) && line[3] == '|')
+            {
+                return FastaHeaderType.UniProt;
+            }
+
+            // check for ensembl header format
+            // ensembl will have fields specified by a field name and then a colon, then a field value
+            if (line.Contains("gene_symbol:", StringComparison.InvariantCultureIgnoreCase)
+                || line.Contains("gene:", StringComparison.InvariantCultureIgnoreCase)
+                || line.Contains("Acc:", StringComparison.InvariantCultureIgnoreCase)
+                || line.Contains("description:", StringComparison.InvariantCultureIgnoreCase))
+            {
+                return FastaHeaderType.Ensembl;
+            }
+
+            // check for gencode header format
+            // gencode will have 8 fields, each separated by "|". 
+            // missing fields are still present but have a "-" character as a placeholder.
+            if (line.Count(p => p == '|') == 7)
+            {
+                return FastaHeaderType.Gencode;
+            }
+
+            return FastaHeaderType.Unknown;
         }
     }
 }
