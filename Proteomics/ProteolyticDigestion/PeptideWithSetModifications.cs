@@ -20,6 +20,7 @@ namespace Proteomics.ProteolyticDigestion
         /// The key indicates which residue modification is on (with 1 being N terminus).
         /// </summary>
         [NonSerialized] private Dictionary<int, Modification> _allModsOneIsNterminus; //we currently only allow one mod per position
+
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
@@ -169,17 +170,17 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Generates theoretical fragments for given dissociation type for this peptide. 
+        /// Generates theoretical fragments for given dissociation type for this peptide.
         /// The "products" parameter is filled with these fragments.
         /// </summary>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products)
         {
-            // This code is specifically written to be memory- and CPU -efficient because it is 
-            // called millions of times for a typical search (i.e., at least once per peptide). 
-            // If you modify this code, BE VERY CAREFUL about allocating new memory, especially 
+            // This code is specifically written to be memory- and CPU -efficient because it is
+            // called millions of times for a typical search (i.e., at least once per peptide).
+            // If you modify this code, BE VERY CAREFUL about allocating new memory, especially
             // for new collections. This code also deliberately avoids using "yield return", again
-            // for performance reasons. Be sure to benchmark any changes with a parallelized 
-            // fragmentation of every peptide in a database (i.e., test for speed decreases and 
+            // for performance reasons. Be sure to benchmark any changes with a parallelized
+            // fragmentation of every peptide in a database (i.e., test for speed decreases and
             // memory issues).
 
             products.Clear();
@@ -199,8 +200,8 @@ namespace Proteomics.ProteolyticDigestion
                 || fragmentationTerminus == FragmentationTerminus.Both;
 
             //From http://www.matrixscience.com/help/fragmentation_help.html
-            //Low Energy CID -- In low energy CID(i.e.collision induced dissociation in a triple quadrupole or an ion trap) a peptide carrying a positive charge fragments mainly along its backbone, 
-            //generating predominantly b and y ions. In addition, for fragments containing RKNQ, peaks are seen for ions that have lost ammonia (-17 Da) denoted a*, b* and y*. For fragments containing 
+            //Low Energy CID -- In low energy CID(i.e.collision induced dissociation in a triple quadrupole or an ion trap) a peptide carrying a positive charge fragments mainly along its backbone,
+            //generating predominantly b and y ions. In addition, for fragments containing RKNQ, peaks are seen for ions that have lost ammonia (-17 Da) denoted a*, b* and y*. For fragments containing
             //STED, loss of water(-18 Da) is denoted a°, b° and y°. Satellite ions from side chain cleavage are not observed.
             bool haveSeenNTermDegreeIon = false;
             bool haveSeenNTermStarIon = false;
@@ -209,8 +210,8 @@ namespace Proteomics.ProteolyticDigestion
 
             // these two collections keep track of the neutral losses observed so far on the n-term or c-term.
             // they are apparently necessary, but allocating memory for collections in this function results in
-            // inefficient memory usage and thus frequent garbage collection. 
-            // TODO: If you can think of a way to remove these collections and still maintain correct 
+            // inefficient memory usage and thus frequent garbage collection.
+            // TODO: If you can think of a way to remove these collections and still maintain correct
             // fragmentation, please do so.
             HashSet<double> nTermNeutralLosses = null;
             HashSet<double> cTermNeutralLosses = null;
@@ -330,8 +331,8 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
 
-                // c-term fragments
-                CTerminusFragments:
+            // c-term fragments
+            CTerminusFragments:
                 if (calculateCTermFragments)
                 {
                     char cTermResidue = BaseSequence[BaseSequence.Length - r - 1];
@@ -713,7 +714,7 @@ namespace Proteomics.ProteolyticDigestion
                             PeptideWithSetModifications nextAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedEndResidueInProtein + 1, OneBasedEndResidueInProtein + 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
 
                             // checks to make sure the original protein has an amino acid following the peptide (an issue with stop loss variants or variatns that add AA after the previous stop residue)
-                            // no else statement because if the peptide end residue was the previous protein stop site, there is no way to truly identify the variant. 
+                            // no else statement because if the peptide end residue was the previous protein stop site, there is no way to truly identify the variant.
                             // if the peptide were to extend into the stop loss region then the peptide would intesect the variant and this code block would not be triggered.
                             if (Protein.NonVariantProtein.Length >= OneBasedEndResidueInProtein + 1)
                             {
@@ -727,7 +728,6 @@ namespace Proteomics.ProteolyticDigestion
                                     identifies = true;
                                 }
                             }
-
                         }
                         //for stop gain varations that cause peptide
                         else
@@ -929,17 +929,17 @@ namespace Proteomics.ProteolyticDigestion
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
-            foreach(char c in fullSequence)
+            foreach (char c in fullSequence)
             {
-                if(c=='[')
+                if (c == '[')
                 {
                     bracketCount++;
                 }
-                else if (c==']')
+                else if (c == ']')
                 {
                     bracketCount--;
                 }
-                else if(bracketCount==0)
+                else if (bracketCount == 0)
                 {
                     sb.Append(c);
                 }
@@ -998,42 +998,61 @@ namespace Proteomics.ProteolyticDigestion
             ProteomicsExtenstionMethods.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
             List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
-            foreach (var motif in motifs)
+            if(motifs != null && motifs.Count > 0)
             {
-                string m = motif.InducingCleavage;
-                List<int> motifLocations = ProteomicsExtenstionMethods.AllIndexesOf(this.BaseSequence, m);
-                foreach (int location in motifLocations)
+                foreach (var motif in motifs.Where(m=>m.InducingCleavage != ""))//check the empty "" for topdown
                 {
-                    char[] motifArray = m.ToCharArray();
-                    for (int i = 0; i < m.Length; i++)
+                    string cleavingMotif = motif.InducingCleavage;
+                    List<int> cleavageMotifLocations = ProteomicsExtenstionMethods.AllIndexesOf(this.BaseSequence, cleavingMotif);
+
+                    string preventingMotif = motif.PreventingCleavage;
+                    List<int> prventingMotifLocations = new List<int>();
+                    if (!String.IsNullOrEmpty(preventingMotif))
                     {
-                        newBase[location + i] = motifArray[i];
+                        prventingMotifLocations = ProteomicsExtenstionMethods.AllIndexesOf(this.BaseSequence, preventingMotif);
 
-                        //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
-                        if(this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                        foreach (int pm in prventingMotifLocations)
                         {
-                            newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                            if (cleavageMotifLocations.Contains(pm - 1))
+                            {
+                                cleavageMotifLocations.Remove(pm - 1);
+                            }
                         }
+                    }
 
-                        evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                    foreach (int location in cleavageMotifLocations)
+                    {
+                        char[] motifArray = cleavingMotif.ToCharArray();
+                        for (int i = 0; i < cleavingMotif.Length; i++)
+                        {
+                            newBase[location + i] = motifArray[i];
+
+                            //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
+                            if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                            {
+                                newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                            }
+
+                            evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                        }
                     }
                 }
             }
-
+            
             //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
             //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
             int fillPosition = 0;
             int extractPosition = this.BaseSequence.Length - 1;
             while (fillPosition < this.BaseSequence.Length && extractPosition >= 0)
             {
-                if(evaporatingBase[extractPosition] != '0')
+                if (evaporatingBase[extractPosition] != '0')
                 {
-                    while(newBase[fillPosition] != '0')
+                    while (newBase[fillPosition] != '0')
                     {
                         fillPosition++;
                     }
                     newBase[fillPosition] = evaporatingBase[extractPosition];
-                    if(this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
+                    if (this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
                     {
                         newModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
                     }
@@ -1047,9 +1066,7 @@ namespace Proteomics.ProteolyticDigestion
             Protein decoyProtein = new Protein(newBaseString, "DECOY_" + this.Protein.Accession);
             DigestionParams d = this.DigestionParams;
 
-            return new PeptideWithSetModifications(decoyProtein,d,this.OneBasedStartResidueInProtein,this.OneBasedEndResidueInProtein,this.CleavageSpecificityForFdrCategory,this.PeptideDescription,this.MissedCleavages,newModificationsDictionary,this.NumFixedMods,newBaseString);
+            return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.PeptideDescription, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
         }
-
-
     }
 }

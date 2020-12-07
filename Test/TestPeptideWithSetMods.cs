@@ -758,7 +758,48 @@ namespace Test
             List<Product> decoyProducts = new List<Product>();
             reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
 
-            Assert.AreEqual(12, decoyProducts.Count);
+            Assert.AreEqual(14, decoyProducts.Count);
+
+            //  Arg-C -- Cleave after R
+            PeptideWithSetModifications p_argC = new PeptideWithSetModifications(new Protein("RPEPTIREK", "DECOY_ARGC"), new DigestionParams(protease: "Arg-C"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_argC_reverse = p_argC.GetReverseDecoyFromTarget();
+            Assert.AreEqual("RKEITPREP", p_argC_reverse.BaseSequence);
+
+            //  Asp-N -- Cleave before D
+            PeptideWithSetModifications p_aspN = new PeptideWithSetModifications(new Protein("DPEPTIDEK", "DECOY_ASPN"), new DigestionParams(protease: "Asp-N"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_aspN_reverse = p_aspN.GetReverseDecoyFromTarget();
+            Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
+
+            //  chymotrypsin (don't cleave before proline)
+            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin (don't cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget();
+            Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
+
+            //  chymotrypsin (don't cleave before proline)
+            PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget();
+            Assert.AreEqual("FGFPGWSWPAYRYPK", p_chymo_reverse.BaseSequence);
+
+            //  CNBr cleave after M
+            PeptideWithSetModifications p_cnbr = new PeptideWithSetModifications(new Protein("MPEPTIMEK", "DECOY_CNBR"), new DigestionParams(protease: "CNBr"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_cnbr_reverse = p_cnbr.GetReverseDecoyFromTarget();
+            Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
+
+            //// elastase apprears to be missing from mzlib protease dictionary
+            ////  elastase cleave after A, V, S, G, L, I,
+            //PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            //PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget();
+            //Assert.AreEqual("NADVHSRGPLYIK", p_elastase_reverse.BaseSequence);
+
+            //  top-down
+            PeptideWithSetModifications p_topdown = new PeptideWithSetModifications(new Protein("RPEPTIREK", "DECOY_TD"), new DigestionParams(protease: "top-down"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_topdown_reverse = p_topdown.GetReverseDecoyFromTarget();
+            Assert.AreEqual("KERITPEPR", p_topdown_reverse.BaseSequence);
+
+            //  Arg-C -- Cleave after R
+            PeptideWithSetModifications p_coll = new PeptideWithSetModifications(new Protein("PEPTGPYGPYIDE", "DECOY_COL"), new DigestionParams(protease: "collagenase"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_coll_reverse = p_coll.GetReverseDecoyFromTarget();
+            Assert.AreEqual("EDITGPYGPYPEP", p_coll_reverse.BaseSequence);
         }
     }
 }
