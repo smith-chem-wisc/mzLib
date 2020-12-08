@@ -797,7 +797,7 @@ namespace Test
             Assert.AreEqual("KERITPEPR", p_topdown_reverse.BaseSequence);
 
             //  Arg-C -- Cleave after R
-            PeptideWithSetModifications p_coll = new PeptideWithSetModifications(new Protein("PEPTGPYGPYIDE", "DECOY_COL"), new DigestionParams(protease: "collagenase"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_coll = new PeptideWithSetModifications(new Protein("PEPTGPYGPYIDE", "DECOY_COL"), new DigestionParams(protease: "collagenase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_coll_reverse = p_coll.GetReverseDecoyFromTarget();
             Assert.AreEqual("EDITGPYGPYPEP", p_coll_reverse.BaseSequence);
         }

@@ -998,31 +998,28 @@ namespace Proteomics.ProteolyticDigestion
             ProteomicsExtenstionMethods.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
             List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
-            if(motifs != null && motifs.Count > 0)
+            if (motifs != null && motifs.Count > 0)
             {
-                foreach (var motif in motifs.Where(m=>m.InducingCleavage != ""))//check the empty "" for topdown
+                foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
                 {
                     string cleavingMotif = motif.InducingCleavage;
-                    List<int> cleavageMotifLocations = ProteomicsExtenstionMethods.AllIndexesOf(this.BaseSequence, cleavingMotif);
+                    List<int> cleavageMotifLocations = new List<int>();
 
-                    string preventingMotif = motif.PreventingCleavage;
-                    List<int> prventingMotifLocations = new List<int>();
-                    if (!String.IsNullOrEmpty(preventingMotif))
+                    for (int i = 0; i < BaseSequence.Length; i++)
                     {
-                        prventingMotifLocations = ProteomicsExtenstionMethods.AllIndexesOf(this.BaseSequence, preventingMotif);
+                        bool Fits;
+                        bool Prevents;
+                        (Fits, Prevents) = motif.Fits(BaseSequence, i);
 
-                        foreach (int pm in prventingMotifLocations)
+                        if (Fits && !Prevents)
                         {
-                            if (cleavageMotifLocations.Contains(pm - 1))
-                            {
-                                cleavageMotifLocations.Remove(pm - 1);
-                            }
+                            cleavageMotifLocations.Add(i);
                         }
                     }
 
                     foreach (int location in cleavageMotifLocations)
                     {
-                        char[] motifArray = cleavingMotif.ToCharArray();
+                        char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
                         for (int i = 0; i < cleavingMotif.Length; i++)
                         {
                             newBase[location + i] = motifArray[i];
@@ -1038,7 +1035,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
             }
-            
+
             //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
             //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
             int fillPosition = 0;
