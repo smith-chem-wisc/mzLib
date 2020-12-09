@@ -5,7 +5,9 @@ using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -799,6 +801,106 @@ namespace Test
             PeptideWithSetModifications p_coll = new PeptideWithSetModifications(new Protein("PEPTGPYGPYIDE", "DECOY_COL"), new DigestionParams(protease: "collagenase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_coll_reverse = p_coll.GetReverseDecoyFromTarget();
             Assert.AreEqual("EDITGPYGPYPEP", p_coll_reverse.BaseSequence);
+        }
+
+        [Test]
+        public static void TestReverseDecoyFromPeptideFromProteinXML()
+        {
+            //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
+            //sequence variants, modifications
+            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+
+            List<Modification> fixedMods = new List<Modification>();
+            List<Modification> variableMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("C", out ModificationMotif motif_C);
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif_M);
+
+            fixedMods.Add(new Modification(_originalId: "resMod_C", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: PeriodicTable.GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "resMod_M", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"), _monoisotopicMass: PeriodicTable.GetElement(8).PrincipalIsotope.AtomicMass));
+
+            int unchangedPeptides = 0;
+            int totalPeptides = 0;
+
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
+                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
+                {
+                    totalPeptides++;
+                    PeptideWithSetModifications decoyPeptide = targetPeptide.GetReverseDecoyFromTarget();
+                    
+                    if(decoyPeptide.BaseSequence == targetPeptide.BaseSequence)
+                    {
+                        unchangedPeptides++;
+                    }
+                    
+                }
+            }
+
+            Assert.AreEqual(0, unchangedPeptides);
+        }
+
+        [Test]
+        public static void CountTargetsWithMatchingDecoys()
+        {
+            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            //List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(@"E:\Projects\HeLa_Mann_11\Hela_3\uniprot-filtered-reviewed_yes+AND+organism__Homo+sapiens+(Human)+[96--.xml", true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+
+            List<Modification> fixedMods = new List<Modification>();
+            List<Modification> variableMods = new List<Modification>();
+            ModificationMotif.TryGetMotif("C", out ModificationMotif motif_C);
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif_M);
+
+            fixedMods.Add(new Modification(_originalId: "resMod_C", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: PeriodicTable.GetElement(1).PrincipalIsotope.AtomicMass));
+            fixedMods.Add(new Modification(_originalId: "resMod_M", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"), _monoisotopicMass: PeriodicTable.GetElement(8).PrincipalIsotope.AtomicMass));
+
+            Dictionary<string, int> targets = new Dictionary<string, int>();
+
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
+
+
+                    foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
+                    {
+                        if (targets.ContainsKey(targetPeptide.BaseSequence))
+                        {
+                            targets[targetPeptide.BaseSequence]++;
+                        }
+                        else
+                        {
+                            targets.Add(targetPeptide.BaseSequence, 1);
+                        }
+                    }
+
+
+            }
+
+            int matchingDecoys = 0;
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
+
+                foreach (PeptideWithSetModifications target in targetPeptides)
+                {
+                    string decoySequence = target.GetReverseDecoyFromTarget().BaseSequence;
+
+                    if (targets.ContainsKey(decoySequence))
+                    {
+                        matchingDecoys++;
+                    }
+                }
+
+            }
+
         }
     }
 }
