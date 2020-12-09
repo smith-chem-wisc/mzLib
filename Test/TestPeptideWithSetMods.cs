@@ -785,11 +785,10 @@ namespace Test
             PeptideWithSetModifications p_cnbr_reverse = p_cnbr.GetReverseDecoyFromTarget();
             Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
 
-            //// elastase apprears to be missing from mzlib protease dictionary
-            ////  elastase cleave after A, V, S, G, L, I,
-            //PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            //PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget();
-            //Assert.AreEqual("NADVHSRGPLYIK", p_elastase_reverse.BaseSequence);
+            //  elastase cleave after A, V, S, G, L, I,
+            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget();
+            Assert.AreEqual("NADVHSRGPLYIK", p_elastase_reverse.BaseSequence);
 
             //  top-down
             PeptideWithSetModifications p_topdown = new PeptideWithSetModifications(new Protein("RPEPTIREK", "DECOY_TD"), new DigestionParams(protease: "top-down"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
