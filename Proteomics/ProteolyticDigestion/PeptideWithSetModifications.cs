@@ -1096,7 +1096,7 @@ namespace Proteomics.ProteolyticDigestion
             //First step is to reverse the position of all modifications except the mod on the peptide N-terminus.
             if (this.AllModsOneIsNterminus.Any())
             {
-                int newPosition = this.BaseSequence.Length + 1;
+                int newPosition = this.BaseSequence.Length+1;
                 for (int i = 2; i < this.BaseSequence.Length + 2; i++)
                 {
                     if (this.AllModsOneIsNterminus.ContainsKey(i))

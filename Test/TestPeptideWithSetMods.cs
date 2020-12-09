@@ -814,11 +814,14 @@ namespace Test
             Assert.AreEqual("EDITGPYGPYPEP", p_coll_reverse.BaseSequence);
 
             // Tyrpsin -- Reverse Decoy is identical so get mirror
+            Dictionary<int, Modification> VTIRTVR_modsDictionary = new Dictionary<int, Modification> { { 1, nTermAcet }, { 3, phosphorylation } };
             newAminoAcidPositions = new int["VTIRTVR".Length];
-            PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
+            Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
+            Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(7));//moved T-phospho from 3 to 7
         }
 
         [Test]
