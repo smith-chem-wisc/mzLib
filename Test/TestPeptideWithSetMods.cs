@@ -869,8 +869,7 @@ namespace Test
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            //List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(@"E:\Projects\HeLa_Mann_11\Hela_3\uniprot-filtered-reviewed_yes+AND+organism__Homo+sapiens+(Human)+[96--.xml", true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
 
             List<Modification> fixedMods = new List<Modification>();
             List<Modification> variableMods = new List<Modification>();
