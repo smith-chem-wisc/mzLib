@@ -750,12 +750,14 @@ namespace Test
 
             Modification nTermAcet = new Modification(_originalId: "n-acetyl", _modificationType: "CommonBiological", _target: null, _locationRestriction: "N-terminal.", _chemicalFormula: ChemicalFormula.ParseFormula("H"));
 
-            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { {1, nTermAcet },{ 4, phosphorylation }, {9,acetylation } };
+            Dictionary<int, Modification> allmodsoneisnterminus = new Dictionary<int, Modification> { { 1, nTermAcet }, { 4, phosphorylation }, { 9, acetylation } };
 
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
 
-            PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget();
+            int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
+            PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
+            Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
 
             List<Product> decoyProducts = new List<Product>();
             reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
@@ -763,44 +765,60 @@ namespace Test
             Assert.AreEqual(14, decoyProducts.Count);
 
             //  Arg-C -- Cleave after R
+            newAminoAcidPositions = new int["RPEPTIREK".Length];
             PeptideWithSetModifications p_argC = new PeptideWithSetModifications(new Protein("RPEPTIREK", "DECOY_ARGC"), new DigestionParams(protease: "Arg-C"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_argC_reverse = p_argC.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_argC_reverse = p_argC.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("RKEITPREP", p_argC_reverse.BaseSequence);
+            Assert.AreEqual(new int[] { 0, 8, 7, 5, 4, 3, 6, 2, 1 }, newAminoAcidPositions);
 
             //  Asp-N -- Cleave before D
+            newAminoAcidPositions = new int["DPEPTIDEK".Length];
             PeptideWithSetModifications p_aspN = new PeptideWithSetModifications(new Protein("DPEPTIDEK", "DECOY_ASPN"), new DigestionParams(protease: "Asp-N"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_aspN_reverse = p_aspN.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_aspN_reverse = p_aspN.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
 
             //  chymotrypsin (don't cleave before proline)
+            newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin (don't cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
 
             //  chymotrypsin (don't cleave before proline)
+            newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGFPGWSWPAYRYPK", p_chymo_reverse.BaseSequence);
 
             //  CNBr cleave after M
+            newAminoAcidPositions = new int["MPEPTIMEK".Length];
             PeptideWithSetModifications p_cnbr = new PeptideWithSetModifications(new Protein("MPEPTIMEK", "DECOY_CNBR"), new DigestionParams(protease: "CNBr"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_cnbr_reverse = p_cnbr.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_cnbr_reverse = p_cnbr.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
 
             //  elastase cleave after A, V, S, G, L, I,
+            newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
             PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("NADVHSRGPLYIK", p_elastase_reverse.BaseSequence);
 
             //  top-down
+            newAminoAcidPositions = new int["RPEPTIREK".Length];
             PeptideWithSetModifications p_topdown = new PeptideWithSetModifications(new Protein("RPEPTIREK", "DECOY_TD"), new DigestionParams(protease: "top-down"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_topdown_reverse = p_topdown.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_topdown_reverse = p_topdown.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("KERITPEPR", p_topdown_reverse.BaseSequence);
 
             //  Arg-C -- Cleave after R
+            newAminoAcidPositions = new int["PEPTGPYGPYIDE".Length];
             PeptideWithSetModifications p_coll = new PeptideWithSetModifications(new Protein("PEPTGPYGPYIDE", "DECOY_COL"), new DigestionParams(protease: "collagenase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_coll_reverse = p_coll.GetReverseDecoyFromTarget();
+            PeptideWithSetModifications p_coll_reverse = p_coll.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("EDITGPYGPYPEP", p_coll_reverse.BaseSequence);
+
+            // Tyrpsin -- Reverse Decoy is identical so get mirror
+            newAminoAcidPositions = new int["VTIRTVR".Length];
+            PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
+            Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
+            Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
 
         [Test]
@@ -831,13 +849,13 @@ namespace Test
                 foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
                 {
                     totalPeptides++;
-                    PeptideWithSetModifications decoyPeptide = targetPeptide.GetReverseDecoyFromTarget();
-                    
-                    if(decoyPeptide.BaseSequence == targetPeptide.BaseSequence)
+                    int[] newAminoAcidPositions = new int[targetPeptide.BaseSequence.Length];
+                    PeptideWithSetModifications decoyPeptide = targetPeptide.GetReverseDecoyFromTarget(newAminoAcidPositions);
+
+                    if (decoyPeptide.BaseSequence == targetPeptide.BaseSequence)
                     {
                         unchangedPeptides++;
                     }
-                    
                 }
             }
 
@@ -868,20 +886,17 @@ namespace Test
             {
                 List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
 
-
-                    foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
+                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
+                {
+                    if (targets.ContainsKey(targetPeptide.BaseSequence))
                     {
-                        if (targets.ContainsKey(targetPeptide.BaseSequence))
-                        {
-                            targets[targetPeptide.BaseSequence]++;
-                        }
-                        else
-                        {
-                            targets.Add(targetPeptide.BaseSequence, 1);
-                        }
+                        targets[targetPeptide.BaseSequence]++;
                     }
-
-
+                    else
+                    {
+                        targets.Add(targetPeptide.BaseSequence, 1);
+                    }
+                }
             }
 
             int matchingDecoys = 0;
@@ -891,20 +906,18 @@ namespace Test
 
                 foreach (PeptideWithSetModifications target in targetPeptides)
                 {
-                    string decoySequence = target.GetReverseDecoyFromTarget().BaseSequence;
+                    int[] newAminoAcidPositions = new int[target.BaseSequence.Length];
+                    string decoySequence = target.GetReverseDecoyFromTarget(newAminoAcidPositions).BaseSequence;
 
                     if (targets.ContainsKey(decoySequence))
                     {
                         matchingDecoys++;
                     }
                 }
-
             }
-
         }
 
         [Test]
-
         public static void TestExtensionMethod_AllIndexesOf()
         {
             string testString = new string("testString");
@@ -912,12 +925,9 @@ namespace Test
             Assert.AreEqual(new List<int> { 0, 3, 5 }, t_locations);
 
             var ex = Assert.Throws<ArgumentException>(() => testString.AllIndexesOf(null));
-
         }
 
-
         [Test]
-
         public static void TestExtensionMethod_Fill()
         {
             char[] characterArray = new char[5];
@@ -926,16 +936,13 @@ namespace Test
             {
                 Assert.AreEqual('5', characterArray[i]);
             }
-
         }
 
         [Test]
-
         public static void TestExtensionMethod_Reverse()
         {
             string testString = "Reverse";
             Assert.AreEqual("esreveR", ProteomicsExtenstionMethods.Reverse(testString));
-
         }
     }
 }

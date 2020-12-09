@@ -992,7 +992,7 @@ namespace Proteomics.ProteolyticDigestion
         //Occasionally, this process results in peptide with exactly the same sequence. Therefore, there is a stop-gap measure
         //the returns the mirror image of the original. N-terminal mods are preserved, but other mods are also reversed. 
         //this should yield a unique decoy for each target sequence.
-        public PeptideWithSetModifications GetReverseDecoyFromTarget()
+        public PeptideWithSetModifications GetReverseDecoyFromTarget(int[] revisedAminoAcidOrder)
         {
             Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
             //Copy N-terminal modifications from target dictionary to decoy dictionary.
@@ -1029,7 +1029,7 @@ namespace Proteomics.ProteolyticDigestion
                         for (int i = 0; i < cleavingMotif.Length; i++)
                         {
                             newBase[location + i] = motifArray[i];
-
+                            revisedAminoAcidOrder[location + i] = location + i;//
                             //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
                             if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
                             {
@@ -1055,6 +1055,7 @@ namespace Proteomics.ProteolyticDigestion
                         fillPosition++;
                     }
                     newBase[fillPosition] = evaporatingBase[extractPosition];
+                    revisedAminoAcidOrder[fillPosition] = extractPosition;
                     if (this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
                     {
                         newModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
@@ -1077,13 +1078,13 @@ namespace Proteomics.ProteolyticDigestion
             {
                 //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
                 //we retrun the mirror image peptide.
-                return this.GetPeptideMirror();
+                return this.GetPeptideMirror(revisedAminoAcidOrder);
             }
 
         }
 
         //Returns a PeptideWithSetModifications mirror image. Used when reverse decoy sequence is same as target sequence
-        public PeptideWithSetModifications GetPeptideMirror()
+        public PeptideWithSetModifications GetPeptideMirror(int[] revisedOrderNisOne)
         {
             Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
             //Copy N-terminal modifications from target dictionary to decoy dictionary.
@@ -1115,6 +1116,13 @@ namespace Proteomics.ProteolyticDigestion
             Protein decoyProtein = new Protein(newBaseString, "DECOY_" + this.Protein.Accession);
             DigestionParams d = this.DigestionParams;
 
+            //now fill in the revised amino acid order
+            int oldStringPosition = this.BaseSequence.Length - 1;
+            for (int i = 0; i < newBaseString.Length; i++)
+            {
+                revisedOrderNisOne[i] = oldStringPosition;
+                oldStringPosition--;
+            }
             return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.PeptideDescription, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
         }
     }
