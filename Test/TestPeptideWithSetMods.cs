@@ -758,6 +758,8 @@ namespace Test
             PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
+            Assert.IsTrue(reverse.Protein.IsDecoy);
+            Assert.AreEqual(p.Protein.BaseSequence.Length, reverse.Protein.BaseSequence.Length);//we replaced the original with the new so the protein should have the same length
 
             List<Product> decoyProducts = new List<Product>();
             reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
@@ -822,6 +824,8 @@ namespace Test
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(7));//moved T-phospho from 3 to 7
+            Assert.IsTrue(p_tryp_reverse.Protein.IsDecoy);
+            
         }
 
         [Test]

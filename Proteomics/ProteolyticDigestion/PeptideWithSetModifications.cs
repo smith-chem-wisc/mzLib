@@ -1067,7 +1067,13 @@ namespace Proteomics.ProteolyticDigestion
 
             string newBaseString = new string(newBase);
 
-            Protein decoyProtein = new Protein(newBaseString, "DECOY_" + this.Protein.Accession);
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
 
             if (newBaseString != this.BaseSequence)
@@ -1113,7 +1119,14 @@ namespace Proteomics.ProteolyticDigestion
 
             //Second step is to reverse the sequence.
             string newBaseString = ProteomicsExtenstionMethods.Reverse(this.BaseSequence);
-            Protein decoyProtein = new Protein(newBaseString, "DECOY_" + this.Protein.Accession);
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
 
             //now fill in the revised amino acid order
