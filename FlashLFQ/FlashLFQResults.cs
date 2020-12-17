@@ -56,7 +56,7 @@ namespace FlashLFQ
 
             foreach (var pep in mergeFrom.PeptideModifiedSequences)
             {
-                if (this.PeptideModifiedSequences.TryGetValue(pep.Key, out var peptide))
+                if (PeptideModifiedSequences.TryGetValue(pep.Key, out var peptide))
                 {
                     Peptide mergeFromPep = pep.Value;
                     Peptide mergeToPep = peptide;
@@ -69,13 +69,13 @@ namespace FlashLFQ
                 }
                 else
                 {
-                    this.PeptideModifiedSequences.Add(pep.Key, pep.Value);
+                    PeptideModifiedSequences.Add(pep.Key, pep.Value);
                 }
             }
 
             foreach (var pg in mergeFrom.ProteinGroups)
             {
-                if (this.ProteinGroups.TryGetValue(pg.Key, out var proteinGroup))
+                if (ProteinGroups.TryGetValue(pg.Key, out var proteinGroup))
                 {
                     ProteinGroup mergeFromPg = pg.Value;
                     ProteinGroup mergeToPg = proteinGroup;
@@ -87,19 +87,19 @@ namespace FlashLFQ
                 }
                 else
                 {
-                    this.ProteinGroups.Add(pg.Key, pg.Value);
+                    ProteinGroups.Add(pg.Key, pg.Value);
                 }
             }
 
             foreach (var fromPeaks in mergeFrom.Peaks)
             {
-                if (this.Peaks.TryGetValue(fromPeaks.Key, out var toPeaks))
+                if (Peaks.TryGetValue(fromPeaks.Key, out var toPeaks))
                 {
                     toPeaks.AddRange(fromPeaks.Value);
                 }
                 else
                 {
-                    this.Peaks.Add(fromPeaks.Key, fromPeaks.Value);
+                    Peaks.Add(fromPeaks.Key, fromPeaks.Value);
                 }
             }
         }
