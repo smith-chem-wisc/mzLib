@@ -4,12 +4,15 @@ using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public sealed class TestDeconvolution
     {
         [Test]
@@ -32,8 +35,8 @@ namespace Test
             for (int i = 0; i < mzIntensityPairsCount; i++)
             {
                 string[] pair = spectrumLines[i].Split('\t');
-                ms1mzs[i] = Convert.ToDouble(pair[0]);
-                ms1intensities[i] = Convert.ToDouble(pair[1]);
+                ms1mzs[i] = Convert.ToDouble(pair[0], CultureInfo.InvariantCulture);
+                ms1intensities[i] = Convert.ToDouble(pair[1], CultureInfo.InvariantCulture);
             }
 
             MzSpectrum spectrum = new MzSpectrum(ms1mzs, ms1intensities, false);

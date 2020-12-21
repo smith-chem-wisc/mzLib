@@ -4,12 +4,14 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public class TestDigestionMotif
     {
         private static Stopwatch Stopwatch { get; set; }

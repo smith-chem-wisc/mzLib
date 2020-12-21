@@ -23,6 +23,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class TestMassMzCalculations
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -87,6 +88,7 @@ namespace Test
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class ObjectWithMass1000 : IHasMass
     {
         public double MonoisotopicMass
@@ -98,6 +100,7 @@ namespace Test
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class ObjectWithMass100 : IHasMass
     {
         public double MonoisotopicMass

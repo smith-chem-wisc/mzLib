@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MzLibUtil;
+using System;
 
 namespace BayesianEstimation
 {
@@ -26,12 +27,12 @@ namespace BayesianEstimation
         /// 
         /// This method needs to be overridden by an inheriting class.
         /// </summary>
-        protected abstract double ProbabilityOfModelGivenADatapoint(double[] paramProposals, double datapoint);
+        protected abstract double ProbabilityOfModelGivenADatapoint(double[] paramProposals, Datum datapoint);
 
         /// <summary>
         /// Calculates the log probability of the prior plus the log probability of the model, given the data.
         /// </summary>
-        public double LogPosteriorProbability(double[] paramProposals, double[] data)
+        public double LogPosteriorProbability(double[] paramProposals, Datum[] data)
         {
             return LogPriorProbability(paramProposals) + LogProbabilityOfModelGivenTheData(paramProposals, data);
         }
@@ -39,13 +40,13 @@ namespace BayesianEstimation
         /// <summary>
         /// Calculates the log probability of the model with the proposed parameters, given the data.
         /// </summary>
-        private double LogProbabilityOfModelGivenTheData(double[] paramProposals, double[] data)
+        private double LogProbabilityOfModelGivenTheData(double[] paramProposals, Datum[] data)
         {
             double log_p = 0;
 
             for (var i = 0; i < data.Length; i++)
             {
-                double datapoint = data[i];
+                Datum datapoint = data[i];
                 double probabilityOfModelGivenTheDatapoint = ProbabilityOfModelGivenADatapoint(paramProposals, datapoint);
                 log_p += Math.Log(probabilityOfModelGivenTheDatapoint);
             }
