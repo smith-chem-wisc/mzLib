@@ -74,7 +74,7 @@ namespace Chemistry
         {
             foreach (var e in _elements)
             {
-                double totalAbundance = e.Value.Isotopes.Select(b => b.RelativeAbundance).Sum();
+                double totalAbundance = e.Value.Isotopes.Sum(b => b.RelativeAbundance);
                 if (Math.Abs(totalAbundance - 1) > epsilon)
                 {
                     return false;
@@ -90,7 +90,7 @@ namespace Chemistry
         {
             foreach (var e in _elements)
             {
-                double averageMass = e.Value.Isotopes.Select(b => b.RelativeAbundance * b.AtomicMass).Sum();
+                double averageMass = e.Value.Isotopes.Sum(b => b.RelativeAbundance * b.AtomicMass);
                 if (Math.Abs(averageMass - e.Value.AverageMass) / e.Value.AverageMass > epsilon)
                 {
                     return false;
