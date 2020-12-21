@@ -42,6 +42,12 @@ namespace IO.Mgf
                     {
                         while (sr.Peek() > 0)
                         {
+                            string line = sr.ReadLine();
+                            if (line == "")
+                            {
+                                continue;
+                            }
+
                             var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
 
                             scans.Add(scan);
@@ -76,6 +82,12 @@ namespace IO.Mgf
             while (sr.Peek() > 0)
             {
                 string line = sr.ReadLine();
+
+                if (line == "")
+                {
+                    continue;
+                }
+
                 string[] sArray = line.Split('=');
 
                 if (char.IsDigit(line[0]) && sArray.Length == 1)

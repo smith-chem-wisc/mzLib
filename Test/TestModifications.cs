@@ -126,14 +126,6 @@ namespace Test
         }
 
         [Test]
-        public void GlycanPeptideFilterTest()
-        {
-            Protein originalProtein = new Protein("CNSSDQPKLNLSGIKETP", "TEST");
-            List<PeptideWithSetModifications> glycanDigest = originalProtein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>(), FilterNGlycanMotif: true).ToList();
-            Assert.AreEqual(glycanDigest.Count, 5);
-        }
-
-        [Test]
         public void SilacLabelTest()
         {
             Protein originalProtein = new Protein("ACDEFGHIKAKAK", "TEST");
