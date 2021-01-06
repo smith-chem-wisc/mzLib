@@ -63,7 +63,7 @@ namespace Test
             Assert.AreEqual(0, protease2.CleavageMassShifts.Count());
             Assert.AreEqual(1, protease1.CleavageMassShifts.Count());
             Assert.AreEqual("M", protease1.CleavageMassShifts.First().Key);
-            Assert.AreEqual(-31.00063, protease1.CleavageMassShifts.First().Value);
+            Assert.AreEqual(-48.00337, protease1.CleavageMassShifts.First().Value);
 
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[1].MonoisotopicMass);
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[0].MonoisotopicMass);
@@ -72,7 +72,7 @@ namespace Test
             Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[0].MonoisotopicMass);
             Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
 
-            Assert.AreEqual(899.399819121, peps1[0].MonoisotopicMass);
+            Assert.AreEqual(882.397079121, peps1[0].MonoisotopicMass);
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
         }
 

@@ -2,5 +2,5 @@ Name	Sequences Inducing Cleavage	Sequences Preventing Cleavage	Cleavage Terminus
 Test1	"K|[P], K|[D],|R[P],|D[D]"			full					
 Test2	"K|,D|"			full					
 Test3	K|			full					
-CNBr	M|			full	MS:1001307	CNBr	(?<=M)	M:-31.00063	
+CNBr	M|			full	MS:1001307	CNBr	(?<=M)	M:-48.00337
 CNBr_old	M|			full	MS:1001307	CNBr	(?<=M)		
