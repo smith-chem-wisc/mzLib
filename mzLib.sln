@@ -31,6 +31,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLFQ\TestFlashLFQ.csproj", "{0E4C6C07-2FFA-48A9-9C95-7D5489DBCDD2}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzPlot", "mzPlot\mzPlot.csproj", "{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -122,6 +124,12 @@ Global
 		{0E4C6C07-2FFA-48A9-9C95-7D5489DBCDD2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{0E4C6C07-2FFA-48A9-9C95-7D5489DBCDD2}.TestAndRelease|Any CPU.ActiveCfg = Release|Any CPU
 		{0E4C6C07-2FFA-48A9-9C95-7D5489DBCDD2}.TestAndRelease|Any CPU.Build.0 = Release|Any CPU
+		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.TestAndRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.TestAndRelease|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

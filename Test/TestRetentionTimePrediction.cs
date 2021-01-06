@@ -28,6 +28,7 @@ namespace Test
      */
 
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestRetentionTimePrediction
     {
         private readonly object[,] _peptides300A;

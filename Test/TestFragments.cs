@@ -35,6 +35,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestFragments
     {
         private Peptide _mockPeptideEveryAminoAcid;
@@ -609,6 +610,27 @@ namespace Test
             //evaluate N-terminal masses
             var molecularIons = theseTheoreticalFragments.Where(f => f.ProductType == ProductType.M).ToList();
             Assert.AreEqual(0, molecularIons.Count());
+        }
+
+        [Test]
+        public static void Test_GetTheoreticalFragments_ETD()
+        {
+            //Nick found this bug for O-glyco peptide, basicly the zDot8 ion of the peptide contain a glycan,
+            //the previous zDot8 ion didn't add the mass of the modification.
+            Protein p = new Protein("TVYLGASK", "accession");    
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif1);
+            ModificationMotif.TryGetMotif("S", out ModificationMotif motif2);
+            Modification glycan1 = new Modification(_originalId: "H1N1", _modificationType: "O-Glycosylation", _target: motif1, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C14H23N1O10") );            
+            Modification glycan2 = new Modification(_originalId: "H1N1A1", _modificationType: "O-Glycosylation", _target: motif2, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C25H40N2O18") );
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { glycan1, glycan2}, new List<Modification>()).First();
+            Assert.That(aPeptideWithSetModifications.FullSequence == "T[O-Glycosylation:H1N1 on T]VYLGAS[O-Glycosylation:H1N1A1 on S]K");
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.Both, theseTheoreticalFragments);
+
+            Assert.That(theseTheoreticalFragments.Count == 22);
+            Assert.That(theseTheoreticalFragments.Last().Annotation == "zDot8");
+            Assert.That(theseTheoreticalFragments.Last().NeutralMass > 1842);
         }
 
         [Test]
