@@ -7,6 +7,7 @@ using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -33,11 +34,55 @@ namespace Test
         }
 
         [Test]
+        public static void CNBrProteinDigestion()
+        {
+            var prot = new Protein("PEPTIDEMPEPTIDEM", null);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
+            Assert.That(File.Exists(path));
+
+            var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path);
+            var protease1 = proteaseDict["CNBr"];
+            DigestionParams digestionParams1 = new DigestionParams(
+                protease: protease1.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> variableModifications1 = new List<Modification>();
+
+            var protease2 = proteaseDict["CNBr_old"];
+            DigestionParams digestionParams2 = new DigestionParams(
+                protease: protease2.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> variableModifications2 = new List<Modification>();
+
+            var peps1 = prot.Digest(digestionParams1, new List<Modification>(), variableModifications1).ToList();
+            var peps2 = prot.Digest(digestionParams2, new List<Modification>(), variableModifications2).ToList();
+
+            Assert.AreEqual(0, protease2.CleavageMassShifts.Count());
+            Assert.AreEqual(1, protease1.CleavageMassShifts.Count());
+            Assert.AreEqual("M", protease1.CleavageMassShifts.First().Key);
+            Assert.AreEqual(-31.00063, protease1.CleavageMassShifts.First().Value);
+
+            Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[1].MonoisotopicMass);
+            Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[0].MonoisotopicMass);
+            Assert.AreEqual(peps2[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
+            Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps1[1].MonoisotopicMass);
+            Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[0].MonoisotopicMass);
+            Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
+
+            Assert.AreEqual(899.399819121, peps1[0].MonoisotopicMass);
+            Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
+        }
+
+        [Test]
         public static void TestGoodPeptide()
         {
             var prot = new Protein("MNNNKQQQQ", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
-            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
+            var massShifts = new Dictionary<string, double>();
+            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList, massShifts);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -83,7 +128,8 @@ namespace Test
         {
             var prot = new Protein("MNNNKQQXQ", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
-            var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList);
+            var massShifts = new Dictionary<string, double>();
+            var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList, massShifts);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,

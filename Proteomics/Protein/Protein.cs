@@ -1,4 +1,5 @@
-﻿using Proteomics.Fragmentation;
+﻿using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
@@ -227,7 +228,7 @@ namespace Proteomics
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
-        {
+        {            
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
             variableModifications = variableModifications ?? new List<Modification>();
@@ -252,8 +253,10 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+                modifiedPeptides = GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
             }
+
+            modifiedPeptides = GetCleavageModifiedPeptides(modifiedPeptides, digestionParams);
 
             return modifiedPeptides;
         }
@@ -273,6 +276,73 @@ namespace Proteomics
                     yield return pwsm;
                 }
             }
+        }
+
+        internal IEnumerable<PeptideWithSetModifications> GetCleavageModifiedPeptides(IEnumerable<PeptideWithSetModifications> originalPeptides, DigestionParams digestionParams)
+        {
+            if (digestionParams.Protease.CleavageMassShifts.Count ==0)
+            {
+                foreach(var peptide in originalPeptides)
+                {
+                    yield return peptide;    
+                }                
+            }
+            else
+            {
+                Dictionary<string, (int, double)> residueSpecifics = new Dictionary<string, (int, double)>();
+                var massShifts = digestionParams.Protease.CleavageMassShifts;
+                var digestionMotifs = digestionParams.Protease.DigestionMotifs;
+                foreach (var motif in digestionMotifs)
+                {
+                    var cleavageResidue = motif.InducingCleavage;
+                    // cutIndex of 0 is N and 1 is C
+                    var cleavageIndex = motif.CutIndex;
+                    if (massShifts.ContainsKey(cleavageResidue))
+                    {
+                        residueSpecifics.Add(cleavageResidue, (cleavageIndex, massShifts[cleavageResidue]));
+                    }
+                }
+
+                foreach (var peptide in originalPeptides)
+                {
+                    var tempPeptide = peptide;
+                    foreach (var modEvent in residueSpecifics)
+                    {
+                        var cleavageIndex = modEvent.Value.Item1;
+                        var massShift = modEvent.Value.Item2;
+                        var residue = modEvent.Key;
+
+                        if (cleavageIndex == 0) //look for residue at begining of peptide 
+                        {
+                            if (peptide.PreviousAminoAcid != '-')
+                            {
+                                var nTermRes = tempPeptide.BaseSequence.Substring(0, 1);
+                                if (residue == nTermRes)
+                                {
+                                    var newMass = tempPeptide.MonoisotopicMass + massShift;
+                                    tempPeptide.SetMonoisotopicMass(newMass);
+                                }
+                            }
+
+                        }
+                        else if (cleavageIndex == 1) //look for residue at end of peptide
+                        {
+                            if (peptide.NextAminoAcid != '-')
+                            {
+                                var cTermRes = tempPeptide.BaseSequence.Substring(tempPeptide.Length - 1, 1);
+                                if (residue == cTermRes)
+                                {
+                                    var newMass = tempPeptide.MonoisotopicMass + massShift;
+                                    tempPeptide.SetMonoisotopicMass(newMass);
+                                }
+                            }
+
+                        }
+
+                    }
+                    yield return tempPeptide;
+                }
+            } 
         }
 
         /// <summary>

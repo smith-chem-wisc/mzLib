@@ -85,7 +85,8 @@ namespace Test
         {
             var empty = new List<Modification>();
             var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");
-            Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
+            Dictionary<string, double> massShifts = new Dictionary<string, double>();
+            Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs, massShifts);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
             DigestionParams myDigestionParams = new DigestionParams("multiletter", minPeptideLength: 1, maxMissedCleavages: 0);
@@ -107,7 +108,8 @@ namespace Test
         {
             var empty = new List<Modification>();
             var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("|AAA");
-            Protease multiletter = new Protease("multi-custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            Dictionary<string, double> massShifts = new Dictionary<string, double>();
+            Protease multiletter = new Protease("multi-custom", CleavageSpecificity.Full, "", "", digestionmotifs, massShifts);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
             DigestionParams myDigestionParams = new DigestionParams("multi-custom", minPeptideLength: 1, maxMissedCleavages: 0);
@@ -175,7 +177,8 @@ namespace Test
         {
             var empty = new List<Modification>();
             var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|
-            Protease protease = new Protease("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs);
+            Dictionary<string, double> massShifts = new Dictionary<string, double>();
+            Protease protease = new Protease("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs, massShifts);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
 
             DigestionParams myDigestionParams = new DigestionParams("lys-c", minPeptideLength: 1, maxMissedCleavages: 0);
@@ -270,7 +273,8 @@ namespace Test
         {
             var empty = new List<Modification>();
             var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");
-            Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            Dictionary<string, double> massShifts = new Dictionary<string, double>();
+            Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs, massShifts);
             ProteaseDictionary.Dictionary.Add(customProtease.Name, customProtease);
 
             DigestionParams myDigestionParams = new DigestionParams("custom", minPeptideLength: 1, maxMissedCleavages: 0);

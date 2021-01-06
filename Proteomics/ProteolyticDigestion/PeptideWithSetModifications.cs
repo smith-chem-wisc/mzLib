@@ -40,7 +40,7 @@ namespace Proteomics.ProteolyticDigestion
             _digestionParams = digestionParams;
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
-            UpdateCleavageSpecificity();
+            UpdateCleavageSpecificity();            
         }
 
         /// <summary>
@@ -108,6 +108,12 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
+            
+        }
+
+        public void SetMonoisotopicMass(double mass)
+        {
+            _monoisotopicMass = mass;
         }
 
         public string SequenceWithChemicalFormulas

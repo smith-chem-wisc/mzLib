@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using System;
@@ -42,7 +43,7 @@ namespace Test
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
-
+        
         [Test]
         public void GetResidueByCharacter()
         {

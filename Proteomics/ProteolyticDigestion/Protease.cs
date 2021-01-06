@@ -6,13 +6,14 @@ namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList)
+        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList, Dictionary<string, double> massShifts)
         {
             Name = name;
             CleavageSpecificity = cleavageSpecificity;
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
             DigestionMotifs = motifList ?? new List<DigestionMotif>();
+            CleavageMassShifts = massShifts;
         }
 
         public string Name { get; }
@@ -20,6 +21,7 @@ namespace Proteomics.ProteolyticDigestion
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
         public List<DigestionMotif> DigestionMotifs { get; }
+        public Dictionary<string, double> CleavageMassShifts {get; set;}
 
         public override string ToString()
         {

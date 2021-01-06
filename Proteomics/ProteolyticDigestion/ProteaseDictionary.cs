@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using Proteomics.Fragmentation;
@@ -42,7 +43,45 @@ namespace Proteomics.ProteolyticDigestion
                     var cleavageSpecificity = ((CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4], true));
                     string psiMsAccessionNumber = fields[5];
                     string psiMsName = fields[6];
-                    var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList);
+                    string massShiftString = fields[8];
+                    Dictionary<string, double> massShifts = new Dictionary<string, double>();
+                    var numberFormat = new NumberFormatInfo();
+                    numberFormat.NegativeSign = "-";
+                    numberFormat.NumberDecimalSeparator = ".";
+                    if (massShiftString != "")
+                    {
+                        if (massShiftString.Contains(','))
+                        {
+                            var shiftStrings = massShiftString.Split(',');
+                            foreach (var shift in shiftStrings)
+                            {
+                                if (shift.Contains(':'))
+                                {
+                                    var content = shift.Split(':');
+                                    var residue = content[0];
+                                    var massShift = double.Parse(content[1], numberFormat);
+                                    if (!massShifts.ContainsKey(residue))
+                                    {
+                                        massShifts.Add(residue, massShift);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (massShiftString.Contains(':'))
+                            {
+                                var content = massShiftString.Split(':');
+                                var residue = content[0];
+                                var shift = double.Parse(content[1], numberFormat);
+                                if (!massShifts.ContainsKey(residue))
+                                {
+                                    massShifts.Add(residue, shift);
+                                }
+                            }
+                        }
+                    }
+                    var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList, massShifts);
                     dict.Add(protease.Name, protease);
                 }
             }

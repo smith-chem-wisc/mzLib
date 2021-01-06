@@ -1,4 +1,6 @@
-Name	Sequences Inducing Cleavage	Sequences Preventing Cleavage	Cleavage Terminus	Cleavage Specificity	PSI-MS Accession Number	PSI-MS Name	Site Regular Expression	Notes
-Test1	"K|[P], K|[D],|R[P],|D[D]"			full				
-Test2	"K|,D|"			full				
-Test3	K|			full				
+Name	Sequences Inducing Cleavage	Sequences Preventing Cleavage	Cleavage Terminus	Cleavage Specificity	PSI-MS Accession Number	PSI-MS Name	Site Regular Expression	Cleavage Mass Shifts	Notes
+Test1	"K|[P], K|[D],|R[P],|D[D]"			full					
+Test2	"K|,D|"			full					
+Test3	K|			full					
+CNBr	M|			full	MS:1001307	CNBr	(?<=M)	M:-31.00063	
+CNBr_old	M|			full	MS:1001307	CNBr	(?<=M)		
