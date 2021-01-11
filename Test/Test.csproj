@@ -43,6 +43,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\ensembl_prrc2a.fa">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\gencode_mmp20.fa">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\uniprot_aifm1.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
