@@ -33,8 +33,7 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
-            Dictionary<string, double> massShifts = new Dictionary<string, double>();
-            var protease = new Protease("TestProtease1", CleavageSpecificity.Full, null, null, motifList, massShifts);
+            var protease = new Protease("TestProtease1", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
@@ -50,9 +49,8 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
-            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
-            Dictionary<string, double> massShifts = new Dictionary<string, double>();
-            var protease = new Protease("TestProtease2", CleavageSpecificity.Full, null, null, motifList, massShifts);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");           
+            var protease = new Protease("TestProtease2", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 1, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();
@@ -71,8 +69,7 @@ namespace Test
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("O[A]|,|T");
-            Dictionary<string, double> massShifts = new Dictionary<string, double>();
-            var protease = new Protease("TestProtease3", CleavageSpecificity.Full, null, null, motifList, massShifts);
+            var protease = new Protease("TestProtease3", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var digestedList = ParentProtein.Digest(multiProtease, new List<Modification>(), new List<Modification>()).ToList();

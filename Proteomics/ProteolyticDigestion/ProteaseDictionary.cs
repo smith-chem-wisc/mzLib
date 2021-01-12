@@ -48,46 +48,49 @@ namespace Proteomics.ProteolyticDigestion
                     var numberFormat = new NumberFormatInfo();
                     numberFormat.NegativeSign = "-";
                     numberFormat.NumberDecimalSeparator = ".";
-                    if (massShiftString != "")
+                    string proteaseModDetails = fields[8];
+                    bool addH_Nterminal = true;
+                    bool addOH_Cterminal = true;
+                    if (proteaseModDetails != "" && proteaseModDetails.Contains(':'))
                     {
-                        if (massShiftString.Contains(','))
+                        var tempArray = proteaseModDetails.Split(':');
+                        var modDetails = tempArray[0];
+                        var waterDetails = tempArray[1];
+                        Modification mod = Modification.ParseProteaseModificationsFromString(modDetails);
+                        var H2Obools = waterDetails.Split(',');
+                        if (H2Obools[0].ToLower().Contains("true"))
                         {
-                            var shiftStrings = massShiftString.Split(',');
-                            foreach (var shift in shiftStrings)
-                            {
-                                if (shift.Contains(':'))
-                                {
-                                    var content = shift.Split(':');
-                                    var residue = content[0];
-                                    var massShift = double.Parse(content[1], numberFormat);
-                                    if (!massShifts.ContainsKey(residue))
-                                    {
-                                        massShifts.Add(residue, massShift);
-                                    }
-                                }
-                            }
+                            addH_Nterminal = true;
                         }
-                        else
+                        if (H2Obools[1].ToLower().Contains("true"))
                         {
-                            if (massShiftString.Contains(':'))
-                            {
-                                var content = massShiftString.Split(':');
-                                var residue = content[0];
-                                var shift = double.Parse(content[1], numberFormat);
-                                if (!massShifts.ContainsKey(residue))
-                                {
-                                    massShifts.Add(residue, shift);
-                                }
-                            }
+                            addOH_Cterminal = true;
                         }
+                        if (H2Obools[0].ToLower().Contains("false"))
+                        {
+                            addH_Nterminal = false;
+                        }
+                        if (H2Obools[1].ToLower().Contains("false"))
+                        {
+                            addOH_Cterminal = false;
+                        }                        
+                        Tuple<Modification, bool, bool> proteaseModificationDetails = new Tuple<Modification, bool, bool>(mod, addH_Nterminal, addOH_Cterminal);
+                        var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList, proteaseModificationDetails);
+                        dict.Add(protease.Name, protease);
                     }
-                    var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList, massShifts);
-                    dict.Add(protease.Name, protease);
+                    else
+                    {
+                        var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList);
+                        dict.Add(protease.Name, protease);
+                    }
+                    
                 }
             }
 
             return dict;
 
         }
+
+        
     }
 }

@@ -55,15 +55,15 @@ namespace Test
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            List<Modification> variableModifications2 = new List<Modification>();
+            List<Modification> variableModifications2 = new List<Modification>();            
 
             var peps1 = prot.Digest(digestionParams1, new List<Modification>(), variableModifications1).ToList();
             var peps2 = prot.Digest(digestionParams2, new List<Modification>(), variableModifications2).ToList();
-
-            Assert.AreEqual(0, protease2.CleavageMassShifts.Count());
-            Assert.AreEqual(1, protease1.CleavageMassShifts.Count());
-            Assert.AreEqual("M", protease1.CleavageMassShifts.First().Key);
-            Assert.AreEqual(-48.00337, protease1.CleavageMassShifts.First().Value);
+           
+            Assert.AreEqual(null, protease2.CleavageMod);
+            Assert.AreNotEqual(null, protease1.CleavageMod);
+            Assert.AreEqual("M", protease1.CleavageMod.Item1.Target.ToString());
+            Assert.AreEqual(-31.00063, protease1.CleavageMod.Item1.MonoisotopicMass);
 
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[1].MonoisotopicMass);
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[0].MonoisotopicMass);
@@ -72,7 +72,7 @@ namespace Test
             Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[0].MonoisotopicMass);
             Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
 
-            Assert.AreEqual(882.397079121, peps1[0].MonoisotopicMass);
+            Assert.AreEqual(882.397079469, peps1[0].MonoisotopicMass);
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
         }
 
@@ -81,8 +81,7 @@ namespace Test
         {
             var prot = new Protein("MNNNKQQQQ", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
-            var massShifts = new Dictionary<string, double>();
-            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList, massShifts);
+            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
@@ -127,9 +126,8 @@ namespace Test
         public static void TestBadPeptide()
         {
             var prot = new Protein("MNNNKQQXQ", null);
-            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
-            var massShifts = new Dictionary<string, double>();
-            var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList, massShifts);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");            
+            var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,

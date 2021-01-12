@@ -314,7 +314,14 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     case "N-terminal.":
                     case "Peptide N-terminal.":
-                        if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
+                        {
+                            if (OneBasedStartResidueInProtein != 1)
+                            {
+                                fixedModsOneIsNterminus[2] = mod;
+                            }
+                        }
+                        else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
                         {
                             fixedModsOneIsNterminus[1] = mod;
                         }
@@ -333,6 +340,14 @@ namespace Proteomics.ProteolyticDigestion
                     case "C-terminal.":
                     case "Peptide C-terminal.":
                         if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
+                        {
+                            if (OneBasedEndResidueInProtein != Protein.Length)
+                            {
+                                fixedModsOneIsNterminus[peptideLength+1] = mod;
+                            }
+                            
+                        }
+                        else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
                         {
                             fixedModsOneIsNterminus[peptideLength + 2] = mod;
                         }
