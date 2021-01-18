@@ -43,7 +43,7 @@ namespace IO.Mgf
                         while (sr.Peek() > 0)
                         {
                             string line = sr.ReadLine();
-                            if (line == "")
+                            if (line != "BEGIN IONS")
                             {
                                 continue;
                             }
