@@ -84,7 +84,7 @@ namespace IO.Mgf
                 string line = sr.ReadLine();
                 string[] sArray = line.Split('=');
 
-                if (line == "")
+                if (String.IsNullOrWhiteSpace(line))
                 {
                     continue;
                 }
