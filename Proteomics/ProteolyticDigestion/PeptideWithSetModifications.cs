@@ -100,28 +100,35 @@ namespace Proteomics.ProteolyticDigestion
                 if (!_monoisotopicMass.HasValue)
                 {
                     double monoMass = 0;
-                    if (_digestionParams.Protease.CleavageMod != null)
+                    if (_digestionParams != null)
                     {
-                        if (AllModsOneIsNterminus.ContainsValue(_digestionParams.Protease.CleavageMod.Item1))
+                        if (_digestionParams.Protease.CleavageMod != null)
                         {
-                            if (_digestionParams.Protease.CleavageMod.Item2 == true && _digestionParams.Protease.CleavageMod.Item3 == true)
+                            if (AllModsOneIsNterminus.ContainsValue(_digestionParams.Protease.CleavageMod.Item1))
+                            {
+                                if (_digestionParams.Protease.CleavageMod.Item2 == true && _digestionParams.Protease.CleavageMod.Item3 == true)
+                                {
+                                    monoMass = WaterMonoisotopicMass;
+                                }
+                                else if (_digestionParams.Protease.CleavageMod.Item2 == true && _digestionParams.Protease.CleavageMod.Item3 == false)
+                                {
+                                    monoMass = H_MonoisotopicMass;
+                                }
+                                else if (_digestionParams.Protease.CleavageMod.Item2 == false && _digestionParams.Protease.CleavageMod.Item3 == true)
+                                {
+                                    monoMass = OH_MonoisotopicMass;
+                                }
+                            }
+                            else
                             {
                                 monoMass = WaterMonoisotopicMass;
                             }
-                            else if (_digestionParams.Protease.CleavageMod.Item2 == true && _digestionParams.Protease.CleavageMod.Item3 == false)
-                            {
-                                monoMass = H_MonoisotopicMass;
-                            }
-                            else if (_digestionParams.Protease.CleavageMod.Item2 == false && _digestionParams.Protease.CleavageMod.Item3 == true)
-                            {
-                                monoMass = OH_MonoisotopicMass;
-                            }
+
                         }
                         else
                         {
                             monoMass = WaterMonoisotopicMass;
                         }
-                        
                     }
                     else
                     {

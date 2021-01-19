@@ -339,7 +339,7 @@ namespace Proteomics.ProteolyticDigestion
 
                     case "C-terminal.":
                     case "Peptide C-terminal.":
-                        if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
                         {
                             if (OneBasedEndResidueInProtein != Protein.Length)
                             {
