@@ -226,33 +226,32 @@ namespace Proteomics
         /// <summary>
         /// Gets peptides for digestion of a protein
         /// </summary>
-        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
         {            
             //can't be null
-            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            List<Modification> allFixedModsList = allKnownFixedModifications.ToList();
+            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();            
             if (digestionParams.Protease.CleavageMod!= null)
             {
-                allFixedModsList.Add(digestionParams.Protease.CleavageMod.Item1);                
+                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod.Item1);                
             }                      
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
-            ProteinDigestion digestion = new ProteinDigestion(digestionParams, allFixedModsList, variableModifications);
+            ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
                 digestion.Digestion(this);
 
-            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allFixedModsList, digestionParams, variableModifications));
+            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
             //Remove terminal modifications (if needed)
             if (searchModeType == CleavageSpecificity.SingleN ||
                 searchModeType == CleavageSpecificity.SingleC ||
                 (searchModeType == CleavageSpecificity.None && (digestionParams.FragmentationTerminus == FragmentationTerminus.N || digestionParams.FragmentationTerminus == FragmentationTerminus.C)))
             {
-                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, digestionParams.FragmentationTerminus, allFixedModsList);
+                modifiedPeptides = RemoveTerminalModifications(modifiedPeptides, digestionParams.FragmentationTerminus, allKnownFixedModifications);
             }
 
             //add silac labels (if needed)
