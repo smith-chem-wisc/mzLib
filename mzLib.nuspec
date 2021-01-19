@@ -19,7 +19,6 @@
 		<dependency id="Microsoft.Win32.Registry" version="4.6.0"/>
 		<dependency id="OpenMcdf" version="2.2.1.3"/>
 		<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
-		<dependency id="OxyPlot.Wpf" version="2.0.0"/>
       </group>
     </dependencies>
   </metadata>
