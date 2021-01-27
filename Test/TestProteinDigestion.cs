@@ -43,7 +43,7 @@ namespace Test
             Assert.That(File.Exists(path));
 
             var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
-            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
+            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ProteolyticDigestion", "proteases.tsv"), proteaseMods);
             var protease1 = proteaseDict["CNBr"];
             DigestionParams digestionParams1 = new DigestionParams(
                 protease: protease1.Name,
