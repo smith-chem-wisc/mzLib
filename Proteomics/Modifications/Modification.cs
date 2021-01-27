@@ -1,6 +1,5 @@
 ﻿using Chemistry;
 using MassSpectrometry;
-using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -25,7 +24,7 @@ namespace Proteomics
         {
             get
             {
-                return Chemistry.ClassExtensions.RoundedDouble(monoisotopicMass);
+                return ClassExtensions.RoundedDouble(monoisotopicMass);
             }
             private set
             {
@@ -127,44 +126,7 @@ namespace Proteomics
                 default:
                     return "Unassigned.";
             }
-        }
-
-        public static  Modification ParseProteaseModificationsFromString(string input)
-        {
-            var modDetails = input.Split(',');
-            string modName = modDetails[0];
-            string motifString = modDetails[1];
-            string locationRestriction = "";
-            int cutIndex = 0;
-            for (int j = 0; j < motifString.Length; j++)
-            {
-                if (motifString[j] == '|')
-                {
-                    cutIndex = j;
-                    break;
-                }
-            }
-            motifString = motifString.Replace("|", string.Empty);
-            if (cutIndex == 0)
-            {
-                locationRestriction = "Peptide N-terminal.";
-            }
-            else if (cutIndex == 1)
-            {
-                locationRestriction = "Peptide C-terminal.";
-            }
-            ModificationMotif motif = null;
-            ModificationMotif.TryGetMotif(motifString, out motif);
-            string modificationType = "Protease";
-            double modMass = 0;
-            if (!double.TryParse(modDetails[2], NumberStyles.Any, CultureInfo.InvariantCulture, out modMass))
-            {
-                throw new MzLibException(modDetails[2] + " is not a valid monoisotopic mass");
-            }
-            Modification proteaseMod = new Modification(_originalId: modName, _modificationType: modificationType, _target: motif, _locationRestriction: locationRestriction,
-                _monoisotopicMass: modMass);
-            return proteaseMod;
-        }
+        }       
 
         public override bool Equals(object o)
         {
@@ -253,7 +215,7 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(dissociationType + ":" + Chemistry.ClassExtensions.RoundedDouble(myValues[i]));
+                            myLine.Append(dissociationType + ":" + ClassExtensions.RoundedDouble(myValues[i]));
                             if (i < myValues.Count - 1)
                                 myLine.Append(" or ");
                         }
@@ -278,7 +240,7 @@ namespace Proteomics
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
-                            myLine.Append(dissociationType + ":" + Chemistry.ClassExtensions.RoundedDouble(myValues[i]));
+                            myLine.Append(dissociationType + ":" + ClassExtensions.RoundedDouble(myValues[i]));
                             if (i < myValues.Count - 1)
                                 myLine.Append(" or ");
                         }

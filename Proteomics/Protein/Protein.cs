@@ -233,7 +233,7 @@ namespace Proteomics
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();            
             if (digestionParams.Protease.CleavageMod!= null)
             {
-                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod.Item1);                
+                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);                
             }                      
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;

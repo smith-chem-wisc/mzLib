@@ -25,8 +25,6 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private double? _monoisotopicMass;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
-        private static readonly double H_MonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
-        private static readonly double OH_MonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
        
 
@@ -99,41 +97,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 if (!_monoisotopicMass.HasValue)
                 {
-                    double monoMass = 0;
-                    if (_digestionParams != null)
-                    {
-                        if (_digestionParams.Protease.CleavageMod != null)
-                        {
-                            if (AllModsOneIsNterminus.ContainsValue(_digestionParams.Protease.CleavageMod.Item1))
-                            {
-                                if (_digestionParams.Protease.CleavageMod.Item2 == true && _digestionParams.Protease.CleavageMod.Item3 == true)
-                                {
-                                    monoMass = WaterMonoisotopicMass;
-                                }
-                                else if (_digestionParams.Protease.CleavageMod.Item2 == true && _digestionParams.Protease.CleavageMod.Item3 == false)
-                                {
-                                    monoMass = H_MonoisotopicMass;
-                                }
-                                else if (_digestionParams.Protease.CleavageMod.Item2 == false && _digestionParams.Protease.CleavageMod.Item3 == true)
-                                {
-                                    monoMass = OH_MonoisotopicMass;
-                                }
-                            }
-                            else
-                            {
-                                monoMass = WaterMonoisotopicMass;
-                            }
-
-                        }
-                        else
-                        {
-                            monoMass = WaterMonoisotopicMass;
-                        }
-                    }
-                    else
-                    {
-                        monoMass = WaterMonoisotopicMass;
-                    }
+                    double monoMass = WaterMonoisotopicMass;
 
                     foreach (var mod in AllModsOneIsNterminus.Values)
                     {

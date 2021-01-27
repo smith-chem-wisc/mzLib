@@ -6,14 +6,14 @@ namespace Proteomics.ProteolyticDigestion
 {
     public class Protease
     {
-        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList, Tuple<Modification, bool, bool> modDetails = null)
+        public Protease(string name, CleavageSpecificity cleavageSpecificity, string psiMSAccessionNumber, string psiMSName, List<DigestionMotif> motifList, Modification modDetails = null)
         {
             Name = name;
             CleavageSpecificity = cleavageSpecificity;
             PsiMsAccessionNumber = psiMSAccessionNumber;
             PsiMsName = psiMSName;
             DigestionMotifs = motifList ?? new List<DigestionMotif>();
-            CleavageMod = modDetails;
+            CleavageMod = modDetails; 
         }
 
         public string Name { get; }
@@ -21,7 +21,7 @@ namespace Proteomics.ProteolyticDigestion
         public string PsiMsAccessionNumber { get; }
         public string PsiMsName { get; }
         public List<DigestionMotif> DigestionMotifs { get; }
-        public Tuple<Modification, bool, bool> CleavageMod {get; set;}
+        public Modification CleavageMod {get; set;}
 
         public override string ToString()
         {
@@ -38,6 +38,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             return (Name ?? "").GetHashCode();
         }
+               
 
         /// <summary>
         /// This method is used to determine cleavage specificity if the cleavage specificity is unknown

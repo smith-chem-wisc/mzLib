@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -36,17 +37,19 @@ namespace Test
         [Test]
         public static void CNBrProteinDigestion()
         {
+            var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
             var prot = new Protein("PEPTIDEMPEPTIDEM", null);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
             Assert.That(File.Exists(path));
 
-            var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path);
+            var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
+            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
             var protease1 = proteaseDict["CNBr"];
             DigestionParams digestionParams1 = new DigestionParams(
                 protease: protease1.Name,
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
-                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);            
             List<Modification> variableModifications1 = new List<Modification>();
 
             var protease2 = proteaseDict["CNBr_old"];
@@ -62,8 +65,7 @@ namespace Test
            
             Assert.AreEqual(null, protease2.CleavageMod);
             Assert.AreNotEqual(null, protease1.CleavageMod);
-            Assert.AreEqual("M", protease1.CleavageMod.Item1.Target.ToString());
-            Assert.AreEqual(-31.00063, protease1.CleavageMod.Item1.MonoisotopicMass);
+            Assert.AreEqual("M", protease1.CleavageMod.Target.ToString());            
 
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[1].MonoisotopicMass);
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[0].MonoisotopicMass);
@@ -72,7 +74,7 @@ namespace Test
             Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[0].MonoisotopicMass);
             Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
 
-            Assert.AreEqual(882.397079469, peps1[0].MonoisotopicMass);
+            Assert.AreEqual(882.39707781799996, peps1[0].MonoisotopicMass);
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
         }
 
