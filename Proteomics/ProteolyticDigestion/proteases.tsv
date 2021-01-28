@@ -21,4 +21,5 @@ peptidomics				none		no cleavage
 collagenase	GPX|GPX			full					
 StcE-trypsin	"TX|T,TX|S,SX|T,SX|S,K|,R|"			full		StcE/Trpsin			
 CNBr_old	M|			full	MS:1001307	CNBr	(?<=M)		
+CNBr_N	|M			full	MS:1001307	CNBr	(?<=M)	Test on M
 

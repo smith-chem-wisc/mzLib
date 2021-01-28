@@ -4,3 +4,9 @@ PP   Peptide C-terminal.
 MT   Protease
 CF   C-1 H-4 S-1
 //
+ID   Test
+TG   M
+PP   Peptide N-terminal.
+MT   Protease
+CF   C-1 H-4 S-1
+//

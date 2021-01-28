@@ -4,4 +4,5 @@ Test2	"K|,D|"			full
 Test3	K|			full					
 CNBr	M|			full	MS:1001307	CNBr	(?<=M)	Homoserine lactone on M
 CNBr_old	M|			full	MS:1001307	CNBr	(?<=M)		
+CNBr_N	|M			full	MS:1001307	CNBr	(?<=M)	Test on M
 

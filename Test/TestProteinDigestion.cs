@@ -39,6 +39,7 @@ namespace Test
         {
             var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
             var prot = new Protein("PEPTIDEMPEPTIDEM", null);
+            var prot2 = new Protein("MPEPTIDEMPEPTIDE", null);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
             Assert.That(File.Exists(path));
 
@@ -58,14 +59,33 @@ namespace Test
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            List<Modification> variableModifications2 = new List<Modification>();            
+            List<Modification> variableModifications2 = new List<Modification>();
+
+            var protease3 = proteaseDict["CNBr_N"];
+            DigestionParams digestionParams3 = new DigestionParams(
+                protease: protease3.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> variableModifications3 = new List<Modification>();
 
             var peps1 = prot.Digest(digestionParams1, new List<Modification>(), variableModifications1).ToList();
-            var peps2 = prot.Digest(digestionParams2, new List<Modification>(), variableModifications2).ToList();
-           
+            var peps2 = prot.Digest(digestionParams2, new List<Modification>(), variableModifications2).ToList(); 
+            var peps3 = prot2.Digest(digestionParams3, new List<Modification>(), variableModifications1).ToList();
+
+            Assert.AreNotEqual(null, protease3.CleavageMod);
+            Assert.AreEqual("M", protease3.CleavageMod.Target.ToString());
+
+
+            Assert.AreNotEqual(peps3[0].MonoisotopicMass, peps3[1].MonoisotopicMass);
+
+            Assert.AreEqual(882.39707781799996, peps3[1].MonoisotopicMass);
+            Assert.AreEqual(930.400449121, peps3[0].MonoisotopicMass);
+
+
             Assert.AreEqual(null, protease2.CleavageMod);
             Assert.AreNotEqual(null, protease1.CleavageMod);
-            Assert.AreEqual("M", protease1.CleavageMod.Target.ToString());            
+            Assert.AreEqual("M", protease1.CleavageMod.Target.ToString());
 
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[1].MonoisotopicMass);
             Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[0].MonoisotopicMass);
@@ -76,8 +96,10 @@ namespace Test
 
             Assert.AreEqual(882.39707781799996, peps1[0].MonoisotopicMass);
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
-        }
 
+            
+        }
+       
         [Test]
         public static void TestGoodPeptide()
         {
