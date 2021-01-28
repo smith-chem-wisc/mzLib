@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using MzLibUtil;
 using Proteomics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion
@@ -45,14 +46,46 @@ namespace Proteomics.ProteolyticDigestion
                     string proteaseModDetails = fields[8];                    
                     if (proteaseModDetails != "" && proteaseMods != null)
                     {
-                        Modification proteaseModification = proteaseMods.Where(p => p.IdWithMotif == proteaseModDetails).First();
-                        var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList, proteaseModification);
-                        dict.Add(protease.Name, protease);
+                        if (proteaseMods.Select(p => p.IdWithMotif).ToList().Contains(proteaseModDetails))
+                        {
+                            Modification proteaseModification = proteaseMods.Where(p => p.IdWithMotif == proteaseModDetails).First();
+                            var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList, proteaseModification);
+                            if (!dict.ContainsKey(protease.Name))
+                            {
+                                dict.Add(protease.Name, protease);
+                            }
+                            else 
+                            {
+                                throw new MzLibException("More than one protease named "+ protease.Name +" exists");
+                            }
+                            
+                        }
+                        else 
+                        {                            
+                            var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList);
+                            if (!dict.ContainsKey(protease.Name))
+                            {
+                                dict.Add(protease.Name, protease);
+                            }
+                            else
+                            {
+                                throw new MzLibException("More than one protease named " + protease.Name + " exists");
+                            }
+                            throw new MzLibException(proteaseModDetails + " is not a valid modification");
+                        }
+                        
                     }
                     else
                     {
                         var protease = new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList);
-                        dict.Add(protease.Name, protease);
+                        if (!dict.ContainsKey(protease.Name))
+                        {
+                            dict.Add(protease.Name, protease);
+                        }
+                        else
+                        {
+                            throw new MzLibException("More than one protease named " + protease.Name + " exists");
+                        }
                     }
                     
                 }
