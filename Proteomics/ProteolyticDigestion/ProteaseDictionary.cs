@@ -43,7 +43,9 @@ namespace Proteomics.ProteolyticDigestion
                     var cleavageSpecificity = ((CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4], true));
                     string psiMsAccessionNumber = fields[5];
                     string psiMsName = fields[6];
-                    string proteaseModDetails = fields[8];                    
+                    //name of the modification that is associated with proteolytic cleavage
+                    string proteaseModDetails = fields[8];  
+                    //if this protease has an associated modification, look it up in the list of mods loaded fro the protease mods file
                     if (proteaseModDetails != "" && proteaseMods != null)
                     {
                         if (proteaseMods.Select(p => p.IdWithMotif).ToList().Contains(proteaseModDetails))

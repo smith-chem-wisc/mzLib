@@ -230,8 +230,9 @@ namespace Proteomics
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
         {            
             //can't be null
-            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();            
-            if (digestionParams.Protease.CleavageMod!= null)
+            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>(); 
+            // add in any modifications that are caused by protease digestion
+            if (digestionParams.Protease.CleavageMod!= null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
             {
                 allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);                
             }                      

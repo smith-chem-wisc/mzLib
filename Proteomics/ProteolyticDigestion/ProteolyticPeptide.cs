@@ -314,6 +314,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     case "N-terminal.":
                     case "Peptide N-terminal.":
+                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
                         if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
                         {
                             if (OneBasedStartResidueInProtein != 1)
@@ -321,6 +322,7 @@ namespace Proteomics.ProteolyticDigestion
                                 fixedModsOneIsNterminus[2] = mod;
                             }
                         }
+                        //Normal N-terminal peptide modification
                         else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
                         {
                             fixedModsOneIsNterminus[1] = mod;
@@ -339,6 +341,7 @@ namespace Proteomics.ProteolyticDigestion
 
                     case "C-terminal.":
                     case "Peptide C-terminal.":
+                        //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
                         if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
                         {
                             if (OneBasedEndResidueInProtein != Protein.Length)
@@ -347,6 +350,7 @@ namespace Proteomics.ProteolyticDigestion
                             }
                             
                         }
+                        //Normal C-terminal peptide modification 
                         else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
                         {
                             fixedModsOneIsNterminus[peptideLength + 2] = mod;
