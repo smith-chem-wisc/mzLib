@@ -277,6 +277,18 @@
     <None Update="DataFiles\tiny.pwiz.1.1.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_dupName.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
