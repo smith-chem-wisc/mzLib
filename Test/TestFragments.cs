@@ -908,6 +908,49 @@ namespace Test
         }
 
         [Test]
+        public static void TestInternalFragments()
+        {
+            PeptideWithSetModifications pwsm = new PeptideWithSetModifications("PEPTIDE", null);
+            List<Product> products = new List<Product>();
+
+            //try HCD
+            pwsm.FragmentInternally(DissociationType.HCD, 3, products);
+
+            
+            List<Product> expectedProducts = new List<Product>
+            {
+                new Product(ProductType.y, FragmentationTerminus.None,327.14,2,3,0,ProductType.b,4), //EPT
+                new Product(ProductType.y, FragmentationTerminus.None,440.23,2,4,0,ProductType.b,5), //EPTI
+                new Product(ProductType.y, FragmentationTerminus.None,555.25,2,5,0,ProductType.b,6), //EPTID
+                new Product(ProductType.y, FragmentationTerminus.None,311.18,3,3,0,ProductType.b,5), //PTI
+                new Product(ProductType.y, FragmentationTerminus.None,426.21,3,4,0,ProductType.b,6), //PTID
+                new Product(ProductType.y, FragmentationTerminus.None,329.16,4,3,0,ProductType.b,6), //TID
+            };
+            Assert.IsTrue(products.Count == expectedProducts.Count);
+            for(int i=0; i<products.Count; i++)
+            {
+                Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
+                Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
+            }
+
+            //try with multiple different fragments (EThcD)
+            pwsm.FragmentInternally(DissociationType.EThcD, 5, products);
+            expectedProducts = new List<Product>
+            {
+                new Product(ProductType.y, FragmentationTerminus.None,555.25,2,5,0,ProductType.b,6), //EPTID, by
+                new Product(ProductType.zDot, FragmentationTerminus.None,539.24,2,5,0,ProductType.b,6), //EPTID, bz
+                new Product(ProductType.y, FragmentationTerminus.None,572.28,2,5,0,ProductType.c,6), //EPTID, cy
+                new Product(ProductType.zDot, FragmentationTerminus.None,556.26,2,5,0,ProductType.c,6), //EPTID, cz
+            };
+            Assert.IsTrue(products.Count == expectedProducts.Count);
+            for (int i = 0; i < products.Count; i++)
+            {
+                Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
+                Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
+            }
+        }
+
+        [Test]
         public static void CheckProlineFragments()
         {
             PeptideWithSetModifications p = new PeptideWithSetModifications("MPEPTIDE", new Dictionary<string, Modification>());
