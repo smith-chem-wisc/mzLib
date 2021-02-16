@@ -26,6 +26,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
+       
 
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
@@ -40,7 +41,7 @@ namespace Proteomics.ProteolyticDigestion
             _digestionParams = digestionParams;
             DetermineFullSequence();
             ProteinAccession = protein.Accession;
-            UpdateCleavageSpecificity();
+            UpdateCleavageSpecificity();            
         }
 
         /// <summary>
@@ -108,6 +109,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
+
         }
 
         public string SequenceWithChemicalFormulas
