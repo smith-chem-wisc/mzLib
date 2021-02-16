@@ -51,7 +51,7 @@ namespace Proteomics.Fragmentation
                 {
                     //internal fragment ion, annotation used here: 10.1007/s13361-015-1078-1
                     //example: yIb[18-36]
-                    sb.Append(ProductType+"I"+SecondaryProductType.Value+"["+FragmentNumber+"-"+SecondaryFragmentNumber+"]");                 
+                    sb.Append(ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber + "]");
                 }
                 if (NeutralLoss != 0)
                 {
@@ -62,7 +62,7 @@ namespace Proteomics.Fragmentation
                 return sb.ToString();
             }
         }
-        
+
         /// <summary>
         /// Summarizes a Product into a string for debug purposes
         /// </summary>
@@ -74,7 +74,7 @@ namespace Proteomics.Fragmentation
             }
             else
             {
-                return ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber.Value + "]" + ";" + NeutralMass.ToString("F5") + "-" + string.Format("{0:0.##}", NeutralLoss);
+                return ProductType + "I" + SecondaryProductType.Value + "[" + FragmentNumber + "-" + SecondaryFragmentNumber + "]" + ";" + NeutralMass.ToString("F5") + "-" + string.Format("{0:0.##}", NeutralLoss);
             }
         }
 
@@ -86,7 +86,7 @@ namespace Proteomics.Fragmentation
                 && this.NeutralMass == other.NeutralMass
                 && this.FragmentNumber == other.FragmentNumber
                 && this.NeutralLoss == other.NeutralLoss
-                && this.SecondaryFragmentNumber==other.SecondaryFragmentNumber
+                && this.SecondaryFragmentNumber == other.SecondaryFragmentNumber
                 && this.SecondaryProductType == other.SecondaryProductType;
         }
 

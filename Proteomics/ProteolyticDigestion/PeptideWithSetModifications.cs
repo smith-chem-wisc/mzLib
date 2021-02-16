@@ -511,7 +511,6 @@ namespace Proteomics.ProteolyticDigestion
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products)
         {
             products.Clear();
-            products.Clear();
 
             var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftsForDissociationType(dissociationType);
 
@@ -523,7 +522,7 @@ namespace Proteomics.ProteolyticDigestion
             {
                 double fragmentMass = 0;
                 //populate with smallest possible fragment (minus 1) from this starting residue
-                for (int i = 0; i < minLengthOfFragments-1; i++)
+                for (int i = 0; i < minLengthOfFragments - 1; i++)
                 {
                     if (Residue.TryGetResidue(BaseSequence[n + i], out Residue residue))
                     {
@@ -542,7 +541,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 //expand length of fragment, adding each new length as a new fragment ion, until we reach the C1 residue.
-                for (int c = n + minLengthOfFragments-1; c < BaseSequence.Length - 1; c++)
+                for (int c = n + minLengthOfFragments - 1; c < BaseSequence.Length - 1; c++)
                 {
                     if (Residue.TryGetResidue(BaseSequence[c], out Residue residue))
                     {
@@ -554,15 +553,15 @@ namespace Proteomics.ProteolyticDigestion
                         }
                         //add new fragment
                         //loop to accomodate EThcD
-                        for(int i=0; i<nTermProductTypes.Count; i++)
+                        for (int i = 0; i < nTermProductTypes.Count; i++)
                         {
                             double massCap = massCaps.Item1[i];
-                            for(int j=0; j<cTermProductTypes.Count; j++)
+                            for (int j = 0; j < cTermProductTypes.Count; j++)
                             {
                                 double massCap2 = massCaps.Item2[j];
                                 //do c, then n terminal ions
-                                products.Add(new Product(cTermProductTypes[j], FragmentationTerminus.None, fragmentMass+massCap+massCap2-WaterMonoisotopicMass, 
-                                    n+1, c - n + 1, 0, nTermProductTypes[i], c+1));
+                                products.Add(new Product(cTermProductTypes[j], FragmentationTerminus.None, fragmentMass + massCap + massCap2 - WaterMonoisotopicMass,
+                                    n + 1, c - n + 1, 0, nTermProductTypes[i], c + 1));
                             }
                         }
                     }
@@ -1001,17 +1000,17 @@ namespace Proteomics.ProteolyticDigestion
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
-            foreach(char c in fullSequence)
+            foreach (char c in fullSequence)
             {
-                if(c=='[')
+                if (c == '[')
                 {
                     bracketCount++;
                 }
-                else if (c==']')
+                else if (c == ']')
                 {
                     bracketCount--;
                 }
-                else if(bracketCount==0)
+                else if (bracketCount == 0)
                 {
                     sb.Append(c);
                 }
