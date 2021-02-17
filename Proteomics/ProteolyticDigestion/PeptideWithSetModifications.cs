@@ -509,6 +509,8 @@ namespace Proteomics.ProteolyticDigestion
         /// Generates theoretical internal fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.
         /// The "minLengthOfFragments" parameter is the minimum number of amino acids for an internal fragment to be included
+        /// TODO: Implement neutral losses (e.g. phospho)
+        /// TODO: Implement Star/Degree ions from CID
         /// </summary>
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products)
         {
