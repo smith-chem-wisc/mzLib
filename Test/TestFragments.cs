@@ -913,7 +913,7 @@ namespace Test
             PeptideWithSetModifications pwsm = new PeptideWithSetModifications("PEPTIDE", null);
             List<Product> products = new List<Product>();
 
-            //try HCD
+            //test with HCD
             pwsm.FragmentInternally(DissociationType.HCD, 3, products);
 
 
@@ -933,7 +933,7 @@ namespace Test
                 Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
 
-            //try with multiple different fragments (EThcD)
+            //test with multiple different fragments (EThcD)
             pwsm.FragmentInternally(DissociationType.EThcD, 5, products);
             expectedProducts = new List<Product>
             {
@@ -948,6 +948,22 @@ namespace Test
                 Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
                 Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
             }
+
+            //test string includes both termini
+            Assert.IsTrue(products[0].ToString().Equals("yIb[2-6];555.25404-0"));
+
+            //test that mods are incorporated
+            ModificationMotif.TryGetMotif("T", out ModificationMotif target);
+            Modification oxOnM = new Modification(_originalId: "Oxidation on M", _modificationType: "Common Variable", _target: target, _chemicalFormula: ChemicalFormula.ParseFormula("O"));
+            pwsm = new PeptideWithSetModifications("PM[Common Variable:Oxidation on M]EPTIM[Common Variable:Oxidation on M]DE", new Dictionary<string, Modification> { { "Oxidation on M", oxOnM } });
+            pwsm.FragmentInternally(DissociationType.EThcD, 5, products);
+            Assert.IsTrue(Math.Round(products[0].NeutralMass).Equals(587)); //contains first ox M
+            Assert.IsTrue(Math.Round(products[8].NeutralMass).Equals(849)); //contains both ox M
+
+            //test that noncanonical amino acids are handled
+            pwsm = new PeptideWithSetModifications("ZXCVZXCV", null);
+            pwsm.FragmentInternally(DissociationType.ETD, 5, products); //shouldn't crash
+            Assert.IsTrue(products[0].NeutralMass.Equals(double.NaN));
         }
 
         [Test]
