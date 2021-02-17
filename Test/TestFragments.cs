@@ -554,15 +554,15 @@ namespace Test
             Protein p = new Protein("PTE", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
             Modification phosphorylation = new Modification(
-                _originalId: "phospho", 
-                _modificationType: "CommonBiological", 
-                _target: motif, 
-                _locationRestriction: "Anywhere.", 
-                _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"), 
+                _originalId: "phospho",
+                _modificationType: "CommonBiological",
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"),
                 _neutralLosses: new Dictionary<DissociationType, List<double>>
                 {
                     { MassSpectrometry.DissociationType.HCD, new List<double> { 0, ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } }
-                }, 
+                },
                 _diagnosticIons: new Dictionary<DissociationType, List<double>>
                 {
                     { MassSpectrometry.DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass } }
@@ -617,13 +617,13 @@ namespace Test
         {
             //Nick found this bug for O-glyco peptide, basicly the zDot8 ion of the peptide contain a glycan,
             //the previous zDot8 ion didn't add the mass of the modification.
-            Protein p = new Protein("TVYLGASK", "accession");    
+            Protein p = new Protein("TVYLGASK", "accession");
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif1);
             ModificationMotif.TryGetMotif("S", out ModificationMotif motif2);
-            Modification glycan1 = new Modification(_originalId: "H1N1", _modificationType: "O-Glycosylation", _target: motif1, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C14H23N1O10") );            
-            Modification glycan2 = new Modification(_originalId: "H1N1A1", _modificationType: "O-Glycosylation", _target: motif2, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C25H40N2O18") );
+            Modification glycan1 = new Modification(_originalId: "H1N1", _modificationType: "O-Glycosylation", _target: motif1, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C14H23N1O10"));
+            Modification glycan2 = new Modification(_originalId: "H1N1A1", _modificationType: "O-Glycosylation", _target: motif2, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C25H40N2O18"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
-            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { glycan1, glycan2}, new List<Modification>()).First();
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { glycan1, glycan2 }, new List<Modification>()).First();
             Assert.That(aPeptideWithSetModifications.FullSequence == "T[O-Glycosylation:H1N1 on T]VYLGAS[O-Glycosylation:H1N1A1 on S]K");
             var theseTheoreticalFragments = new List<Product>();
             aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.Both, theseTheoreticalFragments);
@@ -821,7 +821,7 @@ namespace Test
             Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.CID, FragmentationTerminus.Both, fragments);
-            CollectionAssert.AreEquivalent(new List<ProductType> {  ProductType.b, ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
+            CollectionAssert.AreEquivalent(new List<ProductType> { ProductType.b, ProductType.y }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.CID, FragmentationTerminus.N, fragments);
             Assert.AreEqual(new List<ProductType> { ProductType.b }, fragments.Select(b => b.ProductType).Distinct().ToList());
@@ -905,6 +905,65 @@ namespace Test
             List<Product> myFragments = new List<Product>();
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, myFragments);
             Assert.AreEqual(fragmentCount, myFragments.Count());
+        }
+
+        [Test]
+        public static void TestInternalFragments()
+        {
+            PeptideWithSetModifications pwsm = new PeptideWithSetModifications("PEPTIDE", null);
+            List<Product> products = new List<Product>();
+
+            //test with HCD
+            pwsm.FragmentInternally(DissociationType.HCD, 3, products);
+
+
+            List<Product> expectedProducts = new List<Product>
+            {
+                new Product(ProductType.y, FragmentationTerminus.None,327.14,2,3,0,ProductType.b,4), //EPT
+                new Product(ProductType.y, FragmentationTerminus.None,440.23,2,4,0,ProductType.b,5), //EPTI
+                new Product(ProductType.y, FragmentationTerminus.None,555.25,2,5,0,ProductType.b,6), //EPTID
+                new Product(ProductType.y, FragmentationTerminus.None,311.18,3,3,0,ProductType.b,5), //PTI
+                new Product(ProductType.y, FragmentationTerminus.None,426.21,3,4,0,ProductType.b,6), //PTID
+                new Product(ProductType.y, FragmentationTerminus.None,329.16,4,3,0,ProductType.b,6), //TID
+            };
+            Assert.IsTrue(products.Count == expectedProducts.Count);
+            for (int i = 0; i < products.Count; i++)
+            {
+                Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
+                Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
+            }
+
+            //test with multiple different fragments (EThcD)
+            pwsm.FragmentInternally(DissociationType.EThcD, 5, products);
+            expectedProducts = new List<Product>
+            {
+                new Product(ProductType.y, FragmentationTerminus.None,555.25,2,5,0,ProductType.b,6), //EPTID, by
+                new Product(ProductType.zDot, FragmentationTerminus.None,539.24,2,5,0,ProductType.b,6), //EPTID, bz
+                new Product(ProductType.y, FragmentationTerminus.None,572.28,2,5,0,ProductType.c,6), //EPTID, cy
+                new Product(ProductType.zDot, FragmentationTerminus.None,556.26,2,5,0,ProductType.c,6), //EPTID, cz
+            };
+            Assert.IsTrue(products.Count == expectedProducts.Count);
+            for (int i = 0; i < products.Count; i++)
+            {
+                Assert.IsTrue(products[i].Annotation.Equals(expectedProducts[i].Annotation));
+                Assert.IsTrue(Math.Round(products[i].NeutralMass).Equals(Math.Round(expectedProducts[i].NeutralMass)));
+            }
+
+            //test string includes both termini
+            Assert.IsTrue(products[0].ToString().Equals("yIb[2-6];555.25404-0"));
+
+            //test that mods are incorporated
+            ModificationMotif.TryGetMotif("T", out ModificationMotif target);
+            Modification oxOnM = new Modification(_originalId: "Oxidation on M", _modificationType: "Common Variable", _target: target, _chemicalFormula: ChemicalFormula.ParseFormula("O"));
+            pwsm = new PeptideWithSetModifications("PM[Common Variable:Oxidation on M]EPTIM[Common Variable:Oxidation on M]DE", new Dictionary<string, Modification> { { "Oxidation on M", oxOnM } });
+            pwsm.FragmentInternally(DissociationType.EThcD, 5, products);
+            Assert.IsTrue(Math.Round(products[0].NeutralMass).Equals(587)); //contains first ox M
+            Assert.IsTrue(Math.Round(products[8].NeutralMass).Equals(849)); //contains both ox M
+
+            //test that noncanonical amino acids are handled
+            pwsm = new PeptideWithSetModifications("ZXCVZXCV", null);
+            pwsm.FragmentInternally(DissociationType.ETD, 5, products); //shouldn't crash
+            Assert.IsTrue(products[0].NeutralMass.Equals(double.NaN));
         }
 
         [Test]
