@@ -1,10 +1,13 @@
 ﻿using IO.MzML;
+using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using IO.ThermoRawFileReader;
+using System.Linq;
+using System.Text;
 
 namespace Test
 {
@@ -118,6 +121,105 @@ namespace Test
 
             Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h " +
                 $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        [Test]
+        public static void TestSinglePointCalibration()
+        {
+            //a contaminant range contans the low cut-off, the high cut-off and the value that is true
+            List<(double, double, double)> contaminantRange = new List<(double, double, double)> { (130.135, 130.1356, 130.1590), (200.2003, 200.2011, 200.2371), (270.2655, 270.2669, 270.3151) };
+            var filterParams = new FilteringParams(null, null, null, null, false, false, false);
+
+            var path = @"F:\DorothyWheatcraft\20210118_7_SM78-2dg_96hr_HILIC_Pos.raw";
+
+            MsDataFile originalRawFile = ThermoRawFileReader.LoadAllStaticData(path, filterParams, maxThreads: 1);
+            List<MsDataScan> rawScans = originalRawFile.GetAllScansList();
+
+            List<double> allMassErrors = new List<double>();
+            List<double>[] rawScanMassErrors = new List<double>[rawScans.Count];
+            for (int i = 0; i < rawScanMassErrors.Length; i++)
+            {
+                rawScanMassErrors[i] = new List<double>();
+            }
+            List<(double, double)> maxXmaxY = new List<(double, double)>();
+            List<string> myout = new List<string>();
+
+            for (int i = 0; i < rawScans.Count; i++)
+            {
+                var scan = rawScans[i];
+
+                if (scan.MsnOrder == 1)
+                {
+                    double[] xValues = scan.MassSpectrum.XArray;
+
+                    foreach (var range in contaminantRange)
+                    {
+                        var indexes = xValues.ToList().Select((item, index) => new { Item = item, Index = index }).Where(o => o.Item > range.Item1).Where(o => o.Item < range.Item2).Select(o => o.Index).ToList();
+
+                        int maxIndex = 0;
+                        double maxInt = 0;
+                        if (indexes.Count > 0)
+                        {
+                            foreach (var item in indexes)
+                            {
+                                if (scan.MassSpectrum.YArray[item] > maxInt)
+                                {
+                                    maxInt = scan.MassSpectrum.YArray[item];
+                                    maxIndex = item;
+                                }
+                            }
+                        }
+                        if (maxIndex != 0)
+                        {
+                            double massError=(range.Item3 -scan.MassSpectrum.XArray[maxIndex]) / scan.MassSpectrum.XArray[maxIndex] * 1000000.0;
+                            allMassErrors.Add(massError);
+                            rawScanMassErrors[i].Add(massError);
+                            maxXmaxY.Add((scan.MassSpectrum.XArray[maxIndex], maxInt));
+                            myout.Add(scan.MassSpectrum.XArray[maxIndex] + "\t" + maxInt);
+                        }
+                    }
+                }
+            }// end for loop
+
+            var median = GetMedian(allMassErrors);
+
+
+            for (int i = 0; i < rawScans.Count; i++)
+            {
+                if (rawScanMassErrors[i].Count() > 0) 
+                {
+                    median = GetMedian(rawScanMassErrors[i]);               
+                }
+
+                for (int j = 0; j < rawScans[i].MassSpectrum.XArray.Length; j++)
+                {
+                    double mz = rawScans[i].MassSpectrum.XArray[j];
+                    double correctedMz = mz + mz / 1000000.0 * median;
+                    rawScans[i].MassSpectrum.XArray[j] = correctedMz;
+                }
+
+            }
+
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(originalRawFile, @"F:\DorothyWheatcraft\20210118_7_SM78-2dg_96hr_HILIC_Pos_144.mzML", false);
+
+            File.WriteAllLines(@"F:\DorothyWheatcraft\20210118_7_SM78-2dg_96hr_HILIC_Pos_144.tsv", myout, Encoding.UTF8);
+        }
+
+        public static double GetMedian(List<double> numbers)
+        {
+            int numberCount = numbers.Count();
+            int halfIndex = numbers.Count() / 2;
+            var sortedNumbers = numbers.OrderBy(n => n);
+            double median;
+            if ((numberCount % 2) == 0)
+            {
+                median = ((sortedNumbers.ElementAt(halfIndex) + sortedNumbers.ElementAt((halfIndex - 1))) / 2);
+            }
+            else
+            {
+                median = sortedNumbers.ElementAt(halfIndex);
+            }
+            return median;
         }
 
         [Test]

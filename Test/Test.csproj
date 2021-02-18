@@ -43,6 +43,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.7z">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.txt.gz">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\ensembl_prrc2a.fa">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
