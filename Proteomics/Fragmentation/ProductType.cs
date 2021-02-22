@@ -36,7 +36,9 @@ namespace Proteomics.Fragmentation
         zPlusOne,//This is zDot plus H
         zDot,
         M, //this is the molecular ion
-        D //this is a diagnostic ion
+        D, //this is a diagnostic ion
+        Ycore, //Glyco core Y ions
+        Y //Glyco Y ions
     }
 
 }
