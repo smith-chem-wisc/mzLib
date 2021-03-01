@@ -1155,7 +1155,7 @@ namespace IO.MzML
                 using (StreamReader reader = new StreamReader(stream, bufferSize: 4096))
                 {
                     string line;
-                    byte[] buffer = new byte[1000000];
+                    byte[] buffer = new byte[2000000];
                     bool foundChecksumField = false;
 
                     while (reader.Peek() > 0 && !foundChecksumField)
