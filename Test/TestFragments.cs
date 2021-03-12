@@ -721,6 +721,14 @@ namespace Test
                         Assert.AreEqual(0, mass);
                         break;
 
+                    case ProductType.Ycore:
+                        Assert.AreEqual(0, mass);
+                        break;
+
+                    case ProductType.Y:
+                        Assert.AreEqual(0, mass);
+                        break;
+
                     case ProductType.x:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("C1O2").MonoisotopicMass).Value, mass);
                         break;

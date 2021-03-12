@@ -265,6 +265,9 @@
     <None Update="DataFiles\SmallCalibratibleYeast.mzml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\tester_corrupt.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\tester.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
