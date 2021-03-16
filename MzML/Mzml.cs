@@ -477,11 +477,32 @@ namespace IO.MzML
             }
 
             DissociationType dissociationType = DissociationType.Unknown;
+
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].precursorList.precursor[0].activation.cvParam != null)
             {
+                // for EThcD scans, the dissociation type will not be listed as EThcD. it will be 2 different dissociation types
+                // in the list, one as ETD and one with HCD. so we need to check for that case and interpret it as EThcD.
+                List<DissociationType> scanDissociationTypes = new List<DissociationType>();
+
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].precursorList.precursor[0].activation.cvParam)
                 {
-                    dissociationDictionary.TryGetValue(cv.accession, out dissociationType);
+                    if (dissociationDictionary.TryGetValue(cv.accession, out var scanDissociationType))
+                    {
+                        scanDissociationTypes.Add(scanDissociationType);
+                    }
+                }
+
+                if (scanDissociationTypes.Contains(DissociationType.ETD) && scanDissociationTypes.Contains(DissociationType.HCD))
+                {
+                    dissociationType = DissociationType.EThcD;
+                }
+                else if (scanDissociationTypes.Any())
+                {
+                    dissociationType = scanDissociationTypes.First();
+                }
+                else
+                {
+                    dissociationType = DissociationType.Unknown;
                 }
             }
             double? monoisotopicMz = null;
