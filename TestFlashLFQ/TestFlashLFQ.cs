@@ -1310,5 +1310,64 @@ namespace Test
 
             File.Delete(filepath);
         }
+
+        [Test]
+        public static void fff()
+        {
+            var dirs = Directory.EnumerateDirectories(@"C:\Data\LVS_TD_Yeast\GlobalOptimization");//.Where(p => Directory.EnumerateFiles(p).Contains("results.txt"));
+            List<string> output = new List<string> { "DirName\tPrecursors1\tPSMs1\tPfms1\tPrecursors2\tPSMs2\tPfms2\tCR\tFI\tPK\tIN\tSN" };
+
+            foreach (var dir in dirs)
+            {
+                var files = Directory.EnumerateFiles(dir);
+
+                var resultstxt = files.FirstOrDefault(p => Path.GetFileName(p) == "results.txt");
+
+                if (resultstxt != null)
+                {
+                    var dirName = Path.GetFileName(dir);
+                    var resultsTxtContents = File.ReadAllLines(resultstxt);
+
+                    var prec1Line = resultsTxtContents.FirstOrDefault(p => p.StartsWith("Precursors fragmented in 05-26-17_B7A_yeast_td_fract7_rep1:"));
+                    int prec1 = int.Parse(prec1Line.Split(new char[] { ':' })[1].Trim());
+                    var psms1Line = resultsTxtContents.FirstOrDefault(p => p.StartsWith("Target PSMs within 1% FDR in 05-26-17_B7A_yeast_td_fract7_rep1:"));
+                    int psms1 = int.Parse(psms1Line.Split(new char[] { ':' })[1].Trim());
+                    var pfms1Line = resultsTxtContents.FirstOrDefault(p => p.StartsWith("Target proteoforms within 1% FDR in 05-26-17_B7A_yeast_td_fract7_rep1:"));
+                    int pfms1 = int.Parse(pfms1Line.Split(new char[] { ':' })[1].Trim());
+
+                    var prec2Line = resultsTxtContents.FirstOrDefault(p => p.StartsWith("Precursors fragmented in 05-26-17_B7A_yeast_td_fract7_rep2:"));
+                    int prec2 = int.Parse(prec2Line.Split(new char[] { ':' })[1].Trim());
+                    var psms2Line = resultsTxtContents.FirstOrDefault(p => p.StartsWith("Target PSMs within 1% FDR in 05-26-17_B7A_yeast_td_fract7_rep2:"));
+                    int psms2 = int.Parse(psms2Line.Split(new char[] { ':' })[1].Trim());
+                    var pfms2Line = resultsTxtContents.FirstOrDefault(p => p.StartsWith("Target proteoforms within 1% FDR in 05-26-17_B7A_yeast_td_fract7_rep2:"));
+                    int pfms2 = int.Parse(pfms2Line.Split(new char[] { ':' })[1].Trim());
+
+                    string cr = dirName.Substring(0, 5);
+                    string fi = dirName.Substring(5, 5);
+                    string pk = dirName.Substring(10, 5);
+                    string IN = dirName.Substring(15, 5);
+                    string sn = dirName.Substring(20, 5);
+
+                    bool ok = psms1 > 1450 && psms2 > 1450 && pfms1 > 160 && pfms2 > 160;
+
+                    output.Add(
+                        dirName + "\t" +
+                        prec1 + "\t" +
+                        psms1 + "\t" +
+                        pfms1 + "\t" +
+                        prec2 + "\t" +
+                        psms2 + "\t" +
+                        pfms2 + "\t" +
+                        cr.Substring(2, 3) + "\t" +
+                        fi.Substring(2, 3) + "\t" +
+                        pk.Substring(2, 3) + "\t" +
+                        IN.Substring(2, 3) + "\t" +
+                        sn.Substring(2, 3) + "\t" + 
+                        (ok ? 1.ToString() : 0.ToString()));
+                }
+            }
+
+            File.WriteAllLines(@"C:\Data\LVS_TD_Yeast\GlobalOptimization\summary.tsv", output);
+        }
     }
 }

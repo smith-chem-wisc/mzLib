@@ -129,6 +129,7 @@ namespace IO.ThermoRawFileReader
             int? precursorScanNumber = null;
             double? isolationMz = null;
             string HcdEnergy = null;
+            DissociationType dissociationType = DissociationType.Unknown;
             ActivationType activationType = ActivationType.Any;
 
             var trailer = rawFile.GetTrailerExtraInformation(scanNumber);
@@ -186,6 +187,15 @@ namespace IO.ThermoRawFileReader
                 var reaction = scanEvent.GetReaction(0);
                 isolationMz = reaction.PrecursorMass;
                 activationType = reaction.ActivationType;
+
+                dissociationType = GetDissociationType(activationType);
+
+                // thermo does not have an enum value for ETHcD, so this needs to be detected from the scan filter
+                if (scanFilterString.Contains("@etd", StringComparison.OrdinalIgnoreCase) 
+                    && scanFilterString.Contains("@hcd", StringComparison.OrdinalIgnoreCase))
+                {
+                    dissociationType = DissociationType.EThcD;
+                }
 
                 if (ms2IsolationWidth == null)
                 {
@@ -257,7 +267,7 @@ namespace IO.ThermoRawFileReader
                 selectedIonIntensity: selectedIonIntensity,
                 isolationMZ: isolationMz,
                 isolationWidth: ms2IsolationWidth,
-                dissociationType: GetDissociationType(activationType),
+                dissociationType: dissociationType,
                 oneBasedPrecursorScanNumber: precursorScanNumber,
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
                 hcdEnergy: HcdEnergy);
