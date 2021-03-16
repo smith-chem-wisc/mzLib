@@ -1568,6 +1568,8 @@ namespace Test
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.mzML");
             Mzml mzml = Mzml.LoadAllStaticData(filePath, null, 1);
+            var unknownScan = mzml.GetOneBasedScan(3);
+            Assert.That(unknownScan.DissociationType == DissociationType.Unknown);
             var hcdScan = mzml.GetOneBasedScan(5);
             Assert.That(hcdScan.DissociationType == DissociationType.HCD);
             var ethcdScan = mzml.GetOneBasedScan(6);

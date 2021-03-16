@@ -229,7 +229,7 @@
                 </selectedIon>
               </selectedIonList>
               <activation>
-                <cvParam cvRef="MS" accession="MS:1000422" name="beam-type collision-induced dissociation" value=""/>
+                <cvParam cvRef="MS" accession="MS:1000000" name="___________________FAKE UNKNOWN DISSOCIATION TYPE_________________" value=""/>
                 <cvParam cvRef="MS" accession="MS:1000045" name="collision energy" value="36.0" unitCvRef="UO" unitAccession="UO:0000266" unitName="electronvolt"/>
               </activation>
             </precursor>
