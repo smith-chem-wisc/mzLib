@@ -1563,6 +1563,19 @@ namespace Test
             }
         }
 
+        [Test]
+        public static void TestEthcdReading()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.mzML");
+            Mzml mzml = Mzml.LoadAllStaticData(filePath, null, 1);
+            var unknownScan = mzml.GetOneBasedScan(3);
+            Assert.That(unknownScan.DissociationType == DissociationType.Unknown);
+            var hcdScan = mzml.GetOneBasedScan(5);
+            Assert.That(hcdScan.DissociationType == DissociationType.HCD);
+            var ethcdScan = mzml.GetOneBasedScan(6);
+            Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
+        }
+
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
         {
             List<double> allMasses = new List<double>();
