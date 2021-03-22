@@ -117,7 +117,27 @@ namespace IO.MzML
                         {
                             // controlled vocabulary parameter
                             case "CVPARAM":
-                                switch (xmlReader["accession"])
+                                string cvParamAccession = xmlReader["accession"];
+
+                                if (Mzml.DissociationDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    dissociationType = Mzml.DissociationDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                if (Mzml.PolarityDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    polarity = Mzml.PolarityDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                if (Mzml.AnalyzerDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    mzAnalyzerType = Mzml.AnalyzerDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                switch (cvParamAccession)
                                 {
                                     // MS order
                                     case "MS:1000511":
@@ -133,16 +153,6 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                        break;
-
-                                    // positive scan mode
-                                    case "MS:1000130":
-                                        polarity = Polarity.Positive;
-                                        break;
-
-                                    // negative scan mode
-                                    case "MS:1000129":
-                                        polarity = Polarity.Negative;
                                         break;
 
                                     // total ion current
@@ -203,60 +213,6 @@ namespace IO.MzML
                                     // selected intensity
                                     case "MS:1000042":
                                         selectedIonIntensity = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // activation types
-                                    case "MS:1000133":
-                                        dissociationType = DissociationType.CID;
-                                        break;
-
-                                    case "MS:1001880":
-                                        dissociationType = DissociationType.ISCID;
-                                        break;
-
-                                    case "MS:1000422":
-                                        dissociationType = DissociationType.HCD;
-                                        break;
-
-                                    case "MS:1000598":
-                                        dissociationType = DissociationType.ETD;
-                                        break;
-
-                                    case "MS:1000435":
-                                        dissociationType = DissociationType.IRMPD;
-                                        break;
-
-                                    case "MS:1000599":
-                                        dissociationType = DissociationType.PQD;
-                                        break;
-
-                                    // mass analyzer types
-                                    case "MS:1000081":
-                                        mzAnalyzerType = MZAnalyzerType.Quadrupole;
-                                        break;
-
-                                    case "MS:1000291":
-                                        mzAnalyzerType = MZAnalyzerType.IonTrap2D;
-                                        break;
-
-                                    case "MS:1000082":
-                                        mzAnalyzerType = MZAnalyzerType.IonTrap3D;
-                                        break;
-
-                                    case "MS:1000484":
-                                        mzAnalyzerType = MZAnalyzerType.Orbitrap;
-                                        break;
-
-                                    case "MS:1000084":
-                                        mzAnalyzerType = MZAnalyzerType.TOF;
-                                        break;
-
-                                    case "MS:1000079":
-                                        mzAnalyzerType = MZAnalyzerType.FTICR;
-                                        break;
-
-                                    case "MS:1000080":
-                                        mzAnalyzerType = MZAnalyzerType.Sector;
                                         break;
 
                                     case "MS:1000523":

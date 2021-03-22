@@ -366,6 +366,10 @@ namespace IO.ThermoRawFileReader
                 case ActivationType.ElectronTransferDissociation: return DissociationType.ETD;
                 case ActivationType.HigherEnergyCollisionalDissociation: return DissociationType.HCD;
                 case ActivationType.ElectronCaptureDissociation: return DissociationType.ECD;
+                case ActivationType.MultiPhotonDissociation: return DissociationType.MPD;
+                case ActivationType.PQD: return DissociationType.PQD;
+                case ActivationType.UltraVioletPhotoDissociation: return DissociationType.UVPD;
+                case ActivationType.NegativeElectronTransferDissociation: return DissociationType.NETD;
 
                 default: return DissociationType.Unknown;
             }
