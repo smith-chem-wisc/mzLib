@@ -57,8 +57,7 @@ namespace IO.MzML
 
         private static readonly Dictionary<Polarity, string> PolarityAccessions = Mzml.PolarityDictionary.ToDictionary(p => p.Value, p => p.Key);
 
-        private static readonly Dictionary<Polarity, string> PolarityNames 
-            = new Dictionary<Polarity, string>
+        private static readonly Dictionary<Polarity, string> PolarityNames = new Dictionary<Polarity, string>
         {
             {Polarity.Negative, "negative scan"},
             {Polarity.Positive, "positive scan"}
