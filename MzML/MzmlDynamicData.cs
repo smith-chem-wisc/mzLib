@@ -131,12 +131,6 @@ namespace IO.MzML
                                     break;
                                 }
 
-                                if (Mzml.AnalyzerDictionary.ContainsKey(cvParamAccession))
-                                {
-                                    mzAnalyzerType = Mzml.AnalyzerDictionary[cvParamAccession];
-                                    break;
-                                }
-
                                 switch (cvParamAccession)
                                 {
                                     // MS order
@@ -213,6 +207,35 @@ namespace IO.MzML
                                     // selected intensity
                                     case "MS:1000042":
                                         selectedIonIntensity = double.Parse(xmlReader["value"]);
+                                        break;
+
+                                    // mass analyzer types
+                                    case "MS:1000081":
+                                        mzAnalyzerType = MZAnalyzerType.Quadrupole;
+                                        break;
+
+                                    case "MS:1000291":
+                                        mzAnalyzerType = MZAnalyzerType.IonTrap2D;
+                                        break;
+
+                                    case "MS:1000082":
+                                        mzAnalyzerType = MZAnalyzerType.IonTrap3D;
+                                        break;
+
+                                    case "MS:1000484":
+                                        mzAnalyzerType = MZAnalyzerType.Orbitrap;
+                                        break;
+
+                                    case "MS:1000084":
+                                        mzAnalyzerType = MZAnalyzerType.TOF;
+                                        break;
+
+                                    case "MS:1000079":
+                                        mzAnalyzerType = MZAnalyzerType.FTICR;
+                                        break;
+
+                                    case "MS:1000080":
+                                        mzAnalyzerType = MZAnalyzerType.Sector;
                                         break;
 
                                     case "MS:1000523":
