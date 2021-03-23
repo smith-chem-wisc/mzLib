@@ -57,33 +57,60 @@ namespace IO.MzML
         private const string _intensityArray = "MS:1000515";
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
 
-        private static readonly Dictionary<string, Polarity> polarityDictionary = new Dictionary<string, Polarity>
+        public static readonly Dictionary<string, Polarity> PolarityDictionary = new Dictionary<string, Polarity>
         {
-            {"MS:1000129",Polarity.Negative},
-            {"MS:1000130",Polarity.Positive}
+            {"MS:1000129", Polarity.Negative},
+            {"MS:1000130", Polarity.Positive}
         };
 
-        private static readonly Dictionary<string, MZAnalyzerType> analyzerDictionary = new Dictionary<string, MZAnalyzerType>
+        public static readonly Dictionary<string, MZAnalyzerType> AnalyzerDictionary = new Dictionary<string, MZAnalyzerType>
         {
             { "MS:1000443", MZAnalyzerType.Unknown},
-            { "MS:1000081",MZAnalyzerType.Quadrupole},
-            { "MS:1000291",MZAnalyzerType.IonTrap2D},
-            { "MS:1000082",MZAnalyzerType.IonTrap3D},
-            { "MS:1000484",MZAnalyzerType.Orbitrap},
-            { "MS:1000084",MZAnalyzerType.TOF},
-            { "MS:1000079",MZAnalyzerType.FTICR},
-            { "MS:1000080",MZAnalyzerType.Sector}
+            { "MS:1000081", MZAnalyzerType.Quadrupole},
+            { "MS:1000291", MZAnalyzerType.IonTrap2D},
+            { "MS:1000082", MZAnalyzerType.IonTrap3D},
+            { "MS:1000484", MZAnalyzerType.Orbitrap},
+            { "MS:1000084", MZAnalyzerType.TOF},
+            { "MS:1000079", MZAnalyzerType.FTICR},
+            { "MS:1000080", MZAnalyzerType.Sector}
         };
 
-        private static readonly Dictionary<string, DissociationType> dissociationDictionary = new Dictionary<string, DissociationType>
+        public static readonly Dictionary<string, DissociationType> DissociationDictionary = new Dictionary<string, DissociationType>
         {
-            { "MS:1000133",DissociationType.CID},
-            { "MS:1001880",DissociationType.ISCID},
-            { "MS:1000422",DissociationType.HCD},
-            { "MS:1000598",DissociationType.ETD},
-            { "MS:1000435",DissociationType.IRMPD},
-            { "MS:1000599",DissociationType.PQD},
-            { "MS:1000044",DissociationType.Unknown}
+            { "MS:1000133", DissociationType.CID},
+            { "MS:1000134", DissociationType.PD},
+            { "MS:1000135", DissociationType.PSD},
+            { "MS:1000136", DissociationType.SID},
+            { "MS:1000242", DissociationType.BIRD},
+            { "MS:1000250", DissociationType.ECD},
+            { "MS:1000262", DissociationType.IRMPD},
+            { "MS:1000282", DissociationType.SORI},
+            { "MS:1000435", DissociationType.MPD},
+            { "MS:1000598", DissociationType.ETD},
+            { "MS:1000599", DissociationType.PQD},
+            { "MS:1001880", DissociationType.ISCID},
+            { "MS:1000422", DissociationType.HCD},
+            { "MS:1002631", DissociationType.EThcD},
+            { "MS:1000044", DissociationType.Unknown},
+        };
+
+        public static readonly Dictionary<string, DissociationType> DissociationTypeNames = new Dictionary<string, DissociationType>
+        {
+            { "collision-induced dissociation", DissociationType.CID},
+            { "plasma desorption", DissociationType.PD},
+            { "post-source decay", DissociationType.PSD},
+            { "surface-induced dissociation", DissociationType.SID},
+            { "blackbody infrared radiative dissociation", DissociationType.BIRD},
+            { "electron capture dissociation", DissociationType.ECD},
+            { "infrared multiphoton dissociation", DissociationType.IRMPD},
+            { "sustained off-resonance irradiation", DissociationType.SORI},
+            { "photodissociation", DissociationType.MPD},
+            { "electron transfer dissociation", DissociationType.ETD},
+            { "pulsed q dissociation", DissociationType.PQD},
+            { "in-source collision-induced dissociation", DissociationType.ISCID},
+            { "higher energy beam-type collision-induced dissociation", DissociationType.HCD},
+            { "Electron-Transfer/Higher-Energy Collision Dissociation (EThcD)", DissociationType.EThcD},
+            { "unknown dissociation type", DissociationType.Unknown},
         };
 
         private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
@@ -276,7 +303,7 @@ namespace IO.MzML
                 {
                     analyzer = default(MZAnalyzerType);
                 }
-                else if (analyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
+                else if (AnalyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
                 {
                     analyzer = returnVal;
                 }
@@ -288,7 +315,7 @@ namespace IO.MzML
                 {
                     if (configs[i].id.Equals(scanSpecificInsturmentConfig))
                     {
-                        analyzerDictionary.TryGetValue(configs[i].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal);
+                        AnalyzerDictionary.TryGetValue(configs[i].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal);
                         analyzer = returnVal;
                     }
                 }
@@ -321,7 +348,7 @@ namespace IO.MzML
                 }
                 if (polarity.Equals(Polarity.Unknown))
                 {
-                    polarityDictionary.TryGetValue(cv.accession, out polarity);
+                    PolarityDictionary.TryGetValue(cv.accession, out polarity);
                 }
             }
 
@@ -486,7 +513,7 @@ namespace IO.MzML
 
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].precursorList.precursor[0].activation.cvParam)
                 {
-                    if (dissociationDictionary.TryGetValue(cv.accession, out var scanDissociationType))
+                    if (DissociationDictionary.TryGetValue(cv.accession, out var scanDissociationType))
                     {
                         scanDissociationTypes.Add(scanDissociationType);
                     }
