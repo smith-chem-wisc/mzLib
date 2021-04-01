@@ -15,20 +15,57 @@ namespace Deconvoluter
     {
         static void Main(string[] args)
         {
+            HashSet<int> scansToDeconvolute = new HashSet<int>();
+            var linesff = File.ReadAllLines(@"C:\Data\LVS_TD_Yeast\precursor_envelopes.txt");
+            int j = 0;
+            foreach (var line in linesff)
+            {
+                j++;
+
+                if (j == 1)
+                {
+                    continue;
+                }
+
+                var split = line.Split(new char[] { '\t' });
+
+                string filename = split[0];
+                string seq = split[3];
+                int charge = int.Parse(split[2]);
+                int scanNum = int.Parse(split[1]);
+
+                if (filename != "05-26-17_B7A_yeast_td_fract7_rep1" || seq.Contains("|"))
+                {
+                    continue;
+                }
+
+                scansToDeconvolute.Add(scanNum);
+            }
+
+
+
+
             var filepath = @"C:\Data\LVS_TD_Yeast\05-26-17_B7A_yeast_td_fract7_rep1.raw";
             var dir = Path.GetDirectoryName(filepath);
             var data = ThermoRawFileReader.LoadAllStaticData(filepath);
-            double minMass = 500;
+            double minMass = 0;
+            double fracIntensity = 0.4;
+            double intensityRatio = 3;
+            double pearsonCorr = 0.4;
+            double sn = 1.5;
 
             List<string> output = new List<string> { "Scan\tMonoisotopic Mass\tPeaks m/z List\tPeaks Intensity List\t" +
                 "Charge\tMS Order\tCorrelation to Averagine\tFraction Intensity Observed\tS/N\tLog2 Total Intensity\tNoise" };
 
             Random r = new Random(1);
             var scans = data.GetAllScansList().OrderBy(p => r.Next())
-                //.Where(p => p.OneBasedScanNumber == 2466)
+                //.Where(p => p.OneBasedScanNumber == 1437)
+                .Where(p => p.MsnOrder == 1)
+                //.Where(p => scansToDeconvolute.Contains(p.OneBasedScanNumber))
                 .ToList();
 
             var envsList = new List<(int, MassSpectrometry.IsotopicEnvelope)>();
+            var testt = new List<string>();
 
             Parallel.ForEach(Partitioner.Create(0, scans.Count),
                new ParallelOptions { MaxDegreeOfParallelism = -1 },
@@ -38,11 +75,10 @@ namespace Deconvoluter
                    {
                        var scan = scans[i];
 
-                       var envs = scan.MassSpectrum.Deconvolute(scan.ScanWindowRange, 1, 60, 10, 3, 2, 0.4, 0.6, 1.5)
-                       .Where(p => p.MonoisotopicMass > minMass).OrderBy(p => p.Peaks.First().mz);
-                       //.Where(p => p.Charge >= 3)
-                       //.ToList();
+                       var envs = scan.MassSpectrum.Deconvolute(scan.ScanWindowRange, 1, 60, 10, intensityRatio, 2, pearsonCorr, fracIntensity, sn, scan.OneBasedScanNumber)
+                            .Where(p => p.MonoisotopicMass > minMass).OrderBy(p => p.Peaks.First().mz);
 
+                       int envNum = 0;
                        foreach (var env in envs)
                        {
                            var line = scan.OneBasedScanNumber + "\t" +
@@ -55,7 +91,10 @@ namespace Deconvoluter
                                env.FracIntensityObserved + "\t" +
                                env.SN + "\t" +
                                Math.Log(env.TotalIntensity, 2) + "\t" +
-                               env.Noise;
+                               env.Noise + "\t" +
+                               envNum;
+
+                           envNum++;
 
                            lock (output)
                            {
@@ -70,130 +109,242 @@ namespace Deconvoluter
                    }
                });
 
+            // File.WriteAllLines(@"C:\Data\LVS_TD_Yeast\monoMassTest.tsv", testt);
+
             File.WriteAllLines(Path.Combine(dir, Path.GetFileNameWithoutExtension(filepath) + "_decon.tsv"), output);
 
-            Dictionary<int, HashSet<double>> ScanNumToClaimedMzs = new Dictionary<int, HashSet<double>>();
 
-            output = new List<string> { "Scan\tMonoisotopic Mass\tPeaks m/z List\tPeaks Intensity List\t" +
-                "Charge\tMS Order\tCorrelation to Averagine\tFraction Intensity Observed\tS/N\tLog2 Total Intensity\tNoise\tFeatureID" };
 
-            var ms1Scans = data.GetMS1Scans().ToList();
-            var ms1ScanNumbers = ms1Scans.Select(p => p.OneBasedScanNumber).ToList();
-            Tolerance tol = new PpmTolerance(10);
 
-            foreach (var scanNum in ms1ScanNumbers)
+
+
+            // test decon results
+            var lines = File.ReadAllLines(@"C:\Data\LVS_TD_Yeast\precursor_envelopes.txt");
+            int i = 0;
+            output = new List<string> { "Seq\tCorrect Mono Mass\tCharge\tDeconMass\tMassError" };
+            foreach (var line in lines)
             {
-                ScanNumToClaimedMzs.Add(scanNum, new HashSet<double>());
-            }
-            List<DeconvolutedPeak> ff = new List<DeconvolutedPeak>();
+                i++;
 
-            int featureId = 0;
-            foreach (var seedEnvelope in envsList.OrderByDescending(p => p.Item2.Score))
-            {
-                featureId++;
-                int scanNumber = seedEnvelope.Item1;
-                int seedScanIndex = ms1ScanNumbers.IndexOf(scanNumber);
-                List<(MsDataScan, IsotopicEnvelope)> featureEnvelopes = new List<(MsDataScan, IsotopicEnvelope)>();
-
-                if (seedScanIndex < 0)
+                if (i == 1)
                 {
-                    // not an MS1 scan
                     continue;
                 }
 
-                var theEnvelope = seedEnvelope.Item2;
-                double mass = theEnvelope.Peaks.First().mz.ToMass(theEnvelope.Charge);
+                var split = line.Split(new char[] { '\t' });
 
-                int scanDirection = 1;
-                int zDirection = 1;
+                string filename = split[0];
+                string seq = split[3];
+                int charge = int.Parse(split[2]);
+                int scanNum = int.Parse(split[1]);
 
-                for (int scanIndex = seedScanIndex; scanIndex < ms1Scans.Count && scanIndex >= 0; scanIndex += scanDirection)
+                if (filename != "05-26-17_B7A_yeast_td_fract7_rep1" || seq.Contains("|"))
                 {
-                    var theScan = ms1Scans[scanIndex];
-                    var spectrum = theScan.MassSpectrum;
-                    int envsFoundInScan = 0;
-                    var claimedPeaks = ScanNumToClaimedMzs[theScan.OneBasedScanNumber];
+                    continue;
+                }
 
-                    for (int z = theEnvelope.Charge; z <= 60 && z >= 1; z += zDirection)
+                Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(seq);
+                var formula = baseSequence.GetChemicalFormula();
+                var isotopicDistribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
+                double[] masses = isotopicDistribution.Masses.ToArray();
+                double[] abundances = isotopicDistribution.Intensities.ToArray();
+
+                double max = abundances.Max();
+                int indOfMax = Array.IndexOf(abundances, max);
+                double modeMass = masses[indOfMax];
+                double modeMz = modeMass.ToMz(charge);
+
+                var theScan = data.GetOneBasedScan(scanNum);
+                var closestMzIndex = theScan.MassSpectrum.GetClosestPeakIndex(modeMz);
+                var closestMz = theScan.MassSpectrum.XArray[closestMzIndex];
+
+                var envelopes = envsList.Where(p => p.Item1 == scanNum).ToList();
+                var envelope = envelopes.FirstOrDefault(p => p.Item2.Peaks.Select(v => v.mz).Contains(closestMz));
+
+                if (envelope.Item2 == null)
+                {
+                    output.Add(seq + "\t" + baseSequence.MonoisotopicMass + "\t" + charge + "\t" + double.NaN + "\t" + double.NaN + "\t" + double.NaN + "\t" + "Not found");
+                    continue;
+                }
+
+                var massError = envelope.Item2.MonoisotopicMass - baseSequence.MonoisotopicMass;
+                double monoMassMz = baseSequence.MonoisotopicMass.ToMz(charge);
+
+                string errorType = "Correct";
+                if (charge != envelope.Item2.Charge)
+                {
+                    errorType = "Wrong charge";
+                }
+                else if (Math.Abs(massError) > 0.5)
+                {
+                    errorType = "Mono Mass Error";
+                }
+
+                if (errorType == "Mono Mass Error")
+                {
+                    var expEnv = envelope.Item2;
+                    int massErrorRounded = (int)Math.Round(massError, 0);
+                    double closestCorrectedMz = (expEnv.Peaks.First().mz.ToMass(expEnv.Charge) - massErrorRounded * Constants.C13MinusC12).ToMz(expEnv.Charge);
+                    var closestMzIndex1 = theScan.MassSpectrum.GetClosestPeakIndex(closestCorrectedMz);
+                    var closestMz1 = theScan.MassSpectrum.XArray[closestMzIndex1];
+                    var closestIntensity1 = theScan.MassSpectrum.YArray[closestMzIndex1];
+
+                    var correctedEnvelope = theScan.MassSpectrum.GetIsotopicEnvelope(closestMz1, closestIntensity1, expEnv.Charge,
+                        new PpmTolerance(10), intensityRatio, new List<DeconvolutedPeak>(),
+                        new HashSet<double>());
+
+                    if (correctedEnvelope != null)
                     {
-                        double mainPeakMz = mass.ToMz(z);
-                        int peakIndex = spectrum.GetClosestPeakIndex(mainPeakMz);
-                        double experimentalMz = spectrum.XArray[peakIndex];
-                        double experimentalIntensity = spectrum.YArray[peakIndex];
+                        testt.Add(
+                            correctedEnvelope.PearsonCorrelation + "\t" +
+                            correctedEnvelope.FracIntensityObserved + "\t" +
+                            correctedEnvelope.Peaks.Count + "\t" +
+                            correctedEnvelope.Score + "\t" +
 
-                        double experimentalMass = experimentalMz.ToMass(z);
-
-                        var putativeEnv = spectrum.GetIsotopicEnvelope(experimentalMz, experimentalIntensity, z, tol, 3, ff, claimedPeaks);
-
-                        if (tol.Within(mass, experimentalMass)
-                            && putativeEnv != null
-                            && putativeEnv.PearsonCorrelation > 0.4
-                            && putativeEnv.FracIntensityObserved > 0.6)
-                        {
-                            featureEnvelopes.Add((theScan, putativeEnv));
-                            envsFoundInScan++;
-
-                            foreach (var peak in putativeEnv.Peaks)
-                            {
-                                claimedPeaks.Add(peak.mz);
-                            }
-                        }
-                        else
-                        {
-                            if (zDirection == 1)
-                            {
-                                zDirection = -1;
-                                z = theEnvelope.Charge;
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                    }
-
-                    if (envsFoundInScan == 0)
-                    {
-                        if (scanDirection == 1)
-                        {
-                            scanDirection = -1;
-                            zDirection = 1;
-                            scanIndex = seedScanIndex;
-                        }
-                        else
-                        {
-                            break;
-                        }
+                            expEnv.PearsonCorrelation + "\t" +
+                            expEnv.FracIntensityObserved + "\t" +
+                            expEnv.Peaks.Count + "\t" +
+                            expEnv.Score);
                     }
                 }
 
-                foreach (var envWithScan in featureEnvelopes)
-                {
-                    var scan = envWithScan.Item1;
-                    var env = envWithScan.Item2;
-
-                    var line = scan.OneBasedScanNumber + "\t" +
-                        env.MonoisotopicMass + "\t" +
-                        string.Join(";", env.Peaks.Select(p => p.mz.ToString("F3"))) + "\t" +
-                        string.Join(";", env.Peaks.Select(p => p.intensity.ToString("F1"))) + "\t" +
-                        env.Charge + "\t" +
-                        scan.MsnOrder + "\t" +
-                        env.PearsonCorrelation + "\t" +
-                        env.FracIntensityObserved + "\t" +
-                        env.SN + "\t" +
-                        Math.Log(env.TotalIntensity, 2) + "\t" +
-                        env.Noise + "\t" +
-                        featureId + "\t" +
-                        featureEnvelopes.Count;
-
-                    lock (output)
-                    {
-                        output.Add(line);
-                    }
-                }
+                output.Add(seq + "\t" + baseSequence.MonoisotopicMass + "\t" + charge + "\t" + envelope.Item2.MonoisotopicMass +
+                    "\t" + envelope.Item2.Charge + "\t" + massError + "\t" + errorType + "\t" + Math.Log(envelope.Item2.TotalIntensity, 2));
             }
+            File.WriteAllLines(Path.Combine(dir, Path.GetFileNameWithoutExtension(filepath) + "_monoMassErrors.tsv"), output);
+            File.WriteAllLines(@"C:\Data\LVS_TD_Yeast\monoMassTest.tsv", testt);
 
-            File.WriteAllLines(Path.Combine(dir, Path.GetFileNameWithoutExtension(filepath) + "_decon_features.tsv"), output);
+
+
+
+
+            //Dictionary<int, HashSet<double>> ScanNumToClaimedMzs = new Dictionary<int, HashSet<double>>();
+
+            //output = new List<string> { "Scan\tMonoisotopic Mass\tPeaks m/z List\tPeaks Intensity List\t" +
+            //    "Charge\tMS Order\tCorrelation to Averagine\tFraction Intensity Observed\tS/N\tLog2 Total Intensity\tNoise\tFeatureID" };
+
+            //var ms1Scans = data.GetMS1Scans().ToList();
+            //var ms1ScanNumbers = ms1Scans.Select(p => p.OneBasedScanNumber).ToList();
+            //Tolerance tol = new PpmTolerance(10);
+
+            //foreach (var scanNum in ms1ScanNumbers)
+            //{
+            //    ScanNumToClaimedMzs.Add(scanNum, new HashSet<double>());
+            //}
+            //List<DeconvolutedPeak> ff = new List<DeconvolutedPeak>();
+
+            //int featureId = 0;
+            //foreach (var seedEnvelope in envsList.OrderByDescending(p => p.Item2.Peaks.Count).ThenByDescending(p => p.Item2.PearsonCorrelation))
+            //{
+            //    featureId++;
+            //    int scanNumber = seedEnvelope.Item1;
+            //    int seedScanIndex = ms1ScanNumbers.IndexOf(scanNumber);
+            //    List<(MsDataScan, IsotopicEnvelope)> featureEnvelopes = new List<(MsDataScan, IsotopicEnvelope)>();
+
+            //    if (seedScanIndex < 0)
+            //    {
+            //        // not an MS1 scan
+            //        continue;
+            //    }
+
+            //    var theEnvelope = seedEnvelope.Item2;
+            //    double mass = theEnvelope.Peaks.First().mz.ToMass(theEnvelope.Charge);
+
+            //    int scanDirection = 1;
+            //    int zDirection = 1;
+
+            //    for (int scanIndex = seedScanIndex; scanIndex < ms1Scans.Count && scanIndex >= 0; scanIndex += scanDirection)
+            //    {
+            //        var theScan = ms1Scans[scanIndex];
+
+            //        var spectrum = theScan.MassSpectrum;
+            //        int envsFoundInScan = 0;
+            //        var claimedPeaks = ScanNumToClaimedMzs[theScan.OneBasedScanNumber];
+
+            //        for (int z = theEnvelope.Charge; z <= 60 && z >= 1; z += zDirection)
+            //        {
+            //            double mainPeakMz = mass.ToMz(z);
+            //            int peakIndex = spectrum.GetClosestPeakIndex(mainPeakMz);
+            //            double experimentalMz = spectrum.XArray[peakIndex];
+            //            double experimentalIntensity = spectrum.YArray[peakIndex];
+
+            //            double experimentalMass = experimentalMz.ToMass(z);
+
+            //            var putativeEnv = spectrum.GetIsotopicEnvelope(experimentalMz, experimentalIntensity, z, tol, intensityRatio, ff, claimedPeaks);
+
+            //            if (tol.Within(mass, experimentalMass)
+            //                && putativeEnv != null
+            //                && putativeEnv.PearsonCorrelation > pearsonCorr
+            //                && putativeEnv.FracIntensityObserved > fracIntensity)
+            //            {
+            //                featureEnvelopes.Add((theScan, putativeEnv));
+            //                envsFoundInScan++;
+            //            }
+            //            else
+            //            {
+            //                if (zDirection == 1)
+            //                {
+            //                    zDirection = -1;
+            //                    z = theEnvelope.Charge;
+            //                }
+            //                else
+            //                {
+            //                    break;
+            //                }
+            //            }
+            //        }
+
+            //        if (envsFoundInScan == 0)
+            //        {
+            //            if (scanDirection == 1)
+            //            {
+            //                scanDirection = -1;
+            //                zDirection = 1;
+            //                scanIndex = seedScanIndex;
+            //            }
+            //            else
+            //            {
+            //                break;
+            //            }
+            //        }
+            //    }
+
+            //    if (featureEnvelopes.Count >= 3)
+            //    {
+            //        for (int i = 0; i < featureEnvelopes.Count; i++)
+            //        {
+            //            var envWithScan = featureEnvelopes[i];
+            //            var scan = envWithScan.Item1;
+            //            var env = envWithScan.Item2;
+            //            bool seed = i == 0;
+
+            //            var claimedPeaks = ScanNumToClaimedMzs[scan.OneBasedScanNumber];
+            //            foreach (var peak in env.Peaks)
+            //            {
+            //                claimedPeaks.Add(peak.mz);
+            //            }
+
+            //            var line = scan.OneBasedScanNumber + "\t" +
+            //                env.MonoisotopicMass + "\t" +
+            //                string.Join(";", env.Peaks.Select(p => p.mz.ToString("F3"))) + "\t" +
+            //                string.Join(";", env.Peaks.Select(p => p.intensity.ToString("F1"))) + "\t" +
+            //                env.Charge + "\t" +
+            //                scan.MsnOrder + "\t" +
+            //                env.PearsonCorrelation + "\t" +
+            //                env.FracIntensityObserved + "\t" +
+            //                env.SN + "\t" +
+            //                Math.Log(env.TotalIntensity, 2) + "\t" +
+            //                env.Noise + "\t" +
+            //                featureId + "\t" +
+            //                featureEnvelopes.Count + "\t" +
+            //                (seed ? 1 : 0);
+
+            //            output.Add(line);
+            //        }
+            //    }
+            //}
+
+            //File.WriteAllLines(Path.Combine(dir, Path.GetFileNameWithoutExtension(filepath) + "_decon_features.tsv"), output);
         }
     }
 }

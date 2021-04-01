@@ -67,15 +67,15 @@ namespace IO.ThermoRawFileReader
 
                 for (int s = fff.Item1; s < fff.Item2; s++)
                 {
-                    try
+                    //try
                     {
                         var scan = GetOneBasedScan(myThreadDataReader, filterParams, s + 1);
                         msDataScans[s] = scan;
                     }
-                    catch (Exception ex)
-                    {
-                        throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
-                    }
+                    //catch (Exception ex)
+                    //{
+                    //    throw new MzLibException("Error reading scan " + (s + 1) + ": " + ex.Message);
+                    //}
                 }
             });
 

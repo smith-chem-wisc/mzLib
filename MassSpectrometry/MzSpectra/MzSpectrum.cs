@@ -20,20 +20,20 @@ using Chemistry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
     public class MzSpectrum
     {
-        private const int numAveraginesToGenerate = 1500;
-        private static readonly double[][] allMasses = new double[numAveraginesToGenerate][];
-        private static readonly double[][] allIntensities = new double[numAveraginesToGenerate][];
-        private static readonly double[] mostIntenseMasses = new double[numAveraginesToGenerate];
-        private static readonly double[] diffToMonoisotopic = new double[numAveraginesToGenerate];
+        private static readonly double[][] allMasses;
+        private static readonly double[][] allIntensities;
+        private static readonly double[] mostIntenseMasses;
+        private static readonly double[] diffToMonoisotopic;
 
         private MzPeak[] peakList;
         private int? indexOfpeakWithHighestY;
@@ -56,38 +56,51 @@ namespace MassSpectrometry
             const double fineRes = 0.125;
             const double minRes = 1e-8;
 
-            for (int i = 0; i < numAveraginesToGenerate; i++)
+            double maxMass = 100000;
+            double averagineDaltonResolution = 50.0;
+
+            double averagineMass = PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass * averageC
+                + PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * averageH
+                + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass * averageO
+                + PeriodicTable.GetElement("N").PrincipalIsotope.AtomicMass * averageN
+                + PeriodicTable.GetElement("S").PrincipalIsotope.AtomicMass * averageS;
+
+            int numAveragines = (int)Math.Ceiling(maxMass / averagineDaltonResolution) + 1;
+
+            allMasses = new double[numAveragines][];
+            allIntensities = new double[numAveragines][];
+            mostIntenseMasses = new double[numAveragines];
+            diffToMonoisotopic = new double[numAveragines];
+
+            for (int i = 1; i < numAveragines; i++)
             {
-                double averagineMultiplier = (i + 1) / 2.0;
-                //Console.Write("numAveragines = " + numAveragines);
+                double mass = i * averagineDaltonResolution;
+
+                double averagines = mass / averagineMass;
+
                 ChemicalFormula chemicalFormula = new ChemicalFormula();
-                chemicalFormula.Add("C", Convert.ToInt32(averageC * averagineMultiplier));
-                chemicalFormula.Add("H", Convert.ToInt32(averageH * averagineMultiplier));
-                chemicalFormula.Add("O", Convert.ToInt32(averageO * averagineMultiplier));
-                chemicalFormula.Add("N", Convert.ToInt32(averageN * averagineMultiplier));
-                chemicalFormula.Add("S", Convert.ToInt32(averageS * averagineMultiplier));
+                chemicalFormula.Add("C", Convert.ToInt32(averageC * averagines));
+                chemicalFormula.Add("H", Convert.ToInt32(averageH * averagines));
+                chemicalFormula.Add("O", Convert.ToInt32(averageO * averagines));
+                chemicalFormula.Add("N", Convert.ToInt32(averageN * averagines));
+                chemicalFormula.Add("S", Convert.ToInt32(averageS * averagines));
 
+                var chemicalFormulaReg = chemicalFormula;
+                IsotopicDistribution isotopicDistribution = IsotopicDistribution.GetDistribution(chemicalFormulaReg, fineRes, minRes);
+                var masses = isotopicDistribution.Masses.ToArray();
+                var intensities = isotopicDistribution.Intensities.ToArray();
+                var mostIntense = intensities.Max();
+                int indOfMostIntensePeak = Array.IndexOf(intensities, mostIntense);
+
+                for (int j = 0; j < intensities.Length; j++)
                 {
-                    var chemicalFormulaReg = chemicalFormula;
-                    IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, fineRes, minRes);
-                    var masses = ye.Masses.ToArray();
-                    var intensities = ye.Intensities.ToArray();
-                    //Array.Sort(intensities, masses);
-                    //Array.Reverse(intensities);
-                    //Array.Reverse(masses);
-                    var mostIntense = intensities.Max();
-                    int indOfMostIntensePeak = Array.IndexOf(intensities, mostIntense);
-
-                    for (int j = 0; j < intensities.Length; j++)
-                    {
-                        intensities[j] /= mostIntense;
-                    }
-
-                    mostIntenseMasses[i] = masses[indOfMostIntensePeak];
-                    diffToMonoisotopic[i] = masses[indOfMostIntensePeak] - chemicalFormulaReg.MonoisotopicMass;
-                    allMasses[i] = masses;
-                    allIntensities[i] = intensities;
+                    intensities[j] /= mostIntense;
                 }
+
+                mostIntenseMasses[i] = masses[indOfMostIntensePeak];
+                diffToMonoisotopic[i] = masses[indOfMostIntensePeak] - chemicalFormulaReg.MonoisotopicMass;
+                allMasses[i] = masses;
+                allIntensities[i] = intensities;
             }
         }
 
@@ -248,8 +261,9 @@ namespace MassSpectrometry
         //    //cycle through all charge states
         //}
 
-        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit,
-            int minPeaks = 3, double minCorrelationToAveragine = 0.6, double minFractionIntensityObserved = 0.6, double signalToNoiseRequired = 3.0)
+        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm,
+            double intensityRatioLimit = 3, int minPeaks = 2, double minCorrelationToAveragine = 0.4, double minFractionIntensityObserved = 0.4, double signalToNoiseRequired = 2.0,
+            int scanNum = 0, List<string> testStuff = null)
         {
             // if no peaks in the scan, stop
             if (Size == 0)
@@ -257,10 +271,14 @@ namespace MassSpectrometry
                 yield break;
             }
 
+            double noiseRange = 10;
+
             var tolerance = new PpmTolerance(deconvolutionTolerancePpm);
             List<IsotopicEnvelope> envelopeCandidates = new List<IsotopicEnvelope>();
             List<DeconvolutedPeak> deconvolutedPeaks = new List<DeconvolutedPeak>();
             HashSet<double> mzsClaimed = new HashSet<double>();
+            HashSet<int> potentialChargeStates = new HashSet<int>();
+            Dictionary<double, List<IsotopicEnvelope>> potentialEnvsPerPeak = new Dictionary<double, List<IsotopicEnvelope>>();
 
             for (int p = 0; p < this.XArray.Length; p++)
             {
@@ -268,67 +286,130 @@ namespace MassSpectrometry
                 double intensity = YArray[p];
 
                 // check to see if this peak is in the m/z deconvolution range
-                if (mz < theRange.Minimum - 5)
+                if (mz < theRange.Minimum - noiseRange)
                 {
                     continue;
                 }
-                else if (mz > theRange.Maximum + 5)
+                else if (mz > theRange.Maximum + noiseRange)
                 {
                     break;
                 }
 
-                // examine different charge state possibilities
-                for (int z = minAssumedChargeState; z <= maxAssumedChargeState; z++)
+                // get rough list of charge states to check for based on m/z peaks around this peak
+                potentialChargeStates.Clear();
+                for (int i = p + 1; i < this.XArray.Length; i++)
                 {
-                    var deconEnv = GetIsotopicEnvelope(mz, intensity, z, tolerance, intensityRatioLimit, deconvolutedPeaks, mzsClaimed);
+                    double potentialIsotopeMz = this.XArray[i];
 
-                    if (deconEnv != null
-                        && deconEnv.Peaks.Count >= minPeaks
-                        && deconEnv.PearsonCorrelation > minCorrelationToAveragine
-                        && deconEnv.FracIntensityObserved > minFractionIntensityObserved)
+                    if (potentialIsotopeMz > mz + 1.5)
+                    {
+                        break;
+                    }
+
+                    int z = Convert.ToInt32(1.0 / (potentialIsotopeMz - mz));
+
+                    if (z >= minAssumedChargeState && z <= maxAssumedChargeState)
+                    {
+                        potentialChargeStates.Add(z);
+                    }
+                }
+
+                // examine different charge state possibilities
+                foreach (int z in potentialChargeStates)
+                {
+                    int massIndex = GetMassIndex(mz.ToMass(z));
+
+                    if (massIndex >= mostIntenseMasses.Length)
+                    {
+                        continue;
+                    }
+
+                    IsotopicEnvelope deconEnv = GetIsotopicEnvelope(mz, intensity, z, tolerance, intensityRatioLimit, deconvolutedPeaks,
+                        mzsClaimed, minFractionIntensityObserved, minCorrelationToAveragine);
+
+                    if (deconEnv != null)
                     {
                         envelopeCandidates.Add(deconEnv);
+
+                        foreach (var peak in deconEnv.Peaks)
+                        {
+                            if (!potentialEnvsPerPeak.ContainsKey(peak.mz))
+                            {
+                                potentialEnvsPerPeak.Add(peak.mz, new List<IsotopicEnvelope>());
+                            }
+
+                            potentialEnvsPerPeak[peak.mz].Add(deconEnv);
+                        }
                     }
                 }
             }
 
-            // pick the smallest list of envelopes that could explain the spectrum's peaks, given filtering criteria
+            //TODO: scoring function
+            var envelopesOrderedByScore = envelopeCandidates
+                .OrderByDescending(p => p.Peaks.Count).ThenByDescending(p => p.PearsonCorrelation);
             List<IsotopicEnvelope> parsimoniousEnvelopes = new List<IsotopicEnvelope>();
 
-            IEnumerable<IsotopicEnvelope> envelopesOrderedByScore = envelopeCandidates.OrderByDescending(p => p.Peaks.Count).ThenByDescending(p => p.PearsonCorrelation);
-            IsotopicEnvelope env = envelopesOrderedByScore.FirstOrDefault();
-
-            while (env != null)
+            // greedy algorithm. pick the smallest set of envelopes that could explain the spectrum's peaks, given filtering criteria
+            IsotopicEnvelope nextEnvelope = envelopesOrderedByScore.FirstOrDefault();
+            while (nextEnvelope != null)
             {
-                if (env.Peaks.Any(p => mzsClaimed.Contains(p.mz)))
-                {
-                    // this envelope has some peaks that overlap with the peaks that have been claimed.
-                    // rescore the envelope and re-add the new envelope to the list of envelope candidates
-                    envelopeCandidates.Remove(env);
-                    IsotopicEnvelope redeconEnv = GetIsotopicEnvelope(env.Peaks.First().mz, env.Peaks.First().intensity, env.Charge,
-                        tolerance, intensityRatioLimit, deconvolutedPeaks, mzsClaimed);
+                var items = potentialEnvsPerPeak[nextEnvelope.Peaks.First().mz];
+                IsotopicEnvelope chosenEnvelope = nextEnvelope;
 
-                    if (redeconEnv != null
-                        && redeconEnv.Peaks.Count >= minPeaks
-                        && redeconEnv.PearsonCorrelation > minCorrelationToAveragine
-                        && redeconEnv.FracIntensityObserved > minFractionIntensityObserved)
-                    {
-                        envelopeCandidates.Add(redeconEnv);
-                    }
-                }
-                else
+                // score/decide...
+                if (items.Count > 1 && nextEnvelope.MonoisotopicMass > 3000)
                 {
-                    // the envelope has no peaks that have been claimed - add it to the list of parsimonious envelopes
-                    parsimoniousEnvelopes.Add(env);
-                    env.Score = env.PearsonCorrelation * env.Peaks.Count;
+                    int maxPeaks = nextEnvelope.Peaks.Count;
+                    double maxCorr = nextEnvelope.PearsonCorrelation;
+                    items.RemoveAll(p => p.Peaks.Count <= maxPeaks - 3 || p.PearsonCorrelation < maxCorr - 0.2);
 
-                    foreach (var peak in env.Peaks)
-                    {
-                        mzsClaimed.Add(peak.mz);
-                    }
+                    chosenEnvelope = items.OrderByDescending(p => p.MonoisotopicMass).First();
                 }
 
-                env = envelopesOrderedByScore.FirstOrDefault();
+                // add to envelope list
+                var redecon = GetIsotopicEnvelope(chosenEnvelope.Peaks.First().mz, chosenEnvelope.Peaks.First().intensity, chosenEnvelope.Charge,
+                    tolerance, intensityRatioLimit, deconvolutedPeaks, mzsClaimed, minFractionIntensityObserved, minCorrelationToAveragine, chosenEnvelope.MassIndex);
+
+                parsimoniousEnvelopes.Add(redecon);
+
+                foreach (var peak in redecon.Peaks)
+                {
+                    mzsClaimed.Add(peak.mz);
+                }
+
+                // re-evaluate all the other isotopic envelopes in the list that overlap with the just-added envelope.
+                // newly invalidated envelopes will be set to null
+                for (int i = 0; i < envelopeCandidates.Count; i++)
+                {
+                    var candidate = envelopeCandidates[i];
+
+                    if (candidate.Peaks.Any(p => mzsClaimed.Contains(p.mz)))
+                    {
+                        IsotopicEnvelope redeconEnv = GetIsotopicEnvelope(candidate.Peaks.First().mz, candidate.Peaks.First().intensity, candidate.Charge,
+                            tolerance, intensityRatioLimit, deconvolutedPeaks, mzsClaimed, minFractionIntensityObserved, minCorrelationToAveragine, candidate.MassIndex);
+
+                        envelopeCandidates[i] = redeconEnv;
+                    }
+                }
+
+                // remove all invalid isotopic envelopes
+                envelopeCandidates.RemoveAll(p => p == null);
+
+
+                foreach (var item in potentialEnvsPerPeak)
+                {
+                    item.Value.Clear();
+                }
+                foreach (var item in envelopeCandidates)
+                {
+                    foreach (var peak in item.Peaks)
+                    {
+                        potentialEnvsPerPeak[peak.mz].Add(item);
+                    }
+                }
+
+                // get the next-best envelope
+                nextEnvelope = envelopesOrderedByScore.FirstOrDefault();
             }
 
             // noise filtering
@@ -342,67 +423,70 @@ namespace MassSpectrometry
                 }
             }
 
+            List<double> nearbyNoisePeaks = new List<double>();
             foreach (IsotopicEnvelope parsEnv in parsimoniousEnvelopes)
             {
                 double mz = parsEnv.Peaks.First().mz;
-                var noise = noisePeaks.Where(p => p.mz < mz + 50 && p.mz > mz - 50).Select(p => p.intensity).Median(); //TODO: fix, this can crash (calling .Median() on empty list)
 
-                double sn = parsEnv.Peaks.Sum(p => p.intensity) / noise;
+                // calculate noise level
+                nearbyNoisePeaks.Clear();
 
-                parsEnv.SN = sn;
-                parsEnv.Noise = noise;
+                foreach (var noisePeak in noisePeaks.Where(p => p.mz < mz + noiseRange && p.mz > mz - noiseRange))
+                {
+                    nearbyNoisePeaks.Add(noisePeak.intensity);
+                }
+                nearbyNoisePeaks.Add(parsEnv.Peaks.Min(p => p.intensity));
 
-                if (parsEnv.Peaks.First().intensity / noise > signalToNoiseRequired)
+                // calculate signal to noise
+                parsEnv.Noise = nearbyNoisePeaks.Median();
+                parsEnv.SN = parsEnv.Peaks.Max(p => p.intensity) / parsEnv.Noise;
+
+                // filter by S/N
+                if (parsEnv.SN > signalToNoiseRequired)
                 {
                     noiseFilteredEnvelopes.Add(parsEnv);
                 }
             }
 
             // return deconvoluted envelopes
-            foreach (var item in noiseFilteredEnvelopes)
+            foreach (IsotopicEnvelope envelope in noiseFilteredEnvelopes
+                .Where(p => p.Peaks.First().mz > theRange.Minimum && p.Peaks.First().mz < theRange.Maximum))
             {
-                yield return item;
+                yield return envelope;
             }
         }
 
         public IsotopicEnvelope GetIsotopicEnvelope(double mz, double intensity, int z, Tolerance tolerance, double intensityRatioLimit, List<DeconvolutedPeak> deconvolutedPeaks,
-            HashSet<double> alreadyClaimedMzs)
+            HashSet<double> alreadyClaimedMzs, double fracIntensityNeeded = 0, double pearsonCorrNeeded = 0, int? massIndex = null)
         {
-            deconvolutedPeaks.Clear();
-            double mass = mz.ToMass(z);
-
-            // get the index of the averagine envelope that's close in mass
-            int massIndex = Array.BinarySearch(mostIntenseMasses, mass);
-            if (massIndex < 0)
-            {
-                massIndex = ~massIndex;
-            }
-            if (massIndex == mostIntenseMasses.Length)
+            if (alreadyClaimedMzs.Contains(mz))
             {
                 return null;
             }
 
-            // mass index is often off by 1, need to check to see if previous index is a better match
-            if (massIndex > 0)
-            {
-                double prevMass = mostIntenseMasses[massIndex - 1];
-                double thisIndexMass = mostIntenseMasses[massIndex];
+            deconvolutedPeaks.Clear();
+            double mass = mz.ToMass(z);
 
-                if (Math.Abs(mass - prevMass) < Math.Abs(mass - thisIndexMass))
+            if (massIndex == null)
+            {
+                // get the index of the LOWEST MASS averagine envelope that's close in mass
+                massIndex = GetMassIndex(mass);
+
+                if (massIndex >= mostIntenseMasses.Length)
                 {
-                    massIndex -= 1;
+                    return null;
                 }
             }
 
-            var averagineEnvelopeMasses = allMasses[massIndex];
-            var averagineEnvelopeIntensities = allIntensities[massIndex];
-            double monoMass = mass - diffToMonoisotopic[massIndex];
+            var averagineEnvelopeMasses = allMasses[massIndex.Value];
+            var averagineEnvelopeIntensities = allIntensities[massIndex.Value];
+            double monoMass = mass - diffToMonoisotopic[massIndex.Value];
 
-            var mostIntense = averagineEnvelopeIntensities.Max();
-            int indOfMostIntense = Array.IndexOf(averagineEnvelopeIntensities, mostIntense);
+            int indOfMostIntense = Array.IndexOf(averagineEnvelopeIntensities, 1);
 
-            int direction = 1;
-            for (int i = indOfMostIntense; i < averagineEnvelopeMasses.Length && i >= 0; i += direction)
+            // 1 is to the right, -1 is to the left in the envelope
+            int isotopeDirection = 1;
+            for (int i = indOfMostIntense; i < averagineEnvelopeMasses.Length && i >= 0; i += isotopeDirection)
             {
                 double isotopeMassShift = averagineEnvelopeMasses[i] - averagineEnvelopeMasses[indOfMostIntense];
                 double isotopeMassToLookFor = mass + isotopeMassShift;
@@ -412,24 +496,24 @@ namespace MassSpectrometry
                 var peakIndex = this.GetClosestPeakIndex(theoreticalIsotopeMz);
 
                 //TODO: look for other peaks in the scan that could be this isotope that meet the m/z tolerance
-                var isotopeExpMz = XArray[peakIndex];
-                var isotopeExpIntensity = YArray[peakIndex];
+                var isotopeExperMz = XArray[peakIndex];
+                var isotopeExperIntensity = YArray[peakIndex];
 
-                double expectedIntensity = averagineEnvelopeIntensities[i] * intensity;
-                double intensityRatio = isotopeExpIntensity / expectedIntensity;
+                double intensityRatio = isotopeExperIntensity / theoreticalIsotopeIntensity;
 
-                if (tolerance.Within(isotopeExpMz.ToMass(z), isotopeMassToLookFor) // check mass tolerance
-                    && !deconvolutedPeaks.Select(p => p.ExperimentalMz).Contains(isotopeExpMz) // check to see if this peak has already been counted
+                if (tolerance.Within(isotopeExperMz.ToMass(z), isotopeMassToLookFor) // check mass tolerance
                     && intensityRatio < intensityRatioLimit && intensityRatio > 1 / intensityRatioLimit // check intensity tolerance
-                    && !alreadyClaimedMzs.Contains(isotopeExpMz)) // check to see if this peak has already been claimed by another envelope
+                    && !alreadyClaimedMzs.Contains(isotopeExperMz) // check to see if this peak has already been claimed by another envelope
+                    && !deconvolutedPeaks.Select(p => p.ExperimentalMz).Contains(isotopeExperMz)) // check to see if this peak has already been used in this envelope
                 {
-                    deconvolutedPeaks.Add(new DeconvolutedPeak(isotopeExpMz, theoreticalIsotopeMz, z, isotopeExpIntensity, theoreticalIsotopeIntensity, i, averagineEnvelopeIntensities[i]));
+                    deconvolutedPeaks.Add(new DeconvolutedPeak(isotopeExperMz, theoreticalIsotopeMz, z, isotopeExperIntensity,
+                        theoreticalIsotopeIntensity, i, averagineEnvelopeIntensities[i]));
                 }
                 else
                 {
-                    if (direction == 1)
+                    if (isotopeDirection == 1)
                     {
-                        direction = -1;
+                        isotopeDirection = -1;
                         i = indOfMostIntense;
                     }
                     else
@@ -448,27 +532,58 @@ namespace MassSpectrometry
             double sumIntensity = deconvolutedPeaks.Sum(p => Math.Min(p.ExperimentalIntensity, p.TheoreticalIntensity));
             double expectedTotalIntensity = 0;
 
-            double maxIntensity = deconvolutedPeaks.Max(p => p.TheoreticalIntensity);
+            double maxTheorIntensity = deconvolutedPeaks.First().TheoreticalIntensity;
             for (int i = 0; i < averagineEnvelopeIntensities.Length; i++)
             {
-                double expectedIsotopeIntensity = averagineEnvelopeIntensities[i] * maxIntensity;
+                double expectedIsotopeIntensity = averagineEnvelopeIntensities[i] * maxTheorIntensity;
                 expectedTotalIntensity += expectedIsotopeIntensity;
             }
 
             double fracIntensityObserved = sumIntensity / expectedTotalIntensity;
 
-            // check correlation to averagine
+            // calculate correlation to averagine
             double corr = Correlation.Pearson(deconvolutedPeaks.Select(p => p.ExperimentalIntensity), deconvolutedPeaks.Select(p => p.TheoreticalIntensity));
 
-            double envScore = corr * deconvolutedPeaks.Count;// * fracIntensityObserved;
+            // this is just to save memory, but quality filtering can happen outside of this method after the envelope has been returned, if desired
+            if (corr < pearsonCorrNeeded || fracIntensityObserved < fracIntensityNeeded)
+            {
+                return null;
+            }
 
-            IsotopicEnvelope env = new IsotopicEnvelope(deconvolutedPeaks.Select(p => (p.ExperimentalMz, p.ExperimentalIntensity)).ToList(),
-                monoMass, z, deconvolutedPeaks.Sum(p => p.ExperimentalIntensity), massIndex, envScore);
+            // create + return the isotopic envelope object
+            return new IsotopicEnvelope(deconvolutedPeaks.Select(p => (p.ExperimentalMz, p.ExperimentalIntensity)).ToList(),
+                monoMass, z, deconvolutedPeaks.Sum(p => p.ExperimentalIntensity), massIndex.Value, corr, fracIntensityObserved);
+        }
 
-            env.PearsonCorrelation = corr;
-            env.FracIntensityObserved = fracIntensityObserved;
+        public int GetMassIndex(double mass)
+        {
+            int massIndex = Array.BinarySearch(mostIntenseMasses, mass);
 
-            return env;
+            if (massIndex < 0)
+            {
+                massIndex = ~massIndex;
+            }
+
+            //// mass index is often off by 1, need to check to see if previous index is a better match
+            //if (massIndex > 0)
+            //{
+            //    double prevMass = mostIntenseMasses[massIndex - 1];
+            //    double thisIndexMass = mostIntenseMasses[massIndex];
+
+            //    if (Math.Abs(mass - prevMass) < Math.Abs(mass - thisIndexMass))
+            //    {
+            //        massIndex -= 1;
+            //    }
+            //}
+            //for (int m = massIndex; m >= 0; m--)
+            //{
+            //    if (Math.Abs(mostIntenseMasses[m] - mass) < 0.5)
+            //    {
+            //        massIndex = m;
+            //    }
+            //}
+
+            return massIndex;
         }
 
         public void XCorrPrePreprocessing(double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
@@ -561,29 +676,6 @@ namespace MassSpectrometry
             XArray = masses.ToArray();
             Array.Sort(this.XArray, this.YArray);
             XcorrProcessed = true;
-        }
-
-        public (int start, int end) ExtractIndices(double minX, double maxX)
-        {
-            int ind = Array.BinarySearch(XArray, minX);
-            if (ind < 0)
-            {
-                ind = ~ind;
-            }
-            if (ind < Size && XArray[ind] <= maxX)
-            {
-                int start = ind;
-                while (ind < Size && XArray[ind] <= maxX)
-                {
-                    ind++;
-                }
-                ind--;
-                return (start, ind);
-            }
-            else
-            {
-                return (1, 0);
-            }
         }
 
         public int GetClosestPeakIndex(double x)
@@ -777,17 +869,6 @@ namespace MassSpectrometry
 
             //return dot product
             return numerator / denominator;
-        }
-
-        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
-        {
-            var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
-
-            if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
-            {
-                return false;
-            }
-            return true;
         }
 
         private MzPeak GetPeak(int index)

@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
@@ -123,15 +124,15 @@ namespace MassSpectrometry
         }
 
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum, int minAssumedChargeState,
-            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio)
+            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatio, int minPeaks, double minCorrToAveragine, double minFracIntensity, double signalToNoise)
         {
             if (IsolationRange == null)
             {
                 yield break;
             }
-            foreach (var haha in precursorSpectrum.Deconvolute(new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5), 
-                minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio)
-                                                  .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz))))
+            foreach (var haha in precursorSpectrum.Deconvolute(IsolationRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio,
+                minPeaks, minCorrToAveragine, minFracIntensity, signalToNoise)
+                .Where(env => isolationRange.Contains(env.MonoisotopicMass.ToMz(env.Charge))))
             {
                 yield return haha;
             }
