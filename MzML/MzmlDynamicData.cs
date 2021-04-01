@@ -19,7 +19,7 @@ namespace IO.MzML
         private StreamReader reader;
 
         //private XmlSerializer serializer;
-        public static readonly Regex nativeIdScanNumberParser = new Regex(@"(^|\s)scan=(.*?)($|\D)");
+        public static readonly Regex nativeIdScanNumberParser = new(@"(^|\s)scan=(.*?)($|\D)");
 
         public MzmlDynamicData(string filepath) : base(filepath)
         {
@@ -147,7 +147,7 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                        break;
+                                        //break;
 
                                     // total ion current
                                     case "MS:1000285":
@@ -426,7 +426,7 @@ namespace IO.MzML
             // check the bottom of the file for the index
             // this is super annoying... we need to read the file backwards starting from the end
             // and then parse the xml...
-            ReverseLineReader rlr = new ReverseLineReader(FilePath);
+            ReverseLineReader rlr = new(FilePath);
 
             foreach (string line in rlr)
             {
@@ -565,7 +565,7 @@ namespace IO.MzML
 
                     if (ind >= 0)
                     {
-                        StringBuilder nativeIdBuilder = new StringBuilder();
+                        StringBuilder nativeIdBuilder = new();
 
                         for (int r = ind + 4; r < line.Length; r++)
                         {
@@ -817,7 +817,7 @@ namespace IO.MzML
                             swallowCarriageReturn = true;
                         }
                         int start = i + 1;
-                        string bufferContents = new string(charBuffer, start, endExclusive - start);
+                        string bufferContents = new(charBuffer, start, endExclusive - start);
                         endExclusive = i;
                         string stringToYield = previousEnd == null ? bufferContents : bufferContents + previousEnd;
                         if (!firstYield || stringToYield.Length != 0)
