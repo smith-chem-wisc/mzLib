@@ -5,7 +5,7 @@ namespace MassSpectrometry
 {
     public class DeconvolutionFeature
     {
-        public List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)> isotopicEnvelopes = new List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)>();
+        public List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)> isotopicEnvelopes = new();
 
         public double Mass { get; private set; }
 

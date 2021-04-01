@@ -31,8 +31,7 @@
 
         public override bool Equals(object obj)
         {
-            DisulfideBond bond = obj as DisulfideBond;
-            return bond != null
+            return obj is DisulfideBond bond
                 && bond.OneBasedBeginPosition == OneBasedBeginPosition
                 && bond.OneBasedEndPosition == OneBasedEndPosition
                 && bond.Description == Description;
@@ -40,8 +39,8 @@
 
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition 
-                ^ OneBasedEndPosition 
+            return OneBasedBeginPosition
+                ^ OneBasedEndPosition
                 ^ Description.GetHashCode(); // null handled in constructor
         }
     }

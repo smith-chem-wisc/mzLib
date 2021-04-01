@@ -45,20 +45,20 @@ namespace Proteomics.AminoAcidPolymer
 
     public static class FragmentTypesExtension
     {
-        private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new Dictionary<FragmentTypes, ChemicalFormula>
+        private static readonly Dictionary<FragmentTypes, ChemicalFormula> FragmentIonCaps = new()
         {
-            {FragmentTypes.a, ChemicalFormula.ParseFormula("C-1H-1O-1")},
-            {FragmentTypes.adot, ChemicalFormula.ParseFormula("C-1O-1")},
-            {FragmentTypes.b, ChemicalFormula.ParseFormula("H-1")},
-            {FragmentTypes.bdot, new ChemicalFormula()},
-            {FragmentTypes.c, ChemicalFormula.ParseFormula("NH2")},
-            {FragmentTypes.cdot, ChemicalFormula.ParseFormula("NH3")},
-            {FragmentTypes.x, ChemicalFormula.ParseFormula("COH-1")},
-            {FragmentTypes.xdot, ChemicalFormula.ParseFormula("CO")},
-            {FragmentTypes.y, ChemicalFormula.ParseFormula("H")},
-            {FragmentTypes.ydot, ChemicalFormula.ParseFormula("H2")},
-            {FragmentTypes.z, ChemicalFormula.ParseFormula("N-1H-2")},
-            {FragmentTypes.zdot, ChemicalFormula.ParseFormula("N-1H-1")}
+            { FragmentTypes.a, ChemicalFormula.ParseFormula("C-1H-1O-1") },
+            { FragmentTypes.adot, ChemicalFormula.ParseFormula("C-1O-1") },
+            { FragmentTypes.b, ChemicalFormula.ParseFormula("H-1") },
+            { FragmentTypes.bdot, new ChemicalFormula() },
+            { FragmentTypes.c, ChemicalFormula.ParseFormula("NH2") },
+            { FragmentTypes.cdot, ChemicalFormula.ParseFormula("NH3") },
+            { FragmentTypes.x, ChemicalFormula.ParseFormula("COH-1") },
+            { FragmentTypes.xdot, ChemicalFormula.ParseFormula("CO") },
+            { FragmentTypes.y, ChemicalFormula.ParseFormula("H") },
+            { FragmentTypes.ydot, ChemicalFormula.ParseFormula("H2") },
+            { FragmentTypes.z, ChemicalFormula.ParseFormula("N-1H-2") },
+            { FragmentTypes.zdot, ChemicalFormula.ParseFormula("N-1H-1") }
         };
 
         public static IEnumerable<FragmentTypes> GetIndividualFragmentTypes(this FragmentTypes fragmentTypes)

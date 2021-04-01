@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Proteomics.Fragmentation;
+﻿using Proteomics.Fragmentation;
+using System.Collections.Generic;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -43,7 +42,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         public IEnumerable<ProteolyticPeptide> SpeedySemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
         {
-            List<ProteolyticPeptide> peptides = new List<ProteolyticPeptide>();
+            List<ProteolyticPeptide> peptides = new();
             List<int> oneBasedIndicesToCleaveAfter = Protease.GetDigestionSiteIndices(protein.BaseSequence); //get peptide bonds to cleave SPECIFICALLY (termini included)
             int maximumMissedCleavagesIndexShift = MaximumMissedCleavages + 1;
 
@@ -103,7 +102,7 @@ namespace Proteomics.ProteolyticDigestion
 
             //wrap up the termini that weren't hit earlier
             int lastIndex = oneBasedIndicesToCleaveAfter.Count - 1; //last cleavage index (the c-terminus)
-            int maxIndexDifference = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex; //the number of index differences allowed. 
+            int maxIndexDifference = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex; //the number of index differences allowed.
             //If the protein has fewer cleavage sites than allowed missed cleavages, just use the number of cleavage sites (lastIndex)
             bool nTerminusFragmentation = DigestionParams.FragmentationTerminus == FragmentationTerminus.N;
             for (int i = 1; i <= maxIndexDifference; i++) //i is the difference (in indexes) between indexes (cleavages), so it needs to start at 1, or the peptide would have length = 0

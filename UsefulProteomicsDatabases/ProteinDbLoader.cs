@@ -16,24 +16,24 @@ namespace UsefulProteomicsDatabases
 
     public static class ProteinDbLoader
     {
-        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"[|](.+)[|]", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
-        public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new("accession", @"[|](.+)[|]", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotNameRegex = new("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new("geneName", @"GN=(.*?)(\s|$)", 0, 1);
+        public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
 
-        public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
-        public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
-        public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new("accession", @"([A-Z0-9_.]+)", 0, 1);
+        public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new("fullName", @"(pep:.*)", 0, 1);
+        public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new("geneName", @"gene:([^ ]+)", 0, 1);
 
-        public static readonly FastaHeaderFieldRegex GencodeAccessionRegex = new FastaHeaderFieldRegex("accession", @">(.*?)\|", 0, 1);
-        public static readonly FastaHeaderFieldRegex GencodeFullNameRegex = new FastaHeaderFieldRegex("fullName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
-        public static readonly FastaHeaderFieldRegex GencodeGeneNameRegex = new FastaHeaderFieldRegex("geneName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
+        public static readonly FastaHeaderFieldRegex GencodeAccessionRegex = new("accession", @">(.*?)\|", 0, 1);
+        public static readonly FastaHeaderFieldRegex GencodeFullNameRegex = new("fullName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
+        public static readonly FastaHeaderFieldRegex GencodeGeneNameRegex = new("geneName", @">(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(?:.*?)\|(.*?)\|", 0, 1);
 
-        public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
-        public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
+        public static Dictionary<string, IList<Modification>> IdToPossibleMods = new();
+        public static Dictionary<string, Modification> IdWithMotifToMod = new();
 
-        private static Regex UnicodeRegex = new Regex(@"[^\u0000-\u007F]+");
+        private static Regex UnicodeRegex = new(@"[^\u0000-\u007F]+");
 
         /// <summary>
         /// Stores the last database file path.
@@ -43,7 +43,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Stores the modification list read during LoadProteinXML
         /// </summary>
-        private static List<Modification> protein_xml_modlist_general = new List<Modification>();
+        private static List<Modification> protein_xml_modlist_general = new();
 
         /// <summary>
         /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
@@ -58,43 +58,41 @@ namespace UsefulProteomicsDatabases
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
-            allKnownModifications = allKnownModifications ?? new List<Modification>();
-            modTypesToExclude = modTypesToExclude ?? new List<string>();
+            allKnownModifications ??= new List<Modification>();
+            modTypesToExclude ??= new List<string>();
 
             //Dictionary<string, IList<Modification>> modsDictionary = new Dictionary<string, IList<Modification>>();
-            if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
+            if (prespecified.Count > 0 || allKnownModifications.Any())
             {
                 //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
-            List<Protein> targets = new List<Protein>();
-            unknownModifications = new Dictionary<string, Modification>();
-            using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+            List<Protein> targets = new();
+            unknownModifications = new();
+            using (FileStream stream = new(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                Regex substituteWhitespace = new Regex(@"\s+");
+                Regex substituteWhitespace = new(@"\s+");
 
                 Stream uniprotXmlFileStream = proteinDbLocation.EndsWith("gz") ? // allow for .bgz and .tgz, which are (rarely) used
                     (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
                     stream;
 
-                ProteinXmlEntry block = new ProteinXmlEntry();
+                ProteinXmlEntry block = new();
 
-                using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
+                using XmlReader xml = XmlReader.Create(uniprotXmlFileStream);
+                while (xml.Read())
                 {
-                    while (xml.Read())
+                    if (xml.NodeType == XmlNodeType.Element)
                     {
-                        if (xml.NodeType == XmlNodeType.Element)
+                        block.ParseElement(xml.Name, xml);
+                    }
+                    if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
+                    {
+                        Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
+                        if (newProtein != null)
                         {
-                            block.ParseElement(xml.Name, xml);
-                        }
-                        if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
-                        {
-                            Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
-                            if (newProtein != null)
-                            {
-                                targets.Add(newProtein);
-                            }
+                            targets.Add(newProtein);
                         }
                     }
                 }
@@ -118,40 +116,37 @@ namespace UsefulProteomicsDatabases
             else
             {
                 last_database_location = proteinDbLocation;
-                StringBuilder storedKnownModificationsBuilder = new StringBuilder();
-                using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    Regex startingWhitespace = new Regex(@"/^\s+/gm");
-                    Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
-                        (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
-                        stream;
+                StringBuilder storedKnownModificationsBuilder = new();
+                using FileStream stream = new(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-                    using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
+                Regex startingWhitespace = new(@"/^\s+/gm");
+                Stream uniprotXmlFileStream = proteinDbLocation.EndsWith(".gz") ?
+                    (Stream)(new GZipStream(stream, CompressionMode.Decompress)) :
+                    stream;
+
+                using XmlReader xml = XmlReader.Create(uniprotXmlFileStream);
+                while (xml.Read())
+                {
+                    if (xml.NodeType == XmlNodeType.Element)
                     {
-                        while (xml.Read())
+                        if (xml.Name == "modification")
                         {
-                            if (xml.NodeType == XmlNodeType.Element)
-                            {
-                                if (xml.Name == "modification")
-                                {
-                                    string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
-                                    storedKnownModificationsBuilder.AppendLine(modification);
-                                }
-                                else if (xml.Name == "entry")
-                                {
-                                    //if we are up to entry fields in the protein database, then there no more prespecified modifications to read and we
-                                    //can begin processing all the lines we have read.
-                                    //This block of code does not process information in any of the entries.
-                                    protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
-                                        new List<Modification>() :
-                                        PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
-                                    break;
-                                }
-                            }
+                            string modification = startingWhitespace.Replace(xml.ReadElementString(), "");
+                            storedKnownModificationsBuilder.AppendLine(modification);
+                        }
+                        else if (xml.Name == "entry")
+                        {
+                            //if we are up to entry fields in the protein database, then there no more prespecified modifications to read and we
+                            //can begin processing all the lines we have read.
+                            //This block of code does not process information in any of the entries.
+                            protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
+                                new List<Modification>() :
+                                PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
+                            break;
                         }
                     }
-                    return protein_xml_modlist_general;
                 }
+                return protein_xml_modlist_general;
             }
         }
 
@@ -163,17 +158,17 @@ namespace UsefulProteomicsDatabases
             FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1)
         {
             FastaHeaderType? HeaderType = null;
-            HashSet<string> unique_accessions = new HashSet<string>();
+            HashSet<string> unique_accessions = new();
             int unique_identifier = 2; //for isoforms. the first will be "accession", the next will be "accession_2"
             string accession = null;
             string name = null;
             string fullName = null;
             string organism = null;
-            List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
+            List<Tuple<string, string>> geneName = new();
             errors = new List<string>();
-            Regex substituteWhitespace = new Regex(@"\s+");
+            Regex substituteWhitespace = new(@"\s+");
 
-            List<Protein> targets = new List<Protein>();
+            List<Protein> targets = new();
 
             using (var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -182,7 +177,7 @@ namespace UsefulProteomicsDatabases
                     stream;
 
                 StringBuilder sb = null;
-                StreamReader fasta = new StreamReader(fastaFileStream);
+                StreamReader fasta = new(fastaFileStream);
 
                 while (true)
                 {
@@ -211,11 +206,13 @@ namespace UsefulProteomicsDatabases
                                     organismRegex = UniprotOrganismRegex;
                                     geneNameRegex = UniprotGeneNameRegex;
                                     break;
+
                                 case FastaHeaderType.Ensembl:
                                     accessionRegex = EnsemblAccessionRegex;
                                     fullNameRegex = EnsemblFullNameRegex;
                                     geneNameRegex = EnsemblGeneNameRegex;
                                     break;
+
                                 case FastaHeaderType.Gencode:
                                     accessionRegex = GencodeAccessionRegex;
                                     fullNameRegex = GencodeFullNameRegex;
@@ -266,7 +263,7 @@ namespace UsefulProteomicsDatabases
                             unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
-                        Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
+                        Protein protein = new(sequence, accession, organism, geneName, name: name, fullName: fullName,
                             isContaminant: isContaminant, databaseFilePath: proteinDbLocation);
                         if (protein.Length == 0)
                         {
@@ -304,10 +301,10 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static IEnumerable<Protein> MergeProteins(IEnumerable<Protein> mergeThese)
         {
-            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
+            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new();
             foreach (Protein p in mergeThese)
             {
-                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
+                Tuple<string, string, bool, bool> key = new(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
                 if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
                 {
                     proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
@@ -320,17 +317,17 @@ namespace UsefulProteomicsDatabases
 
             foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
-                HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
-                HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
-                HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
-                HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
-                HashSet<ProteolysisProduct> proteolysis = new HashSet<ProteolysisProduct>(proteins.Value.SelectMany(p => p.ProteolysisProducts));
-                HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
-                HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
-                HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
-                HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+                HashSet<string> names = new(proteins.Value.Select(p => p.Name));
+                HashSet<string> fullnames = new(proteins.Value.Select(p => p.FullName));
+                HashSet<string> descriptions = new(proteins.Value.Select(p => p.FullDescription));
+                HashSet<Tuple<string, string>> genenames = new(proteins.Value.SelectMany(p => p.GeneNames));
+                HashSet<ProteolysisProduct> proteolysis = new(proteins.Value.SelectMany(p => p.ProteolysisProducts));
+                HashSet<SequenceVariation> variants = new(proteins.Value.SelectMany(p => p.SequenceVariations));
+                HashSet<DatabaseReference> references = new(proteins.Value.SelectMany(p => p.DatabaseReferences));
+                HashSet<DisulfideBond> bonds = new(proteins.Value.SelectMany(p => p.DisulfideBonds));
+                HashSet<SpliceSite> splices = new(proteins.Value.SelectMany(p => p.SpliceSites));
 
-                Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
+                Dictionary<int, HashSet<Modification>> mod_dict = new();
                 foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
                 {
                     if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
@@ -420,7 +417,7 @@ namespace UsefulProteomicsDatabases
 
             for (int r = 0; r < cleaned.Length; r++)
             {
-                if (!Residue.TryGetResidue(cleaned[r], out Residue res))
+                if (!Residue.TryGetResidue(cleaned[r], out Residue _))
                 {
                     cleaned = cleaned.Replace(cleaned[r], replacementCharacter);
                 }
@@ -455,7 +452,7 @@ namespace UsefulProteomicsDatabases
             }
 
             // check for gencode header format
-            // gencode will have 8 fields, each separated by "|". 
+            // gencode will have 8 fields, each separated by "|".
             // missing fields are still present but have a "-" character as a placeholder.
             if (line.Count(p => p == '|') == 7)
             {

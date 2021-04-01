@@ -26,7 +26,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UsefulProteomicsDatabases;
 
@@ -55,62 +54,62 @@ namespace IO.MzML
         private const string _ionInjectionTime = "MS:1000927";
         private const string _mzArray = "MS:1000514";
         private const string _intensityArray = "MS:1000515";
-        private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
+        //private static readonly Regex MZAnalyzerTypeRegex = new(@"^[a-zA-Z]*", RegexOptions.Compiled);
 
-        public static readonly Dictionary<string, Polarity> PolarityDictionary = new Dictionary<string, Polarity>
+        public static readonly Dictionary<string, Polarity> PolarityDictionary = new()
         {
-            {"MS:1000129", Polarity.Negative},
-            {"MS:1000130", Polarity.Positive}
+            { "MS:1000129", Polarity.Negative },
+            { "MS:1000130", Polarity.Positive }
         };
 
-        public static readonly Dictionary<string, MZAnalyzerType> AnalyzerDictionary = new Dictionary<string, MZAnalyzerType>
+        public static readonly Dictionary<string, MZAnalyzerType> AnalyzerDictionary = new()
         {
-            { "MS:1000443", MZAnalyzerType.Unknown},
-            { "MS:1000081", MZAnalyzerType.Quadrupole},
-            { "MS:1000291", MZAnalyzerType.IonTrap2D},
-            { "MS:1000082", MZAnalyzerType.IonTrap3D},
-            { "MS:1000484", MZAnalyzerType.Orbitrap},
-            { "MS:1000084", MZAnalyzerType.TOF},
-            { "MS:1000079", MZAnalyzerType.FTICR},
-            { "MS:1000080", MZAnalyzerType.Sector}
+            { "MS:1000443", MZAnalyzerType.Unknown },
+            { "MS:1000081", MZAnalyzerType.Quadrupole },
+            { "MS:1000291", MZAnalyzerType.IonTrap2D },
+            { "MS:1000082", MZAnalyzerType.IonTrap3D },
+            { "MS:1000484", MZAnalyzerType.Orbitrap },
+            { "MS:1000084", MZAnalyzerType.TOF },
+            { "MS:1000079", MZAnalyzerType.FTICR },
+            { "MS:1000080", MZAnalyzerType.Sector }
         };
 
-        public static readonly Dictionary<string, DissociationType> DissociationDictionary = new Dictionary<string, DissociationType>
+        public static readonly Dictionary<string, DissociationType> DissociationDictionary = new()
         {
-            { "MS:1000133", DissociationType.CID},
-            { "MS:1000134", DissociationType.PD},
-            { "MS:1000135", DissociationType.PSD},
-            { "MS:1000136", DissociationType.SID},
-            { "MS:1000242", DissociationType.BIRD},
-            { "MS:1000250", DissociationType.ECD},
-            { "MS:1000262", DissociationType.IRMPD},
-            { "MS:1000282", DissociationType.SORI},
-            { "MS:1000435", DissociationType.MPD},
-            { "MS:1000598", DissociationType.ETD},
-            { "MS:1000599", DissociationType.PQD},
-            { "MS:1001880", DissociationType.ISCID},
-            { "MS:1000422", DissociationType.HCD},
-            { "MS:1002631", DissociationType.EThcD},
-            { "MS:1000044", DissociationType.Unknown},
+            { "MS:1000133", DissociationType.CID },
+            { "MS:1000134", DissociationType.PD },
+            { "MS:1000135", DissociationType.PSD },
+            { "MS:1000136", DissociationType.SID },
+            { "MS:1000242", DissociationType.BIRD },
+            { "MS:1000250", DissociationType.ECD },
+            { "MS:1000262", DissociationType.IRMPD },
+            { "MS:1000282", DissociationType.SORI },
+            { "MS:1000435", DissociationType.MPD },
+            { "MS:1000598", DissociationType.ETD },
+            { "MS:1000599", DissociationType.PQD },
+            { "MS:1001880", DissociationType.ISCID },
+            { "MS:1000422", DissociationType.HCD },
+            { "MS:1002631", DissociationType.EThcD },
+            { "MS:1000044", DissociationType.Unknown },
         };
 
-        public static readonly Dictionary<string, DissociationType> DissociationTypeNames = new Dictionary<string, DissociationType>
+        public static readonly Dictionary<string, DissociationType> DissociationTypeNames = new()
         {
-            { "collision-induced dissociation", DissociationType.CID},
-            { "plasma desorption", DissociationType.PD},
-            { "post-source decay", DissociationType.PSD},
-            { "surface-induced dissociation", DissociationType.SID},
-            { "blackbody infrared radiative dissociation", DissociationType.BIRD},
-            { "electron capture dissociation", DissociationType.ECD},
-            { "infrared multiphoton dissociation", DissociationType.IRMPD},
-            { "sustained off-resonance irradiation", DissociationType.SORI},
-            { "photodissociation", DissociationType.MPD},
-            { "electron transfer dissociation", DissociationType.ETD},
-            { "pulsed q dissociation", DissociationType.PQD},
-            { "in-source collision-induced dissociation", DissociationType.ISCID},
-            { "higher energy beam-type collision-induced dissociation", DissociationType.HCD},
-            { "Electron-Transfer/Higher-Energy Collision Dissociation (EThcD)", DissociationType.EThcD},
-            { "unknown dissociation type", DissociationType.Unknown},
+            { "collision-induced dissociation", DissociationType.CID },
+            { "plasma desorption", DissociationType.PD },
+            { "post-source decay", DissociationType.PSD },
+            { "surface-induced dissociation", DissociationType.SID },
+            { "blackbody infrared radiative dissociation", DissociationType.BIRD },
+            { "electron capture dissociation", DissociationType.ECD },
+            { "infrared multiphoton dissociation", DissociationType.IRMPD },
+            { "sustained off-resonance irradiation", DissociationType.SORI },
+            { "photodissociation", DissociationType.MPD },
+            { "electron transfer dissociation", DissociationType.ETD },
+            { "pulsed q dissociation", DissociationType.PQD },
+            { "in-source collision-induced dissociation", DissociationType.ISCID },
+            { "higher energy beam-type collision-induced dissociation", DissociationType.HCD },
+            { "Electron-Transfer/Higher-Energy Collision Dissociation (EThcD)", DissociationType.EThcD },
+            { "unknown dissociation type", DissociationType.Unknown },
         };
 
         private Mzml(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
@@ -130,16 +129,14 @@ namespace IO.MzML
 
             try
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
-                    _mzMLConnection = _indexedmzMLConnection.mzML;
-                }
+                using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var _indexedmzMLConnection = (Generated.indexedmzML)MzmlMethods.indexedSerializer.Deserialize(fs);
+                _mzMLConnection = _indexedmzMLConnection.mzML;
             }
             catch
             {
-                using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
+                using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                _mzMLConnection = (Generated.mzMLType)MzmlMethods.mzmlSerializer.Deserialize(fs);
             }
 
             SourceFile sourceFile;
@@ -198,15 +195,11 @@ namespace IO.MzML
             else
             {
                 string sendCheckSum;
-                using (FileStream stream = File.OpenRead(filePath))
-                {
-                    using (SHA1Managed sha = new SHA1Managed())
-                    {
-                        byte[] checksum = sha.ComputeHash(stream);
-                        sendCheckSum = BitConverter.ToString(checksum)
-                            .Replace("-", string.Empty);
-                    }
-                }
+                using FileStream stream = File.OpenRead(filePath);
+                using SHA1Managed sha = new();
+                byte[] checksum = sha.ComputeHash(stream);
+                sendCheckSum = BitConverter.ToString(checksum)
+                    .Replace("-", string.Empty);
                 sourceFile = new SourceFile(
                     @"no nativeID format",
                     @"mzML format",
@@ -230,7 +223,7 @@ namespace IO.MzML
             //Mzml sometimes have scan numbers specified, but usually not.
             //In the event that they do, the iterator above unintentionally assigned them to an incorrect index.
             //Check to make sure that the scans are in order and that there are no duplicate scans
-            HashSet<int> checkForDuplicateScans = new HashSet<int>();
+            HashSet<int> checkForDuplicateScans = new();
             bool ordered = true;
             int previousScanNumber = -1;
             foreach (MsDataScan scan in scans)
@@ -295,13 +288,13 @@ namespace IO.MzML
             // May be null!
             var scanSpecificInsturmentConfig = _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].instrumentConfigurationRef;
 
-            MZAnalyzerType analyzer = default(MZAnalyzerType);
+            MZAnalyzerType analyzer = default;
             // use default
             if (scanSpecificInsturmentConfig == null || scanSpecificInsturmentConfig == defaultInstrumentConfig)
             {
                 if (configs[0].componentList == null)
                 {
-                    analyzer = default(MZAnalyzerType);
+                    analyzer = default;
                 }
                 else if (AnalyzerDictionary.TryGetValue(configs[0].componentList.analyzer[0].cvParam[0].accession, out MZAnalyzerType returnVal))
                 {
@@ -355,8 +348,8 @@ namespace IO.MzML
             if (!msOrder.HasValue || !isCentroid.HasValue)
                 throw new MzLibException("!msOrder.HasValue || !isCentroid.HasValue");
 
-            double[] masses = new double[0];
-            double[] intensities = new double[0];
+            double[] masses = Array.Empty<double>();
+            double[] intensities = Array.Empty<double>();
 
             foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].binaryDataArrayList.binaryDataArray)
             {
@@ -509,7 +502,7 @@ namespace IO.MzML
             {
                 // for EThcD scans, the dissociation type will not be listed as EThcD. it will be 2 different dissociation types
                 // in the list, one as ETD and one with HCD. so we need to check for that case and interpret it as EThcD.
-                List<DissociationType> scanDissociationTypes = new List<DissociationType>();
+                List<DissociationType> scanDissociationTypes = new();
 
                 foreach (Generated.CVParamType cv in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].precursorList.precursor[0].activation.cvParam)
                 {
@@ -592,18 +585,14 @@ namespace IO.MzML
             if (zlibCompressed)
             {
                 var output = new MemoryStream();
-                using (var compressStream = new MemoryStream(bytes))
-                {
-                    compressStream.ReadByte();
-                    compressStream.ReadByte();
-                    using (var decompressor = new DeflateStream(compressStream, CompressionMode.Decompress))
-                    {
-                        decompressor.CopyTo(output);
-                        decompressor.Close();
-                        output.Position = 0;
-                        bytes = output.ToArray();
-                    }
-                }
+                using MemoryStream compressStream = new(bytes);
+                compressStream.ReadByte();
+                compressStream.ReadByte();
+                using DeflateStream decompressor = new(compressStream, CompressionMode.Decompress);
+                decompressor.CopyTo(output);
+                decompressor.Close();
+                output.Position = 0;
+                bytes = output.ToArray();
             }
 
             int size = is32bit ? sizeof(float) : sizeof(double);

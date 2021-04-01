@@ -75,7 +75,7 @@ namespace FlashLFQ
 
         public string ToString(List<SpectraFileInfo> spectraFiles)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             sb.Append(ProteinGroupName + "\t");
             sb.Append(GeneName + "\t");
             sb.Append(Organism + "\t");

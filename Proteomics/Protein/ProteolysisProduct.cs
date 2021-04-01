@@ -15,8 +15,7 @@
 
         public override bool Equals(object obj)
         {
-            ProteolysisProduct pp = obj as ProteolysisProduct;
-            return pp != null
+            return obj is ProteolysisProduct pp
                 && pp.OneBasedBeginPosition.Equals(OneBasedBeginPosition)
                 && pp.OneBasedEndPosition.Equals(OneBasedEndPosition)
                 && (pp.Type == null && Type == null || pp.Type.Equals(Type));
@@ -24,8 +23,8 @@
 
         public override int GetHashCode()
         {
-            return (OneBasedBeginPosition ?? 0).GetHashCode() 
-                ^ (OneBasedEndPosition ?? 0).GetHashCode() 
+            return (OneBasedBeginPosition ?? 0).GetHashCode()
+                ^ (OneBasedEndPosition ?? 0).GetHashCode()
                 ^ Type.GetHashCode(); // null handled in constructor
         }
     }

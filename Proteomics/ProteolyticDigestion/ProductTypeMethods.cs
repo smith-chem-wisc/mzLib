@@ -9,12 +9,12 @@ namespace Proteomics.ProteolyticDigestion
         public static FragmentationTerminus IdentifyTerminusType(List<ProductType> productTypes)
         {
             if ((productTypes.Contains(ProductType.b) || productTypes.Contains(ProductType.c) || productTypes.Contains(ProductType.aDegree))
-                && (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot) || productTypes.Contains(ProductType.zPlusOne) 
+                && (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot) || productTypes.Contains(ProductType.zPlusOne)
                 || productTypes.Contains(ProductType.x)))
             {
                 return FragmentationTerminus.Both;
             }
-            else if (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot) 
+            else if (productTypes.Contains(ProductType.y) || productTypes.Contains(ProductType.zDot)
                 || productTypes.Contains(ProductType.zPlusOne) || productTypes.Contains(ProductType.x))
             {
                 return FragmentationTerminus.C;
@@ -27,8 +27,8 @@ namespace Proteomics.ProteolyticDigestion
 
         public static List<List<ProductType>> SeparateIonsByTerminus(List<ProductType> ionTypes)
         {
-            List<ProductType> nIons = new List<ProductType>();
-            List<ProductType> cIons = new List<ProductType>();
+            List<ProductType> nIons = new();
+            List<ProductType> cIons = new();
             foreach (ProductType productType in ionTypes)
             {
                 if (productType == ProductType.b || productType == ProductType.c)

@@ -32,7 +32,7 @@ namespace Chemistry
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic symbol
         /// </summary>
-        private static readonly Dictionary<string, Element> _elements = new Dictionary<string, Element>();
+        private static readonly Dictionary<string, Element> _elements = new();
 
         /// <summary>
         /// The internal dictionary housing elements, keyed by their unique atomic number

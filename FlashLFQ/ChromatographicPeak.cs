@@ -127,7 +127,7 @@ namespace FlashLFQ
 
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             sb.Append(SpectraFileInfo.FilenameWithoutExtension + "\t");
             sb.Append(string.Join("|", Identifications.Select(p => p.BaseSequence).Distinct()) + '\t');
             sb.Append(string.Join("|", Identifications.Select(p => p.ModifiedSequence).Distinct()) + '\t');
@@ -193,7 +193,7 @@ namespace FlashLFQ
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError + "\t");
-            
+
             return sb.ToString();
         }
     }

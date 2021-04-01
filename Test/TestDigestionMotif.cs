@@ -47,11 +47,11 @@ namespace Test
         [Test]
         public static void TestBasicProtease1()
         {
-            var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams(minPeptideLength: 1, maxMissedCleavages: 0);
+            List<Modification> empty = new();
+            DigestionParams myDigestionParams = new(minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("PROTEIN", "myAccession");
+            Protein myProtein = new("PROTEIN", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -65,11 +65,11 @@ namespace Test
         [Test]
         public static void TestBasicProtease2()
         {
-            var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("Lys-C (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
+            List<Modification> empty = new();
+            DigestionParams myDigestionParams = new("Lys-C (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("MKPKPKPMKA", "myAccession");
+            Protein myProtein = new("MKPKPKPMKA", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -84,14 +84,14 @@ namespace Test
         public static void TestWildCardExclusion()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");            
-            Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");
+            Protease multiletter = new("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
-            DigestionParams myDigestionParams = new DigestionParams("multiletter", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("multiletter", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("PROPRPPM", "myAccession");
+            Protein myProtein = new("PROPRPPM", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -107,13 +107,13 @@ namespace Test
         {
             var empty = new List<Modification>();
             var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("|AAA");
-            Protease multiletter = new Protease("multi-custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            Protease multiletter = new("multi-custom", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
-            DigestionParams myDigestionParams = new DigestionParams("multi-custom", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("multi-custom", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("FAAAMAAM", "myAccession");
+            Protein myProtein = new("FAAAMAAM", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -127,11 +127,11 @@ namespace Test
         [Test]
         public static void TestMultiLetterProtease()
         {
-            var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("collagenase", minPeptideLength: 1, maxMissedCleavages: 0);
+            List<Modification> empty = new();
+            DigestionParams myDigestionParams = new("collagenase", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("ABCGPXGPMFKCGPMKK", "myAccession");
+            Protein myProtein = new("ABCGPXGPMFKCGPMKK", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -145,11 +145,11 @@ namespace Test
         [Test]
         public static void TestNTerminusProtease()
         {
-            var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("Asp-N", minPeptideLength: 1, maxMissedCleavages: 0);
+            List<Modification> empty = new();
+            DigestionParams myDigestionParams = new("Asp-N", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("PADDMSKDPDMMAASMDJSSM", "myAccession");
+            Protein myProtein = new("PADDMSKDPDMMAASMDJSSM", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -174,14 +174,14 @@ namespace Test
         public static void TestCutIndexDifferentSyntax()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|            
-            Protease protease = new Protease("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs);
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|
+            Protease protease = new("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
 
-            DigestionParams myDigestionParams = new DigestionParams("lys-c", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("lys-c", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("PROKPKMKP", "myAccession");
+            Protein myProtein = new("PROKPKMKP", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -196,10 +196,10 @@ namespace Test
         public static void TestEndSequenceCTerm()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("chymotrypsin (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("AASFPWDJSSMF", "myAccession");
+            Protein myProtein = new("AASFPWDJSSMF", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -214,14 +214,14 @@ namespace Test
         public static void TestNonSpecificProtease()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("non-specific", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("non-specific", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("PRO", "myAccession");
+            Protein myProtein = new("PRO", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
-            Assert.AreEqual(myPeptides.Count(), 3);
+            Assert.AreEqual(myPeptides.Count, 3);
         }
 
         [Test]
@@ -232,7 +232,7 @@ namespace Test
             //If the protease is written instead of the specific protease, then the specific protease information is lost upon deserialization.
 
             //check for nonspecific
-            DigestionParams dp = new DigestionParams(protease: "Arg-C", searchModeType: CleavageSpecificity.None);
+            DigestionParams dp = new(protease: "Arg-C", searchModeType: CleavageSpecificity.None);
             string proteaseString = dp.ToString().Split(',')[6];
             Assert.IsTrue(proteaseString.Equals("Arg-C"));
 
@@ -251,10 +251,10 @@ namespace Test
         public static void TestEndSequenceNTerm()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("Lys-N", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("Lys-N", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("KKPROTEIN", "myAccession");
+            Protein myProtein = new("KKPROTEIN", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -262,21 +262,22 @@ namespace Test
             string last = myPeptides.Last().ToString();
 
             Assert.AreEqual(first, "K");
-            Assert.AreEqual(myPeptides.Count(), 2);
+            Assert.AreEqual(myPeptides.Count, 2);
+            Assert.IsNotNull(last);
         }
 
         [Test]
         public static void TestOneMotifMultiplePreventing()
         {
-            var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");            
-            Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
+            List<Modification> empty = new();
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");
+            Protease customProtease = new("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(customProtease.Name, customProtease);
 
-            DigestionParams myDigestionParams = new DigestionParams("custom", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new("custom", minPeptideLength: 1, maxMissedCleavages: 0);
 
             // create a protein
-            Protein myProtein = new Protein("PRONFNMMHFHAA", "myAccession");
+            Protein myProtein = new("PRONFNMMHFHAA", "myAccession");
 
             // digest it into peptides
             var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).ToList();
@@ -285,12 +286,13 @@ namespace Test
 
             Assert.AreEqual(myPeptides.Count, 2);
             Assert.AreEqual(first, "PRON");
+            Assert.IsNotNull(last);
         }
 
         [Test]
         public static void TestProteolyticDigestion()
         {
-            Protein humanInsulin = new Protein("MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN", "P01308",
+            Protein humanInsulin = new("MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN", "P01308",
                 proteolysisProducts: new List<ProteolysisProduct>
                 {
                     new ProteolysisProduct(1, 24, ""),
@@ -298,9 +300,9 @@ namespace Test
                     new ProteolysisProduct(57, 87, ""),
                     new ProteolysisProduct(90, 110, "")
                 });
-            DigestionParams dp = new DigestionParams(maxMissedCleavages: 10, minPeptideLength: 1, maxPeptideLength: 120); //this should allow for all peptides to be generated
+            DigestionParams dp = new(maxMissedCleavages: 10, minPeptideLength: 1, maxPeptideLength: 120); //this should allow for all peptides to be generated
             List<PeptideWithSetModifications> pwsms = humanInsulin.Digest(dp, null, null).ToList();
-            HashSet<PeptideWithSetModifications> hashset = new HashSet<PeptideWithSetModifications>(pwsms);
+            HashSet<PeptideWithSetModifications> hashset = new(pwsms);
 
             //check that all the full length proteolysis products were made
             Assert.IsTrue(pwsms.Any(x => x.OneBasedStartResidueInProtein == 1 && x.OneBasedEndResidueInProtein == 24));
@@ -315,8 +317,8 @@ namespace Test
             Assert.IsTrue(pwsms.Count == hashset.Count);
 
             //Speedy semi specific test
-            DigestionParams speedySemiN = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.N);
-            DigestionParams speedySemiC = new DigestionParams("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.C);
+            DigestionParams speedySemiN = new("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.N);
+            DigestionParams speedySemiC = new("trypsin", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.C);
             List<PeptideWithSetModifications> pwsmsN = humanInsulin.Digest(speedySemiN, null, null).ToList();
             List<PeptideWithSetModifications> pwsmsC = humanInsulin.Digest(speedySemiC, null, null).ToList();
             Assert.IsTrue(pwsmsN.Count == 7);

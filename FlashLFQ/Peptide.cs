@@ -93,7 +93,7 @@ namespace FlashLFQ
 
         public string ToString(List<SpectraFileInfo> rawFiles)
         {
-            StringBuilder str = new StringBuilder();
+            StringBuilder str = new();
             str.Append(Sequence + "\t");
             str.Append(BaseSequence + "\t");
 

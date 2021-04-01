@@ -44,12 +44,12 @@ namespace Chemistry
         /// The fourth group is optional and represents the number of isotopes or elements to add, if not present it assumes 1: H2O means 2 Hydrogen and 1 Oxygen
         /// Modified from: http://stackoverflow.com/questions/4116786/parsing-a-chemical-formula-from-a-string-in-c
         /// </summary>
-        private static readonly Regex FormulaRegex = new Regex(@"\s*([A-Z][a-z]*)(?:\{([0-9]+)\})?(-)?([0-9]+)?\s*", RegexOptions.Compiled);
+        private static readonly Regex FormulaRegex = new(@"\s*([A-Z][a-z]*)(?:\{([0-9]+)\})?(-)?([0-9]+)?\s*", RegexOptions.Compiled);
 
         /// <summary>
         /// A wrapper for the formula regex that validates if a string is in the correct chemical formula format or not
         /// </summary>
-        private static readonly Regex ValidateFormulaRegex = new Regex("^(" + FormulaRegex + ")+$", RegexOptions.Compiled);
+        private static readonly Regex ValidateFormulaRegex = new("^(" + FormulaRegex + ")+$", RegexOptions.Compiled);
 
         private string formulaString;
 
@@ -105,7 +105,7 @@ namespace Chemistry
         {
             get
             {
-                HashSet<int> ok = new HashSet<int>();
+                HashSet<int> ok = new();
                 foreach (var i in Isotopes)
                     ok.Add(i.Key.AtomicNumber);
                 foreach (var i in Elements)
@@ -165,7 +165,7 @@ namespace Chemistry
 
         public static ChemicalFormula Combine(IEnumerable<IHasChemicalFormula> formulas)
         {
-            ChemicalFormula returnFormula = new ChemicalFormula();
+            ChemicalFormula returnFormula = new();
             foreach (IHasChemicalFormula iformula in formulas)
                 returnFormula.Add(iformula);
             return returnFormula;
@@ -179,7 +179,7 @@ namespace Chemistry
         /// <param name="formula">the Chemical Formula to parse</param>
         public static ChemicalFormula ParseFormula(string formula)
         {
-            ChemicalFormula f = new ChemicalFormula();
+            ChemicalFormula f = new();
 
             if (!ValidateFormulaRegex.IsMatch(formula))
                 throw new MzLibException("Input string for chemical formula was in an incorrect format: " + formula);
@@ -242,10 +242,10 @@ namespace Chemistry
 
         public void Multiply(int multiplier)
         {
-            List<Element> keys = new List<Element>(Elements.Keys);
+            List<Element> keys = new(Elements.Keys);
             foreach (var key in keys)
                 Elements[key] *= multiplier;
-            List<Isotope> keysIsotope = new List<Isotope>(Isotopes.Keys);
+            List<Isotope> keysIsotope = new(Isotopes.Keys);
             foreach (var key in keysIsotope)
                 Isotopes[key] *= multiplier;
         }
@@ -472,15 +472,22 @@ namespace Chemistry
             return Tuple.Create(Isotopes.Sum(b => b.Key.AtomicMass * b.Value), Elements.Sum(b => b.Key.AverageMass * b.Value)).GetHashCode();
         }
 
-        public bool Equals(ChemicalFormula other)
+        public bool Equals(ChemicalFormula cf)
         {
-            if (other == null) return false;
-            if (ReferenceEquals(this, other)) return true;
-            if (Math.Abs(MonoisotopicMass - other.MonoisotopicMass) > 1e-9)
+            if (cf == null)
                 return false;
-            if (Math.Abs(AverageMass - other.AverageMass) > 1e-9)
+            if (ReferenceEquals(this, cf))
+                return true;
+            if (Math.Abs(MonoisotopicMass - cf.MonoisotopicMass) > 1e-9)
+                return false;
+            if (Math.Abs(AverageMass - cf.AverageMass) > 1e-9)
                 return false;
             return true;
+        }
+
+        public override bool Equals(object other)
+        {
+            return other is ChemicalFormula && (other as ChemicalFormula).Equals(this);
         }
 
         /// <summary>
@@ -488,7 +495,7 @@ namespace Chemistry
         /// </summary>
         private string GetHillNotation()
         {
-            StringBuilder s = new StringBuilder();
+            StringBuilder s = new();
 
             // Find carbons
             if (Elements.ContainsKey(PeriodicTable.GetElement(Constants.CarbonAtomicNumber)))
@@ -508,7 +515,7 @@ namespace Chemistry
                 if (Isotopes.ContainsKey(i))
                     s.Append("H{" + i.MassNumber + "}" + (Isotopes[i] == 1 ? "" : "" + Isotopes[i]));
 
-            List<string> otherParts = new List<string>();
+            List<string> otherParts = new();
 
             // Find other elements
             foreach (var i in Elements)

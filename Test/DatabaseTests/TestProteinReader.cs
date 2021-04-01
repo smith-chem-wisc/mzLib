@@ -59,7 +59,7 @@ namespace Test
         public static void MergeACoupleProteins()
         {
             ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
-            Protein p = new Protein(
+            Protein p = new(
                 "ASEQUENCE",
                 "id",
                 isContaminant: false,
@@ -73,7 +73,7 @@ namespace Test
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 1, null, null, null, null, null, null) } } }
                 );
 
-            Protein p2 = new Protein(
+            Protein p2 = new(
                 "ASEQUENCE",
                 "id",
                 isContaminant: false,
@@ -94,7 +94,7 @@ namespace Test
             Assert.AreEqual(1, merged.First().SequenceVariations.Count());
             Assert.AreEqual(1, merged.First().ProteolysisProducts.Count());
             Assert.AreNotEqual(p.OneBasedPossibleLocalizedModifications.First().Value.First(), p2.OneBasedPossibleLocalizedModifications.First().Value.First());
-            Assert.AreEqual(1, merged.First().OneBasedPossibleLocalizedModifications.Count());
+            Assert.AreEqual(1, merged.First().OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(2, merged.First().OneBasedPossibleLocalizedModifications.First().Value.Count);
         }
 
@@ -131,7 +131,7 @@ namespace Test
         public static void DisulfideXmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out Dictionary<string, Modification> un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out _);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -200,7 +200,7 @@ namespace Test
         public static void XmlFunkySequenceTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var _);
 
             Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1));
             Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1));
@@ -213,7 +213,7 @@ namespace Test
         public static void XmlModifiedStartTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var _);
 
             Assert.AreEqual("M", ok[0].BaseSequence.Substring(0, 1)); //the original protein sequence in the original order starts with 'M'
             Assert.AreEqual("M", ok[1].BaseSequence.Substring(0, 1)); //the decoy protein sequence in the reverse order from the original still starts with 'M'
@@ -223,7 +223,7 @@ namespace Test
         [Test]
         public static void FastaTest()
         {
-            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out var a,
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out _,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
 
@@ -254,9 +254,10 @@ namespace Test
         [Test]
         public static void Load_fasta_handle_tooHigh_indices()
         {
-            var p = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"), true, DecoyType.Reverse, false, out var a,
+            var p = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"), true, DecoyType.Reverse, false, out var _,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
+            Assert.AreEqual(2, p.Count);
         }
 
         [Test]
@@ -297,7 +298,7 @@ namespace Test
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, nice, false,
                 new[] { excludeString }, out Dictionary<string, Modification> un);
 
-            List<string> modTypes = new List<string>();
+            List<string> modTypes = new();
             foreach (KeyValuePair<int, List<Modification>> entry in ok2[0].OneBasedPossibleLocalizedModifications)
             {
                 modTypes.AddRange(entry.Value.Select(m => m.ModificationType).ToList().Distinct());
@@ -325,7 +326,7 @@ KW   Oxidation.
 DR   RESID; AA0581.
 DR   PSI-MOD; MOD:00720.
 //";
-            var a = PtmListLoader.ReadModsFromString(aString, out var errorsA).First();
+            var a = PtmListLoader.ReadModsFromString(aString, out _).First();
 
             string bString =
 @"ID   Oxidation of M
@@ -334,7 +335,7 @@ PP   Anywhere.
 MT   Common Variable
 CF   O1
 //";
-            var b = PtmListLoader.ReadModsFromString(bString, out var errorsB).First();
+            var b = PtmListLoader.ReadModsFromString(bString, out _).First();
 
             Assert.IsTrue(Math.Abs((double)(a as Modification).MonoisotopicMass - (double)(b as Modification).MonoisotopicMass) < 1e-6);
             Assert.IsTrue(Math.Abs((double)(a as Modification).MonoisotopicMass - (double)(b as Modification).MonoisotopicMass) > 1e-7);
@@ -345,7 +346,7 @@ CF   O1
         {
             var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
-                new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+                new string[] { "exclude_me" }, out _);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
@@ -368,7 +369,7 @@ CF   O1
         {
             //sequence, disulfides
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, UniProtPtms, false,
-                new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+                new string[] { "exclude_me" }, out _);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
@@ -392,7 +393,7 @@ CF   O1
 
             //sequence variants, modifications
             ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, UniProtPtms, false,
-    new string[] { "exclude_me" }, out un);
+                new string[] { "exclude_me" }, out _);
 
             Assert.AreEqual(ok2[1].OneBasedPossibleLocalizedModifications.First().Key, 13);
             var decoyVariants = ok2[1].SequenceVariations.ToList();
@@ -404,7 +405,7 @@ CF   O1
         [Test]
         public static void TestReverseDecoyFasta()
         {
-            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out var a,
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out _,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
 
@@ -415,7 +416,7 @@ CF   O1
         [Test]
         public static void TestSlideDecoyFasta()
         {
-            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Slide, false, out var a,
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Slide, false, out _,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
 

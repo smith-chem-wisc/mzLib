@@ -30,7 +30,7 @@ namespace MzLibUtil
         /// </summary>
         /// <param name="unit">The units for this tolerance</param>
         /// <param name="value">The numerical value of the tolerance</param>
-        public PpmTolerance(double value) 
+        public PpmTolerance(double value)
             : base(value)
         {
         }

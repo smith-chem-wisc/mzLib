@@ -4,9 +4,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using System.Text;
 
 namespace MzLibUtil
@@ -15,7 +13,7 @@ namespace MzLibUtil
     {
         public static string CompleteSystemInfo()
         {
-            StringBuilder fullSystemString = new StringBuilder();
+            StringBuilder fullSystemString = new();
 
             fullSystemString.Append(SystemProse() + "\n");
 
@@ -26,14 +24,14 @@ namespace MzLibUtil
 
         public static string SystemProse()
         {
-            StringBuilder fullSystemProse = new StringBuilder();
+            StringBuilder fullSystemProse = new();
 
             fullSystemProse.Append("Data files were processed on a computer ");
             fullSystemProse.Append("running " + GetOperatingSystem());
             fullSystemProse.Append(" with a " + GetCpuRegister());
             fullSystemProse.Append(" " + GetProcessorName() + " processor");
             fullSystemProse.Append(" with " + ProcessorCount() + " threads ");
-            
+
             fullSystemProse.Append("and " + InstalledRam() + "GB installed RAM.");
 
             return fullSystemProse.ToString();
@@ -103,7 +101,6 @@ namespace MzLibUtil
             }
             catch
             {
-
             }
 
             return processorName;
@@ -187,7 +184,6 @@ namespace MzLibUtil
             }
             catch
             {
-                
             }
 
             return amountOfRamInGb;

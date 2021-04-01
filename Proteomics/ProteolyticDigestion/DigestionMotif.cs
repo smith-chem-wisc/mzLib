@@ -155,7 +155,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
 
-                fits = prevents ? false : true;
+                fits = !prevents;
             }
 
             return (fits, prevents);

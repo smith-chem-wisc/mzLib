@@ -88,13 +88,13 @@ namespace MassSpectrometry
 
             const double shiftToMakeRangeInclusive = 0.000000001;
 
-            Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
+            Chemistry.ClassExtensions.TupleList<double, double> ranges = new();
 
             if (filteringParams.WindowWidthThomsons != null && filteringParams.WindowWidthThomsons > 0)
             {
                 double scanRangeToUse = Math.Min(scanRangeMaxMz - scanRangeMinMz, filteringParams.WindowWidthThomsons.Value);
 
-                List<double> ends = new List<double>();
+                List<double> ends = new();
                 double end = 0;
                 bool first = true;
                 while (end < scanRangeMaxMz)
@@ -150,8 +150,8 @@ namespace MassSpectrometry
                 ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
             }
 
-            Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
-            Dictionary<int, List<double>> mzRangeIntensities = new Dictionary<int, List<double>>(); //index of range and  list of index values in mArray
+            Dictionary<int, List<int>> mzInRange = new(); //index of range and  list of index values in mArray
+            Dictionary<int, List<double>> mzRangeIntensities = new(); //index of range and  list of index values in mArray
             for (int i = 0; i < ranges.Count; i++)
             {
                 mzInRange.Add(i, new List<int>());
@@ -176,7 +176,7 @@ namespace MassSpectrometry
 
             foreach (int rangeIndex in mzInRange.Keys)
             {
-                List<double> tempIntList = new List<double>();
+                List<double> tempIntList = new();
                 foreach (int arrayIndex in mzInRange[rangeIndex])
                 {
                     tempIntList.Add(intensities[arrayIndex]);
@@ -193,12 +193,12 @@ namespace MassSpectrometry
                 }
             }
 
-            List<double> reducedMzList = new List<double>();
-            List<double> reducedIntensityList = new List<double>();
+            List<double> reducedMzList = new();
+            List<double> reducedIntensityList = new();
 
             foreach (int rangeIndex in mzInRange.Keys)
             {
-                List<double> tempMzList = new List<double>();
+                List<double> tempMzList = new();
                 foreach (int arrayIndex in mzInRange[rangeIndex])
                 {
                     tempMzList.Add(mArray[arrayIndex]);
@@ -206,7 +206,6 @@ namespace MassSpectrometry
                 //There is no need to do any normalization unless there are multiple windows
                 if (filteringParams.NormalizePeaksAcrossAllWindows)
                 {
-
                     double max = mzRangeIntensities[rangeIndex].Max();
                     if (max == 0)
                     {
@@ -301,8 +300,8 @@ namespace MassSpectrometry
 
         public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScan, bool> scanFilterFunc, int maxThreads = -1)
         {
-            minScan = minScan ?? 1;
-            maxScan = maxScan ?? NumSpectra;
+            minScan ??= 1;
+            maxScan ??= NumSpectra;
 
             var allAggregateGroups = new List<IsotopicEnvelope>[maxScan.Value - minScan.Value + 1];
             Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
@@ -315,7 +314,7 @@ namespace MassSpectrometry
                 }
             });
 
-            List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
+            List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new();
             for (int scanIndex = minScan.Value; scanIndex <= maxScan.Value; scanIndex++)
             {
                 if (allAggregateGroups[scanIndex - minScan.Value] == null)
@@ -365,7 +364,7 @@ namespace MassSpectrometry
             double theorMz = neutralMass.ToMz(charge);
             double startRt = retentionTimeInMinutes - retentionTimeWindowWidthInMinutes / 2;
             double endRt = retentionTimeInMinutes + retentionTimeWindowWidthInMinutes / 2;
-            List<Datum> xicData = new List<Datum>();
+            List<Datum> xicData = new();
 
             IEnumerable<MsDataScan> scansInRtWindow = GetMsScansInTimeRange(startRt, endRt);
 

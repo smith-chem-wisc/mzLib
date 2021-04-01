@@ -27,7 +27,7 @@ namespace MzLibUtil
         public static double[] BoxCarSmooth(this double[] data, int points)
         {
             // Force to be odd
-            points = points - (1 - points % 2);
+            points -= 1 - points % 2;
 
             int count = data.Length;
 

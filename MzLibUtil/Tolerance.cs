@@ -33,7 +33,7 @@ namespace MzLibUtil
         /// i.e., "10 PPM", "-+10 PPM", "5 Absolute", etc...
         /// </para>
         /// </summary>
-        private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|Absolute)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex StringRegex = new(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|Absolute)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
         /// Creates a new tolerance given a unit, value, and whether the tolerance is ±

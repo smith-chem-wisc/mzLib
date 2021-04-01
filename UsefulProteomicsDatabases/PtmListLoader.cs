@@ -60,13 +60,14 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="ptmListLocation"></param>
         /// <returns></returns>
-        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary, out List<(Modification, string)> filteredModificationsWithWarnings)
+        public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, Dictionary<string, int> formalChargesDictionary,
+            out List<(Modification filteredMod, string warningString)> filteredModificationsWithWarnings)
         {
-            List<Modification> acceptedModifications = new List<Modification>();
-            filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
-            using (StreamReader uniprot_mods = new StreamReader(ptmListLocation))
+            List<Modification> acceptedModifications = new();
+            filteredModificationsWithWarnings = new();
+            using (StreamReader uniprot_mods = new(ptmListLocation))
             {
-                List<string> modification_specification = new List<string>();
+                List<string> modification_specification = new();
 
                 //This block will read one complete modification entry at a time until the EOF is reached.
                 while (uniprot_mods.Peek() != -1) //The Peek method returns an integer value in order to determine whether the end of the file, or another error has occurred.
@@ -99,13 +100,14 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="storedModifications"></param>
         /// <returns></returns>
-        public static IEnumerable<Modification> ReadModsFromString(string storedModifications, out List<(Modification, string)> filteredModificationsWithWarnings)
+        public static IEnumerable<Modification> ReadModsFromString(string storedModifications,
+            out List<(Modification filteredMod, string warningString)> filteredModificationsWithWarnings)
         {
-            List<Modification> acceptedModifications = new List<Modification>();
-            filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
-            using (StringReader uniprot_mods = new StringReader(storedModifications))
+            List<Modification> acceptedModifications = new();
+            filteredModificationsWithWarnings = new();
+            using (StringReader uniprot_mods = new(storedModifications))
             {
-                List<string> modification_specification = new List<string>();
+                List<string> modification_specification = new();
 
                 while (uniprot_mods.Peek() != -1)
                 {
@@ -166,7 +168,7 @@ namespace UsefulProteomicsDatabases
                     {
                         try
                         {
-                            modValue = line.Split('#')[0].Trim().Substring(5); //removes commented text
+                            modValue = line.Split('#')[0].Trim()[5..]; //removes commented text
                         }
                         catch
                         {
@@ -191,7 +193,7 @@ namespace UsefulProteomicsDatabases
 
                         case "TG": // Which amino acid(s) or motifs is the modification on
                             string[] possibleMotifs = modValue.TrimEnd('.').Split(new string[] { " or " }, StringSplitOptions.None);
-                            List<ModificationMotif> acceptableMotifs = new List<ModificationMotif>();
+                            List<ModificationMotif> acceptableMotifs = new();
                             foreach (var singleTarget in possibleMotifs)
                             {
                                 string theMotif;
@@ -222,26 +224,26 @@ namespace UsefulProteomicsDatabases
                         case "MM": // Monoisotopic mass difference. Might not precisely correspond to formula!
                             if (!double.TryParse(modValue, NumberStyles.Any, CultureInfo.InvariantCulture, out double thisMM))
                             {
-                                throw new MzLibException(line.Substring(5) + " is not a valid monoisotopic mass");
+                                throw new MzLibException(line[5..] + " is not a valid monoisotopic mass");
                             }
                             _monoisotopicMass = thisMM;
                             break;
 
                         case "DR": // External database links!
                             var splitStringDR = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
-                            if(_databaseReference==null)
+                            if (_databaseReference == null)
                             {
-                                _databaseReference = new Dictionary<string, IList<string>>();
+                                _databaseReference = new();
                                 _databaseReference.Add(splitStringDR[0], new List<string> { splitStringDR[1] });
                             }
-                            else if(_databaseReference.TryGetValue(splitStringDR[0], out IList<string> val))
+                            else if (_databaseReference.TryGetValue(splitStringDR[0], out IList<string> val))
                             {
                                 val.Add(splitStringDR[1]);
                             }
                             else
                             {
                                 _databaseReference.Add(splitStringDR[0], new List<string> { splitStringDR[1] });
-                            }                            
+                            }
                             break;
 
                         case "TR": // External database links!
@@ -249,7 +251,7 @@ namespace UsefulProteomicsDatabases
 
                             if (_taxonomicRange == null)
                             {
-                                _taxonomicRange = new Dictionary<string, IList<string>>();
+                                _taxonomicRange = new();
                                 _taxonomicRange.Add(splitStringTR[0], new List<string> { splitStringTR[1] });
                             }
                             else if (_taxonomicRange.TryGetValue(splitStringTR[0], out IList<string> val))
@@ -356,38 +358,19 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         public static DissociationType? ModDissociationType(string modType)
         {
-            switch (modType)
+            return modType switch
             {
-                case "Any":
-                    return DissociationType.AnyActivationType;
-
-                case "CID":
-                    return DissociationType.CID;
-
-                case "MPD":
-                    return DissociationType.IRMPD;
-
-                case "ECD":
-                    return DissociationType.ECD;
-
-                case "PQD":
-                    return DissociationType.PQD;
-
-                case "ETD":
-                    return DissociationType.ETD;
-
-                case "HCD":
-                    return DissociationType.HCD;
-
-                case "EThcD":
-                    return DissociationType.EThcD;
-
-                case "Custom":
-                    return DissociationType.Custom;
-
-                default:
-                    return null;
-            }
+                "Any" => DissociationType.AnyActivationType,
+                "CID" => DissociationType.CID,
+                "MPD" => DissociationType.IRMPD,
+                "ECD" => DissociationType.ECD,
+                "PQD" => DissociationType.PQD,
+                "ETD" => DissociationType.ETD,
+                "HCD" => DissociationType.HCD,
+                "EThcD" => DissociationType.EThcD,
+                "Custom" => DissociationType.Custom,
+                _ => null
+            };
         }
 
         /// <summary>

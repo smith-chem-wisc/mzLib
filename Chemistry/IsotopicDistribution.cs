@@ -79,16 +79,16 @@ namespace Chemistry
             var a = GetNewFineAndMergeResolutions(fineResolution);
             var newFineResolution = a.Item1;
             double _mergeFineResolution = a.Item2;
-            List<List<Composition>> elementalComposition = new List<List<Composition>>();
+            List<List<Composition>> elementalComposition = new();
 
             // Get all the unique elements that might have isotopes
             foreach (var elementAndCount in formula.Elements)
             {
                 int count = elementAndCount.Value;
-                List<Composition> isotopeComposition = new List<Composition>();
+                List<Composition> isotopeComposition = new();
                 foreach (Isotope isotope in elementAndCount.Key.Isotopes.OrderBy(iso => iso.AtomicMass))
                 {
-                    Composition c = new Composition
+                    Composition c = new()
                     {
                         Atoms = count,
                         MolecularWeight = isotope.AtomicMass,
@@ -166,8 +166,8 @@ namespace Chemistry
                         // Combine terms if their mass difference (i.e. power difference) is less than some threshold
                         if (value <= threshold)
                         {
-                            tempPolynomial.Power = tempPolynomial.Power + tPolynomial[j].Power * tPolynomial[j].Probablity;
-                            tempPolynomial.Probablity = tempPolynomial.Probablity + tPolynomial[j].Probablity;
+                            tempPolynomial.Power += tPolynomial[j].Power * tPolynomial[j].Probablity;
+                            tempPolynomial.Probablity += tPolynomial[j].Probablity;
                             tPolynomial[i] = new Polynomial { Power = tempPolynomial.Power / tempPolynomial.Probablity, Probablity = tempPolynomial.Probablity };
                             tPolynomial[j] = new Polynomial { Probablity = double.NaN, Power = double.NaN };
                         }
@@ -190,7 +190,7 @@ namespace Chemistry
             const int nc = 10;
             const int ncAddValue = 1;
             const int nAtoms = 200;
-            List<Polynomial> tPolynomial = new List<Polynomial>();
+            List<Polynomial> tPolynomial = new();
 
             int n = 0;
             int k;
@@ -199,7 +199,7 @@ namespace Chemistry
                 if (composition.Count > 0)
                     n++;
 
-            List<List<Polynomial>> fPolynomial = new List<List<Polynomial>>();
+            List<List<Polynomial>> fPolynomial = new();
             for (int i = 0; i < n; i++)
                 fPolynomial.Add(new List<Polynomial>());
 
@@ -252,7 +252,7 @@ namespace Chemistry
                         maxs[i] = means[i] + stds[i];
                     }
 
-                    MultipleFinePolynomialRecursiveHelper(mins, maxs, indices, 0, fPolynomial[k], composition, atoms, _fineMinProb, means[means.Length - 1] + stds[stds.Length - 1]);
+                    MultipleFinePolynomialRecursiveHelper(mins, maxs, indices, 0, fPolynomial[k], composition, atoms, _fineMinProb, means[^1] + stds[^1]);
                 }
             }
 
@@ -261,7 +261,7 @@ namespace Chemistry
             if (k <= 1)
                 return tPolynomial;
 
-            List<Polynomial> fgidPolynomial = new List<Polynomial>();
+            List<Polynomial> fgidPolynomial = new();
             for (k = 1; k < n; k++)
                 MultiplyFineFinalPolynomial(tPolynomial, fPolynomial[k], fgidPolynomial, _fineResolution, _mwResolution, _fineMinProb);
 
@@ -372,7 +372,7 @@ namespace Chemistry
                     prob = Math.Exp(prob);
                     if (prob >= minProb)
                     {
-                        Polynomial tPolynomial = new Polynomial { Probablity = prob, Power = power };
+                        Polynomial tPolynomial = new() { Probablity = prob, Power = power };
                         fPolynomial.Add(tPolynomial);
                     }
                 }
@@ -400,7 +400,7 @@ namespace Chemistry
 
             // Convert polynomial to spectrum
             int count = fPolynomial.Count;
-            IsotopicDistribution dist = new IsotopicDistribution(count);
+            IsotopicDistribution dist = new(count);
             double totalProbability = 0;
             double basePeak = 0;
             int i = 0;

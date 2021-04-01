@@ -52,7 +52,7 @@ namespace Proteomics.AminoAcidPolymer
         {
             get
             {
-                ChemicalFormula chemicalFormula = new ChemicalFormula();
+                ChemicalFormula chemicalFormula = new();
                 foreach (var ok in _modifications)
                     chemicalFormula.Add(ok as IHasChemicalFormula);
                 return chemicalFormula;
@@ -61,7 +61,7 @@ namespace Proteomics.AminoAcidPolymer
 
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             foreach (IHasMass mod in _modifications)
             {
                 sb.Append(mod);
@@ -104,9 +104,19 @@ namespace Proteomics.AminoAcidPolymer
             return true;
         }
 
-        public bool Equals(ModificationCollection other)
+        public bool Equals(ModificationCollection mc)
         {
-            return Count == other.Count && _modifications.ScrambledEquals(other._modifications);
+            return Count == mc.Count && _modifications.ScrambledEquals(mc._modifications);
+        }
+
+        public override bool Equals(object other)
+        {
+            return other is ModificationCollection mc && this.Equals(mc);
+        }
+
+        public override int GetHashCode()
+        {
+            return ThisChemicalFormula.GetHashCode() ^ Count.GetHashCode() ^ MonoisotopicMass.GetHashCode();
         }
 
         public IEnumerator<IHasMass> GetEnumerator()

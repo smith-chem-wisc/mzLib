@@ -15,7 +15,7 @@ namespace IO.Mgf
 
         private Mgf(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
-            indexedScans = new MsDataScan[scans[scans.Length - 1].OneBasedScanNumber];
+            indexedScans = new MsDataScan[scans[^1].OneBasedScanNumber];
             foreach (MsDataScan scan in scans)
             {
                 indexedScans[scan.OneBasedScanNumber - 1] = scan;
@@ -31,32 +31,26 @@ namespace IO.Mgf
 
             Loaders.LoadElements();
 
-            List<MsDataScan> scans = new List<MsDataScan>();
-            HashSet<int> checkForDuplicateScans = new HashSet<int>();
+            List<MsDataScan> scans = new();
+            HashSet<int> checkForDuplicateScans = new();
 
-            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using BufferedStream bs = new(fs);
+            using StreamReader sr = new(bs);
+            while (sr.Peek() > 0)
             {
-                using (BufferedStream bs = new BufferedStream(fs))
+                string line = sr.ReadLine();
+                if (line != "BEGIN IONS")
                 {
-                    using (StreamReader sr = new StreamReader(bs))
-                    {
-                        while (sr.Peek() > 0)
-                        {
-                            string line = sr.ReadLine();
-                            if (line != "BEGIN IONS")
-                            {
-                                continue;
-                            }
-
-                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
-
-                            scans.Add(scan);
-                        }
-                    }
+                    continue;
                 }
+
+                var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
+
+                scans.Add(scan);
             }
 
-            SourceFile sourceFile = new SourceFile("no nativeID format", "mgf format", null, null, null);
+            SourceFile sourceFile = new("no nativeID format", "mgf format", null, null, null);
 
             return new Mgf(scans.OrderBy(x => x.OneBasedScanNumber).ToArray(), sourceFile);
         }
@@ -66,17 +60,17 @@ namespace IO.Mgf
             return indexedScans[scanNumber - 1];
         }
 
-        public static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
+        public static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved,
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
-            List<double> mzs = new List<double>();
-            List<double> intensities = new List<double>();
+            List<double> mzs = new();
+            List<double> intensities = new();
             int charge = 2; //default when unknown
             double precursorMz = 0;
             double rtInMinutes = double.NaN; //default when unknown
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
-            int scanNumber = alreadyKnownScanNumber.HasValue ? alreadyKnownScanNumber.Value : 0;
+            int scanNumber = alreadyKnownScanNumber ?? 0;
 
             // read the scan data
             while (sr.Peek() > 0)
@@ -102,7 +96,7 @@ namespace IO.Mgf
                 {
                     string entry = sArray[1];
                     charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
-                    if (entry[entry.Length - 1].Equals("-"))
+                    if (entry[^1].Equals("-"))
                     {
                         charge *= -1;
                     }
@@ -113,7 +107,7 @@ namespace IO.Mgf
                 }
                 else if (line.StartsWith("RTINSECONDS"))
                 {
-                    rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1], CultureInfo.InvariantCulture) / 60.0;
+                    rtInMinutes = Convert.ToDouble(sArray[^1], CultureInfo.InvariantCulture) / 60.0;
                 }
                 else if (line.StartsWith("END IONS"))
                 {
@@ -125,7 +119,7 @@ namespace IO.Mgf
             double[] intensityArray = intensities.ToArray();
 
             Array.Sort(mzArray, intensityArray);
-            MzRange scanRange = new MzRange(mzArray[0], mzArray[mzArray.Length - 1]);
+            MzRange scanRange = new(mzArray[0], mzArray[^1]);
 
             // peak filtering
             if (filterParams != null && intensityArray.Length > 0 && filterParams.ApplyTrimmingToMsMs)
@@ -133,7 +127,7 @@ namespace IO.Mgf
                 MsDataFile.WindowModeHelper(ref intensityArray, ref mzArray, filterParams, scanRange.Minimum, scanRange.Maximum);
             }
 
-            MzSpectrum spectrum = new MzSpectrum(mzArray, intensityArray, false);
+            MzSpectrum spectrum = new(mzArray, intensityArray, false);
 
             if (scanNumber == 0)
             {

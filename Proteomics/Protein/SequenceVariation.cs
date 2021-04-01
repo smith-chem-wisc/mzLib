@@ -68,8 +68,7 @@ namespace Proteomics
 
         public override bool Equals(object obj)
         {
-            SequenceVariation s = obj as SequenceVariation;
-            return s != null
+            return obj is SequenceVariation s
                 && OneBasedBeginPosition == s.OneBasedBeginPosition
                 && OneBasedEndPosition == s.OneBasedEndPosition
                 && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))

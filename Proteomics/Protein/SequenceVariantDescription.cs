@@ -67,8 +67,8 @@ namespace Proteomics
 
         public override bool Equals(object obj)
         {
-            SequenceVariantDescription s = obj as SequenceVariantDescription;
-            return s != null && s.Description == Description;
+            return obj is SequenceVariantDescription s
+                && s.Description == Description;
         }
 
         public override int GetHashCode()
@@ -84,7 +84,7 @@ namespace Proteomics
         /// <returns></returns>
         internal static Dictionary<string, string> GenotypeDictionary(string format, string genotype)
         {
-            Dictionary<string, string> genotypeDict = new Dictionary<string, string>();
+            Dictionary<string, string> genotypeDict = new();
             string[] formatSplit = format.Split(':');
             string[] genotypeSplit = genotype.Split(':');
             if (formatSplit.Length != genotypeSplit.Length)

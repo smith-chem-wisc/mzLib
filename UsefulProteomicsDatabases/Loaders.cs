@@ -107,7 +107,7 @@ namespace UsefulProteomicsDatabases
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
         {
             var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
-            Regex digitsOnly = new Regex(@"[^\d]");
+            Regex digitsOnly = new(@"[^\d]");
             return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
         }
 
@@ -149,57 +149,41 @@ namespace UsefulProteomicsDatabases
             {
                 UpdateUniprot(uniprotLocation);
             }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var errors).OfType<Modification>();
+            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out _).OfType<Modification>();
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)
         {
-            using (FileStream a = File.Open(first, FileMode.Open, FileAccess.Read))
-            using (FileStream b = File.Open(second, FileMode.Open, FileAccess.Read))
+            using FileStream a = File.Open(first, FileMode.Open, FileAccess.Read);
+            using FileStream b = File.Open(second, FileMode.Open, FileAccess.Read);
+            byte[] firstHash = MD5.Create().ComputeHash(a);
+            byte[] secondHash = MD5.Create().ComputeHash(b);
+            for (int i = 0; i < firstHash.Length; i++)
             {
-                byte[] firstHash = MD5.Create().ComputeHash(a);
-                byte[] secondHash = MD5.Create().ComputeHash(b);
-                for (int i = 0; i < firstHash.Length; i++)
+                if (firstHash[i] != secondHash[i])
                 {
-                    if (firstHash[i] != secondHash[i])
-                    {
-                        return false;
-                    }
+                    return false;
                 }
-                return true;
             }
+            return true;
         }
 
         private static void DownloadPsiMod(string psimodLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
-            }
+            using WebClient Client = new();
+            Client.DownloadFile(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
         }
 
         private static void DownloadUnimod(string unimodLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
-            }
-        }
-
-        private static void DownloadElements(string elementLocation)
-        {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&ascii=ascii2&isotype=some", elementLocation + ".temp");
-            }
+            using WebClient Client = new();
+            Client.DownloadFile(@"http://www.unimod.org/xml/unimod.xml", unimodLocation + ".temp");
         }
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            using (WebClient Client = new WebClient())
-            {
-                Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
-            }
+            using WebClient Client = new();
+            Client.DownloadFile(@"http://www.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }

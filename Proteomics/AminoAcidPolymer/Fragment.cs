@@ -90,9 +90,14 @@ namespace Proteomics.AminoAcidPolymer
             return MonoisotopicMass.GetHashCode();
         }
 
-        public bool Equals(Fragment other)
+        public bool Equals(Fragment frag)
         {
-            return FragmentType.Equals(other.FragmentType) && Number.Equals(other.Number) && Math.Abs(MonoisotopicMass - other.MonoisotopicMass) < 1e-9;
+            return FragmentType.Equals(frag.FragmentType) && Number.Equals(frag.Number) && Math.Abs(MonoisotopicMass - frag.MonoisotopicMass) < 1e-9;
+        }
+
+        public override bool Equals(object other)
+        {
+            return other is Fragment frag && this.Equals(frag);
         }
     }
 }

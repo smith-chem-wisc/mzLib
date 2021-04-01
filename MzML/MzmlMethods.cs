@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Xml.Serialization;
 
 namespace IO.MzML
@@ -974,14 +973,12 @@ namespace IO.MzML
 
             if (!writeIndexed)
             {
-                using (TextWriter writer = new StreamWriter(outputFile))
-                {
-                    mzmlSerializer.Serialize(writer, mzML);
-                }
+                using TextWriter writer = new StreamWriter(outputFile);
+                mzmlSerializer.Serialize(writer, mzML);
             }
             else if (writeIndexed)
             {
-                Generated.indexedmzML indexedMzml = new Generated.indexedmzML();
+                Generated.indexedmzML indexedMzml = new();
                 indexedMzml.mzML = mzML;
 
                 // create dummy index (this makes it easier to compute where the index is in the file)
@@ -1118,9 +1115,9 @@ namespace IO.MzML
         {
             SHA1 sha1hash = SHA1.Create();
 
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan))
+            using (FileStream stream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan))
             {
-                using (StreamReader reader = new StreamReader(stream, bufferSize: 4096))
+                using (StreamReader reader = new(stream, bufferSize: 4096))
                 {
                     string line;
                     byte[] buffer = new byte[10000000]; //write mzML method will crash is line.Length exceeds this value.

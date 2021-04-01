@@ -5,7 +5,7 @@ namespace Proteomics
 {
     public class ModificationMotif
     {
-        private static readonly Regex ModificationMotifRegex = new Regex(@"^[A-Za-z]+$", RegexOptions.Compiled);
+        private static readonly Regex ModificationMotifRegex = new(@"^[A-Za-z]+$", RegexOptions.Compiled);
         private readonly string motifString;
 
         private ModificationMotif(string motif)
@@ -32,9 +32,7 @@ namespace Proteomics
 
         public override bool Equals(object o)
         {
-            ModificationMotif m = o as ModificationMotif;
-            return m != null
-                && m.motifString == motifString;
+            return o is ModificationMotif m && m.motifString == motifString;
         }
 
         public override int GetHashCode()

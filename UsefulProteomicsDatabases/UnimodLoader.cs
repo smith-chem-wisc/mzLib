@@ -9,42 +9,42 @@ namespace UsefulProteomicsDatabases
 {
     internal static class UnimodLoader
     {
-        private static readonly Dictionary<string, string> DictOfElements = new Dictionary<string, string>
+        private static readonly Dictionary<string, string> DictOfElements = new()
         {
-            {"2H", "H{2}" },
-            {"13C", "C{13}" },
-            {"18O", "O{18}" },
-            {"15N", "N{15}" }
+            { "2H", "H{2}" },
+            { "13C", "C{13}" },
+            { "18O", "O{18}" },
+            { "15N", "N{15}" }
         };
 
-        private static readonly Dictionary<position_t, ModLocationOnPeptideOrProtein> positionDict = new Dictionary<position_t, ModLocationOnPeptideOrProtein>
-            {
-            {position_t.AnyCterm, ModLocationOnPeptideOrProtein.PepC },
-            {position_t.ProteinCterm, ModLocationOnPeptideOrProtein.ProtC },
-            {position_t.Anywhere, ModLocationOnPeptideOrProtein.Any },
-            {position_t.AnyNterm, ModLocationOnPeptideOrProtein.NPep },
-            {position_t.ProteinNterm, ModLocationOnPeptideOrProtein.NProt }
-            };
+        private static readonly Dictionary<position_t, ModLocationOnPeptideOrProtein> positionDict = new()
+        {
+            { position_t.AnyCterm, ModLocationOnPeptideOrProtein.PepC },
+            { position_t.ProteinCterm, ModLocationOnPeptideOrProtein.ProtC },
+            { position_t.Anywhere, ModLocationOnPeptideOrProtein.Any },
+            { position_t.AnyNterm, ModLocationOnPeptideOrProtein.NPep },
+            { position_t.ProteinNterm, ModLocationOnPeptideOrProtein.NProt }
+        };
 
         internal static IEnumerable<Modification> ReadMods(string unimodLocation)
         {
             var unimodSerializer = new XmlSerializer(typeof(unimod_t));
             var deserialized = unimodSerializer.Deserialize(new FileStream(unimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read)) as unimod_t;
 
-            Dictionary<string, string> positionConversion = new Dictionary<string, string>()
+            Dictionary<string, string> positionConversion = new()
             {
-                { "Anywhere", "Anywhere."},
-                { "AnyNterm", "Peptide N-terminal."},
-                { "AnyCterm", "Peptide C-terminal."},
-                { "ProteinNterm", "N-terminal."},
-                { "ProteinCterm", "C-terminal."}
+                { "Anywhere", "Anywhere." },
+                { "AnyNterm", "Peptide N-terminal." },
+                { "AnyCterm", "Peptide C-terminal." },
+                { "ProteinNterm", "N-terminal." },
+                { "ProteinCterm", "C-terminal." }
             };
 
             foreach (var mod in deserialized.modifications)
             {
                 var id = mod.title;
                 var ac = mod.record_id;
-                ChemicalFormula cf = new ChemicalFormula();
+                ChemicalFormula cf = new();
                 foreach (var el in mod.delta.element)
                 {
                     try
@@ -76,9 +76,9 @@ namespace UsefulProteomicsDatabases
                         pos = null;
                     }
 
-                    Dictionary<string, IList<string>> dblinks = new Dictionary<string, IList<string>>
+                    Dictionary<string, IList<string>> dblinks = new()
                     {
-                        { "Unimod",  new List<string>{ac.ToString() } },
+                        { "Unimod", new List<string> { ac.ToString() } },
                     };
 
                     if (target.NeutralLoss == null)
@@ -88,7 +88,7 @@ namespace UsefulProteomicsDatabases
                         Dictionary<MassSpectrometry.DissociationType, List<double>> neutralLosses = null;
                         foreach (var nl in target.NeutralLoss)
                         {
-                            ChemicalFormula cfnl = new ChemicalFormula();
+                            ChemicalFormula cfnl = new();
                             if (nl.mono_mass == 0)
                             {
                                 if (neutralLosses == null)

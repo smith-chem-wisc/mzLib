@@ -19,7 +19,6 @@ using Chemistry;
 using MzLibUtil;
 using System;
 using System.Globalization;
-using System.IO;
 using System.Text.RegularExpressions;
 
 namespace UsefulProteomicsDatabases
@@ -147,7 +146,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = T
             Mass Number = 3
             Relative Atomic Mass = 3.0160492779(24)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [1.00784,1.00811]
             Notes = m
 
@@ -227,7 +226,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = C
             Mass Number = 14
             Relative Atomic Mass = 14.0032419884(40)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [12.0096,12.0116]
             Notes = &nbsp;
 
@@ -1099,7 +1098,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Tc
             Mass Number = 97
             Relative Atomic Mass = 96.9063667(40)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [98]
             Notes = &nbsp;
 
@@ -1107,7 +1106,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Tc
             Mass Number = 98
             Relative Atomic Mass = 97.9072124(36)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [98]
             Notes = &nbsp;
 
@@ -1115,7 +1114,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Tc
             Mass Number = 99
             Relative Atomic Mass = 98.9062508(10)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [98]
             Notes = &nbsp;
 
@@ -1747,7 +1746,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pm
             Mass Number = 145
             Relative Atomic Mass = 144.9127559(33)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [145]
             Notes = &nbsp;
 
@@ -1755,7 +1754,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pm
             Mass Number = 147
             Relative Atomic Mass = 146.9151450(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [145]
             Notes = &nbsp;
 
@@ -2451,7 +2450,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Po
             Mass Number = 209
             Relative Atomic Mass = 208.9824308(20)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [209]
             Notes = &nbsp;
 
@@ -2459,7 +2458,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Po
             Mass Number = 210
             Relative Atomic Mass = 209.9828741(13)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [209]
             Notes = &nbsp;
 
@@ -2467,7 +2466,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = At
             Mass Number = 210
             Relative Atomic Mass = 209.9871479(83)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [210]
             Notes = &nbsp;
 
@@ -2475,7 +2474,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = At
             Mass Number = 211
             Relative Atomic Mass = 210.9874966(30)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [210]
             Notes = &nbsp;
 
@@ -2483,7 +2482,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Rn
             Mass Number = 211
             Relative Atomic Mass = 210.9906011(73)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [222]
             Notes = &nbsp;
 
@@ -2491,7 +2490,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Rn
             Mass Number = 220
             Relative Atomic Mass = 220.0113941(23)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [222]
             Notes = &nbsp;
 
@@ -2499,7 +2498,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Rn
             Mass Number = 222
             Relative Atomic Mass = 222.0175782(25)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [222]
             Notes = &nbsp;
 
@@ -2507,7 +2506,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Fr
             Mass Number = 223
             Relative Atomic Mass = 223.0197360(25)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [223]
             Notes = &nbsp;
 
@@ -2515,7 +2514,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ra
             Mass Number = 223
             Relative Atomic Mass = 223.0185023(27)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [226]
             Notes = &nbsp;
 
@@ -2523,7 +2522,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ra
             Mass Number = 224
             Relative Atomic Mass = 224.0202120(23)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [226]
             Notes = &nbsp;
 
@@ -2531,7 +2530,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ra
             Mass Number = 226
             Relative Atomic Mass = 226.0254103(25)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [226]
             Notes = &nbsp;
 
@@ -2539,7 +2538,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ra
             Mass Number = 228
             Relative Atomic Mass = 228.0310707(26)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [226]
             Notes = &nbsp;
 
@@ -2547,7 +2546,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ac
             Mass Number = 227
             Relative Atomic Mass = 227.0277523(25)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [227]
             Notes = &nbsp;
 
@@ -2555,7 +2554,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Th
             Mass Number = 230
             Relative Atomic Mass = 230.0331341(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = 232.0377(4)
             Notes = g
 
@@ -2579,7 +2578,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = U
             Mass Number = 233
             Relative Atomic Mass = 233.0396355(29)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = 238.02891(3)
             Notes = g,m
 
@@ -2603,7 +2602,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = U
             Mass Number = 236
             Relative Atomic Mass = 236.0455682(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = 238.02891(3)
             Notes = g,m
 
@@ -2619,7 +2618,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Np
             Mass Number = 236
             Relative Atomic Mass = 236.046570(54)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [237]
             Notes = &nbsp;
 
@@ -2627,7 +2626,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Np
             Mass Number = 237
             Relative Atomic Mass = 237.0481736(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [237]
             Notes = &nbsp;
 
@@ -2635,7 +2634,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pu
             Mass Number = 238
             Relative Atomic Mass = 238.0495601(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [244]
             Notes = &nbsp;
 
@@ -2643,7 +2642,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pu
             Mass Number = 239
             Relative Atomic Mass = 239.0521636(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [244]
             Notes = &nbsp;
 
@@ -2651,7 +2650,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pu
             Mass Number = 240
             Relative Atomic Mass = 240.0538138(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [244]
             Notes = &nbsp;
 
@@ -2659,7 +2658,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pu
             Mass Number = 241
             Relative Atomic Mass = 241.0568517(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [244]
             Notes = &nbsp;
 
@@ -2667,7 +2666,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pu
             Mass Number = 242
             Relative Atomic Mass = 242.0587428(20)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [244]
             Notes = &nbsp;
 
@@ -2675,7 +2674,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Pu
             Mass Number = 244
             Relative Atomic Mass = 244.0642053(56)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = [244]
             Notes = &nbsp;
 
@@ -2683,7 +2682,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Am
             Mass Number = 241
             Relative Atomic Mass = 241.0568293(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2691,7 +2690,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Am
             Mass Number = 243
             Relative Atomic Mass = 243.0613813(24)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2699,7 +2698,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cm
             Mass Number = 243
             Relative Atomic Mass = 243.0613893(22)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2707,7 +2706,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cm
             Mass Number = 244
             Relative Atomic Mass = 244.0627528(19)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2715,7 +2714,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cm
             Mass Number = 245
             Relative Atomic Mass = 245.0654915(22)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2723,7 +2722,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cm
             Mass Number = 246
             Relative Atomic Mass = 246.0672238(22)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2731,7 +2730,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cm
             Mass Number = 247
             Relative Atomic Mass = 247.0703541(47)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2739,7 +2738,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cm
             Mass Number = 248
             Relative Atomic Mass = 248.0723499(56)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2747,7 +2746,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Bk
             Mass Number = 247
             Relative Atomic Mass = 247.0703073(59)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2755,7 +2754,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Bk
             Mass Number = 249
             Relative Atomic Mass = 249.0749877(27)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2763,7 +2762,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cf
             Mass Number = 249
             Relative Atomic Mass = 249.0748539(23)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2771,7 +2770,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cf
             Mass Number = 250
             Relative Atomic Mass = 250.0764062(22)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2779,7 +2778,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cf
             Mass Number = 251
             Relative Atomic Mass = 251.0795886(48)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2787,7 +2786,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cf
             Mass Number = 252
             Relative Atomic Mass = 252.0816272(56)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2795,7 +2794,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Es
             Mass Number = 252
             Relative Atomic Mass = 252.082980(54)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2803,7 +2802,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Fm
             Mass Number = 257
             Relative Atomic Mass = 257.0951061(69)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2811,7 +2810,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Md
             Mass Number = 258
             Relative Atomic Mass = 258.0984315(50)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2819,7 +2818,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Md
             Mass Number = 260
             Relative Atomic Mass = 260.10365(34#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2827,7 +2826,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = No
             Mass Number = 259
             Relative Atomic Mass = 259.10103(11#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2835,7 +2834,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Lr
             Mass Number = 262
             Relative Atomic Mass = 262.10961(22#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2843,7 +2842,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Rf
             Mass Number = 267
             Relative Atomic Mass = 267.12179(62#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2851,7 +2850,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Db
             Mass Number = 268
             Relative Atomic Mass = 268.12567(57#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2859,7 +2858,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Sg
             Mass Number = 271
             Relative Atomic Mass = 271.13393(63#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2867,7 +2866,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Bh
             Mass Number = 272
             Relative Atomic Mass = 272.13826(58#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2875,7 +2874,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Hs
             Mass Number = 270
             Relative Atomic Mass = 270.13429(27#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2883,7 +2882,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Mt
             Mass Number = 276
             Relative Atomic Mass = 276.15159(59#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2891,7 +2890,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ds
             Mass Number = 281
             Relative Atomic Mass = 281.16451(59#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2899,7 +2898,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Rg
             Mass Number = 280
             Relative Atomic Mass = 280.16514(61#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2907,7 +2906,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Cn
             Mass Number = 285
             Relative Atomic Mass = 285.17712(60#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2915,7 +2914,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Nh
             Mass Number = 284
             Relative Atomic Mass = 284.17873(62#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2923,7 +2922,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Fl
             Mass Number = 289
             Relative Atomic Mass = 289.19042(60#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2931,7 +2930,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Mc
             Mass Number = 288
             Relative Atomic Mass = 288.19274(62#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2939,7 +2938,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Lv
             Mass Number = 293
             Relative Atomic Mass = 293.20449(60#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2947,7 +2946,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Ts
             Mass Number = 292
             Relative Atomic Mass = 292.20746(75#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;
 
@@ -2955,7 +2954,7 @@ namespace UsefulProteomicsDatabases
             Atomic Symbol = Og
             Mass Number = 294
             Relative Atomic Mass = 294.21392(71#)
-            Isotopic Composition = 
+            Isotopic Composition =
             Standard Atomic Weight = &nbsp;
             Notes = &nbsp;";
     }

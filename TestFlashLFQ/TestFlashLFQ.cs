@@ -39,18 +39,18 @@ namespace Test
         public static void TestFlashLfq()
         {
             // get the raw file paths
-            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            SpectraFileInfo raw = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            ProteinGroup pg = new("MyProtein", "gene", "org");
+            Identification id1 = new(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id3 = new(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
+            FlashLfqEngine engine = new(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
 
             // run the engine
             var results = engine.Run();
@@ -105,18 +105,17 @@ namespace Test
                 "N" + (int)Math.Round(averageN) +
                 "S" + (int)Math.Round(averageS));
 
-
             // get the raw file paths
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            ProteinGroup pg = new("MyProtein", "gene", "org");
 
-            Identification id3 = new Identification(mzml, "", "1", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg }, myFormula);
-            Identification id4 = new Identification(mzml, "", "2", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg }, myFormula);
+            Identification id3 = new(mzml, "", "1", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg }, myFormula);
+            Identification id4 = new(mzml, "", "2", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg }, myFormula);
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id3, id4 }, normalize: true);
+            FlashLfqEngine engine = new(new List<Identification> { id3, id4 }, normalize: true);
 
             // run the engine
             var results = engine.Run();
@@ -129,13 +128,13 @@ namespace Test
         {
             // ********************************* check biorep normalization *********************************
             // get the raw file paths
-            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
+            SpectraFileInfo raw = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            ProteinGroup pg = new("MyProtein", "gene", "org");
+            Identification id1 = new(raw, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             var results = new FlashLfqEngine(new List<Identification> { id1, id2 }, normalize: true).Run();
@@ -199,34 +198,34 @@ namespace Test
         [Test]
         public static void TestFlashLfqMergeResults()
         {
-            SpectraFileInfo rawA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzmlA = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo rawA = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzmlA = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
-            var pgA = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1A = new Identification(rawA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgA });
-            Identification id2A = new Identification(rawA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgA });
-            Identification id3A = new Identification(mzmlA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgA });
-            Identification id4A = new Identification(mzmlA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgA });
+            ProteinGroup pgA = new("MyProtein", "gene", "org");
+            Identification id1A = new(rawA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgA });
+            Identification id2A = new(rawA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgA });
+            Identification id3A = new(mzmlA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgA });
+            Identification id4A = new(mzmlA, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgA });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engineA = new FlashLfqEngine(new List<Identification> { id1A, id2A, id3A, id4A });
+            FlashLfqEngine engineA = new(new List<Identification> { id1A, id2A, id3A, id4A });
 
             // run the engine
             var resultsA = engineA.Run();
 
-            SpectraFileInfo rawB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "b", 0, 0, 0);
-            SpectraFileInfo mzmlB = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "b", 0, 1, 0);
+            SpectraFileInfo rawB = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "b", 0, 0, 0);
+            SpectraFileInfo mzmlB = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "b", 0, 1, 0);
 
             // create some PSMs
-            var pgB = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(rawB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgB });
-            Identification id2 = new Identification(rawB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgB });
-            Identification id3 = new Identification(mzmlB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgB });
-            Identification id4 = new Identification(mzmlB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgB });
+            ProteinGroup pgB = new("MyProtein", "gene", "org");
+            Identification id1 = new(rawB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgB });
+            Identification id2 = new(rawB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgB });
+            Identification id3 = new(mzmlB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pgB });
+            Identification id4 = new(mzmlB, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pgB });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engineB = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 });
+            FlashLfqEngine engineB = new(new List<Identification> { id1, id2, id3, id4 });
 
             // run the engine
             var resultsB = engineB.Run();
@@ -241,8 +240,8 @@ namespace Test
         [Test]
         public static void TestFlashLfqMatchBetweenRuns()
         {
-            List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV" };
+            List<string> filesToWrite = new() { "mzml_1", "mzml_2" };
+            List<string> pepSequences = new() { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV" };
             double intensity = 1e6;
 
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
@@ -284,34 +283,34 @@ namespace Test
             }
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
-            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
+            SpectraFileInfo file1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
+            SpectraFileInfo file2 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE",
+            ProteinGroup pg = new("MyProtein", "gene", "org");
+            Identification id1 = new(file1, "PEPTIDE", "PEPTIDE",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(file1, "PEPTIDEV", "PEPTIDEV",
+            Identification id2 = new(file1, "PEPTIDEV", "PEPTIDEV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
+            Identification id3 = new(file1, "PEPTIDEVV", "PEPTIDEVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
+            Identification id4 = new(file1, "PEPTIDEVVV", "PEPTIDEVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
+            Identification id5 = new(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
-            Identification id6 = new Identification(file2, "PEPTIDE", "PEPTIDE",
+            Identification id6 = new(file2, "PEPTIDE", "PEPTIDE",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id7 = new Identification(file2, "PEPTIDEV", "PEPTIDEV",
+            Identification id7 = new(file2, "PEPTIDEV", "PEPTIDEV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
             // missing ID 8 - MBR feature
-            Identification id9 = new Identification(file2, "PEPTIDEVVV", "PEPTIDEVVV",
+            Identification id9 = new(file2, "PEPTIDEVVV", "PEPTIDEVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id10 = new Identification(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
+            Identification id10 = new(file2, "PEPTIDEVVVV", "PEPTIDEVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
+            FlashLfqEngine engine = new(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
 
             // run the engine
             var results = engine.Run();
@@ -327,7 +326,7 @@ namespace Test
             Assert.That(peak.Intensity == otherFilePeak.Intensity);
 
             Assert.That(results.Peaks[file1].Count == 5);
-            Assert.That(results.Peaks[file1].Where(p => p.IsMbrPeak).Count() == 0);
+            Assert.That(!results.Peaks[file1].Where(p => p.IsMbrPeak).Any());
 
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file1) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(file2) > 0);
@@ -366,16 +365,16 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+            SpectraFileInfo file1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
-            Identification id1 = new Identification(file1, peptide, peptide,
+            Identification id1 = new(file1, peptide, peptide,
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.7 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
@@ -420,16 +419,16 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+            SpectraFileInfo file1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            ProteinGroup pg = new("MyProtein", "gene", "org");
 
-            Identification id1 = new Identification(file1, peptide, peptide,
+            Identification id1 = new(file1, peptide, peptide,
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
@@ -480,16 +479,16 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+            SpectraFileInfo file1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            ProteinGroup pg = new("MyProtein", "gene", "org");
 
-            Identification id1 = new Identification(file1, peptide, peptide,
+            Identification id1 = new(file1, peptide, peptide,
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
@@ -540,16 +539,16 @@ namespace Test
                 Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+            SpectraFileInfo file1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
 
-            Identification id1 = new Identification(file1, peptide, peptide,
+            Identification id1 = new(file1, peptide, peptide,
                 new Proteomics.AminoAcidPolymer.Peptide(peptide).MonoisotopicMass, 1.3 + 0.001, 1, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
@@ -570,19 +569,24 @@ namespace Test
 
             var spectraFile = new SpectraFileInfo("myFullPath", "", 0, 0, 0);
             string spectraString = spectraFile.ToString();
+            Assert.IsNotEmpty(spectraString);
 
             var proteinGroup = new ProteinGroup("Accession", "Gene", "Organism");
             string pgString = proteinGroup.ToString(new List<SpectraFileInfo> { spectraFile });
+            Assert.IsNotEmpty(pgString);
 
             var identification = new Identification(
                 spectraFile, "PEPTIDE", "PEPTIDE", 1.0, 2.0, 3,
                 new List<ProteinGroup> { proteinGroup });
             string idString = identification.ToString();
+            Assert.IsNotEmpty(idString);
 
             var chromPeak = new ChromatographicPeak(identification, false, spectraFile);
             string chromPeakString = chromPeak.ToString();
+            Assert.IsNotEmpty(chromPeakString);
             chromPeak.CalculateIntensityForThisFeature(true);
             string peakAfterCalculatingIntensity = chromPeak.ToString();
+            Assert.IsNotEmpty(peakAfterCalculatingIntensity);
 
             var peptide = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup>());
             var peptideString = peptide.ToString(new List<SpectraFileInfo> { spectraFile });
@@ -600,7 +604,7 @@ namespace Test
         [Test]
         public static void TestNotFound()
         {
-            FlashLFQ.Peptide p = new FlashLFQ.Peptide("Seq", "SEQ", true, new HashSet<ProteinGroup>());
+            FlashLFQ.Peptide p = new("Seq", "SEQ", true, new HashSet<ProteinGroup>());
             var notFound = p.GetDetectionType(new SpectraFileInfo("", "", 0, 0, 0));
             Assert.That(notFound == DetectionType.NotDetected);
         }
@@ -609,15 +613,15 @@ namespace Test
         public static void TestAmbiguous()
         {
             // get the raw file paths
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo mzml = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id3 = new Identification(mzml, "EGFQVADGPLRY", "EGFQVADGPLRY", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            ProteinGroup pg = new("MyProtein", "gene", "org");
+            Identification id3 = new(mzml, "EGFQVADGPLRY", "EGFQVADGPLRY", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new(mzml, "EGFQVADGPLYR", "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id3, id4 });
+            FlashLfqEngine engine = new(new List<Identification> { id3, id4 });
 
             // run the engine
             var results = engine.Run();
@@ -641,8 +645,8 @@ namespace Test
         [Test]
         public static void TestMatchBetweenRunsWithNoIdsInCommon()
         {
-            List<string> filesToWrite = new List<string> { "mzml_1", "mzml_2" };
-            List<string> pepSequences = new List<string> { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV" };
+            List<string> filesToWrite = new() { "mzml_1", "mzml_2" };
+            List<string> pepSequences = new() { "PEPTIDE", "PEPTIDEV", "PEPTIDEVV", "PEPTIDEVVV", "PEPTIDEVVVV" };
             double intensity = 1e6;
 
             double[] file1Rt = new double[] { 1.01, 1.02, 1.03, 1.04, 1.05 };
@@ -684,35 +688,35 @@ namespace Test
             }
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
-            SpectraFileInfo file2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
+            SpectraFileInfo file1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[0] + ".mzML"), "a", 0, 0, 0);
+            SpectraFileInfo file2 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, filesToWrite[1] + ".mzML"), "a", 1, 0, 0);
 
             // create some PSMs
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            var myMbrProteinGroup = new ProteinGroup("MyMbrProtein", "MbrGene", "org");
+            ProteinGroup pg = new("MyProtein", "gene", "org");
+            ProteinGroup myMbrProteinGroup = new("MyMbrProtein", "MbrGene", "org");
 
-            Identification id1 = new Identification(file1, "PEPTIDE", "PEPTIDE",
+            Identification id1 = new(file1, "PEPTIDE", "PEPTIDE",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDE").MonoisotopicMass, file1Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(file1, "PEPTIDEV", "PEPTIDEV",
+            Identification id2 = new(file1, "PEPTIDEV", "PEPTIDEV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEV").MonoisotopicMass, file1Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(file1, "PEPTIDEVV", "PEPTIDEVV",
+            Identification id3 = new(file1, "PEPTIDEVV", "PEPTIDEVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVV").MonoisotopicMass, file1Rt[2] + 0.001, 1, new List<ProteinGroup> { myMbrProteinGroup });
-            Identification id4 = new Identification(file1, "PEPTIDEVVV", "PEPTIDEVVV",
+            Identification id4 = new(file1, "PEPTIDEVVV", "PEPTIDEVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVV").MonoisotopicMass, file1Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id5 = new Identification(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
+            Identification id5 = new(file1, "PEPTIDEVVVV", "PEPTIDEVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIDEVVVV").MonoisotopicMass, file1Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
-            Identification id6 = new Identification(file2, "PEPTIED", "PEPTIED",
+            Identification id6 = new(file2, "PEPTIED", "PEPTIED",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIED").MonoisotopicMass, file2Rt[0] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id7 = new Identification(file2, "PEPTIEDV", "PEPTIEDV",
+            Identification id7 = new(file2, "PEPTIEDV", "PEPTIEDV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDV").MonoisotopicMass, file2Rt[1] + 0.001, 1, new List<ProteinGroup> { pg });
             // missing ID 8 - MBR feature
-            Identification id9 = new Identification(file2, "PEPTIEDVVV", "PEPTIEDVVV",
+            Identification id9 = new(file2, "PEPTIEDVVV", "PEPTIEDVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVV").MonoisotopicMass, file2Rt[3] + 0.001, 1, new List<ProteinGroup> { pg });
-            Identification id10 = new Identification(file2, "PEPTIEDVVVV", "PEPTIEDVVVV",
+            Identification id10 = new(file2, "PEPTIEDVVVV", "PEPTIEDVVVV",
                 new Proteomics.AminoAcidPolymer.Peptide("PEPTIEDVVVV").MonoisotopicMass, file2Rt[4] + 0.001, 1, new List<ProteinGroup> { pg });
 
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
+            FlashLfqEngine engine = new(new List<Identification> { id1, id2, id3, id4, id5, id6, id7, id9, id10 }, matchBetweenRuns: true);
             var results = engine.Run();
 
             // no assertions - just don't crash
@@ -723,13 +727,14 @@ namespace Test
         {
             Loaders.LoadElements();
 
-            Residue x = new Residue("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
+            Residue heavyLysine = new("a", 'a', "a", Chemistry.ChemicalFormula.ParseFormula("C{13}6H12N{15}2O"), ModificationSites.All); //+8 lysine
             Residue lightLysine = Residue.GetResidue('K');
+            Assert.Greater(heavyLysine.MonoisotopicMass, lightLysine.MonoisotopicMass);
 
-            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", x.ThisChemicalFormula, ModificationSites.All) });
+            Residue.AddNewResiduesToDictionary(new List<Residue> { new Residue("heavyLysine", 'a', "a", heavyLysine.ThisChemicalFormula, ModificationSites.All) });
 
-            SpectraFileInfo fileInfo = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, @"SilacTest.mzML"), "", 0, 0, 0);
-            FlashLfqEngine engine = new FlashLfqEngine(
+            SpectraFileInfo fileInfo = new(Path.Combine(TestContext.CurrentContext.TestDirectory, @"SilacTest.mzML"), "", 0, 0, 0);
+            FlashLfqEngine engine = new(
                 new List<Identification>
                 {
                     new Identification(fileInfo,"RDILSSNNQHGILPLSWNIPELVNMGQWK","RDILSSNNQHGILPLSWNIPELVNM[Common Variable:Oxidation on M]GQWK",3374.7193792,98.814005,3,new List<FlashLFQ.ProteinGroup>{new FlashLFQ.ProteinGroup("P01027","C3","Mus") },null, true),
@@ -755,8 +760,8 @@ namespace Test
             // and compute the probability that the protein is changing between the conditions "a" and "b".
             // the intensities in condition "b" are about double that of condition "a", and the results
             // of the Bayesian estimation should reflect that.
-            ProteinGroup pg = new ProteinGroup("Accession", "Gene", "Organism");
-            var p = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
+            ProteinGroup pg = new("Accession", "Gene", "Organism");
+            var _ = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE", true, new HashSet<ProteinGroup> { pg });
 
             var files = new List<SpectraFileInfo>
             {
@@ -846,11 +851,11 @@ namespace Test
         {
             string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"PSMsForMbrTest.psmtsv");
 
-            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
+            SpectraFileInfo f1r1 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
 
-            List<Identification> ids = new List<Identification>();
-            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            List<Identification> ids = new();
+            Dictionary<string, ProteinGroup> allProteinGroups = new();
             foreach (string line in File.ReadAllLines(psmFile))
             {
                 var split = line.Split(new char[] { '\t' });
@@ -877,7 +882,7 @@ namespace Test
                 double rt = double.Parse(split[2]);
                 int z = (int)double.Parse(split[6]);
                 var proteins = split[24].Split(new char[] { '|' });
-                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                List<ProteinGroup> proteinGroups = new();
                 foreach (var protein in proteins)
                 {
                     if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
@@ -891,7 +896,7 @@ namespace Test
                     }
                 }
 
-                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
+                Identification id = new(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups);
                 ids.Add(id);
             }
 
@@ -909,7 +914,7 @@ namespace Test
 
             Assert.That(f1r2MbrResults.Count >= 77);
 
-            List<(double, double)> peptideIntensities = new List<(double, double)>();
+            List<(double, double)> peptideIntensities = new();
 
             foreach (var peptide in f1r1MbrResults)
             {
@@ -969,8 +974,8 @@ namespace Test
             double[] mz = dist.Masses.Select(v => v.ToMz(charge)).ToArray();
             double[] intensities = dist.Intensities.Select(v => v * 1e7).ToArray();
 
-            List<double> filteredMzs = new List<double>();
-            List<double> filteredIntensities = new List<double>();
+            List<double> filteredMzs = new();
+            List<double> filteredIntensities = new();
 
             for (int i = 0; i < mz.Length; i++)
             {
@@ -999,15 +1004,15 @@ namespace Test
             IO.MzML.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans), path, false);
 
             // set up spectra file info
-            SpectraFileInfo file1 = new SpectraFileInfo(path, "a", 0, 0, 0);
+            SpectraFileInfo file1 = new(path, "a", 0, 0, 0);
 
             // create the PSM
-            var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(file1, sequence, sequence,
+            ProteinGroup pg = new("MyProtein", "gene", "org");
+            Identification id1 = new(file1, sequence, sequence,
                 cf.MonoisotopicMass, scans[0].RetentionTime + 0.001, charge, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
-            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1 });
+            FlashLfqEngine engine = new(new List<Identification> { id1 });
 
             // run the engine
             var results = engine.Run();
@@ -1021,8 +1026,8 @@ namespace Test
         [Test]
         public static void TestUseSharedPeptidesForQuant()
         {
-            ProteinGroup pg1 = new ProteinGroup("Accession1", "Gene1", "Organism");
-            ProteinGroup pg2 = new ProteinGroup("Accession2", "Gene2", "Organism");
+            ProteinGroup pg1 = new("Accession1", "Gene1", "Organism");
+            ProteinGroup pg2 = new("Accession2", "Gene2", "Organism");
 
             var files = new List<SpectraFileInfo>
             {
@@ -1052,7 +1057,7 @@ namespace Test
         [Test]
         public static void TestIntensityDependentProteinQuant()
         {
-            List<double> diffAbundantFractions = new List<double> { 0.1 };
+            List<double> diffAbundantFractions = new() { 0.1 };
             int peptidesPerProtein = 4;
 
             foreach (var differentiallyAbundantFraction in diffAbundantFractions)
@@ -1061,9 +1066,9 @@ namespace Test
                 int numTotalProteins = 300;
                 int numDifferentiallyAbundant = (int)(numTotalProteins * differentiallyAbundantFraction);
 
-                Random randomSource = new Random(0);
-                List<ProteinGroup> pgs = new List<ProteinGroup>();
-                List<Identification> ids = new List<Identification>();
+                Random randomSource = new(0);
+                List<ProteinGroup> pgs = new();
+                List<Identification> ids = new();
 
                 var files = new List<SpectraFileInfo>
             {
@@ -1099,7 +1104,7 @@ namespace Test
 
                 // set intensity values
                 var differentiallyAbundantProteins = new HashSet<ProteinGroup>(pgs.Take(numDifferentiallyAbundant));
-                Normal n = new Normal(20, 5, randomSource);
+                Normal n = new(20, 5, randomSource);
 
                 foreach (var peptide in res.PeptideModifiedSequences)
                 {
@@ -1141,7 +1146,7 @@ namespace Test
                 }
 
                 // run the protein quant engine
-                ProteinQuantificationEngine engine = new ProteinQuantificationEngine(res, -1, "a", false, 0.1, 0, 1000, 1000, false);
+                ProteinQuantificationEngine engine = new(res, -1, "a", false, 0.1, 0, 1000, 1000, false);
                 engine.Run();
 
                 // test the quant engine results
@@ -1163,15 +1168,15 @@ namespace Test
         [Test]
         public static void TestAmbiguousFraction()
         {
-            SpectraFileInfo fraction1 = new SpectraFileInfo("", "", 0, 0, fraction: 0);
-            SpectraFileInfo fraction2 = new SpectraFileInfo("", "", 0, 0, fraction: 1);
-            Identification id1 = new Identification(fraction1, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
+            SpectraFileInfo fraction1 = new("", "", 0, 0, fraction: 0);
+            SpectraFileInfo fraction2 = new("", "", 0, 0, fraction: 1);
+            Identification id1 = new(fraction1, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
 
-            Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
-            Identification id3 = new Identification(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
+            Identification id2 = new(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
+            Identification id3 = new(fraction2, "peptide2", "peptide2", 0, 0, 0, new List<ProteinGroup>());
 
-            ChromatographicPeak peak1 = new ChromatographicPeak(id1, false, fraction1);
-            ChromatographicPeak peak2 = new ChromatographicPeak(id2, false, fraction1);
+            ChromatographicPeak peak1 = new(id1, false, fraction1);
+            ChromatographicPeak peak2 = new(id2, false, fraction1);
             peak2.Identifications.Add(id3);
 
             peak1.ResolveIdentifications();
@@ -1183,7 +1188,7 @@ namespace Test
             peak1.CalculateIntensityForThisFeature(false);
             peak2.CalculateIntensityForThisFeature(false);
 
-            FlashLfqResults res = new FlashLfqResults(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
+            FlashLfqResults res = new(new List<SpectraFileInfo> { fraction1, fraction2 }, new List<Identification> { id1, id2, id3 });
             res.Peaks[fraction1].Add(peak1);
             res.Peaks[fraction2].Add(peak2);
             res.CalculatePeptideResults();
@@ -1204,7 +1209,7 @@ namespace Test
         public static void TestMedianPolishProteinQuant()
         {
             // 2 groups, 2 samples each, 3 fractions per sample
-            List<SpectraFileInfo> spectraFileInfos = new List<SpectraFileInfo>
+            List<SpectraFileInfo> spectraFileInfos = new()
             {
                 new SpectraFileInfo("", "group1", 0, 0, 0),
                 new SpectraFileInfo("", "group1", 0, 0, 1),
@@ -1224,15 +1229,15 @@ namespace Test
             };
 
             // 2 proteins
-            ProteinGroup pg1 = new ProteinGroup("accession1", "gene1", "organism1");
-            ProteinGroup pg2 = new ProteinGroup("accession2", "gene2", "organism1");
+            ProteinGroup pg1 = new("accession1", "gene1", "organism1");
+            ProteinGroup pg2 = new("accession2", "gene2", "organism1");
 
             // 3 peptides, 1 peptide is shared b/w protein1 and protein2
-            FlashLFQ.Peptide pep1 = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE1", true, new HashSet<ProteinGroup> { pg1 });
-            FlashLFQ.Peptide pep2 = new FlashLFQ.Peptide("PEPTIDEE", "PEPTIDE2", true, new HashSet<ProteinGroup> { pg1 });
-            FlashLFQ.Peptide pep3 = new FlashLFQ.Peptide("PEPTIDEEE", "PEPTIDE3", true, new HashSet<ProteinGroup> { pg1, pg2 }); // shared peptide
+            FlashLFQ.Peptide pep1 = new("PEPTIDE", "PEPTIDE1", true, new HashSet<ProteinGroup> { pg1 });
+            FlashLFQ.Peptide pep2 = new("PEPTIDEE", "PEPTIDE2", true, new HashSet<ProteinGroup> { pg1 });
+            FlashLFQ.Peptide pep3 = new("PEPTIDEEE", "PEPTIDE3", true, new HashSet<ProteinGroup> { pg1, pg2 }); // shared peptide
 
-            FlashLfqResults res = new FlashLfqResults(spectraFileInfos, new List<Identification>());
+            FlashLfqResults res = new(spectraFileInfos, new List<Identification>());
             res.PeptideModifiedSequences.Add(pep1.Sequence, pep1);
             res.PeptideModifiedSequences.Add(pep2.Sequence, pep2);
             res.PeptideModifiedSequences.Add(pep3.Sequence, pep3);
@@ -1240,9 +1245,9 @@ namespace Test
             res.ProteinGroups.Add(pg1.ProteinGroupName, pg1);
             res.ProteinGroups.Add(pg2.ProteinGroupName, pg2);
 
-            Random r = new Random(1);
-            List<FlashLFQ.Peptide> peptides = new List<FlashLFQ.Peptide> { pep1, pep2, pep3 };
-            Normal randomIonizationEfficiencyGenerator = new Normal(20, 2, r);
+            Random r = new(1);
+            List<FlashLFQ.Peptide> peptides = new() { pep1, pep2, pep3 };
+            Normal randomIonizationEfficiencyGenerator = new(20, 2, r);
 
             // create peptide quantities
             foreach (var peptide in peptides)

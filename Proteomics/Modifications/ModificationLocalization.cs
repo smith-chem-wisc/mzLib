@@ -40,7 +40,7 @@ namespace Proteomics
             {
                 return false;
             }
-            
+
             // I guess Anywhere. and Unassigned. are true since how do you localize anywhere or unassigned.
 
             return true;
@@ -49,7 +49,8 @@ namespace Proteomics
         public static bool UniprotModExists(Protein protein, int i, Modification attemptToLocalize)
         {
             // uniprot mods with same mass takes precedence over variable mods
-            if (protein.OneBasedPossibleLocalizedModifications.TryGetValue(i, out List<Modification> modsAtThisLocation)) {
+            if (protein.OneBasedPossibleLocalizedModifications.TryGetValue(i, out List<Modification> modsAtThisLocation))
+            {
                 return modsAtThisLocation.Any(p => Math.Abs((double)(p.MonoisotopicMass - attemptToLocalize.MonoisotopicMass)) < 0.001 && p.ModificationType == "UniProt");
             }
 

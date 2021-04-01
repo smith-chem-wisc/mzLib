@@ -43,7 +43,7 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1)
         {
-            List<Protein> decoyProteins = new List<Protein>();
+            List<Protein> decoyProteins = new();
             Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
                 // reverse sequence
@@ -58,7 +58,7 @@ namespace UsefulProteomicsDatabases
                 {
                     Array.Reverse(sequenceArray);
                 }
-                string reversedSequence = new string(sequenceArray);
+                string reversedSequence = new(sequenceArray);
 
                 // reverse nonvariant sequence
                 // Do not include the initiator methionine in reversal!!!
@@ -71,7 +71,7 @@ namespace UsefulProteomicsDatabases
                 {
                     Array.Reverse(nonVariantSequenceArray);
                 }
-                string reversedNonVariantSequence = new string(nonVariantSequenceArray);
+                string reversedNonVariantSequence = new(nonVariantSequenceArray);
 
                 // reverse modifications
                 Dictionary<int, List<Modification>> decoyModifications = null;
@@ -100,7 +100,7 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // reverse proteolysis products
-                List<ProteolysisProduct> decoyPP = new List<ProteolysisProduct>();
+                List<ProteolysisProduct> decoyPP = new();
                 foreach (ProteolysisProduct pp in protein.ProteolysisProducts)
                 {
                     // maintain lengths and approx position
@@ -114,7 +114,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
+                List<DisulfideBond> decoyDisulfides = new();
                 foreach (DisulfideBond disulfideBond in protein.DisulfideBonds)
                 {
                     // maintain the cysteine localizations
@@ -129,7 +129,7 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // reverse splice sites
-                List<SpliceSite> spliceSites = new List<SpliceSite>();
+                List<SpliceSite> spliceSites = new();
                 foreach (SpliceSite spliceSite in protein.SpliceSites)
                 {
                     // maintain the starting methionine localization
@@ -184,11 +184,11 @@ namespace UsefulProteomicsDatabases
 
         private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, Protein protein, string reversedSequence)
         {
-            List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
+            List<SequenceVariation> decoyVariations = new();
             foreach (SequenceVariation sv in forwardVariants)
             {
                 // place reversed modifications (referencing variant sequence location)
-                Dictionary<int, List<Modification>> decoyVariantModifications = new Dictionary<int, List<Modification>>(sv.OneBasedModifications.Count);
+                Dictionary<int, List<Modification>> decoyVariantModifications = new(sv.OneBasedModifications.Count);
                 int variantSeqLength = protein.BaseSequence.Length + sv.VariantSequence.Length - sv.OriginalSequence.Length;
                 bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
                 bool stopGain = sv.VariantSequence.EndsWith("*");
@@ -223,8 +223,8 @@ namespace UsefulProteomicsDatabases
                 // reverse sequence variant
                 char[] originalArray = sv.OriginalSequence.ToArray();
                 char[] variationArray = sv.VariantSequence.ToArray();
-                int decoyEnd = protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == reversedSequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
-                int decoyBegin = decoyEnd - originalArray.Length + 1;
+                //int decoyEnd = protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == reversedSequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
+                //int decoyBegin = decoyEnd - originalArray.Length + 1;
                 Array.Reverse(originalArray);
                 Array.Reverse(variationArray);
 
@@ -278,21 +278,21 @@ namespace UsefulProteomicsDatabases
         /// <returns></returns>
         private static List<Protein> GenerateSlideDecoys(List<Protein> proteins, int maxThreads = -1)
         {
-            List<Protein> decoyProteins = new List<Protein>();
+            List<Protein> decoyProteins = new();
             Parallel.ForEach(proteins, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, protein =>
             {
                 int numSlides = 20;
                 char[] sequenceArrayUnslided = protein.BaseSequence.ToCharArray();
                 char[] sequenceArraySlided = protein.BaseSequence.ToCharArray();
 
-                List<DisulfideBond> decoy_disulfides_slide = new List<DisulfideBond>();
-                List<SpliceSite> spliceSitesSlide = new List<SpliceSite>();
+                List<DisulfideBond> decoy_disulfides_slide = new();
+                List<SpliceSite> spliceSitesSlide = new();
                 bool initMet = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
                 Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein);
 
                 var slided_sequence = new string(sequenceArraySlided);
 
-                List<ProteolysisProduct> decoyPPSlide = new List<ProteolysisProduct>();
+                List<ProteolysisProduct> decoyPPSlide = new();
                 foreach (ProteolysisProduct pp in protein.ProteolysisProducts)  //can't keep all aa like you can with reverse, just keep it the same length
                 {
                     decoyPPSlide.Add(pp);
@@ -310,12 +310,12 @@ namespace UsefulProteomicsDatabases
                 //Variants in slided and random decoys can have long reaching consequences.
                 //The simplest situation (SAAV) allows for the amino acid to be substituted, but others (e.g. splicing or insertions) create new numbers or combinations of amino acids.
                 //In these more complex situations, the two targets (unmodified and variant) appear largely homologous with the exception of the variant site.
-                //However, the two decoys from these targets are noticeably different when the amino acids are randomized, 
+                //However, the two decoys from these targets are noticeably different when the amino acids are randomized,
                 //such that the number of unique decoy peptides produced are likely to outweight the number of unique target peptides produced.
                 //These issues still need to be addressed. Notably, it will be difficult to annotate the randomized variant in the decoy protein.
 
                 //for the below code, the SAAVs will be switched in place. The downstream effects are not controlled.
-                List<SequenceVariation> decoyVariationsSlide = new List<SequenceVariation>();
+                List<SequenceVariation> decoyVariationsSlide = new();
                 foreach (SequenceVariation sv in protein.SequenceVariations)
                 {
                     int numSlidesHere = numSlides;
@@ -361,7 +361,7 @@ namespace UsefulProteomicsDatabases
             return decoyProteins;
         }
 
-        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
+        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods(char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
         {
             // Do not include the initiator methionine in shuffle!!!
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -374,7 +374,7 @@ namespace UsefulProteomicsDatabases
                 sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, protein.BaseSequence.Length, initiatorMethionine)];
             }
 
-            Dictionary<int, List<Modification>> decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
+            Dictionary<int, List<Modification>> decoyModifications = new(protein.OneBasedPossibleLocalizedModifications.Count);
             foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
             {
                 if (initiatorMethionine && kvp.Key == 1)
@@ -383,13 +383,12 @@ namespace UsefulProteomicsDatabases
                 }
                 else
                 {
-                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, protein.BaseSequence.Length, initiatorMethionine)+1, kvp.Value);
+                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key - 1, numSlides, protein.BaseSequence.Length, initiatorMethionine) + 1, kvp.Value);
                 }
             }
 
             return decoyModifications;
         }
-
 
         /// <summary>
         /// Given a new index, i, return the index of the amino acid from the unslided array
@@ -450,7 +449,6 @@ namespace UsefulProteomicsDatabases
                 return i;
             }
         }
-
 
         /// <summary>
         /// Given an old index, i, return the index of the amino acid from the slided array

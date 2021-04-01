@@ -9,7 +9,7 @@ namespace UsefulProteomicsDatabases
 {
     public class ProteinXmlEntry
     {
-        private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
+        private static readonly Regex SubstituteWhitespace = new(@"\s+");
 
         public string Accession { get; private set; }
         public string Name { get; private set; }
@@ -24,25 +24,25 @@ namespace UsefulProteomicsDatabases
         public string VariationValue { get; private set; } = "";
         public string DBReferenceType { get; private set; }
         public string DBReferenceId { get; private set; }
-        public List<string> PropertyTypes { get; private set; } = new List<string>();
-        public List<string> PropertyValues { get; private set; } = new List<string>();
+        public List<string> PropertyTypes { get; private set; } = new();
+        public List<string> PropertyValues { get; private set; } = new();
         public int OneBasedFeaturePosition { get; private set; } = -1;
         public int OneBasedFeatureSubPosition { get; private set; } = -1;
         public int? OneBasedBeginPosition { get; private set; }
         public int? OneBasedEndPosition { get; private set; }
-        public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new List<ProteolysisProduct>();
-        public List<SequenceVariation> SequenceVariations { get; private set; } = new List<SequenceVariation>();
-        public List<DisulfideBond> DisulfideBonds { get; private set; } = new List<DisulfideBond>();
-        public List<SpliceSite> SpliceSites { get; private set; } = new List<SpliceSite>();
-        public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new Dictionary<int, List<Modification>>();
-        public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new Dictionary<int, List<Modification>>();
-        public List<Tuple<string, string>> GeneNames { get; private set; } = new List<Tuple<string, string>>();
-        public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
+        public List<ProteolysisProduct> ProteolysisProducts { get; private set; } = new();
+        public List<SequenceVariation> SequenceVariations { get; private set; } = new();
+        public List<DisulfideBond> DisulfideBonds { get; private set; } = new();
+        public List<SpliceSite> SpliceSites { get; private set; } = new();
+        public Dictionary<int, List<Modification>> OneBasedModifications { get; private set; } = new();
+        public Dictionary<int, List<Modification>> OneBasedVariantModifications { get; private set; } = new();
+        public List<Tuple<string, string>> GeneNames { get; private set; } = new();
+        public List<DatabaseReference> DatabaseReferences { get; private set; } = new();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
 
-        private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
-        private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
+        private List<(int position, string originalModificationID)> AnnotatedMods = new();
+        private List<(int position, string originalModificationID)> AnnotatedVariantMods = new();
 
         /// <summary>
         /// Start parsing a protein XML element

@@ -29,7 +29,7 @@ namespace MassSpectrometry
 
         public override List<MsDataScan> GetAllScansList()
         {
-            List<MsDataScan> allScans = new List<MsDataScan>();
+            List<MsDataScan> allScans = new();
             for (int scanNumber = 1; scanNumber <= Scans.Length; scanNumber++)
             {
                 allScans.Add(GetOneBasedScan(scanNumber));
@@ -68,7 +68,7 @@ namespace MassSpectrometry
 
         private static MzSpectrum CombinePeaks(List<MzSpectrum> spectraToCombine, double ppmTolerance)
         {
-            List<MzPeak> finalizedPeaks = new List<MzPeak>();
+            List<MzPeak> finalizedPeaks = new();
 
             int[] peaksLeft = spectraToCombine.Select(b => b.Size).ToArray();
             int[] totalPeaks = spectraToCombine.Select(b => b.Size).ToArray();
@@ -77,7 +77,7 @@ namespace MassSpectrometry
 
             double nextMz = nextPeakMzs.Min();
             int indexOfNextScanToConsider = Array.IndexOf(nextPeakMzs, nextMz);
-            GeneratedPeak lastPeak = new GeneratedPeak(nextMz, nextPeaksIntensites[indexOfNextScanToConsider]);
+            GeneratedPeak lastPeak = new(nextMz, nextPeaksIntensites[indexOfNextScanToConsider]);
 
             do
             {

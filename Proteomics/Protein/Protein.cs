@@ -1,5 +1,4 @@
-﻿using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
+﻿using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
@@ -153,8 +152,10 @@ namespace Proteomics
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
+
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
         public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
+
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
 
@@ -228,18 +229,18 @@ namespace Proteomics
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
-        {            
+        {
             //can't be null
-            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>(); 
+            allKnownFixedModifications ??= new List<Modification>();
             // add in any modifications that are caused by protease digestion
-            if (digestionParams.Protease.CleavageMod!= null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
+            if (digestionParams.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
             {
-                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);                
-            }                      
-            variableModifications = variableModifications ?? new List<Modification>();
+                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);
+            }
+            variableModifications ??= new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
-            ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
+            ProteinDigestion digestion = new(digestionParams, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
@@ -258,8 +259,8 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-               return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
-            }           
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+            }
 
             return modifiedPeptides;
         }
@@ -280,7 +281,7 @@ namespace Proteomics
                 }
             }
         }
-       
+
         /// <summary>
         /// Add additional peptides with SILAC amino acids
         /// </summary>
@@ -330,14 +331,14 @@ namespace Proteomics
 
                     //modify the end label amino acids to recognize the new "original" amino acid
                     //get the residues that were changed
-                    List<SilacLabel> originalLabels = new List<SilacLabel> { startLabel };
+                    List<SilacLabel> originalLabels = new() { startLabel };
                     if (startLabel.AdditionalLabels != null)
                     {
                         originalLabels.AddRange(startLabel.AdditionalLabels);
                     }
                     SilacLabel startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == endLabel.OriginalAminoAcid).FirstOrDefault();
-                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ? 
-                        endLabel : 
+                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ?
+                        endLabel :
                         new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, endLabel.AminoAcidLabel, endLabel.LabelChemicalFormula, endLabel.ConvertMassDifferenceToDouble());
                     if (endLabel.AdditionalLabels != null)
                     {
@@ -352,12 +353,12 @@ namespace Proteomics
                     }
 
                     //double check that all labeled amino acids can become unlabeled/relabeled
-                    if(startLabel.AdditionalLabels!=null)
+                    if (startLabel.AdditionalLabels != null)
                     {
-                        foreach(SilacLabel originalLabel in originalLabels)
+                        foreach (SilacLabel originalLabel in originalLabels)
                         {
-                            if(updatedEndLabel.OriginalAminoAcid!= originalLabel.AminoAcidLabel && 
-                                (updatedEndLabel.AdditionalLabels==null || !updatedEndLabel.AdditionalLabels.Any(x=>x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
+                            if (updatedEndLabel.OriginalAminoAcid != originalLabel.AminoAcidLabel &&
+                                (updatedEndLabel.AdditionalLabels == null || !updatedEndLabel.AdditionalLabels.Any(x => x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
                             {
                                 updatedEndLabel.AddAdditionalSilacLabel(new SilacLabel(originalLabel.AminoAcidLabel, originalLabel.OriginalAminoAcid, originalLabel.LabelChemicalFormula, originalLabel.ConvertMassDifferenceToDouble()));
                             }
@@ -377,7 +378,7 @@ namespace Proteomics
 
                 Protein silacEndProtein = GenerateFullyLabeledSilacProtein(label);
 
-                //add all peptides containing any label (may also contain unlabeled) 
+                //add all peptides containing any label (may also contain unlabeled)
                 if (label.AdditionalLabels == null) //if there's only one (which is common)
                 {
                     //get the residues to change
@@ -389,7 +390,7 @@ namespace Proteomics
                     {
                         //find the indexes in the base sequence for labeling
                         char[] baseSequenceArray = pwsm.BaseSequence.ToArray();
-                        List<int> indexesOfResiduesToBeLabeled = new List<int>();
+                        List<int> indexesOfResiduesToBeLabeled = new();
                         for (int c = 0; c < baseSequenceArray.Length; c++)
                         {
                             if (baseSequenceArray[c] == originalResidue)
@@ -400,17 +401,17 @@ namespace Proteomics
                         //if there's something to label
                         if (indexesOfResiduesToBeLabeled.Count != 0)
                         {
-                            List<PeptideWithSetModifications> pwsmsForCombinatorics = new List<PeptideWithSetModifications> { pwsm };
+                            List<PeptideWithSetModifications> pwsmsForCombinatorics = new() { pwsm };
                             for (int a = 0; a < indexesOfResiduesToBeLabeled.Count; a++)
                             {
-                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new List<PeptideWithSetModifications>();
+                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new();
                                 foreach (PeptideWithSetModifications pwsmCombination in pwsmsForCombinatorics)
                                 {
                                     char[] combinatoricBaseSequenceArray = pwsmCombination.BaseSequence.ToArray();
                                     combinatoricBaseSequenceArray[indexesOfResiduesToBeLabeled[a]] = labeledResidue;
                                     string updatedBaseSequence = string.Concat(combinatoricBaseSequenceArray);
 
-                                    PeptideWithSetModifications labeledPwsm = new PeptideWithSetModifications(silacEndProtein, pwsm.DigestionParams,
+                                    PeptideWithSetModifications labeledPwsm = new(silacEndProtein, pwsm.DigestionParams,
                                         pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory,
                                         pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods, updatedBaseSequence);
                                     yield return labeledPwsm; //return
@@ -439,7 +440,7 @@ namespace Proteomics
                     {
                         //find the indexes in the base sequence for labeling
                         char[] baseSequenceArray = pwsm.BaseSequence.ToArray();
-                        Dictionary<int, char> indexesOfResiduesToBeLabeled = new Dictionary<int, char>();
+                        Dictionary<int, char> indexesOfResiduesToBeLabeled = new();
                         for (int peptideResidueIndex = 0; peptideResidueIndex < baseSequenceArray.Length; peptideResidueIndex++)
                         {
                             for (int silacResidue = 0; silacResidue < originalResidues.Length; silacResidue++)
@@ -453,17 +454,17 @@ namespace Proteomics
                         //if there's something to label
                         if (indexesOfResiduesToBeLabeled.Count != 0)
                         {
-                            List<PeptideWithSetModifications> pwsmsForCombinatorics = new List<PeptideWithSetModifications> { pwsm };
+                            List<PeptideWithSetModifications> pwsmsForCombinatorics = new() { pwsm };
                             foreach (KeyValuePair<int, char> kvp in indexesOfResiduesToBeLabeled)
                             {
-                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new List<PeptideWithSetModifications>();
+                                List<PeptideWithSetModifications> localPwsmsForCombinatorics = new();
                                 foreach (PeptideWithSetModifications pwsmCombination in pwsmsForCombinatorics)
                                 {
                                     char[] combinatoricBaseSequenceArray = pwsmCombination.BaseSequence.ToArray();
                                     combinatoricBaseSequenceArray[kvp.Key] = kvp.Value;
                                     string updatedBaseSequence = string.Concat(combinatoricBaseSequenceArray);
 
-                                    PeptideWithSetModifications labeledPwsm = new PeptideWithSetModifications(silacEndProtein, pwsm.DigestionParams,
+                                    PeptideWithSetModifications labeledPwsm = new(silacEndProtein, pwsm.DigestionParams,
                                         pwsm.OneBasedStartResidueInProtein, pwsm.OneBasedEndResidueInProtein, pwsm.CleavageSpecificityForFdrCategory,
                                         pwsm.PeptideDescription, pwsm.MissedCleavages, pwsm.AllModsOneIsNterminus, pwsm.NumFixedMods, updatedBaseSequence);
                                     yield return labeledPwsm; //return
@@ -516,10 +517,10 @@ namespace Proteomics
         /// <returns></returns>
         private IDictionary<int, List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> dict)
         {
-            Dictionary<int, List<Modification>> validModDictionary = new Dictionary<int, List<Modification>>();
+            Dictionary<int, List<Modification>> validModDictionary = new();
             foreach (KeyValuePair<int, List<Modification>> entry in dict)
             {
-                List<Modification> validMods = new List<Modification>();
+                List<Modification> validMods = new();
                 foreach (Modification m in entry.Value)
                 {
                     //mod must be valid mod and the motif of the mod must be present in the protein at the specified location
@@ -546,7 +547,7 @@ namespace Proteomics
 
         private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
         {
-            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
+            bool emptyVars = appliedVariations == null || !appliedVariations.Any();
             if (name == null && emptyVars)
             {
                 return null;

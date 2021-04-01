@@ -20,7 +20,7 @@ namespace UsefulProteomicsDatabases
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
             List<Protein> proteinList, string outputFileName)
         {
-            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            additionalModsToAddToProteins ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
             List<Protein> nonVariantProteins = proteinList.Select(p => p.NonVariantProtein).Distinct().ToList();
@@ -31,14 +31,14 @@ namespace UsefulProteomicsDatabases
                 IndentChars = "  "
             };
 
-            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
+            Dictionary<string, int> newModResEntries = new();
 
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                List<Modification> myModificationList = new List<Modification>();
+                List<Modification> myModificationList = new();
                 foreach (Protein p in nonVariantProteins)
                 {
                     foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
@@ -47,7 +47,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                HashSet<Modification> allRelevantModifications = new(
                     nonVariantProteins.SelectMany(p => p.SequenceVariations.SelectMany(sv => sv.OneBasedModifications).Concat(p.OneBasedPossibleLocalizedModifications).SelectMany(kv => kv.Value))
                     .Concat(additionalModsToAddToProteins.Where(kv => nonVariantProteins.SelectMany(p => p.SequenceVariations.Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession })).Contains(kv.Key)).SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
@@ -259,14 +259,12 @@ namespace UsefulProteomicsDatabases
 
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
-            using (StreamWriter writer = new StreamWriter(outputFileName))
+            using StreamWriter writer = new(outputFileName);
+            foreach (Protein protein in proteinList)
             {
-                foreach (Protein protein in proteinList)
-                {
-                    string header = delimeter == " " ? protein.GetEnsemblFastaHeader() : protein.GetUniProtFastaHeader();
-                    writer.WriteLine(">" + header);
-                    writer.WriteLine(protein.BaseSequence);
-                }
+                string header = delimeter == " " ? protein.GetEnsemblFastaHeader() : protein.GetUniProtFastaHeader();
+                writer.WriteLine(">" + header);
+                writer.WriteLine(protein.BaseSequence);
             }
         }
 
@@ -293,7 +291,7 @@ namespace UsefulProteomicsDatabases
                 {
                     int additionalModResidueIndex = ye.Item1;
                     string additionalModId = ye.Item2.IdWithMotif;
-                    bool modAdded = false;
+                    bool modAdded;
 
                     // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
                     if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))

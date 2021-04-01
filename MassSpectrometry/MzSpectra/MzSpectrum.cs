@@ -21,7 +21,6 @@ using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -60,7 +59,7 @@ namespace MassSpectrometry
             {
                 double averagineMultiplier = (i + 1) / 2.0;
                 //Console.Write("numAveragines = " + numAveragines);
-                ChemicalFormula chemicalFormula = new ChemicalFormula();
+                ChemicalFormula chemicalFormula = new();
                 chemicalFormula.Add("C", Convert.ToInt32(averageC * averagineMultiplier));
                 chemicalFormula.Add("H", Convert.ToInt32(averageH * averagineMultiplier));
                 chemicalFormula.Add("O", Convert.ToInt32(averageO * averagineMultiplier));
@@ -253,11 +252,11 @@ namespace MassSpectrometry
 
             var isolatedMassesAndCharges = new List<IsotopicEnvelope>();
 
-            (int start, int end) indexes = ExtractIndices(theRange.Minimum, theRange.Maximum);
+            (int indexStart, int indexEnd) = ExtractIndices(theRange.Minimum, theRange.Maximum);
 
             //find the most intense peak in the range
             double maxIntensity = 0;
-            for (int index = indexes.start; index < indexes.end; index++)
+            for (int index = indexStart; index < indexEnd; index++)
             {
                 if (YArray[index] > maxIntensity)
                 {
@@ -267,7 +266,7 @@ namespace MassSpectrometry
 
             //go through each peak in the selected range and assume it is the most intense peak of its isotopic envelope (if it's not, it will hopefully get a low score)
             //cycle through possible charge states and select the one that has the best score (fit) with the averagine model
-            for (int candidateForMostIntensePeakIndex = indexes.start; candidateForMostIntensePeakIndex < indexes.end; candidateForMostIntensePeakIndex++)
+            for (int candidateForMostIntensePeakIndex = indexStart; candidateForMostIntensePeakIndex < indexEnd; candidateForMostIntensePeakIndex++)
             {
                 double candidateForMostIntensePeakIntensity = YArray[candidateForMostIntensePeakIndex];
                 if (candidateForMostIntensePeakIntensity * 100 >= maxIntensity) //ignore peptides that are over 100 times less intense than the most intense peak in the range (heuristic from Top-Down yeast)
@@ -277,7 +276,7 @@ namespace MassSpectrometry
                     double candidateForMostIntensePeakMz = XArray[candidateForMostIntensePeakIndex];
 
                     //Find what charge states this peak might be based on the spacing of nearby peaks (assumes isotopic resolution)
-                    HashSet<int> allPossibleChargeStates = new HashSet<int>();
+                    HashSet<int> allPossibleChargeStates = new();
                     for (int i = candidateForMostIntensePeakIndex + 1; i < XArray.Length; i++) //look at peaks of higher m/z
                     {
                         double deltaMass = XArray[i] - candidateForMostIntensePeakMz;
@@ -324,7 +323,7 @@ namespace MassSpectrometry
                         }
 
                         //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass and is populated in "FindIsotopicEnvelope"
-                        List<double> monoisotopicMassPredictions = new List<double>(); 
+                        List<double> monoisotopicMassPredictions = new();
 
                         //Look for other isotopes using the assumed charge state
                         IsotopicEnvelope putativeIsotopicEnvelope = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
@@ -352,7 +351,7 @@ namespace MassSpectrometry
                 }
             }
 
-            HashSet<double> seen = new HashSet<double>();
+            HashSet<double> seen = new();
             foreach (var ok in isolatedMassesAndCharges.OrderByDescending(b => b.Score))
             {
                 if (seen.Overlaps(ok.Peaks.Select(b => b.mz)))
@@ -518,7 +517,7 @@ namespace MassSpectrometry
 
             //we've already filtered for when multiple mzs appear in a single nominal mass bin
             int nominalWindowWidthDaltons = (int)(Math.Round((scanRangeMaxMz - scanRangeMinMz) / 10d, 0));
-            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null, true, false, false);
+            FilteringParams secondFilter = new(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null, true, false, false);
 
             MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), true);
 
@@ -553,10 +552,10 @@ namespace MassSpectrometry
 
             genericIntensityArray = scaledIntensities;
 
-            List<double> intensites = new List<double>();
-            List<double> masses = new List<double>();
+            List<double> intensites = new();
+            List<double> masses = new();
 
-            for (int i = 0; i < genericIntensityArray.Count(); i++)
+            for (int i = 0; i < genericIntensityArray.Length; i++)
             {
                 if (genericIntensityArray[i] > 0.0001)
                 {
@@ -731,8 +730,8 @@ namespace MassSpectrometry
             double[] intensity2 = spectrumToCompare.YArray;
 
             //convert spectra to vectors
-            List<double> vector1 = new List<double>();
-            List<double> vector2 = new List<double>();
+            List<double> vector1 = new();
+            List<double> vector2 = new();
             int i = 0; //iterate through mz1
             int j = 0; //iterate through mz2
 
@@ -787,15 +786,11 @@ namespace MassSpectrometry
             return numerator / denominator;
         }
 
-        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
+        private static bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
         {
             var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
-
-            if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
-            {
-                return false;
-            }
-            return true;
+            bool fails = peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio;
+            return !fails;
         }
 
         private MzPeak GetPeak(int index)

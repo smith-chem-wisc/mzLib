@@ -35,7 +35,8 @@ namespace Test
         public void ReadXmlNulls()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None,
-                null, false, null, out Dictionary<string, Modification> un);
+                null, false, null, out var _);
+            Assert.AreEqual(2, ok.Count);
         }
 
         [Test]
@@ -127,7 +128,7 @@ namespace Test
         [Test]
         public static void FastaTest()
         {
-            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out var a,
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.Reverse, false, out _,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
             ProteinDbWriter.WriteFastaDatabase(prots, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.fasta"), "|");
@@ -136,7 +137,7 @@ namespace Test
                 true,
                 DecoyType.None,
                 false,
-                out var un,
+                out var _,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
 
@@ -201,7 +202,7 @@ namespace Test
         [Test]
         public void Test_accession_regex_weird()
         {
-            FastaHeaderFieldRegex bad = new FastaHeaderFieldRegex("", @"/()/", 0, 1);
+            FastaHeaderFieldRegex bad = new("", @"/()/", 0, 1);
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false, out var a,
                 bad, bad, bad, bad, bad);
             ProteinDbWriter.WriteFastaDatabase(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_test_ensembl.pep.all.fasta"), " ");
@@ -229,11 +230,11 @@ namespace Test
             };
 
             ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
-            Modification m = new Modification("mod", null, "mt", null, motif, "Anywhere.", null, 1, null, null, null, new Dictionary<DissociationType, List<double>>() { { DissociationType.AnyActivationType, new List<double> { -1 } } }, null, null);
+            Modification m = new("mod", null, "mt", null, motif, "Anywhere.", null, 1, null, null, null, new Dictionary<DissociationType, List<double>>() { { DissociationType.AnyActivationType, new List<double> { -1 } } }, null, null);
 
-            Dictionary<string, HashSet<Tuple<int, Modification>>> new_mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>
+            Dictionary<string, HashSet<Tuple<int, Modification>>> new_mods = new()
             {
-                {  "P53863", new HashSet<Tuple<int, Modification>> {new Tuple<int, Modification>(2, m ) } }
+                { "P53863", new HashSet<Tuple<int, Modification>> { new Tuple<int, Modification>(2, m) } }
             };
 
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
@@ -256,15 +257,12 @@ namespace Test
         [Test]
         public void AnotherTest()
         {
-            List<Modification> variableModifications = new List<Modification>();
-            List<Modification> fixedModifications = new List<Modification>();
-
             // Generate data for files
-            Protein ParentProtein = new Protein("MPEPTIDEKANTHE", "accession1", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null,
+            Protein ParentProtein = new("MPEPTIDEKANTHE", "accession1", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null,
                 "name1", "fullname1", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
-            List<ProteolysisProduct> pp = new List<ProteolysisProduct> { new ProteolysisProduct(4, 8, "chain") };
-            Protein proteinWithChain = new Protein("MAACNNNCAA", "accession3", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), pp,
+            List<ProteolysisProduct> pp = new() { new ProteolysisProduct(4, 8, "chain") };
+            Protein proteinWithChain = new("MAACNNNCAA", "accession3", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), pp,
                 "name2", "fullname2", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { ParentProtein, proteinWithChain }, Path.Combine(TestContext.CurrentContext.TestDirectory, @"fdsfsd.xml"));
@@ -273,9 +271,9 @@ namespace Test
         [Test]
         public void TestEmptyProteins()
         {
-            Protein p1 = new Protein("SEQENCE", "p1");
+            Protein p1 = new("SEQENCE", "p1");
             Assert.AreEqual("p1||", p1.FullDescription);
-            Protein p2 = new Protein("SEQENCE", "p2", name: "namep2");
+            Protein p2 = new("SEQENCE", "p2", name: "namep2");
 
             var proteinListToWrite = new List<Protein> { p1, p2 };
 
@@ -285,7 +283,7 @@ namespace Test
             IEnumerable<string> modTypesToExclude = new List<string>();
             IEnumerable<Modification> allKnownModifications = new List<Modification>();
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"differentlyConstuctedProteins.xml"), true, DecoyType.None,
-                allKnownModifications, false, modTypesToExclude, out Dictionary<string, Modification> un);
+                allKnownModifications, false, modTypesToExclude, out Dictionary<string, Modification> _);
             Assert.AreEqual(p1.Accession, ok[0].Accession);
             Assert.AreEqual(p2.Accession, ok[1].Accession);
             Assert.AreEqual(p1.Name, ok[0].Name);
@@ -295,34 +293,39 @@ namespace Test
         [Test]
         public void TestFullProteinReadWrite()
         {
-            Modification mod = new Modification("mod1", null, "modType1", null, null, null, null, null, null, null, null, null, null, null);
+            Modification mod = new("mod1", null, "modType1", null, null, null, null, null, null, null, null, null, null, null);
             ModificationMotif.TryGetMotif("E", out ModificationMotif motif);
-            Modification mod2 = new Modification("mod2 on E", null, "modType1", null, motif, "Anywhere.", null, null, null, null, null, null, null, null);
+            Modification mod2 = new("mod2 on E", null, "modType1", null, motif, "Anywhere.", null, null, null, null, null, null, null, null);
             ModificationMotif.TryGetMotif("N", out ModificationMotif motif3);
-            Modification mod3 = new Modification("mod3 on N", null, "modType1", null, motif3, "Anywhere.", null, 10, null, null, null, null, null, null);
+            Modification mod3 = new("mod3 on N", null, "modType1", null, motif3, "Anywhere.", null, 10, null, null, null, null, null, null);
 
-            List<Tuple<string, string>> gene_names = new List<Tuple<string, string>> { new Tuple<string, string>("a", "b") };
+            List<Tuple<string, string>> gene_names = new() { new Tuple<string, string>("a", "b") };
             IDictionary<int, List<Modification>> oneBasedModifications = new Dictionary<int, List<Modification>>
             {
                 {3, new List<Modification>{mod} },
                 {4, new List<Modification>{mod2} },
                 {5, new List<Modification>{mod3} }
             };
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "propeptide") };
+            List<ProteolysisProduct> proteolysisProducts = new() { new ProteolysisProduct(1, 2, "propeptide") };
 
             string name = "testName";
 
             string full_name = "testFullName";
 
-            List<DatabaseReference> databaseReferences = new List<DatabaseReference> {
-                new DatabaseReference("type1", "id1", new List<Tuple<string, string>> { new Tuple<string, string>("e1", "e2") }) };
+            List<DatabaseReference> databaseReferences = new()
+            {
+                new DatabaseReference("type1", "id1", new List<Tuple<string, string>> { new Tuple<string, string>("e1", "e2") })
+            };
 
-            List<SequenceVariation> sequenceVariations = new List<SequenceVariation> { new SequenceVariation(3,"Q", "N", "replace Q by N"),
-            new SequenceVariation(3,4,"QE", "NN", "replace QE by NN")};
+            List<SequenceVariation> sequenceVariations = new()
+            {
+                new SequenceVariation(3, "Q", "N", "replace Q by N"),
+                new SequenceVariation(3, 4, "QE", "NN", "replace QE by NN")
+            };
 
-            List<DisulfideBond> disulfideBonds = new List<DisulfideBond> { new DisulfideBond(1, "ds1"), new DisulfideBond(2, 3, "ds2") };
+            List<DisulfideBond> disulfideBonds = new() { new DisulfideBond(1, "ds1"), new DisulfideBond(2, 3, "ds2") };
 
-            Protein p1 = new Protein(
+            Protein p1 = new(
                 "SEQENCE",
                 "a1",
                 geneNames: gene_names,
@@ -344,7 +347,7 @@ namespace Test
             IEnumerable<string> modTypesToExclude = new List<string>();
             IEnumerable<Modification> allKnownModifications = new List<Modification>();
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bnueiwhf.xml"), true, DecoyType.None,
-                allKnownModifications, true, modTypesToExclude, out Dictionary<string, Modification> unknownModifications);
+                allKnownModifications, true, modTypesToExclude, out Dictionary<string, Modification> _);
             Assert.AreEqual(p1.Accession, ok[0].Accession);
             Assert.AreEqual(p1.BaseSequence, ok[0].BaseSequence);
             Assert.AreEqual(p1.DatabaseReferences.First().Id, ok[0].DatabaseReferences.First().Id);
@@ -399,10 +402,10 @@ namespace Test
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.None,
-                nice, false, null, out Dictionary<string, Modification> un);
+                nice, false, null, out var _);
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml.xml"));
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml.xml"), true, DecoyType.None,
-                nice, false, new List<string>(), out un);
+                nice, false, new List<string>(), out _);
 
             Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
@@ -422,10 +425,10 @@ namespace Test
             };
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"seqvartests.xml"), true, DecoyType.None,
-                nice, false, new List<string>(), out Dictionary<string, Modification> un);
+                nice, false, new List<string>(), out var _);
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_seqvartests.xml"));
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_seqvartests.xml"), true, DecoyType.None,
-                nice, false, new List<string>(), out un);
+                nice, false, new List<string>(), out _);
 
             Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
@@ -438,7 +441,7 @@ namespace Test
         [Test]
         public void TestModificationGeneralToString()
         {
-            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out _).ToList();
             char[] myChar = { '"' };
             string output = a.First().ToString();
             Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate on E\r\nMT   Biological\r\nTG   E\r\nPP   Anywhere.\r\nCF   CO2\r\nMM   43.989829\r\n");
@@ -447,8 +450,8 @@ namespace Test
         [Test]
         public void TestModificationGeneral_Equals()
         {
-            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out errors).ToList();
+            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out _).ToList();
+            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out _).ToList();
 
             Assert.IsTrue(a.First().Equals(b.First()));
         }
@@ -459,27 +462,27 @@ namespace Test
             ModificationMotif.TryGetMotif("K", out ModificationMotif K);
             ModificationMotif.TryGetMotif("R", out ModificationMotif R);
 
-            Modification acOnK = new Modification(_originalId: "Acetyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: K, _monoisotopicMass: 42);
-            Modification meOnK = new Modification(_originalId: "Methyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: K, _monoisotopicMass: 14);
-            Modification meOnR = new Modification(_originalId: "Methyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: R, _monoisotopicMass: 14);
+            Modification acOnK = new(_originalId: "Acetyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: K, _monoisotopicMass: 42);
+            Modification meOnK = new(_originalId: "Methyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: K, _monoisotopicMass: 14);
+            Modification meOnR = new(_originalId: "Methyl", _accession: null, _modificationType: "testModType", _featureType: null, _locationRestriction: "Anywhere.", _target: R, _monoisotopicMass: 14);
 
-            Dictionary<int, List<Modification>> obm = new Dictionary<int, List<Modification>>
+            Dictionary<int, List<Modification>> obm = new()
             {
                 { 1, new List<Modification>() { acOnK } },
                 { 2, new List<Modification>() { meOnK } },
                 { 3, new List<Modification>() { meOnR } }
             };
 
-            Protein p = new Protein("KKR", "accession", null, null, obm, null, null, null, false, false, null, null, null, null);
-            List<Protein> pList = new List<Protein>() { p };
+            Protein p = new("KKR", "accession", null, null, obm, null, null, null, false, false, null, null, null, null);
+            List<Protein> pList = new() { p };
 
             string outputFileName = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"redundant.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), pList, outputFileName);
 
             List<Protein> new_proteins = ProteinDbLoader.LoadProteinXML(outputFileName,
-                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out Dictionary<string, Modification> proteinXmlModList);
+                true, DecoyType.None, new List<Modification>(), false, new List<string>(), out _);
 
-            Assert.AreEqual(3, new_proteins[0].OneBasedPossibleLocalizedModifications.Count());
+            Assert.AreEqual(3, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
@@ -492,7 +495,7 @@ namespace Test
             Assert.That(sanitized == "PROXEINX");
 
             // test reading from a fasta
-            Protein protein = new Protein(messedUpSequence, "accession");
+            Protein protein = new(messedUpSequence, "accession");
 
             string fastaPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"messedUp.fasta");
             ProteinDbWriter.WriteFastaDatabase(new List<Protein> { protein }, fastaPath, "|");
@@ -507,7 +510,7 @@ namespace Test
             var peptides = fastaProteins.First().Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
             foreach (PeptideWithSetModifications peptide in peptides)
             {
-                List<Product> fragments = new List<Product>();
+                List<Product> fragments = new();
                 peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
             }
 

@@ -78,7 +78,7 @@ namespace FlashLFQ
 
                         for (int t = 1; t < techreps.Count; t++)
                         {
-                            List<double> foldChanges = new List<double>();
+                            List<double> foldChanges = new();
 
                             for (int p = 0; p < peptides.Count; p++)
                             {
@@ -158,7 +158,7 @@ namespace FlashLFQ
                     int numF = Math.Max(filesForCond1Biorep1.Max(p => p.Fraction), filesForThisBiorep.Max(p => p.Fraction)) + 1;
 
                     // only normalize on peptides seen in both bioreps
-                    List<Peptide> seenInBothBioreps = new List<Peptide>();
+                    List<Peptide> seenInBothBioreps = new();
                     for (int p = 0; p < peptides.Count; p++)
                     {
                         bool seenInBiorep1 = false;
@@ -279,7 +279,7 @@ namespace FlashLFQ
                         }
                     }
 
-                    List<double> foldChanges = new List<double>();
+                    List<double> foldChanges = new();
 
                     for (int p = 0; p < peptides.Count; p++)
                     {
@@ -388,7 +388,7 @@ namespace FlashLFQ
         /// </summary>
         private static double[] GetNormalizationFactors(double[,,] peptideIntensities, int numP, int numF)
         {
-            object locker = new object();
+            object locker = new();
 
             double[] referenceSample = new double[numP];
             double[,] sampleToNormalize = new double[numP, numF];
@@ -491,7 +491,7 @@ namespace FlashLFQ
             int numF = normalizationFactors.Length;
 
             double totalError = 0;
-            
+
             for (int p = 0; p < numP; p++)
             {
                 // sum the intensities with the current normalization factors
@@ -500,7 +500,7 @@ namespace FlashLFQ
                 {
                     normalizedReplicateIntensity += sampleToNormalize[p, f] * normalizationFactors[f];
                 }
-                
+
                 double peptideError = Math.Log(normalizedReplicateIntensity) - Math.Log(reference[p]);
 
                 totalError += peptideError;

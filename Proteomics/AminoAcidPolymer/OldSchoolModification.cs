@@ -89,8 +89,7 @@ namespace Proteomics.AminoAcidPolymer
 
         public override bool Equals(object obj)
         {
-            OldSchoolModification modObj = obj as OldSchoolModification;
-            return modObj != null && Equals(modObj);
+            return obj is OldSchoolModification modObj && this.Equals(modObj);
         }
 
         public bool Equals(OldSchoolModification other)

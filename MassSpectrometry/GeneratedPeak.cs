@@ -5,8 +5,8 @@ namespace MassSpectrometry
 {
     internal class GeneratedPeak : MzPeak
     {
-        private List<double> mzs = new List<double>();
-        private List<double> intensities = new List<double>();
+        private readonly List<double> mzs = new();
+        private readonly List<double> intensities = new();
 
         public GeneratedPeak(double Mz, double Intensity) : base(Mz, Intensity)
         {

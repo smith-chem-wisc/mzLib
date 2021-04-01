@@ -107,7 +107,7 @@ namespace Proteomics.AminoAcidPolymer
             foreach (OldSchoolModification mod in isotopologue)
             {
                 // Create a clone of the peptide, cloning modifications as well.
-                Peptide peptide = new Peptide(this);
+                Peptide peptide = new(this);
 
                 // Replace the base isotopologue mod with the specific version
                 peptide.ReplaceModification(isotopologue, mod);

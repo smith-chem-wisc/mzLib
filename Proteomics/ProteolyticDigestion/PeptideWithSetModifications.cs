@@ -27,7 +27,6 @@ namespace Proteomics.ProteolyticDigestion
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
 
-
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
@@ -109,7 +108,6 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
-
         }
 
         public string SequenceWithChemicalFormulas
@@ -171,17 +169,17 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Generates theoretical fragments for given dissociation type for this peptide. 
+        /// Generates theoretical fragments for given dissociation type for this peptide.
         /// The "products" parameter is filled with these fragments.
         /// </summary>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products)
         {
-            // This code is specifically written to be memory- and CPU -efficient because it is 
-            // called millions of times for a typical search (i.e., at least once per peptide). 
-            // If you modify this code, BE VERY CAREFUL about allocating new memory, especially 
+            // This code is specifically written to be memory- and CPU -efficient because it is
+            // called millions of times for a typical search (i.e., at least once per peptide).
+            // If you modify this code, BE VERY CAREFUL about allocating new memory, especially
             // for new collections. This code also deliberately avoids using "yield return", again
-            // for performance reasons. Be sure to benchmark any changes with a parallelized 
-            // fragmentation of every peptide in a database (i.e., test for speed decreases and 
+            // for performance reasons. Be sure to benchmark any changes with a parallelized
+            // fragmentation of every peptide in a database (i.e., test for speed decreases and
             // memory issues).
 
             products.Clear();
@@ -201,8 +199,8 @@ namespace Proteomics.ProteolyticDigestion
                 || fragmentationTerminus == FragmentationTerminus.Both;
 
             //From http://www.matrixscience.com/help/fragmentation_help.html
-            //Low Energy CID -- In low energy CID(i.e.collision induced dissociation in a triple quadrupole or an ion trap) a peptide carrying a positive charge fragments mainly along its backbone, 
-            //generating predominantly b and y ions. In addition, for fragments containing RKNQ, peaks are seen for ions that have lost ammonia (-17 Da) denoted a*, b* and y*. For fragments containing 
+            //Low Energy CID -- In low energy CID(i.e.collision induced dissociation in a triple quadrupole or an ion trap) a peptide carrying a positive charge fragments mainly along its backbone,
+            //generating predominantly b and y ions. In addition, for fragments containing RKNQ, peaks are seen for ions that have lost ammonia (-17 Da) denoted a*, b* and y*. For fragments containing
             //STED, loss of water(-18 Da) is denoted a°, b° and y°. Satellite ions from side chain cleavage are not observed.
             bool haveSeenNTermDegreeIon = false;
             bool haveSeenNTermStarIon = false;
@@ -211,8 +209,8 @@ namespace Proteomics.ProteolyticDigestion
 
             // these two collections keep track of the neutral losses observed so far on the n-term or c-term.
             // they are apparently necessary, but allocating memory for collections in this function results in
-            // inefficient memory usage and thus frequent garbage collection. 
-            // TODO: If you can think of a way to remove these collections and still maintain correct 
+            // inefficient memory usage and thus frequent garbage collection.
+            // TODO: If you can think of a way to remove these collections and still maintain correct
             // fragmentation, please do so.
             HashSet<double> nTermNeutralLosses = null;
             HashSet<double> cTermNeutralLosses = null;
@@ -332,8 +330,8 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
 
-                // c-term fragments
-                CTerminusFragments:
+            // c-term fragments
+            CTerminusFragments:
                 if (calculateCTermFragments)
                 {
                     char cTermResidue = BaseSequence[BaseSequence.Length - r - 1];
@@ -504,9 +502,8 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-
         /// <summary>
-        /// Generates theoretical internal fragments for given dissociation type for this peptide. 
+        /// Generates theoretical internal fragments for given dissociation type for this peptide.
         /// The "products" parameter is filled with these fragments.
         /// The "minLengthOfFragments" parameter is the minimum number of amino acids for an internal fragment to be included
         /// TODO: Implement neutral losses (e.g. phospho)
@@ -748,10 +745,10 @@ namespace Proteomics.ProteolyticDigestion
                     if (cTerminalResidue.Count > 0)
                     {
                         // get the AA that proceeds the peptide from the variant protein (AKA the last AA in the variant)
-                        PeptideWithSetModifications previousAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedStartResidueInProtein - 1, OneBasedStartResidueInProtein - 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                        PeptideWithSetModifications previousAA_Variant = new(Protein, DigestionParams, OneBasedStartResidueInProtein - 1, OneBasedStartResidueInProtein - 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
 
                         // get the AA that proceeds the peptide sequence in the original protein (wihtout any applied variants)
-                        PeptideWithSetModifications previousAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                        PeptideWithSetModifications previousAA_Original = new(Protein.NonVariantProtein, DigestionParams, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, (OneBasedStartResidueInProtein - 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                         bool newSite = cTerminalResidue.Contains(previousAA_Variant.BaseSequence);
                         bool oldSite = cTerminalResidue.Contains(previousAA_Original.BaseSequence);
                         // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
@@ -771,7 +768,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (appliedVariation.VariantSequence == "*")
                         {
-                            PeptideWithSetModifications lastAAofPeptide = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedEndResidueInProtein, OneBasedEndResidueInProtein, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                            PeptideWithSetModifications lastAAofPeptide = new(Protein, DigestionParams, OneBasedEndResidueInProtein, OneBasedEndResidueInProtein, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                             bool oldSite = cTerminalResidue.Contains(lastAAofPeptide.BaseSequence);
                             if (oldSite == false)
                             {
@@ -785,15 +782,15 @@ namespace Proteomics.ProteolyticDigestion
                         if (Protein.Length >= OneBasedEndResidueInProtein + 1)
                         {
                             //get the AA that follows the peptide sequence fromt he variant protein (AKA the first AA of the varaint)
-                            PeptideWithSetModifications nextAA_Variant = new PeptideWithSetModifications(Protein, DigestionParams, OneBasedEndResidueInProtein + 1, OneBasedEndResidueInProtein + 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                            PeptideWithSetModifications nextAA_Variant = new(Protein, DigestionParams, OneBasedEndResidueInProtein + 1, OneBasedEndResidueInProtein + 1, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
 
                             // checks to make sure the original protein has an amino acid following the peptide (an issue with stop loss variants or variatns that add AA after the previous stop residue)
-                            // no else statement because if the peptide end residue was the previous protein stop site, there is no way to truly identify the variant. 
+                            // no else statement because if the peptide end residue was the previous protein stop site, there is no way to truly identify the variant.
                             // if the peptide were to extend into the stop loss region then the peptide would intesect the variant and this code block would not be triggered.
                             if (Protein.NonVariantProtein.Length >= OneBasedEndResidueInProtein + 1)
                             {
                                 // get the AA that follows the peptide sequence in the original protein (without any applied variants)
-                                PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                                PeptideWithSetModifications nextAA_Original = new(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                                 bool newSite = nTerminalResidue.Contains(nextAA_Variant.BaseSequence);
                                 bool oldSite = nTerminalResidue.Contains(nextAA_Original.BaseSequence);
                                 // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
@@ -802,13 +799,12 @@ namespace Proteomics.ProteolyticDigestion
                                     identifies = true;
                                 }
                             }
-
                         }
                         //for stop gain varations that cause peptide
                         else
                         {
                             // get the AA that follows the peptide sequence in the original protein (without any applied variants)
-                            PeptideWithSetModifications nextAA_Original = new PeptideWithSetModifications(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
+                            PeptideWithSetModifications nextAA_Original = new(Protein.NonVariantProtein, DigestionParams, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, (OneBasedEndResidueInProtein + 1) - totalLengthDifference, CleavageSpecificity.Full, "full", 0, AllModsOneIsNterminus, NumFixedMods);
                             bool oldSite = nTerminalResidue.Contains(nextAA_Original.BaseSequence);
                             // if the new AA causes a cleavage event, and that cleavage event would not have occurred without the variant then it is identified
                             if (oldSite == false)
@@ -854,8 +850,9 @@ namespace Proteomics.ProteolyticDigestion
                 var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
                     .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
                     .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (modResidueScale), kv => kv.Value);
-                PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, applied.OneBasedBeginPosition == 1 ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
-                return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(applied.OneBasedBeginPosition == 1 ? 0 : 1)}";
+                PeptideWithSetModifications variantWithAnyMods = new(Protein, DigestionParams, applied.OneBasedBeginPosition == 1 ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
+                int startidx = applied.OneBasedBeginPosition == 1 ? 0 : 1;
+                return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence[startidx..]}";
             }
             //if the variant caused a cleavage site leading the the peptide sequence (variant does not intersect but is identified)
             else
@@ -871,7 +868,7 @@ namespace Proteomics.ProteolyticDigestion
         public bool IsVariantPeptide()
         {
             bool identifiedVariant = false;
-            if (this.Protein.AppliedSequenceVariations.Count() > 0)
+            if (this.Protein.AppliedSequenceVariations.Count > 0)
             {
                 foreach (var variant in this.Protein.AppliedSequenceVariations)
                 {
@@ -950,7 +947,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 else if (c == ']')
                 {
-                    string modId = null;
+                    string modId;
                     bracketCount--;
                     if (bracketCount == 0)
                     {
@@ -1002,7 +999,7 @@ namespace Proteomics.ProteolyticDigestion
 
         public static string GetBaseSequenceFromFullSequence(string fullSequence)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             int bracketCount = 0;
             foreach (char c in fullSequence)
             {

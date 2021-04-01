@@ -214,7 +214,7 @@ namespace Proteomics.AminoAcidPolymer
         /// </summary>
         public static IEnumerable<Fragment> GetSiteDeterminingFragments(AminoAcidPolymer peptideA, AminoAcidPolymer peptideB, FragmentTypes types)
         {
-            HashSet<Fragment> aFrags = new HashSet<Fragment>(peptideA.Fragment(types));
+            HashSet<Fragment> aFrags = new(peptideA.Fragment(types));
             aFrags.SymmetricExceptWith(peptideB.Fragment(types));
             return aFrags;
         }
@@ -302,7 +302,7 @@ namespace Proteomics.AminoAcidPolymer
         public static IEnumerable<int> GetCleavageIndexes(string sequence, IEnumerable<IProtease> proteases, bool includeTermini)
         {
             // Combine all the proteases digestion sites
-            SortedSet<int> locations = new SortedSet<int>();
+            SortedSet<int> locations = new();
             foreach (IProtease protease in proteases.Where(protease => protease != null))
             {
                 locations.UnionWith(protease.GetDigestionSites(sequence));
@@ -369,7 +369,7 @@ namespace Proteomics.AminoAcidPolymer
             if (_modifications == null)
                 return (leucineSequence) ? BaseLeucineSequence : BaseSequence;
 
-            StringBuilder modSeqSb = new StringBuilder(Length);
+            StringBuilder modSeqSb = new(Length);
 
             IHasMass mod;
 
@@ -517,7 +517,7 @@ namespace Proteomics.AminoAcidPolymer
                 bool isCTerminal = type.GetTerminus() == Terminus.C;
 
                 double monoMass = capFormula.MonoisotopicMass;
-                ChemicalFormula formula = new ChemicalFormula(capFormula);
+                ChemicalFormula formula = new(capFormula);
 
                 IHasChemicalFormula terminus = isCTerminal ? CTerminus : NTerminus;
                 monoMass += terminus.MonoisotopicMass;
@@ -604,15 +604,14 @@ namespace Proteomics.AminoAcidPolymer
 
         public ISet<T> GetUniqueModifications<T>() where T : IHasMass
         {
-            HashSet<T> uniqueMods = new HashSet<T>();
+            HashSet<T> uniqueMods = new();
 
             if (_modifications == null)
                 return uniqueMods;
 
-            foreach (IHasMass mod in _modifications)
+            foreach (IHasMass mod in _modifications.OfType<T>())
             {
-                if (mod is T)
-                    uniqueMods.Add((T)mod);
+                uniqueMods.Add((T)mod);
             }
             return uniqueMods;
         }
@@ -962,7 +961,7 @@ namespace Proteomics.AminoAcidPolymer
                     if (_modifications[i] == null)
                         continue;
 
-                    if (!(_modifications[i] is IHasChemicalFormula chemMod))
+                    if (_modifications[i] is not IHasChemicalFormula chemMod)
                         throw new MzLibException("Modification " + _modifications[i] + " does not have a chemical formula!");
 
                     formula.Add(chemMod.ThisChemicalFormula);
@@ -996,8 +995,7 @@ namespace Proteomics.AminoAcidPolymer
 
         public override bool Equals(object obj)
         {
-            AminoAcidPolymer aap = obj as AminoAcidPolymer;
-            return aap != null && Equals(aap);
+            return obj is AminoAcidPolymer aap && this.Equals(aap);
         }
 
         public bool Equals(AminoAcidPolymer other)
@@ -1086,7 +1084,7 @@ namespace Proteomics.AminoAcidPolymer
 
             double monoMass = 0;
 
-            StringBuilder modSb = new StringBuilder(10);
+            StringBuilder modSb = new(10);
             foreach (char letter in sequence)
             {
                 if (inMod)

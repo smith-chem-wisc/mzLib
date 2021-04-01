@@ -424,7 +424,7 @@ namespace IO.MzML
             long? indexByteOffset = null;
 
             // check the bottom of the file for the index
-            // this is super annoying... we need to read the file backwards starting from the end 
+            // this is super annoying... we need to read the file backwards starting from the end
             // and then parse the xml...
             ReverseLineReader rlr = new ReverseLineReader(FilePath);
 
@@ -463,7 +463,7 @@ namespace IO.MzML
 
             bool readingScanIndex = false;
 
-            // some nativeID formats don't have a scan number specified. 
+            // some nativeID formats don't have a scan number specified.
             // in this case, use a counter to determine the scan number.
             int scanNumber = 0;
 
@@ -534,11 +534,11 @@ namespace IO.MzML
         /// <summary>
         /// This creates a scan number-to-byte index for .mzML files that have no index.
         /// This means that a dynamic connection can be created with unindexed .mzML files,
-        /// it just takes longer because we have to read the entire file one line at a time 
+        /// it just takes longer because we have to read the entire file one line at a time
         /// to create the index via code.
-        /// 
+        ///
         /// This does NOT write an index to the .mzML file. This is intentional. This .mzML reader
-        /// does not modify the .mzML data file at all. It just creates an index in memory 
+        /// does not modify the .mzML data file at all. It just creates an index in memory
         /// via code if one is not provided in the .mzML file.
         /// </summary>
         private void CreateIndexFromUnindexedMzml()
@@ -550,7 +550,7 @@ namespace IO.MzML
 
             while (reader.Peek() > 0)
             {
-                // this byte offset might be a little different than what it technically 
+                // this byte offset might be a little different than what it technically
                 // should be because of white space but it will work out ok
                 long byteOffset = TextFileReading.GetByteOffsetAtCurrentPosition(reader);
                 var line = reader.ReadLine();
@@ -877,6 +877,5 @@ namespace IO.MzML
                 index += read;
             }
         }
-
     }
 }

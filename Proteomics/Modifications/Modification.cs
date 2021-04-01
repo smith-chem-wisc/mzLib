@@ -2,7 +2,6 @@
 using MassSpectrometry;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -106,27 +105,16 @@ namespace Proteomics
 
         public static string ModLocationOnPeptideOrProtein(string _locationRestriction)
         {
-            switch (_locationRestriction)
+            return _locationRestriction switch
             {
-                case "N-terminal.":
-                    return _locationRestriction;
-
-                case "C-terminal.":
-                    return _locationRestriction;
-
-                case "Peptide N-terminal.":
-                    return _locationRestriction;
-
-                case "Peptide C-terminal.":
-                    return _locationRestriction;
-
-                case "Anywhere.":
-                    return _locationRestriction;
-
-                default:
-                    return "Unassigned.";
-            }
-        }       
+                "N-terminal." => _locationRestriction,
+                "C-terminal." => _locationRestriction,
+                "Peptide N-terminal." => _locationRestriction,
+                "Peptide C-terminal." => _locationRestriction,
+                "Anywhere." => _locationRestriction,
+                _ => "Unassigned."
+            };
+        }
 
         public override bool Equals(object o)
         {
@@ -148,7 +136,7 @@ namespace Proteomics
 
         public override string ToString()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             if (this.IdWithMotif != null)
             { sb.AppendLine("ID   " + this.IdWithMotif); }
             if (this.Accession != null)
@@ -169,11 +157,11 @@ namespace Proteomics
             {
                 if (this.DatabaseReference.Count != 0)
                 {
-                    List<string> myKeys = new List<string>(this.DatabaseReference.Keys);
+                    List<string> myKeys = new(this.DatabaseReference.Keys);
                     myKeys.Sort();
                     foreach (string myKey in myKeys)
                     {
-                        List<string> myValues = new List<string>(this.DatabaseReference[myKey]);
+                        List<string> myValues = new(this.DatabaseReference[myKey]);
                         myValues.Sort();
                         foreach (string myValue in myValues)
                         {
@@ -186,11 +174,11 @@ namespace Proteomics
             {
                 if (this.TaxonomicRange.Count != 0)
                 {
-                    List<string> myKeys = new List<string>(this.TaxonomicRange.Keys);
+                    List<string> myKeys = new(this.TaxonomicRange.Keys);
                     myKeys.Sort();
                     foreach (string myKey in myKeys)
                     {
-                        List<string> myValues = new List<string>(this.TaxonomicRange[myKey]);
+                        List<string> myValues = new(this.TaxonomicRange[myKey]);
                         myValues.Sort();
                         foreach (string myValue in myValues)
                         {
@@ -208,10 +196,10 @@ namespace Proteomics
 
                     foreach (DissociationType dissociationType in allDissociationTypes)
                     {
-                        StringBuilder myLine = new StringBuilder();
+                        StringBuilder myLine = new();
                         myLine.Append("NL   ");
 
-                        List<double> myValues = new List<double>(this.NeutralLosses[dissociationType]);
+                        List<double> myValues = new(this.NeutralLosses[dissociationType]);
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
@@ -233,10 +221,10 @@ namespace Proteomics
 
                     foreach (DissociationType dissociationType in allDissociationTypes)
                     {
-                        StringBuilder myLine = new StringBuilder();
+                        StringBuilder myLine = new();
                         myLine.Append("DI   ");
 
-                        List<double> myValues = new List<double>(this.DiagnosticIons[dissociationType]);
+                        List<double> myValues = new(this.DiagnosticIons[dissociationType]);
                         myValues.Sort();
                         for (int i = 0; i < myValues.Count; i++)
                         {
@@ -263,7 +251,7 @@ namespace Proteomics
 
         public string ModificationErrorsToString() //reports errors in required fields.
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
 
             sb.Append(this.ToString());
 
@@ -298,7 +286,5 @@ namespace Proteomics
 
             return sb.ToString();
         }
-
-        
     }
 }

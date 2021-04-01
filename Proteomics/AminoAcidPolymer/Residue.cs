@@ -147,7 +147,6 @@ namespace Proteomics.AminoAcidPolymer
             }
         }
 
-
         public Residue(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, ChemicalFormula chemicalFormula, ModificationSites site)
         {
             Name = name;

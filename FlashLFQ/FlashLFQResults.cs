@@ -209,7 +209,7 @@ namespace FlashLFQ
                     }
 
                     var peptides = PeptideModifiedSequences.Values.ToList();
-                    List<(double, DetectionType)> fractionIntensitiesWithDetectionTypes = new List<(double, DetectionType)>();
+                    List<(double, DetectionType)> fractionIntensitiesWithDetectionTypes = new();
                     foreach (var peptide in peptides)
                     {
                         fractionIntensitiesWithDetectionTypes.Clear();
@@ -262,7 +262,7 @@ namespace FlashLFQ
             int topNPeaks = 3;
 
             List<Peptide> peptides = PeptideModifiedSequences.Values.Where(p => p.UnambiguousPeptideQuant()).ToList();
-            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
+            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new();
 
             foreach (Peptide peptide in peptides)
             {
@@ -317,7 +317,7 @@ namespace FlashLFQ
 
             // associate peptide w/ proteins in a dictionary for easy lookup
             List<Peptide> peptides = PeptideModifiedSequences.Values.Where(p => p.UnambiguousPeptideQuant()).ToList();
-            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new Dictionary<ProteinGroup, List<Peptide>>();
+            Dictionary<ProteinGroup, List<Peptide>> proteinGroupToPeptides = new();
 
             foreach (Peptide peptide in peptides)
             {
@@ -356,7 +356,7 @@ namespace FlashLFQ
 
                     foreach (var group in filesGroupedByCondition)
                     {
-                        List<double> highestIntensities = new List<double>();
+                        List<double> highestIntensities = new();
 
                         foreach (var peptide in peptidesForThisProtein)
                         {
@@ -458,9 +458,9 @@ namespace FlashLFQ
                     {
                         foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                         {
-                            // this step un-logs the protein "intensity". in reality this value is more like a fold-change 
+                            // this step un-logs the protein "intensity". in reality this value is more like a fold-change
                             // than an intensity, but unlike a fold-change it's not relative to a particular sample.
-                            // by multiplying this value by the reference protein intensity calculated earlier, then we get 
+                            // by multiplying this value by the reference protein intensity calculated earlier, then we get
                             // a protein intensity value
                             double sampleProteinIntensity = Math.Pow(2, columnEffects[sampleN]) * referenceProteinIntensity;
 
@@ -498,105 +498,97 @@ namespace FlashLFQ
 
             if (peaksOutputPath != null)
             {
-                using (StreamWriter output = new StreamWriter(peaksOutputPath))
-                {
-                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+                using StreamWriter output = new(peaksOutputPath);
+                output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
 
-                    foreach (var peak in Peaks.SelectMany(p => p.Value)
-                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
-                        .ThenByDescending(p => p.Intensity))
-                    {
-                        output.WriteLine(peak.ToString());
-                    }
+                foreach (var peak in Peaks.SelectMany(p => p.Value)
+                    .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                    .ThenByDescending(p => p.Intensity))
+                {
+                    output.WriteLine(peak.ToString());
                 }
             }
 
             if (modPeptideOutputPath != null)
             {
-                using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
-                {
-                    output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
+                using StreamWriter output = new(modPeptideOutputPath);
+                output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
 
-                    foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
-                    {
-                        output.WriteLine(peptide.Value.ToString(SpectraFiles));
-                    }
+                foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
+                {
+                    output.WriteLine(peptide.Value.ToString(SpectraFiles));
                 }
             }
 
             if (proteinOutputPath != null)
             {
-                using (StreamWriter output = new StreamWriter(proteinOutputPath))
-                {
-                    output.WriteLine(ProteinGroup.TabSeparatedHeader(SpectraFiles));
+                using StreamWriter output = new(proteinOutputPath);
+                output.WriteLine(ProteinGroup.TabSeparatedHeader(SpectraFiles));
 
-                    foreach (var protein in ProteinGroups.OrderBy(p => p.Key))
-                    {
-                        output.WriteLine(protein.Value.ToString(SpectraFiles));
-                    }
+                foreach (var protein in ProteinGroups.OrderBy(p => p.Key))
+                {
+                    output.WriteLine(protein.Value.ToString(SpectraFiles));
                 }
             }
 
             if (bayesianProteinQuantOutput != null)
             {
-                StringBuilder header = new StringBuilder();
+                StringBuilder header = new();
                 StringBuilder[] proteinStringBuilders = new StringBuilder[ProteinGroups.Count];
 
                 for (int i = 0; i < proteinStringBuilders.Length; i++)
                 {
-                    proteinStringBuilders[i] = new StringBuilder();
+                    proteinStringBuilders[i] = new();
                 }
 
-                using (StreamWriter output = new StreamWriter(bayesianProteinQuantOutput))
+                using StreamWriter output = new(bayesianProteinQuantOutput);
+                if (!ProteinGroups.Any())
                 {
-                    if (!ProteinGroups.Any())
+                    return;
+                }
+
+                var firstProteinQuantResults = ProteinGroups.First().Value.ConditionToQuantificationResults;
+
+                if (!firstProteinQuantResults.Any())
+                {
+                    return;
+                }
+
+                string tabSepHeader = null;
+
+                if (firstProteinQuantResults.First().Value is PairedProteinQuantResult)
+                {
+                    tabSepHeader = PairedProteinQuantResult.TabSeparatedHeader();
+                }
+                else
+                {
+                    tabSepHeader = UnpairedProteinQuantResult.TabSeparatedHeader();
+                }
+
+                foreach (var condition in firstProteinQuantResults.Keys)
+                {
+                    header.Append(tabSepHeader);
+
+                    int p = 0;
+
+                    // sort by protein false discovery rate, then by number of measurements
+                    foreach (var protein in ProteinGroups
+                        .OrderByDescending(v => v.Value.ConditionToQuantificationResults[condition].IsStatisticallyValid)
+                        .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].BayesFactor)
+                        .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].Peptides.Count))
                     {
-                        return;
+                        proteinStringBuilders[p].Append(
+                            protein.Value.ConditionToQuantificationResults[condition].ToString());
+
+                        p++;
                     }
+                }
 
-                    var firstProteinQuantResults = ProteinGroups.First().Value.ConditionToQuantificationResults;
+                output.WriteLine(header);
 
-                    if (!firstProteinQuantResults.Any())
-                    {
-                        return;
-                    }
-
-                    string tabSepHeader = null;
-
-                    if (firstProteinQuantResults.First().Value is PairedProteinQuantResult)
-                    {
-                        tabSepHeader = PairedProteinQuantResult.TabSeparatedHeader();
-                    }
-                    else
-                    {
-                        tabSepHeader = UnpairedProteinQuantResult.TabSeparatedHeader();
-                    }
-
-                    foreach (var condition in firstProteinQuantResults.Keys)
-                    {
-                        header.Append(tabSepHeader);
-
-                        int p = 0;
-
-                        // sort by protein false discovery rate, then by number of measurements
-                        foreach (var protein in ProteinGroups
-                            .OrderByDescending(v => v.Value.ConditionToQuantificationResults[condition].IsStatisticallyValid)
-                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].BayesFactor)
-                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].Peptides.Count))
-                        {
-                            proteinStringBuilders[p].Append(
-                                protein.Value.ConditionToQuantificationResults[condition].ToString());
-
-                            p++;
-                        }
-                    }
-
-                    output.WriteLine(header);
-
-                    foreach (var proteinStringBuilder in proteinStringBuilders)
-                    {
-                        output.WriteLine(proteinStringBuilder);
-                    }
+                foreach (var proteinStringBuilder in proteinStringBuilders)
+                {
+                    output.WriteLine(proteinStringBuilder);
                 }
             }
 
@@ -611,9 +603,9 @@ namespace FlashLFQ
             overallEffect = 0;
             rowEffects = new double[table.GetLength(0)];
             columnEffects = new double[table.GetLength(1)];
-            List<double> values = new List<double>();
-            List<double> rowMedians = new List<double>();
-            List<double> columnMedians = new List<double>();
+            List<double> values = new();
+            List<double> rowMedians = new();
+            List<double> columnMedians = new();
             double lastIterationSumOfAbsoluteResiduals = 0;
 
             // compute overall effect
