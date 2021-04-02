@@ -12,7 +12,8 @@
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
       <group targetFramework="net5.0">
-        <dependency id="Easy.Common" version="3.5.0"/>
+		<!--net5.0 (without OxyPlot)-->
+		<dependency id="Easy.Common" version="3.5.0"/>
 		<dependency id="MathNet.Numerics" version="4.8.1"/>
 		<dependency id="Microsoft.Win32.Registry" version="5.0.0"/>
 		<dependency id="NetSerializer" version="4.1.1"/>
@@ -21,11 +22,20 @@
 		<dependency id="SharpLearning.Optimization" version="0.28.0"/>
       </group>
 	  <group targetFramework="net5.0-windows">
+		<!--net5.0 (with OxyPlot)-->
+		<dependency id="Easy.Common" version="3.5.0"/>
+		<dependency id="MathNet.Numerics" version="4.8.1"/>
+		<dependency id="Microsoft.Win32.Registry" version="5.0.0"/>
+		<dependency id="NetSerializer" version="4.1.1"/>
+		<dependency id="OpenMcdf" version="2.2.1.3"/>
+		<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
+		<dependency id="SharpLearning.Optimization" version="0.28.0"/>
         <dependency id="OxyPlot.Wpf" version="2.0.0"/>
       </group>
     </dependencies>
   </metadata>
   <files>
+    <!--net5.0 (without mzPlot)-->
     <file src="BayesianEstimation\bin\Release\net5.0\BayesianEstimation.dll" target="lib\net5.0" />
     <file src="Chemistry\bin\Release\net5.0\Chemistry.dll" target="lib\net5.0" />
     <file src="FlashLFQ\bin\Release\net5.0\FlashLFQ.dll" target="lib\net5.0" />
@@ -36,7 +46,6 @@
     <file src="MzML\bin\Release\net5.0\MzML.dll" target="lib\net5.0" />
     <file src="PepXML\bin\Release\net5.0\PepXML.dll" target="lib\net5.0" /> 
     <file src="Proteomics\bin\Release\net5.0\Proteomics.dll" target="lib\net5.0" /> 
-	<file src="mzPlot\bin\Release\net5.0-windows\mzPlot.dll" target="lib\net5.0-windows" /> 
     <file src="Proteomics\bin\Release\net5.0\ProteolyticDigestion\proteases.tsv" target="lib\net5.0\ProteolyticDigestion" /> 
 	<file src="UsefulProteomicsDatabases\bin\Release\net5.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\net5.0" /> 
 	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoRawFileReader.dll" target="lib\net5.0" /> 
@@ -45,5 +54,25 @@
 	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net5.0" /> 
 	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net5.0" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\net5.0\UsefulProteomicsDatabases.dll" target="lib\net5.0" /> 
+	<!--net5.0-windows (with mzPlot)-->
+	<file src="mzPlot\bin\Release\net5.0-windows\mzPlot.dll" target="lib\net5.0-windows" /> 
+	<file src="BayesianEstimation\bin\Release\net5.0\BayesianEstimation.dll" target="lib\net5.0-windows" />
+    <file src="Chemistry\bin\Release\net5.0\Chemistry.dll" target="lib\net5.0-windows" />
+    <file src="FlashLFQ\bin\Release\net5.0\FlashLFQ.dll" target="lib\net5.0-windows" />
+    <file src="MassSpectrometry\bin\Release\net5.0\MassSpectrometry.dll" target="lib\net5.0-windows" />
+    <file src="Mgf\bin\Release\net5.0\Mgf.dll" target="lib\net5.0-windows" />	
+    <file src="MzIdentML\bin\Release\net5.0\MzIdentML.dll" target="lib\net5.0-windows" />
+    <file src="MzLibUtil\bin\Release\net5.0\MzLibUtil.dll" target="lib\net5.0-windows" />
+    <file src="MzML\bin\Release\net5.0\MzML.dll" target="lib\net5.0-windows" />
+    <file src="PepXML\bin\Release\net5.0\PepXML.dll" target="lib\net5.0-windows" /> 
+    <file src="Proteomics\bin\Release\net5.0\Proteomics.dll" target="lib\net5.0-windows" /> 
+    <file src="Proteomics\bin\Release\net5.0\ProteolyticDigestion\proteases.tsv" target="lib\net5.0-windows\ProteolyticDigestion" /> 
+	<file src="UsefulProteomicsDatabases\bin\Release\net5.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\net5.0-windows" /> 
+	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoRawFileReader.dll" target="lib\net5.0-windows" /> 
+	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net5.0-windows" /> 
+	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.Data.dll" target="lib\net5.0-windows" /> 
+	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net5.0-windows" /> 
+	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net5.0-windows" /> 
+    <file src="UsefulProteomicsDatabases\bin\Release\net5.0\UsefulProteomicsDatabases.dll" target="lib\net5.0-windows" /> 
   </files>
 </package>
