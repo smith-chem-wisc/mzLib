@@ -12,7 +12,7 @@
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
       <group targetFramework="net5.0">
-		<!--net5.0 (without OxyPlot)-->
+		<!--net5.0 target-->
 		<dependency id="Easy.Common" version="3.5.0"/>
 		<dependency id="MathNet.Numerics" version="4.8.1"/>
 		<dependency id="Microsoft.Win32.Registry" version="5.0.0"/>
@@ -22,7 +22,7 @@
 		<dependency id="SharpLearning.Optimization" version="0.28.0"/>
       </group>
 	  <group targetFramework="net5.0-windows">
-		<!--net5.0 (with OxyPlot)-->
+		<!--net5.0-windows target with OxyPlot-->
 		<dependency id="Easy.Common" version="3.5.0"/>
 		<dependency id="MathNet.Numerics" version="4.8.1"/>
 		<dependency id="Microsoft.Win32.Registry" version="5.0.0"/>
@@ -35,7 +35,7 @@
     </dependencies>
   </metadata>
   <files>
-    <!--net5.0 (without mzPlot)-->
+    <!--net5.0 target-->
     <file src="BayesianEstimation\bin\Release\net5.0\BayesianEstimation.dll" target="lib\net5.0" />
     <file src="Chemistry\bin\Release\net5.0\Chemistry.dll" target="lib\net5.0" />
     <file src="FlashLFQ\bin\Release\net5.0\FlashLFQ.dll" target="lib\net5.0" />
@@ -54,7 +54,7 @@
 	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net5.0" /> 
 	<file src="ThermoRawFileReader\bin\Release\net5.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net5.0" /> 
     <file src="UsefulProteomicsDatabases\bin\Release\net5.0\UsefulProteomicsDatabases.dll" target="lib\net5.0" /> 
-	<!--net5.0-windows (with mzPlot)-->
+	<!--net5.0-windows target with mzPlot-->
 	<file src="mzPlot\bin\Release\net5.0-windows\mzPlot.dll" target="lib\net5.0-windows" /> 
 	<file src="BayesianEstimation\bin\Release\net5.0\BayesianEstimation.dll" target="lib\net5.0-windows" />
     <file src="Chemistry\bin\Release\net5.0\Chemistry.dll" target="lib\net5.0-windows" />
