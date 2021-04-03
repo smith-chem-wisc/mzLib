@@ -42,6 +42,12 @@ namespace IO.Mgf
                     {
                         while (sr.Peek() > 0)
                         {
+                            string line = sr.ReadLine();
+                            if (line != "BEGIN IONS")
+                            {
+                                continue;
+                            }
+
                             var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
 
                             scans.Add(scan);
@@ -77,6 +83,11 @@ namespace IO.Mgf
             {
                 string line = sr.ReadLine();
                 string[] sArray = line.Split('=');
+
+                if (String.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
 
                 if (char.IsDigit(line[0]) && sArray.Length == 1)
                 {

@@ -117,7 +117,21 @@ namespace IO.MzML
                         {
                             // controlled vocabulary parameter
                             case "CVPARAM":
-                                switch (xmlReader["accession"])
+                                string cvParamAccession = xmlReader["accession"];
+
+                                if (Mzml.DissociationDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    dissociationType = Mzml.DissociationDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                if (Mzml.PolarityDictionary.ContainsKey(cvParamAccession))
+                                {
+                                    polarity = Mzml.PolarityDictionary[cvParamAccession];
+                                    break;
+                                }
+
+                                switch (cvParamAccession)
                                 {
                                     // MS order
                                     case "MS:1000511":
@@ -133,16 +147,6 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                        break;
-
-                                    // positive scan mode
-                                    case "MS:1000130":
-                                        polarity = Polarity.Positive;
-                                        break;
-
-                                    // negative scan mode
-                                    case "MS:1000129":
-                                        polarity = Polarity.Negative;
                                         break;
 
                                     // total ion current
@@ -203,31 +207,6 @@ namespace IO.MzML
                                     // selected intensity
                                     case "MS:1000042":
                                         selectedIonIntensity = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // activation types
-                                    case "MS:1000133":
-                                        dissociationType = DissociationType.CID;
-                                        break;
-
-                                    case "MS:1001880":
-                                        dissociationType = DissociationType.ISCID;
-                                        break;
-
-                                    case "MS:1000422":
-                                        dissociationType = DissociationType.HCD;
-                                        break;
-
-                                    case "MS:1000598":
-                                        dissociationType = DissociationType.ETD;
-                                        break;
-
-                                    case "MS:1000435":
-                                        dissociationType = DissociationType.IRMPD;
-                                        break;
-
-                                    case "MS:1000599":
-                                        dissociationType = DissociationType.PQD;
                                         break;
 
                                     // mass analyzer types

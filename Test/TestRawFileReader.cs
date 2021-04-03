@@ -195,5 +195,16 @@ namespace Test
                 }
             }
         }
+
+        [Test]
+        public static void TestEthcdReading()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.raw");
+            var spectra = ThermoRawFileReader.LoadAllStaticData(filePath, null, 1);
+            var hcdScan = spectra.GetOneBasedScan(5);
+            Assert.That(hcdScan.DissociationType == DissociationType.HCD);
+            var ethcdScan = spectra.GetOneBasedScan(6);
+            Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
+        }
     }
 }
