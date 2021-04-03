@@ -2,14 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net5.0-windows</TargetFramework>
-
     <IsPackable>false</IsPackable>
+    <Platforms>x64</Platforms>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x64\Release\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
   
