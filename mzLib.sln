@@ -30,6 +30,7 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzPlot", "mzPlot\mzPlot.csproj", "{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", "{78FF34E1-B093-4D10-B77B-5A3AED043DD7}"
+EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLFQ\TestFlashLFQ.csproj", "{7FA686DC-0269-47D1-9BD4-03D5F1BA3597}"
 EndProject
 Global
