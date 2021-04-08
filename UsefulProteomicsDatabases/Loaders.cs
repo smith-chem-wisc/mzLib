@@ -162,7 +162,7 @@ namespace UsefulProteomicsDatabases
         {
             using (WebClient Client = new WebClient())
             {
-                Client.DownloadFile(@"https://raw.githubusercontent.com/HUPO-PSI/psi-mod-CV/master/PSI-MOD.obo.xml", psimodLocation + ".temp");
+                Client.DownloadFile(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
             }
         }
 

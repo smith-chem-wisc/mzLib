@@ -84,7 +84,7 @@ namespace Test
         public static void TestWildCardExclusion()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");            
             Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
@@ -174,7 +174,7 @@ namespace Test
         public static void TestCutIndexDifferentSyntax()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|            
             Protease protease = new Protease("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
 
@@ -269,7 +269,7 @@ namespace Test
         public static void TestOneMotifMultiplePreventing()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");            
             Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(customProtease.Name, customProtease);
 

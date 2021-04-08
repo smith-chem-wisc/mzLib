@@ -2,6 +2,7 @@
 using MassSpectrometry;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 
@@ -125,7 +126,7 @@ namespace Proteomics
                 default:
                     return "Unassigned.";
             }
-        }
+        }       
 
         public override bool Equals(object o)
         {
@@ -297,5 +298,7 @@ namespace Proteomics
 
             return sb.ToString();
         }
+
+        
     }
 }
