@@ -170,7 +170,7 @@ namespace Test
 
             // UniModPTMs
             var unimodMods = Loaders.LoadUnimod(uniModPath).ToList();
-            Assert.AreEqual(2684, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(2702, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 

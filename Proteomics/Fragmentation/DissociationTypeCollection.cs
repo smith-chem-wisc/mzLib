@@ -63,6 +63,8 @@ namespace Proteomics.Fragmentation
             { ProductType.zPlusOne, null},//+O +H -N: A Zdot ion is also known as z+1. It is not a z-ion in the Biemann nomenclature. It differs from a y-ion by N-1 H-1;
             { ProductType.M, null},// neutral Molecular product can be used with neutral loss as fragment
             { ProductType.D, null},// diagnostic ions are not shifted but added sumarily
+            { ProductType.Ycore, null},// neutral Molecular product can be used with neutral loss as fragment
+            { ProductType.Y, null},// diagnostic ions are not shifted but added sumarily
         };
 
         private static Dictionary<DissociationType, (double[], double[])> DissociationTypeToTerminusMassShift = new Dictionary<DissociationType, (double[], double[])>();
@@ -115,6 +117,8 @@ namespace Proteomics.Fragmentation
                         case ProductType.zPlusOne: NeutralMassShiftFromProductType[productType] = ChemicalFormula.ParseFormula("O1H1N-1").MonoisotopicMass; break;//; 2.9996656473699996, +O +H -N:
                         case ProductType.M: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                         case ProductType.D: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+                        case ProductType.Ycore: NeutralMassShiftFromProductType[productType] = 0; break;// no change
+                        case ProductType.Y: NeutralMassShiftFromProductType[productType] = 0; break;// no change
                     }
                 }
 
