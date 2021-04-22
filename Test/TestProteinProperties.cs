@@ -176,11 +176,12 @@ namespace Test
         [Test]
         public static void TestProteoformClassification()//string inputPath)
         {
+            //Test classifier
             List<string> output = new List<string>();
             string inputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "ProteoformClassificationUnitTest.csv");
             string[] lines = File.ReadAllLines(inputPath);
 
-            List<string> expectedLevels = new List<string> { "1", "2A", "2B", "2C", "2D", "3", "4", "5" }; //each of these should be identified in the vignette
+            List<string> expectedLevels = new List<string> { "1", "2A", "2B", "2C", "2D", "3", "4", "5", "2C", "2B" }; //each of these should be identified in the vignette
 
             //iterate through each result, check if there's a header or not
             for (int i = 1; i < lines.Length; i++)
@@ -189,7 +190,7 @@ namespace Test
                 //should be scan number, sequence(s), gene(s)
                 string level = ProteoformLevelClassifier.ClassifyPrSM(line[1], line[2]);
 
-                Assert.IsTrue(level.Equals(expectedLevels[i-1]));
+                Assert.IsTrue(level.Equals(expectedLevels[i - 1]));
             }
         }
     }

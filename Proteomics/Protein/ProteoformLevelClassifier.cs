@@ -213,7 +213,7 @@ namespace Proteomics
                 if (ptm.Length > 1) //check length is appropriate
                 {
                     //remove sign with substring and try to parse into double. If it's a mass, tryparse returns true
-                    if (double.TryParse(ptm.Substring(1), out double mass) || ptm.Contains("?"))
+                    if (double.TryParse(ptm.Substring(1), out double mass))
                     {
                         return true;
                     }
