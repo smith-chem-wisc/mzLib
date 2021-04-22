@@ -137,7 +137,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="baseSequence"></param>
         /// <returns></returns>
-        public static bool SequenceContainsUnknownAminoAcids(string baseSequence)
+        private static bool SequenceContainsUnknownAminoAcids(string baseSequence)
         {
             char[] ambiguousAminoAcids = new char[] { 'B', 'J', 'X', 'Z' };
             foreach (char aa in ambiguousAminoAcids)
@@ -155,7 +155,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="fullSequence"></param>
         /// <returns></returns>
-        public static List<(int, string)> GetPTMs(string fullSequence)
+        private static List<(int, string)> GetPTMs(string fullSequence)
         {
             List<(int, string)> ptmsToReturn = new List<(int, string)>();
             StringBuilder currentPTM = new StringBuilder();
@@ -206,7 +206,7 @@ namespace Proteomics
         /// </summary>
         /// <param name="ptms"></param>
         /// <returns></returns>
-        public static bool PtmsContainUnknownMassShifts(List<string> ptms)
+        private static bool PtmsContainUnknownMassShifts(List<string> ptms)
         {
             foreach (string ptm in ptms)
             {

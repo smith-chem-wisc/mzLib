@@ -189,7 +189,7 @@ namespace Test
                 //should be scan number, sequence(s), gene(s)
                 string level = ProteoformLevelClassifier.ClassifyPrSM(line[1], line[2]);
 
-                Assert.IsTrue(level.Equals(expectedLevels[i]));
+                Assert.IsTrue(level.Equals(expectedLevels[i-1]));
             }
         }
     }
