@@ -92,6 +92,8 @@ namespace Proteomics
 
         /// <summary>
         /// Determine proteoform level between 1 (know everything) and 5 (only know the mass)
+        /// as defined in the publication:
+        /// Smith, L.M., Thomas, P.M., Shortreed, M.R. et al. A five-level classification system for proteoform identifications. Nat Methods 16, 939–940 (2019). https://doi.org/10.1038/s41592-019-0573-x
         /// </summary>
         /// <param name="ptmLocalized">Is the PTM localized?</param>
         /// <param name="ptmIdentified">Do we know what the PTM is, or is it ambiguous (or an unknown mass shift?)</param>
