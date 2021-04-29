@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
+    <ProjectReference Include="..\BrukerCompassXtract\BrukerCompassXtract.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />

@@ -4,6 +4,7 @@ using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
@@ -16,7 +17,7 @@ namespace Test
     public sealed class TestDeconvolution
     {
         [Test]
-        [TestCase(586.2143122,24, 41983672, 586.2)]//This is a lesser abundant charge state envelope at the low mz end
+        [TestCase(586.2143122, 24, 41983672, 586.2)]//This is a lesser abundant charge state envelope at the low mz end
         [TestCase(740.372202090153, 19, 108419280, 740.37)]//This is the most abundant charge state envelope
         [TestCase(1081.385183, 13, 35454636, 1081.385)]//This is a lesser abundant charge state envelope at the high mz end
         public void TestDeconvolutionProteoformMultiChargeState(double selectedIonMz, int selectedIonChargeStateGuess, double selectedIonIntensity, double isolationMz)
@@ -47,7 +48,7 @@ namespace Test
 
             MsDataScan scan = myMsDataFile.GetAllScansList()[0];
 
-            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(spectrum, 1, 60, 4, 3).ToList();
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(spectrum, 1, 60, 4, 3, 2, 0.4, 0.4, 2).ToList();
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
 

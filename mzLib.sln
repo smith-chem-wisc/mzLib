@@ -33,7 +33,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestFlashLFQ", "TestFlashLF
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzPlot", "mzPlot\mzPlot.csproj", "{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Deconvoluter", "Deconvoluter\Deconvoluter.csproj", "{D2058F77-4BD5-4D72-B1F8-8F7A0CD93772}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Deconvoluter", "Deconvoluter\Deconvoluter.csproj", "{D2058F77-4BD5-4D72-B1F8-8F7A0CD93772}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

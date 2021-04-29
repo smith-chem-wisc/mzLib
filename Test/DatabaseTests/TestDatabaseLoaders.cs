@@ -54,8 +54,8 @@ namespace Test
         [Test]
         public static void LoadIsoforms()
         {
-            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, 
-                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None,
+                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
             Assert.AreEqual("Q13409", protein[0].Accession);
             Assert.AreEqual("Q13409-2", protein[1].Accession);
@@ -652,7 +652,7 @@ namespace Test
             Assert.That(targetProtein.FullName == "Apoptosis-inducing factor 1, mitochondrial");
             Assert.That(targetProtein.Name == "AIFM1_MOUSE");
             Assert.That(targetProtein.Organism == "Mus musculus");
-                
+
             // gencode database
             fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "gencode_mmp20.fa");
             proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);
@@ -674,6 +674,42 @@ namespace Test
             Assert.That(targetProtein.Accession == "ENSP00000372947.2");
             Assert.That(targetProtein.GeneNames.Count() == 1);
             Assert.That(targetProtein.GeneNames.First().Item2 == "ENSG00000206427.11");
+        }
+
+        [Test]
+        public static void TestAveragineStuff()
+        {
+            string database = @"C:\Data\LVS_TD_Yeast\yeast.fasta";
+            var items = ProteinDbLoader.LoadProteinFasta(database, true, DecoyType.None, false, out var errors);
+
+            double c = 0;
+            double o = 0;
+            double h = 0;
+            double s = 0;
+            double n = 0;
+            int residues = 0;
+
+            foreach (var protein in items)
+            {
+                Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(protein.BaseSequence);
+                var formula = baseSequence.GetChemicalFormula();
+                //var isotopicDistribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
+                //double[] masses = isotopicDistribution.Masses.ToArray();
+                //double[] abundances = isotopicDistribution.Intensities.ToArray();
+                residues += baseSequence.Length;
+
+                c += formula.CountWithIsotopes("C");
+                h += formula.CountWithIsotopes("H");
+                o += formula.CountWithIsotopes("O");
+                n += formula.CountWithIsotopes("N");
+                s += formula.CountWithIsotopes("S");
+            }
+
+            c /= residues;
+            h /= residues;
+            o /= residues;
+            n /= residues;
+            s /= residues;
         }
     }
 }

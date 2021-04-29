@@ -7,6 +7,9 @@ namespace MassSpectrometry
 {
     public class IsotopicEnvelope
     {
+        public int EnvelopeIdentifier { get; set; }
+        public MsDataScan Scan { get; set; }
+
         public List<(double mz, double intensity)> Peaks { get; private set; }
         public double MonoisotopicMass { get; private set; }
         public readonly int Charge;
@@ -40,34 +43,44 @@ namespace MassSpectrometry
             MassIndex = massIndex;
             PearsonCorrelation = pearsonCorr;
             FracIntensityObserved = fractionIntensityObserved;
-            Score = fractionIntensityObserved * pearsonCorr;//pearsonCorr * peaks.Count;
+            Score = Peaks.Count * pearsonCorr;
         }
 
         public override string ToString()
         {
-            //return Charge + "\t" + Peaks[0].mz.ToString("G8") + "\t" + Peaks.Count + "\t" + TotalIntensity;
             return MonoisotopicMass.ToString("F1") + "; Peaks: " + Peaks.Count + "; z=" + Charge;
+        }
 
-            //env.MonoisotopicMass + "\t" +
-            //                   string.Join(";", env.Peaks.Select(p => p.mz.ToString("F3"))) + "\t" +
-            //                   string.Join(";", env.Peaks.Select(p => p.intensity.ToString("F1"))) + "\t" +
-            //                   env.Charge + "\t" +
-            //                   scan.MsnOrder + "\t" +
-            //                   env.PearsonCorrelation + "\t" +
-            //                   env.FracIntensityObserved + "\t" +
-            //                   env.SN + "\t" +
-            //                   Math.Log(env.TotalIntensity, 2) + "\t" +
-            //                   env.Noise + "\t" +
-            //                   envNum;
+        public static string OutputHeader()
+        {
+            return "Scan Number" + "\t" +
+                "Monoisotopic Mass" + "\t" +
+                "Peaks m/z list" + "\t" +
+                "Peaks intensity list" + "\t" +
+                "Charge" + "\t" +
+                "MS Order" + "\t" +
+                "Pearson Correlation to Averagine" + "\t" +
+                "Fraction of Intensity Observed" + "\t" +
+                "S/N" + "\t" +
+                "Total Intensity" + "\t" +
+                "Noise" + "\t" +
+                "ID" + "\t";
+        }
 
-            //return MonoisotopicMass + "\t" +
-            //    string.Join(";", Peaks.Select(p => p.mz.ToString("F3"))) + "\t" +
-            //                   string.Join(";", Peaks.Select(p => p.intensity.ToString("F1"))) + "\t" +
-            //                   Charge + "\t" +
-            //                   PearsonCorrelation + "\t" +
-            //                   FracIntensityObserved + "\t" +
-            //                   Math.Log(TotalIntensity, 2) + "\t";
-
+        public string ToOutputString()
+        {
+            return Scan.OneBasedScanNumber + "\t" +
+                MonoisotopicMass + "\t" +
+                string.Join(";", Peaks.Select(p => p.mz.ToString("F3"))) + "\t" +
+                string.Join(";", Peaks.Select(p => p.intensity.ToString("F1"))) + "\t" +
+                Charge + "\t" +
+                Scan.MsnOrder + "\t" +
+                PearsonCorrelation + "\t" +
+                FracIntensityObserved + "\t" +
+                SN + "\t" +
+                Math.Log(TotalIntensity, 2) + "\t" +
+                Noise + "\t" +
+                EnvelopeIdentifier;
         }
 
         private double ScoreIsotopeEnvelope() //likely created by Stefan Solntsev using peptide data
