@@ -85,7 +85,8 @@ namespace FlashLFQ
                                 double techrep1Intensity = peptides[p].GetIntensity(techreps[0]);
                                 double techrepTIntensity = peptides[p].GetIntensity(techreps[t]);
 
-                                if (techrep1Intensity > 0 && techrepTIntensity > 0)
+                                if (techrep1Intensity > 0 && peptides[p].GetDetectionType(techreps[0]) != DetectionType.Imputed
+                                    && techrepTIntensity > 0 && peptides[p].GetDetectionType(techreps[t]) != DetectionType.Imputed)
                                 {
                                     foldChanges.Add(techrepTIntensity / techrep1Intensity);
                                 }
@@ -99,9 +100,10 @@ namespace FlashLFQ
 
                             double medianFoldChange = foldChanges.Median();
                             double normalizationFactor = 1.0 / medianFoldChange;
+                            techreps[t].NormalizationFactor *= normalizationFactor;
 
                             // normalize to median fold-change
-                            foreach (var peak in results.Peaks[techreps[t]])
+                            foreach (var peak in results.Peaks[techreps[t]].Where(p => p.PeakType != PeakType.Imputed))
                             {
                                 foreach (var isotopeEnvelope in peak.IsotopicEnvelopes)
                                 {
@@ -166,7 +168,7 @@ namespace FlashLFQ
 
                         foreach (var file in filesForCond1Biorep1)
                         {
-                            if (peptides[p].GetIntensity(file) > 0)
+                            if (peptides[p].GetIntensity(file) > 0 && peptides[p].GetDetectionType(file) != DetectionType.Imputed)
                             {
                                 seenInBiorep1 = true;
                             }
@@ -174,7 +176,7 @@ namespace FlashLFQ
 
                         foreach (var file in filesForThisBiorep)
                         {
-                            if (peptides[p].GetIntensity(file) > 0)
+                            if (peptides[p].GetIntensity(file) > 0 && peptides[p].GetDetectionType(file) != DetectionType.Imputed)
                             {
                                 seenInBiorep2 = true;
                             }
@@ -218,7 +220,9 @@ namespace FlashLFQ
                     // multiply each peak's isotope envelopes by its file's normalization factor
                     foreach (var spectraFile in filesForThisBiorep)
                     {
-                        foreach (var peak in results.Peaks[spectraFile])
+                        spectraFile.NormalizationFactor *= normFactors[spectraFile.Fraction];
+
+                        foreach (var peak in results.Peaks[spectraFile].Where(p => p.PeakType != PeakType.Imputed))
                         {
                             foreach (var isotopeEnvelope in peak.IsotopicEnvelopes)
                             {
@@ -252,7 +256,10 @@ namespace FlashLFQ
             {
                 for (int p = 0; p < peptides.Count; p++)
                 {
-                    biorepIntensityPair[p, 0] += peptides[p].GetIntensity(file);
+                    if (peptides[p].GetDetectionType(file) != DetectionType.Imputed)
+                    {
+                        biorepIntensityPair[p, 0] += peptides[p].GetIntensity(file);
+                    }
                 }
             }
 
@@ -275,7 +282,10 @@ namespace FlashLFQ
 
                         for (int p = 0; p < peptides.Count; p++)
                         {
-                            biorepIntensityPair[p, 1] += peptides[p].GetIntensity(firstTechrep);
+                            if (peptides[p].GetDetectionType(firstTechrep) != DetectionType.Imputed)
+                            {
+                                biorepIntensityPair[p, 1] += peptides[p].GetIntensity(firstTechrep);
+                            }
                         }
                     }
 
@@ -301,7 +311,9 @@ namespace FlashLFQ
                     // normalize to median fold-change
                     foreach (var file in biorep)
                     {
-                        foreach (var peak in results.Peaks[file])
+                        file.NormalizationFactor *= normalizationFactor;
+
+                        foreach (var peak in results.Peaks[file].Where(p => p.PeakType != PeakType.Imputed))
                         {
                             foreach (var isotopeEnvelope in peak.IsotopicEnvelopes)
                             {
@@ -491,7 +503,7 @@ namespace FlashLFQ
             int numF = normalizationFactors.Length;
 
             double totalError = 0;
-            
+
             for (int p = 0; p < numP; p++)
             {
                 // sum the intensities with the current normalization factors
@@ -500,7 +512,7 @@ namespace FlashLFQ
                 {
                     normalizedReplicateIntensity += sampleToNormalize[p, f] * normalizationFactors[f];
                 }
-                
+
                 double peptideError = Math.Log(normalizedReplicateIntensity) - Math.Log(reference[p]);
 
                 totalError += peptideError;

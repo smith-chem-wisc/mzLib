@@ -27,7 +27,7 @@ namespace FlashLFQ
             _serializer = new Serializer(messageTypes);
         }
 
-        public bool IndexMassSpectralPeaks(SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans)
+        public bool IndexMassSpectralPeaks(SpectraFileInfo fileInfo, bool silent, Dictionary<SpectraFileInfo, Ms1ScanInfo[]> _ms1Scans, ImputationEngine imputationEngine)
         {
             if (!silent)
             {
@@ -186,6 +186,12 @@ namespace FlashLFQ
                 }
 
                 return false;
+            }
+
+            // calculate scan baselines for imputation
+            if (imputationEngine != null)
+            {
+                imputationEngine.CalculateIntensityBaselines(fileInfo, msDataScans);
             }
 
             return true;

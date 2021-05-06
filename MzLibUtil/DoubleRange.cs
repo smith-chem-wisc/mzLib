@@ -127,5 +127,22 @@ namespace MzLibUtil
         {
             return CompareTo(item).Equals(0);
         }
+
+        public override int GetHashCode()
+        {
+            return Minimum.GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            var other = (DoubleRange)obj;
+
+            if(other.Minimum == this.Minimum && other.Maximum == this.Maximum)
+            {
+                return true;
+            }    
+
+            return false;
+        }
     }
 }

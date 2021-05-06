@@ -11,6 +11,7 @@ namespace FlashLFQ
         public readonly string Organism;
         private Dictionary<SpectraFileInfo, double> Intensities;
         public Dictionary<string, ProteinQuantificationEngineResult> ConditionToQuantificationResults;
+        public int NumQuantifiedPeptides;
 
         public ProteinGroup(string proteinGroupName, string geneName, string organism)
         {
@@ -51,15 +52,16 @@ namespace FlashLFQ
             sb.Append("Protein Groups" + "\t");
             sb.Append("Gene Name" + "\t");
             sb.Append("Organism" + "\t");
+            sb.Append("Number Quantified Peptides" + "\t");
 
             bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
+            bool conditionsUndefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
 
             foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
                 foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                 {
-                    if (!conditionsDefined && unfractionated)
+                    if (conditionsUndefined && unfractionated)
                     {
                         sb.Append("Intensity_" + sample.First().FilenameWithoutExtension + "\t");
                     }
@@ -79,6 +81,7 @@ namespace FlashLFQ
             sb.Append(ProteinGroupName + "\t");
             sb.Append(GeneName + "\t");
             sb.Append(Organism + "\t");
+            sb.Append(NumQuantifiedPeptides + "\t");
 
             bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
             bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
