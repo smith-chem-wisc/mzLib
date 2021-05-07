@@ -4,9 +4,9 @@
     {
         MSMS,
         MBR,
+        Imputed,
         NotDetected,
         MSMSAmbiguousPeakfinding,
-        MSMSIdentifiedButNotQuantified,
-        Imputed
+        MSMSIdentifiedButNotQuantified
     }
 }

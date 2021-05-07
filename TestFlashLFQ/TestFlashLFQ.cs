@@ -1371,5 +1371,90 @@ namespace Test
                 null,
                 true);
         }
+
+        [Test]
+        public static void TestProteinQuantOutputTables()
+        {
+            // 1 condition, 2 bioreps
+            List<SpectraFileInfo> spectraFileInfos = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("", "group1", 0, 0, 0),
+                new SpectraFileInfo("", "group1", 0, 1, 0), //techrep
+
+                new SpectraFileInfo("", "group1", 1, 0, 0), // fraction1
+                new SpectraFileInfo("", "group1", 1, 0, 1), // fraction2, techrep 1
+                new SpectraFileInfo("", "group1", 1, 1, 1), // fraction2, techrep 2
+            };
+
+            // 1 protein
+            ProteinGroup pg1 = new ProteinGroup("accession1", "gene1", "organism1");
+
+            // 2 peptides
+            FlashLFQ.Peptide pep1 = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE1", true, new HashSet<ProteinGroup> { pg1 });
+            FlashLFQ.Peptide pep2 = new FlashLFQ.Peptide("PEPTIDEE", "PEPTIDE2", true, new HashSet<ProteinGroup> { pg1 });
+
+            FlashLfqResults res = new FlashLfqResults(spectraFileInfos, new List<Identification>());
+            res.PeptideModifiedSequences.Add(pep1.Sequence, pep1);
+            res.PeptideModifiedSequences.Add(pep2.Sequence, pep2);
+
+            res.ProteinGroups.Add(pg1.ProteinGroupName, pg1);
+
+            // set peptide intensities and detection types
+            pep1.SetIntensity(spectraFileInfos[0], 1000);
+            pep1.SetDetectionType(spectraFileInfos[0], DetectionType.MSMS);
+
+            pep1.SetIntensity(spectraFileInfos[1], 100);
+            pep1.SetDetectionType(spectraFileInfos[1], DetectionType.MBR);
+
+            pep1.SetIntensity(spectraFileInfos[2], 1100);
+            pep1.SetDetectionType(spectraFileInfos[2], DetectionType.MBR);
+
+            pep1.SetIntensity(spectraFileInfos[3], 300);
+            pep1.SetDetectionType(spectraFileInfos[3], DetectionType.Imputed);
+
+            pep1.SetIntensity(spectraFileInfos[4], 310);
+            pep1.SetDetectionType(spectraFileInfos[4], DetectionType.Imputed);
+
+            pep2.SetIntensity(spectraFileInfos[0], 301);
+            pep2.SetDetectionType(spectraFileInfos[0], DetectionType.MSMS);
+
+            pep2.SetIntensity(spectraFileInfos[1], 302);
+            pep2.SetDetectionType(spectraFileInfos[1], DetectionType.Imputed);
+
+            pep2.SetIntensity(spectraFileInfos[2], 303);
+            pep2.SetDetectionType(spectraFileInfos[2], DetectionType.Imputed);
+
+            pep2.SetIntensity(spectraFileInfos[3], 304);
+            pep2.SetDetectionType(spectraFileInfos[3], DetectionType.Imputed);
+
+            pep2.SetIntensity(spectraFileInfos[4], 305);
+            pep2.SetDetectionType(spectraFileInfos[4], DetectionType.Imputed);
+
+            // do the protein quant, skipping shared peptides
+            res.CalculateProteinResultsMedianPolish(useSharedPeptides: false);
+
+            // write/read the protein quantification output
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"proteinQuant.tsv");
+
+            // write/read detailed protein quant output table
+            var detailedOutputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"detailedProteinQuantTable.tsv");
+            var detailedString = pg1.ToPeptideIntensityAndDetectionTypeGridString();
+            File.WriteAllLines(detailedOutputPath, new List<string> { detailedString });
+            var textResults = File.ReadAllLines(detailedOutputPath);
+
+            var peptide1Results = textResults[1].Split(new char[] { '\t' });
+            Assert.That(peptide1Results[0] == "PEPTIDE");
+            Assert.That(peptide1Results[1] == "1000"); // MSMS mmt in this biorep (prioritized over MBR + imputed mmts)
+            Assert.That(peptide1Results[2] == "1100"); // MBR mmt in this biorep (prioritized over imputed mmts)
+            Assert.That(peptide1Results[3] == "MSMS");
+            Assert.That(peptide1Results[4] == "MBR");
+
+            var peptide2Results = textResults[2].Split(new char[] { '\t' });
+            Assert.That(peptide2Results[0] == "PEPTIDEE");
+            Assert.That(peptide2Results[1] == "301"); // MSMS mmt in this biorep
+            Assert.That(peptide2Results[2] == "304.5"); // avg of imputed mmts in this biorep
+            Assert.That(peptide2Results[3] == "MSMS");
+            Assert.That(peptide2Results[4] == "Imputed");
+        }
     }
 }

@@ -12,16 +12,6 @@ using System.Threading.Tasks;
 
 namespace FlashLFQ
 {
-    /// <summary>
-    /// TODO: 
-    /// 
-    /// only impute to fill out 3 mmts per protein? or impute all missing?
-    /// FWHM for imputing from distribution?
-    /// when to use for bayesian? maybe same as regular protein quant?
-    /// skip protein quant if only 1 MBR mmt?
-    /// 
-    /// </summary>
-
     public class ImputationEngine
     {
         private Dictionary<(SpectraFileInfo, int rt, DoubleRange mzWindow), List<(double hdiStart, double hdiEnd)>> FileAndScanMzRangeToNoise;

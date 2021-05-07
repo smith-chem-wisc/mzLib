@@ -350,72 +350,25 @@ namespace FlashLFQ
             {
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
-                    proteinGroup.NumQuantifiedPeptides = peptidesForThisProtein.Count;
-
-                    // set up peptide intensity table
-                    int numSamples = 0;
-                    foreach (var condition in SpectraFiles.GroupBy(p => p.Condition))
-                    {
-                        int conditionSamples = condition.Select(p => p.BiologicalReplicate).Distinct().Count();
-                        numSamples += conditionSamples;
-                    }
-
-                    double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, numSamples];
-
                     // populate matrix w/ log2-transformed peptide intensities
-                    int sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
+                    var table = proteinGroup.GetPeptideIntensityAndDetectionTypeGrid(peptidesForThisProtein, out var bioreps);
+
+                    double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, bioreps.Count];
+
+                    for (int i = 0; i < table.GetLength(0); i++)
                     {
-                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                        for (int j = 0; j < table.GetLength(1); j++)
                         {
-                            foreach (Peptide peptide in peptidesForThisProtein)
+                            peptideIntensityMatrix[i, j] = table[i, j].intensity;
+
+                            if (peptideIntensityMatrix[i, j] > 0)
                             {
-                                double sampleIntensity = 0;
-                                double highestFractionIntensity = 0;
-
-                                // the fraction w/ the highest intensity is used as the sample intensity for this peptide.
-                                // if there is more than one replicate of the fraction, then the replicate intensities are averaged
-                                foreach (var fraction in sample.GroupBy(p => p.Fraction))
-                                {
-                                    double fractionIntensity = 0;
-                                    int replicatesWithValidValues = 0;
-
-                                    foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.TechnicalReplicate))
-                                    {
-                                        //TODO: don't average imputed techreps w/ non-imputed techreps
-                                        double replicateIntensity = peptide.GetIntensity(replicate);
-
-                                        if (replicateIntensity > 0)
-                                        {
-                                            fractionIntensity += replicateIntensity;
-                                            replicatesWithValidValues++;
-                                        }
-                                    }
-
-                                    if (replicatesWithValidValues > 0)
-                                    {
-                                        fractionIntensity /= replicatesWithValidValues;
-                                    }
-
-                                    if (fractionIntensity > highestFractionIntensity)
-                                    {
-                                        highestFractionIntensity = fractionIntensity;
-                                        sampleIntensity = highestFractionIntensity;
-                                    }
-                                }
-
-                                int sampleNumber = sample.Key;
-                                sampleIntensity = Math.Log(sampleIntensity, 2);
-
-                                if (double.IsInfinity(sampleIntensity))
-                                {
-                                    sampleIntensity = double.NaN;
-                                }
-
-                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide), sampleN] = sampleIntensity;
+                                peptideIntensityMatrix[i, j] = Math.Log(peptideIntensityMatrix[i, j], 2);
                             }
-
-                            sampleN++;
+                            else
+                            {
+                                peptideIntensityMatrix[i, j] = double.NaN;
+                            }
                         }
                     }
 
@@ -424,7 +377,7 @@ namespace FlashLFQ
 
                     // set the sample protein intensities
                     double scaling = Math.Pow(2, overallEffect) * peptidesForThisProtein.Count;
-                    sampleN = 0;
+                    int sampleN = 0;
                     foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
                         foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))

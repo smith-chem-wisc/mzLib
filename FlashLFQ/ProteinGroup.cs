@@ -11,7 +11,7 @@ namespace FlashLFQ
         public readonly string Organism;
         private Dictionary<SpectraFileInfo, double> Intensities;
         public Dictionary<string, ProteinQuantificationEngineResult> ConditionToQuantificationResults;
-        public int NumQuantifiedPeptides;
+        public List<Peptide> PeptidesUsedForProteinQuantification { get; private set; }
 
         public ProteinGroup(string proteinGroupName, string geneName, string organism)
         {
@@ -20,6 +20,7 @@ namespace FlashLFQ
             Organism = organism;
             Intensities = new Dictionary<SpectraFileInfo, double>();
             ConditionToQuantificationResults = new Dictionary<string, ProteinQuantificationEngineResult>();
+            PeptidesUsedForProteinQuantification = new List<Peptide>();
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)
@@ -44,6 +45,84 @@ namespace FlashLFQ
             {
                 Intensities.Add(fileInfo, intensity);
             }
+        }
+
+        public (double intensity, DetectionType detType)[,] GetPeptideIntensityAndDetectionTypeGrid(List<Peptide> peptides, out List<(string, int)> bioreps)
+        {
+            PeptidesUsedForProteinQuantification = peptides;
+            bioreps = new List<(string, int)>();
+
+            foreach (var condition in Intensities.Keys.GroupBy(p => p.Condition).OrderBy(p => p.Key))
+            {
+                foreach (int biorep in condition.OrderBy(p => p.BiologicalReplicate).Select(p => p.BiologicalReplicate).Distinct())
+                {
+                    bioreps.Add((condition.Key, biorep));
+                }
+            }
+
+            var grid = new (double, DetectionType)[peptides.Count, bioreps.Count];
+
+            int b = 0;
+            foreach (var condition in Intensities.Keys.GroupBy(p => p.Condition).OrderBy(p => p.Key))
+            {
+                foreach (var biorep in condition.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                {
+                    for (int pep = 0; pep < peptides.Count; pep++)
+                    {
+                        Peptide peptide = peptides[pep];
+
+                        List<(double intensity, DetectionType detType)> fractionSummaries = new List<(double, DetectionType)>();
+
+                        foreach (var fraction in biorep.GroupBy(p => p.Fraction))
+                        {
+                            DetectionType bestDetectionType = DetectionType.NotDetected;
+                            var techrepMeasurements = new List<(double intensity, DetectionType detType)> { (0, DetectionType.NotDetected) };
+
+                            foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.TechnicalReplicate))
+                            {
+                                double replicateIntensity = peptide.GetIntensity(replicate);
+                                DetectionType replicateDetectionType = peptide.GetDetectionType(replicate);
+
+                                if (replicateIntensity > 0)
+                                {
+                                    techrepMeasurements.RemoveAll(p => p.detType == DetectionType.NotDetected);
+
+                                    if (replicateDetectionType == DetectionType.MSMS)
+                                    {
+                                        techrepMeasurements.RemoveAll(p => p.detType != DetectionType.MSMS);
+                                        techrepMeasurements.Add((replicateIntensity, replicateDetectionType));
+                                        bestDetectionType = DetectionType.MSMS;
+                                    }
+                                    else if (replicateDetectionType == DetectionType.MBR && bestDetectionType != DetectionType.MSMS)
+                                    {
+                                        techrepMeasurements.RemoveAll(p => p.detType == DetectionType.Imputed);
+                                        techrepMeasurements.Add((replicateIntensity, replicateDetectionType));
+                                        bestDetectionType = DetectionType.MBR;
+                                    }
+                                    else if (replicateDetectionType == DetectionType.Imputed &&
+                                        (bestDetectionType == DetectionType.NotDetected || bestDetectionType == DetectionType.Imputed))
+                                    {
+                                        techrepMeasurements.Add((replicateIntensity, replicateDetectionType));
+                                        bestDetectionType = DetectionType.Imputed;
+                                    }
+                                }
+                            }
+
+                            (double intensity, DetectionType detType) fractionSummary =
+                                (techrepMeasurements.Where(p => p.detType == bestDetectionType).Average(p => p.intensity), bestDetectionType);
+
+                            fractionSummaries.Add(fractionSummary);
+                        }
+
+                        (double intensity, DetectionType detType) bestFractionSummary = fractionSummaries.OrderBy(p => p.detType).ThenByDescending(p => p.intensity).First();
+                        grid[pep, b] = bestFractionSummary;
+                    }
+
+                    b++;
+                }
+            }
+
+            return grid;
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> spectraFiles)
@@ -81,7 +160,7 @@ namespace FlashLFQ
             sb.Append(ProteinGroupName + "\t");
             sb.Append(GeneName + "\t");
             sb.Append(Organism + "\t");
-            sb.Append(NumQuantifiedPeptides + "\t");
+            sb.Append(PeptidesUsedForProteinQuantification.Count + "\t");
 
             bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
             bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
@@ -100,6 +179,42 @@ namespace FlashLFQ
                         sb.Append(summedIntensity + "\t");
                     }
                 }
+            }
+
+            return sb.ToString();
+        }
+
+        public string ToPeptideIntensityAndDetectionTypeGridString()
+        {
+            StringBuilder sb = new StringBuilder();
+            var grid = GetPeptideIntensityAndDetectionTypeGrid(PeptidesUsedForProteinQuantification, out var bioreps);
+
+            var header = 
+                "\t" + 
+                string.Join('\t', bioreps.Select(p => p.Item1 + "_" + (p.Item2 + 1) + "_Intensity")) +
+                "\t" +
+                string.Join('\t', bioreps.Select(p => p.Item1 + "_" + (p.Item2 + 1) + "_DetectionType"));
+            sb.Append(header);
+            sb.Append('\n');
+
+            for (int i = 0; i < grid.GetLength(0); i++)
+            {
+                sb.Append(PeptidesUsedForProteinQuantification[i].Sequence);
+                sb.Append('\t');
+
+                for (int j = 0; j < grid.GetLength(1); j++)
+                {
+                    sb.Append(grid[i, j].intensity);
+                    sb.Append('\t');
+                }
+
+                for (int j = 0; j < grid.GetLength(1); j++)
+                {
+                    sb.Append(grid[i, j].detType);
+                    sb.Append('\t');
+                }
+
+                sb.Append('\n');
             }
 
             return sb.ToString();
