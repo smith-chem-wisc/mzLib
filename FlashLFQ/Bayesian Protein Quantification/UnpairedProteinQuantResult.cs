@@ -31,9 +31,9 @@ namespace FlashLFQ
             bool useSharedPeptides, FlashLfqResults flashLfqResults, Dictionary<(Peptide, string, int), (double, DetectionType)> peptideToSampleQuantity)
             : base(protein, peptides, controlCondition, treatmentCondition)
         {
-            this.PeptideToSampleQuantity = peptideToSampleQuantity;
-            this.UseSharedPeptides = useSharedPeptides;
-            this.FlashLfqResults = flashLfqResults;
+            PeptideToSampleQuantity = peptideToSampleQuantity;
+            UseSharedPeptides = useSharedPeptides;
+            FlashLfqResults = flashLfqResults;
 
             ConditionsWithPeptideSampleQuantities = new Dictionary<string, List<Datum>>();
             GetPeptideSampleQuantities();
@@ -81,7 +81,7 @@ namespace FlashLFQ
 
             if (!skepticalPrior)
             {
-                this.FoldChangePointEstimate = diffs.Median();
+                FoldChangePointEstimate = diffs.Median();
 
                 double uncertaintyInControl = (hdi95Control.hdi_end - hdi95Control.hdi_start) / 2;
                 double uncertaintyInTreatment = (hdi95Treatment.hdi_end - hdi95Treatment.hdi_start) / 2;
@@ -106,12 +106,12 @@ namespace FlashLFQ
                 }
 
                 double propagatedSd = propagatedSds.Median();
-                this.StandardDeviationPointEstimate = propagatedSd;
+                StandardDeviationPointEstimate = propagatedSd;
             }
             else
             {
-                this.NullHypothesisInterval = Math.Sqrt(Math.Pow(controlNullHypothesisInterval, 2) + Math.Pow(treatmentNullHypothesisInterval, 2));
-                this.CalculatePosteriorErrorProbability(diffs);
+                NullHypothesisInterval = Math.Sqrt(Math.Pow(controlNullHypothesisInterval, 2) + Math.Pow(treatmentNullHypothesisInterval, 2));
+                CalculatePosteriorErrorProbability(diffs);
             }
         }
 
@@ -177,8 +177,8 @@ namespace FlashLFQ
             var controlMmtsString = controlMmtsStringBuilder.ToString();
             var treatmentMmtsString = treatmentMmtsStringBuilder.ToString();
 
-            NMeasurementsControl = this.ConditionsWithPeptideSampleQuantities[ControlCondition].Count;
-            NMeasurementsTreatment = this.ConditionsWithPeptideSampleQuantities[TreatmentCondition].Count;
+            NMeasurementsControl = ConditionsWithPeptideSampleQuantities[ControlCondition].Count;
+            NMeasurementsTreatment = ConditionsWithPeptideSampleQuantities[TreatmentCondition].Count;
 
             if (controlMmtsString.Length > 32000)
             {

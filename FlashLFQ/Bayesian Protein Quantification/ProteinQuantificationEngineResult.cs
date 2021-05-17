@@ -34,10 +34,10 @@ namespace FlashLFQ
 
         protected ProteinQuantificationEngineResult(ProteinGroup protein, List<Peptide> peptides, string controlCondition, string treatmentCondition)
         {
-            this.Protein = protein;
-            this.Peptides = peptides;
-            this.ControlCondition = controlCondition;
-            this.TreatmentCondition = treatmentCondition;
+            Protein = protein;
+            Peptides = peptides;
+            ControlCondition = controlCondition;
+            TreatmentCondition = treatmentCondition;
         }
 
         /// <summary>
