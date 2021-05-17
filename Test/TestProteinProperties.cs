@@ -2,6 +2,7 @@
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -170,6 +171,27 @@ namespace Test
             Assert.AreNotEqual(pp, pa);
             Assert.AreNotEqual(pp, paa);
             Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
+        }
+
+        [Test]
+        public static void TestProteoformClassification()//string inputPath)
+        {
+            //Test classifier
+            List<string> output = new List<string>();
+            string inputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "ProteoformClassificationUnitTest.csv");
+            string[] lines = File.ReadAllLines(inputPath);
+
+            List<string> expectedLevels = new List<string> { "1", "2A", "2B", "2C", "2D", "3", "4", "5", "2C", "2B" }; //each of these should be identified in the vignette
+
+            //iterate through each result, check if there's a header or not
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] line = lines[i].Split(',');
+                //should be scan number, sequence(s), gene(s)
+                string level = ProteoformLevelClassifier.ClassifyPrSM(line[1], line[2]);
+
+                Assert.IsTrue(level.Equals(expectedLevels[i - 1]));
+            }
         }
     }
 }
