@@ -84,7 +84,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestEvelopQuantification()
+        public static void TestEnvelopQuantification()
         {
             double monoIsotopicMass = 1350.65681;
             double massOfAveragine = 111.1254;

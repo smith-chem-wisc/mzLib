@@ -147,7 +147,7 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                        break;
+                                        //break;
 
                                     // total ion current
                                     case "MS:1000285":
