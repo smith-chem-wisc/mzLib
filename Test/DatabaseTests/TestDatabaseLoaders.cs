@@ -596,6 +596,23 @@ namespace Test
             Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
 
             File.Delete(downloadedFilePath);
+            uniprotProteoms.Clear();
+
+            //test different types of compression
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt"));
+            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
+            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
+            uniprotProteoms.Clear();
+
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt.gz"));
+            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
+            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
+            uniprotProteoms.Clear();
+
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.zip"));
+            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
+            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
+            uniprotProteoms.Clear();
 
             //return null for bad filepath
             filepath = "bubba";

@@ -128,17 +128,38 @@ namespace UsefulProteomicsDatabases
             {
                 Dictionary<string, string> dictionaryOfAvailableProteomes = new Dictionary<string, string>();
                 List<string> idNameList = new List<string>();
-                if (Path.GetExtension(completePathToAvailableUniProtProteomes) == ".gz")
+
+                string fileExtension = Path.GetExtension(completePathToAvailableUniProtProteomes);
+
+                switch (fileExtension)
                 {
-                    idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
-                    foreach (string item in idNameList)
-                    {
-                        var lineValuesArray = item.Split("\t");
-                        dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
-                    }
-                    return dictionaryOfAvailableProteomes;
-                }
-                return null;
+                    case ".gz":
+                        idNameList = ReadAllGZippedLines(completePathToAvailableUniProtProteomes).ToList();
+                        foreach (string item in idNameList)
+                        {
+                            var lineValuesArray = item.Split("\t");
+                            dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
+                        }
+                        return dictionaryOfAvailableProteomes;
+                    case ".zip":
+                        idNameList = ReadAllZippedLines(completePathToAvailableUniProtProteomes).ToList();
+                        foreach (string item in idNameList)
+                        {
+                            var lineValuesArray = item.Split("\t");
+                            dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
+                        }
+                        return dictionaryOfAvailableProteomes;
+                    case ".txt":
+                        idNameList = File.ReadAllLines(completePathToAvailableUniProtProteomes).ToList();
+                        foreach (string item in idNameList)
+                        {
+                            var lineValuesArray = item.Split("\t");
+                            dictionaryOfAvailableProteomes.Add(lineValuesArray[0], lineValuesArray[1]);
+                        }
+                        return dictionaryOfAvailableProteomes;
+                    default:
+                        return null; //no file with the appropriate extension is present
+                };
             }
             //file does not exist
             return null;
@@ -219,13 +240,31 @@ namespace UsefulProteomicsDatabases
         {
         }
 
-        public static IEnumerable<string> ReadAllZippedLines(string filename)
+        public static IEnumerable<string> ReadAllGZippedLines(string filename)
         {
             using (var fileStream = File.OpenRead(filename))
             {
                 using (var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress))
                 {
                     using (var reader = new StreamReader(gzipStream))
+                    {
+                        string currentLine;
+                        while ((currentLine = reader.ReadLine()) != null)
+                        {
+                            yield return currentLine;
+                        }
+                    }
+                }
+            }
+        }
+
+        public static IEnumerable<string> ReadAllZippedLines(string filename)
+        {
+            using (ZipArchive archive = ZipFile.OpenRead(filename))
+            {
+                foreach (ZipArchiveEntry entry in archive.Entries)
+                {
+                    using (var reader = new StreamReader(entry.Open()))
                     {
                         string currentLine;
                         while ((currentLine = reader.ReadLine()) != null)
