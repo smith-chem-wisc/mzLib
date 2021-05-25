@@ -40,7 +40,7 @@ namespace Test
         {
             // get the raw file paths
             SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
-            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 0, 1, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -84,7 +84,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestEvelopQuantification()
+        public static void TestEnvelopQuantification()
         {
             Loaders.LoadElements();
 
@@ -1198,6 +1198,117 @@ namespace Test
             Assert.That(peptides["peptide1"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
             Assert.That(peptides["peptide2"].GetDetectionType(fraction1) == DetectionType.NotDetected);
             Assert.That(peptides["peptide2"].GetDetectionType(fraction2) == DetectionType.MSMSAmbiguousPeakfinding);
+        }
+
+        [Test]
+        public static void TestMedianPolishProteinQuant()
+        {
+            // 2 groups, 2 samples each, 3 fractions per sample
+            List<SpectraFileInfo> spectraFileInfos = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("", "group1", 0, 0, 0),
+                new SpectraFileInfo("", "group1", 0, 0, 1),
+                new SpectraFileInfo("", "group1", 0, 0, 2),
+
+                new SpectraFileInfo("", "group1", 1, 0, 0),
+                new SpectraFileInfo("", "group1", 1, 0, 1),
+                new SpectraFileInfo("", "group1", 1, 0, 2),
+
+                new SpectraFileInfo("", "group2", 0, 0, 0),
+                new SpectraFileInfo("", "group2", 0, 0, 1),
+                new SpectraFileInfo("", "group2", 0, 0, 2),
+
+                new SpectraFileInfo("", "group2", 1, 0, 0),
+                new SpectraFileInfo("", "group2", 1, 0, 1),
+                new SpectraFileInfo("", "group2", 1, 0, 2),
+            };
+
+            // 2 proteins
+            ProteinGroup pg1 = new ProteinGroup("accession1", "gene1", "organism1");
+            ProteinGroup pg2 = new ProteinGroup("accession2", "gene2", "organism1");
+
+            // 3 peptides, 1 peptide is shared b/w protein1 and protein2
+            FlashLFQ.Peptide pep1 = new FlashLFQ.Peptide("PEPTIDE", "PEPTIDE1", true, new HashSet<ProteinGroup> { pg1 });
+            FlashLFQ.Peptide pep2 = new FlashLFQ.Peptide("PEPTIDEE", "PEPTIDE2", true, new HashSet<ProteinGroup> { pg1 });
+            FlashLFQ.Peptide pep3 = new FlashLFQ.Peptide("PEPTIDEEE", "PEPTIDE3", true, new HashSet<ProteinGroup> { pg1, pg2 }); // shared peptide
+
+            FlashLfqResults res = new FlashLfqResults(spectraFileInfos, new List<Identification>());
+            res.PeptideModifiedSequences.Add(pep1.Sequence, pep1);
+            res.PeptideModifiedSequences.Add(pep2.Sequence, pep2);
+            res.PeptideModifiedSequences.Add(pep3.Sequence, pep3);
+
+            res.ProteinGroups.Add(pg1.ProteinGroupName, pg1);
+            res.ProteinGroups.Add(pg2.ProteinGroupName, pg2);
+
+            Random r = new Random(1);
+            List<FlashLFQ.Peptide> peptides = new List<FlashLFQ.Peptide> { pep1, pep2, pep3 };
+            Normal randomIonizationEfficiencyGenerator = new Normal(20, 2, r);
+
+            // create peptide quantities
+            foreach (var peptide in peptides)
+            {
+                double logIonizationEfficiency = randomIonizationEfficiencyGenerator.Sample();
+
+                foreach (var group in spectraFileInfos.GroupBy(p => p.Condition))
+                {
+                    foreach (var sample in group.GroupBy(p => p.BiologicalReplicate))
+                    {
+                        foreach (var fraction in sample.OrderBy(p => p.Fraction))
+                        {
+                            // peptide 1 will elute in fraction 1, peptide 2 elutes in fraction 2...
+                            int peptideNumber = peptides.IndexOf(peptide);
+
+                            if (peptideNumber == fraction.Fraction)
+                            {
+                                if (group.Key == "group2" && sample.Key == 1 && peptideNumber == 1)
+                                {
+                                    // create a missing peptide value
+                                    // the protein should still get quantified because its other peptide had a valid value
+                                }
+                                else
+                                {
+                                    peptide.SetIntensity(fraction, Math.Pow(2, logIonizationEfficiency));
+                                    peptide.SetDetectionType(fraction, DetectionType.MSMS);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // do the protein quant, skipping shared peptides
+            res.CalculateProteinResultsMedianPolish(useSharedPeptides: false);
+
+            // write/read the protein quantification output
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"proteinQuant.tsv");
+            res.WriteResults(null, null, filepath, null, true);
+
+            var textResults = File.ReadAllLines(filepath);
+            Assert.That(textResults.Length == 3);
+
+            // the header should show the names of the samples, not the fractionated file names
+            var header = textResults[0].Split(new char[] { '\t' });
+            Assert.That(header[3] == "Intensity_group1_1");
+            Assert.That(header[4] == "Intensity_group1_2");
+            Assert.That(header[5] == "Intensity_group2_1");
+            Assert.That(header[6] == "Intensity_group2_2");
+
+            // the quantities reported for protein1 should have no missing values and should be identical
+            var protein1Results = textResults[1].Split(new char[] { '\t' });
+            Assert.That((int)double.Parse(protein1Results[3]) == 1501270);
+            Assert.That((int)double.Parse(protein1Results[4]) == 1501270);
+            Assert.That((int)double.Parse(protein1Results[5]) == 1501270);
+            Assert.That((int)double.Parse(protein1Results[6]) == 1501270);
+
+            // protein2 doesn't get quantified because it only has 1 peptide and it's shared,
+            // and we said to not quantified shared peptides
+            var protein2Results = textResults[2].Split(new char[] { '\t' });
+            Assert.That(double.Parse(protein2Results[3]) == 0);
+            Assert.That(double.Parse(protein2Results[4]) == 0);
+            Assert.That(double.Parse(protein2Results[5]) == 0);
+            Assert.That(double.Parse(protein2Results[6]) == 0);
+
+            File.Delete(filepath);
         }
     }
 }

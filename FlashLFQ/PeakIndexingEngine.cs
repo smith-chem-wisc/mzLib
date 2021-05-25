@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using ThermoRawFileReader;
+using IO.ThermoRawFileReader;
 
 namespace FlashLFQ
 {

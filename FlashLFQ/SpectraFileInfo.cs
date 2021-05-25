@@ -4,7 +4,7 @@
     {
         public readonly string FullFilePathWithExtension;
         public readonly string FilenameWithoutExtension;
-        public string Condition; // condition/biorep/techrep/fraction info
+        public string Condition;
         public readonly int BiologicalReplicate;
         public readonly int Fraction;
         public readonly int TechnicalReplicate;
