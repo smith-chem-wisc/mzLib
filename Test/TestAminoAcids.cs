@@ -16,14 +16,17 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using Chemistry;
 using NUnit.Framework;
 using Proteomics.AminoAcidPolymer;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
+    [ExcludeFromCodeCoverage]
     public sealed class TestAminoAcids
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -40,7 +43,7 @@ namespace Test
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
-
+        
         [Test]
         public void GetResidueByCharacter()
         {

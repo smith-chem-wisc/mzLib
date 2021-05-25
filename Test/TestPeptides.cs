@@ -30,6 +30,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestPeptides
     {
         private Peptide _mockPeptideEveryAminoAcid;
@@ -821,6 +822,7 @@ namespace Test
         }
     }
 
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestProtease : IProtease
     {
         public IEnumerable<int> GetDigestionSites(AminoAcidPolymer aminoAcidSequence)

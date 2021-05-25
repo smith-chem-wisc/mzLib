@@ -7,13 +7,16 @@ using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class TestProteinDigestion
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -31,6 +34,87 @@ namespace Test
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
 
+        [Test]
+        public static void ProteaseLoader()
+        {
+            string path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod.tsv");
+            string path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod_dupName.tsv");
+            string path3 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_dupName.tsv");
+            string path4 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
+            var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
+            
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods)); 
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
+        }
+
+        [Test]
+        public static void CNBrProteinDigestion()
+        {
+            var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
+            var prot = new Protein("PEPTIDEMPEPTIDEM", null);
+            var prot2 = new Protein("MPEPTIDEMPEPTIDE", null);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
+            Assert.That(File.Exists(path));
+
+            var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
+            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ProteolyticDigestion", "proteases.tsv"), proteaseMods);
+            var protease1 = proteaseDict["CNBr"];
+            DigestionParams digestionParams1 = new DigestionParams(
+                protease: protease1.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);            
+            List<Modification> variableModifications1 = new List<Modification>();
+
+            var protease2 = proteaseDict["CNBr_old"];
+            DigestionParams digestionParams2 = new DigestionParams(
+                protease: protease2.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> variableModifications2 = new List<Modification>();
+
+            var protease3 = proteaseDict["CNBr_N"];
+            DigestionParams digestionParams3 = new DigestionParams(
+                protease: protease3.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            List<Modification> variableModifications3 = new List<Modification>();
+
+            var peps1 = prot.Digest(digestionParams1, new List<Modification>(), variableModifications1).ToList();
+            var peps2 = prot.Digest(digestionParams2, new List<Modification>(), variableModifications2).ToList(); 
+            var peps3 = prot2.Digest(digestionParams3, new List<Modification>(), variableModifications1).ToList();
+
+            Assert.AreNotEqual(null, protease3.CleavageMod);
+            Assert.AreEqual("M", protease3.CleavageMod.Target.ToString());
+
+
+            Assert.AreNotEqual(peps3[0].MonoisotopicMass, peps3[1].MonoisotopicMass);
+
+            Assert.AreEqual(882.39707781799996, peps3[1].MonoisotopicMass);
+            Assert.AreEqual(930.400449121, peps3[0].MonoisotopicMass);
+
+
+            Assert.AreEqual(null, protease2.CleavageMod);
+            Assert.AreNotEqual(null, protease1.CleavageMod);
+            Assert.AreEqual("M", protease1.CleavageMod.Target.ToString());
+
+            Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[1].MonoisotopicMass);
+            Assert.AreEqual(peps1[1].MonoisotopicMass, peps2[0].MonoisotopicMass);
+            Assert.AreEqual(peps2[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
+            Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps1[1].MonoisotopicMass);
+            Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[0].MonoisotopicMass);
+            Assert.AreNotEqual(peps1[0].MonoisotopicMass, peps2[1].MonoisotopicMass);
+
+            Assert.AreEqual(882.39707781799996, peps1[0].MonoisotopicMass);
+            Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
+
+            
+        }
+       
         [Test]
         public static void TestGoodPeptide()
         {
@@ -81,7 +165,7 @@ namespace Test
         public static void TestBadPeptide()
         {
             var prot = new Protein("MNNNKQQXQ", null);
-            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");            
             var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(

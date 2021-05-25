@@ -1,4 +1,5 @@
-﻿using Proteomics.Fragmentation;
+﻿using Proteomics.AminoAcidPolymer;
+using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
@@ -172,6 +173,8 @@ namespace Proteomics
         /// </summary>
         public string SampleNameForVariants { get; }
 
+        public double Probability { get; set; } // for protein pep project
+
         public int Length
         {
             get
@@ -223,11 +226,16 @@ namespace Proteomics
         /// <summary>
         /// Gets peptides for digestion of a protein
         /// </summary>
-        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, IEnumerable<Modification> allKnownFixedModifications,
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
-        {
+        {            
             //can't be null
-            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
+            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>(); 
+            // add in any modifications that are caused by protease digestion
+            if (digestionParams.Protease.CleavageMod!= null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
+            {
+                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);                
+            }                      
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
@@ -250,8 +258,8 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
-            }
+               return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+            }           
 
             return modifiedPeptides;
         }
@@ -272,7 +280,7 @@ namespace Proteomics
                 }
             }
         }
-
+       
         /// <summary>
         /// Add additional peptides with SILAC amino acids
         /// </summary>

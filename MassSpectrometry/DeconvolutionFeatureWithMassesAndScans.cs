@@ -62,8 +62,8 @@ namespace MassSpectrometry
         public string OneLineString()
         {
             List<(double elutionTime, double intensity)> elutionTimeAndIntensity = new List<(double elutionTime, double intensity)>();
-            foreach (var (scanNumber, elutionTime, isotopicEnvelope) in groups.SelectMany(b => b.isotopicEnvelopes).Where(b => b.isotopicEnvelope.charge == MostIntenseEnvelope.charge))
-                elutionTimeAndIntensity.Add((elutionTime, isotopicEnvelope.totalIntensity));
+            foreach (var (scanNumber, elutionTime, isotopicEnvelope) in groups.SelectMany(b => b.isotopicEnvelopes).Where(b => b.isotopicEnvelope.Charge == MostIntenseEnvelope.Charge))
+                elutionTimeAndIntensity.Add((elutionTime, isotopicEnvelope.TotalIntensity));
 
             int maxCharge = groups.SelectMany(p => p.AllCharges).Max();
             var t = groups.SelectMany(p => p.isotopicEnvelopes);
@@ -71,10 +71,10 @@ namespace MassSpectrometry
             for (int z = 1; z <= maxCharge; z++)
             {
                 string str = "[" + z + "|";
-                var isotopicEnvelopes = t.Where(p => p.isotopicEnvelope.charge == z);
+                var isotopicEnvelopes = t.Where(p => p.isotopicEnvelope.Charge == z);
                 foreach (var (scanNumber, elutionTime, isotopicEnvelope) in isotopicEnvelopes)
                 {
-                    str += Math.Round(elutionTime, 2) + ";" + isotopicEnvelope.totalIntensity + ",";
+                    str += Math.Round(elutionTime, 2) + ";" + isotopicEnvelope.TotalIntensity + ",";
                 }
                 str += "]";
 
@@ -108,7 +108,7 @@ namespace MassSpectrometry
             bool added = false;
             foreach (var massGroup in groups)
             {
-                if (Math.Abs(massGroup.Mass - isotopicEnvelope.monoisotopicMass) < 0.5)
+                if (Math.Abs(massGroup.Mass - isotopicEnvelope.MonoisotopicMass) < 0.5)
                 {
                     massGroup.AddEnvelope(scanIndex, elutionTime, isotopicEnvelope);
                     added = true;
@@ -123,9 +123,9 @@ namespace MassSpectrometry
             }
 
             Mass = groups.OrderBy(b => -b.NumPeaks).First().Mass;
-            TotalNormalizedIntensity += isotopicEnvelope.totalIntensity / isotopicEnvelope.charge;
+            TotalNormalizedIntensity += isotopicEnvelope.TotalIntensity / isotopicEnvelope.Charge;
 
-            if (MostIntenseEnvelope == null || MostIntenseEnvelope.totalIntensity < isotopicEnvelope.totalIntensity)
+            if (MostIntenseEnvelope == null || MostIntenseEnvelope.TotalIntensity < isotopicEnvelope.TotalIntensity)
             {
                 MostIntenseEnvelope = isotopicEnvelope;
                 MostIntenseEnvelopeElutionTime = elutionTime;

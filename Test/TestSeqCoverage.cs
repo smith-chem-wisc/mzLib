@@ -10,6 +10,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestSeqCoverage
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -48,7 +49,7 @@ namespace Test
         {
             Protein ParentProtein = new Protein("MOAT", "accession1");
 
-            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("O|,|T");           
             var protease = new Protease("TestProtease2", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams multiProtease = new DigestionParams(protease: protease.Name, maxMissedCleavages: 1, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);

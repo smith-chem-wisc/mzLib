@@ -14,7 +14,8 @@ namespace FlashLFQ
         public double SplitRT;
         public readonly bool IsMbrPeak;
         public double MbrScore;
-        
+        public double PosteriorErrorProbability { get { return NumIdentificationsByFullSeq > 1 ? 1 : Identifications.Min(p => p.PosteriorErrorProbability); } }
+
         public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
@@ -56,6 +57,7 @@ namespace FlashLFQ
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
                 sb.Append("Peak Detection Type" + "\t");
+                sb.Append("MBR Score" + "\t");
                 sb.Append("PSMs Mapped" + "\t");
                 sb.Append("Base Sequences Mapped" + "\t");
                 sb.Append("Full Sequences Mapped" + "\t");
@@ -84,11 +86,11 @@ namespace FlashLFQ
 
                 MassError = double.NaN;
 
-                foreach (var id in Identifications)
+                foreach (Identification id in Identifications)
                 {
                     double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
 
-                    if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < MassError)
+                    if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < Math.Abs(MassError))
                     {
                         MassError = massErrorForId;
                     }
@@ -110,7 +112,7 @@ namespace FlashLFQ
             if (otherFeature != this)
             {
                 var thisFeaturesPeaks = new HashSet<IndexedMassSpectralPeak>(IsotopicEnvelopes.Select(p => p.IndexedPeak));
-                this.Identifications = this.Identifications.Union(otherFeature.Identifications).Distinct().ToList();
+                this.Identifications = this.Identifications.Union(otherFeature.Identifications).Distinct().OrderBy(p => p.PosteriorErrorProbability).ToList();
                 ResolveIdentifications();
                 this.IsotopicEnvelopes.AddRange(otherFeature.IsotopicEnvelopes.Where(p => !thisFeaturesPeaks.Contains(p.IndexedPeak)));
                 this.CalculateIntensityForThisFeature(integrate);
@@ -156,9 +158,9 @@ namespace FlashLFQ
 
             if (Apex != null)
             {
-                sb.Append("" + IsotopicEnvelopes.Select(p => p.IndexedPeak.RetentionTime).Min() + "\t");
+                sb.Append("" + IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime) + "\t");
                 sb.Append("" + Apex.IndexedPeak.RetentionTime + "\t");
-                sb.Append("" + IsotopicEnvelopes.Select(p => p.IndexedPeak.RetentionTime).Max() + "\t");
+                sb.Append("" + IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime) + "\t");
 
                 sb.Append("" + Apex.IndexedPeak.Mz + "\t");
                 sb.Append("" + Apex.ChargeState + "\t");
@@ -184,12 +186,14 @@ namespace FlashLFQ
                 sb.Append("" + "MSMS" + "\t");
             }
 
+            sb.Append("" + (IsMbrPeak ? MbrScore.ToString() : "") + "\t");
+
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError + "\t");
-
+            
             return sb.ToString();
         }
     }

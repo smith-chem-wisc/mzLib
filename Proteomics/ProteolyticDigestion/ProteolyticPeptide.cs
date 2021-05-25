@@ -99,7 +99,7 @@ namespace Proteomics.ProteolyticDigestion
             foreach (Modification variableModification in variableModifications)
             {
                 // Check if can be a n-term mod
-                if (CanBeNTerminalMod(variableModification, peptideLength))
+                if (CanBeNTerminalMod(variableModification, peptideLength) && !ModificationLocalization.UniprotModExists(Protein, 1, variableModification))
                 {
                     pepNTermVariableMods.Add(variableModification);
                 }
@@ -107,7 +107,7 @@ namespace Proteomics.ProteolyticDigestion
                 for (int r = 0; r < peptideLength; r++)
                 {
                     if (ModificationLocalization.ModFits(variableModification, Protein.BaseSequence, r + 1, peptideLength, OneBasedStartResidueInProtein + r)
-                        && variableModification.LocationRestriction == "Anywhere.")
+                        && variableModification.LocationRestriction == "Anywhere." && !ModificationLocalization.UniprotModExists(Protein, r + 1, variableModification))
                     {
                         if (!twoBasedPossibleVariableAndLocalizeableModifications.TryGetValue(r + 2, out List<Modification> residueVariableMods))
                         {
@@ -121,7 +121,7 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
                 // Check if can be a c-term mod
-                if (CanBeCTerminalMod(variableModification, peptideLength))
+                if (CanBeCTerminalMod(variableModification, peptideLength) && !ModificationLocalization.UniprotModExists(Protein, peptideLength, variableModification))
                 {
                     pepCTermVariableMods.Add(variableModification);
                 }
@@ -314,7 +314,16 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     case "N-terminal.":
                     case "Peptide N-terminal.":
-                        if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
+                        //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginign of the protein
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
+                        {
+                            if (OneBasedStartResidueInProtein != 1)
+                            {
+                                fixedModsOneIsNterminus[2] = mod;
+                            }
+                        }
+                        //Normal N-terminal peptide modification
+                        else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, 1, peptideLength, OneBasedStartResidueInProtein))
                         {
                             fixedModsOneIsNterminus[1] = mod;
                         }
@@ -332,7 +341,17 @@ namespace Proteomics.ProteolyticDigestion
 
                     case "C-terminal.":
                     case "Peptide C-terminal.":
-                        if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
+                        //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
+                        if (mod.ModificationType == "Protease" && ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
+                        {
+                            if (OneBasedEndResidueInProtein != Protein.Length)
+                            {
+                                fixedModsOneIsNterminus[peptideLength+1] = mod;
+                            }
+                            
+                        }
+                        //Normal C-terminal peptide modification 
+                        else if (ModificationLocalization.ModFits(mod, Protein.BaseSequence, peptideLength, peptideLength, OneBasedStartResidueInProtein + peptideLength - 1))
                         {
                             fixedModsOneIsNterminus[peptideLength + 2] = mod;
                         }

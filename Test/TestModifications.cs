@@ -34,6 +34,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public sealed class TestModifications
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -746,6 +747,57 @@ namespace Test
 
             var roundedFragments = fragments.Select(f => (int)f.NeutralMass).ToList();
             CollectionAssert.AreEquivalent(roundedFragments, new int[] { 97, 226, 323, 424, 537, 652, 189, 304, 417, 518, 615, 744 });
+        }
+
+        [Test]
+        public static void TestUniprotNTerminalMod()
+        {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif1);
+            Modification variableMod = new Modification(_originalId: "acetylation", _modificationType: "Variable", _target: motif1, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "N-terminal.");
+
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif2);
+            Modification uniprotMod = new Modification(_originalId: "acetylation", _modificationType: "UniProt", _target: motif2, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "N-terminal.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 1, new List<Modification> { uniprotMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            var peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>() { variableMod }).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+
+            Assert.That(peptide.FullSequence == "[UniProt:acetylation on P]PEPTIDE");
+        }
+
+        [Test]
+        public static void TestUniprotCTerminalMod()
+        {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif1);
+            Modification variableMod = new Modification(_originalId: "acetylation", _modificationType: "Variable", _target: motif1, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "C-terminal.");
+
+            ModificationMotif.TryGetMotif("E", out ModificationMotif motif2);
+            Modification uniprotMod = new Modification(_originalId: "acetylation", _modificationType: "UniProt", _target: motif2, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "C-terminal.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 7, new List<Modification> { uniprotMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            var peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>() { variableMod }).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+
+            Assert.That(peptide.FullSequence == "PEPTIDE[UniProt:acetylation on E]");
+        }
+
+        [Test]
+        public static void TestUniprotResidualMod()
+        {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif1);
+            Modification variableMod = new Modification(_originalId: "acetylation", _modificationType: "Variable", _target: motif1, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "Anywhere.");
+
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif2);
+            Modification uniprotMod = new Modification(_originalId: "acetylation", _modificationType: "UniProt", _target: motif2, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "Anywhere.");
+
+            Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { uniprotMod } } };
+
+            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
+            var peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>() { variableMod }).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
+
+            Assert.That(peptide.FullSequence == "PEPT[UniProt:acetylation on T]IDE");
         }
     }
 }

@@ -11,6 +11,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class TestPeptideWithSetMods
     {
         private static Stopwatch Stopwatch { get; set; }

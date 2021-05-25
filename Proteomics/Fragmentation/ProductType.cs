@@ -35,8 +35,10 @@ namespace Proteomics.Fragmentation
         yDegree,
         zPlusOne,//This is zDot plus H
         zDot,
-        M, //this is the molecular ion
-        D //this is a diagnostic ion
+        M, //this is the molecular ion // [M]
+        D, //this is a diagnostic ion // Modification loss mass
+        Ycore, //Glyco core Y ions // [pep] + Neutral core Glycan mass (such as: [pep] + [N]) //Which already consider the loss of H2O and H-transfer
+        Y //Glyco Y ions // [pep] + other Glycan mass 
     }
 
 }

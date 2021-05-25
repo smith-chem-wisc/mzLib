@@ -16,18 +16,18 @@ using UsefulProteomicsDatabases;
 // RawFileReader reading tool. Copyright © 2016 by Thermo Fisher Scientific, Inc. All rights reserved.
 // See the full Software Licence Agreement for detailed requirements for use.
 
-namespace ThermoRawFileReader
+namespace IO.ThermoRawFileReader
 {
-    public class ThermoRawFileReaderData : MsDataFile
+    public class ThermoRawFileReader : MsDataFile
     {
-        protected ThermoRawFileReaderData(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
+        protected ThermoRawFileReader(MsDataScan[] scans, SourceFile sourceFile) : base(scans, sourceFile)
         {
         }
 
         /// <summary>
         /// Loads all scan data from a Thermo .raw file.
         /// </summary>
-        public static ThermoRawFileReaderData LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
+        public static ThermoRawFileReader LoadAllStaticData(string filePath, IFilteringParams filterParams = null, int maxThreads = -1)
         {
             if (!File.Exists(filePath))
             {
@@ -100,7 +100,7 @@ namespace ThermoRawFileReader
                 filePath,
                 Path.GetFileNameWithoutExtension(filePath));
 
-            return new ThermoRawFileReaderData(msDataScans, sourceFile);
+            return new ThermoRawFileReader(msDataScans, sourceFile);
         }
 
         public static MsDataScan GetOneBasedScan(IRawDataPlus rawFile, IFilteringParams filteringParams, int scanNumber)
@@ -129,7 +129,8 @@ namespace ThermoRawFileReader
             int? precursorScanNumber = null;
             double? isolationMz = null;
             string HcdEnergy = null;
-            ActivationType activationType = ActivationType.Any;
+            ActivationType activationType = ActivationType.Any; // thermo enum
+            DissociationType dissociationType = DissociationType.Unknown; // mzLib enum
 
             var trailer = rawFile.GetTrailerExtraInformation(scanNumber);
             string[] labels = trailer.Labels;
@@ -187,6 +188,15 @@ namespace ThermoRawFileReader
                 isolationMz = reaction.PrecursorMass;
                 activationType = reaction.ActivationType;
 
+                dissociationType = GetDissociationType(activationType);
+
+                // thermo does not have an enum value for ETHcD, so this needs to be detected from the scan filter
+                if (scanFilterString.Contains("@etd", StringComparison.OrdinalIgnoreCase)
+                    && scanFilterString.Contains("@hcd", StringComparison.OrdinalIgnoreCase))
+                {
+                    dissociationType = DissociationType.EThcD;
+                }
+
                 if (ms2IsolationWidth == null)
                 {
                     ms2IsolationWidth = reaction.IsolationWidth;
@@ -223,12 +233,12 @@ namespace ThermoRawFileReader
 
             if (isolationMz.HasValue)
             {
-                int? closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
-
-                if (closest.HasValue)
+                if (spectrum.Size != 0)
                 {
-                    double mz = spectrum.XArray[closest.Value];
-                    double intensity = spectrum.YArray[closest.Value];
+                    int closest = spectrum.GetClosestPeakIndex(isolationMz.Value);
+
+                    double mz = spectrum.XArray[closest];
+                    double intensity = spectrum.YArray[closest];
 
                     if (Math.Abs(mz - isolationMz.Value) < 0.1)
                     {
@@ -257,7 +267,7 @@ namespace ThermoRawFileReader
                 selectedIonIntensity: selectedIonIntensity,
                 isolationMZ: isolationMz,
                 isolationWidth: ms2IsolationWidth,
-                dissociationType: GetDissociationType(activationType),
+                dissociationType: dissociationType,
                 oneBasedPrecursorScanNumber: precursorScanNumber,
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
                 hcdEnergy: HcdEnergy);
@@ -356,6 +366,10 @@ namespace ThermoRawFileReader
                 case ActivationType.ElectronTransferDissociation: return DissociationType.ETD;
                 case ActivationType.HigherEnergyCollisionalDissociation: return DissociationType.HCD;
                 case ActivationType.ElectronCaptureDissociation: return DissociationType.ECD;
+                case ActivationType.MultiPhotonDissociation: return DissociationType.MPD;
+                case ActivationType.PQD: return DissociationType.PQD;
+                case ActivationType.UltraVioletPhotoDissociation: return DissociationType.UVPD;
+                case ActivationType.NegativeElectronTransferDissociation: return DissociationType.NETD;
 
                 default: return DissociationType.Unknown;
             }

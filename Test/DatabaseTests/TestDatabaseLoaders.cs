@@ -16,6 +16,7 @@
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
 using Chemistry;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -24,12 +25,15 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Text;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestDatabaseLoaders
     {
         private static Stopwatch Stopwatch { get; set; }
@@ -46,33 +50,36 @@ namespace Test
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
+
         [Test]
         public static void LoadIsoforms()
-        {            
-            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var errors);
+        {
+            var protein = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "Isoform.fasta"), true, DecoyType.None, 
+                false, out var errors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, 
+                ProteinDbLoader.UniprotOrganismRegex);
             Assert.AreEqual("Q13409", protein[0].Accession);
-            Assert.AreEqual("Q13409_2", protein[1].Accession);
-            Assert.AreEqual("Q13409_3", protein[2].Accession);
+            Assert.AreEqual("Q13409-2", protein[1].Accession);
+            Assert.AreEqual("Q13409-3", protein[2].Accession);
             Assert.AreEqual("Q13813", protein[3].Accession);
-            Assert.AreEqual("Q13813_2", protein[4].Accession);
-            Assert.AreEqual("Q13813_3", protein[5].Accession);
+            Assert.AreEqual("Q13813-2", protein[4].Accession);
+            Assert.AreEqual("Q13813-3", protein[5].Accession);
             Assert.AreEqual("Q14103", protein[6].Accession);
-            Assert.AreEqual("Q14103_2", protein[7].Accession);
-            Assert.AreEqual("Q14103_3", protein[8].Accession);
-            Assert.AreEqual("Q14103_4", protein[9].Accession);
+            Assert.AreEqual("Q14103-2", protein[7].Accession);
+            Assert.AreEqual("Q14103-3", protein[8].Accession);
+            Assert.AreEqual("Q14103-4", protein[9].Accession);
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
-            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));           
+            ProteinDbWriter.WriteXmlDatabase(mods, protein, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"));
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"), true, DecoyType.None, null, false, null, out var unknownMod);
             Assert.AreEqual("Q13409", proteinXml[0].Accession);
-            Assert.AreEqual("Q13409_2", proteinXml[1].Accession);
-            Assert.AreEqual("Q13409_3", proteinXml[2].Accession);
+            Assert.AreEqual("Q13409-2", proteinXml[1].Accession);
+            Assert.AreEqual("Q13409-3", proteinXml[2].Accession);
             Assert.AreEqual("Q13813", proteinXml[3].Accession);
-            Assert.AreEqual("Q13813_2", proteinXml[4].Accession);
-            Assert.AreEqual("Q13813_3", proteinXml[5].Accession);
+            Assert.AreEqual("Q13813-2", proteinXml[4].Accession);
+            Assert.AreEqual("Q13813-3", proteinXml[5].Accession);
             Assert.AreEqual("Q14103", proteinXml[6].Accession);
-            Assert.AreEqual("Q14103_2", proteinXml[7].Accession);
-            Assert.AreEqual("Q14103_3", proteinXml[8].Accession);
-            Assert.AreEqual("Q14103_4", proteinXml[9].Accession);
+            Assert.AreEqual("Q14103-2", proteinXml[7].Accession);
+            Assert.AreEqual("Q14103-3", proteinXml[8].Accession);
+            Assert.AreEqual("Q14103-4", proteinXml[9].Accession);
         }
 
         [Test]
@@ -163,7 +170,7 @@ namespace Test
 
             // UniModPTMs
             var unimodMods = Loaders.LoadUnimod(uniModPath).ToList();
-            Assert.AreEqual(2677, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.AreEqual(2702, unimodMods.Count); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -196,7 +203,7 @@ namespace Test
 
             // UniProt PTMs
             var uniprotPtms = Loaders.LoadUniprot(uniProtPath, formalChargesDictionary).ToList();
-            Assert.AreEqual(345, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
+            Assert.LessOrEqual(300, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
             // write UniProt and UniMod PTMs to a file
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
@@ -494,15 +501,179 @@ namespace Test
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
         }
-        
+
         [Test]
         public static void IsoformReadTest()
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\isoformTest.fasta");
-            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
-                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex, out var dbErrors);
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
 
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
+        }
+
+        [Test]
+        public static void TestRetrieveUniProtProteome()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+
+            //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
+            string returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.yes);
+
+            filepath += "\\UP000008595_reviewed_isoform.fasta.gz";
+
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
+
+            var proteinList = ProteinDbLoader.LoadProteinFasta(filepath, true, DecoyType.None, false, out var dbErrors, ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.AreEqual(4, proteinList.Count);
+            Assert.IsTrue(proteinList.Select(p => p.Accession).ToList().Contains("P33453"));
+            Assert.AreEqual("MLLAICSRTIRQQGLNCPPAVTFTSSHMRPPIPSFLLWTEGSDVLMDFDLDTIPAGSVTGSSIGPKFKIKTQAASSFVHDFTFAHWCDASDMPLRDHFPLVNDTFDHWTPDFISQRLDGSKVVVEFTTNRSDQEQSLISAFNTKVGKYEVALHNRSTTSSILFGVVV" +
+                "VSETTVVTNLNLNQQEVDELCFRFLVARAVHLEMTTKMIIPEYDDEDEDKRSREVKAAFHSVQPDWNVTEANFAPFSRRMFSNFAQMEPDKEYLAHIILDSLKQAQADLDGNHYLNESLTEQARLDRNREESLNMVKDFERDFNNAAQRSAWSHKSTVPFPGVIPKVSGDTTSLSRLVEL" +
+                "PVITGGSDATIRAWRSAYGSVSNGTVERCDEDVERERRAALCSLTVEELEESKALRMKYHRCKIDNGMMDKLDLAMQGVEAKEFKNHPSIIKKRSKSKKTFPLTADTRDIDLFLHHDDLMFNNEHSQTPPAAMIEAVKAGADAQSLHGLDKSANPWYASALWFLGLPIGLWLFMCTCIGVEL" +
+                "SISLKQHCGRQKFIIKKLRFFDIFLLIKPTNSGSHVFYSIAFPESAILGKLHRSQCFKGLQFEDGWFWTEFSSFKMSKLTNVVKCLSTGFNLFWFWRDYYEVPFWAGNEKDFQTGKQRANKMFKFCLLMLLEDKARTEEIATLSRYVMMEGFVSPPCIPKPQKMIEKLPNLARTKFQVWLISR" +
+                "MLQTIIRVSDYPFKITAGHKSANWTGMFNWVTGEPIESTQKLISLFYLGYLKNKEESPERNASIGMYKKILEYEDKHPGRYTYLGLGDPPSDDTRFHEYSISLLKHLCIHAEHDLRRNWGESFKAMISRDIVDAIASLDLERLATLKASSNFNEEWYQKRGDGKTYHRSKVLEKVSKYVKKSSSH" +
+                "VHHIMEECLRKVESQGCMHVCLFKKPQHGGLREIYVLGFEERVVQLVIETIARQICKRFKSETLTNPKQKLAIPETHGLRAVKTCGIHHETVATSDDAAKWNQCHHVTKFALMLCHFTDPLFHGFIIRGCSMFMKKRIMIDQSLIDIIDSHTTLETSDAYLQKIHRGYHGSLDDQPRWISRGGAFVQ" +
+                "TETGMMQGILHYTSSLLHTLLQEWLRTFSQRFIRTRVSVDQRPDVLVDVLQSSDDSGMMISFPSTDKGATGKYRYLSALIFKYKKVIGKYLGIYSSVKSTNNTLHLLEFNSEFFFHINHNRPLLRWITACDTISEQESLASRQEEMYNNLTSVLEGGGSFSLVSFCQFGQLLLHYTLLGMTVSPLFLEY" +
+                "IKLVSEIKDPSLGYFLMDHPFGSGLSGFKYNVWVAVQNSILGSRYRSLLEAIQNSDSAAPKKTLDTTTSGTFVQSTIIRFGDRKKWQRLVDRLNLPEDWLDVIDKNPEIVYRRPRDGFEVSLRIAEKVHSPGVSNSLSKGNCIIRVISSSVYILSRSILSDGLAWLYDEEEEVKRPLLYKVMNQPELDLHSRLTPA" +
+                "QLSTLFPMMAEFEKLQTHLRSYMKIEGEFISKKKVITQTRVNILETERFLRARPEDLIADKWFGFTRTRMTPRTFKEEWENLTSVFPWLTGNPSETLELSPFQHHVQLRNFFSRLDLKGRDIRIIGAPIKKSSGVSNVSTAIRDNFFPRFVLTHIPDEAAMERIEAAGILKHALFLTVTGPYTDQSKLDMCRDF" +
+                "ITSSEPITLKPNHGKTRTNVLSLFQDYFSKRGPDIIFNRIQMANCGVIGGFTSPQKPKEVDGKIVYTGDGVWRGIVDGFQIQLVITYMPKQKSNELKSITVNSDRCISALSSFCQSWCKEMGVFNTEDFSKTQRFSKASFFMHKFKISGSKQTLGAPIFIVSEKIFRPICWDPSKLEFRVRGNTLNLTY" +
+                "KEVNPGAGQRMFNILSYTVKDTDVSDENAFKLMSLSPRHKFHGREPSTSWICMRALPISTIDKLLERILNRERISGSIDNERLAECFKNVMESTLRRKGVFLSEFSRATQKMLDGLSRDMLDFFAEAGLNDDLLLEEEPWLSGLDTFMLDDEAYLEEYNLGPFGVFSVEQEMNTKYYHHLLLD" +
+                "SLVEDVIQKLSLDGLRKLFQEEEAPLEYKKEVIRLLNILQRDASQIKWKSRDLLSENMGLDVDDDMFG", proteinList.Where(p => p.Accession == "P33453").FirstOrDefault().BaseSequence);
+
+            File.Delete(filepath);
+
+            //fasta; unreviewed; non-compressed; no isoforms
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.fasta";
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
+            File.Delete(filepath);
+
+            //xml; reviewed; compresseded; no isoforms
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_reviewed.xml.gz";
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
+            File.Delete(filepath);
+
+            //xml; unreviewed; non-compresseded; no isoforms
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.xml";
+            Assert.AreEqual(filepath, returnedFilePath);
+            Assert.IsTrue(File.Exists(filepath));
+            File.Delete(filepath);
+
+            //junk null return
+            filepath = "pathDoesNotExists";
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.xml";
+            Assert.IsNull(returnedFilePath);
+
+            //we don't support filetypes other than fasta or xml currently
+            //requesting gff or other file formats will return null for now.
+            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+            filepath += "\\UP000008595_unreviewed.xml";
+            Assert.IsNull(returnedFilePath);
+        }
+
+        [Test]
+        public static void TestDownloadAvailableUniProtProteomes()
+        {
+            string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
+            string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
+            Assert.AreEqual(filepath + "\\availableUniProtProteomes.txt.gz", downloadedFilePath);
+
+            Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(downloadedFilePath);
+
+            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
+            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
+
+            File.Delete(downloadedFilePath);
+
+            //return null for bad filepath
+            filepath = "bubba";
+            downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
+            Assert.IsNull(downloadedFilePath);
+
+            //bad file path returns null
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList("badFilePath");
+            Assert.IsNull(uniprotProteoms);
+
+
+            //wrong file extension returns null
+            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"));
+            Assert.IsNull(uniprotProteoms);
+        }
+
+        [Test]
+        public static void TestDownloadListOfColumnsAvailableAtUniProt()
+        {
+            var uniProtColumnDictionary = ProteinDbRetriever.UniprotColumnsList();
+            Assert.IsTrue(uniProtColumnDictionary.Keys.Contains("Entry"));
+            Assert.AreEqual("id", uniProtColumnDictionary["Entry"]);
+        }
+
+        [Test]
+        public static void TestHyphenAccession()
+        {
+            string fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "TestHypenAccession.fasta");
+
+            string header = @">TTLL10-203.TTLL10-202|x|x|x|x|x|TTLL10|x";
+            List<string> output = new List<string> { header };
+            output.Add("PEPTIDE");
+            File.WriteAllLines(fastaFile, output);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, out var errors);
+
+            Assert.That(proteins.First().Accession == "TTLL10-203.TTLL10-202");
+
+            File.Delete(fastaFile);
+        }
+
+        [Test]
+        public static void TestDifferentHeaderStyles()
+        {
+            // uniprot database
+            string fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "uniprot_aifm1.fasta");
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(proteins.Count == 2);
+
+            var targetProtein = proteins.First(p => !p.IsDecoy);
+            Assert.That(targetProtein.Accession == "Q9Z0X1");
+            Assert.That(targetProtein.GeneNames.Count() == 1);
+            Assert.That(targetProtein.GeneNames.First().Item2 == "Aifm1");
+            Assert.That(targetProtein.FullName == "Apoptosis-inducing factor 1, mitochondrial");
+            Assert.That(targetProtein.Name == "AIFM1_MOUSE");
+            Assert.That(targetProtein.Organism == "Mus musculus");
+                
+            // gencode database
+            fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "gencode_mmp20.fa");
+            proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);
+            Assert.That(proteins.Count == 2);
+
+            targetProtein = proteins.First(p => !p.IsDecoy);
+
+            Assert.That(targetProtein.Accession == "ENSMUSP00000034487.2");
+            Assert.That(targetProtein.GeneNames.Count() == 1);
+            Assert.That(targetProtein.GeneNames.First().Item2 == "Mmp20");
+            Assert.That(targetProtein.FullName == "Mmp20-201");
+
+            // ensembl database
+            fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "ensembl_prrc2a.fa");
+            proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out errors);
+            Assert.That(proteins.Count == 2);
+
+            targetProtein = proteins.First(p => !p.IsDecoy);
+            Assert.That(targetProtein.Accession == "ENSP00000372947.2");
+            Assert.That(targetProtein.GeneNames.Count() == 1);
+            Assert.That(targetProtein.GeneNames.First().Item2 == "ENSG00000206427.11");
         }
     }
 }

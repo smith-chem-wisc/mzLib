@@ -18,10 +18,12 @@
 using MassSpectrometry;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace Test
 {
+    [ExcludeFromCodeCoverage]
     public class FakeMsDataFile : MsDataFile
     {
         public FakeMsDataFile(MsDataScan[] FakeScans) : base(FakeScans, new SourceFile(@"scan number only nativeID format", "mzML format", null, "SHA-1", @"C:\fake.mzML", null))
