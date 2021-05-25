@@ -28,6 +28,7 @@ namespace Proteomics.ProteolyticDigestion
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
 
+
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
@@ -109,6 +110,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
             }
+
         }
 
         public string SequenceWithChemicalFormulas
@@ -500,6 +502,79 @@ namespace Proteomics.ProteolyticDigestion
 
                 // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
                 products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
+            }
+        }
+
+
+        /// <summary>
+        /// Generates theoretical internal fragments for given dissociation type for this peptide. 
+        /// The "products" parameter is filled with these fragments.
+        /// The "minLengthOfFragments" parameter is the minimum number of amino acids for an internal fragment to be included
+        /// TODO: Implement neutral losses (e.g. phospho)
+        /// TODO: Implement Star/Degree ions from CID
+        /// </summary>
+        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products)
+        {
+            products.Clear();
+
+            var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftsForDissociationType(dissociationType);
+
+            List<ProductType> nTermProductTypes = DissociationTypeCollection.GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.N);
+            List<ProductType> cTermProductTypes = DissociationTypeCollection.GetTerminusSpecificProductTypesFromDissociation(dissociationType, FragmentationTerminus.C);
+
+            //foreach start (N-term) index possible
+            for (int n = 1; n <= BaseSequence.Length - minLengthOfFragments - 1; n++)
+            {
+                double fragmentMass = 0;
+                //populate with smallest possible fragment (minus 1) from this starting residue
+                for (int i = 0; i < minLengthOfFragments - 1; i++)
+                {
+                    if (Residue.TryGetResidue(BaseSequence[n + i], out Residue residue))
+                    {
+                        fragmentMass += residue.MonoisotopicMass;
+
+                        // add side-chain mod
+                        if (AllModsOneIsNterminus.TryGetValue(n + i + 2, out Modification mod))
+                        {
+                            fragmentMass += mod.MonoisotopicMass.Value;
+                        }
+                    }
+                    else
+                    {
+                        fragmentMass = double.NaN;
+                    }
+                }
+
+                //expand length of fragment, adding each new length as a new fragment ion, until we reach the C1 residue.
+                for (int c = n + minLengthOfFragments - 1; c < BaseSequence.Length - 1; c++)
+                {
+                    if (Residue.TryGetResidue(BaseSequence[c], out Residue residue))
+                    {
+                        fragmentMass += residue.MonoisotopicMass;
+                        // add side-chain mod
+                        if (AllModsOneIsNterminus.TryGetValue(c + 2, out Modification mod))
+                        {
+                            fragmentMass += mod.MonoisotopicMass.Value;
+                        }
+                        //add new fragment
+                        //loop to accomodate EThcD
+                        for (int i = 0; i < nTermProductTypes.Count; i++)
+                        {
+                            double massCap = massCaps.Item1[i];
+                            for (int j = 0; j < cTermProductTypes.Count; j++)
+                            {
+                                double massCap2 = massCaps.Item2[j];
+                                //do c, then n terminal ions
+                                products.Add(new Product(cTermProductTypes[j], FragmentationTerminus.None, fragmentMass + massCap + massCap2 - WaterMonoisotopicMass,
+                                    n + 1, c - n + 1, 0, nTermProductTypes[i], c + 1));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        fragmentMass = double.NaN;
+                    }
+                }
             }
         }
 

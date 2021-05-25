@@ -84,7 +84,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestEvelopQuantification()
+        public static void TestEnvelopQuantification()
         {
             Loaders.LoadElements();
 
