@@ -194,6 +194,60 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // feature
                     }
 
+                    foreach (var hm in protein.SpliceVariants)
+                    {
+                        writer.WriteStartElement("isoform");
+                        writer.WriteStartElement("id");
+                        writer.WriteString(hm.Accession);
+                        writer.WriteEndElement();
+                        foreach (var name in hm.Names)
+                        {
+                            writer.WriteStartElement("name");
+                            writer.WriteString(name);
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteStartElement("sequence");
+                        writer.WriteAttributeString("type", hm.Type);
+                        if (hm.Type == "described")
+                        {
+                            writer.WriteAttributeString("ref", string.Join(" ", hm.SpliceVariations.Select(sv => sv.Description.Id)));
+                        }
+                        writer.WriteEndElement();
+                    }
+
+                    foreach (var hm in protein.SpliceVariants.SelectMany(sv => sv.SpliceVariations).Distinct())
+                    {
+                        writer.WriteStartElement("feature");
+                        writer.WriteAttributeString("type", "splice variant");
+                        writer.WriteAttributeString("description", hm.Description.Description);
+                        writer.WriteAttributeString("id", hm.Description.Id);
+                        if (hm.OriginalSequence != null && hm.VariantSequence != null)
+                        {
+                            writer.WriteStartElement("original");
+                            writer.WriteString(hm.OriginalSequence);
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("variation");
+                            writer.WriteString(hm.VariantSequence);
+                            writer.WriteEndElement();
+                        }
+                        writer.WriteStartElement("location");
+                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                        {
+                            writer.WriteStartElement("position");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                        else
+                        {
+                            writer.WriteStartElement("begin");
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteEndElement();
+                            writer.WriteStartElement("end");
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteEndElement();
+                        }
+                    }
+
                     foreach (var hm in protein.DisulfideBonds)
                     {
                         writer.WriteStartElement("feature");

@@ -6,9 +6,10 @@ namespace Proteomics
 {
     public class SequenceVariantDescription
     {
-        public SequenceVariantDescription(string description)
+        public SequenceVariantDescription(string description, string id)
         {
             Description = description;
+            Id = id;
             if (description == null)
             {
                 return;
@@ -46,6 +47,7 @@ namespace Proteomics
         }
 
         public string Description { get; }
+        public string Id { get; } // used for splice variants
         public string ReferenceAlleleString { get; }
         public string AlternateAlleleString { get; }
         public SnpEffAnnotation Info { get; }

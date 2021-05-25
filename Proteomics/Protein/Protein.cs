@@ -24,13 +24,14 @@ namespace Proteomics
         /// <param name="isContaminant"></param>
         /// <param name="databaseReferences"></param>
         /// <param name="sequenceVariations"></param>
+        /// <param name="spliceVariants"></param>
         /// <param name="disulfideBonds"></param>
         /// <param name="spliceSites"></param>
         /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
-            List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
+            List<SequenceVariation> sequenceVariations = null, List<SpliceVariant> spliceVariants = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
         {
             // Mandatory
@@ -49,6 +50,7 @@ namespace Proteomics
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
             ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
+            SpliceVariants = spliceVariants ?? new List<SpliceVariant>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
@@ -105,13 +107,14 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, IEnumerable<SpliceVariant> applicableSpliceVariants, string sampleNameForVariants)
             : this(variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
                   proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
+                  spliceVariants: new List<SpliceVariant>(applicableSpliceVariants ?? new List<SpliceVariant>()),
                   name: GetName(appliedSequenceVariations, protein.Name),
                   fullName: GetName(appliedSequenceVariations, protein.FullName),
                   isDecoy: protein.IsDecoy,
@@ -151,6 +154,8 @@ namespace Proteomics
         public string Organism { get; }
         public bool IsDecoy { get; }
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
+        public IEnumerable<SpliceVariant> SpliceVariants { get; }
+
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
@@ -499,6 +504,11 @@ namespace Proteomics
         public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4, int minAlleleDepth = 1)
         {
             return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics, minAlleleDepth);
+        }
+
+        public List<Protein> GetIsoformProteins()
+        {
+            return VariantApplication.ApplyIsoforms(this);
         }
 
         /// <summary>
