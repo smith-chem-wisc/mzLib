@@ -922,34 +922,5 @@ namespace Test
                 }
             }
         }
-
-
-        [Test]
-        public static void TestExtensionMethod_AllIndexesOf()
-        {
-            string testString = new string("testString");
-            List<int> t_locations = testString.AllIndexesOf("t");
-            Assert.AreEqual(new List<int> { 0, 3, 5 }, t_locations);
-
-            var ex = Assert.Throws<ArgumentException>(() => testString.AllIndexesOf(null));
-        }
-
-        [Test]
-        public static void TestExtensionMethod_Fill()
-        {
-            char[] characterArray = new char[5];
-            characterArray.Fill('5');
-            for (int i = 0; i < characterArray.Length; i++)
-            {
-                Assert.AreEqual('5', characterArray[i]);
-            }
-        }
-
-        [Test]
-        public static void TestExtensionMethod_Reverse()
-        {
-            string testString = "Reverse";
-            Assert.AreEqual("esreveR", ProteomicsExtenstionMethods.Reverse(testString));
-        }
     }
 }

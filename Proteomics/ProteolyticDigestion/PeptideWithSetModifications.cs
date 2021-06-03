@@ -1076,7 +1076,7 @@ namespace Proteomics.ProteolyticDigestion
                 newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
             }
             char[] newBase = new char[this.BaseSequence.Length];
-            ProteomicsExtenstionMethods.Fill(newBase, '0');
+            Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
             List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
@@ -1182,23 +1182,10 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     newModificationsDictionary.Add(this.BaseSequence.Length - kvp.Key + 3, kvp.Value);
                 }
-                //int newPosition = this.BaseSequence.Length + 1;
-                //for (int i = 2; i < this.BaseSequence.Length + 2; i++)
-                //{
-                //    if (this.AllModsOneIsNterminus.ContainsKey(i))
-                //    {
-                //        newModificationsDictionary.Add(newPosition, this.AllModsOneIsNterminus[i]);
-                //        newPosition--;
-                //    }
-                //    else
-                //    {
-                //        newPosition--;
-                //    }
-                //}
             }
 
             //Second step is to reverse the sequence.
-            string newBaseString = ProteomicsExtenstionMethods.Reverse(this.BaseSequence);
+            string newBaseString = new string(this.BaseSequence.Reverse().ToArray());
 
             var proteinSequence = this.Protein.BaseSequence;
             var aStringBuilder = new StringBuilder(proteinSequence);
