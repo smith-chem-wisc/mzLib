@@ -1060,5 +1060,163 @@ namespace Proteomics.ProteolyticDigestion
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }
+
+        //This function maintains the amino acids associated with the protease motif and reverses all other amino acids.
+        //N-terminal modificatons are preserved. Other modifications travel with their respective amino acids. this results
+        //in a decoy peptide composed the same amino acids and modifications as the original. 
+        //Occasionally, this process results in peptide with exactly the same sequence. Therefore, there is a stop-gap measure
+        //the returns the mirror image of the original. N-terminal mods are preserved, but other mods are also reversed. 
+        //this should yield a unique decoy for each target sequence.
+        public PeptideWithSetModifications GetReverseDecoyFromTarget(int[] revisedAminoAcidOrder)
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+            char[] newBase = new char[this.BaseSequence.Length];
+            ProteomicsExtenstionMethods.Fill(newBase, '0');
+            char[] evaporatingBase = this.BaseSequence.ToCharArray();
+            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            if (motifs != null && motifs.Count > 0)
+            {
+                foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
+                {
+                    string cleavingMotif = motif.InducingCleavage;
+                    List<int> cleavageMotifLocations = new List<int>();
+
+                    for (int i = 0; i < BaseSequence.Length; i++)
+                    {
+                        bool fits;
+                        bool prevents;
+                        (fits, prevents) = motif.Fits(BaseSequence, i);
+
+                        if (fits && !prevents)
+                        {
+                            cleavageMotifLocations.Add(i);
+                        }
+                    }
+
+                    foreach (int location in cleavageMotifLocations)
+                    {
+                        char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
+                        
+                        for (int i = 0; i < cleavingMotif.Length; i++)
+                        {
+                            newBase[location + i] = motifArray[i];
+                            revisedAminoAcidOrder[location + i] = location + i;//
+                            //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
+                            if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                            {
+                                newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                            }
+
+                            evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                        }
+                    }
+                }
+            }
+
+            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            int fillPosition = 0;
+            int extractPosition = this.BaseSequence.Length - 1;
+            while (fillPosition < this.BaseSequence.Length && extractPosition >= 0)
+            {
+                if (evaporatingBase[extractPosition] != '0')
+                {
+                    while (newBase[fillPosition] != '0')
+                    {
+                        fillPosition++;
+                    }
+                    newBase[fillPosition] = evaporatingBase[extractPosition];
+                    revisedAminoAcidOrder[fillPosition] = extractPosition;
+                    if (this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
+                    {
+                        newModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
+                    }
+                    fillPosition++;
+                }
+                extractPosition--;
+            }
+
+            string newBaseString = new string(newBase);
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            DigestionParams d = this.DigestionParams;
+
+            if (newBaseString != this.BaseSequence)
+            {
+                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.PeptideDescription, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+            }
+            else
+            {
+                //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
+                //we retrun the mirror image peptide.
+                return this.GetPeptideMirror(revisedAminoAcidOrder);
+            }
+
+        }
+
+        //Returns a PeptideWithSetModifications mirror image. Used when reverse decoy sequence is same as target sequence
+        public PeptideWithSetModifications GetPeptideMirror(int[] revisedOrderNisOne)
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+
+            //First step is to reverse the position of all modifications except the mod on the peptide N-terminus.
+            if (this.AllModsOneIsNterminus.Any())
+            {
+                foreach (var kvp in this.AllModsOneIsNterminus.Where(p => p.Key != 1).ToList())
+                {
+                    newModificationsDictionary.Add(this.BaseSequence.Length - kvp.Key + 3, kvp.Value);
+                }
+                //int newPosition = this.BaseSequence.Length + 1;
+                //for (int i = 2; i < this.BaseSequence.Length + 2; i++)
+                //{
+                //    if (this.AllModsOneIsNterminus.ContainsKey(i))
+                //    {
+                //        newModificationsDictionary.Add(newPosition, this.AllModsOneIsNterminus[i]);
+                //        newPosition--;
+                //    }
+                //    else
+                //    {
+                //        newPosition--;
+                //    }
+                //}
+            }
+
+            //Second step is to reverse the sequence.
+            string newBaseString = ProteomicsExtenstionMethods.Reverse(this.BaseSequence);
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            DigestionParams d = this.DigestionParams;
+
+            //now fill in the revised amino acid order
+            int oldStringPosition = this.BaseSequence.Length - 1;
+            for (int i = 0; i < newBaseString.Length; i++)
+            {
+                revisedOrderNisOne[i] = oldStringPosition;
+                oldStringPosition--;
+            }
+            return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.PeptideDescription, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+        }
     }
 }
