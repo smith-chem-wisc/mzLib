@@ -1137,12 +1137,12 @@ namespace Test
 
             // N-term mod
             PeptideWithSetModifications pep = new PeptideWithSetModifications(@"[Test Category:NeutralLoss-N on X]AAAAAAAAAK", modsDictionary);
-            pep.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, products);
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
             Assert.That(products.Count(p => p.NeutralLoss == 126) == 10);
 
             // C-term mod mod
             pep = new PeptideWithSetModifications(@"AAAAAAAAAK[Test Category:NeutralLoss-C on X]", modsDictionary);
-            pep.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, products);
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
             Assert.That(products.Count(p => p.NeutralLoss == 126) == 10);
         }
 
@@ -1180,9 +1180,41 @@ namespace Test
             PeptideWithSetModifications pep = new PeptideWithSetModifications(
                 @"[Test Category:DiagnosticIon-N on X]AAAA[Test Category:DiagnosticIon-Anywhere on X]AAAAAK", modsDictionary);
 
-            pep.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, products);
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
             Assert.That(products.Count(p => p.ProductType == ProductType.D) == 1);
             Assert.That(products.Count(p => p.Annotation == "D127") == 1);
+        }
+
+        [Test]
+        // This unit test tests:
+        // 
+        public static void TestCTermEtd()
+        {
+            ModificationMotif.TryGetMotif("X", out var motif);
+
+            var modsDictionary = new Dictionary<string, Modification>
+            {
+                { @"NeutralLoss-C on X", new Modification(
+                    _originalId: @"NeutralLoss-C",
+                    _modificationType: "Test Category",
+                    _target: motif,
+                    _locationRestriction: "Peptide C-terminal.",
+                    _monoisotopicMass: 225,
+                    _neutralLosses: new Dictionary<DissociationType, List<double>>{ { DissociationType.AnyActivationType, new List<double> { 126 } } })
+                },
+            };
+
+            List<Product> products = new List<Product>();
+
+            PeptideWithSetModifications pep = new PeptideWithSetModifications(@"AAAAAAAAAK[Test Category:NeutralLoss-C on X]", modsDictionary);
+
+            pep.Fragment(DissociationType.ETD, FragmentationTerminus.Both, products);
+            
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.zDot) == 10);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.c) == 0);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 9);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.M) == 1);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 20);
         }
     }
 }
