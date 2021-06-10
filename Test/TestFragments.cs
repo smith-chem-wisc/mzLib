@@ -1187,7 +1187,7 @@ namespace Test
 
         [Test]
         // This unit test tests:
-        // 
+        // ETD generates an extra zDot ion. this ion should have an annotated neutral loss if there is a mod w/ neutral loss on the C-term
         public static void TestCTermEtd()
         {
             ModificationMotif.TryGetMotif("X", out var motif);
