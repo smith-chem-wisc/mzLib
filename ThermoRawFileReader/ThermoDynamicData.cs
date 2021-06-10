@@ -56,8 +56,6 @@ namespace IO.ThermoRawFileReader
                 throw new InvalidDataException();
             }
 
-            Loaders.LoadElements();
-            
             if (dynamicConnection != null)
             {
                 dynamicConnection.Dispose();

@@ -381,7 +381,6 @@ namespace IO.MzML
                 throw new InvalidDataException();
             }
 
-            Loaders.LoadElements();
             reader = new StreamReader(FilePath);
 
             ScanNumberToByteOffset = new Dictionary<int, long>();

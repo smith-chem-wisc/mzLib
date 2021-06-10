@@ -34,8 +34,6 @@ namespace IO.ThermoRawFileReader
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(filePath);
 

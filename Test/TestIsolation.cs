@@ -36,8 +36,6 @@ namespace Test
         public void Setup()
         {
             Environment.CurrentDirectory = TestContext.CurrentContext.TestDirectory;
-
-            UsefulProteomicsDatabases.Loaders.LoadElements();
         }
 
         [SetUp]

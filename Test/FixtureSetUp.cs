@@ -29,7 +29,7 @@ namespace Test
         [OneTimeSetUp]
         public void Setup()
         {
-            Loaders.LoadElements();
+            
         }
     }
 }
