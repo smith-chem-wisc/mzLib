@@ -1185,9 +1185,10 @@ namespace Proteomics.ProteolyticDigestion
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
             DigestionParams d = this.DigestionParams;
 
+            //Make the "peptideDescription" store the corresponding target's sequence
             if (newBaseString != this.BaseSequence)
             {
-                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.PeptideDescription, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
             }
             else
             {
@@ -1236,7 +1237,9 @@ namespace Proteomics.ProteolyticDigestion
                 revisedOrderNisOne[i] = oldStringPosition;
                 oldStringPosition--;
             }
-            return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.PeptideDescription, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+
+            //Make the "peptideDescription" store the corresponding target's sequence
+            return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
         }
     }
 }
