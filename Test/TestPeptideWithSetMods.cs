@@ -760,6 +760,7 @@ namespace Test
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
             Assert.AreEqual(p.Protein.BaseSequence.Length, reverse.Protein.BaseSequence.Length);//we replaced the original with the new so the protein should have the same length
+            Assert.AreEqual(reverse.PeptideDescription, p.FullSequence);
 
             List<Product> decoyProducts = new List<Product>();
             reverse.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, decoyProducts);
@@ -772,30 +773,35 @@ namespace Test
             PeptideWithSetModifications p_argC_reverse = p_argC.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("RKEITPREP", p_argC_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 0, 8, 7, 5, 4, 3, 6, 2, 1 }, newAminoAcidPositions);
+            Assert.AreEqual(p_argC_reverse.PeptideDescription, p_argC.FullSequence);
 
             //  Asp-N -- Cleave before D
             newAminoAcidPositions = new int["DPEPTIDEK".Length];
             PeptideWithSetModifications p_aspN = new PeptideWithSetModifications(new Protein("DPEPTIDEK", "DECOY_ASPN"), new DigestionParams(protease: "Asp-N"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_aspN_reverse = p_aspN.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
+            Assert.AreEqual(p_aspN.FullSequence, p_aspN_reverse.PeptideDescription);
 
             //  chymotrypsin (don't cleave before proline)
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin (don't cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
+            Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
 
             //  chymotrypsin (don't cleave before proline)
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGFPGWSWPAYRYPK", p_chymo_reverse.BaseSequence);
+            Assert.AreEqual(p_chymo.FullSequence, p_chymo_reverse.PeptideDescription);
 
             //  CNBr cleave after M
             newAminoAcidPositions = new int["MPEPTIMEK".Length];
             PeptideWithSetModifications p_cnbr = new PeptideWithSetModifications(new Protein("MPEPTIMEK", "DECOY_CNBR"), new DigestionParams(protease: "CNBr"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_cnbr_reverse = p_cnbr.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
+            Assert.AreEqual(p_cnbr.FullSequence, p_cnbr_reverse.PeptideDescription);
 
             //  elastase cleave after A, V, S, G, L, I,
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
@@ -825,6 +831,7 @@ namespace Test
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(7));//moved T-phospho from 3 to 7
             Assert.IsTrue(p_tryp_reverse.Protein.IsDecoy);
+            Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
 
         }
 
