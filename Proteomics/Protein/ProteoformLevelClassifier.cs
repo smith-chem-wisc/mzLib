@@ -65,7 +65,7 @@ namespace Proteomics
                             break;
                         }
                     }
-                    //check PTMs
+                    //check PTM identification
                     for (int i = 0; i < firstPTMsSortedByPTM.Count; i++)
                     {
                         if (!firstPTMsSortedByPTM[i].Equals(currentPTMsSortedByPTM[i]))
@@ -81,7 +81,23 @@ namespace Proteomics
                     ptmsLocalized = false;
                 }
             }
-
+            //handle an edge case where two PTMs are identified and localized to two residues, but it's unclear which PTM is localized to which residue.
+            if (ptmsIdentified && ptmsLocalized)
+            {
+                for (int seqIndex = 1; seqIndex < sequences.Length; seqIndex++)
+                {
+                    List<(int index, string ptm)> currentPTMsSortedByIndex = GetPTMs(sequences[seqIndex]); //get ptms from this sequence
+                    //check that the mods are in the same position
+                    for(int ptmIndex =0; ptmIndex<currentPTMsSortedByIndex.Count; ptmIndex++)
+                    {
+                        if(!firstPTMsSortedByIndex[ptmIndex].ptm.Equals(currentPTMsSortedByIndex[ptmIndex]))
+                        {
+                            ptmsLocalized = false;
+                            break;
+                        }
+                    }
+                }
+            }
 
             //determine gene ambiguity
             bool geneIdentified = genes.Length == 1;
