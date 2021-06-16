@@ -102,7 +102,6 @@ namespace Proteomics
             //determine gene ambiguity
             bool geneIdentified = genes.Length == 1;
 
-
             return GetProteoformClassification(ptmsLocalized, ptmsIdentified, sequenceIdentified, geneIdentified);
         }
 
