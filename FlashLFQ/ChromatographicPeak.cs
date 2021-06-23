@@ -6,17 +6,19 @@ using System.Text;
 
 namespace FlashLFQ
 {
+    public enum PeakType { MSMS, MBR, Imputed }
+
     public class ChromatographicPeak
     {
         public double Intensity;
         public readonly SpectraFileInfo SpectraFileInfo;
         public List<IsotopicEnvelope> IsotopicEnvelopes;
         public double SplitRT;
-        public readonly bool IsMbrPeak;
+        public readonly PeakType PeakType;
         public double MbrScore;
         public double PosteriorErrorProbability { get { return NumIdentificationsByFullSeq > 1 ? 1 : Identifications.Min(p => p.PosteriorErrorProbability); } }
 
-        public ChromatographicPeak(Identification id, bool isMbrPeak, SpectraFileInfo fileInfo)
+        public ChromatographicPeak(Identification id, PeakType peakType, SpectraFileInfo fileInfo)
         {
             SplitRT = 0;
             NumChargeStatesObserved = 0;
@@ -25,7 +27,7 @@ namespace FlashLFQ
             NumIdentificationsByFullSeq = 1;
             Identifications = new List<Identification>() { id };
             IsotopicEnvelopes = new List<IsotopicEnvelope>();
-            IsMbrPeak = isMbrPeak;
+            PeakType = peakType;
             SpectraFileInfo = fileInfo;
         }
 
@@ -86,13 +88,16 @@ namespace FlashLFQ
 
                 MassError = double.NaN;
 
-                foreach (Identification id in Identifications)
+                if (PeakType != PeakType.Imputed)
                 {
-                    double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
-
-                    if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < Math.Abs(MassError))
+                    foreach (Identification id in Identifications)
                     {
-                        MassError = massErrorForId;
+                        double massErrorForId = ((ClassExtensions.ToMass(Apex.IndexedPeak.Mz, Apex.ChargeState) - id.PeakfindingMass) / id.PeakfindingMass) * 1e6;
+
+                        if (double.IsNaN(MassError) || Math.Abs(massErrorForId) < Math.Abs(MassError))
+                        {
+                            MassError = massErrorForId;
+                        }
                     }
                 }
 
@@ -143,7 +148,7 @@ namespace FlashLFQ
             }
 
             sb.Append("" + Identifications.First().MonoisotopicMass + '\t');
-            if (!IsMbrPeak)
+            if (PeakType == PeakType.MSMS)
             {
                 sb.Append("" + Identifications.First().Ms2RetentionTimeInMinutes + '\t');
             }
@@ -177,23 +182,17 @@ namespace FlashLFQ
 
             sb.Append("" + NumChargeStatesObserved + "\t");
 
-            if (IsMbrPeak)
-            {
-                sb.Append("" + "MBR" + "\t");
-            }
-            else
-            {
-                sb.Append("" + "MSMS" + "\t");
-            }
+            sb.Append(PeakType);
+            sb.Append("\t");
 
-            sb.Append("" + (IsMbrPeak ? MbrScore.ToString() : "") + "\t");
+            sb.Append("" + (PeakType == PeakType.MBR ? MbrScore.ToString() : "") + "\t");
 
             sb.Append("" + Identifications.Count + "\t");
             sb.Append("" + NumIdentificationsByBaseSeq + "\t");
             sb.Append("" + NumIdentificationsByFullSeq + "\t");
             sb.Append("" + SplitRT + "\t");
             sb.Append("" + MassError + "\t");
-            
+
             return sb.ToString();
         }
     }

@@ -127,17 +127,21 @@ namespace FlashLFQ
                     ChromatographicPeak bestPeak = sequenceWithPeaks.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
 
-                    if (bestPeak.IsMbrPeak && intensity > 0)
+                    if (bestPeak.PeakType == PeakType.MBR && intensity > 0)
                     {
                         detectionType = DetectionType.MBR;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity > 0)
+                    else if (bestPeak.PeakType == PeakType.MSMS && intensity > 0)
                     {
                         detectionType = DetectionType.MSMS;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity == 0)
+                    else if (bestPeak.PeakType == PeakType.MSMS && intensity == 0)
                     {
                         detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
+                    }
+                    else if (bestPeak.PeakType == PeakType.Imputed && intensity > 0)
+                    {
+                        detectionType = DetectionType.Imputed;
                     }
                     else
                     {
@@ -346,106 +350,25 @@ namespace FlashLFQ
             {
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
-                    // calculate reference protein intensity (top 3 most intense peptides).
-                    // the reference intensity is just a scaling factor because the median polish
-                    // algorithm will return a normalized number that does not scale w/ intensity
-                    // (it's more like a fold-change). so that number will be multiplied by this reference
-                    // intensity to get a protein intensity
-                    double referenceProteinIntensity = 0;
-                    int topNPeaks = 3;
-
-                    foreach (var group in filesGroupedByCondition)
-                    {
-                        List<double> highestIntensities = new List<double>();
-
-                        foreach (var peptide in peptidesForThisProtein)
-                        {
-                            double max = 0;
-
-                            foreach (var sample in group)
-                            {
-                                double peptideIntensity = peptide.GetIntensity(sample);
-
-                                if (!double.IsNaN(peptideIntensity))
-                                {
-                                    max = Math.Max(max, peptideIntensity);
-                                }
-                            }
-
-                            highestIntensities.Add(max);
-                        }
-
-                        referenceProteinIntensity = highestIntensities.OrderByDescending(p => p).Take(topNPeaks).Sum();
-
-                        if (referenceProteinIntensity > 0)
-                        {
-                            break;
-                        }
-                    }
-
-                    // set up peptide intensity table
-                    int numSamples = 0;
-                    foreach (var condition in SpectraFiles.GroupBy(p => p.Condition))
-                    {
-                        int conditionSamples = condition.Select(p => p.BiologicalReplicate).Distinct().Count();
-                        numSamples += conditionSamples;
-                    }
-
-                    double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, numSamples];
-
                     // populate matrix w/ log2-transformed peptide intensities
-                    int sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
+                    var table = proteinGroup.GetPeptideIntensityAndDetectionTypeGrid(peptidesForThisProtein, out var bioreps);
+
+                    double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, bioreps.Count];
+
+                    for (int i = 0; i < table.GetLength(0); i++)
                     {
-                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                        for (int j = 0; j < table.GetLength(1); j++)
                         {
-                            foreach (Peptide peptide in peptidesForThisProtein)
+                            peptideIntensityMatrix[i, j] = table[i, j].intensity;
+
+                            if (peptideIntensityMatrix[i, j] > 0)
                             {
-                                double sampleIntensity = 0;
-                                double highestFractionIntensity = 0;
-
-                                // the fraction w/ the highest intensity is used as the sample intensity for this peptide.
-                                // if there is more than one replicate of the fraction, then the replicate intensities are averaged
-                                foreach (var fraction in sample.GroupBy(p => p.Fraction))
-                                {
-                                    double fractionIntensity = 0;
-                                    int replicatesWithValidValues = 0;
-
-                                    foreach (SpectraFileInfo replicate in fraction.OrderBy(p => p.TechnicalReplicate))
-                                    {
-                                        double replicateIntensity = peptide.GetIntensity(replicate);
-
-                                        if (replicateIntensity > 0)
-                                        {
-                                            fractionIntensity += replicateIntensity;
-                                            replicatesWithValidValues++;
-                                        }
-                                    }
-
-                                    if (replicatesWithValidValues > 0)
-                                    {
-                                        fractionIntensity /= replicatesWithValidValues;
-                                    }
-
-                                    if (fractionIntensity > highestFractionIntensity)
-                                    {
-                                        highestFractionIntensity = fractionIntensity;
-                                        sampleIntensity = highestFractionIntensity;
-                                    }
-                                }
-
-                                int sampleNumber = sample.Key;
-                                sampleIntensity = Math.Log(sampleIntensity, 2);
-
-                                if (double.IsInfinity(sampleIntensity))
-                                {
-                                    sampleIntensity = double.NaN;
-                                }
-
-                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide), sampleN] = sampleIntensity;
+                                peptideIntensityMatrix[i, j] = Math.Log(peptideIntensityMatrix[i, j], 2);
                             }
-
-                            sampleN++;
+                            else
+                            {
+                                peptideIntensityMatrix[i, j] = double.NaN;
+                            }
                         }
                     }
 
@@ -453,16 +376,16 @@ namespace FlashLFQ
                     MedianPolish(peptideIntensityMatrix, 10, 0.0001, out var rowEffects, out var columnEffects, out var overallEffect);
 
                     // set the sample protein intensities
-                    sampleN = 0;
+                    double scaling = Math.Pow(2, overallEffect) * peptidesForThisProtein.Count;
+                    int sampleN = 0;
                     foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
                         foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                         {
                             // this step un-logs the protein "intensity". in reality this value is more like a fold-change 
                             // than an intensity, but unlike a fold-change it's not relative to a particular sample.
-                            // by multiplying this value by the reference protein intensity calculated earlier, then we get 
-                            // a protein intensity value
-                            double sampleProteinIntensity = Math.Pow(2, columnEffects[sampleN]) * referenceProteinIntensity;
+                            // by multiplying this value by the overall effect, then we get a protein intensity value
+                            double sampleProteinIntensity = Math.Pow(2, columnEffects[sampleN]) * scaling;
 
                             // the column effect can be 0 in many cases. sometimes it's a valid value and sometimes it's not.
                             // so we need to check to see if it is actually a valid value

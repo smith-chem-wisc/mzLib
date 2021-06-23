@@ -26,6 +26,7 @@ namespace FlashLFQ
         public readonly bool IdSpecificChargeState;
         public readonly bool Normalize;
         public readonly double DiscriminationFactorToCutPeak;
+        public readonly bool ImputeMissingValues;
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
@@ -63,6 +64,7 @@ namespace FlashLFQ
             bool idSpecificChargeState = false,
             bool silent = false,
             int maxThreads = -1,
+            bool imputeMissingValues = false,
 
             // MBR settings
             bool matchBetweenRuns = false,
@@ -113,6 +115,7 @@ namespace FlashLFQ
             McmcBurninSteps = mcmcBurninSteps;
             UseSharedPeptidesForProteinQuant = useSharedPeptidesForProteinQuant;
             RandomSeed = randomSeed;
+            ImputeMissingValues = imputeMissingValues;
 
             if (MaxThreads == -1 || MaxThreads >= Environment.ProcessorCount)
             {
@@ -138,11 +141,19 @@ namespace FlashLFQ
             // build m/z index keys
             CalculateTheoreticalIsotopeDistributions();
 
+            // construct imputation engine
+            ImputationEngine imputationEngine = null;
+
+            if (ImputeMissingValues)
+            {
+                imputationEngine = new ImputationEngine();
+            }
+
             // quantify each file
             foreach (var spectraFile in _spectraFileInfo)
             {
                 // fill lookup-table with peaks from the spectra file
-                if (!_peakIndexingEngine.IndexMassSpectralPeaks(spectraFile, Silent, _ms1Scans))
+                if (!_peakIndexingEngine.IndexMassSpectralPeaks(spectraFile, Silent, _ms1Scans, imputationEngine))
                 {
                     // something went wrong finding/opening/indexing the file...
                     continue;
@@ -169,7 +180,7 @@ namespace FlashLFQ
                 // some memory-saving stuff
                 _peakIndexingEngine.ClearIndex();
             }
-            
+
             // do MBR
             if (MatchBetweenRuns)
             {
@@ -191,6 +202,17 @@ namespace FlashLFQ
                 }
             }
 
+            // impute missing values
+            if (ImputeMissingValues)
+            {
+                if (!Silent)
+                {
+                    Console.WriteLine("Imputing missing values");
+                }
+
+                GetImputedValues(imputationEngine);
+            }
+
             // normalize
             if (Normalize)
             {
@@ -200,7 +222,7 @@ namespace FlashLFQ
             // calculate peptide intensities 
             _results.CalculatePeptideResults();
 
-            // do top3 protein quantification
+            // do median polish protein quantification
             _results.CalculateProteinResultsMedianPolish(UseSharedPeptidesForProteinQuant);
 
             // do Bayesian protein fold-change analysis
@@ -210,7 +232,7 @@ namespace FlashLFQ
                 {
                     if (!Silent)
                     {
-                        Console.WriteLine("Can't do Bayesian protein quant with only one spectra file or condition. FlashLFQ will still do a top3 protein quant");
+                        Console.WriteLine("Can't do Bayesian protein quant with only one spectra file or condition. FlashLFQ will still do a median polish protein quant");
                     }
                 }
                 else
@@ -377,7 +399,7 @@ namespace FlashLFQ
                         //}
 
                         var identification = ms2IdsForThisFile[i];
-                        ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, false, fileInfo);
+                        ChromatographicPeak msmsFeature = new ChromatographicPeak(identification, PeakType.MSMS, fileInfo);
                         chromatographicPeaks[i] = msmsFeature;
 
                         foreach (var chargeState in _chargeStates)
@@ -489,7 +511,8 @@ namespace FlashLFQ
                 // only match peptides from proteins that have at least one MS/MS identified peptide in the condition
                 foreach (SpectraFileInfo conditionFile in _spectraFileInfo.Where(p => p.Condition == idAcceptorFile.Condition))
                 {
-                    foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => !p.IsMbrPeak).SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
+                    foreach (ProteinGroup proteinGroup in _results.Peaks[conditionFile].Where(p => p.PeakType == PeakType.MSMS)
+                        .SelectMany(p => p.Identifications.SelectMany(v => v.ProteinGroups)))
                     {
                         thisFilesMsmsIdentifiedProteins.Add(proteinGroup);
                     }
@@ -509,7 +532,7 @@ namespace FlashLFQ
 
                 // this is the list of peaks identified in the other file but not in this one ("ID donor peaks")
                 List<ChromatographicPeak> idDonorPeaks = _results.Peaks[idDonorFile].Where(p =>
-                    !p.IsMbrPeak
+                    p.PeakType == PeakType.MSMS
                     && p.NumIdentificationsByFullSeq == 1
                     && p.IsotopicEnvelopes.Any()
                     && !acceptorFileIdentifiedSequences.Contains(p.Identifications.First().ModifiedSequence)
@@ -525,7 +548,7 @@ namespace FlashLFQ
                     .Select(p => p.Fraction)
                     .Distinct()
                     .Count() > 1;
-                
+
                 var donorFileLogIntensities = idDonorPeaks.Where(p => p.Intensity > 0).Select(p => Math.Log(p.Intensity, 2)).ToList();
                 double medianDonorLogIntensity = donorFileLogIntensities.Median();
 
@@ -542,7 +565,7 @@ namespace FlashLFQ
 
                     IEnumerable<ChromatographicPeak> acceptorPeaks = _results
                         .Peaks[idAcceptorFile]
-                        .Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
+                        .Where(p => p.Apex != null && p.PeakType == PeakType.MSMS && p.NumIdentificationsByFullSeq == 1);
 
                     // get the best (most intense) peak for each peptide in the acceptor file
                     foreach (ChromatographicPeak acceptorPeak in acceptorPeaks)
@@ -738,7 +761,7 @@ namespace FlashLFQ
                                 // remove the clustered isotopic envelopes from the list of seeds after each iteration
                                 while (chargeEnvelopes.Any())
                                 {
-                                    var acceptorPeak = new ChromatographicPeak(donorIdentification, true, idAcceptorFile);
+                                    var acceptorPeak = new ChromatographicPeak(donorIdentification, PeakType.MBR, idAcceptorFile);
                                     IsotopicEnvelope seedEnv = chargeEnvelopes.First();
 
                                     var xic = Peakfind(seedEnv.IndexedPeak.RetentionTime, donorIdentification.PeakfindingMass, z, idAcceptorFile, mbrTol);
@@ -895,10 +918,10 @@ namespace FlashLFQ
                         }
                     }
                 }
-                
+
                 _results.Peaks[idAcceptorFile].Add(best);
             }
-            
+
             RunErrorChecking(idAcceptorFile);
         }
 
@@ -913,8 +936,8 @@ namespace FlashLFQ
             var rtCalibrationCurve = new List<RetentionTimeCalibDataPoint>();
 
             // get all peaks, not counting ambiguous peaks
-            IEnumerable<ChromatographicPeak> donorPeaks = _results.Peaks[donor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
-            IEnumerable<ChromatographicPeak> acceptorPeaks = _results.Peaks[acceptor].Where(p => p.Apex != null && !p.IsMbrPeak && p.NumIdentificationsByFullSeq == 1);
+            IEnumerable<ChromatographicPeak> donorPeaks = _results.Peaks[donor].Where(p => p.Apex != null && p.PeakType == PeakType.MSMS && p.NumIdentificationsByFullSeq == 1);
+            IEnumerable<ChromatographicPeak> acceptorPeaks = _results.Peaks[acceptor].Where(p => p.Apex != null && p.PeakType == PeakType.MSMS && p.NumIdentificationsByFullSeq == 1);
 
             // get the best (most intense) peak for each peptide in the acceptor file
             foreach (ChromatographicPeak acceptorPeak in acceptorPeaks)
@@ -969,19 +992,19 @@ namespace FlashLFQ
                 Console.WriteLine("Checking errors");
             }
 
-            _results.Peaks[spectraFile].RemoveAll(p => p == null || p.IsMbrPeak && !p.IsotopicEnvelopes.Any());
+            _results.Peaks[spectraFile].RemoveAll(p => p == null || p.PeakType == PeakType.MBR && !p.IsotopicEnvelopes.Any());
 
             // merge duplicate peaks and handle MBR/MSMS peakfinding conflicts
             var peaksGroupedByApex = new Dictionary<IndexedMassSpectralPeak, ChromatographicPeak>();
             var peaks = new List<ChromatographicPeak>();
-            foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.IsMbrPeak))
+            foreach (ChromatographicPeak tryPeak in _results.Peaks[spectraFile].OrderBy(p => p.PeakType))
             {
                 tryPeak.CalculateIntensityForThisFeature(Integrate);
                 tryPeak.ResolveIdentifications();
 
                 if (tryPeak.Apex == null)
                 {
-                    if (tryPeak.IsMbrPeak)
+                    if (tryPeak.PeakType == PeakType.MBR)
                     {
                         continue;
                     }
@@ -993,20 +1016,20 @@ namespace FlashLFQ
                 IndexedMassSpectralPeak apexPeak = tryPeak.Apex.IndexedPeak;
                 if (peaksGroupedByApex.TryGetValue(apexPeak, out ChromatographicPeak storedPeak))
                 {
-                    if (tryPeak.IsMbrPeak && storedPeak == null)
+                    if (tryPeak.PeakType == PeakType.MBR && storedPeak == null)
                     {
                         continue;
                     }
 
-                    if (!tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
+                    if (tryPeak.PeakType == PeakType.MSMS && storedPeak.PeakType == PeakType.MSMS)
                     {
                         storedPeak.MergeFeatureWith(tryPeak, Integrate);
                     }
-                    else if (tryPeak.IsMbrPeak && !storedPeak.IsMbrPeak)
+                    else if (tryPeak.PeakType == PeakType.MBR && storedPeak.PeakType == PeakType.MSMS)
                     {
                         continue;
                     }
-                    else if (tryPeak.IsMbrPeak && storedPeak.IsMbrPeak)
+                    else if (tryPeak.PeakType == PeakType.MBR && storedPeak.PeakType == PeakType.MBR)
                     {
                         if (tryPeak.Identifications.First().ModifiedSequence == storedPeak.Identifications.First().ModifiedSequence)
                         {
@@ -1328,6 +1351,67 @@ namespace FlashLFQ
                 // recursively cut
                 CutPeak(peak, identificationTime);
             }
+        }
+
+        private void GetImputedValues(ImputationEngine imputationEngine)
+        {
+            _results.CalculatePeptideResults();
+
+            var peptideList = _results.PeptideModifiedSequences.ToList();
+            var peakList = _results.Peaks.SelectMany(p => p.Value).Where(p => p.PeakType == PeakType.MSMS && p.Intensity > 0 && p.NumIdentificationsByFullSeq == 1).ToList();
+
+            Dictionary<string, List<Identification>> modSequenceToIds = new Dictionary<string, List<Identification>>();
+
+            foreach (var peak in peakList)
+            {
+                foreach (var id in peak.Identifications)
+                {
+                    if (!modSequenceToIds.ContainsKey(id.ModifiedSequence))
+                    {
+                        modSequenceToIds.Add(id.ModifiedSequence, new List<Identification>());
+                    }
+
+                    modSequenceToIds[id.ModifiedSequence].Add(id);
+                }
+            }
+
+            Random r = new Random(1);
+
+            // generate one random seed per peptide
+            var randomSeeds = peptideList.Select(p => r.Next()).ToList();
+
+            // generate imputed values
+            Parallel.ForEach(Partitioner.Create(0, peptideList.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = MaxThreads },
+                (range, loopState) =>
+                {
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        var peptide = peptideList[i];
+
+                        foreach (SpectraFileInfo file in _results.SpectraFiles)
+                        {
+                            if (peptide.Value.GetDetectionType(file) == DetectionType.NotDetected && modSequenceToIds.TryGetValue(peptide.Key, out var ids))
+                            {
+                                foreach (var id in ids)
+                                {
+                                    var isotopeMassShifts = _modifiedSequenceToIsotopicDistribution[id.ModifiedSequence];
+
+                                    //TODO: use RT cal spline to get RT
+                                    var imputedPeak = imputationEngine.ImputePeak(file, id, id.Ms2RetentionTimeInMinutes, isotopeMassShifts, randomSeeds[i]);
+
+                                    if (imputedPeak != null)
+                                    {
+                                        _results.Peaks[file].Add(imputedPeak);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+            _results.CalculatePeptideResults();
         }
     }
 }

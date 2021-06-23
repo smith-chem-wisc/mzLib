@@ -8,6 +8,7 @@
         public readonly int BiologicalReplicate;
         public readonly int Fraction;
         public readonly int TechnicalReplicate;
+        public double NormalizationFactor;
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
@@ -17,6 +18,7 @@
             this.BiologicalReplicate = biorep;
             this.TechnicalReplicate = techrep;
             this.Fraction = fraction;
+            NormalizationFactor = 1;
         }
 
         // files are considered the same if the absolute file path is the same
