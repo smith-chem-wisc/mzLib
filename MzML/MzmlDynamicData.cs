@@ -147,7 +147,7 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                        //break;
+                                    //break;
 
                                     // total ion current
                                     case "MS:1000285":
@@ -157,6 +157,25 @@ namespace IO.MzML
                                     // retention time
                                     case "MS:1000016":
                                         retentionTime = double.Parse(xmlReader["value"]);
+
+                                        // determine units (e.g., minutes or seconds)
+                                        string units = xmlReader["unitAccession"];
+
+                                        if (units != null && units == "UO:0000010")
+                                        {
+                                            // convert from seconds to minutes
+                                            retentionTime /= 60;
+                                        }
+                                        else if (units != null && units == "UO:0000031")
+                                        {
+                                            // do nothing; the RT is already in minutes
+                                        }
+                                        else
+                                        {
+                                            throw new MzLibException("The retention time for scan " + oneBasedScanNumber + " could not be interpreted because there was " +
+                                                "no value for units (e.g., minutes or seconds)" );
+                                        }
+
                                         break;
 
                                     // filter string

@@ -1567,6 +1567,7 @@ namespace Test
         /// This test reads an .mzML file where the intensities and m/z values are encoded in compressed 64-bit, and also an identical
         /// file that is encoded in mostly uncompressed 32-bit. Scan #73 in the latter file has its intensities encoded in compressed 64-bit.
         /// The intensities and m/z values for both of these files should be identical (sans rounding issues).
+        /// Additionally, scan 73 has its retention time in seconds, rather than minutes.
         public static void TestDynamicMzmlWithMixedBits()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
@@ -1580,12 +1581,12 @@ namespace Test
 
             foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
             {
-                // only the scans 70-80 are checked because checking the entire file takes a long time on AppVeyor
-                if (staticScan.OneBasedScanNumber < 70)
+                // only the scans 72-74 are checked because checking the entire file takes a long time on AppVeyor
+                if (staticScan.OneBasedScanNumber < 72)
                 {
                     continue;
                 }
-                if (staticScan.OneBasedScanNumber > 80)
+                if (staticScan.OneBasedScanNumber > 74)
                 {
                     break;
                 }

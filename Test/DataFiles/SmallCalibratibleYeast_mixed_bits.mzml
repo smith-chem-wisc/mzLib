@@ -5614,7 +5614,7 @@
           <scanList count="1">
             <cvParam cvRef="MS" accession="MS:1000795" name="no combination" value=""/>
             <scan>
-              <cvParam cvRef="MS" accession="MS:1000016" name="scan start time" value="24.51267" unitCvRef="UO" unitAccession="UO:0000031" unitName="minute"/>
+			  <cvParam cvRef="MS" accession="MS:1000016" name="scan start time" value="1470.7602" unitCvRef="UO" unitAccession="UO:0000010" unitName="second"/>
               <cvParam cvRef="MS" accession="MS:1000512" name="filter string" value="FTMS + p NSI Full ms [300.00-1500.00]"/>
               <cvParam cvRef="MS" accession="MS:1000927" name="ion injection time" value="0.737" unitCvRef="UO" unitAccession="UO:0000028" unitName="millisecond"/>
               <scanWindowList count="1">
