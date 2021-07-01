@@ -147,7 +147,7 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                    //break;
+                                        //break;
 
                                     // total ion current
                                     case "MS:1000285":
@@ -317,6 +317,9 @@ namespace IO.MzML
                             case "PRECURSOR":
                                 if (xmlReader.IsStartElement())
                                 {
+                                    // TODO: note that the precursor scan info may not be available in the .mzML. in this case the precursor
+                                    // scan number will incorrectly be null. one fix would be to go backwards through the scans to find
+                                    // the precursor scan and then set the scan num here, which would be very time consuming.
                                     string precursorScanInfo = xmlReader["spectrumRef"];
 
                                     if (precursorScanInfo != null)
