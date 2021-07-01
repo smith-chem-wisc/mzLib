@@ -147,7 +147,7 @@ namespace IO.MzML
                                     case "MS:1000128":
                                         isCentroid = false;
                                         throw new MzLibException("Reading profile mode mzmls not supported");
-                                        //break;
+                                    //break;
 
                                     // total ion current
                                     case "MS:1000285":
@@ -242,6 +242,14 @@ namespace IO.MzML
                                         is32bit = false;
                                         break;
 
+                                    case "MS:1000521":
+                                        is32bit = true;
+                                        break;
+
+                                    case "MS:1000576":
+                                        compressed = false;
+                                        break;
+
                                     case "MS:1000574":
                                         compressed = true;
                                         break;
@@ -270,17 +278,7 @@ namespace IO.MzML
 
                                 string binaryString = xmlReader.Value;
 
-                                byte[] binaryData = null;
-
-                                if (!is32bit)
-                                {
-                                    binaryData = Convert.FromBase64String(binaryString);
-                                }
-                                else
-                                {
-                                    // todo: check. not sure if this is right
-                                    binaryData = Encoding.UTF8.GetBytes(binaryString);
-                                }
+                                byte[] binaryData = Convert.FromBase64String(binaryString);
 
                                 double[] data = Mzml.ConvertBase64ToDoubles(binaryData, compressed, is32bit);
 
