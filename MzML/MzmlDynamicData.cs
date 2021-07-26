@@ -157,6 +157,25 @@ namespace IO.MzML
                                     // retention time
                                     case "MS:1000016":
                                         retentionTime = double.Parse(xmlReader["value"]);
+
+                                        // determine units (e.g., minutes or seconds)
+                                        string units = xmlReader["unitAccession"];
+
+                                        if (units != null && units == "UO:0000010")
+                                        {
+                                            // convert from seconds to minutes
+                                            retentionTime /= 60;
+                                        }
+                                        else if (units != null && units == "UO:0000031")
+                                        {
+                                            // do nothing; the RT is already in minutes
+                                        }
+                                        else
+                                        {
+                                            throw new MzLibException("The retention time for scan " + oneBasedScanNumber + " could not be interpreted because there was " +
+                                                "no value for units (e.g., minutes or seconds)" );
+                                        }
+
                                         break;
 
                                     // filter string
@@ -242,6 +261,14 @@ namespace IO.MzML
                                         is32bit = false;
                                         break;
 
+                                    case "MS:1000521":
+                                        is32bit = true;
+                                        break;
+
+                                    case "MS:1000576":
+                                        compressed = false;
+                                        break;
+
                                     case "MS:1000574":
                                         compressed = true;
                                         break;
@@ -270,17 +297,7 @@ namespace IO.MzML
 
                                 string binaryString = xmlReader.Value;
 
-                                byte[] binaryData = null;
-
-                                if (!is32bit)
-                                {
-                                    binaryData = Convert.FromBase64String(binaryString);
-                                }
-                                else
-                                {
-                                    // todo: check. not sure if this is right
-                                    binaryData = Encoding.UTF8.GetBytes(binaryString);
-                                }
+                                byte[] binaryData = Convert.FromBase64String(binaryString);
 
                                 double[] data = Mzml.ConvertBase64ToDoubles(binaryData, compressed, is32bit);
 
@@ -300,6 +317,9 @@ namespace IO.MzML
                             case "PRECURSOR":
                                 if (xmlReader.IsStartElement())
                                 {
+                                    // TODO: note that the precursor scan info may not be available in the .mzML. in this case the precursor
+                                    // scan number will incorrectly be null. one fix would be to go backwards through the scans to find
+                                    // the precursor scan and then set the scan num here, which would be very time consuming.
                                     string precursorScanInfo = xmlReader["spectrumRef"];
 
                                     if (precursorScanInfo != null)

@@ -19,11 +19,13 @@ using Chemistry;
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml.Serialization;
 using UsefulProteomicsDatabases.Generated;
 
@@ -34,6 +36,15 @@ namespace UsefulProteomicsDatabases
         static Loaders()
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+            SetCultureAsInvariantCulture();
+        }
+
+        public static void SetCultureAsInvariantCulture()
+        {
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
+            Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+            Thread.CurrentThread.CurrentUICulture = CultureInfo.InvariantCulture;
         }
 
         public static void UpdateUniprot(string uniprotLocation)
