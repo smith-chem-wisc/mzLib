@@ -29,18 +29,22 @@ jobs:
       - name: Build
         run: |
           $version= &git describe --tags
+          cd mzLib
           dotnet build --no-restore --configuration Release /p:Version=${version}
       - name: Test
         run: |
           $version= &git describe --tags
+          cd mzLib
           dotnet test --configuration Release /p:Version=${version} --no-build
       - name: Pack
         run: |
           $version= &git describe --tags
+          cd mzLib
           dotnet pack --configuration Release /p:Version=${version} --no-build --output .
       - name: Push
         run: |
           $version= &git describe --tags
+          cd mzLib
           dotnet nuget push mzLib/mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
         env:
           GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}
