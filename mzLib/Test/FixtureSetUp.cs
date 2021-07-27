@@ -17,7 +17,9 @@
 
 using NUnit.Framework;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
+using System.Threading;
 using UsefulProteomicsDatabases;
 
 namespace Test
@@ -30,6 +32,9 @@ namespace Test
         public void Setup()
         {
             Loaders.LoadElements();
+
+            Assert.That(Thread.CurrentThread.CurrentCulture == CultureInfo.InvariantCulture);
+            Assert.That(Thread.CurrentThread.CurrentUICulture == CultureInfo.InvariantCulture);
         }
     }
 }
