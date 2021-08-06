@@ -8,6 +8,8 @@
     <owners>Stef S.</owners>
     <licenseUrl>http://www.gnu.org/licenses/lgpl-3.0.txt</licenseUrl>
     <projectUrl>https://github.com/smith-chem-wisc/mzLib</projectUrl>
+    <iconUrl>https://github.com/smith-chem-wisc/mzLib/blob/master/mzLib.png</iconUrl>
+    <icon>mzLib.png</icon>
     <description>Library for mass spectrometry projects.</description>
     <tags>Chemistry Spectrometry</tags>
     <dependencies>
