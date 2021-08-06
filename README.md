@@ -13,6 +13,8 @@ A library for mass spectrometry projects.
 
 Releases are here: https://www.nuget.org/packages/mzLib/
 
+![image](https://user-images.githubusercontent.com/16841846/113908189-df7a6e80-979b-11eb-9a2d-571a53e167ac.png)
+
 # Usage
 ## Reading Spectra Files
 To read Thermo or mzML files, use
