@@ -11,6 +11,10 @@
     <DebugSymbols>true</DebugSymbols>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="DataFiles\ISDFiles.raw" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.12.0" />
@@ -21,7 +25,9 @@
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\DIALFQaunt_MS1\DIALFQaunt_MS1.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
+    <ProjectReference Include="..\InSourceDecay\InSourceDecay.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\Mgf\Mgf.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
@@ -31,6 +37,10 @@
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="DataFiles\ISDFiles.raw" />
   </ItemGroup>
 
   <ItemGroup>
@@ -244,7 +254,16 @@
     <None Update="DataFiles\14kDaProteoformMzIntensityMs1.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\20210211_FT_nDIA_1.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\BinGenerationTest.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\ISD_test.raw">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\MS2_data.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\sliced_ethcd.mzML">
@@ -263,6 +282,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\SmallCalibratibleYeast_mixed_bits.mzml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\Smarter_DDA_Top10_SID75_RES_30k.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\tester.mgf">

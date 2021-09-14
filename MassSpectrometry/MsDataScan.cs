@@ -78,8 +78,8 @@ namespace MassSpectrometry
         public double? SelectedIonIntensity { get; private set; } // May be refined
         public double? SelectedIonMZ { get; private set; } // May be adjusted by calibration
         public DissociationType? DissociationType { get; }
-        public double? IsolationWidth { get; }
-        public int? OneBasedPrecursorScanNumber { get; private set; }
+        public double? IsolationWidth { get; private set; }
+        public int? OneBasedPrecursorScanNumber { get; set; }
         public double? SelectedIonMonoisotopicGuessIntensity { get; private set; } // May be refined
         public double? SelectedIonMonoisotopicGuessMz { get; private set; } // May be refined
         public string HcdEnergy { get; private set; }
@@ -191,7 +191,7 @@ namespace MassSpectrometry
             SelectedIonMonoisotopicGuessMz = precursorSpectrum.XArray[thePeak];
         }
 
-        public void SetOneBasedPrecursorScanNumber(int value)
+        public void SetOneBasedPrecursorScanNumber(int? value)
         {
             this.OneBasedPrecursorScanNumber = value;
         }
@@ -234,5 +234,34 @@ namespace MassSpectrometry
                 yield return noiseData[2, i];
             }
         }
+        public void SetSelectedIonIntensity(double value)
+		{
+            this.SelectedIonIntensity = value; 
+		}
+        public void SetHcdEnergy(string value)
+		{
+            this.HcdEnergy = value; 
+		}
+        public void SetIsolationWidth(double value)
+		{
+            this.IsolationWidth = value; 
+		}
+        public void UpdateIsolationRange()
+		{
+            if(this.IsolationWidth != null && this.IsolationMz != null)
+			{
+                double? minMz = this.IsolationMz - this.IsolationWidth;
+                double? maxMz = this.IsolationMz + this.IsolationWidth;
+                if(minMz.HasValue && maxMz.HasValue)
+				{
+                    this.SetIsolationRange(minMz, maxMz);
+				}
+			}
+		}
+        public void SetIsolationRange(double? minMz, double? maxMz)
+		{
+            MzRange newRange = new MzRange(minMz.Value, maxMz.Value);
+            this.isolationRange = newRange; 
+		}
     }
 }
