@@ -2,6 +2,7 @@
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -170,6 +171,50 @@ namespace Test
             Assert.AreNotEqual(pp, pa);
             Assert.AreNotEqual(pp, paa);
             Assert.AreEqual(5, new HashSet<ProteolysisProduct> { p, pp, ppp, pa, paa, paaa }.Count);
+        }
+
+        [Test]
+        public static void TestProteoformClassification()//string inputPath)
+        {
+            //Test classifier
+            string inputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "ProteoformClassificationUnitTest.csv");
+            string[] lines = File.ReadAllLines(inputPath);
+
+            List<string> expectedLevels = new List<string> { "1", "2A", "2B", "2C", "2D", "3", "4", "5", "2C", "2B" }; //each of these should be identified in the vignette
+
+            //iterate through each result, check if there's a header or not
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] line = lines[i].Split(',');
+                //should be scan number, sequence(s), gene(s)
+                string level = ProteoformLevelClassifier.ClassifyPrSM(line[1], line[2]);
+
+                Assert.IsTrue(level.Equals(expectedLevels[i - 1]));
+            }
+
+            //Test weird case where residues and PTMs are the same, but flipped. Should be 2A.
+            string fullSeq = "ARTKQTARKSTGGKAPRKQLATKAARKSAPSTGGVKKPHRYRPGTVALREIRRYQK[UniProt:N6-glutaryllysine on K]STELLIRKLPFQRLVREIAQDFK[UniProt:N6-succinyllysine on K]TDLRFQSAAIGALQEASEAYLVGLFEDTNLC[Common Fixed:Carbamidomethyl on C]AIHAKRVTIMPKDIQLARRIRGERA|ARTKQTARKSTGGKAPRKQLATKAARKSAPSTGGVKKPHRYRPGTVALREIRRYQK[UniProt:N6-glutaryllysine on K]STELLIRKLPFQRLVREIAQDFK[UniProt:N6-succinyllysine on K]TDLRFQSAAIGALQEASEAYLVGLFEDTNLC[Common Fixed:Carbamidomethyl on C]AIHAKRVTIMPKDIQLARRIRGERA|ARTKQTARKSTGGKAPRKQLATKAARKSAPSTGGVKKPHRYRPGTVALREIRRYQK[UniProt:N6-succinyllysine on K]STELLIRKLPFQRLVREIAQDFK[UniProt:N6-glutaryllysine on K]TDLRFQSAAIGALQEASEAYLVGLFEDTNLC[Common Fixed:Carbamidomethyl on C]AIHAKRVTIMPKDIQLARRIRGERA|ARTKQTARKSTGGKAPRKQLATKAARKSAPSTGGVKKPHRYRPGTVALREIRRYQK[UniProt:N6-succinyllysine on K]STELLIRKLPFQRLVREIAQDFK[UniProt:N6-glutaryllysine on K]TDLRFQSAAIGALQEASEAYLVGLFEDTNLC[Common Fixed:Carbamidomethyl on C]AIHAKRVTIMPKDIQLARRIRGERA";
+            string gene = "primary:H3-3A, synonym:H3.3A, synonym:H3F3, synonym:H3F3A, ORF:PP781, primary:H3-3B, synonym:H3.3B, synonym:H3F3B";
+            string weirdLevel = ProteoformLevelClassifier.ClassifyPrSM(fullSeq, gene);
+            Assert.IsTrue(weirdLevel.Equals("2A"));
+
+            ///Explanation of weird case, which is test case 1
+            ///Test case 1, which should be level 2A:
+            ///…K[UniProt: N6 - glutaryllysine on K]…K[UniProt: N6 - succinyllysine on K]…
+            ///…K[UniProt: N6 - succinyllysine on K]…K[UniProt: N6 - glutaryllysine on K]…
+
+            ///Test case 2, which is level 2B:
+            ///…K[Acetylation]…
+            ///…K[Trimethylation]…
+
+            ///Test case 3, which should be level 2B:
+            ///…K[Acetylation]…K[Acetylation]…
+            ///…K[Acetylation]…K[Trimethylation]…
+            ///…K[Trimethylation]…K[Acetylation]…
+            ///…K[Trimethylation]…K[Trimethylation]…
+
+            ///Test case 3 is 2B (not level 3) because you've localized the mod, you just aren't sure what mod it is.
+            ///In test case 1, you know what the mods are, but you're not sure where they belong.
         }
     }
 }

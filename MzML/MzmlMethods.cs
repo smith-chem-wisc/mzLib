@@ -18,39 +18,11 @@ namespace IO.MzML
         internal static readonly XmlSerializer mzmlSerializer = new XmlSerializer(typeof(Generated.mzMLType));
         private static readonly string NewLine = "\n";
 
-        private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = new Dictionary<DissociationType, string>
-        {
-            {DissociationType.CID, "MS:1000133"},
-            {DissociationType.ISCID, "MS:1001880"},
-            {DissociationType.HCD, "MS:1000422" },
-            {DissociationType.ETD, "MS:1000598"},
-            {DissociationType.IRMPD, "MS:1000435"},
-            {DissociationType.PQD, "MS:1000599"},
-            {DissociationType.Unknown, "MS:1000044"}
-        };
+        private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = Mzml.DissociationDictionary.ToDictionary(p => p.Value, p => p.Key);
 
-        private static readonly Dictionary<DissociationType, string> DissociationTypeNames = new Dictionary<DissociationType, string>
-        {
-            {DissociationType.CID, "collision-induced dissociation"},
-            {DissociationType.ISCID, "in-source collision-induced dissociation"},
-            {DissociationType.HCD, "beam-type collision-induced dissociation"},
-            {DissociationType.ETD, "electron transfer dissociation"},
-            {DissociationType.IRMPD, "photodissociation"},
-            {DissociationType.PQD, "pulsed q dissociation"},
-            {DissociationType.Unknown, "dissociation method"}
-        };
+        private static readonly Dictionary<DissociationType, string> DissociationTypeNames = Mzml.DissociationTypeNames.ToDictionary(p => p.Value, p => p.Key);
 
-        private static readonly Dictionary<MZAnalyzerType, string> analyzerDictionary = new Dictionary<MZAnalyzerType, string>
-        {
-            {MZAnalyzerType.Unknown, "MS:1000443"},
-            {MZAnalyzerType.Quadrupole, "MS:1000081"},
-            {MZAnalyzerType.IonTrap2D, "MS:1000291"},
-            {MZAnalyzerType.IonTrap3D,"MS:1000082"},
-            {MZAnalyzerType.Orbitrap,"MS:1000484"},
-            {MZAnalyzerType.TOF,"MS:1000084"},
-            {MZAnalyzerType.FTICR ,"MS:1000079"},
-            {MZAnalyzerType.Sector,"MS:1000080"}
-        };
+        private static readonly Dictionary<MZAnalyzerType, string> analyzerDictionary = Mzml.AnalyzerDictionary.ToDictionary(p => p.Value, p => p.Key);
 
         private static readonly Dictionary<string, string> nativeIdFormatAccessions = new Dictionary<string, string>
         {
@@ -83,11 +55,7 @@ namespace IO.MzML
             {false, "profile spectrum"}
         };
 
-        private static readonly Dictionary<Polarity, string> PolarityAccessions = new Dictionary<Polarity, string>
-        {
-            {Polarity.Negative, "MS:1000129"},
-            {Polarity.Positive, "MS:1000130"}
-        };
+        private static readonly Dictionary<Polarity, string> PolarityAccessions = Mzml.PolarityDictionary.ToDictionary(p => p.Value, p => p.Key);
 
         private static readonly Dictionary<Polarity, string> PolarityNames = new Dictionary<Polarity, string>
         {

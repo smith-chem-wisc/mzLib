@@ -1490,7 +1490,7 @@ namespace Test
 
             foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
             {
-                if(staticScan.OneBasedScanNumber > 10)
+                if (staticScan.OneBasedScanNumber > 10)
                 {
                     // only the first 10 scans are checked because checking the entire file takes 7min on AppVeyor
                     break;
@@ -1561,6 +1561,89 @@ namespace Test
                     Assert.That(dynamicIntensity == staticIntensity);
                 }
             }
+        }
+
+        [Test]
+        /// This test reads an .mzML file where the intensities and m/z values are encoded in compressed 64-bit, and also an identical
+        /// file that is encoded in mostly uncompressed 32-bit. Scan #73 in the latter file has its intensities encoded in compressed 64-bit.
+        /// The intensities and m/z values for both of these files should be identical (sans rounding issues).
+        /// Additionally, scan 73 has its retention time in seconds, rather than minutes.
+        public static void TestDynamicMzmlWithMixedBits()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+            string filePath2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast_mixed_bits.mzml");
+
+            Mzml staticMzml = Mzml.LoadAllStaticData(filePath, null);
+            Mzml staticMzml2 = Mzml.LoadAllStaticData(filePath2, null);
+
+            MzmlDynamicData dynamicMzml = new MzmlDynamicData(filePath);
+            MzmlDynamicData dynamicMzml2 = new MzmlDynamicData(filePath2);
+
+            foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
+            {
+                // only the scans 72-74 are checked because checking the entire file takes a long time on AppVeyor
+                if (staticScan.OneBasedScanNumber < 72)
+                {
+                    continue;
+                }
+                if (staticScan.OneBasedScanNumber > 74)
+                {
+                    break;
+                }
+
+                MsDataScan staticScan2 = staticMzml2.GetOneBasedScan(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan1 = dynamicMzml.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan2 = dynamicMzml2.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                Assert.That(staticScan2.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan1.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan2.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+
+                Assert.That(staticScan2.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan1.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan2.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+
+                Assert.That(staticScan2.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+                Assert.That(dynamicScan1.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+                Assert.That(dynamicScan2.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+
+                for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
+                {
+                    double staticMz = staticScan.MassSpectrum.XArray[i];
+                    double staticIntensity = staticScan.MassSpectrum.YArray[i];
+
+                    double staticMz2 = staticScan2.MassSpectrum.XArray[i];
+                    double staticIntensity2 = staticScan2.MassSpectrum.YArray[i];
+
+                    Assert.That(staticMz2 == staticMz);
+                    Assert.That(staticIntensity2 == staticIntensity);
+
+                    double dynamicMz = dynamicScan1.MassSpectrum.XArray[i];
+                    double dynamicIntensity = dynamicScan1.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz == staticMz);
+                    Assert.That(dynamicIntensity == staticIntensity);
+
+                    double dynamicMz2 = dynamicScan2.MassSpectrum.XArray[i];
+                    double dynamicIntensity2 = dynamicScan2.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz2 == staticMz);
+                    Assert.That(dynamicIntensity2 == staticIntensity);
+                }
+            }
+        }
+
+        [Test]
+        public static void TestEthcdReading()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.mzML");
+            Mzml mzml = Mzml.LoadAllStaticData(filePath, null, 1);
+            var unknownScan = mzml.GetOneBasedScan(3);
+            Assert.That(unknownScan.DissociationType == DissociationType.Unknown);
+            var hcdScan = mzml.GetOneBasedScan(5);
+            Assert.That(hcdScan.DissociationType == DissociationType.HCD);
+            var ethcdScan = mzml.GetOneBasedScan(6);
+            Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
         }
 
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)

@@ -43,7 +43,7 @@ namespace IO.Mgf
                         while (sr.Peek() > 0)
                         {
                             string line = sr.ReadLine();
-                            if (line == "")
+                            if (line != "BEGIN IONS")
                             {
                                 continue;
                             }
@@ -82,13 +82,12 @@ namespace IO.Mgf
             while (sr.Peek() > 0)
             {
                 string line = sr.ReadLine();
+                string[] sArray = line.Split('=');
 
-                if (line == "")
+                if (String.IsNullOrWhiteSpace(line))
                 {
                     continue;
                 }
-
-                string[] sArray = line.Split('=');
 
                 if (char.IsDigit(line[0]) && sArray.Length == 1)
                 {

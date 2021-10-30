@@ -721,6 +721,14 @@ namespace Test
                         Assert.AreEqual(0, mass);
                         break;
 
+                    case ProductType.Ycore:
+                        Assert.AreEqual(0, mass);
+                        break;
+
+                    case ProductType.Y:
+                        Assert.AreEqual(0, mass);
+                        break;
+
                     case ProductType.x:
                         Assert.AreEqual(Chemistry.ClassExtensions.RoundedDouble(ChemicalFormula.ParseFormula("C1O2").MonoisotopicMass).Value, mass);
                         break;
@@ -1094,6 +1102,119 @@ namespace Test
             // if there are 3 diagnostic ions (one for each mod on the peptide),
             // diagnostic ions are being incorrectly duplicated!
             Assert.That(diagnosticIons.Count == 1);
+        }
+
+        [Test]
+        // This unit test tests two things:
+        // 1. that neutral loss fragments are correctly generated when a mod w/ annotated neutral losses is on the C or N terminus of a peptide
+        // 2. that neutral loss fragments are correctly generated when a mod w/ annotated neutral losses with a "Any activation type" dissociation type is present
+        public static void TestNeutralLossModOnTerminus()
+        {
+            ModificationMotif.TryGetMotif("X", out var motif);
+
+            var modsDictionary = new Dictionary<string, Modification> 
+            { 
+                { @"NeutralLoss-N on X", new Modification(
+                    _originalId: @"NeutralLoss-N", 
+                    _modificationType: "Test Category", 
+                    _target: motif, 
+                    _locationRestriction: "Peptide N-terminal.", 
+                    _monoisotopicMass: 225,
+                    _neutralLosses: new Dictionary<DissociationType, List<double>>{ { DissociationType.HCD, new List<double> { 126 } } }) 
+                },
+
+                { @"NeutralLoss-C on X", new Modification(
+                    _originalId: @"NeutralLoss-C",
+                    _modificationType: "Test Category",
+                    _target: motif,
+                    _locationRestriction: "Peptide C-terminal.",
+                    _monoisotopicMass: 225,
+                    _neutralLosses: new Dictionary<DissociationType, List<double>>{ { DissociationType.AnyActivationType, new List<double> { 126 } } })
+                },
+            };
+
+            List<Product> products = new List<Product>();
+
+            // N-term mod
+            PeptideWithSetModifications pep = new PeptideWithSetModifications(@"[Test Category:NeutralLoss-N on X]AAAAAAAAAK", modsDictionary);
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 10);
+
+            // C-term mod mod
+            pep = new PeptideWithSetModifications(@"AAAAAAAAAK[Test Category:NeutralLoss-C on X]", modsDictionary);
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 10);
+        }
+
+        [Test]
+        // This unit test tests:
+        // that diagnostic ionsare correctly generated when "Any activation type" is used
+        public static void TestDiagnosticIonsAnyActivationType()
+        {
+            ModificationMotif.TryGetMotif("X", out var motif);
+
+            var modsDictionary = new Dictionary<string, Modification>
+            {
+                { @"DiagnosticIon-N on X", new Modification(
+                    _originalId: @"DiagnosticIon-N",
+                    _modificationType: "Test Category",
+                    _target: motif,
+                    _locationRestriction: "Peptide N-terminal.",
+                    _monoisotopicMass: 225,
+                    _diagnosticIons: new Dictionary<DissociationType, List<double>>{ { DissociationType.AnyActivationType, new List<double> { 126 } } })
+                },
+
+                { @"DiagnosticIon-Anywhere on X", new Modification(
+                    _originalId: @"DiagnosticIon-Anywhere",
+                    _modificationType: "Test Category",
+                    _target: motif,
+                    _locationRestriction: "Anywhere.",
+                    _monoisotopicMass: 225,
+                    _diagnosticIons: new Dictionary<DissociationType, List<double>>{ { DissociationType.HCD, new List<double> { 126 } } })
+                },
+            };
+
+            List<Product> products = new List<Product>();
+
+            // 2 mods w/ the same diagnostic ion, should end up w/ only 1 diagnostic ion (D127)
+            PeptideWithSetModifications pep = new PeptideWithSetModifications(
+                @"[Test Category:DiagnosticIon-N on X]AAAA[Test Category:DiagnosticIon-Anywhere on X]AAAAAK", modsDictionary);
+
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            Assert.That(products.Count(p => p.ProductType == ProductType.D) == 1);
+            Assert.That(products.Count(p => p.Annotation == "D127") == 1);
+        }
+
+        [Test]
+        // This unit test tests:
+        // ETD generates an extra zDot ion. this ion should have an annotated neutral loss if there is a mod w/ neutral loss on the C-term
+        public static void TestCTermEtd()
+        {
+            ModificationMotif.TryGetMotif("X", out var motif);
+
+            var modsDictionary = new Dictionary<string, Modification>
+            {
+                { @"NeutralLoss-C on X", new Modification(
+                    _originalId: @"NeutralLoss-C",
+                    _modificationType: "Test Category",
+                    _target: motif,
+                    _locationRestriction: "Peptide C-terminal.",
+                    _monoisotopicMass: 225,
+                    _neutralLosses: new Dictionary<DissociationType, List<double>>{ { DissociationType.AnyActivationType, new List<double> { 126 } } })
+                },
+            };
+
+            List<Product> products = new List<Product>();
+
+            PeptideWithSetModifications pep = new PeptideWithSetModifications(@"AAAAAAAAAK[Test Category:NeutralLoss-C on X]", modsDictionary);
+
+            pep.Fragment(DissociationType.ETD, FragmentationTerminus.Both, products);
+            
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.zDot) == 10);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.c) == 0);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 9);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.M) == 1);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 20);
         }
     }
 }
