@@ -63,8 +63,7 @@ namespace Proteomics
                 || upperMotifChar.Equals(sequenceChar)
                 || upperMotifChar.Equals('B') && new[] { 'D', 'N' }.Contains(sequenceChar)
                 || upperMotifChar.Equals('J') && new[] { 'I', 'L' }.Contains(sequenceChar)
-                || upperMotifChar.Equals('Z') && new[] { 'E', 'Q' }.Contains(sequenceChar)
-                || upperMotifChar.Equals('U') && !new[] { 'P' }.Contains(sequenceChar);
+                || upperMotifChar.Equals('Z') && new[] { 'E', 'Q' }.Contains(sequenceChar);
         }
     }
 }
