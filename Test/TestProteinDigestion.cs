@@ -388,5 +388,25 @@ namespace Test
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theoreticalFragments);
             Assert.That(theoreticalFragments.Count > 0);
         }
+
+        [Test]
+        public static void TestGlycoPeptide()
+        {
+            var prot = new Protein("MNNNYTKQQQQKS", null);
+            var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
+            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
+            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+            DigestionParams digestionParams = new DigestionParams(
+                protease: protease.Name,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                keepNGlycopeptide: true,
+                keepOGlycopeptide: true);
+            List<Modification> variableModifications = new List<Modification>();
+            var ye = prot.Digest(digestionParams, new List<Modification>(), variableModifications).ToList();
+
+            Assert.AreEqual(2, ye.Count);
+        }
     }
 }

@@ -4,6 +4,7 @@ using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Proteomics
 {
@@ -244,6 +245,12 @@ namespace Proteomics
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
                 digestion.Digestion(this);
+            
+            if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
+            {
+                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParams.KeepNGlycopeptide, digestionParams.KeepOGlycopeptide);
+            }
+            
 
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
@@ -474,6 +481,33 @@ namespace Proteomics
                         }
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Only keep glycopeptides by filtering the NGlycopeptide motif 'NxS || NxT' or OGlycopeptide motif 'S || T'
+        /// </summary>
+        internal IEnumerable<ProteolyticPeptide> GetGlycoPeptides(IEnumerable<ProteolyticPeptide> originalPeptides, bool keepNGlycopeptide, bool keepOGlycopeptide)
+        {
+            Regex rgx = new Regex("^N[A-Z][ST]");
+            foreach (ProteolyticPeptide pwsm in originalPeptides)
+            {
+                if (keepNGlycopeptide)
+                {                   
+                    if (rgx.IsMatch(pwsm.BaseSequence))
+                    {
+                        yield return pwsm;
+                    }
+                }
+
+                if (keepOGlycopeptide)
+                {
+                    if (pwsm.BaseSequence.Contains('S') || pwsm.BaseSequence.Contains('T'))
+                    {
+                        yield return pwsm;
+                    }
+                }
+                
             }
         }
 
