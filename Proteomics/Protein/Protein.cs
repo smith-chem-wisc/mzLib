@@ -489,7 +489,7 @@ namespace Proteomics
         /// </summary>
         internal IEnumerable<ProteolyticPeptide> GetGlycoPeptides(IEnumerable<ProteolyticPeptide> originalPeptides, bool keepNGlycopeptide, bool keepOGlycopeptide)
         {
-            Regex rgx = new Regex("^N[A-Z][ST]");
+            Regex rgx = new Regex("N[A-Z][ST]");
             foreach (ProteolyticPeptide pwsm in originalPeptides)
             {
                 if (keepNGlycopeptide)
