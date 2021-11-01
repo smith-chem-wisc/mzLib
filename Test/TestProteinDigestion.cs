@@ -394,7 +394,7 @@ namespace Test
         {
             var prot = new Protein("MNNNYTKQQQQKS", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
-            var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
+            var protease = new Protease("CustomizedProtease_diffname", CleavageSpecificity.Full, null, null, motifList);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
             DigestionParams digestionParams = new DigestionParams(
                 protease: protease.Name,
