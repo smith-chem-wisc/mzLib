@@ -492,15 +492,17 @@ namespace Proteomics
             Regex rgx = new Regex("N[A-Z][ST]");
             foreach (ProteolyticPeptide pwsm in originalPeptides)
             {
+                bool yielded = false;
                 if (keepNGlycopeptide)
                 {                   
                     if (rgx.IsMatch(pwsm.BaseSequence))
                     {
+                        yielded = true;
                         yield return pwsm;
                     }
                 }
 
-                if (keepOGlycopeptide)
+                if (keepOGlycopeptide && !yielded)
                 {
                     if (pwsm.BaseSequence.Contains('S') || pwsm.BaseSequence.Contains('T'))
                     {

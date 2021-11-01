@@ -402,11 +402,11 @@ namespace Test
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
                 keepNGlycopeptide: true,
-                keepOGlycopeptide: false);
+                keepOGlycopeptide: true);
             List<Modification> variableModifications = new List<Modification>();
             var ye = prot.Digest(digestionParams, new List<Modification>(), variableModifications).ToList();
 
-            Assert.AreEqual(1, ye.Count);
+            Assert.AreEqual(2, ye.Count);
         }
     }
 }
