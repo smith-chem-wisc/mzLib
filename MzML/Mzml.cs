@@ -405,6 +405,20 @@ namespace IO.MzML
                 }
             }
 
+            //Remove Zero Intensity Peaks
+            double zeroEquivalentIntensity = 0.01;
+            int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
+            int intensityValueCount = intensities.Count();
+            if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+            {
+                Array.Sort(intensities, masses);
+                double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+                double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+                intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                masses = masses.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                Array.Sort(masses, intensities);
+            }
+
             if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
             {
                 WindowModeHelper(ref intensities, ref masses, filterParams, low, high);
