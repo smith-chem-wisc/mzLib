@@ -14,7 +14,7 @@ namespace Proteomics.ProteolyticDigestion
         public DigestionParams(string protease = "trypsin", int maxMissedCleavages = 2, int minPeptideLength = 7, int maxPeptideLength = int.MaxValue,
             int maxModificationIsoforms = 1024, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Variable,
             int maxModsForPeptides = 2, CleavageSpecificity searchModeType = CleavageSpecificity.Full, FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
-            bool generateUnlabeledProteinsForSilac = true)
+            bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false)
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
@@ -27,6 +27,8 @@ namespace Proteomics.ProteolyticDigestion
             FragmentationTerminus = fragmentationTerminus;
             RecordSpecificProtease();
             GeneratehUnlabeledProteinsForSilac = generateUnlabeledProteinsForSilac;
+            KeepNGlycopeptide = keepNGlycopeptide;
+            KeepOGlycopeptide = keepOGlycopeptide;
         }
 
         public int MaxMissedCleavages { get; private set; }
@@ -40,6 +42,8 @@ namespace Proteomics.ProteolyticDigestion
         public FragmentationTerminus FragmentationTerminus { get; private set; } //for fast semi searching of proteases
         public Protease SpecificProtease { get; private set; } //for fast semi and nonspecific searching of proteases
         public bool GeneratehUnlabeledProteinsForSilac { get; private set; } //used to look for unlabeled proteins (in addition to labeled proteins) for SILAC experiments
+        public bool KeepNGlycopeptide { get; private set; }
+        public bool KeepOGlycopeptide { get; private set; }
 
         public override bool Equals(object obj)
         {
@@ -53,7 +57,9 @@ namespace Proteomics.ProteolyticDigestion
                 && Protease.Equals(a.Protease)
                 && SearchModeType.Equals(a.SearchModeType)
                 && FragmentationTerminus.Equals(a.FragmentationTerminus)
-                && GeneratehUnlabeledProteinsForSilac.Equals(a.GeneratehUnlabeledProteinsForSilac);
+                && GeneratehUnlabeledProteinsForSilac.Equals(a.GeneratehUnlabeledProteinsForSilac)
+                && KeepNGlycopeptide.Equals(a.KeepNGlycopeptide)
+                && KeepOGlycopeptide.Equals(a.KeepOGlycopeptide);
         }
 
         public override int GetHashCode()
@@ -69,7 +75,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinPeptideLength + "," + MaxPeptideLength + ","
                 + MaxModificationIsoforms + "," + MaxModsForPeptide + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
-                + GeneratehUnlabeledProteinsForSilac;
+                + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
         }
 
         private void RecordSpecificProtease()
