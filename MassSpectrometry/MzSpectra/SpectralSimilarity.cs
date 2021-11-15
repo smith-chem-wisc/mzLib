@@ -56,8 +56,6 @@ namespace MassSpectrometry.MzSpectra
                     return NormalizeSquareRootSpectrumSum(spectrum);
 
                 case SpectrumNormalizationScheme.unnormalized:
-                    return spectrum;
-
                 default:
                     return spectrum;
             }
@@ -90,13 +88,10 @@ namespace MassSpectrometry.MzSpectra
         private double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
         {
             double sqrtSum = spectrum.Select(y => Math.Sqrt(y)).Sum();
-            if (sqrtSum > 0)
+
+            for (int i = 0; i < spectrum.Length; i++)
             {
-                for (int i = 0; i < spectrum.Length; i++)
-                {
-                    spectrum[i] = Math.Sqrt(spectrum[i]) / sqrtSum;
-                }
-                return spectrum;
+                spectrum[i] = Math.Sqrt(spectrum[i]) / sqrtSum;
             }
             return spectrum;
         }
@@ -104,13 +99,10 @@ namespace MassSpectrometry.MzSpectra
         private double[] NormalizeMostAbundantPeak(double[] spectrum)
         {
             double max = spectrum.Max();
-            if (max > 0)
+
+            for (int i = 0; i < spectrum.Length; i++)
             {
-                for (int i = 0; i < spectrum.Length; i++)
-                {
-                    spectrum[i] = spectrum[i] / max;
-                }
-                return spectrum;
+                spectrum[i] = spectrum[i] / max;
             }
             return spectrum;
         }
@@ -118,13 +110,10 @@ namespace MassSpectrometry.MzSpectra
         private double[] NormalizeSpectrumSum(double[] spectrum)
         {
             double sum = spectrum.Sum();
-            if (sum > 0)
+
+            for (int i = 0; i < spectrum.Length; i++)
             {
-                for (int i = 0; i < spectrum.Length; i++)
-                {
-                    spectrum[i] = spectrum[i] / sum;
-                }
-                return spectrum;
+                spectrum[i] = spectrum[i] / sum;
             }
             return spectrum;
         }
