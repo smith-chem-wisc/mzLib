@@ -22,9 +22,11 @@ namespace MassSpectrometry.MzSpectra
         public double[] primaryXArray { get; private set; }
         public double[] secondaryYarray { get; private set; }
         public double[] secondaryXArray { get; private set; }
-        private double localTolerance; 
+        private double localTolerance;
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
-        public List<(double, double)> intensityPairs { get { return _intensityPairs; } }
+
+        public List<(double, double)> intensityPairs
+        { get { return _intensityPairs; } }
 
         /// <summary>
         /// Every spectrum gets normalized when the SpectralSimilarity object gets created. This methods sends the spectra to the appropriate normalization.
@@ -36,25 +38,34 @@ namespace MassSpectrometry.MzSpectra
         {
             if (spectrum.Length == 0)
             {
-                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Empty YArray in spectrum"));
+                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Empty YArray in spectrum."));
+            }
+            if (spectrum.Sum() == 0)
+            {
+                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Spectrum has no intensity."));
             }
             switch (scheme)
             {
                 case SpectrumNormalizationScheme.mostAbundantPeak:
                     return NormalizeMostAbundantPeak(spectrum);
+
                 case SpectrumNormalizationScheme.spectrumSum:
                     return NormalizeSpectrumSum(spectrum);
+
                 case SpectrumNormalizationScheme.squareRootSpectrumSum:
                     return NormalizeSquareRootSpectrumSum(spectrum);
+
                 case SpectrumNormalizationScheme.unnormalized:
                     return spectrum;
+
                 default:
-                    return spectrum;                   
+                    return spectrum;
             }
         }
+
         /// <summary>
         /// Intensity Pairs a computed immediately upon creation of the SpectralSimilarity object. That way they can be used in all the methods without being recomputed.
-        /// We loop throught the secondaryXArray under the assumption that it is the shorter of the two arrays (i.e. typically the theoretical spectrum). 
+        /// We loop throught the secondaryXArray under the assumption that it is the shorter of the two arrays (i.e. typically the theoretical spectrum).
         /// Experimental spectrum defaults to 200 peaks and is therefore usually longer.
         /// </summary>
         /// <returns></returns>
@@ -75,10 +86,11 @@ namespace MassSpectrometry.MzSpectra
         }
 
         #region normalization
+
         private double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
         {
             double sqrtSum = spectrum.Select(y => Math.Sqrt(y)).Sum();
-            if(sqrtSum > 0)
+            if (sqrtSum > 0)
             {
                 for (int i = 0; i < spectrum.Length; i++)
                 {
@@ -120,6 +132,7 @@ namespace MassSpectrometry.MzSpectra
         #endregion normalization
 
         #region similarityMethods
+
         public double CosineSimilarity()
         {
             if (intensityPairs.Count > 0)
@@ -138,10 +151,7 @@ namespace MassSpectrometry.MzSpectra
                 {
                     return numerator / Math.Sqrt(denominatorProduct);
                 }
-                else
-                {
-                    return 0;
-                }
+                return 0;
             }
             return 0;
         }
@@ -162,10 +172,8 @@ namespace MassSpectrometry.MzSpectra
                 }
                 return 1 - Math.Sqrt(sum);
             }
-            else
-            {
-                return 1-Math.Sqrt(2);
-            }
+
+            return 1 - Math.Sqrt(2);
         }
 
         public double BrayCurtis()
@@ -201,7 +209,7 @@ namespace MassSpectrometry.MzSpectra
                     denominator2 = Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
                     denominator += denominator1 * denominator2;
                 }
-                if(!denominator.Equals(0))
+                if (!denominator.Equals(0))
                 {
                     return numerator / Math.Sqrt(denominator);
                 }
@@ -212,7 +220,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double DotProduct()
         {
-            if(intensityPairs.Count > 0)
+            if (intensityPairs.Count > 0)
             {
                 double sum = 0;
                 foreach ((double, double) pair in _intensityPairs)
@@ -223,8 +231,8 @@ namespace MassSpectrometry.MzSpectra
             }
             return 0;
         }
-        #endregion similarityMethods
 
+        #endregion similarityMethods
 
         private bool Within(double mz1, double mz2)
         {
