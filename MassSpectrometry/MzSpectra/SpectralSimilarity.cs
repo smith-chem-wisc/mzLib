@@ -136,11 +136,7 @@ namespace MassSpectrometry.MzSpectra
                     denominatorValue2 += Math.Pow(pair.Item2, 2);
                 }
                 double denominatorProduct = denominatorValue1 * denominatorValue2;
-                if (!denominatorProduct.Equals(0))
-                {
-                    return numerator / Math.Sqrt(denominatorProduct);
-                }
-                return 0;
+                return numerator / Math.Sqrt(denominatorProduct);
             }
             return 0;
         }
