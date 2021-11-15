@@ -1,26 +1,125 @@
-﻿using System;
+﻿using MzLibUtil;
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace MassSpectrometry.MzSpectra
 {
     public class SpectralSimilarity
     {
-        public SpectralSimilarity(MzSpectrum primary, MzSpectrum secondary, double toleranceInPpm)
+        public SpectralSimilarity(MzSpectrum primary, MzSpectrum secondary, SpectrumNormalizationScheme scheme, double toleranceInPpm)
         {
-            primarySpectrum = primary;
-            secondarySpectrum = secondary;
+            primaryYArray = Normalize(primary.YArray, scheme);
+            primaryXArray = primary.XArray;
+            secondaryYarray = Normalize(secondary.YArray, scheme);
+            secondaryXArray = secondary.XArray;
             localTolerance = toleranceInPpm / 1000000.0;
             _intensityPairs = IntensityPairs();
         }
 
-        public MzSpectrum primarySpectrum { get; private set; }
-        public MzSpectrum secondarySpectrum { get; private set; }
-        private double localTolerance { get; }
+        public double[] primaryYArray { get; private set; }
+        public double[] primaryXArray { get; private set; }
+        public double[] secondaryYarray { get; private set; }
+        public double[] secondaryXArray { get; private set; }
+        private double localTolerance; 
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
-        public List<(double, double)> intensityPairs
-        { get { return _intensityPairs; } }
+        public List<(double, double)> intensityPairs { get { return _intensityPairs; } }
 
+        /// <summary>
+        /// Every spectrum gets normalized when the SpectralSimilarity object gets created. This methods sends the spectra to the appropriate normalization.
+        /// </summary>
+        /// <param name="spectrum"></param>
+        /// <param name="scheme"></param>
+        /// <returns></returns>
+        private double[] Normalize(double[] spectrum, SpectrumNormalizationScheme scheme)
+        {
+            if (spectrum.Length == 0)
+            {
+                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Empty YArray in spectrum"));
+            }
+            switch (scheme)
+            {
+                case SpectrumNormalizationScheme.mostAbundantPeak:
+                    return NormalizeMostAbundantPeak(spectrum);
+                case SpectrumNormalizationScheme.spectrumSum:
+                    return NormalizeSpectrumSum(spectrum);
+                case SpectrumNormalizationScheme.squareRootSpectrumSum:
+                    return NormalizeSquareRootSpectrumSum(spectrum);
+                case SpectrumNormalizationScheme.unnormalized:
+                    return spectrum;
+                default:
+                    return spectrum;                   
+            }
+        }
+        /// <summary>
+        /// Intensity Pairs a computed immediately upon creation of the SpectralSimilarity object. That way they can be used in all the methods without being recomputed.
+        /// We loop throught the secondaryXArray under the assumption that it is the shorter of the two arrays (i.e. typically the theoretical spectrum). 
+        /// Experimental spectrum defaults to 200 peaks and is therefore usually longer.
+        /// </summary>
+        /// <returns></returns>
+
+        private List<(double, double)> IntensityPairs()
+        {
+            List<(double, double)> intensityPairs = new List<(double, double)>();
+            for (int i = 0; i < secondaryXArray.Length; i++)
+            {
+                double secondaryMz = secondaryXArray[i];
+                var nearestMz = primaryXArray.OrderBy(x => Math.Abs((long)x - secondaryMz)).First();
+                if (Within(secondaryMz, nearestMz))
+                {
+                    intensityPairs.Add((primaryYArray[Array.IndexOf(primaryXArray, nearestMz)], secondaryYarray[i]));
+                }
+            }
+            return intensityPairs;
+        }
+
+        #region normalization
+        private double[] NormalizeSquareRootSpectrumSum(double[] spectrum)
+        {
+            double sqrtSum = spectrum.Select(y => Math.Sqrt(y)).Sum();
+            if(sqrtSum > 0)
+            {
+                for (int i = 0; i < spectrum.Length; i++)
+                {
+                    spectrum[i] = Math.Sqrt(spectrum[i]) / sqrtSum;
+                }
+                return spectrum;
+            }
+            return spectrum;
+        }
+
+        private double[] NormalizeMostAbundantPeak(double[] spectrum)
+        {
+            double max = spectrum.Max();
+            if (max > 0)
+            {
+                for (int i = 0; i < spectrum.Length; i++)
+                {
+                    spectrum[i] = spectrum[i] / max;
+                }
+                return spectrum;
+            }
+            return spectrum;
+        }
+
+        private double[] NormalizeSpectrumSum(double[] spectrum)
+        {
+            double sum = spectrum.Sum();
+            if (sum > 0)
+            {
+                for (int i = 0; i < spectrum.Length; i++)
+                {
+                    spectrum[i] = spectrum[i] / sum;
+                }
+                return spectrum;
+            }
+            return spectrum;
+        }
+
+        #endregion normalization
+
+        #region similarityMethods
         public double CosineSimilarity()
         {
             if (intensityPairs.Count > 0)
@@ -68,8 +167,6 @@ namespace MassSpectrometry.MzSpectra
                 return 1-Math.Sqrt(2);
             }
         }
-
-
 
         public double BrayCurtis()
         {
@@ -126,37 +223,20 @@ namespace MassSpectrometry.MzSpectra
             }
             return 0;
         }
-        private List<(double, double)> IntensityPairs()
-        {
-            List<(double, double)> intensityPairs = new List<(double, double)>();
-            double[] normalizedPrimaryIntensities = NormalizeSpectrumByTotalIntensity(primarySpectrum.YArray);
-            double[] normalizedSecondaryIntensities = NormalizeSpectrumByTotalIntensity(secondarySpectrum.YArray);
-            for (int i = 0; i < primarySpectrum.XArray.Length; i++)
-            {
-                double primaryMz = primarySpectrum.XArray[i];
-                var nearestMz = secondarySpectrum.XArray.OrderBy(x => Math.Abs((long)x - primaryMz)).First();
-                if (Within(primaryMz, nearestMz))
-                {
-                    intensityPairs.Add((normalizedPrimaryIntensities[i], normalizedSecondaryIntensities[Array.IndexOf(normalizedSecondaryIntensities, nearestMz)]));
-                }
-            }
-            return intensityPairs;
-        }
+        #endregion similarityMethods
+
 
         private bool Within(double mz1, double mz2)
         {
             return (Math.Abs(mz1 - mz2) < localTolerance);
         }
 
-        public double[] NormalizeSpectrumByTotalIntensity(double[] spectrum)
+        public enum SpectrumNormalizationScheme
         {
-            double[] normalizedArray = new double[spectrum.Length];
-            double intensitySum = spectrum.Sum();
-            for (int i = 0; i < spectrum.Length; i++)
-            {
-                normalizedArray[i] = spectrum[i] / intensitySum;
-            }
-            return normalizedArray;
+            squareRootSpectrumSum,
+            spectrumSum,
+            mostAbundantPeak,
+            unnormalized
         }
     }
 }
