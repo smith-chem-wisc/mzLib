@@ -74,7 +74,8 @@ namespace MassSpectrometry.MzSpectra
             for (int i = 0; i < secondaryXArray.Length; i++)
             {
                 double secondaryMz = secondaryXArray[i];
-                var nearestMz = primaryXArray.OrderBy(x => Math.Abs((long)x - secondaryMz)).First();
+                //double nearestMz = primaryXArray.OrderBy(x => Math.Abs((long)x - secondaryMz)).First();
+                double nearestMz = FindClosest(primaryXArray, secondaryMz);
                 if (Within(secondaryMz, nearestMz))
                 {
                     intensityPairs.Add((primaryYArray[Array.IndexOf(primaryXArray, nearestMz)], secondaryYarray[i]));
@@ -183,17 +184,17 @@ namespace MassSpectrometry.MzSpectra
             {
                 double numerator = 0;
                 double denominator = 0;
+                double denominator1 = 0;
+                double denominator2 = 0;
                 double averagePrimaryIntensity = intensityPairs.Select(a => a.Item1).Sum() / intensityPairs.Count;
                 double averageSecondaryIntensity = intensityPairs.Select(a => a.Item2).Sum() / intensityPairs.Count;
                 foreach ((double, double) pair in _intensityPairs)
                 {
                     numerator += (pair.Item1 - averagePrimaryIntensity) * (pair.Item2 - averageSecondaryIntensity);
-                    double denominator1 = 0;
-                    denominator1 = Math.Pow((pair.Item1 - averagePrimaryIntensity), 2);
-                    double denominator2 = 0;
-                    denominator2 = Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
-                    denominator += denominator1 * denominator2;
+                    denominator1 += Math.Pow((pair.Item1 - averagePrimaryIntensity), 2);
+                    denominator2 += Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
                 }
+                denominator += denominator1 * denominator2;
                 if (!denominator.Equals(0))
                 {
                     return numerator / Math.Sqrt(denominator);
@@ -219,6 +220,76 @@ namespace MassSpectrometry.MzSpectra
 
         #endregion similarityMethods
 
+        #region binarySearch
+        private static double FindClosest(double[] arr,
+                              double target)
+        {
+            int n = arr.Length;
+
+            // Corner cases
+            if (target <= arr[0])
+                return arr[0];
+            if (target >= arr[n - 1])
+                return arr[n - 1];
+
+            // Doing binary search
+            int i = 0, j = n, mid = 0;
+            while (i < j)
+            {
+                mid = (i + j) / 2;
+
+                if (arr[mid] == target)
+                    return arr[mid];
+
+                /* If target is less
+                than array element,
+                then search in left */
+                if (target < arr[mid])
+                {
+
+                    // If target is greater
+                    // than previous to mid,
+                    // return closest of two
+                    if (mid > 0 && target > arr[mid - 1])
+                        return getClosest(arr[mid - 1],
+                                     arr[mid], target);
+
+                    /* Repeat for left half */
+                    j = mid;
+                }
+
+                // If target is
+                // greater than mid
+                else
+                {
+                    if (mid < n - 1 && target < arr[mid + 1])
+                        return getClosest(arr[mid],
+                             arr[mid + 1], target);
+                    i = mid + 1; // update i
+                }
+            }
+
+            // Only single element
+            // left after search
+            return arr[mid];
+        }
+
+        // Method to compare which one
+        // is the more close We find the
+        // closest by taking the difference
+        // between the target and both
+        // values. It assumes that val2 is
+        // greater than val1 and target
+        // lies between these two.
+        private static double getClosest(double val1, double val2,
+                                     double target)
+        {
+            if (target - val1 >= val2 - target)
+                return val2;
+            else
+                return val1;
+        }
+        #endregion binary Search
         private bool Within(double mz1, double mz2)
         {
             return (Math.Abs(mz1 - mz2) < localTolerance);

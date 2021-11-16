@@ -86,7 +86,7 @@ namespace Test
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.08).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0).Within(0.01));
-            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-1.41).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-1).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0).Within(0.01));
         }
     }
