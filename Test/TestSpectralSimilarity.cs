@@ -17,7 +17,7 @@ namespace Test
             //Test all different similarity calculations
             MzSpectrum primary = new MzSpectrum(new double[] { 1, 2, 3, 4, 5 }, new double[] { 2, 4, 6, 8, 10 }, false);
             MzSpectrum secondary = new MzSpectrum(new double[] { 3, 4, 5, 6, 7 }, new double[] { 9, 7, 5, 3, 1 }, false);
-            SpectralSimilarity s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance);
+            SpectralSimilarity s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true);
             Assert.AreEqual(7, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.8).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.59).Within(0.01));
@@ -29,7 +29,7 @@ namespace Test
             //Test all normalization schemes
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 1 }, new double[] { 2 }, false);
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.27).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.17).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.37).Within(0.01));
@@ -37,7 +37,7 @@ namespace Test
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.33).Within(0.01));
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.27).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.17).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(-.03).Within(0.01));
@@ -45,7 +45,7 @@ namespace Test
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.17).Within(0.01));
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.41).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.27).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(0.07).Within(0.01));
@@ -53,7 +53,7 @@ namespace Test
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.90).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.24).Within(0.01));
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.unnormalized, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.41).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.27).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(0.07).Within(0.01));
@@ -67,7 +67,7 @@ namespace Test
 
             Assert.Throws<MzLibException>(() =>
             {
-                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             }, "Empty YArray in spectrum.");
 
             //We should have any zero intensity YArrays but just to be sure
@@ -76,14 +76,14 @@ namespace Test
 
             Assert.Throws<MzLibException>(() =>
             {
-                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             }, "Spectrum has no intensity.");
 
             //What happens when all intensity pairs include a zero
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 4 }, new double[] { 2 }, false);
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.18).Within(0.01));
@@ -94,7 +94,7 @@ namespace Test
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 0, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 1, 2, 3, 4 }, new double[] { 2, 0, 2, 2 }, false);
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.48).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.32).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(0.33).Within(0.01));
@@ -106,7 +106,7 @@ namespace Test
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 0, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 4, 5 }, new double[] { 2, 0 }, false);
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             Assert.AreEqual(5, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
@@ -119,18 +119,30 @@ namespace Test
             primary = new MzSpectrum(new double[] { 1, 2, 3, 4 }, new double[] { 1, 2, 3, 4 }, false);
             secondary = new MzSpectrum(new double[] { 1.000009, 1.99999, 3.00004, 3.99995 }, new double[] { 1, 2, 3, 4 }, false);
 
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
             Assert.AreEqual(7, s.intensityPairs.Count);
 
             //Test alternate constructor
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
             secondary = new MzSpectrum(new double[] { 1 }, new double[] { 2 }, false);
-            s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance);
+            s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, true);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.27).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.17).Within(0.01));
             Assert.That(s.EuclideanDistance(), Is.EqualTo(-0.37).Within(0.01));
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.22).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-0.87).Within(0.01));
+            Assert.That(s.DotProduct(), Is.EqualTo(0.33).Within(0.01));
+
+            //Test alternate constructor only library peaks. Since library has one peak, and primary has three peaks, we get only one intensity pair
+            primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
+            secondary = new MzSpectrum(new double[] { 1 }, new double[] { 2 }, false);
+            s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
+            Assert.AreEqual(1, s.intensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(1.0).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(1.0).Within(0.01));
+            Assert.That(s.EuclideanDistance(), Is.EqualTo(0.33).Within(0.01));
+            Assert.That(s.BrayCurtis(), Is.EqualTo(0.50).Within(0.01));
+            Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-1.0).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.33).Within(0.01));
         }
     }

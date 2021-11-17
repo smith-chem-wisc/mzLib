@@ -8,24 +8,24 @@ namespace MassSpectrometry.MzSpectra
 {
     public class SpectralSimilarity
     {
-        public SpectralSimilarity(MzSpectrum primary, MzSpectrum secondary, SpectrumNormalizationScheme scheme, double toleranceInPpm)
+        public SpectralSimilarity(MzSpectrum primary, MzSpectrum secondary, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks)
         {
             primaryYArray = Normalize(primary.YArray, scheme);
             primaryXArray = primary.XArray;
             secondaryYarray = Normalize(secondary.YArray, scheme);
             secondaryXArray = secondary.XArray;
             localTolerance = toleranceInPpm / 1000000.0;
-            _intensityPairs = IntensityPairs();
+            _intensityPairs = IntensityPairs(allPeaks);
         }
 
-        public SpectralSimilarity(MzSpectrum primary, double[] secondaryX, double[] secondaryY, SpectrumNormalizationScheme scheme, double toleranceInPpm)
+        public SpectralSimilarity(MzSpectrum primary, double[] secondaryX, double[] secondaryY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks)
         {
             primaryYArray = Normalize(primary.YArray, scheme);
             primaryXArray = primary.XArray;
             secondaryYarray = Normalize(secondaryY, scheme);
             secondaryXArray = secondaryX;
             localTolerance = toleranceInPpm / 1000000.0;
-            _intensityPairs = IntensityPairs();
+            _intensityPairs = IntensityPairs(allPeaks);
         }
 
         public double[] primaryYArray { get; private set; }
@@ -34,7 +34,7 @@ namespace MassSpectrometry.MzSpectra
         public double[] secondaryXArray { get; private set; }
         private double localTolerance;
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
-
+        
         public List<(double, double)> intensityPairs
         { get { return _intensityPairs; } }
 
@@ -72,7 +72,7 @@ namespace MassSpectrometry.MzSpectra
         /// </summary>
         /// <returns></returns>
 
-        private List<(double, double)> IntensityPairs()
+        private List<(double, double)> IntensityPairs(bool allPeaks)
         {
             List<(double, double)> intensityPairs = new List<(double, double)>();
             List<(double, double)> primary = new List<(double, double)>();
@@ -109,7 +109,7 @@ namespace MassSpectrometry.MzSpectra
                     intensityPairs.Add((0, xyPair.Item2));
                 }
             }
-            if(primary.Count > 0)
+            if(primary.Count > 0 && allPeaks)
             {
                 foreach ((double, double) xyPair in primary)
                 {
@@ -214,8 +214,12 @@ namespace MassSpectrometry.MzSpectra
                 denominator1 += Math.Pow((pair.Item1 - averagePrimaryIntensity), 2);
                 denominator2 += Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
             }
-            denominator += denominator1 * denominator2;
-            return numerator / Math.Sqrt(denominator);
+            denominator = denominator1 * denominator2;
+            if(denominator > 0)
+            {
+                return numerator / Math.Sqrt(denominator);
+            }
+            return -1;
         }
 
         public double DotProduct()
