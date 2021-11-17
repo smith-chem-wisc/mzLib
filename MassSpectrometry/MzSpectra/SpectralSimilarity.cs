@@ -57,33 +57,53 @@ namespace MassSpectrometry.MzSpectra
         /// Intensity Pairs a computed immediately upon creation of the SpectralSimilarity object. That way they can be used in all the methods without being recomputed.
         /// We loop throught the secondaryXArray under the assumption that it is the shorter of the two arrays (i.e. typically the theoretical spectrum).
         /// Experimental spectrum defaults to 200 peaks and is therefore usually longer.
+        /// We sort intensities in descending order so that when we make peak pairs, we're choosing pairs with the highest intensity so long as they are with mz range. 
+        /// Sometimes you could have two peaks in mz range and I don't think you want to pair the lesser intensity peak first just because it is closer in mass.
         /// </summary>
         /// <returns></returns>
 
         private List<(double, double)> IntensityPairs()
         {
             List<(double, double)> intensityPairs = new List<(double, double)>();
-            double[] localPrimaryXarray = primaryXArray.ToArray();
+            List<(double, double)> primary = new List<(double, double)>();
+            List<(double, double)> secondary = new List<(double, double)>();
+
+            for (int i = 0; i < primaryXArray.Length; i++)
+            {
+                primary.Add((primaryXArray[i], primaryYArray[i]));
+            }
             for (int i = 0; i < secondaryXArray.Length; i++)
             {
-                double secondaryMz = secondaryXArray[i];
-                double nearestMz = FindClosest(primaryXArray, secondaryMz);
-                if (Within(secondaryMz, nearestMz))
+                secondary.Add((secondaryXArray[i], secondaryYarray[i]));
+            }
+            primary = primary.OrderByDescending(i => i.Item2).ToList();
+            secondary = secondary.OrderByDescending(i => i.Item2).ToList();
+
+            foreach ((double,double) xyPair in secondary)
+            {
+                int index = 0;
+                while(primary.Count >0 && index < primary.Count)
                 {
-                    int theIndex = Array.IndexOf(localPrimaryXarray, nearestMz);
-                    intensityPairs.Add((primaryYArray[theIndex], secondaryYarray[i]));
-                    localPrimaryXarray[theIndex] = -1;
+                    if (Within(primary[index].Item1, xyPair.Item1))
+                    {
+                        intensityPairs.Add((primary[index].Item2, xyPair.Item2));
+                        primary.RemoveAt(index);
+                        index = -1;
+                        break;
+                    }
+                    index++;
                 }
-                else
+                if(index > 0)
                 {
-                    intensityPairs.Add((0, secondaryYarray[i]));
+                    //didn't find a primary mz in range
+                    intensityPairs.Add((0, xyPair.Item2));
                 }
             }
-            for (int i = 0; i < localPrimaryXarray.Length; i++)
+            if(primary.Count > 0)
             {
-                if (localPrimaryXarray[i] > 0)
+                foreach ((double, double) xyPair in primary)
                 {
-                    intensityPairs.Add((primaryYArray[i], 0));
+                    intensityPairs.Add((xyPair.Item2, 0));
                 }
             }
             return intensityPairs;
