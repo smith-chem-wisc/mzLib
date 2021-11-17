@@ -18,6 +18,16 @@ namespace MassSpectrometry.MzSpectra
             _intensityPairs = IntensityPairs();
         }
 
+        public SpectralSimilarity(MzSpectrum primary, double[] secondaryX, double[] secondaryY, SpectrumNormalizationScheme scheme, double toleranceInPpm)
+        {
+            primaryYArray = Normalize(primary.YArray, scheme);
+            primaryXArray = primary.XArray;
+            secondaryYarray = Normalize(secondaryY, scheme);
+            secondaryXArray = secondaryX;
+            localTolerance = toleranceInPpm / 1000000.0;
+            _intensityPairs = IntensityPairs();
+        }
+
         public double[] primaryYArray { get; private set; }
         public double[] primaryXArray { get; private set; }
         public double[] secondaryYarray { get; private set; }
