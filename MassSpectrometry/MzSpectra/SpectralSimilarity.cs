@@ -71,14 +71,27 @@ namespace MassSpectrometry.MzSpectra
         private List<(double, double)> IntensityPairs()
         {
             List<(double, double)> intensityPairs = new List<(double, double)>();
+            double[] localPrimaryXarray = primaryXArray.ToArray();
             for (int i = 0; i < secondaryXArray.Length; i++)
             {
                 double secondaryMz = secondaryXArray[i];
-                //double nearestMz = primaryXArray.OrderBy(x => Math.Abs((long)x - secondaryMz)).First();
                 double nearestMz = FindClosest(primaryXArray, secondaryMz);
                 if (Within(secondaryMz, nearestMz))
                 {
-                    intensityPairs.Add((primaryYArray[Array.IndexOf(primaryXArray, nearestMz)], secondaryYarray[i]));
+                    int theIndex = Array.IndexOf(localPrimaryXarray, nearestMz);
+                    intensityPairs.Add((primaryYArray[theIndex], secondaryYarray[i]));
+                    localPrimaryXarray[theIndex] = -1;
+                }
+                else
+                {
+                    intensityPairs.Add((0, secondaryYarray[i]));
+                }
+            }
+            for (int i = 0; i < localPrimaryXarray.Length; i++)
+            {
+                if (localPrimaryXarray[i] > 0)
+                {
+                    intensityPairs.Add((primaryYArray[i], 0));
                 }
             }
             return intensityPairs;
