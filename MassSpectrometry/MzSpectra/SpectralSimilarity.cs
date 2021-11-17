@@ -44,21 +44,13 @@ namespace MassSpectrometry.MzSpectra
             {
                 throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Spectrum has no intensity."));
             }
-            switch (scheme)
+            return scheme switch
             {
-                case SpectrumNormalizationScheme.mostAbundantPeak:
-                    return NormalizeMostAbundantPeak(spectrum);
-
-                case SpectrumNormalizationScheme.spectrumSum:
-                    return NormalizeSpectrumSum(spectrum);
-
-                case SpectrumNormalizationScheme.squareRootSpectrumSum:
-                    return NormalizeSquareRootSpectrumSum(spectrum);
-
-                case SpectrumNormalizationScheme.unnormalized:
-                default:
-                    return spectrum;
-            }
+                SpectrumNormalizationScheme.mostAbundantPeak => NormalizeMostAbundantPeak(spectrum),
+                SpectrumNormalizationScheme.spectrumSum => NormalizeSpectrumSum(spectrum),
+                SpectrumNormalizationScheme.squareRootSpectrumSum => NormalizeSquareRootSpectrumSum(spectrum),
+                _ => spectrum,
+            };
         }
 
         /// <summary>
@@ -138,21 +130,17 @@ namespace MassSpectrometry.MzSpectra
 
         public double CosineSimilarity()
         {
-            if (intensityPairs.Count > 0)
+            double numerator = 0;
+            double denominatorValue1 = 0;
+            double denominatorValue2 = 0;
+            foreach ((double, double) pair in _intensityPairs)
             {
-                double numerator = 0;
-                double denominatorValue1 = 0;
-                double denominatorValue2 = 0;
-                foreach ((double, double) pair in _intensityPairs)
-                {
-                    numerator += pair.Item1 * pair.Item2;
-                    denominatorValue1 += Math.Pow(pair.Item1, 2);
-                    denominatorValue2 += Math.Pow(pair.Item2, 2);
-                }
-                double denominatorProduct = denominatorValue1 * denominatorValue2;
-                return numerator / Math.Sqrt(denominatorProduct);
+                numerator += pair.Item1 * pair.Item2;
+                denominatorValue1 += Math.Pow(pair.Item1, 2);
+                denominatorValue2 += Math.Pow(pair.Item2, 2);
             }
-            return 0;
+            double denominatorProduct = denominatorValue1 * denominatorValue2;
+            return numerator / Math.Sqrt(denominatorProduct);
         }
 
         public double SpectralContrastAngle()
@@ -163,77 +151,57 @@ namespace MassSpectrometry.MzSpectra
         public double EuclideanDistance()
         {
             double sum = 0;
-            if (intensityPairs.Count > 0)
+            foreach ((double, double) pair in _intensityPairs)
             {
-                foreach ((double, double) pair in _intensityPairs)
-                {
-                    sum += Math.Pow(pair.Item1 - pair.Item2, 2);
-                }
-                return 1 - Math.Sqrt(sum);
+                sum += Math.Pow(pair.Item1 - pair.Item2, 2);
             }
-
-            return 1 - Math.Sqrt(2);
+            return 1 - Math.Sqrt(sum);
         }
 
         public double BrayCurtis()
         {
-            if (intensityPairs.Count > 0)
+            double numerator = 0;
+            double denominator = 0;
+            foreach ((double, double) pair in _intensityPairs)
             {
-                double numerator = 0;
-                double denominator = 0;
-                foreach ((double, double) pair in _intensityPairs)
-                {
-                    numerator += Math.Abs(pair.Item1 - pair.Item2);
-                    denominator += pair.Item1 + pair.Item2;
-                }
-                return (1 - numerator / denominator);
+                numerator += Math.Abs(pair.Item1 - pair.Item2);
+                denominator += pair.Item1 + pair.Item2;
             }
-            return 0;
+            return (1 - numerator / denominator);
         }
 
         public double PearsonsCorrelation()
         {
-            if (intensityPairs.Count > 0)
+            double numerator = 0;
+            double denominator = 0;
+            double denominator1 = 0;
+            double denominator2 = 0;
+            double averagePrimaryIntensity = intensityPairs.Select(a => a.Item1).Sum() / intensityPairs.Count;
+            double averageSecondaryIntensity = intensityPairs.Select(a => a.Item2).Sum() / intensityPairs.Count;
+            foreach ((double, double) pair in _intensityPairs)
             {
-                double numerator = 0;
-                double denominator = 0;
-                double denominator1 = 0;
-                double denominator2 = 0;
-                double averagePrimaryIntensity = intensityPairs.Select(a => a.Item1).Sum() / intensityPairs.Count;
-                double averageSecondaryIntensity = intensityPairs.Select(a => a.Item2).Sum() / intensityPairs.Count;
-                foreach ((double, double) pair in _intensityPairs)
-                {
-                    numerator += (pair.Item1 - averagePrimaryIntensity) * (pair.Item2 - averageSecondaryIntensity);
-                    denominator1 += Math.Pow((pair.Item1 - averagePrimaryIntensity), 2);
-                    denominator2 += Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
-                }
-                denominator += denominator1 * denominator2;
-                if (!denominator.Equals(0))
-                {
-                    return numerator / Math.Sqrt(denominator);
-                }
-                return -1;
+                numerator += (pair.Item1 - averagePrimaryIntensity) * (pair.Item2 - averageSecondaryIntensity);
+                denominator1 += Math.Pow((pair.Item1 - averagePrimaryIntensity), 2);
+                denominator2 += Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
             }
-            return -1;
+            denominator += denominator1 * denominator2;
+            return numerator / Math.Sqrt(denominator);
         }
 
         public double DotProduct()
         {
-            if (intensityPairs.Count > 0)
+            double sum = 0;
+            foreach ((double, double) pair in _intensityPairs)
             {
-                double sum = 0;
-                foreach ((double, double) pair in _intensityPairs)
-                {
-                    sum += pair.Item1 * pair.Item2;
-                }
-                return sum;
+                sum += pair.Item1 * pair.Item2;
             }
-            return 0;
+            return sum;
         }
 
         #endregion similarityMethods
 
         #region binarySearch
+
         private static double FindClosest(double[] arr,
                               double target)
         {
@@ -259,7 +227,6 @@ namespace MassSpectrometry.MzSpectra
                 then search in left */
                 if (target < arr[mid])
                 {
-
                     // If target is greater
                     // than previous to mid,
                     // return closest of two
@@ -302,7 +269,9 @@ namespace MassSpectrometry.MzSpectra
             else
                 return val1;
         }
-        #endregion binary Search
+
+        #endregion binarySearch
+
         private bool Within(double mz1, double mz2)
         {
             return (Math.Abs(mz1 - mz2) < localTolerance);
