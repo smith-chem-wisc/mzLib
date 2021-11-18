@@ -14,7 +14,7 @@ namespace MassSpectrometry.MzSpectra
             primaryXArray = primary.XArray;
             secondaryYarray = Normalize(secondary.YArray, scheme);
             secondaryXArray = secondary.XArray;
-            localTolerance = toleranceInPpm / 1000000.0;
+            ppmTolerance = toleranceInPpm;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -24,7 +24,7 @@ namespace MassSpectrometry.MzSpectra
             primaryXArray = primary.XArray;
             secondaryYarray = Normalize(secondaryY, scheme);
             secondaryXArray = secondaryX;
-            localTolerance = toleranceInPpm / 1000000.0;
+            ppmTolerance = toleranceInPpm;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -32,7 +32,7 @@ namespace MassSpectrometry.MzSpectra
         public double[] primaryXArray { get; private set; }
         public double[] secondaryYarray { get; private set; }
         public double[] secondaryXArray { get; private set; }
-        private double localTolerance;
+        private double ppmTolerance;
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
         
         public List<(double, double)> intensityPairs
@@ -236,7 +236,7 @@ namespace MassSpectrometry.MzSpectra
 
         private bool Within(double mz1, double mz2)
         {
-            return (Math.Abs(mz1 - mz2) < localTolerance);
+            return (Math.Abs(mz1 - mz2)/mz1*1000000.0 < ppmTolerance);
         }
 
         public enum SpectrumNormalizationScheme
