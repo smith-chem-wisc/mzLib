@@ -14,7 +14,7 @@ namespace MassSpectrometry.MzSpectra
             primaryXArray = primary.XArray;
             secondaryYarray = Normalize(secondary.YArray, scheme);
             secondaryXArray = secondary.XArray;
-            ppmTolerance = toleranceInPpm;
+            localTolerance = toleranceInPpm / 1000000.0;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -24,7 +24,7 @@ namespace MassSpectrometry.MzSpectra
             primaryXArray = primary.XArray;
             secondaryYarray = Normalize(secondaryY, scheme);
             secondaryXArray = secondaryX;
-            ppmTolerance = toleranceInPpm;
+            localTolerance = toleranceInPpm / 1000000.0;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
@@ -32,7 +32,7 @@ namespace MassSpectrometry.MzSpectra
         public double[] primaryXArray { get; private set; }
         public double[] secondaryYarray { get; private set; }
         public double[] secondaryXArray { get; private set; }
-        private double ppmTolerance;
+        private double localTolerance;
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
         
         public List<(double, double)> intensityPairs
@@ -158,6 +158,7 @@ namespace MassSpectrometry.MzSpectra
 
         #region similarityMethods
 
+        //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
         public double CosineSimilarity()
         {
             double numerator = 0;
@@ -170,12 +171,20 @@ namespace MassSpectrometry.MzSpectra
                 denominatorValue2 += Math.Pow(pair.Item2, 2);
             }
             double denominatorProduct = denominatorValue1 * denominatorValue2;
+            
+            //because we keep all secondary spectrum peaks, denominatorValue1 can equal zero
+            if(denominatorProduct == 0)
+            {
+                return 0;
+            }
             return numerator / Math.Sqrt(denominatorProduct);
         }
 
+        //Spectral contrast angle should expect values between 1 and -1;
         public double SpectralContrastAngle()
         {
-            return (1.0 - ((2 * Math.Acos(CosineSimilarity())) / Math.PI));
+            return (1 - 2 * Math.Acos(CosineSimilarity()) / Math.PI);
+
         }
 
         public double EuclideanDistance()
@@ -236,7 +245,7 @@ namespace MassSpectrometry.MzSpectra
 
         private bool Within(double mz1, double mz2)
         {
-            return (Math.Abs(mz1 - mz2)/mz1*1000000.0 < ppmTolerance);
+            return (Math.Abs(mz1 - mz2) < localTolerance);
         }
 
         public enum SpectrumNormalizationScheme

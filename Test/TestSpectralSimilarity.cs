@@ -2,6 +2,7 @@
 using MassSpectrometry.MzSpectra;
 using MzLibUtil;
 using NUnit.Framework;
+using System;
 
 namespace Test
 {
@@ -117,10 +118,10 @@ namespace Test
 
             //explore bounds of binary search
             primary = new MzSpectrum(new double[] { 1, 2, 3, 4 }, new double[] { 1, 2, 3, 4 }, false);
-            secondary = new MzSpectrum(new double[] { 1.000011, 1.99997, 3.000031, 3.99995 }, new double[] { 1, 2, 3, 4 }, false);
+            secondary = new MzSpectrum(new double[] { 1.000009, 1.99999, 3.00004, 3.99995 }, new double[] { 1, 2, 3, 4 }, false);
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
-            Assert.AreEqual(8, s.intensityPairs.Count);
+            Assert.AreEqual(7, s.intensityPairs.Count);
 
             //Test alternate constructor
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
@@ -144,6 +145,14 @@ namespace Test
             Assert.That(s.BrayCurtis(), Is.EqualTo(0.50).Within(0.01));
             Assert.That(s.PearsonsCorrelation(), Is.EqualTo(-1.0).Within(0.01));
             Assert.That(s.DotProduct(), Is.EqualTo(0.33).Within(0.01));
+
+            //Test cosine similarity when there are no peaks from spectrum one matching spectrum 2
+            primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
+            secondary = new MzSpectrum(new double[] { 4 }, new double[] { 2 }, false);
+            s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
+            Assert.AreEqual(1, s.intensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
+            Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
         }
     }
 }
