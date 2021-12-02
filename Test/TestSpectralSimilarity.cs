@@ -153,7 +153,6 @@ namespace Test
             Assert.AreEqual(3, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
-
         }
     }
 }

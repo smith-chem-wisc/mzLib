@@ -173,6 +173,7 @@ namespace MassSpectrometry.MzSpectra
                 denominatorValue2 += Math.Pow(pair.Item2, 2);
             }
             double denominatorProduct = denominatorValue1 * denominatorValue2;
+            
             //because we keep all secondary spectrum peaks, denominatorValue1 can equal zero
             if(denominatorProduct == 0)
             {
@@ -185,6 +186,7 @@ namespace MassSpectrometry.MzSpectra
         public double SpectralContrastAngle()
         {
             return (1 - 2 * Math.Acos(CosineSimilarity()) / Math.PI);
+
         }
 
         public double EuclideanDistance()
