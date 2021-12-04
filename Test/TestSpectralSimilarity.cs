@@ -121,7 +121,7 @@ namespace Test
             secondary = new MzSpectrum(new double[] { 1.000009, 1.99999, 3.00004, 3.99995 }, new double[] { 1, 2, 3, 4 }, false);
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
-            Assert.AreEqual(7, s.intensityPairs.Count);
+            Assert.AreEqual(6, s.intensityPairs.Count);
 
             //Test alternate constructor
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
@@ -148,9 +148,9 @@ namespace Test
 
             //Test cosine similarity when there are no peaks from spectrum one matching spectrum 2
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
-            secondary = new MzSpectrum(new double[] { 4 }, new double[] { 2 }, false);
+            secondary = new MzSpectrum(new double[] { 4,6,8 }, new double[] { 2,4,6 }, false);
             s = new SpectralSimilarity(primary, secondary.XArray, secondary.YArray, SpectralSimilarity.SpectrumNormalizationScheme.mostAbundantPeak, ppmTolerance, false);
-            Assert.AreEqual(1, s.intensityPairs.Count);
+            Assert.AreEqual(3, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0).Within(0.01));
         }
