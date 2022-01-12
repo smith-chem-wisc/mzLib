@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Chemistry;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
@@ -53,6 +54,11 @@ namespace FlashLFQ
             {
                 return 0;
             }
+        }
+
+        public ChemicalFormula GetChemicalFormula()
+        {
+            throw new System.NotImplementedException();
         }
 
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)

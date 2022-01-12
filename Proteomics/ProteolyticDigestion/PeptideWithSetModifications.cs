@@ -23,6 +23,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
@@ -108,6 +109,46 @@ namespace Proteomics.ProteolyticDigestion
                     _monoisotopicMass = monoMass;
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
+            }
+
+        }
+        /*
+        public ChemicalFormula MostAbundantMass
+        {
+            get
+            {
+                if (!_mostAbundantMass.HasValue)
+                {
+                    FullSequence
+                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
+                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+
+
+                    _mostAbundantMass = 5;
+                    return modsFormulas[0];
+                }
+                return null; //(double)ClassExtensions.RoundedDouble(_mostAbundantMass.Value);
+            }
+
+        }
+       */
+
+        public ChemicalFormula FullChemicalFormula
+        {
+            get
+            {
+                //if (!_fullChemicalFormula.HasValue)
+                //{
+                    ChemicalFormula fullChemicalFormula = new Proteomics.AminoAcidPolymer.Peptide(BaseSequence).GetChemicalFormula();
+                    
+                    foreach (var mod in AllModsOneIsNterminus.Values)
+                    {
+                        fullChemicalFormula.Add(mod.ChemicalFormula);
+                    }
+
+                    _fullChemicalFormula = fullChemicalFormula;
+               //}
+                return _fullChemicalFormula;
             }
 
         }

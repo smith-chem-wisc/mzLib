@@ -1,6 +1,7 @@
 ﻿using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MassSpectrometry
 {
@@ -8,21 +9,29 @@ namespace MassSpectrometry
     {
         public readonly List<(double mz, double intensity)> Peaks;
         public double MonoisotopicMass { get; private set; }
+        public double MostAbundantObservedIsotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
         public readonly double StDev;
         public readonly int MassIndex;
+
         public double Score { get; private set; }
 
         public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
         {
             Peaks = bestListOfPeaks;
             MonoisotopicMass = bestMonoisotopicMass;
+            MostAbundantObservedIsotopicMass = GetMostAbundantObservedIsotopicMass(bestListOfPeaks, bestChargeState);
             Charge = bestChargeState;
             TotalIntensity = bestTotalIntensity;
             StDev = bestStDev;
             MassIndex = bestMassIndex;
             Score = ScoreIsotopeEnvelope();
+        }
+
+        public double GetMostAbundantObservedIsotopicMass(List<(double mz, double intensity)>  peaks, int charge)
+        {
+            return peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1 * charge;
         }
 
         public override string ToString()
@@ -46,5 +55,7 @@ namespace MassSpectrometry
         {
             MonoisotopicMass = monoisotopicMassPredictions.Median();
         }
+
+
     }
 }
