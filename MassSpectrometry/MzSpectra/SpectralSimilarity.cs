@@ -28,11 +28,11 @@ namespace MassSpectrometry.MzSpectra
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
-
         public double[] experimentalYArray { get; private set; }
         public double[] experimentalXArray { get; private set; }
         public double[] theoreticalYArray { get; private set; }
         public double[] theoreticalXArray { get; private set; }
+
         private double localPpmTolerance;
 
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
@@ -250,7 +250,6 @@ namespace MassSpectrometry.MzSpectra
         //use Math.Max() in the denominator for consistancy
         private bool Within(double mz1, double mz2)
         {
-
             return ((Math.Abs(mz1 - mz2) / Math.Max(mz1,mz2) * 1000000.0) < localPpmTolerance);
         }
 
