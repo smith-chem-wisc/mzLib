@@ -121,7 +121,7 @@ namespace Test
             secondary = new MzSpectrum(new double[] { 1.000011, 1.99997, 3.000031, 3.99995 }, new double[] { 1, 2, 3, 4 }, false);
 
             s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true);
-            Assert.AreEqual(6, s.intensityPairs.Count);
+            Assert.AreEqual(8, s.intensityPairs.Count);
 
             //Test alternate constructor
             primary = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 2, 4, 6 }, false);
