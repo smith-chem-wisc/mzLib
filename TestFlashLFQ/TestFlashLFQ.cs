@@ -92,10 +92,10 @@ namespace Test
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(raw, "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(raw, "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id1 = new Identification(raw, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(raw, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id3 = new Identification(mzml, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(mzml, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
@@ -107,14 +107,14 @@ namespace Test
             Assert.That(results.Peaks[raw].Count == 1);
             Assert.That(results.Peaks[raw].First().Intensity > 0);
             Assert.That(!results.Peaks[raw].First().IsMbrPeak);
-            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVAD[15.99]GPLYR"].GetIntensity(raw) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
 
             // check mzml results
             Assert.That(results.Peaks[mzml].Count == 1);
             Assert.That(results.Peaks[mzml].First().Intensity > 0);
             Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
-            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(results.PeptideModifiedSequences["EGFQVAD[15.99]GPLYR"].GetIntensity(mzml) > 0);
             Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
 
             // check that condition normalization worked
