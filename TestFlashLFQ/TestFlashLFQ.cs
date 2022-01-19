@@ -84,6 +84,53 @@ namespace Test
         }
 
         [Test]
+        public static void TestFlashLfqWithPercolatorStyleIds()
+        {
+            // get the raw file paths
+            SpectraFileInfo raw = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-raw.raw"), "a", 0, 0, 0);
+            SpectraFileInfo mzml = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "TestData", @"sliced-mzml.mzml"), "a", 1, 0, 0);
+
+            // create some PSMs
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            Identification id1 = new Identification(raw, "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(raw, "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id3 = new Identification(mzml, "EGFQVADGPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(mzml, "EGFQVADGPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+
+            // create the FlashLFQ engine
+            FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
+
+            // run the engine
+            var results = engine.Run();
+
+            // check raw results
+            Assert.That(results.Peaks[raw].Count == 1);
+            Assert.That(results.Peaks[raw].First().Intensity > 0);
+            Assert.That(!results.Peaks[raw].First().IsMbrPeak);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(raw) > 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(raw) > 0);
+
+            // check mzml results
+            Assert.That(results.Peaks[mzml].Count == 1);
+            Assert.That(results.Peaks[mzml].First().Intensity > 0);
+            Assert.That(!results.Peaks[mzml].First().IsMbrPeak);
+            Assert.That(results.PeptideModifiedSequences["EGFQVADGPLYR"].GetIntensity(mzml) > 0);
+            Assert.That(results.ProteinGroups["MyProtein"].GetIntensity(mzml) > 0);
+
+            // check that condition normalization worked
+            int int1 = (int)System.Math.Round(results.Peaks[mzml].First().Intensity, 0);
+            int int2 = (int)System.Math.Round(results.Peaks[raw].First().Intensity, 0);
+            Assert.That(int1 == int2);
+
+            // test peak output
+            results.WriteResults(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"peaks.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"modSeq.tsv"),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, @"protein.tsv"),
+                null,
+                true);
+        }
+        [Test]
         public static void TestEnvelopQuantification()
         {
             Loaders.LoadElements();
@@ -1311,4 +1358,5 @@ namespace Test
             File.Delete(filepath);
         }
     }
+
 }
