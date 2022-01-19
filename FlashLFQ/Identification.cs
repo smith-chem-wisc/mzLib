@@ -33,6 +33,25 @@ namespace FlashLFQ
             UseForProteinQuant = useForProteinQuant;
             PosteriorErrorProbability = posteriorErrorProbability;
         }
+        /// <summary>
+        /// This Identification object was created for instances when the modified sequence isn't parsable into a formula
+        /// for calcuation of the peptide/proteoform mass. 
+        /// </summary>
+        public Identification(SpectraFileInfo fileInfo, string ModifiedSequence, double monoisotopicMass, 
+            double ms2RetentionTimeInMinutes, int chargeState, List<ProteinGroup> proteinGroups, 
+            bool useForProteinQuant = true, double posteriorErrorProbability = 0)
+        {
+            this.FileInfo = fileInfo;
+            this.BaseSequence = null;
+            this.ModifiedSequence = ModifiedSequence;
+            this.MonoisotopicMass = monoisotopicMass;
+            this.Ms2RetentionTimeInMinutes = ms2RetentionTimeInMinutes;
+            this.PrecursorChargeState = chargeState;
+            this.ProteinGroups = new HashSet<ProteinGroup>(proteinGroups);
+            this.OptionalChemicalFormula = null;
+            UseForProteinQuant = useForProteinQuant;
+            PosteriorErrorProbability = posteriorErrorProbability;
+        }
 
         public override string ToString()
         {
