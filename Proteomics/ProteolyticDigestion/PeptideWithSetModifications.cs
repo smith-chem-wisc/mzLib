@@ -112,45 +112,20 @@ namespace Proteomics.ProteolyticDigestion
             }
 
         }
-        /*
-        public ChemicalFormula MostAbundantMass
-        {
-            get
-            {
-                if (!_mostAbundantMass.HasValue)
-                {
-                    FullSequence
-                    ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(pepSequences[p]).GetChemicalFormula();
-                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
-
-
-                    _mostAbundantMass = 5;
-                    return modsFormulas[0];
-                }
-                return null; //(double)ClassExtensions.RoundedDouble(_mostAbundantMass.Value);
-            }
-
-        }
-       */
-
+        
         public ChemicalFormula FullChemicalFormula
         {
             get
             {
-                //if (!_fullChemicalFormula.HasValue)
-                //{
-                    ChemicalFormula fullChemicalFormula = new Proteomics.AminoAcidPolymer.Peptide(BaseSequence).GetChemicalFormula();
-                    
-                    foreach (var mod in AllModsOneIsNterminus.Values)
-                    {
-                        fullChemicalFormula.Add(mod.ChemicalFormula);
-                    }
-
-                    _fullChemicalFormula = fullChemicalFormula;
-               //}
+                ChemicalFormula fullChemicalFormula = new Proteomics.AminoAcidPolymer.Peptide(BaseSequence).GetChemicalFormula();
+                foreach (var mod in AllModsOneIsNterminus.Values)
+                {
+                    fullChemicalFormula.Add(mod.ChemicalFormula);
+                }
+                
+                _fullChemicalFormula = fullChemicalFormula;
                 return _fullChemicalFormula;
             }
-
         }
 
         public string SequenceWithChemicalFormulas

@@ -963,27 +963,5 @@ namespace Test
             ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
             Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
         }
-
-
-        /*
-        [Test]
-        public static void CheckMostAbundantMonoIsotopicMass()
-        {
-            
-            Protein protein = new Protein("MPEPTIDENEWPEPTIDE", "protein0", appliedSequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) });
-            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0); PeptideWithSetModifications p_argC = new PeptideWithSetModifications(new Protein("RPEPTIREK", "DECOY_ARGC"), new DigestionParams(protease: "Arg-C"), 1, 9, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-
-            //check fullChemicalFormula
-            Assert.AreEqual(pepe.MostAbundantMass, ChemicalFormula.ParseFormula("H2O"));
-
-            //check dist
-
-            //check most abundant mass
-
-            //Assert.AreEqual(pepe.MostAbundantMass, 1071.46462); 
-
-        }
-
-        */
     }
 }

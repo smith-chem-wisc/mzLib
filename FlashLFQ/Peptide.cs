@@ -56,11 +56,6 @@ namespace FlashLFQ
             }
         }
 
-        public ChemicalFormula GetChemicalFormula()
-        {
-            throw new System.NotImplementedException();
-        }
-
         public void SetIntensity(SpectraFileInfo fileInfo, double intensity)
         {
             if (Intensities.ContainsKey(fileInfo))
