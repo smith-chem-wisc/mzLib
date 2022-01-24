@@ -8,24 +8,24 @@ namespace MassSpectrometry.MzSpectra
 {
     public class SpectralSimilarity
     {
-        public SpectralSimilarity(MzSpectrum experimentalSpectrum, MzSpectrum theoreticalSpectrum, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks)
+        public SpectralSimilarity(MzSpectrum experimentalSpectrum, MzSpectrum theoreticalSpectrum, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
             experimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
             experimentalXArray = experimentalSpectrum.XArray;
             theoreticalYArray = Normalize(theoreticalSpectrum.YArray, scheme);
             theoreticalXArray = theoreticalSpectrum.XArray;
             localPpmTolerance = toleranceInPpm;
-            _intensityPairs = IntensityPairs(allPeaks);
+            _intensityPairs = IntensityPairs(allPeaks, filterOutBelowThisMz);
         }
 
-        public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks)
+        public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
             experimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
             experimentalXArray = experimentalSpectrum.XArray;
             theoreticalYArray = Normalize(theoreticalY, scheme);
             theoreticalXArray = theoreticalX;
             localPpmTolerance = toleranceInPpm;
-            _intensityPairs = IntensityPairs(allPeaks);
+            _intensityPairs = IntensityPairs(allPeaks, filterOutBelowThisMz);
         }
 
         public double[] experimentalYArray { get; private set; }
@@ -72,7 +72,7 @@ namespace MassSpectrometry.MzSpectra
         /// </summary>
         /// <returns></returns>
 
-        private List<(double, double)> IntensityPairs(bool allPeaks)
+        private List<(double, double)> IntensityPairs(bool allPeaks, double filterIonsBelowMz = 0)
         {
             List<(double, double)> intensityPairs = new List<(double, double)>();
             List<(double, double)> experimental = new List<(double, double)>();
@@ -80,11 +80,22 @@ namespace MassSpectrometry.MzSpectra
 
             for (int i = 0; i < experimentalXArray.Length; i++)
             {
-                experimental.Add((experimentalXArray[i], experimentalYArray[i]));
+                if (experimentalXArray[i] >= filterIonsBelowMz)
+                {
+                    experimental.Add((experimentalXArray[i], experimentalYArray[i]));
+                }
             }
             for (int i = 0; i < theoreticalXArray.Length; i++)
             {
-                theoretical.Add((theoreticalXArray[i], theoreticalYArray[i]));
+                if (theoreticalXArray[i] >= filterIonsBelowMz)
+                {
+                    theoretical.Add((theoreticalXArray[i], theoreticalYArray[i]));
+                }
+
+            }
+            if (theoretical.Count == 0 || experimental.Count == 0 || experimental.Select(p => p.Item2).Sum() == 0)
+            {
+                return null;
             }
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
             theoretical = theoretical.OrderByDescending(i => i.Item2).ToList();
@@ -103,7 +114,11 @@ namespace MassSpectrometry.MzSpectra
                     }
                     index++;
                 }
-                if(index > 0)
+                if (experimental.Count == 0)
+                {
+                    index++;
+                }
+                if (index > 0)
                 {
                     //didn't find a experimental mz in range
                     intensityPairs.Add((0, xyPair.Item2));
@@ -161,8 +176,12 @@ namespace MassSpectrometry.MzSpectra
         #region similarityMethods
 
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
-        public double CosineSimilarity()
+        public double? CosineSimilarity()
         {
+            if (_intensityPairs == null)
+            {
+                return null;
+            }
             double numerator = 0;
             double denominatorValue1 = 0;
             double denominatorValue2 = 0;
@@ -183,14 +202,22 @@ namespace MassSpectrometry.MzSpectra
         }
 
         //Spectral contrast angle should expect values between 1 and -1;
-        public double SpectralContrastAngle()
+        public double? SpectralContrastAngle()
         {
-            return (1 - 2 * Math.Acos(CosineSimilarity()) / Math.PI);
+            if (_intensityPairs == null)
+            {
+                return null;
+            }
+            return (1 - 2 * Math.Acos((double)CosineSimilarity()) / Math.PI);
 
         }
 
-        public double EuclideanDistance()
+        public double? EuclideanDistance()
         {
+            if (_intensityPairs == null)
+            {
+                return null;
+            }
             double sum = 0;
             foreach ((double, double) pair in _intensityPairs)
             {
@@ -199,8 +226,12 @@ namespace MassSpectrometry.MzSpectra
             return 1 - Math.Sqrt(sum);
         }
 
-        public double BrayCurtis()
+        public double? BrayCurtis()
         {
+            if (_intensityPairs == null)
+            {
+                return null;
+            }
             double numerator = 0;
             double denominator = 0;
             foreach ((double, double) pair in _intensityPairs)
@@ -211,8 +242,12 @@ namespace MassSpectrometry.MzSpectra
             return (1 - numerator / denominator);
         }
 
-        public double PearsonsCorrelation()
+        public double? PearsonsCorrelation()
         {
+            if (_intensityPairs == null)
+            {
+                return null;
+            }
             double numerator = 0;
             double denominator = 0;
             double denominator1 = 0;
@@ -233,8 +268,12 @@ namespace MassSpectrometry.MzSpectra
             return -1;
         }
 
-        public double DotProduct()
+        public double? DotProduct()
         {
+            if (_intensityPairs == null)
+            {
+                return null;
+            }
             double sum = 0;
             foreach ((double, double) pair in _intensityPairs)
             {
