@@ -1,4 +1,3 @@
-using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -47,7 +46,7 @@ namespace Test
 
             MsDataScan scan = myMsDataFile.GetAllScansList()[0];
 
-            List<MassSpectrometry.IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(spectrum, 1, 60, 4, 3).ToList();
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(spectrum, 1, 60, 4, 3).ToList();
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
 
