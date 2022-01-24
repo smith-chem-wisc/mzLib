@@ -9,7 +9,7 @@ namespace MassSpectrometry
     {
         public readonly List<(double mz, double intensity)> Peaks;
         public double MonoisotopicMass { get; private set; }
-        public double MostAbundantMonoIsotopicMass { get; private set; }
+        public double MostAbundantObservedIsotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
         public readonly double StDev;
@@ -20,7 +20,7 @@ namespace MassSpectrometry
         {
             Peaks = bestListOfPeaks;
             MonoisotopicMass = bestMonoisotopicMass;
-            MostAbundantMonoIsotopicMass = GetMostAbundantObservedIsotopicMass(bestListOfPeaks, bestChargeState);
+            MostAbundantObservedIsotopicMass = GetMostAbundantObservedIsotopicMass(bestListOfPeaks, bestChargeState);
             Charge = bestChargeState;
             TotalIntensity = bestTotalIntensity;
             StDev = bestStDev;
@@ -30,8 +30,7 @@ namespace MassSpectrometry
 
         public double GetMostAbundantObservedIsotopicMass(List<(double mz, double intensity)> peaks, int charge)
         {
-            //peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1 * charge;
-            return (peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1 - charge * 1.008) / charge;
+            return (peaks.OrderByDescending(p => p.intensity).ToList()[0].Item1 - 1.007825031898) * charge;
         }
 
         public override string ToString()
