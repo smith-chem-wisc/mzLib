@@ -92,10 +92,10 @@ namespace Test
 
             // create some PSMs
             var pg = new ProteinGroup("MyProtein", "gene", "org");
-            Identification id1 = new Identification(raw, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id2 = new Identification(raw, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
-            Identification id3 = new Identification(mzml, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
-            Identification id4 = new Identification(mzml, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id1 = new Identification(raw, null, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id2 = new Identification(raw, null, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
+            Identification id3 = new Identification(mzml, null, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.12193, 2, new List<ProteinGroup> { pg });
+            Identification id4 = new Identification(mzml, null, "EGFQVAD[15.99]GPLYR", 1350.65681, 94.05811, 2, new List<ProteinGroup> { pg });
 
             // create the FlashLFQ engine
             FlashLfqEngine engine = new FlashLfqEngine(new List<Identification> { id1, id2, id3, id4 }, normalize: true, maxThreads: 1);
