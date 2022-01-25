@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using Easy.Common.Extensions;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.Fragmentation;
