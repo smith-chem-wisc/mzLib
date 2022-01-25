@@ -929,5 +929,38 @@ namespace Test
                 }
             }
         }
+
+
+        [Test]
+        public static void CheckFullChemicalFormula()
+        {
+            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
+            Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
+
+            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
+            Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
+
+            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_s);
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_s, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
+            modDict_small.Add(4, phosphorylation);
+
+            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
+            ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
+            Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
+
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
+            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3O"));
+            Dictionary<int, Modification> modDict_large = new Dictionary<int, Modification>();
+            modDict_large.Add(4, phosphorylation);
+            modDict_large.Add(11, phosphorylation);
+            modDict_large.Add(8, acetylation);
+
+            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
+            ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
+            Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
+        }
     }
 }

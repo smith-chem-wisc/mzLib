@@ -1,4 +1,3 @@
-using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
