@@ -1,3 +1,5 @@
+using Chemistry;
+using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
@@ -53,6 +55,42 @@ namespace Test
             //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
             Assert.That(monoIsotopicMasses[0], Is.EqualTo(14037.926829).Within(.0005));
+        }
+
+        [Test]
+        public static void CheckGetMostAbundantObservedIsotopicMass()
+        {
+
+            string fullFilePathWithExtension = @"D:\TDBU\Jurkat\TD-Projects-JurkatTopDownSeanDaiPaper\FXN11_tr1_032017.raw";
+            ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(fullFilePathWithExtension);
+            List<MsDataScan> scan = staticRaw.GetAllScansList();
+            scan = scan.Where(p => p.MsnOrder == 1).ToList();
+            scan = scan.Where(p => p.OneBasedScanNumber == 587).ToList(); //pull out single scan
+
+            MzSpectrum spec = scan[0].MassSpectrum;
+            MzRange theRange = new MzRange(spec.XArray.Min(), spec.XArray.Max());
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+            double intensityRatioLimit = 3;
+
+            List<IsotopicEnvelope> lie = spec.Deconvolute(theRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+
+            //check all most abundant isotopic masses >= the monoisotopic masses
+            lie = lie.Where(p => p.Charge > 2).ToList(); //need to remove charge < 3... ? 
+            var mostabundantmasses = lie.Select(p => p.MostAbundantObservedIsotopicMass).ToList();
+            var masses = lie.Select(p => p.MonoisotopicMass).ToList();
+            for (int i=0; i < masses.Count; i++)
+            {
+                Assert.GreaterOrEqual(mostabundantmasses[i], masses[i]);
+            }
+            //call formula -> ID, use prospector to find most abundant mass -> verify is correct
+
+
+            //lie = lie.Where(p => p.MostAbundantObservedIsotopicMass < 8246.5 + 1).OrderByDescending(p => p.MostAbundantObservedIsotopicMass).ToList();
+            //var compare = lie.Select(p => p.MostAbundantObservedIsotopicMass).ToList()[0];
+
+            //Assert.That(compare, Is.EqualTo(8246.5).Within(1));
         }
     }
 }
