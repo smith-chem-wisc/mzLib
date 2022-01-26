@@ -14,6 +14,7 @@ namespace MassSpectrometry
         public readonly double TotalIntensity;
         public readonly double StDev;
         public readonly int MassIndex;
+
         public double Score { get; private set; }
 
         public IsotopicEnvelope(List<(double mz, double intensity)> bestListOfPeaks, double bestMonoisotopicMass, int bestChargeState, double bestTotalIntensity, double bestStDev, int bestMassIndex)
@@ -54,5 +55,6 @@ namespace MassSpectrometry
         {
             MonoisotopicMass = monoisotopicMassPredictions.Median();
         }
+
     }
 }
