@@ -93,9 +93,10 @@ namespace MassSpectrometry.MzSpectra
                 }
 
             }
-            if (theoretical.Count == 0 || experimental.Count == 0 || experimental.Select(p => p.Item2).Sum() == 0)
+            if (theoretical.Count == 0 || experimental.Count == 0)
             {
-                return null;
+                //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
+                return new List<(double, double)> { (-1, -1) };
             }
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
             theoretical = theoretical.OrderByDescending(i => i.Item2).ToList();
@@ -178,7 +179,7 @@ namespace MassSpectrometry.MzSpectra
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
         public double? CosineSimilarity()
         {
-            if (_intensityPairs == null)
+            if (_intensityPairs.First().Item1==-1)
             {
                 return null;
             }
@@ -204,7 +205,7 @@ namespace MassSpectrometry.MzSpectra
         //Spectral contrast angle should expect values between 1 and -1;
         public double? SpectralContrastAngle()
         {
-            if (_intensityPairs == null)
+            if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
             }
@@ -214,7 +215,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? EuclideanDistance()
         {
-            if (_intensityPairs == null)
+            if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
             }
@@ -228,7 +229,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? BrayCurtis()
         {
-            if (_intensityPairs == null)
+            if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
             }
@@ -244,7 +245,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? PearsonsCorrelation()
         {
-            if (_intensityPairs == null)
+            if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
             }
@@ -270,7 +271,7 @@ namespace MassSpectrometry.MzSpectra
 
         public double? DotProduct()
         {
-            if (_intensityPairs == null)
+            if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
             }
