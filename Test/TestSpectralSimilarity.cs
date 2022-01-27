@@ -69,7 +69,7 @@ namespace Test
 
             Assert.Throws<MzLibException>(() =>
             {
-                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true,0);
+                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true, 0);
             }, "Empty YArray in spectrum.");
 
             //We should have any zero intensity YArrays but just to be sure
@@ -78,7 +78,7 @@ namespace Test
 
             Assert.Throws<MzLibException>(() =>
             {
-                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true,0);
+                s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.spectrumSum, ppmTolerance, true, 0);
             }, "Spectrum has no intensity.");
 
             //What happens when all intensity pairs include a zero
