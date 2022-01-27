@@ -173,7 +173,7 @@ namespace Test
             Assert.That(s.DotProduct(), Is.EqualTo(0.13).Within(0.01));
 
             //Test when using all peaks of primary(experimental) and secondary(theoretical) spectra (bool allpeaks is true) and mz cut off is 300 (default cut off)
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true,300);
             Assert.AreEqual(6, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.70).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.49).Within(0.01));
@@ -193,7 +193,7 @@ namespace Test
             Assert.That(s.DotProduct(), Is.EqualTo(0.12).Within(0.01));
 
             //Test when not using all peaks of primary(experimental) spectra (bool allpeaks is false) and mz cut off is is 300 (default cut off)
-            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false);
+            s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, false,300);
             Assert.AreEqual(4, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.89).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.69).Within(0.01));
