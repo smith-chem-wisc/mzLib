@@ -32,7 +32,9 @@ namespace MassSpectrometry.MzSpectra
         public double[] experimentalXArray { get; private set; }
         public double[] theoreticalYArray { get; private set; }
         public double[] theoreticalXArray { get; private set; }
+
         private double localPpmTolerance;
+
         private List<(double, double)> _intensityPairs = new List<(double, double)>();
         
         public List<(double, double)> intensityPairs
