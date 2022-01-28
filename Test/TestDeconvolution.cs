@@ -63,7 +63,7 @@ namespace Test
         [Test]
         public static void CheckGetMostAbundantObservedIsotopicMass()
         {
-
+            /*
             string fullFilePathWithExtension = @"D:\TDBU\Jurkat\TD-Projects-JurkatTopDownSeanDaiPaper\FXN11_tr1_032017.raw";
            
             ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(fullFilePathWithExtension);
@@ -89,15 +89,21 @@ namespace Test
             {
                 Assert.GreaterOrEqual(mostabundantmasses[i], masses[i]);
             }
+            */
 
             //PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK
-            string singleScan = @"D:\TDBU\Jurkat\TD-Projects-JurkatTopDownSeanDaiPaper\FXN11_tr1_032017_scan721.mzML";
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "FXN11_tr1_032017_scan721.mzML");
+            //string singleScan = @"C:\Users\KAP\source\repos\kyp4\mzLib\Test\DataFiles\05-13-16_cali_MS_60K-res_MS.raw";
             Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
 
             List<MsDataScan> singlescan = singleMZML.GetAllScansList();
             
             MzSpectrum singlespec = singlescan[0].MassSpectrum;
             MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+            double intensityRatioLimit = 3;
 
             List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
 

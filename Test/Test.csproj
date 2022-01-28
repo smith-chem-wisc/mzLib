@@ -247,6 +247,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\FXN11_tr1_032017_scan721.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\sliced_ethcd.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
