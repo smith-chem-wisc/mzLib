@@ -10,33 +10,33 @@ namespace MassSpectrometry.MzSpectra
     {
         public SpectralSimilarity(MzSpectrum experimentalSpectrum, MzSpectrum theoreticalSpectrum, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            experimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
-            experimentalXArray = experimentalSpectrum.XArray;
-            theoreticalYArray = Normalize(theoreticalSpectrum.YArray, scheme);
-            theoreticalXArray = theoreticalSpectrum.XArray;
+            ExperimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
+            ExperimentalXArray = experimentalSpectrum.XArray;
+            TheoreticalYArray = Normalize(theoreticalSpectrum.YArray, scheme);
+            TheoreticalXArray = theoreticalSpectrum.XArray;
             localPpmTolerance = toleranceInPpm;
             _intensityPairs = IntensityPairs(allPeaks, filterOutBelowThisMz);
         }
 
         public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            experimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
-            experimentalXArray = experimentalSpectrum.XArray;
-            theoreticalYArray = Normalize(theoreticalY, scheme);
-            theoreticalXArray = theoreticalX;
+            ExperimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
+            ExperimentalXArray = experimentalSpectrum.XArray;
+            TheoreticalYArray = Normalize(theoreticalY, scheme);
+            TheoreticalXArray = theoreticalX;
             localPpmTolerance = toleranceInPpm;
             _intensityPairs = IntensityPairs(allPeaks, filterOutBelowThisMz);
         }
 
-        public double[] experimentalYArray { get; private set; }
-        public double[] experimentalXArray { get; private set; }
-        public double[] theoreticalYArray { get; private set; }
-        public double[] theoreticalXArray { get; private set; }
+        public double[] ExperimentalYArray { get; private set; }
+        public double[] ExperimentalXArray { get; private set; }
+        public double[] TheoreticalYArray { get; private set; }
+        public double[] TheoreticalXArray { get; private set; }
 
-        private double localPpmTolerance;
+        private readonly double localPpmTolerance;
 
-        private List<(double, double)> _intensityPairs = new List<(double, double)>();
-        
+        private readonly List<(double, double)> _intensityPairs = new();
+
         public List<(double, double)> intensityPairs
         { get { return _intensityPairs; } }
 
@@ -69,31 +69,30 @@ namespace MassSpectrometry.MzSpectra
         /// Intensity Pairs a computed immediately upon creation of the SpectralSimilarity object. That way they can be used in all the methods without being recomputed.
         /// We loop throught the secondaryXArray under the assumption that it is the shorter of the two arrays (i.e. typically the theoretical spectrum).
         /// Experimental spectrum defaults to 200 peaks and is therefore usually longer.
-        /// We sort intensities in descending order so that when we make peak pairs, we're choosing pairs with the highest intensity so long as they are with mz range. 
+        /// We sort intensities in descending order so that when we make peak pairs, we're choosing pairs with the highest intensity so long as they are with mz range.
         /// Sometimes you could have two peaks in mz range and I don't think you want to pair the lesser intensity peak first just because it is closer in mass.
         /// </summary>
         /// <returns></returns>
 
-        private List<(double, double)> IntensityPairs(bool allPeaks, double filterIonsBelowMz = 0)
+        private List<(double, double)> IntensityPairs(bool allPeaks, double filterIonsBelowMz)
         {
-            List<(double, double)> intensityPairs = new List<(double, double)>();
-            List<(double, double)> experimental = new List<(double, double)>();
-            List<(double, double)> theoretical = new List<(double, double)>();
+            List<(double, double)> intensityPairs = new();
+            List<(double, double)> experimental = new();
+            List<(double, double)> theoretical = new();
 
-            for (int i = 0; i < experimentalXArray.Length; i++)
+            for (int i = 0; i < ExperimentalXArray.Length; i++)
             {
-                if (experimentalXArray[i] >= filterIonsBelowMz)
+                if (ExperimentalXArray[i] >= filterIonsBelowMz)
                 {
-                    experimental.Add((experimentalXArray[i], experimentalYArray[i]));
+                    experimental.Add((ExperimentalXArray[i], ExperimentalYArray[i]));
                 }
             }
-            for (int i = 0; i < theoreticalXArray.Length; i++)
+            for (int i = 0; i < TheoreticalXArray.Length; i++)
             {
-                if (theoreticalXArray[i] >= filterIonsBelowMz)
+                if (TheoreticalXArray[i] >= filterIonsBelowMz)
                 {
-                    theoretical.Add((theoreticalXArray[i], theoreticalYArray[i]));
+                    theoretical.Add((TheoreticalXArray[i], TheoreticalYArray[i]));
                 }
-
             }
             if (theoretical.Count == 0 || experimental.Count == 0)
             {
@@ -103,10 +102,10 @@ namespace MassSpectrometry.MzSpectra
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
             theoretical = theoretical.OrderByDescending(i => i.Item2).ToList();
 
-            foreach ((double,double) xyPair in theoretical)
+            foreach ((double, double) xyPair in theoretical)
             {
                 int index = 0;
-                while(experimental.Count >0 && index < experimental.Count)
+                while (experimental.Count > 0 && index < experimental.Count)
                 {
                     if (Within(experimental[index].Item1, xyPair.Item1))
                     {
@@ -129,7 +128,7 @@ namespace MassSpectrometry.MzSpectra
             }
 
             //If we're keeping all experimental and theoretical peaks, then we add intensity pairs for all unpaired experimental peaks here.
-            if(experimental.Count > 0 && allPeaks)
+            if (experimental.Count > 0 && allPeaks)
             {
                 foreach ((double, double) xyPair in experimental)
                 {
@@ -181,7 +180,7 @@ namespace MassSpectrometry.MzSpectra
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
         public double? CosineSimilarity()
         {
-            if (_intensityPairs.First().Item1==-1)
+            if (_intensityPairs.First().Item1 == -1)
             {
                 return null;
             }
@@ -195,9 +194,9 @@ namespace MassSpectrometry.MzSpectra
                 denominatorValue2 += Math.Pow(pair.Item2, 2);
             }
             double denominatorProduct = denominatorValue1 * denominatorValue2;
-            
+
             //because we keep all secondary spectrum peaks, denominatorValue1 can equal zero
-            if(denominatorProduct == 0)
+            if (denominatorProduct == 0)
             {
                 return 0;
             }
@@ -212,7 +211,6 @@ namespace MassSpectrometry.MzSpectra
                 return null;
             }
             return (1 - 2 * Math.Acos((double)CosineSimilarity()) / Math.PI);
-
         }
 
         public double? EuclideanDistance()
@@ -264,7 +262,7 @@ namespace MassSpectrometry.MzSpectra
                 denominator2 += Math.Pow((pair.Item2 - averageSecondaryIntensity), 2);
             }
             denominator = denominator1 * denominator2;
-            if(denominator > 0)
+            if (denominator > 0)
             {
                 return numerator / Math.Sqrt(denominator);
             }
@@ -290,7 +288,7 @@ namespace MassSpectrometry.MzSpectra
         //use Math.Max() in the denominator for consistancy
         private bool Within(double mz1, double mz2)
         {
-            return ((Math.Abs(mz1 - mz2) / Math.Max(mz1,mz2) * 1000000.0) < localPpmTolerance);
+            return ((Math.Abs(mz1 - mz2) / Math.Max(mz1, mz2) * 1000000.0) < localPpmTolerance);
         }
 
         public enum SpectrumNormalizationScheme
