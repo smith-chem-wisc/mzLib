@@ -1,8 +1,11 @@
 using Chemistry;
+using IO.MzML;
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -62,6 +65,7 @@ namespace Test
         {
 
             string fullFilePathWithExtension = @"D:\TDBU\Jurkat\TD-Projects-JurkatTopDownSeanDaiPaper\FXN11_tr1_032017.raw";
+           
             ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(fullFilePathWithExtension);
             List<MsDataScan> scan = staticRaw.GetAllScansList();
             scan = scan.Where(p => p.MsnOrder == 1).ToList();
@@ -76,6 +80,7 @@ namespace Test
 
             List<IsotopicEnvelope> lie = spec.Deconvolute(theRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
 
+            
             //check all most abundant isotopic masses >= the monoisotopic masses
             lie = lie.Where(p => p.Charge > 2).ToList(); //need to remove charge < 3... ? 
             var mostabundantmasses = lie.Select(p => p.MostAbundantObservedIsotopicMass).ToList();
@@ -84,13 +89,24 @@ namespace Test
             {
                 Assert.GreaterOrEqual(mostabundantmasses[i], masses[i]);
             }
-            //call formula -> ID, use prospector to find most abundant mass -> verify is correct
 
+            //PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK
+            string singleScan = @"D:\TDBU\Jurkat\TD-Projects-JurkatTopDownSeanDaiPaper\FXN11_tr1_032017_scan721.mzML";
+            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
 
-            //lie = lie.Where(p => p.MostAbundantObservedIsotopicMass < 8246.5 + 1).OrderByDescending(p => p.MostAbundantObservedIsotopicMass).ToList();
-            //var compare = lie.Select(p => p.MostAbundantObservedIsotopicMass).ToList()[0];
+            List<MsDataScan> singlescan = singleMZML.GetAllScansList();
+            
+            MzSpectrum singlespec = singlescan[0].MassSpectrum;
+            MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
 
-            //Assert.That(compare, Is.EqualTo(8246.5).Within(1));
+            List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+
+            List<IsotopicEnvelope>  lie2_charge12 = lie2.Where(p => p.Charge == 12).ToList();
+            Assert.That(lie2_charge12[0].MostAbundantObservedIsotopicMass, Is.EqualTo(772.75984 * 12).Within(0.5));
+
+            List<IsotopicEnvelope> lie2_charge15 = lie2.Where(p => p.Charge == 15).ToList();
+            Assert.That(lie2_charge15[0].MostAbundantObservedIsotopicMass, Is.EqualTo(618.40933 * 15).Within(0.5));
+
         }
     }
 }
