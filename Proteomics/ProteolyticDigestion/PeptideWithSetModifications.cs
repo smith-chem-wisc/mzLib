@@ -23,6 +23,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private double? _mostAbundantMonoisotopicMass;
         [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
@@ -126,6 +127,25 @@ namespace Proteomics.ProteolyticDigestion
                 _fullChemicalFormula = fullChemicalFormula;
                 return _fullChemicalFormula;
             }
+        }
+
+        public double MostAbundantMonoisotopicMass
+        {
+            get
+            {
+                if (!_mostAbundantMonoisotopicMass.HasValue)
+                {
+                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
+
+                    double maxIntensity = dist.Intensities.ToList().OrderByDescending(p => p).ToList()[0];
+                    int indexMax = dist.Intensities.ToList().IndexOf(maxIntensity);
+                    double maxMass = dist.Masses.ToList()[indexMax];
+
+                    _mostAbundantMonoisotopicMass = maxMass;
+                }
+                return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
+            }
+
         }
 
         public string SequenceWithChemicalFormulas
