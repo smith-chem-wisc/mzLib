@@ -17,9 +17,9 @@ namespace Test
             double ppmTolerance = 10;
 
             //Test all different similarity calculations
-            MzSpectrum primary = new MzSpectrum(new double[] { 1, 2, 3, 4, 5 }, new double[] { 2, 4, 6, 8, 10 }, false);
-            MzSpectrum secondary = new MzSpectrum(new double[] { 3, 4, 5, 6, 7 }, new double[] { 9, 7, 5, 3, 1 }, false);
-            SpectralSimilarity s = new SpectralSimilarity(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true,0);
+            MzSpectrum primary = new(new double[] { 1, 2, 3, 4, 5 }, new double[] { 2, 4, 6, 8, 10 }, false);
+            MzSpectrum secondary = new(new double[] { 3, 4, 5, 6, 7 }, new double[] { 9, 7, 5, 3, 1 }, false);
+            SpectralSimilarity s = new(primary, secondary, SpectralSimilarity.SpectrumNormalizationScheme.squareRootSpectrumSum, ppmTolerance, true,0);
             Assert.AreEqual(7, s.intensityPairs.Count);
             Assert.That(s.CosineSimilarity(), Is.EqualTo(0.8).Within(0.01));
             Assert.That(s.SpectralContrastAngle(), Is.EqualTo(0.59).Within(0.01));
@@ -64,7 +64,7 @@ namespace Test
             Assert.That(s.DotProduct(), Is.EqualTo(4).Within(0.01));
 
             //Make sure there is no crash w/ empty array
-            primary = new MzSpectrum(new double[] { }, new double[] { }, false);
+            primary = new MzSpectrum(Array.Empty<double>(), new double[] { }, false);
             secondary = new MzSpectrum(new double[] { }, new double[] { }, false);
 
             Assert.Throws<MzLibException>(() =>
