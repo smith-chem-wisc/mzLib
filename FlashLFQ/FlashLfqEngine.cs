@@ -16,6 +16,7 @@ namespace FlashLFQ
     {
         // settings
         public readonly bool Silent;
+
         public readonly int MaxThreads;
         public readonly double PeakfindingPpmTolerance;
         public readonly double PpmTolerance;
@@ -29,12 +30,14 @@ namespace FlashLFQ
 
         // MBR settings
         public readonly bool MatchBetweenRuns;
+
         public readonly double MbrRtWindow;
         public readonly double MbrPpmTolerance;
         public readonly bool RequireMsmsIdInCondition;
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
+
         public readonly string ProteinQuantBaseCondition;
         public readonly double ProteinQuantFoldChangeCutoff;
         public readonly int McmcSteps;
@@ -45,6 +48,7 @@ namespace FlashLFQ
 
         // structures used in the FlashLFQ engine
         private List<SpectraFileInfo> _spectraFileInfo;
+
         private Stopwatch _globalStopwatch;
         private List<Identification> _allIdentifications;
         private Dictionary<string, List<(double, double)>> _modifiedSequenceToIsotopicDistribution;
@@ -169,7 +173,7 @@ namespace FlashLFQ
                 // some memory-saving stuff
                 _peakIndexingEngine.ClearIndex();
             }
-            
+
             // do MBR
             if (MatchBetweenRuns)
             {
@@ -197,7 +201,7 @@ namespace FlashLFQ
                 new IntensityNormalizationEngine(_results, Integrate, Silent, MaxThreads).NormalizeResults();
             }
 
-            // calculate peptide intensities 
+            // calculate peptide intensities
             _results.CalculatePeptideResults();
 
             // do top3 protein quantification
@@ -278,21 +282,35 @@ namespace FlashLFQ
 
                 if (formula == null)
                 {
-                    Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
-                    formula = baseSequence.GetChemicalFormula();
+                    double massDiff = id.MonoisotopicMass;
+                    if (!String.IsNullOrEmpty(id.BaseSequence))
+                    {
+                        Proteomics.AminoAcidPolymer.Peptide baseSequence = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence);
+                        formula = baseSequence.GetChemicalFormula();
+                        // add averagine for any unknown mass difference (i.e., a modification)
+                        massDiff -= baseSequence.MonoisotopicMass;
 
-                    // add averagine for any unknown mass difference (i.e., a modification)
-                    double massDiff = id.MonoisotopicMass - baseSequence.MonoisotopicMass;
+                        if (Math.Abs(massDiff) > 20)
+                        {
+                            double averagines = massDiff / averagineMass;
 
-                    if (Math.Abs(massDiff) > 20)
+                            formula.Add("C", (int)Math.Round(averagines * averageC, 0));
+                            formula.Add("H", (int)Math.Round(averagines * averageH, 0));
+                            formula.Add("O", (int)Math.Round(averagines * averageO, 0));
+                            formula.Add("N", (int)Math.Round(averagines * averageN, 0));
+                            formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                        }
+                    }
+                    else
                     {
                         double averagines = massDiff / averagineMass;
-
-                        formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                        formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                        formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                        formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                        formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                        string averagineFormulaString = 
+                            "C" + (int)Math.Round(averagines * averageC, 0) +
+                            "H" + (int)Math.Round(averagines * averageH, 0) +
+                            "O" + (int)Math.Round(averagines * averageO, 0) +
+                            "N" + (int)Math.Round(averagines * averageN, 0) +
+                            "S" + (int)Math.Round(averagines * averageS, 0);
+                        formula = ChemicalFormula.ParseFormula(averagineFormulaString);
                     }
                 }
 
@@ -429,10 +447,10 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// This method maps identified peaks from other chromatographic runs ("donors") onto 
+        /// This method maps identified peaks from other chromatographic runs ("donors") onto
         /// the defined chromatographic run ("acceptor"). The goal is to reduce the number of missing
         /// intensity measurements. Missing values occur generally either because 1) the analyte is
-        /// in the sample but didn't get fragmented/identified or 2) the analyte is genuinely missing 
+        /// in the sample but didn't get fragmented/identified or 2) the analyte is genuinely missing
         /// from the sample.
         /// </summary>
         private void QuantifyMatchBetweenRunsPeaks(SpectraFileInfo idAcceptorFile)
@@ -525,7 +543,7 @@ namespace FlashLFQ
                     .Select(p => p.Fraction)
                     .Distinct()
                     .Count() > 1;
-                
+
                 var donorFileLogIntensities = idDonorPeaks.Where(p => p.Intensity > 0).Select(p => Math.Log(p.Intensity, 2)).ToList();
                 double medianDonorLogIntensity = donorFileLogIntensities.Median();
 
@@ -895,15 +913,15 @@ namespace FlashLFQ
                         }
                     }
                 }
-                
+
                 _results.Peaks[idAcceptorFile].Add(best);
             }
-            
+
             RunErrorChecking(idAcceptorFile);
         }
 
         /// <summary>
-        /// Used by the match-between-runs algorithm to determine systematic retention time drifts between 
+        /// Used by the match-between-runs algorithm to determine systematic retention time drifts between
         /// chromatographic runs.
         /// </summary>
         private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor)
