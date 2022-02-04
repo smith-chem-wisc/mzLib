@@ -1,6 +1,5 @@
 using Chemistry;
 using IO.MzML;
-using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
