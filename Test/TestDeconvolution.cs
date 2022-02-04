@@ -61,39 +61,24 @@ namespace Test
         }
 
         [Test]
-        public static void CheckGetMostAbundantObservedIsotopicMass()
+
+        [TestCase("APSGGKK", "12-18-17_frac7_ms1_663_665.mzML", 2)]
+
+        [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017_scan721.mzML", 12)]
+        [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017_scan721.mzML", 15)]
+        [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017_scan721.mzML", 18)]
+
+        [TestCase("MKFNPFVTSDRSKNRKRHFNAPSHVRRKIMSSPLSKELRQKYNVRSMPIRKDDEVQVVRGHYKGQQIGKVVQVYRKKYVIYIERVQREKANGTTVHVGIHPSKVVITRLKLDKDRKKILERKAKSRQVGKEKGKYKEELIEKMQE", "FXN11_tr1_032017_ms1_scans984_986.mzML", 15)]
+        [TestCase("MKFNPFVTSDRSKNRKRHFNAPSHVRRKIMSSPLSKELRQKYNVRSMPIRKDDEVQVVRGHYKGQQIGKVVQVYRKKYVIYIERVQREKANGTTVHVGIHPSKVVITRLKLDKDRKKILERKAKSRQVGKEKGKYKEELIEKMQE", "FXN11_tr1_032017_ms1_scans984_986.mzML", 25)]
+        [TestCase("MKFNPFVTSDRSKNRKRHFNAPSHVRRKIMSSPLSKELRQKYNVRSMPIRKDDEVQVVRGHYKGQQIGKVVQVYRKKYVIYIERVQREKANGTTVHVGIHPSKVVITRLKLDKDRKKILERKAKSRQVGKEKGKYKEELIEKMQE", "FXN11_tr1_032017_ms1_scans984_986.mzML", 30)]
+        public static void CheckGetMostAbundantObservedIsotopicMass(string peptide, string file, int charge)
         {
-            /*
-            string fullFilePathWithExtension = @"D:\TDBU\Jurkat\TD-Projects-JurkatTopDownSeanDaiPaper\FXN11_tr1_032017.raw";
-           
-            ThermoRawFileReader staticRaw = ThermoRawFileReader.LoadAllStaticData(fullFilePathWithExtension);
-            List<MsDataScan> scan = staticRaw.GetAllScansList();
-            scan = scan.Where(p => p.MsnOrder == 1).ToList();
-            scan = scan.Where(p => p.OneBasedScanNumber == 587).ToList(); //pull out single scan
+            Protein test1 = new Protein(peptide, "Accession");
+            DigestionParams d = new DigestionParams();
+            PeptideWithSetModifications pw = new PeptideWithSetModifications(test1, d, 1, test1.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
+            double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
 
-            MzSpectrum spec = scan[0].MassSpectrum;
-            MzRange theRange = new MzRange(spec.XArray.Min(), spec.XArray.Max());
-            int minAssumedChargeState = 1;
-            int maxAssumedChargeState = 60;
-            double deconvolutionTolerancePpm = 20;
-            double intensityRatioLimit = 3;
-
-            List<IsotopicEnvelope> lie = spec.Deconvolute(theRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
-
-            
-            //check all most abundant isotopic masses >= the monoisotopic masses
-            lie = lie.Where(p => p.Charge > 2).ToList(); //need to remove charge < 3... ? 
-            var mostabundantmasses = lie.Select(p => p.MostAbundantObservedIsotopicMass).ToList();
-            var masses = lie.Select(p => p.MonoisotopicMass).ToList();
-            for (int i=0; i < masses.Count; i++)
-            {
-                Assert.GreaterOrEqual(mostabundantmasses[i], masses[i]);
-            }
-            */
-
-            //PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK
-            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "FXN11_tr1_032017_scan721.mzML");
-            //string singleScan = @"C:\Users\KAP\source\repos\kyp4\mzLib\Test\DataFiles\05-13-16_cali_MS_60K-res_MS.raw";
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
             Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
 
             List<MsDataScan> singlescan = singleMZML.GetAllScansList();
@@ -107,12 +92,8 @@ namespace Test
 
             List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
 
-            List<IsotopicEnvelope>  lie2_charge12 = lie2.Where(p => p.Charge == 12).ToList();
-            Assert.That(lie2_charge12[0].MostAbundantObservedIsotopicMass, Is.EqualTo(772.75984 * 12).Within(0.5));
-
-            List<IsotopicEnvelope> lie2_charge15 = lie2.Where(p => p.Charge == 15).ToList();
-            Assert.That(lie2_charge15[0].MostAbundantObservedIsotopicMass, Is.EqualTo(618.40933 * 15).Within(0.5));
-
+            List<IsotopicEnvelope>  lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass/charge, Is.EqualTo(m).Within(0.1));
         }
     }
 }

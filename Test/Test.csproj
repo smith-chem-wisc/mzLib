@@ -241,10 +241,16 @@
     <None Update="DataFiles\05-13-16_cali_MS_60K-res_MS.raw">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\12-18-17_frac7_ms1_663_665.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\14kDaProteoformMzIntensityMs1.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\BinGenerationTest.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\FXN11_tr1_032017_ms1_scans984_986.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\FXN11_tr1_032017_scan721.mzML">
