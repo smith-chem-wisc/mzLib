@@ -8,22 +8,22 @@ namespace MassSpectrometry.MzSpectra
 {
     public class SpectralSimilarity
     {
-        public SpectralSimilarity(MzSpectrum experimentalSpectrum, MzSpectrum theoreticalSpectrum, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks)
+        public SpectralSimilarity(MzSpectrum experimentalSpectrum, MzSpectrum theoreticalSpectrum, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            experimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
-            experimentalXArray = experimentalSpectrum.XArray;
-            theoreticalYArray = Normalize(theoreticalSpectrum.YArray, scheme);
-            theoreticalXArray = theoreticalSpectrum.XArray;
+            experimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray,experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p=>p.Item2).ToArray(),scheme);
+            experimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            theoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            theoreticalXArray = FilterOutIonsBelowThisMz(theoreticalSpectrum.XArray, theoreticalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             localPpmTolerance = toleranceInPpm;
             _intensityPairs = IntensityPairs(allPeaks);
         }
 
-        public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks)
+        public SpectralSimilarity(MzSpectrum experimentalSpectrum, double[] theoreticalX, double[] theoreticalY, SpectrumNormalizationScheme scheme, double toleranceInPpm, bool allPeaks, double filterOutBelowThisMz = 300)
         {
-            experimentalYArray = Normalize(experimentalSpectrum.YArray, scheme);
-            experimentalXArray = experimentalSpectrum.XArray;
-            theoreticalYArray = Normalize(theoreticalY, scheme);
-            theoreticalXArray = theoreticalX;
+            experimentalYArray = Normalize(FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            experimentalXArray = FilterOutIonsBelowThisMz(experimentalSpectrum.XArray, experimentalSpectrum.YArray, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
+            theoreticalYArray = Normalize(FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item2).ToArray(), scheme);
+            theoreticalXArray = FilterOutIonsBelowThisMz(theoreticalX, theoreticalY, filterOutBelowThisMz).Select(p => p.Item1).ToArray();
             localPpmTolerance = toleranceInPpm;
             _intensityPairs = IntensityPairs(allPeaks);
         }
@@ -40,6 +40,31 @@ namespace MassSpectrometry.MzSpectra
         public List<(double, double)> intensityPairs
         { get { return _intensityPairs; } }
 
+
+        /// <summary>
+        /// All peaks with mz less than the cutOff will be filtered out. 
+        private List<(double, double)> FilterOutIonsBelowThisMz(double[] spectrumX, double[] spectrumY,double filterOutBelowThisMz)
+        {
+            if (spectrumY.Length == 0)
+            {
+                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Empty YArray in spectrum."));
+            }
+            if (spectrumY.Sum() == 0)
+            {
+                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Spectrum has no intensity."));
+            }
+
+            List<(double, double)> spectrumWithMzCutoff = new List<(double, double)>();
+            for (int i = 0; i < spectrumX.Length; i++)
+            {
+                if (spectrumX[i] >= filterOutBelowThisMz)
+                {
+                    spectrumWithMzCutoff.Add((spectrumX[i], spectrumY[i]));
+                }
+            }
+            return spectrumWithMzCutoff;
+        }
+
         /// <summary>
         /// Every spectrum gets normalized when the SpectralSimilarity object gets created. This methods sends the spectra to the appropriate normalization.
         /// </summary>
@@ -50,12 +75,9 @@ namespace MassSpectrometry.MzSpectra
         {
             if (spectrum.Length == 0)
             {
-                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Empty YArray in spectrum."));
+                return null; 
             }
-            if (spectrum.Sum() == 0)
-            {
-                throw new MzLibException(string.Format(CultureInfo.InvariantCulture, "Spectrum has no intensity."));
-            }
+           
             return scheme switch
             {
                 SpectrumNormalizationScheme.mostAbundantPeak => NormalizeMostAbundantPeak(spectrum),
@@ -76,6 +98,12 @@ namespace MassSpectrometry.MzSpectra
 
         private List<(double, double)> IntensityPairs(bool allPeaks)
         {
+            if (experimentalYArray==null || theoreticalYArray == null)
+            {
+                //when all mz of theoretical peaks or experimental peaks are less than mz cut off , it is treated as no corresponding library spectrum is found and later the similarity score will be assigned as null.
+                return new List<(double, double)> { (-1, -1) };
+            }
+
             List<(double, double)> intensityPairs = new List<(double, double)>();
             List<(double, double)> experimental = new List<(double, double)>();
             List<(double, double)> theoretical = new List<(double, double)>();
@@ -88,6 +116,7 @@ namespace MassSpectrometry.MzSpectra
             {
                 theoretical.Add((theoreticalXArray[i], theoreticalYArray[i]));
             }
+            
             experimental = experimental.OrderByDescending(i => i.Item2).ToList();
             theoretical = theoretical.OrderByDescending(i => i.Item2).ToList();
 
@@ -105,7 +134,11 @@ namespace MassSpectrometry.MzSpectra
                     }
                     index++;
                 }
-                if(index > 0)
+                if (experimental.Count == 0)
+                {
+                    index++;
+                }
+                if (index > 0)
                 {
                     //didn't find a experimental mz in range
                     intensityPairs.Add((0, xyPair.Item2));
@@ -163,8 +196,12 @@ namespace MassSpectrometry.MzSpectra
         #region similarityMethods
 
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthoganal
-        public double CosineSimilarity()
+        public double? CosineSimilarity()
         {
+            if (_intensityPairs.First().Item1==-1)
+            {
+                return null;
+            }
             double numerator = 0;
             double denominatorValue1 = 0;
             double denominatorValue2 = 0;
@@ -185,14 +222,22 @@ namespace MassSpectrometry.MzSpectra
         }
 
         //Spectral contrast angle should expect values between 1 and -1;
-        public double SpectralContrastAngle()
+        public double? SpectralContrastAngle()
         {
-            return (1 - 2 * Math.Acos(CosineSimilarity()) / Math.PI);
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
+            return (1 - 2 * Math.Acos((double)CosineSimilarity()) / Math.PI);
 
         }
 
-        public double EuclideanDistance()
+        public double? EuclideanDistance()
         {
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
             double sum = 0;
             foreach ((double, double) pair in _intensityPairs)
             {
@@ -201,8 +246,12 @@ namespace MassSpectrometry.MzSpectra
             return 1 - Math.Sqrt(sum);
         }
 
-        public double BrayCurtis()
+        public double? BrayCurtis()
         {
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
             double numerator = 0;
             double denominator = 0;
             foreach ((double, double) pair in _intensityPairs)
@@ -213,8 +262,12 @@ namespace MassSpectrometry.MzSpectra
             return (1 - numerator / denominator);
         }
 
-        public double PearsonsCorrelation()
+        public double? PearsonsCorrelation()
         {
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
             double numerator = 0;
             double denominator = 0;
             double denominator1 = 0;
@@ -235,8 +288,12 @@ namespace MassSpectrometry.MzSpectra
             return -1;
         }
 
-        public double DotProduct()
+        public double? DotProduct()
         {
+            if (_intensityPairs.First().Item1 == -1)
+            {
+                return null;
+            }
             double sum = 0;
             foreach ((double, double) pair in _intensityPairs)
             {
