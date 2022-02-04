@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Proteomics.ProteolyticDigestion
@@ -145,6 +146,7 @@ namespace Proteomics.ProteolyticDigestion
             else if (CleavageSpecificity == CleavageSpecificity.Semi)
             {
                 peptides.AddRange(SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength));
+                File.WriteAllLines(@"C:\Users\mrsho\Documents\junk\biomarkers.txt", peptides.Select(p => p.BaseSequence).ToArray());
             }
             else
             {

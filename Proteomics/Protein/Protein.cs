@@ -241,11 +241,15 @@ namespace Proteomics
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
             ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
+
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
+                digestionParams.Protease.Name == "top-down biomarker" ?
+                digestion.Digestion(this) :
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
-                digestion.Digestion(this);
-            
+                    digestion.Digestion(this);
+
+
             if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
             {
                 unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParams.KeepNGlycopeptide, digestionParams.KeepOGlycopeptide);
