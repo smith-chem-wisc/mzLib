@@ -1,5 +1,4 @@
-﻿using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
+﻿using Proteomics.Fragmentation;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
@@ -10,6 +9,8 @@ namespace Proteomics
 {
     public class Protein
     {
+        private List<ProteolysisProduct> _proteolysisProducts;
+
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
         /// </summary>
@@ -48,7 +49,7 @@ namespace Proteomics
             SampleNameForVariants = sampleNameForVariants;
 
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
-            ProteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
+            _proteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
@@ -85,7 +86,7 @@ namespace Proteomics
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             SampleNameForVariants = originalProtein.SampleNameForVariants;
             GeneNames = originalProtein.GeneNames;
-            ProteolysisProducts = originalProtein.ProteolysisProducts;
+            _proteolysisProducts = originalProtein._proteolysisProducts;
             SequenceVariations = originalProtein.SequenceVariations;
             AppliedSequenceVariations = originalProtein.AppliedSequenceVariations;
             OriginalNonVariantModifications = originalProtein.OriginalNonVariantModifications;
@@ -154,8 +155,11 @@ namespace Proteomics
         public IEnumerable<SequenceVariation> SequenceVariations { get; }
         public IEnumerable<DisulfideBond> DisulfideBonds { get; }
         public IEnumerable<SpliceSite> SpliceSites { get; }
+
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
-        public IEnumerable<ProteolysisProduct> ProteolysisProducts { get; }
+        public IEnumerable<ProteolysisProduct> ProteolysisProducts
+        { get { return _proteolysisProducts; } }
+
         public IEnumerable<DatabaseReference> DatabaseReferences { get; }
         public string DatabaseFilePath { get; }
 
@@ -229,14 +233,14 @@ namespace Proteomics
         /// </summary>
         public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null)
-        {            
+        {
             //can't be null
-            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>(); 
+            allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
             // add in any modifications that are caused by protease digestion
-            if (digestionParams.Protease.CleavageMod!= null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
+            if (digestionParams.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
             {
-                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);                
-            }                      
+                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);
+            }
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
@@ -249,12 +253,10 @@ namespace Proteomics
                 digestion.SpeedySemiSpecificDigestion(this) :
                     digestion.Digestion(this);
 
-
             if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
             {
                 unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParams.KeepNGlycopeptide, digestionParams.KeepOGlycopeptide);
             }
-            
 
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
 
@@ -269,8 +271,8 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-               return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
-            }           
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+            }
 
             return modifiedPeptides;
         }
@@ -291,7 +293,7 @@ namespace Proteomics
                 }
             }
         }
-       
+
         /// <summary>
         /// Add additional peptides with SILAC amino acids
         /// </summary>
@@ -347,8 +349,8 @@ namespace Proteomics
                         originalLabels.AddRange(startLabel.AdditionalLabels);
                     }
                     SilacLabel startLabelWithSharedOriginalAminoAcid = originalLabels.Where(x => x.OriginalAminoAcid == endLabel.OriginalAminoAcid).FirstOrDefault();
-                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ? 
-                        endLabel : 
+                    SilacLabel updatedEndLabel = startLabelWithSharedOriginalAminoAcid == null ?
+                        endLabel :
                         new SilacLabel(startLabelWithSharedOriginalAminoAcid.AminoAcidLabel, endLabel.AminoAcidLabel, endLabel.LabelChemicalFormula, endLabel.ConvertMassDifferenceToDouble());
                     if (endLabel.AdditionalLabels != null)
                     {
@@ -363,12 +365,12 @@ namespace Proteomics
                     }
 
                     //double check that all labeled amino acids can become unlabeled/relabeled
-                    if(startLabel.AdditionalLabels!=null)
+                    if (startLabel.AdditionalLabels != null)
                     {
-                        foreach(SilacLabel originalLabel in originalLabels)
+                        foreach (SilacLabel originalLabel in originalLabels)
                         {
-                            if(updatedEndLabel.OriginalAminoAcid!= originalLabel.AminoAcidLabel && 
-                                (updatedEndLabel.AdditionalLabels==null || !updatedEndLabel.AdditionalLabels.Any(x=>x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
+                            if (updatedEndLabel.OriginalAminoAcid != originalLabel.AminoAcidLabel &&
+                                (updatedEndLabel.AdditionalLabels == null || !updatedEndLabel.AdditionalLabels.Any(x => x.OriginalAminoAcid == originalLabel.AminoAcidLabel)))
                             {
                                 updatedEndLabel.AddAdditionalSilacLabel(new SilacLabel(originalLabel.AminoAcidLabel, originalLabel.OriginalAminoAcid, originalLabel.LabelChemicalFormula, originalLabel.ConvertMassDifferenceToDouble()));
                             }
@@ -388,7 +390,7 @@ namespace Proteomics
 
                 Protein silacEndProtein = GenerateFullyLabeledSilacProtein(label);
 
-                //add all peptides containing any label (may also contain unlabeled) 
+                //add all peptides containing any label (may also contain unlabeled)
                 if (label.AdditionalLabels == null) //if there's only one (which is common)
                 {
                     //get the residues to change
@@ -498,7 +500,7 @@ namespace Proteomics
             {
                 bool yielded = false;
                 if (keepNGlycopeptide)
-                {                   
+                {
                     if (rgx.IsMatch(pwsm.BaseSequence))
                     {
                         yielded = true;
@@ -513,7 +515,6 @@ namespace Proteomics
                         yield return pwsm;
                     }
                 }
-                
             }
         }
 
@@ -582,6 +583,76 @@ namespace Proteomics
                 }
             }
             return validModDictionary;
+        }
+
+        private void AddProteolysisProduct(int oneBasedBegin, int oneBasedEnd, string proteolysisProductType)
+        {
+            _proteolysisProducts.Add(new ProteolysisProduct(oneBasedBegin, oneBasedEnd, proteolysisProductType));
+        }
+
+        public void AddFullProteoformBiomarkers(bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        {
+            //Digest C-terminus first
+            if (addCterminalDigestionBiomarkers)
+            {
+                for (int i = BaseSequence.Length - lengthOfProteolysis; i < BaseSequence.Length; i++)
+                {
+                    if (retainNterminalMethionine && BaseSequence.Substring(0, 1) == "M")
+                    {
+                        if (i >= minProductBaseSequenceLength)
+                        {
+                            _proteolysisProducts.Add(new ProteolysisProduct(1, i, proteolyisisProductName));
+                        }
+                    }
+                    //cleave N-terminal methione and methionine is N-terminal AA
+                    else if (BaseSequence.Substring(0, 1) == "M")
+                    {
+                        if (i - 1 >= minProductBaseSequenceLength)
+                        {
+                            _proteolysisProducts.Add(new ProteolysisProduct(2, i, proteolyisisProductName));
+                        }
+                    }
+                    //cleave N-terminal methione but there isn't M at the N-terminus
+                    else
+                    {
+                        if (i >= minProductBaseSequenceLength)
+                        {
+                            _proteolysisProducts.Add(new ProteolysisProduct(1, i, proteolyisisProductName));
+                        }
+                    }
+                }
+            }
+
+            //Digest N-terminus second
+            if (addNterminalDigestionBiomarkers)
+            {
+                for (int i = 1; i <= lengthOfProteolysis; i++)
+                {
+                    if (retainNterminalMethionine && BaseSequence.Substring(0, 1) == "M")
+                    {
+                        if (BaseSequence.Length - i >= minProductBaseSequenceLength)
+                        {
+                            _proteolysisProducts.Add(new ProteolysisProduct(i+1, BaseSequence.Length, proteolyisisProductName));
+                        }
+                    }
+                    //cleave N-terminal methione and methionine is N-terminal AA
+                    else if (BaseSequence.Substring(0, 1) == "M")
+                    {
+                        if (BaseSequence.Length - 2 + i >= minProductBaseSequenceLength)
+                        {
+                            _proteolysisProducts.Add(new ProteolysisProduct(2+i, BaseSequence.Length, proteolyisisProductName));
+                        }
+                    }
+                    //cleave N-terminal methione but there isn't M at the N-terminus
+                    else
+                    {
+                        if (BaseSequence.Length - i >= minProductBaseSequenceLength)
+                        {
+                            _proteolysisProducts.Add(new ProteolysisProduct(i+1, BaseSequence.Length, proteolyisisProductName));
+                        }
+                    }
+                }
+            }
         }
 
         private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
