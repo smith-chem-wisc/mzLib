@@ -585,72 +585,7 @@ namespace Proteomics
             return validModDictionary;
         }
 
-        public void AddFullProteoformBiomarkers(bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
-        {
-            //Digest C-terminus first
-            if (addCterminalDigestionBiomarkers)
-            {
-                for (int i = BaseSequence.Length - lengthOfProteolysis; i < BaseSequence.Length; i++)
-                {
-                    if (retainNterminalMethionine && BaseSequence.Substring(0, 1) == "M")
-                    {
-                        if (i >= minProductBaseSequenceLength)
-                        {
-                            _proteolysisProducts.Add(new ProteolysisProduct(1, i, proteolyisisProductName));
-                        }
-                    }
-                    //cleave N-terminal methione and methionine is N-terminal AA
-                    else if (BaseSequence.Substring(0, 1) == "M")
-                    {
-                        if (i - 1 >= minProductBaseSequenceLength)
-                        {
-                            _proteolysisProducts.Add(new ProteolysisProduct(2, i, proteolyisisProductName));
-                        }
-                    }
-                    //cleave N-terminal methione but there isn't M at the N-terminus
-                    else
-                    {
-                        if (i >= minProductBaseSequenceLength)
-                        {
-                            _proteolysisProducts.Add(new ProteolysisProduct(1, i, proteolyisisProductName));
-                        }
-                    }
-                }
-            }
-
-            //Digest N-terminus second
-            if (addNterminalDigestionBiomarkers)
-            {
-                for (int i = 1; i <= lengthOfProteolysis; i++)
-                {
-                    if (retainNterminalMethionine && BaseSequence.Substring(0, 1) == "M")
-                    {
-                        if (BaseSequence.Length - i >= minProductBaseSequenceLength)
-                        {
-                            _proteolysisProducts.Add(new ProteolysisProduct(i + 1, BaseSequence.Length, proteolyisisProductName));
-                        }
-                    }
-                    //cleave N-terminal methione and methionine is N-terminal AA
-                    else if (BaseSequence.Substring(0, 1) == "M")
-                    {
-                        if (BaseSequence.Length - 2 + i >= minProductBaseSequenceLength)
-                        {
-                            _proteolysisProducts.Add(new ProteolysisProduct(2 + i, BaseSequence.Length, proteolyisisProductName));
-                        }
-                    }
-                    //cleave N-terminal methione but there isn't M at the N-terminus
-                    else
-                    {
-                        if (BaseSequence.Length - i >= minProductBaseSequenceLength)
-                        {
-                            _proteolysisProducts.Add(new ProteolysisProduct(i + 1, BaseSequence.Length, proteolyisisProductName));
-                        }
-                    }
-                }
-            }
-        }
-
-        public void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        private void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
