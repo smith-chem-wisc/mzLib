@@ -585,11 +585,6 @@ namespace Proteomics
             return validModDictionary;
         }
 
-        private void AddProteolysisProduct(int oneBasedBegin, int oneBasedEnd, string proteolysisProductType)
-        {
-            _proteolysisProducts.Add(new ProteolysisProduct(oneBasedBegin, oneBasedEnd, proteolysisProductType));
-        }
-
         public void AddFullProteoformBiomarkers(bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             //Digest C-terminus first
@@ -632,7 +627,7 @@ namespace Proteomics
                     {
                         if (BaseSequence.Length - i >= minProductBaseSequenceLength)
                         {
-                            _proteolysisProducts.Add(new ProteolysisProduct(i+1, BaseSequence.Length, proteolyisisProductName));
+                            _proteolysisProducts.Add(new ProteolysisProduct(i + 1, BaseSequence.Length, proteolyisisProductName));
                         }
                     }
                     //cleave N-terminal methione and methionine is N-terminal AA
@@ -640,7 +635,7 @@ namespace Proteomics
                     {
                         if (BaseSequence.Length - 2 + i >= minProductBaseSequenceLength)
                         {
-                            _proteolysisProducts.Add(new ProteolysisProduct(2+i, BaseSequence.Length, proteolyisisProductName));
+                            _proteolysisProducts.Add(new ProteolysisProduct(2 + i, BaseSequence.Length, proteolyisisProductName));
                         }
                     }
                     //cleave N-terminal methione but there isn't M at the N-terminus
@@ -648,8 +643,47 @@ namespace Proteomics
                     {
                         if (BaseSequence.Length - i >= minProductBaseSequenceLength)
                         {
-                            _proteolysisProducts.Add(new ProteolysisProduct(i+1, BaseSequence.Length, proteolyisisProductName));
+                            _proteolysisProducts.Add(new ProteolysisProduct(i + 1, BaseSequence.Length, proteolyisisProductName));
                         }
+                    }
+                }
+            }
+        }
+
+        public void Bubba(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        {
+            bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
+
+            //remove N-terminal methionine if appropriate and reset proteinOneBasedBegin
+            if (sequenceContainsNterminus && !retainNterminalMethionine && BaseSequence.Substring(fullProteinOneBasedBegin - 1, 1) == "M")
+            {
+                fullProteinOneBasedBegin++;
+            }
+
+            //Digest C-terminus
+            if (addCterminalDigestionBiomarkers)
+            {
+                for (int i = 1; i <= lengthOfProteolysis; i++)
+                {
+                    int newEnd = fullProteinOneBasedEnd - i;
+                    int length = newEnd - fullProteinOneBasedBegin + 1;
+                    if(length >= minProductBaseSequenceLength)
+                    {
+                        _proteolysisProducts.Add(new ProteolysisProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
+                    }
+                }                
+            }
+
+            //Digest N-terminus
+            if (addNterminalDigestionBiomarkers)
+            {
+                for (int i = 1; i <= lengthOfProteolysis; i++)
+                {
+                    int newBegin = fullProteinOneBasedBegin + i;
+                    int length = fullProteinOneBasedEnd - newBegin + 1;
+                    if(length >= minProductBaseSequenceLength)
+                    {
+                        _proteolysisProducts.Add(new ProteolysisProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
                     }
                 }
             }
