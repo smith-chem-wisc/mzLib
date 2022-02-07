@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -646,6 +647,23 @@ namespace Test
             }
             expectedProductSequences = new List<string> { "PEPTID", "EPTIDE" };
             CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+        }
+
+        [Test]
+        public static void TestBiomarkersOnProteinXmlWithExistingProteolysisProducts()
+        {
+            Protein insulin = ProteinDbLoader.LoadProteinXML(@"C:\Users\mrsho\Documents\Projects\junk\humanInsulin.XML", true,
+                DecoyType.None, null, false, null, out var unknownModifications)[0];
+            Assert.AreEqual(4, insulin.ProteolysisProducts.Count());
+
+            insulin.AddBiomarkers(true, false, true, true, false, 7, 7, "biomarker");
+
+            int newFullProteinBiomarkers = insulin.ProteolysisProducts.Where(p => p.Type == "biomarker").Count();
+            Assert.AreEqual(14, newFullProteinBiomarkers);
+
+            insulin.AddBiomarkers(false, true, true, true, false, 7, 7, "biomarker");
+            newFullProteinBiomarkers = insulin.ProteolysisProducts.Where(p => p.Type == "biomarker").Count();
+            Assert.AreEqual(70, newFullProteinBiomarkers);
         }
 
         [Test]
