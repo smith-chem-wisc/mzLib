@@ -652,7 +652,9 @@ namespace Test
         [Test]
         public static void TestBiomarkersOnProteinXmlWithExistingProteolysisProducts()
         {
-            Protein insulin = ProteinDbLoader.LoadProteinXML(@"C:\Users\mrsho\Documents\Projects\junk\humanInsulin.XML", true,
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications)[0];
             Assert.AreEqual(4, insulin.ProteolysisProducts.Count());
 
