@@ -290,65 +290,9 @@ namespace Test
             Assert.AreEqual(first, "PRON");
         }
 
-        [Test]
-        public static void TestTopDownLimitedBiomarker()
-        {
-            Protein humanInsulin = new Protein("MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN", "P01308");
-
-            int minProteoformLength = humanInsulin.Length - 8;
-            int maxMissedCleavages = humanInsulin.Length - 1;
-            int maxProteoformLength = humanInsulin.Length;
-
-            DigestionParams testDigestionParams = new DigestionParams("top-down biomarker", maxMissedCleavages, minProteoformLength, maxProteoformLength, 1024, InitiatorMethionineBehavior.Retain, 4, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.Both, false, false, false);
-
-            List<PeptideWithSetModifications> testPeptides = humanInsulin.Digest(testDigestionParams, null, null).ToList();
-            Assert.AreEqual(45, testPeptides.Count);
-
-            ModificationMotif.TryGetMotif("M", out ModificationMotif motif1);
-            Modification variableMod = new Modification(_originalId: "oxidation", _modificationType: "Variable", _target: motif1, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
-
-            ModificationMotif.TryGetMotif("T", out ModificationMotif motif2);
-            Modification uniprotMod = new Modification(_originalId: "acetylation", _modificationType: "UniProt", _target: motif2, _chemicalFormula: ChemicalFormula.ParseFormula("C2H2O1"), _locationRestriction: "Anywhere.");
-
-            Dictionary<int, List<Modification>> proteinSpecificMods = new Dictionary<int, List<Modification>> { { 51, new List<Modification> { uniprotMod } } };
-
-            humanInsulin = new Protein("MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN", "P01308", oneBasedModifications: proteinSpecificMods);
-            Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: proteinSpecificMods);
-
-            List<Modification> allFixedMods = new List<Modification>();
-            List<Modification> allVariableMods = new List<Modification> { variableMod };
-
-            List<PeptideWithSetModifications> testPeptidesWithMods = humanInsulin.Digest(testDigestionParams, allFixedMods, allVariableMods).ToList();
-            Assert.AreEqual(196, testPeptidesWithMods.Count);
-        }
 
         [Test]
-        public static void TestTopDownLimitedBiomarkerBaseSequences()
-        {
-            Protein p = new Protein("ACDEFLLLLLLLLLLFEDCA", "P12345");
-            List<ProteolysisProduct> pProducts = p.ProteolysisProducts.ToList();
-
-            Protein testProteoformUnmodified = new Protein("ACDEFLLLLLLLLLLFEDCA", "P12345");
-
-            int minProteoformLength = testProteoformUnmodified.Length - 3;
-            int maxMissedCleavages = testProteoformUnmodified.Length - 1;
-            int maxProteoformLength = testProteoformUnmodified.Length;
-
-            DigestionParams testDigestionParams = new DigestionParams("top-down biomarker", maxMissedCleavages, minProteoformLength, maxProteoformLength, 1024, InitiatorMethionineBehavior.Retain, 4, CleavageSpecificity.Semi, Proteomics.Fragmentation.FragmentationTerminus.Both, false, false, false);
-
-            List<PeptideWithSetModifications> testPeptides = testProteoformUnmodified.Digest(testDigestionParams, null, null).ToList();
-            File.WriteAllLines(@"C:\Users\mrsho\Documents\Projects\junk\peptides.txt", testPeptides.Select(b => b.BaseSequence).ToArray());
-
-            List<string> expectedPeptides = new List<string> { "ACDEFLLLLLLLLLLFEDCA", "ACDEFLLLLLLLLLLFEDC", "ACDEFLLLLLLLLLLFED", "ACDEFLLLLLLLLLLFE",
-                "CDEFLLLLLLLLLLFEDCA", "DEFLLLLLLLLLLFEDCA", "EFLLLLLLLLLLFEDCA", "CDEFLLLLLLLLLLFEDC", "CDEFLLLLLLLLLLFED", "CDEFLLLLLLLLLLFE",
-                "DEFLLLLLLLLLLFEDC", "EFLLLLLLLLLLFEDC", "DEFLLLLLLLLLLFED", "DEFLLLLLLLLLLFE", "EFLLLLLLLLLLFED", "EFLLLLLLLLLLFE" };
-
-            Assert.AreEqual(28, testPeptides.Count);
-            CollectionAssert.AreEquivalent(expectedPeptides, testPeptides);
-        }
-
-        [Test]
-        public static void TestBubbaNterminal()
+        public static void TestNterminalProteolysis()
         {
             //N-terminal digestion
             Protein p = new Protein("MPEPTIDE", "P12345");
@@ -456,7 +400,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestBubbaCterminal()
+        public static void TestCterminalProteolysis()
         {
             //N-terminal digestion
             Protein p = new Protein("MPEPTIDE", "P12345");
@@ -543,7 +487,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestBubbaBothTermini()
+        public static void TestProteolysisBothTermini()
         {
             Protein p = new Protein("MPEPTIDE", "P12345");
             int fullProteinOneBasedBegin = 1;
