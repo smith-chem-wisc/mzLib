@@ -359,7 +359,7 @@ namespace Test
             int minProductBaseSequenceLength = 2;
             int lengthOfProteolysis = 3;
             string proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
@@ -380,7 +380,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
             productSequences = new List<string>();
@@ -400,7 +400,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
@@ -421,7 +421,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
             productSequences = new List<string>();
@@ -441,7 +441,7 @@ namespace Test
             minProductBaseSequenceLength = 6;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(2, products.Count);
 
@@ -467,7 +467,7 @@ namespace Test
             int minProductBaseSequenceLength = 2;
             int lengthOfProteolysis = 3;
             string proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
@@ -488,7 +488,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
             productSequences = new List<string>();
@@ -508,7 +508,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
@@ -529,7 +529,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(3, products.Count);
 
             productSequences = new List<string>();
@@ -553,7 +553,7 @@ namespace Test
             int minProductBaseSequenceLength = 2;
             int lengthOfProteolysis = 3;
             string proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
 
@@ -574,7 +574,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
 
             productSequences = new List<string>();
@@ -594,7 +594,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
 
@@ -615,7 +615,7 @@ namespace Test
             minProductBaseSequenceLength = 2;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
             products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(6, products.Count);
 
@@ -636,7 +636,7 @@ namespace Test
             minProductBaseSequenceLength = 6;
             lengthOfProteolysis = 3;
             proteolyisisProductName = "biomarker";
-            p.Bubba(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
             Assert.AreEqual(2, products.Count);
 
             productSequences = new List<string>();

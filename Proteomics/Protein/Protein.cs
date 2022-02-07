@@ -650,7 +650,7 @@ namespace Proteomics
             }
         }
 
-        public void Bubba(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        public void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
@@ -684,6 +684,26 @@ namespace Proteomics
                     if(length >= minProductBaseSequenceLength)
                     {
                         _proteolysisProducts.Add(new ProteolysisProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
+                    }
+                }
+            }
+        }
+
+        public void AddBiomarkers(bool addFullProtein, bool addForEachProteolysisProduct, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        {
+            if (addFullProtein)
+            {
+                AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, addNterminalDigestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            }
+
+            if (addForEachProteolysisProduct)
+            {
+                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => p.Type != "biomarker").ToList();
+                foreach (ProteolysisProduct product in existingProducts)
+                {
+                    if(product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
+                    {
+                        AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, addNterminalDigestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                     }
                 }
             }
