@@ -585,50 +585,95 @@ namespace Proteomics
             return validModDictionary;
         }
 
-        private void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        public void AddBiomarkersToProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
-            //remove N-terminal methionine if appropriate and reset proteinOneBasedBegin
-            if (sequenceContainsNterminus && !retainNterminalMethionine && BaseSequence.Substring(fullProteinOneBasedBegin - 1, 1) == "M")
+            if (sequenceContainsNterminus)
             {
-                fullProteinOneBasedBegin++;
-            }
-
-            //Digest C-terminus
-            if (addCterminalDigestionBiomarkers)
-            {
-                for (int i = 1; i <= lengthOfProteolysis; i++)
+                if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain || initiatorMethionineBehavior == InitiatorMethionineBehavior.Variable)
                 {
-                    int newEnd = fullProteinOneBasedEnd - i;
-                    int length = newEnd - fullProteinOneBasedBegin + 1;
-                    if(length >= minProductBaseSequenceLength)
+                    //Digest C-terminus
+                    if (addCterminalDigestionBiomarkers)
                     {
-                        _proteolysisProducts.Add(new ProteolysisProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
+                        AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
                     }
-                }                
-            }
 
-            //Digest N-terminus
-            if (addNterminalDigestionBiomarkers)
-            {
-                for (int i = 1; i <= lengthOfProteolysis; i++)
-                {
-                    int newBegin = fullProteinOneBasedBegin + i;
-                    int length = fullProteinOneBasedEnd - newBegin + 1;
-                    if(length >= minProductBaseSequenceLength)
+                    //Digest N-terminus
+                    if (addNterminalDigestionBiomarkers)
                     {
-                        _proteolysisProducts.Add(new ProteolysisProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
+                        AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                     }
+                }
+
+                if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Cleave || initiatorMethionineBehavior == InitiatorMethionineBehavior.Variable)
+                {
+                    if (BaseSequence.Substring(fullProteinOneBasedBegin - 1, 1) == "M")
+                    {
+                        fullProteinOneBasedBegin++;
+                    }
+                    
+                    //Digest C-terminus
+                    if (addCterminalDigestionBiomarkers)
+                    {
+                        AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+                    }
+
+                    //Digest N-terminus
+                    if (addNterminalDigestionBiomarkers)
+                    {
+                        AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                    }
+                }
+            }
+            else
+            {
+                //Digest C-terminus
+                if (addCterminalDigestionBiomarkers)
+                {
+                    AddCterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+                }
+
+                //Digest N-terminus
+                if (addNterminalDigestionBiomarkers)
+                {
+                    AddNterminalBiomarkers(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                }
+            }
+            
+        }
+
+        private void AddCterminalBiomarkers(int lengthOfProteolysis, int fullProteinOneBasedEnd, int fullProteinOneBasedBegin, int minProductBaseSequenceLength, string proteolyisisProductName)
+        {
+            for (int i = 1; i <= lengthOfProteolysis; i++)
+            {
+                int newEnd = fullProteinOneBasedEnd - i;
+                int length = newEnd - fullProteinOneBasedBegin + 1;
+                if (length >= minProductBaseSequenceLength)
+                {
+                    _proteolysisProducts.Add(new ProteolysisProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
                 }
             }
         }
 
-        public void AddBiomarkers(bool addFullProtein, bool addForEachProteolysisProduct, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, bool retainNterminalMethionine, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
+        private void AddNterminalBiomarkers(int lengthOfProteolysis, int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, int minProductBaseSequenceLength, string proteolyisisProductName)
+        {
+            for (int i = 1; i <= lengthOfProteolysis; i++)
+            {
+                int newBegin = fullProteinOneBasedBegin + i;
+                int length = fullProteinOneBasedEnd - newBegin + 1;
+                if (length >= minProductBaseSequenceLength)
+                {
+                    _proteolysisProducts.Add(new ProteolysisProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
+                }
+            }
+        }
+
+        public void AddBiomarkers(bool addFullProtein, bool addForEachProteolysisProduct, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             if (addFullProtein)
             {
-                AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, addNterminalDigestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                AddBiomarkersToProteolysisProducts(1, BaseSequence.Length, addNterminalDigestionBiomarkers, addCterminalDigestionBiomarkers, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);                
             }
 
             if (addForEachProteolysisProduct)
@@ -638,7 +683,7 @@ namespace Proteomics
                 {
                     if(product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
                     {
-                        AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, addNterminalDigestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+                        AddBiomarkersToProteolysisProducts(product.OneBasedBeginPosition.Value, product.OneBasedEndPosition.Value, addNterminalDigestionBiomarkers, addCterminalDigestionBiomarkers, initiatorMethionineBehavior, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
                     }
                 }
             }

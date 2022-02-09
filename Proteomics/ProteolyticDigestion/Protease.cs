@@ -112,18 +112,25 @@ namespace Proteomics.ProteolyticDigestion
             //top-down
             else if (CleavageSpecificity == CleavageSpecificity.None)
             {
-                // retain methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M')
-                    && OkayLength(protein.Length, minPeptideLength, maxPeptideLength))
+                if(specificProtease.Name != "top-down biomarker")
                 {
-                    peptides.Add(new ProteolyticPeptide(protein, 1, protein.Length, 0, CleavageSpecificity.Full, "full"));
-                }
+                    // retain methionine
+                    if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M')
+                        && OkayLength(protein.Length, minPeptideLength, maxPeptideLength))
+                    {
+                        peptides.Add(new ProteolyticPeptide(protein, 1, protein.Length, 0, CleavageSpecificity.Full, "full"));
+                    }
 
-                // cleave methionine
-                if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M')
-                    && OkayLength(protein.Length - 1, minPeptideLength, maxPeptideLength))
+                    // cleave methionine
+                    if ((initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M')
+                        && OkayLength(protein.Length - 1, minPeptideLength, maxPeptideLength))
+                    {
+                        peptides.Add(new ProteolyticPeptide(protein, 2, protein.Length, 0, CleavageSpecificity.Full, "full:M cleaved"));
+                    }
+                }
+                else
                 {
-                    peptides.Add(new ProteolyticPeptide(protein, 2, protein.Length, 0, CleavageSpecificity.Full, "full:M cleaved"));
+                    protein.AddBiomarkers(true, true, true, true, initiatorMethionineBehavior, minPeptideLength, 7, "biomarker");
                 }
 
                 // Also digest using the proteolysis product start/end indices

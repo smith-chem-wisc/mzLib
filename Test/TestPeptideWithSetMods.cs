@@ -930,6 +930,21 @@ namespace Test
             }
         }
 
+        [Test] 
+        public static void TestPeptideWithSetModsReturnsBiomarkersInTopDown()
+        {
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications)[0];
+
+            Protease protease = new Protease("top-down biomarker", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
+
+            List<PeptideWithSetModifications> insulinBiomarkers = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
+
+            Assert.AreEqual(102, insulinBiomarkers.Count);
+            
+        }
 
         [Test]
         public static void CheckFullChemicalFormula()
