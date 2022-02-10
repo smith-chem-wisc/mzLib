@@ -137,8 +137,8 @@ namespace Proteomics.ProteolyticDigestion
                 if (!_mostAbundantMonoisotopicMass.HasValue)
                 {
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
-                    double maxIntensity = dist.Intensities.Max();
-                    _mostAbundantMonoisotopicMass = dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)];
+                    double maxIntensity = dist.Intensities.Max();                        
+                    return (double)ClassExtensions.RoundedDouble(dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
                 }
                 return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
             }
