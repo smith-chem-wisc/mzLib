@@ -602,7 +602,6 @@ namespace Test
             Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications)[0];
             Assert.AreEqual(4, insulin.ProteolysisProducts.Count());
-
             insulin.AddBiomarkers(true, false, true, true, InitiatorMethionineBehavior.Cleave, 7, 7, "biomarker");
 
             int newFullProteinBiomarkers = insulin.ProteolysisProducts.Where(p => p.Type == "biomarker").Count();
