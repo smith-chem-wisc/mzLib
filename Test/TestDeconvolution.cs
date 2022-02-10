@@ -1,6 +1,10 @@
+using Chemistry;
+using IO.MzML;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -53,6 +57,39 @@ namespace Test
             //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
             Assert.That(monoIsotopicMasses[0], Is.EqualTo(14037.926829).Within(.0005));
+        }
+
+        [Test]
+
+        [TestCase("APSGGKK", "12-18-17_frac7_calib_ms1_663_665.mzML", 2)]
+        [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017-calib_ms1_scans716_718.mzML", 8)]
+        [TestCase("PKRKVSSAEGAAKEEPKRRSARLSAKPPAKVEAKPKKAAAKDKSSDKKVQTKGKRGAKGKQAEVANQETKEDLPAENGETKTEESPASDEAGEKEAKSD", "FXN11_tr1_032017-calib_ms1_scans781_783.mzML", 16)]
+        //[TestCase("PEPSKSAPAPKKGSKKAITKAQKKDGKKRKRSRKESYSIYVYKVLKQVHPDTGISSKAMGIMNSFVNDIFERIAGEASRLAHYNKRSTITSREIQTAVRLLLPGELAKHAVSEGTKAVTKYTSSK", "FXN11_tr1_032017-calib_ms1_scans1321_1323.mzML", 22)]
+
+        public static void CheckGetMostAbundantObservedIsotopicMass(string peptide, string file, int charge)
+        {
+            Protein test1 = new Protein(peptide, "Accession");
+            DigestionParams d = new DigestionParams();
+            PeptideWithSetModifications pw = new PeptideWithSetModifications(test1, d, 1, test1.Length, CleavageSpecificity.None, "", 0, new Dictionary<int, Modification>(), 0);
+            double m = pw.MostAbundantMonoisotopicMass.ToMz(charge);
+
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", file);
+            Mzml singleMZML = Mzml.LoadAllStaticData(singleScan);
+
+            List<MsDataScan> singlescan = singleMZML.GetAllScansList();
+            
+            MzSpectrum singlespec = singlescan[0].MassSpectrum;
+            MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
+            int minAssumedChargeState = 1;
+            int maxAssumedChargeState = 60;
+            double deconvolutionTolerancePpm = 20;
+            double intensityRatioLimit = 3;
+
+            List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+
+            List<IsotopicEnvelope>  lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
+
+            Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass/charge, Is.EqualTo(m).Within(m/10e6 * 20));
         }
     }
 }
