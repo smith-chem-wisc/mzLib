@@ -684,13 +684,6 @@ namespace Test
             insulin.AddBiomarkers(false, true, true, true, InitiatorMethionineBehavior.Cleave, 7, 7);
             newFullProteinBiomarkers = insulin.ProteolysisProducts.Count();
 
-            List<string> output = new();
-            foreach (ProteolysisProduct product in insulin.ProteolysisProducts)
-            {
-                output.Add(product.Type + "\t" + product.OneBasedBeginPosition + "\t" + product.OneBasedEndPosition);
-            }
-            File.WriteAllLines(@"C:\Users\mrsho\Documents\Projects\junk\products.tsv", output);
-
             Assert.AreEqual(75, newFullProteinBiomarkers);
         }
 
