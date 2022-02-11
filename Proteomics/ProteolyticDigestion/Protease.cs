@@ -130,7 +130,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 else
                 {
-                    protein.AddBiomarkers(true, true, true, true, initiatorMethionineBehavior, minPeptideLength, 7, "biomarker");
+                    protein.AddBiomarkers(true, true, true, true, initiatorMethionineBehavior, minPeptideLength, 7);
                 }
 
                 // Also digest using the proteolysis product start/end indices
