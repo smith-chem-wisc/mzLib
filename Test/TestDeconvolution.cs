@@ -60,7 +60,6 @@ namespace Test
         }
 
         [Test]
-
         [TestCase("APSGGKK", "12-18-17_frac7_calib_ms1_663_665.mzML", 2)]
         [TestCase("PKRKAEGDAKGDKAKVKDEPQRRSARLSAKPAPPKPEPKPKKAPAKKGEKVPKGKKGKADAGKEGNNPAENGDAKTDQAQKAEGAGDAK", "FXN11_tr1_032017-calib_ms1_scans716_718.mzML", 8)]
         [TestCase("PKRKVSSAEGAAKEEPKRRSARLSAKPPAKVEAKPKKAAAKDKSSDKKVQTKGKRGAKGKQAEVANQETKEDLPAENGETKTEESPASDEAGEKEAKSD", "FXN11_tr1_032017-calib_ms1_scans781_783.mzML", 16)]
@@ -83,10 +82,14 @@ namespace Test
             double deconvolutionTolerancePpm = 20;
             double intensityRatioLimit = 3;
 
+            //check assigned correctly
             List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
-
             List<IsotopicEnvelope>  lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
             Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass/charge, Is.EqualTo(m).Within(0.1));
+            
+            //check that if already assigned, skips assignment and just recalls same value
+            List<IsotopicEnvelope> lie3 = singlespec.Deconvolute(singleRange, minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+            Assert.AreEqual(lie2.Select(p => p.MostAbundantObservedIsotopicMass), lie3.Select(p => p.MostAbundantObservedIsotopicMass));
         }
     }
 }
