@@ -251,6 +251,8 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\humanInsulin.xml">
+       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans1321_1323.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
