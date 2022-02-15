@@ -1,5 +1,4 @@
-﻿using Chemistry;
-using MzLibUtil;
+﻿using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -290,7 +289,6 @@ namespace Test
             Assert.AreEqual(first, "PRON");
         }
 
-
         [Test]
         public static void TestNterminalProteolysis()
         {
@@ -395,7 +393,7 @@ namespace Test
             {
                 productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
             }
-            expectedProductSequences = new List<string> { "PEPTIDE", "EPTIDE"};
+            expectedProductSequences = new List<string> { "PEPTIDE", "EPTIDE" };
             CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
         }
 
@@ -610,6 +608,40 @@ namespace Test
             insulin.AddBiomarkers(false, true, true, true, false, 7, 7, "biomarker");
             newFullProteinBiomarkers = insulin.ProteolysisProducts.Where(p => p.Type == "biomarker").Count();
             Assert.AreEqual(70, newFullProteinBiomarkers);
+        }
+
+        [Test]
+        public static void TestProteoformsCleavedOnce()
+        {
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "P08709.xml");
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true, DecoyType.None, null, false, null, out var unknownModifications)[0];
+
+
+            insulin.CleaveOnceBetweenProteolysisProducts();
+            List<string> productNames = insulin.ProteolysisProducts.Select(t => t.Type).ToList();
+            Assert.AreEqual(8, productNames.Count);
+            Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(21-466)"));
+            Assert.IsTrue(productNames.Contains("N-terminal Portion of Singly Cleaved Protein(1-60)"));
+            Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(61-466)"));
+            Assert.IsTrue(productNames.Contains("N-terminal Portion of Singly Cleaved Protein(1-212)"));
+        }
+
+        [Test]
+        public static void DeleteThisTest()
+        {
+            string xmlDatabase = @"C:\Users\mrsho\Documents\junk\UP000005640_reviewed.xml";
+            List<Protein> allProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true, DecoyType.None, null, false, null, out var unknownModifications);
+
+            List<string> myoutput = new();
+            foreach (Protein protein in allProteins)
+            {
+                myoutput.Add(protein.Accession);
+                foreach (ProteolysisProduct product in protein.ProteolysisProducts)
+                {
+                    myoutput.Add(product.Type);
+                }
+            }
+            File.WriteAllLines(@"C:\Users\mrsho\Documents\junk\\proteolysisProductTypes", myoutput);
         }
 
         [Test]
