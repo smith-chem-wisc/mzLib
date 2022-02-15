@@ -1,11 +1,14 @@
-﻿using MzLibUtil;
+﻿using Chemistry;
+using MzLibUtil;
 using NUnit.Framework;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -84,7 +87,7 @@ namespace Test
         public static void TestWildCardExclusion()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");            
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("RX{P}|");
             Protease multiletter = new Protease("multiletter", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(multiletter.Name, multiletter);
 
@@ -174,7 +177,7 @@ namespace Test
         public static void TestCutIndexDifferentSyntax()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|            
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("K|[P]"); // same as K[P]|
             Protease protease = new Protease("lys-c", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(protease.Name, protease);
 
@@ -269,7 +272,7 @@ namespace Test
         public static void TestOneMotifMultiplePreventing()
         {
             var empty = new List<Modification>();
-            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");            
+            var digestionmotifs = DigestionMotif.ParseDigestionMotifsFromString("N[M]|,N[C]|,N[A]|");
             Protease customProtease = new Protease("custom", CleavageSpecificity.Full, "", "", digestionmotifs);
             ProteaseDictionary.Dictionary.Add(customProtease.Name, customProtease);
 
@@ -285,6 +288,328 @@ namespace Test
 
             Assert.AreEqual(myPeptides.Count, 2);
             Assert.AreEqual(first, "PRON");
+        }
+
+
+        [Test]
+        public static void TestNterminalProteolysis()
+        {
+            //N-terminal digestion
+            Protein p = new Protein("MPEPTIDE", "P12345");
+            int fullProteinOneBasedBegin = 1;
+            int fullProteinOneBasedEnd = 8;
+            bool addNterminalDegestionBiomarkers = true;
+            bool addCterminalDigestionBiomarkers = false;
+            bool retainNterminalMethionine = true;
+            int minProductBaseSequenceLength = 2;
+            int lengthOfProteolysis = 3;
+            string proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            List<string> productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            List<string> expectedProductSequences = new List<string> { "PEPTIDE", "EPTIDE", "PTIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("MPEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 8;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = false;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "EPTIDE", "PTIDE", "TIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("PEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 7;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = false;
+            retainNterminalMethionine = true;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "EPTIDE", "PTIDE", "TIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("PEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 7;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = false;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "EPTIDE", "PTIDE", "TIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("MPEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 8;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = false;
+            retainNterminalMethionine = true;
+            minProductBaseSequenceLength = 6;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(2, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTIDE", "EPTIDE"};
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+        }
+
+        [Test]
+        public static void TestCterminalProteolysis()
+        {
+            //N-terminal digestion
+            Protein p = new Protein("MPEPTIDE", "P12345");
+            int fullProteinOneBasedBegin = 1;
+            int fullProteinOneBasedEnd = 8;
+            bool addNterminalDegestionBiomarkers = false;
+            bool addCterminalDigestionBiomarkers = true;
+            bool retainNterminalMethionine = true;
+            int minProductBaseSequenceLength = 2;
+            int lengthOfProteolysis = 3;
+            string proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            List<string> productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            List<string> expectedProductSequences = new List<string> { "MPEPTID", "MPEPTI", "MPEPT" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("MPEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 8;
+            addNterminalDegestionBiomarkers = false;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "PEPTI", "PEPT" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("PEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 7;
+            addNterminalDegestionBiomarkers = false;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = true;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "PEPTI", "PEPT" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("PEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 7;
+            addNterminalDegestionBiomarkers = false;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(3, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "PEPTI", "PEPT" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+        }
+
+        [Test]
+        public static void TestProteolysisBothTermini()
+        {
+            Protein p = new Protein("MPEPTIDE", "P12345");
+            int fullProteinOneBasedBegin = 1;
+            int fullProteinOneBasedEnd = 8;
+            bool addNterminalDegestionBiomarkers = true;
+            bool addCterminalDigestionBiomarkers = true;
+            bool retainNterminalMethionine = true;
+            int minProductBaseSequenceLength = 2;
+            int lengthOfProteolysis = 3;
+            string proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            List<ProteolysisProduct> products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(6, products.Count);
+
+            List<string> productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            List<string> expectedProductSequences = new List<string> { "MPEPTID", "MPEPTI", "MPEPT", "PEPTIDE", "EPTIDE", "PTIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("MPEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 8;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(6, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "PEPTI", "PEPT", "EPTIDE", "PTIDE", "TIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("PEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 7;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = true;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(6, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "PEPTI", "PEPT", "EPTIDE", "PTIDE", "TIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("PEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 7;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 2;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName);
+            products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(6, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "PEPTI", "PEPT", "EPTIDE", "PTIDE", "TIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+
+            p = new Protein("MPEPTIDE", "P12345");
+            fullProteinOneBasedBegin = 1;
+            fullProteinOneBasedEnd = 8;
+            addNterminalDegestionBiomarkers = true;
+            addCterminalDigestionBiomarkers = true;
+            retainNterminalMethionine = false;
+            minProductBaseSequenceLength = 6;
+            lengthOfProteolysis = 3;
+            proteolyisisProductName = "biomarker";
+            p.AddBiomarkersToProteolysisProducts(fullProteinOneBasedBegin, fullProteinOneBasedEnd, addNterminalDegestionBiomarkers, addCterminalDigestionBiomarkers, retainNterminalMethionine, minProductBaseSequenceLength, lengthOfProteolysis, proteolyisisProductName); products = p.ProteolysisProducts.ToList();
+            Assert.AreEqual(2, products.Count);
+
+            productSequences = new List<string>();
+            foreach (ProteolysisProduct product in products)
+            {
+                productSequences.Add(p.BaseSequence.Substring((int)product.OneBasedBeginPosition - 1, (int)product.OneBasedEndPosition - (int)product.OneBasedBeginPosition + 1));
+            }
+            expectedProductSequences = new List<string> { "PEPTID", "EPTIDE" };
+            CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
+        }
+
+        [Test]
+        public static void TestBiomarkersOnProteinXmlWithExistingProteolysisProducts()
+        {
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications)[0];
+            Assert.AreEqual(4, insulin.ProteolysisProducts.Count());
+
+            insulin.AddBiomarkers(true, false, true, true, false, 7, 7, "biomarker");
+
+            int newFullProteinBiomarkers = insulin.ProteolysisProducts.Where(p => p.Type == "biomarker").Count();
+            Assert.AreEqual(14, newFullProteinBiomarkers);
+
+            insulin.AddBiomarkers(false, true, true, true, false, 7, 7, "biomarker");
+            newFullProteinBiomarkers = insulin.ProteolysisProducts.Where(p => p.Type == "biomarker").Count();
+            Assert.AreEqual(70, newFullProteinBiomarkers);
         }
 
         [Test]

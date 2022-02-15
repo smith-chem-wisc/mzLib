@@ -5,6 +5,8 @@ using System.IO;
 using MassSpectrometry;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using System.Collections.Generic;
+using MzLibUtil;
+using System.Linq;
 
 namespace Test
 {
@@ -58,6 +60,27 @@ namespace Test
             var ya3 = a.GetOneBasedScan(2).MassSpectrum;
             Assert.AreEqual(551, ya3.Size);
         }
+
+        [Test]
+        public void EliminateZeroIntensityPeaksFromMgfOnFileLoad()
+        {
+
+            //read the mgf file. zero intensity peaks should be eliminated during read
+            Mgf readfile = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf"));
+
+            //insure that read scans contain no zero intensity peaks
+            Assert.IsFalse(readfile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
+            Assert.IsFalse(readfile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
+
+            MgfDynamicData dynamicMgf = new MgfDynamicData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withZeros.mgf"));
+            MsDataScan dynamicScan1 = dynamicMgf.GetOneBasedScanFromDynamicConnection(1);
+            MsDataScan dynamicScan2 = dynamicMgf.GetOneBasedScanFromDynamicConnection(2);
+
+            Assert.IsFalse(dynamicScan1.MassSpectrum.YArray.Contains(0));
+            Assert.IsFalse(dynamicScan2.MassSpectrum.YArray.Contains(0));
+
+        }
+
 
         [Test]
         public static void TestLoadCorruptMgf()

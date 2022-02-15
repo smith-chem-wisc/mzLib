@@ -623,6 +623,35 @@ namespace Test
         }
 
         [Test]
+        public void EliminateZeroIntensityPeaksFromMzmlOnFileLoad()
+        {
+            //create an mzML file with zero intensity peaks in both MS1 and MS2 scans
+            MzSpectrum spectrum1 = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 0, 1, 2 }, false);
+            MzSpectrum spectrum2 = new MzSpectrum(new double[] { 2, 3, 4 }, new double[] { 0, 2, 4 }, false);
+            MsDataScan[] scans = new MsDataScan[2];
+            scans[0] = new MsDataScan(spectrum1, 1, 1, true, Polarity.Positive, 1.0, new MzRange(300, 2000), "scan filter", MZAnalyzerType.Unknown, spectrum1.SumOfAllY, null, null, null);
+            scans[1] = new MsDataScan(spectrum2, 2, 2, true, Polarity.Positive, 1, new MzRange(300, 2000), "scan filter", MZAnalyzerType.Unknown, spectrum2.SumOfAllY, 1, new double[,] { }, "nativeId", 2, 1, 1, 1, 1, DissociationType.Unknown, 1, 2, null);
+
+            MsDataFile testFile = new MsDataFile(scans, new SourceFile("no nativeID format", "mzML format", null, null, null));
+
+            //check that scans have zero intensities
+            Assert.IsTrue(testFile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
+            Assert.IsTrue(testFile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
+
+            //write the mzML file with zero intensity scans
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(testFile, "mzMLWithZeros.mzML", false);
+
+            //read the mzML file. zero intensity peaks should be eliminated during read
+            Mzml readFile = Mzml.LoadAllStaticData("mzMLWithZeros.mzML", null, 1);
+
+            //insure that read scans contain no zero intensity peaks
+            Assert.IsFalse(readFile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
+            Assert.IsFalse(readFile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
+
+            File.Delete("mzMLWithZeros.mzML");
+        }
+
+        [Test]
         public void LoadMzmlFromConvertedMGFTest()
         {
             Mzml a = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mzML"));

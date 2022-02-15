@@ -355,6 +355,21 @@ namespace IO.MzML
                                         throw new MzLibException("Could not determine the MS order or centroid/profile status");
                                     }
 
+                                    //Remove Zero Intensity Peaks
+                                    double zeroEquivalentIntensity = 0.01;
+                                    int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
+                                    int intensityValueCount = intensities.Count();
+                                    if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+                                    {
+                                        Array.Sort(intensities, mzs);
+                                        double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+                                        double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+                                        intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                        mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                        Array.Sort(mzs, intensities);
+                                    }
+
+
                                     // peak filtering
                                     if (filterParams != null && intensities.Length > 0 &&
                                         ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
