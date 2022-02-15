@@ -120,7 +120,7 @@ namespace UsefulProteomicsDatabases
                     foreach (var proteolysisProduct in protein.ProteolysisProducts)
                     {
                         writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", proteolysisProduct.Type);
+                        writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
                         writer.WriteStartElement("location");
                         writer.WriteStartElement("begin");
                         writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
