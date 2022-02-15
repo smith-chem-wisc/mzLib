@@ -91,6 +91,7 @@ namespace UsefulProteomicsDatabases
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
+                            JoinAdjacentProteolysisProducts(newProtein);
                             if (newProtein != null)
                             {
                                 targets.Add(newProtein);
@@ -103,6 +104,33 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
+        }
+
+        private static void JoinAdjacentProteolysisProducts(Protein newProtein)
+        {
+            if(newProtein != null && newProtein.ProteolysisProducts.Count() > 1)
+            {
+                List<ProteolysisProduct> orderedProducts = newProtein.ProteolysisProducts.OrderBy(p => p.OneBasedBeginPosition).ToList();
+                List<ProteolysisProduct> newProducts = new();
+                foreach (ProteolysisProduct product in orderedProducts)
+                {
+                    List<ProteolysisProduct> adjacentProducts = orderedProducts.Where(p => p.OneBasedBeginPosition == (product.OneBasedEndPosition + 1)).ToList();
+                    if(adjacentProducts.Count > 0)
+                    {
+                        foreach (ProteolysisProduct adjacentProduct in adjacentProducts)
+                        {
+                            newProducts.Add(new ProteolysisProduct(product.OneBasedBeginPosition, adjacentProduct.OneBasedEndPosition, product.Type + " " + adjacentProduct.Type));
+                        }
+                    }
+                }
+                foreach (ProteolysisProduct newProduct in newProducts)
+                {
+                    if (!newProtein.ProteolysisProducts.Any(p=>p.OneBasedBeginPosition == newProduct.OneBasedBeginPosition && p.OneBasedEndPosition == newProduct.OneBasedEndPosition))
+                    {
+                        newProtein.
+                    }
+                }
+            }
         }
 
         /// <summary>

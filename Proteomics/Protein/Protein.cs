@@ -643,7 +643,62 @@ namespace Proteomics
                 }
             }
         }
+        private void JoinAdjacentProteolysisProducts()
+        {
+            if (_proteolysisProducts.Count() > 1)
+            {
+                List<ProteolysisProduct> orderedProducts = _proteolysisProducts.OrderBy(p => p.OneBasedBeginPosition).ToList();
+                List<ProteolysisProduct> newProducts = new();
+                foreach (ProteolysisProduct product in orderedProducts)
+                {
+                    List<ProteolysisProduct> adjacentProducts = orderedProducts.Where(p => p.OneBasedBeginPosition == (product.OneBasedEndPosition + 1)).ToList();
+                    if (adjacentProducts.Count > 0)
+                    {
+                        foreach (ProteolysisProduct adjacentProduct in adjacentProducts)
+                        {
+                            newProducts.Add(new ProteolysisProduct(product.OneBasedBeginPosition, adjacentProduct.OneBasedEndPosition, product.Type + " " + adjacentProduct.Type));
+                        }
+                    }
+                }
+                foreach (ProteolysisProduct newProduct in newProducts)
+                {
+                    if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == newProduct.OneBasedBeginPosition && p.OneBasedEndPosition == newProduct.OneBasedEndPosition))
+                    {
+                        _proteolysisProducts.Add(newProduct);
+                    }
+                }
+            }
+        }
 
+        private void CleaveOnceBetweenProteolysisProducts()
+        {
+            List<int> cleavagePostions = new();
+            List<int> proteolysisProductEndPositions = _proteolysisProducts.Select(p => p.OneBasedEndPosition.Value).ToList();
+            if(proteolysisProductEndPositions.Count > 0)
+            {
+                foreach (int proteolysisProductEndPosition in proteolysisProductEndPositions)
+                {
+                    if(_proteolysisProducts.Any(p=>p.OneBasedBeginPosition == (proteolysisProductEndPosition + 1)))
+                    {
+                        cleavagePostions.Add(proteolysisProductEndPosition);
+                    }
+                }
+            }
+
+            foreach (int position in cleavagePostions)
+            {
+                ProteolysisProduct leftProduct = new ProteolysisProduct(1, position, "Proteoform Cleaved Once Left Portion");
+                if (!_proteolysisProducts.Any(p=>p.OneBasedBeginPosition == leftProduct.OneBasedBeginPosition && p.OneBasedEndPosition == leftProduct.OneBasedEndPosition))
+                {
+                    _proteolysisProducts.Add(leftProduct);
+                }
+                ProteolysisProduct rightProduct = new ProteolysisProduct(position + 1, BaseSequence.Length, "Proteoform Cleaved Once Right Portion");
+                if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == rightProduct.OneBasedBeginPosition && p.OneBasedEndPosition == rightProduct.OneBasedEndPosition))
+                {
+                    _proteolysisProducts.Add(rightProduct);
+                }
+            }
+        }
         private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
         {
             bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
