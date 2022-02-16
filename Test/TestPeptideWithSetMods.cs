@@ -942,7 +942,7 @@ namespace Test
 
             List<PeptideWithSetModifications> insulinBiomarkers = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
 
-            Assert.AreEqual(77, insulinBiomarkers.Count);
+            Assert.AreEqual(92, insulinBiomarkers.Count);
             
         }
 
@@ -958,11 +958,11 @@ namespace Test
 
             List<PeptideWithSetModifications> insulintTargetBiomarkers = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
 
-            Assert.AreEqual(77, insulintTargetBiomarkers.Count);
+            Assert.AreEqual(92, insulintTargetBiomarkers.Count);
 
             List<PeptideWithSetModifications> insulintDecoyBiomarkers = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
 
-            Assert.AreEqual(77, insulintDecoyBiomarkers.Count);
+            Assert.AreEqual(92, insulintDecoyBiomarkers.Count);
         }
 
         [Test]
