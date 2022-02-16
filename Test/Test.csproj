@@ -259,6 +259,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\humanInsulin.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\humanInsulin.xml">
        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
