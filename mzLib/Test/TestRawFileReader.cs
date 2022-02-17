@@ -1,10 +1,13 @@
 ﻿using IO.MzML;
+using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using NUnit.Framework;
 using System;
 using System.Diagnostics;
 using System.IO;
 using IO.ThermoRawFileReader;
+using System.Linq;
+
 
 namespace Test
 {
@@ -150,6 +153,8 @@ namespace Test
             {
                 MsDataScan dynamicScan = dynamicRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
 
+                Assert.IsFalse(staticScan.MassSpectrum.YArray.Contains(0));
+                Assert.IsFalse(dynamicScan.MassSpectrum.YArray.Contains(0));
                 Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
                 Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
