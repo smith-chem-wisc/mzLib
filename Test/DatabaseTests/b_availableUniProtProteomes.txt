@@ -1,0 +1,5 @@
+Proteome ID	Organism	Organism ID	Protein count	BUSCO	CPD
+UP000005640	Homo sapiens (Human)	9606	75776		Outlier
+UP000002311	Saccharomyces cerevisiae (strain ATCC 204508 / S288c) (Baker's yeast) (Strain: ATCC 204508 / S288c)	559292	6049		Standard
+UP000000625	Escherichia coli (strain K12) (Strain: K12 / MG1655 / ATCC 47076)	83333	4437		Standard
+UP000000589	Mus musculus (Mouse) (Strain: C57BL/6J)	10090	55474		Close to Standard

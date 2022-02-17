@@ -930,6 +930,40 @@ namespace Test
             }
         }
 
+        [Test] 
+        public static void TestPeptideWithSetModsReturnsBiomarkersInTopDown()
+        {
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.None, null, false, null, out var unknownModifications)[0];
+
+            Protease protease = new Protease("top-down biomarker", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
+
+            List<PeptideWithSetModifications> insulinBiomarkers = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
+
+            Assert.AreEqual(77, insulinBiomarkers.Count);
+            
+        }
+
+        [Test]
+        public static void TestPeptideWithSetModsReturnsDecoyBiomarkersInTopDown()
+        {
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+
+            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
+                DecoyType.Reverse, null, false, null, out var unknownModifications);
+
+            Protease protease = new Protease("top-down biomarker", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
+
+            List<PeptideWithSetModifications> insulintTargetBiomarkers = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
+
+            Assert.AreEqual(77, insulintTargetBiomarkers.Count);
+
+            List<PeptideWithSetModifications> insulintDecoyBiomarkers = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>()).ToList();
+
+            Assert.AreEqual(77, insulintDecoyBiomarkers.Count);
+        }
 
         [Test]
         public static void CheckFullChemicalFormula()
@@ -961,6 +995,18 @@ namespace Test
             PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
             ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
             Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
+        }
+
+        [Test]
+        public static void CheckMostAbundantMonoisotopicMass()
+        {
+            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            double small_pep_most_abundant_mass_prospector = 800.36724 - 1.0079;
+            Assert.That(small_pep.MostAbundantMonoisotopicMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
+
+            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
+            Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
         }
     }
 }
