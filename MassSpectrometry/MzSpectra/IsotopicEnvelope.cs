@@ -6,7 +6,7 @@ namespace MassSpectrometry
 {
     public class IsotopicEnvelope
     {
-        public readonly List<(double mz, double intensity)> Peaks;
+        public List<(double mz, double intensity)> Peaks { get; set; }
         public double MonoisotopicMass { get; private set; }
         public readonly int Charge;
         public readonly double TotalIntensity;
@@ -25,7 +25,7 @@ namespace MassSpectrometry
             MassIndex = bestMassIndex;
             Score = ScoreIsotopeEnvelope();
         }
-
+ 
         public override string ToString()
         {
             return Charge + "\t" + Peaks[0].mz.ToString("G8") + "\t" + Peaks.Count + "\t" + TotalIntensity;

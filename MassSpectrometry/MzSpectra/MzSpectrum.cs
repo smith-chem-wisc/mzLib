@@ -811,5 +811,13 @@ namespace MassSpectrometry
         {
             return new MzPeak(XArray[index], YArray[index]);
         }
+
+        public void NormalizeToTIC(double tic)
+        {
+            for (int i = 0; i < this.YArray.Length - 1; i++)
+            {
+                this.YArray[i] = this.YArray[i] / tic;
+            }
+        }
     }
 }

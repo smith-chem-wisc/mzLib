@@ -7,6 +7,8 @@ namespace MassSpectrometry
     {
         public List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)> isotopicEnvelopes = new List<(int scanNumber, double elutionTime, IsotopicEnvelope isotopicEnvelope)>();
 
+        List<(int scanNum, IsotopicEnvelope isotopicEnvelope, double[] XArray, double[] YArray)> usefulData = new List<(int scanNum, IsotopicEnvelope isotopicEnvelope, double[] XArray, double[] YArray)>();
+                    
         public double Mass { get; private set; }
 
         public int NumPeaks { get; private set; }
@@ -20,4 +22,6 @@ namespace MassSpectrometry
             NumPeaks = isotopicEnvelopes.Select(b => b.isotopicEnvelope.Peaks.Count).Sum();
         }
     }
+    public interface decon { }
+
 }
