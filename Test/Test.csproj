@@ -34,6 +34,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.txt.gz">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\bad.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -248,6 +257,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\BinGenerationTest.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\humanInsulin.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\humanInsulin.xml">
