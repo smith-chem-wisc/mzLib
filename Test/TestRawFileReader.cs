@@ -215,27 +215,28 @@ namespace Test
         [Test]
         public static void FragmentationPatterns()
         {
-            string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\2021-01-06_YeastFraction1_MS1-PMS2_HighHigh.raw"; //Big File
-            //string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTestSmall.mzML"; //Trimmed File
+            //string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTest.raw"; //Big File
+            //var scans = ThermoRawFileReader.LoadAllStaticData(filePath).GetAllScansList();
+            string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTestSmall.mzML"; //Trimmed File
             var scans = Mzml.LoadAllStaticData(filePath).GetAllScansList();
+
             int minAssumedChargeState = 2;
             int maxAssumedChargeState = 60;
             int deconvolutionTolerancePpm = 4;
             int intensityRatio = 3;
-            var usefulData = new List<ImportantData>();
+            var preliminaryProcessing = new List<MatchedIons>();
 
             //creates a list of the relavant data from the Spectrum after deconvolution and normalizing to TIC
             foreach (var scan in scans)
             {
                 var tempEnvelope = scan.MassSpectrum.Deconvolute(scan.MassSpectrum.Range, minAssumedChargeState,
                     maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio).ToList();
-                scan.MassSpectrum.NormalizeToTIC(scan.TotalIonCurrent);
-                var test = new ImportantData(scan.OneBasedScanNumber, tempEnvelope, scan.MassSpectrum.XArray, scan.MassSpectrum.YArray, scan.TotalIonCurrent);
-                usefulData.Add(test);
+                var test = new MatchedIons(scan.OneBasedScanNumber, tempEnvelope, scan.TotalIonCurrent);
+                preliminaryProcessing.Add(test);
             }
 
-            var sidScans = usefulData.Where(p => p.sidBool == true).ToList();
-            var norScans = usefulData.Where(p => p.sidBool == false).ToList();
+            var sidScans = preliminaryProcessing.Where(p => p.sidBool == true).ToList();
+            var norScans = preliminaryProcessing.Where(p => p.sidBool == false).ToList();
             var matchedIons = new List<MatchedIons>();
 
             //Itterates through each pair of scans and finds where the monoisotopic masses are within the ppm error defined below
@@ -274,33 +275,31 @@ namespace Test
                         var normTolerance = isoEnvNorm.MonoisotopicMass / 10e6 * ppmError;
                         var sidTolerance = isoEnvSid.MonoisotopicMass / 10e6 * ppmError;
                         if ((Math.Round(isoEnvNorm.MonoisotopicMass, 4) >= Math.Round(isoEnvSid.MonoisotopicMass, 4) - sidTolerance && 
-                            Math.Round(isoEnvNorm.MonoisotopicMass, 4) <= Math.Round(isoEnvSid.MonoisotopicMass, 4) + sidTolerance) || 
+                             Math.Round(isoEnvNorm.MonoisotopicMass, 4) <= Math.Round(isoEnvSid.MonoisotopicMass, 4) + sidTolerance) || 
                             (Math.Round(isoEnvNorm.MonoisotopicMass, 4) + normTolerance >= Math.Round(isoEnvSid.MonoisotopicMass, 4) &&
-                            Math.Round(isoEnvNorm.MonoisotopicMass, 4) - normTolerance <= Math.Round(isoEnvSid.MonoisotopicMass, 4)))
+                             Math.Round(isoEnvNorm.MonoisotopicMass, 4) - normTolerance <= Math.Round(isoEnvSid.MonoisotopicMass, 4)))
                         {
                             double fragEfficiency = (isoEnvNorm.TotalIntensity / norScans[i].totalIonCurrent) / (isoEnvSid.TotalIntensity / sidScans[i].totalIonCurrent);
                             int sidCharge = isoEnvSid.Charge;
                             int norCharge = isoEnvNorm.Charge;
-                            double[][] sidArray = new double[][] {sidScans[i].XArray, sidScans[i].YArray};
-                            double[][] normArray = new double[][] { norScans[i].XArray, norScans[i].YArray };
                             if (sidCharge == norCharge)
                                 
                                 matchedIons.Add(new MatchedIons(isoEnvSid, isoEnvNorm, Math.Round(maxIntIonNorm, 4), 
-                                    norCharge, normArray, sidArray, maxIntNorm, maxIntSid, norScans[i].totalIonCurrent, sidScans[i].totalIonCurrent));
+                                    norCharge, maxIntNorm, maxIntSid, norScans[i].totalIonCurrent, sidScans[i].totalIonCurrent));
                         }
 
                     }
                 }
             }
             var sortedIons = matchedIons.OrderBy(p => p.matchedIonMZ).ToList();
-            var groupedIons = sortedIons.GroupBy(p => p.chargeState).Select(p => p.ToList()).ToList();
+            var groupedIons = sortedIons.GroupBy(p => p.chargeState).Select(p => p.ToList()).ToList(); //unused as of yet, group by other factors for future data analysis. 
 
             string printout;
-            string filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\allLysateScans.txt";
+            string filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\aSmolScan2.txt";
             using (StreamWriter sw = new StreamWriter(filename))
             {
                 sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
-                foreach (var ion in matchedIons)
+                foreach (var ion in sortedIons)
                 {
                     printout = "";
                     printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.normIsotopicEnvelope.MonoisotopicMass + " : " + ion.fragmentationEfficiencyOneIon + " : " + 
@@ -310,6 +309,7 @@ namespace Test
             }
 
         }
+        //Discarded this as the xArray peak and what the IsotopicEnvelopes differed by a bit, so things were getting missed
         public static int FindEnvelopeIndex(double mass, List<IsotopicEnvelope> envelopes)
         {
             int i = 0;
@@ -328,27 +328,28 @@ namespace Test
 }
 public class MatchedIons
 {
-    public double[][] sidArray;
-    public double[][] normArray;
     public int chargeState;
     public IsotopicEnvelope sidIsotopicEnvelope;
     public IsotopicEnvelope normIsotopicEnvelope;
+    public List<IsotopicEnvelope> isotopicEnvelope;
     public double sidIntensity;
     public double normIntensity;
     public double matchedIonMZ;
     public double fragmentationEfficiencyTotal;
     public double fragmentationEfficiencyOneIon;
+    public double totalIonCurrent;
     public double sidTotalIonCurrent;
     public double normTotalIonCurrent;
+    public int scanNumber;
+    public bool sidBool;
+    
 
-    public MatchedIons(IsotopicEnvelope sid, IsotopicEnvelope norm, double mz, int charge, double[][] normArr, double[][] sidArr, double normInt, double sidInt, double normCurrent, double sidCurrent)
+    public MatchedIons(IsotopicEnvelope sid, IsotopicEnvelope norm, double mz, int charge, double normInt, double sidInt, double normCurrent, double sidCurrent)
     {
         sidIsotopicEnvelope = sid;
         normIsotopicEnvelope = norm;
         matchedIonMZ = mz;
         chargeState = charge;
-        sidArray = sidArr;
-        normArray = normArr;
         normIntensity = normInt;
         sidIntensity = sidInt;
         sidTotalIonCurrent = sidCurrent;
@@ -356,62 +357,17 @@ public class MatchedIons
         fragmentationEfficiencyOneIon = (normInt / normCurrent) / (sidInt / sidCurrent);
         fragmentationEfficiencyTotal = (norm.TotalIntensity / normCurrent) / (sid.TotalIntensity / sidCurrent);
     }
-    public MatchedIons(IsotopicEnvelope sid, IsotopicEnvelope norm, double mz, double normInt, double sidInt)
-    {
-        normIntensity = normInt;
-        sidIntensity = sidInt;
-        matchedIonMZ = mz;
-        sidIsotopicEnvelope = sid;
-        normIsotopicEnvelope = norm;
-        fragmentationEfficiencyOneIon = normInt / sidInt;
-        fragmentationEfficiencyTotal = norm.TotalIntensity / sid.TotalIntensity;
-    }
-}
-public class ImportantData
-{
-    public int scanNumber;
-    public List<IsotopicEnvelope> isotopicEnvelope;
-    public List<List<IsotopicEnvelope>> groupedIsotopicEnvelopes;
-    public double[] XArray;
-    public double[] YArray;
-    public bool sidBool;
-    public List<ImportantData> sid;
-    public List<ImportantData> norm;
-    public double fragmentationEfficiency;
-    public int chargeState;
-    public double totalIonCurrent;
-    public ImportantData(int scanNum, List<IsotopicEnvelope> isotopicEnv, double[] XArr, double[] YArr, double ionCurr)
+    public MatchedIons(int scanNum, List<IsotopicEnvelope> envelope, double ionCurrent)
     {
         scanNumber = scanNum;
-        isotopicEnvelope = isotopicEnv;
-        totalIonCurrent = ionCurr;
-        XArray = XArr;
-        YArray = YArr;
+        isotopicEnvelope = envelope;
+        totalIonCurrent = ionCurrent;
         int oddEven = scanNum % 2;
         if (oddEven == 0)
             sidBool = true;
         else if (oddEven != 0)
             sidBool = false;
     }
-
-    public ImportantData(int scanNum, List<List<IsotopicEnvelope>> tempEnvelope, double[] xArray, double[] yArray)
-    {
-        scanNumber = scanNum;
-        groupedIsotopicEnvelopes = tempEnvelope;
-        XArray = xArray;
-        YArray = yArray;
-        if (scanNum % 2 == 0)
-            sidBool = true;
-        if (scanNum % 2 != 0)
-            sidBool = false;
-    }
-
-    public ImportantData(double fragEff, int charge)
-    {
-        fragmentationEfficiency = fragEff;
-        chargeState = charge;
-    }
-
-    public List<List<IsotopicEnvelope>> groupedIsotpicEnvelopes { get; }
 }
+
 
