@@ -914,6 +914,8 @@ namespace FlashLFQ
                     }
                 }
 
+                //here is where we get the cosine similarity.
+
                 _results.Peaks[idAcceptorFile].Add(best);
             }
 
