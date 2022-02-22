@@ -814,9 +814,17 @@ namespace MassSpectrometry
 
         public void NormalizeToTIC(double tic)
         {
-            for (int i = 0; i < this.YArray.Length - 1; i++)
+            for (int i = 0; i < this.YArray.Length; i++)
             {
                 this.YArray[i] = this.YArray[i] / tic;
+            }
+        }
+
+        public void RoundXArray(int roundFactor)
+        {
+            for (int i = 0; i < this.XArray.Length; i++)
+            {
+                this.XArray[i] = Math.Round(this.XArray[i], roundFactor);
             }
         }
     }
