@@ -55,7 +55,7 @@ namespace UsefulProteomicsDatabases
         //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts code
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1)
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addBiomarkers = false)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -93,7 +93,10 @@ namespace UsefulProteomicsDatabases
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
-                                newProtein.CleaveOnceBetweenProteolysisProducts();
+                                if (addBiomarkers)
+                                {
+                                    newProtein.AddBiomarkers();
+                                }
                                 targets.Add(newProtein);
                             }
                         }
@@ -161,7 +164,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1)
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addBiomarkers = false)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -275,6 +278,10 @@ namespace UsefulProteomicsDatabases
                         }
                         else
                         {
+                            if (addBiomarkers)
+                            {
+                                protein.AddBiomarkers();
+                            }
                             targets.Add(protein);
                         }
 

@@ -33,7 +33,7 @@ namespace Proteomics
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null)
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addBiomarkers = false)
         {
             // Mandatory
             BaseSequence = sequence;
@@ -64,6 +64,10 @@ namespace Proteomics
             DatabaseReferences = databaseReferences ?? new List<DatabaseReference>();
             DisulfideBonds = disulfideBonds ?? new List<DisulfideBond>();
             SpliceSites = spliceSites ?? new List<SpliceSite>();
+            if (addBiomarkers)
+            {
+                this.AddBiomarkers();
+            }
         }
 
         /// <summary>
@@ -244,14 +248,11 @@ namespace Proteomics
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParams.SearchModeType;
 
-            ProteinDigestion digestion = new ProteinDigestion(digestionParams, allKnownFixedModifications, variableModifications);
-
+            ProteinDigestion digestion = new(digestionParams, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                digestionParams.Protease.Name == "top-down biomarker" ?
-                digestion.Digestion(this) :
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
-                    digestion.Digestion(this);
+                digestion.Digestion(this);
 
             if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
             {
@@ -712,7 +713,7 @@ namespace Proteomics
         /// <param name="initiatorMethionineBehavior"> this effects the intact proteoform as well as any original proteolysis products containing the N-terminus</param>
         /// <param name="minProductBaseSequenceLength"> the same as the min detectable peptide</param>
         /// <param name="lengthOfProteolysis"> the number of amino acids that can be removed from either end.</param>
-        public void AddBiomarkers(bool addFullProtein, bool addForEachOrigninalProteolysisProduct, bool addNterminalDigestionBiomarkers, bool addCterminalDigestionBiomarkers, InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength, int lengthOfProteolysis)
+        public void AddBiomarkers(bool addFullProtein = true, bool addForEachOrigninalProteolysisProduct = true, bool addNterminalDigestionBiomarkers = true, bool addCterminalDigestionBiomarkers = true, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Cleave, int minProductBaseSequenceLength = 7, int lengthOfProteolysis = 5)
         {
             if (addFullProtein) //this loop adds the intact protoeoform and its proteolysis products to the proteolysis products list
             {
@@ -753,6 +754,7 @@ namespace Proteomics
                     }
                 }
             }
+            CleaveOnceBetweenProteolysisProducts();
         }
 
         /// <summary>
