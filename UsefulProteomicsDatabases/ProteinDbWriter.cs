@@ -117,7 +117,11 @@ namespace UsefulProteomicsDatabases
                         }
                         writer.WriteEndElement();
                     }
-                    foreach (var proteolysisProduct in protein.ProteolysisProducts)
+
+                    //for now we are not going to write top-down biomarkers generated for top-down biomarker search. 
+                    //some day we could write those if observed
+                    List<ProteolysisProduct> proteolysisProducts = protein.ProteolysisProducts.Where(p => !p.Type.Contains("biomarker")).ToList();
+                    foreach (var proteolysisProduct in proteolysisProducts)
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
