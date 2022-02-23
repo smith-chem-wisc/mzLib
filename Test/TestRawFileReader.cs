@@ -5,9 +5,7 @@ using NUnit.Framework;
 using System;
 using System.Diagnostics;
 using System.IO;
-using IO.ThermoRawFileReader;
 using System.Linq;
-
 
 namespace Test
 {
@@ -19,9 +17,6 @@ namespace Test
         [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
         [TestCase("small.raw", "a.mzML", "aa.mzML")]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
-        /// <summary>
-        /// Tests LoadAllStaticData for ThermoRawFileReader
-        /// </summary>
         public static void TestLoadAllStaticDataRawFileReader(string infile, string outfile1, string outfile2)
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
@@ -39,9 +34,6 @@ namespace Test
         }
 
         [Test]
-        /// <summary>
-        /// Tests the dynamic connection for ThermoRawFileReader
-        /// </summary>
         public static void TestDynamicConnectionRawFileReader()
         {
             Stopwatch stopwatch = new Stopwatch();
@@ -77,9 +69,6 @@ namespace Test
         [TestCase("testFileWMS2.raw")]
         [TestCase("small.raw")]
         [TestCase("05-13-16_cali_MS_60K-res_MS.raw")]
-        /// <summary>
-        /// Tests peak filtering for ThermoRawFileReader
-        /// </summary>
         public static void TestPeakFilteringRawFileReader(string infile)
         {
             Stopwatch stopwatch = new Stopwatch();
@@ -124,9 +113,6 @@ namespace Test
         }
 
         [Test]
-        /// <summary>
-        /// Just makes sure the Thermo RawFileReader licence is accessible...
-        /// </summary>
         public static void TestThermoLicence()
         {
             Stopwatch stopwatch = new Stopwatch();
