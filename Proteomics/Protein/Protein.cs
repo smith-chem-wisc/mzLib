@@ -822,7 +822,7 @@ namespace Proteomics
             }
         }
 
-        public void CleaveOnceBetweenProteolysisProducts()
+        public void CleaveOnceBetweenProteolysisProducts(int minimumProductLength = 7)
         {
             List<int> cleavagePostions = new();
             List<int> proteolysisProductEndPositions = _proteolysisProducts.Where(p => p.OneBasedEndPosition.HasValue).Select(p => p.OneBasedEndPosition.Value).ToList();
@@ -841,7 +841,7 @@ namespace Proteomics
             foreach (int position in cleavagePostions)
             {
                 
-                if(position - 1 > 7)
+                if(position - 1 >= minimumProductLength)
                 {
                     string leftType = "N-terminal Portion of Singly Cleaved Protein" + "(" + 1 + "-" + position + ")";
                     ProteolysisProduct leftProduct = new ProteolysisProduct(1, position, leftType);
@@ -851,7 +851,7 @@ namespace Proteomics
                     }
                 }
 
-                if(BaseSequence.Length - position -1 > 7)
+                if(BaseSequence.Length - position -1 >= minimumProductLength)
                 {
                     string rightType = "C-terminal Portion of Singly Cleaved Protein" + "(" + (position + 1).ToString() + "-" + BaseSequence.Length + ")";
                     ProteolysisProduct rightProduct = new ProteolysisProduct(position + 1, BaseSequence.Length, rightType);
