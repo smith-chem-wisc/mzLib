@@ -12,6 +12,31 @@ namespace Test
     public sealed class TestProteinDatabase
     {
         [Test]
+        public static void MakeAnewProteinWithAndWithoutBiomarkers()
+        {
+            Protein noBiomarkerProtein1 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Assert.AreEqual(0, noBiomarkerProtein1.ProteolysisProducts.Count());
+
+            noBiomarkerProtein1.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave, 7);
+            Assert.AreEqual(1, noBiomarkerProtein1.ProteolysisProducts.Count());
+
+            Protein noBiomarkerProtein2 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Assert.AreEqual(0, noBiomarkerProtein2.ProteolysisProducts.Count());
+
+            noBiomarkerProtein2.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Retain, 7);
+            Assert.AreEqual(1, noBiomarkerProtein2.ProteolysisProducts.Count());
+
+            Protein noBiomarkerProtein3 = new("MPEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            Assert.AreEqual(0, noBiomarkerProtein3.ProteolysisProducts.Count());
+
+            noBiomarkerProtein3.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable, 7);
+            Assert.AreEqual(1, noBiomarkerProtein3.ProteolysisProducts.Count());
+
+            Protein biomarkerProtein = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: true);
+            Assert.AreEqual(11, biomarkerProtein.ProteolysisProducts.Count());
+        }
+        
+        [Test]
         public static void TestAddBiomarkersIntactAndExistingProteolysisProducts()
         {
             //Note: existing proteoloysis products are now subjected to additional proteolysis.

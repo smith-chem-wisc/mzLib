@@ -608,6 +608,21 @@ namespace Test
         }
 
         [Test]
+        public static void TestProteoformsCleavedOnceLong()
+        {
+            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "P08709.xml");
+            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true, DecoyType.None, null, false, null, out var unknownModifications)[0];
+
+            insulin.CleaveOnceBetweenProteolysisProducts(minimumProductLength:70);
+            List<string> productNames = insulin.ProteolysisProducts.Select(t => t.Type).ToList();
+            Assert.AreEqual(7, productNames.Count);
+            Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(21-466)"));
+            Assert.IsTrue(!productNames.Contains("N-terminal Portion of Singly Cleaved Protein(1-60)"));
+            Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(61-466)"));
+            Assert.IsTrue(productNames.Contains("N-terminal Portion of Singly Cleaved Protein(1-212)"));
+        }
+
+        [Test]
         public static void TestProteolyticDigestion()
         {
             Protein humanInsulin = new Protein("MALWMRLLPLLALLALWGPDPAAAFVNQHLCGSHLVEALYLVCGERGFFYTPKTRREAEDLQVGQVELGGGPGAGSLQPLALEGSLQKRGIVEQCCTSICSLYQLENYCN", "P01308",

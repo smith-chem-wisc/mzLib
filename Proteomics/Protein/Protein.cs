@@ -788,7 +788,7 @@ namespace Proteomics
             }
         }
 
-        private void AddIntactProteoformToProteolysisProducts(InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength)
+        public void AddIntactProteoformToProteolysisProducts(InitiatorMethionineBehavior initiatorMethionineBehavior, int minProductBaseSequenceLength)
         {
             if (initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain || initiatorMethionineBehavior == InitiatorMethionineBehavior.Variable)
             {
