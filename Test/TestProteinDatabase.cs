@@ -61,7 +61,6 @@ namespace Test
             insulinProteinFromXml2.AddBiomarkersToProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave, 7, 5, "biomarker");
             Assert.AreEqual(14, insulinProteinFromXml2.ProteolysisProducts.Count());
 
-
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications3, addBiomarkers: false)[0];
@@ -92,7 +91,6 @@ namespace Test
             Assert.AreEqual(4, insulinProteinFromXml2.ProteolysisProducts.Count());
             insulinProteinFromXml2.RemoveMethionineWhenAppropriateFromExistingProduts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave);
             Assert.AreEqual(2, insulinProteinFromXml2.ProteolysisProducts.ToList()[3].OneBasedBeginPosition.Value);
-
 
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
