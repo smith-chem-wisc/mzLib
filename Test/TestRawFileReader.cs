@@ -203,8 +203,8 @@ namespace Test
         [Test]
         public static void FragmentationPattersByXArray()
         {
-            string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTest.raw"; //Big File
-            var scans = ThermoRawFileReader.LoadAllStaticData(filePath).GetAllScansList();
+            string filepath = @"c:\\users\\nic\\onedrive\\research\\source induced decay\\sidtest.raw"; //big file
+            var scans = ThermoRawFileReader.LoadAllStaticData(filepath).GetAllScansList();
             //string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTestSmall.mzML"; //Trimmed File
             //var scans = Mzml.LoadAllStaticData(filePath).GetAllScansList();
 
@@ -214,6 +214,8 @@ namespace Test
             int intensityRatio = 3;
             int roundingFactor = 2;
             int ppmError = 40;
+            int relativeIntensityFilteringFactor = 100;
+            bool printGrouped = true;
             var preliminaryProcessing = new List<MatchedIons>();
 
             //creates a list of the relavant data from the Spectrum after deconvolution and normalizing to TIC
@@ -232,16 +234,27 @@ namespace Test
             var matchedIons = new List<MatchedIons>();
             var matchedNormalIonsToEnvelopes = new List<MatchedIons>();
             var matchedSidIonsToEnvelopes = new List<MatchedIons>();
-            //Goes through each pair of scans and generates an array of intersecting peaks
+            //Goes through each pair of scans and generates a list of intersecting peaks
             for (int i = 0; i < normalScans.Count(); i++)
-            
             {
-                List<double> intersect = null;
-                intersect = normalScans[i].Xarray.Intersect(sidScans[i].Xarray).ToList();
                 matchedNormalIonsToEnvelopes.Clear();
                 matchedSidIonsToEnvelopes.Clear();
-                //var norTestRemaining = new List<double>(intersect);
-                //var sidTestRemaining = new List<double>(intersect);
+                List<double> intersect = null;
+                List<double> intersectToRemove = new();
+                intersect = normalScans[i].Xarray.Intersect(sidScans[i].Xarray).ToList();
+                double normMaxIntensity = normalScans[i].Yarray.Max();
+                double sidMaxIntensity = sidScans[i].Yarray.Max();
+                foreach (var mass in intersect)
+                {
+                    if (normalScans[i].Yarray[Array.IndexOf(normalScans[i].Xarray, mass)] <= normMaxIntensity / relativeIntensityFilteringFactor)
+                        intersectToRemove.Add(mass);
+                    if (sidScans[i].Yarray[Array.IndexOf(sidScans[i].Xarray, mass)] <= sidMaxIntensity / relativeIntensityFilteringFactor)
+                        intersectToRemove.Add(mass);
+                }
+                foreach (var mass in intersectToRemove)
+                    if (intersect.Any(m => m.Equals(mass)))
+                        intersect.Remove(mass);
+
                 //Finds where Intersect masses can be found within normal scan isotopic envelopes
                 for (int j = 0; j < normalScans[i].isotopicEnvelope.Count(); j++)
                 {
@@ -258,8 +271,7 @@ namespace Test
                                 (Math.Round(peak.Item1, roundingFactor) + peakTolerance >= mass &&
                                  Math.Round(peak.Item1, roundingFactor) - peakTolerance <= mass))
                             {
-                                matchedNormalIonsToEnvelopes.Add(new MatchedIons(normalScans[i].sidBool, normalScans[i].isotopicEnvelope[j], mass, normalScans[i].totalIonCurrent, normalScans[i].Yarray[Array.IndexOf(normalScans[i].Xarray, mass)], i));
-                                //norTestRemaining.Remove(mass);
+                                matchedNormalIonsToEnvelopes.Add(new MatchedIons(normalScans[i].sidBool, normalScans[i].isotopicEnvelope[j], mass, normalScans[i].totalIonCurrent, normalScans[i].Yarray[Array.IndexOf(normalScans[i].Xarray, mass)], i, normalScans[i].isotopicEnvelope[j].MonoisotopicMass));
                             }
                         }
                     }
@@ -280,7 +292,7 @@ namespace Test
                                 (Math.Round(peak.Item1, roundingFactor) + peakTolerance >= mass &&
                                  Math.Round(peak.Item1, roundingFactor) - peakTolerance <= mass))
                             {
-                                matchedSidIonsToEnvelopes.Add(new MatchedIons(sidScans[i].sidBool, sidScans[i].isotopicEnvelope[j], mass, sidScans[i].totalIonCurrent, sidScans[i].Yarray[Array.IndexOf(sidScans[i].Xarray, mass)], i));
+                                matchedSidIonsToEnvelopes.Add(new MatchedIons(sidScans[i].sidBool, sidScans[i].isotopicEnvelope[j], mass, sidScans[i].totalIonCurrent, sidScans[i].Yarray[Array.IndexOf(sidScans[i].Xarray, mass)], i, sidScans[i].isotopicEnvelope[j].MonoisotopicMass));
                                 //sidTestRemaining.Remove(mass);
                             }
                         }
@@ -302,11 +314,11 @@ namespace Test
                              matchedNormalIonsToEnvelopes[k].matchedIonMZ - normTolerance <= sidIon.matchedIonMZ))
                         {
                             if (matchedNormalIonsToEnvelopes[k].normIsotopicEnvelope.Charge == sidIon.sidIsotopicEnvelope.Charge &&
-                                Math.Round(matchedNormalIonsToEnvelopes[k].normIsotopicEnvelope.MonoisotopicMass,0) == Math.Round(sidIon.sidIsotopicEnvelope.MonoisotopicMass,0))
+                                Math.Round(matchedNormalIonsToEnvelopes[k].monoistopicMass, 0) == Math.Round(sidIon.monoistopicMass, 0))
                             {
                                 matchedIons.Add(new MatchedIons(sidIon.sidIsotopicEnvelope, matchedNormalIonsToEnvelopes[k].normIsotopicEnvelope, sidIon.matchedIonMZ,
                                     sidIon.sidIsotopicEnvelope.Charge, matchedNormalIonsToEnvelopes[k].normIntensity, sidIon.sidIntensity, matchedNormalIonsToEnvelopes[k].normTotalIonCurrent,
-                                    sidIon.sidTotalIonCurrent, true));
+                                    sidIon.sidTotalIonCurrent, true, sidIon.monoistopicMass));
                             }
                         }
                     }
@@ -314,15 +326,70 @@ namespace Test
             }
 
             matchedIons = matchedIons.OrderBy(p => p.chargeState).ThenBy(p => p.normIsotopicEnvelope.MonoisotopicMass).ThenBy(p => p.matchedIonMZ).ToList();
+            var ionsGroupedbyMonoIsotopicMass = matchedIons.GroupBy(p => p.roundedMonoisotopicMass).ToList();
+            var ionsGroupedbyMonoGreaterThanSix = ionsGroupedbyMonoIsotopicMass.Where(p => p.Count() > 6).ToList();
+            var ionsGroupedbyMonoGreaterThanTen = ionsGroupedbyMonoGreaterThanSix.Where(p => p.Count() > 10).ToList();
+            var ionsGroupedbyMonoGreaterThanFifteen = ionsGroupedbyMonoGreaterThanSix.Where(p => p.Count() > 15).ToList();
+
             string printout;
-            string filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\allScansXArrayRound2.txt";
+            string filename;
+            if (printGrouped)
+            {
+                filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\AllFilesRound2Filter100GroupedSix.txt";
+                using (StreamWriter sw = new StreamWriter(filename))
+                {
+                    sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Rounded MonoIsotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
+                    foreach (var group in ionsGroupedbyMonoGreaterThanSix)
+                    {
+                        foreach (var ion in group)
+                        {
+                            printout = "";
+                            printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.monoistopicMass + " : " + ion.roundedMonoisotopicMass
+                                + " : " + ion.fragmentationEfficiencyOneIon + " : " + ion.fragmentationEfficiencyTotal;
+                            sw.WriteLine(printout);
+                        }
+                    }
+                }
+                filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\AllFilesRound2Filter100GroupedTen.txt";
+                using (StreamWriter sw = new StreamWriter(filename))
+                {
+                    sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Rounded MonoIsotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
+                    foreach (var group in ionsGroupedbyMonoGreaterThanTen)
+                    {
+                        foreach (var ion in group)
+                        {
+                            printout = "";
+                            printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.monoistopicMass + " : " + ion.roundedMonoisotopicMass
+                                + " : " + ion.fragmentationEfficiencyOneIon + " : " + ion.fragmentationEfficiencyTotal;
+                            sw.WriteLine(printout);
+                        }
+                    }
+                }
+                filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\AllFilesRound2Filter100GroupedFifteen.txt";
+                using (StreamWriter sw = new StreamWriter(filename))
+                {
+                    sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Rounded MonoIsotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
+                    foreach (var group in ionsGroupedbyMonoGreaterThanFifteen)
+                    {
+                        foreach (var ion in group)
+                        {
+                            printout = "";
+                            printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.monoistopicMass + " : " + ion.roundedMonoisotopicMass
+                                + " : " + ion.fragmentationEfficiencyOneIon + " : " + ion.fragmentationEfficiencyTotal;
+                            sw.WriteLine(printout);
+                        }
+                    }
+                }
+            }
+
+            filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\AllFilesRound2Filter100Grouped.txt";
             using (StreamWriter sw = new StreamWriter(filename))
             {
                 sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Rounded MonoIsotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
                 foreach (var ion in matchedIons)
                 {
                     printout = "";
-                    printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.normIsotopicEnvelope.MonoisotopicMass + " : " + Math.Round(ion.normIsotopicEnvelope.MonoisotopicMass,2) 
+                    printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.monoistopicMass + " : " + ion.roundedMonoisotopicMass
                         + " : " + ion.fragmentationEfficiencyOneIon + " : " + ion.fragmentationEfficiencyTotal;
                     sw.WriteLine(printout);
                 }
@@ -401,7 +468,7 @@ namespace Test
                             if (sidCharge == norCharge)
 
                                 matchedIons.Add(new MatchedIons(isoEnvSid, isoEnvNorm, Math.Round(maxIntIonNorm, 4),
-                                    norCharge, maxIntNorm, maxIntSid, norScans[i].totalIonCurrent, sidScans[i].totalIonCurrent, false));
+                                    norCharge, maxIntNorm, maxIntSid, norScans[i].totalIonCurrent, sidScans[i].totalIonCurrent, false, isoEnvNorm.MonoisotopicMass));
                         }
                     }
                 }
@@ -461,8 +528,10 @@ public class MatchedIons
     public double[] Yarray;
     public int sidIndex;
     public int normIndex;
+    public double monoistopicMass;
+    public double roundedMonoisotopicMass;
 
-    public MatchedIons(IsotopicEnvelope sid, IsotopicEnvelope norm, double mz, int charge, double normInt, double sidInt, double normCurrent, double sidCurrent, bool normalized)
+    public MatchedIons(IsotopicEnvelope sid, IsotopicEnvelope norm, double mz, int charge, double normInt, double sidInt, double normCurrent, double sidCurrent, bool normalized, double monoMass)
     {
         sidIsotopicEnvelope = sid;
         normIsotopicEnvelope = norm;
@@ -472,6 +541,8 @@ public class MatchedIons
         sidIntensity = sidInt;
         sidTotalIonCurrent = sidCurrent;
         normTotalIonCurrent = normCurrent;
+        monoistopicMass = monoMass;
+        roundedMonoisotopicMass = Math.Round(monoMass, 2);
         if (!normalized)
         {
             fragmentationEfficiencyOneIon =  (sidInt / sidCurrent) / (normInt / normCurrent);
@@ -498,10 +569,12 @@ public class MatchedIons
             sidBool = true;
     }
 
-    public MatchedIons(bool sidB, IsotopicEnvelope envelope, double mz, double ionCurrent, double intensity, int index)
+    public MatchedIons(bool sidB, IsotopicEnvelope envelope, double mz, double ionCurrent, double intensity, int index, double monomass)
     {
         sidBool = sidB;
         matchedIonMZ = mz;
+        monoistopicMass = monomass;
+        roundedMonoisotopicMass = Math.Round(monomass, 2);
         if (sidBool)
         {
             sidIsotopicEnvelope = envelope;
