@@ -32,8 +32,12 @@ namespace Test
             noBiomarkerProtein3.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable, 7);
             Assert.AreEqual(1, noBiomarkerProtein3.ProteolysisProducts.Count());
 
-            Protein biomarkerProtein = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: true);
-            Assert.AreEqual(11, biomarkerProtein.ProteolysisProducts.Count());
+            Protein biomarkerProtein1 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: true);
+            Assert.AreEqual(11, biomarkerProtein1.ProteolysisProducts.Count());
+
+            Protein biomarkerProtein2 = new("PEPTIDEPEPTIDEPEPTIDE", "ACCESSION", addBiomarkers: false);
+            biomarkerProtein2.AddIntactProteoformToProteolysisProducts(Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Cleave, 7);
+            Assert.AreEqual(1, biomarkerProtein2.ProteolysisProducts.Count());
         }
         
         [Test]
