@@ -166,7 +166,7 @@ namespace IO.Mgf
 
         private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)
         {
-            var sArray = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] sArray = line.Split(new Char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 
             mzs.Add(Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture));
             intensities.Add(Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture));
