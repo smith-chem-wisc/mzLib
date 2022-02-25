@@ -241,19 +241,17 @@ namespace Test
             List<double> xArrayProcessed = new List<double>();
             foreach (MsDataScan scan in scans.Where(s => s.MsnOrder > 1))
             {
-                if(scan.OneBasedScanNumber == 86)
+                if (scan.OneBasedScanNumber == 86)
                 {
                     scan.MassSpectrum.XCorrPrePreprocessing(0, 1969, scan.IsolationMz.Value);
                     xArrayProcessed = scan.MassSpectrum.XArray.ToList();
                 }
-                
             }
 
             for (int i = 0; i < expectedResults.Count; i++)
             {
                 Assert.That(double.Parse(expectedResults[i]), Is.EqualTo(xArrayProcessed[i]).Within(0.001));
             }
-            
         }
 
         [Test]
@@ -281,6 +279,77 @@ namespace Test
                 Assert.AreEqual(X[i], Math.Round(ms2.XArray[i], 2));
                 Assert.AreEqual(Y[i], Math.Round(ms2.YArray[i], 2));
             }
+        }
+
+        [Test]
+        public static void TestMSDataScan()
+        {
+            Dictionary<string, MsDataFile> MyMsDataFiles = new Dictionary<string, MsDataFile>();
+            string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests\sliced_b6.mzML");
+            FilteringParams filter = new FilteringParams(200, 0.01, null, 1, false, false, false);
+
+            MyMsDataFiles[origDataFile] = Mzml.LoadAllStaticData(origDataFile, filter, 1);
+
+            var scans = MyMsDataFiles[origDataFile].GetAllScansList();
+
+            MsDataScan[] ms1scans = scans.Where(s => s.MsnOrder == 1).ToArray();
+            MsDataScan[] ms2scans = scans.Where(s => s.MsnOrder == 2).ToArray();
+
+            MsDataScan ms1scanExample = ms1scans.Where(s => s.OneBasedScanNumber == 148).First();
+            MsDataScan ms2scanExample = ms2scans.Where(s => s.OneBasedPrecursorScanNumber == 148).First();
+
+            Assert.IsNull(ms1scanExample.DissociationType);
+            Assert.IsNull(ms1scanExample.HcdEnergy);
+            Assert.That(2.35, Is.EqualTo(ms1scanExample.InjectionTime).Within(0.01));
+            Assert.IsTrue(ms1scanExample.IsCentroid);
+            Assert.IsNull(ms1scanExample.IsolationMz);
+            Assert.IsNull(ms1scanExample.IsolationRange);
+            Assert.IsNull(ms1scanExample.IsolationWidth);
+            Assert.AreEqual(2951, ms1scanExample.MassSpectrum.XArray.Length);
+            Assert.AreEqual(1, ms1scanExample.MsnOrder);
+            Assert.AreEqual(MZAnalyzerType.Quadrupole, ms1scanExample.MzAnalyzer);
+            Assert.AreEqual("controllerType=0 controllerNumber=1 scan=148", ms1scanExample.NativeId);
+            Assert.IsNull(ms1scanExample.NoiseData);
+            Assert.IsNull(ms1scanExample.OneBasedPrecursorScanNumber);
+            Assert.AreEqual(148, ms1scanExample.OneBasedScanNumber);
+            Assert.AreEqual(Polarity.Positive, ms1scanExample.Polarity);
+            Assert.That(77.08, Is.EqualTo(ms1scanExample.RetentionTime).Within(0.01));
+            Assert.AreEqual("FTMS + p NSI Full ms [350.0000-1350.0000]", ms1scanExample.ScanFilter);
+            Assert.AreEqual(350, ms1scanExample.ScanWindowRange.Minimum);
+            Assert.AreEqual(1350, ms1scanExample.ScanWindowRange.Maximum);
+            Assert.IsNull(ms1scanExample.SelectedIonChargeStateGuess);
+            Assert.IsNull(ms1scanExample.SelectedIonIntensity);
+            Assert.IsNull(ms1scanExample.SelectedIonMonoisotopicGuessIntensity);
+            Assert.IsNull(ms1scanExample.SelectedIonMonoisotopicGuessMz);
+            Assert.IsNull(ms1scanExample.SelectedIonMZ);
+            Assert.AreEqual(1222352000, ms1scanExample.TotalIonCurrent);
+
+            Assert.AreEqual(DissociationType.HCD, ms2scanExample.DissociationType);
+            Assert.IsNull(ms2scanExample.HcdEnergy);
+            Assert.That(15, Is.EqualTo(ms2scanExample.InjectionTime).Within(0.01));
+            Assert.IsTrue(ms2scanExample.IsCentroid);
+            Assert.That(518.23, Is.EqualTo(ms2scanExample.IsolationMz).Within(0.01));
+            Assert.That(517.88, Is.EqualTo(ms2scanExample.IsolationRange.Minimum).Within(0.01));
+            Assert.That(518.58, Is.EqualTo(ms2scanExample.IsolationRange.Maximum).Within(0.01));
+            Assert.That(0.70, Is.EqualTo(ms2scanExample.IsolationWidth).Within(0.01));
+            Assert.AreEqual(871, ms2scanExample.MassSpectrum.XArray.Length);
+            Assert.AreEqual(2, ms2scanExample.MsnOrder);
+            Assert.AreEqual(MZAnalyzerType.Quadrupole, ms2scanExample.MzAnalyzer);
+            Assert.AreEqual("controllerType=0 controllerNumber=1 scan=149", ms2scanExample.NativeId);
+            Assert.IsNull(ms2scanExample.NoiseData);
+            Assert.AreEqual(148, ms2scanExample.OneBasedPrecursorScanNumber);
+            Assert.AreEqual(149, ms2scanExample.OneBasedScanNumber);
+            Assert.AreEqual(Polarity.Positive, ms2scanExample.Polarity);
+            Assert.That(77.08, Is.EqualTo(ms2scanExample.RetentionTime).Within(0.01));
+            Assert.AreEqual("ITMS + c NSI t d Full ms2 518.2317@hcd25.00 [200.0000-1200.0000]", ms2scanExample.ScanFilter);
+            Assert.AreEqual(200, ms2scanExample.ScanWindowRange.Minimum);
+            Assert.AreEqual(1200, ms2scanExample.ScanWindowRange.Maximum);
+            Assert.AreEqual(3, ms2scanExample.SelectedIonChargeStateGuess);
+            Assert.AreEqual(8984495, ms2scanExample.SelectedIonIntensity);
+            Assert.IsNull(ms2scanExample.SelectedIonMonoisotopicGuessIntensity);
+            Assert.That(518.23, Is.EqualTo(ms2scanExample.SelectedIonMonoisotopicGuessMz).Within(0.01));
+            Assert.That(518.23, Is.EqualTo(ms2scanExample.SelectedIonMZ).Within(0.01));
+            Assert.That(3748516.16, Is.EqualTo(ms2scanExample.TotalIonCurrent).Within(0.01));
         }
     }
 }
