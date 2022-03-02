@@ -3,11 +3,14 @@ using IO.MzML;
 using IO.ThermoRawFileReader;
 using MassSpectrometry;
 using NUnit.Framework;
+using Proteomics;
+using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -203,10 +206,17 @@ namespace Test
         [Test]
         public static void FragmentationPattersByXArray()
         {
-            string filepath = @"c:\\users\\nic\\onedrive\\research\\source induced decay\\sidtest.raw"; //big file
-            var scans = ThermoRawFileReader.LoadAllStaticData(filepath).GetAllScansList();
-            //string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTestSmall.mzML"; //Trimmed File
-            //var scans = Mzml.LoadAllStaticData(filePath).GetAllScansList();
+            
+            string filepath = @"C:\Users\Nic\OneDrive\Research\ForAustin\MS1-sidMS2_6ProtMix_R120_SID60_AGC800_20220123110514.raw"; // 6 protein standard
+            //string filepath = @"c:\\users\\nic\\onedrive\\research\\source induced decay\\sidtest.raw"; //big SID file
+            //ring filepath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTestSmall.mzML"; //Trimmed SID File (only 2 scans)
+
+            List<MsDataScan> scans = new();
+            string scanType = filepath.Split('.')[1].Trim();
+            if (scanType.Equals("mzML"))
+              scans = Mzml.LoadAllStaticData(filepath).GetAllScansList();
+            if (scanType.Equals("raw"))
+                scans = ThermoRawFileReader.LoadAllStaticData(filepath).GetAllScansList();
 
             int minAssumedChargeState = 2;
             int maxAssumedChargeState = 60;
@@ -215,7 +225,7 @@ namespace Test
             int roundingFactor = 2;
             int ppmError = 40;
             int relativeIntensityFilteringFactor = 100;
-            bool printGrouped = true;
+            bool printGrouped = false;
             var preliminaryProcessing = new List<MatchedIons>();
 
             //creates a list of the relavant data from the Spectrum after deconvolution and normalizing to TIC
@@ -331,6 +341,10 @@ namespace Test
             var ionsGroupedbyMonoGreaterThanTen = ionsGroupedbyMonoGreaterThanSix.Where(p => p.Count() > 10).ToList();
             var ionsGroupedbyMonoGreaterThanFifteen = ionsGroupedbyMonoGreaterThanSix.Where(p => p.Count() > 15).ToList();
 
+            double[] monoIsotopicMasses = new double[6];
+            string fastaLocation = @"C:\Users\Nic\OneDrive\Research\Source Induced Decay\SixProteinStandard\Six_Protein_Standard.fasta";
+            string how = "mono";
+            matchedIons = MatchedIons.MatchToSequence(fastaLocation, matchedIons, how);
             string printout;
             string filename;
             if (printGrouped)
@@ -382,7 +396,7 @@ namespace Test
                 }
             }
 
-            filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\AllFilesRound2Filter100Grouped.txt";
+            filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\SixProteinStandardMatchToSequenceByMonoMass.txt";
             using (StreamWriter sw = new StreamWriter(filename))
             {
                 sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Rounded MonoIsotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
@@ -395,118 +409,19 @@ namespace Test
                 }
             }
         }
-
         [Test]
-        public static void FragmentationPatternsByEnvelope()
+        public static void RunMatchSequence()
         {
-            //string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTest.raw"; //Big File
-            //var scans = ThermoRawFileReader.LoadAllStaticData(filePath).GetAllScansList();
-            string filePath = @"C:\\Users\\Nic\\OneDrive\\Research\\Source Induced Decay\\SIDTestSmall.mzML"; //Trimmed File
-            var scans = Mzml.LoadAllStaticData(filePath).GetAllScansList();
-
-            int minAssumedChargeState = 2;
-            int maxAssumedChargeState = 60;
-            int deconvolutionTolerancePpm = 4;
-            int intensityRatio = 3;
-            var preliminaryProcessing = new List<MatchedIons>();
-
-            //creates a list of the relavant data from the Spectrum after deconvolution and normalizing to TIC
-            foreach (var scan in scans)
-            {
-                var tempEnvelope = scan.MassSpectrum.Deconvolute(scan.MassSpectrum.Range, minAssumedChargeState,
-                    maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatio).ToList();
-                var test = new MatchedIons(scan.OneBasedScanNumber, tempEnvelope, scan.TotalIonCurrent);
-                preliminaryProcessing.Add(test);
-            }
-
-            var sidScans = preliminaryProcessing.Where(p => p.sidBool == true).ToList();
-            var norScans = preliminaryProcessing.Where(p => p.sidBool == false).ToList();
-            var matchedIons = new List<MatchedIons>();
-
-            //Itterates through each pair of scans and finds where the monoisotopic masses are within the ppm error defined below
-            int ppmError = 25;
-            for (int i = 0; i < norScans.Count(); i++)
-            {
-                //each IsotopicEnvelope in normal scan
-                foreach (var isoEnvNorm in norScans[i].isotopicEnvelope)
-                {
-                    //finds most intense peak in the envelope of normal scan
-                    double maxIntIonNorm = 0;
-                    double maxIntNorm = 0;
-                    foreach (var peak in isoEnvNorm.Peaks)
-                    {
-                        if (peak.Item2 > maxIntNorm)
-                        {
-                            maxIntNorm = peak.Item2;
-                            maxIntIonNorm = peak.Item1;
-                        }
-                    }
-                    //each IsotopicEnvelope in SID scan
-                    foreach (var isoEnvSid in sidScans[i].isotopicEnvelope)
-                    {
-                        //finds most intense peak in the envelope of SID scan
-                        double maxIntIonSid = 0;
-                        double maxIntSid = 0;
-                        foreach (var peak in isoEnvSid.Peaks)
-                        {
-                            if (peak.Item2 > maxIntSid)
-                            {
-                                maxIntSid = peak.Item2;
-                                maxIntIonSid = peak.Item1;
-                            }
-                        }
-                        //compares the most intense peaks of every envelope and adds it to list if they match both mass and charge
-                        var normTolerance = isoEnvNorm.MonoisotopicMass / 10e6 * ppmError;
-                        var sidTolerance = isoEnvSid.MonoisotopicMass / 10e6 * ppmError;
-                        if ((Math.Round(isoEnvNorm.MonoisotopicMass, 4) >= Math.Round(isoEnvSid.MonoisotopicMass, 4) - sidTolerance &&
-                             Math.Round(isoEnvNorm.MonoisotopicMass, 4) <= Math.Round(isoEnvSid.MonoisotopicMass, 4) + sidTolerance) ||
-                            (Math.Round(isoEnvNorm.MonoisotopicMass, 4) + normTolerance >= Math.Round(isoEnvSid.MonoisotopicMass, 4) &&
-                             Math.Round(isoEnvNorm.MonoisotopicMass, 4) - normTolerance <= Math.Round(isoEnvSid.MonoisotopicMass, 4)))
-                        {
-                            int sidCharge = isoEnvSid.Charge;
-                            int norCharge = isoEnvNorm.Charge;
-                            if (sidCharge == norCharge)
-
-                                matchedIons.Add(new MatchedIons(isoEnvSid, isoEnvNorm, Math.Round(maxIntIonNorm, 4),
-                                    norCharge, maxIntNorm, maxIntSid, norScans[i].totalIonCurrent, sidScans[i].totalIonCurrent, false, isoEnvNorm.MonoisotopicMass));
-                        }
-                    }
-                }
-            }
-            matchedIons = matchedIons.OrderBy(p => p.matchedIonMZ).ToList();
-            var groupedIons = matchedIons.GroupBy(p => p.chargeState).Select(p => p.ToList()).ToList(); //unused as of yet, group by other factors for future data analysis.
-
-            string printout;
-            string filename = @"C:\\Users\\Nic\\Desktop\\OuputFolder\\aSmolScan2.txt";
-            using (StreamWriter sw = new StreamWriter(filename))
-            {
-                sw.WriteLine("Ion MZ : Charge : Monoisotopic Mass : Fragmentation Efficiency : Total Fragmentation Efficiency");
-                foreach (var ion in matchedIons)
-                {
-                    printout = "";
-                    printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.normIsotopicEnvelope.MonoisotopicMass + " : " + ion.fragmentationEfficiencyOneIon + " : " +
-                        ion.fragmentationEfficiencyTotal;
-                    sw.WriteLine(printout);
-                }
-            }
+            string filename = "file";
+            List<MatchedIons> ions = new List<MatchedIons>();
+            string how = "mz";
+            MatchedIons.MatchToSequence(filename, ions, how);
+            
         }
 
-        //Discarded this as the xArray peak and what the IsotopicEnvelopes differed by a bit, so things were getting missed
-        public static int FindEnvelopeIndex(double mass, List<IsotopicEnvelope> envelopes)
-        {
-            int i = 0;
-            for (i = 0; i < envelopes.Count(); i++)
-            {
-                foreach (var peak in envelopes[i].Peaks)
-                {
-                    if (Math.Round(mass, 3) == Math.Round(peak.mz, 3))
-                        return i;
-                }
-            }
-            return -1;
-        }
     }
 }
+
 
 public class MatchedIons
 {
@@ -590,4 +505,70 @@ public class MatchedIons
             normIndex = index;
         }
     }
+
+    // Takes list of matched ions and trims it to only include monoisotopic masses from a fasta file to target proteins of interest
+    public static List<MatchedIons> MatchToSequence(string filelocation, List<MatchedIons> matches, string howToProcess)
+    {
+        //var targets = ProteinDbLoader.LoadProteinFasta(filelocation, true, DecoyType.None, false, out var errors); This is broken with this fasta file
+        // Resorting to primative methods
+
+        //creates a deep copy of matches
+        var matches2 = new List<MatchedIons>();
+        foreach (var match in matches)
+        {
+            matches2.Add(match);
+        }
+
+        string[] sequences = new string[]
+        { "MFPAMPLSSLFVNGPRTLCGAELVDALQFVCGDRGFYFNKPTGYGSSSRRAPQTGIVDECCFRSCDLRRLEMYCAPLKPAKSA",
+          "TTFNIQDGPDFQDRVVNSETPVVVDFHAQWCGPCKILGPRLEKMVAKQHGKVVMAKVDIDDHTDLAIEYEVSAVPTVLAMKNGDVVDKFVGIKDEDQLEAFLKKLIG",
+          "MDPYPLPKTDTYKLILNGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDASELTPAVTTYKLVINGKTLKGETTTKAVDAETAEKAFKQYANDNGVDGVWTYDDATKTFTVTEMVTEVPGDAPTEPEKPEASIPLVPLTPATPIAKDDAKKDDTKKEDAKKPEAKKDDAKKAETAG",
+          "SHHWGYGKHNGPEHWHKDFPIANGERQSPVDIDTKAVVQDPALKPLALVYGEATSRRMVNNGHSFNVEYDDSQDKAVLKDGPLTGTYRLVQFHFHWGSSDDQGSEHTVDRKKYAAELHLVHWNTKYGDFGTAAQQPDGLAVVGVFLKVGDANPALQKVLDALDSIKTKGKSTDFPNFDPGSLLPNVLNYWTYPGSLTTPPLLESVTWIVLKEPISVSSQQMLKFRTLNFNAEGEPELLMLANWRPAQPLKNRQVRGFPK",
+          "AQHDEAQQNAFYQVLNMPNLNADQRNGFIQSLKDDPSQSANVLGEAQKLNDSQAPKADAQQNNFNKDQQSAFYEILNMPNLNEAQRNGFIQSLKDDPSQSTNVLGEAKKLNESQAPKADNNFNKEQQNAFYEILNMPNLNEEQRNGFIQSLKDDPSQSANLLSEAKKLNESQAPKADNKFNKEQQNAFYEILHLPNLNEEQRNGFIQSLKDDPSQSANLLAEAKKLNDAQAPKADNKFNKEQQNAFYEILHLPNLTEEQRNGFIQSLKDDPSVSKEILAEAKKLNDAQAPKEEDNNKPIEGRNSRGSVDASELTPAVTTYKLVINGKTLKGETTTEAVDAATAEKVFKQYANDNGVDGEWTYDDATKTFTVTEKPEVIDASELTPAVTTYKLVINGKTLKGETTTKAVDAETAEKAFKQYANDNGVDGVWTYDDATKTFTVTEMVTEVPLESTA",
+          "MISYDNYVTILDEETLKAWIAKLEKAPVFAFATATDSLDNISANLVGLSFAIEPGVAAYIPVAHDYLDAPDQISRERALELLKPLLEDEKALKVGQNLKYDRGILANYGIELRGIAFDTMLESYILNSVAGRHDMDSLAERWLKHKTITFEEIAGKGKNQLTFNQIALEEAGRYAAEDADVTLQLHLKMWPDLQKHKGPLNVFENIEMPLVPVLSRIERNGVKIDPKVLHNHSEELTLRLAELEKKAHEIAGEEFNLSSTKQLQTILFEKQGIKPLKKTPGGAPSTSEEVLEELALDYPLPKVILEYRGLAKLKSTYTDKLPLMINPKTGRVHTSYHQAVTATGRLSSTDPNLQNIPVRNEEGRRIRQAFIAPEDYVIVSADYSQIELRIMAHLSRDKGLLTAFAEGKDIHRATAAEVFGLPLETVTSEQRRSAKAINFGLIYGMSAFGLARQLNIPRKEAQKYMDLYFERYPGVLEYMERTRAQAKEQGYVETLDGRRLYLPDIKSSNGARRAAAERAAINAPMQGTAADIIKRAMIAVDAWLQAEQPRVRMIMQVHDELVFEVHKDDVDAVAKQIHQLMENCTRLDVPLLVEVGSGENWDQAH"
+        };
+
+        // Adds each sequences to a peptide object
+        List<Peptide> targets = new();
+        for (int i = 0; i < sequences.Length; i++)
+        {
+            targets.Add(new Peptide(sequences[i]));
+        }
+
+        if (howToProcess.Equals("mz"))
+        {
+            // Generates list of possible m / z values from 2 - 40 charge state
+            int[] charges = Enumerable.Range(2, 40).ToArray();
+            List<double> massesToCheck = new();
+            foreach (var peptide in targets)
+            {
+                foreach (var charge in charges)
+                {
+                    massesToCheck.Add(Math.Round(peptide.MonoisotopicMass / charge, 0));
+                }
+            }
+
+            // removes any matches that are not a part of the above defined sequences
+            foreach (var match in matches2)
+            {
+                if (!massesToCheck.Any(p => Math.Round(p, 0) == Math.Round(match.matchedIonMZ, 0)))
+                    matches.Remove(match);
+            }
+        }
+
+        if (howToProcess.Equals("mono"))
+        {
+            // removes any matches that are not a part of the above defined sequences
+            foreach (var match in matches2)
+            {
+                if (!targets.Any(p => Math.Round(p.MonoisotopicMass, 0) == Math.Round(match.monoistopicMass, 0)))
+                    matches.Remove(match);
+            }
+        }
+
+        int breakpoint = 0;
+        return matches.OrderBy(p => p.monoistopicMass).ToList();
+    }
+
+
 }
