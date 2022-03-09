@@ -21,7 +21,7 @@ jobs:
     - name: Build
       run: cd mzLib; dotnet build --no-restore
     - name: Test
-      run: cd mzLib; dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput='../coberturatest.xml'
+      run: cd mzLib; dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput='../coberturatest.xml'; ls; ls ..
     - name: Codecov
       uses: codecov/codecov-action@v2
       with:
