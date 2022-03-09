@@ -246,3 +246,7 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+
+# Macintosh files
+**/.DS_Store
+
