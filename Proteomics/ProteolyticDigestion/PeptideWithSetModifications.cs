@@ -1,4 +1,4 @@
-﻿using Chemistry;
+﻿ using Chemistry;
 using MassSpectrometry;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.Fragmentation;
@@ -23,6 +23,8 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private double? _mostAbundantMonoisotopicMass;
+        [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
@@ -108,6 +110,36 @@ namespace Proteomics.ProteolyticDigestion
                     _monoisotopicMass = monoMass;
                 }
                 return (double)ClassExtensions.RoundedDouble(_monoisotopicMass.Value);
+            }
+
+        }
+        
+        public ChemicalFormula FullChemicalFormula
+        {
+            get
+            {
+                ChemicalFormula fullChemicalFormula = new Proteomics.AminoAcidPolymer.Peptide(BaseSequence).GetChemicalFormula();
+                foreach (var mod in AllModsOneIsNterminus.Values)
+                {
+                    fullChemicalFormula.Add(mod.ChemicalFormula);
+                }
+                
+                _fullChemicalFormula = fullChemicalFormula;
+                return _fullChemicalFormula;
+            }
+        }
+
+        public double MostAbundantMonoisotopicMass
+        {
+            get
+            {
+                if (!_mostAbundantMonoisotopicMass.HasValue)
+                {
+                    IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
+                    double maxIntensity = dist.Intensities.Max();
+                    _mostAbundantMonoisotopicMass = (double)ClassExtensions.RoundedDouble(dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
+                }
+                return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
             }
 
         }
@@ -223,6 +255,9 @@ namespace Proteomics.ProteolyticDigestion
                 if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
                 {
                     nTermMass += mod.MonoisotopicMass.Value;
+
+                    // n-term mod neutral loss
+                    nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
                 }
             }
 
@@ -232,6 +267,9 @@ namespace Proteomics.ProteolyticDigestion
                 if (AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out Modification mod))
                 {
                     cTermMass += mod.MonoisotopicMass.Value;
+
+                    // c-term mod neutral loss
+                    cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
                 }
             }
 
@@ -302,19 +340,7 @@ namespace Proteomics.ProteolyticDigestion
                             r + 1,
                             0));
 
-                        if (mod != null && mod.NeutralLosses != null
-                            && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
-                        {
-                            foreach (double neutralLoss in neutralLosses.Where(p => p != 0))
-                            {
-                                if (nTermNeutralLosses == null)
-                                {
-                                    nTermNeutralLosses = new HashSet<double>();
-                                }
-
-                                nTermNeutralLosses.Add(neutralLoss);
-                            }
-                        }
+                        nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
 
                         if (nTermNeutralLosses != null)
                         {
@@ -332,8 +358,8 @@ namespace Proteomics.ProteolyticDigestion
                     }
                 }
 
-                // c-term fragments
-                CTerminusFragments:
+            // c-term fragments
+            CTerminusFragments:
                 if (calculateCTermFragments)
                 {
                     char cTermResidue = BaseSequence[BaseSequence.Length - r - 1];
@@ -400,19 +426,7 @@ namespace Proteomics.ProteolyticDigestion
                             BaseSequence.Length - r,
                             0));
 
-                        if (mod != null && mod.NeutralLosses != null
-                            && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
-                        {
-                            foreach (double neutralLoss in neutralLosses.Where(p => p != 0))
-                            {
-                                if (cTermNeutralLosses == null)
-                                {
-                                    cTermNeutralLosses = new HashSet<double>();
-                                }
-
-                                cTermNeutralLosses.Add(neutralLoss);
-                            }
-                        }
+                        cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
 
                         if (cTermNeutralLosses != null)
                         {
@@ -460,10 +474,11 @@ namespace Proteomics.ProteolyticDigestion
                     1,
                     0));
 
-                if (mod != null && mod.NeutralLosses != null
-                    && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLosses))
+                cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+
+                if (cTermNeutralLosses != null)
                 {
-                    foreach (double neutralLoss in neutralLosses.Where(p => p != 0))
+                    foreach (double neutralLoss in cTermNeutralLosses)
                     {
                         products.Add(new Product(
                             ProductType.zDot,
@@ -489,13 +504,27 @@ namespace Proteomics.ProteolyticDigestion
                         }
                     }
                 }
+
+                if (mod.Value.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out losses))
+                {
+                    foreach (double neutralLoss in losses.Where(p => p != 0))
+                    {
+                        if (neutralLoss != 0)
+                        {
+                            products.Add(new Product(ProductType.M, FragmentationTerminus.Both, MonoisotopicMass - neutralLoss, 0, 0, neutralLoss));
+                        }
+                    }
+                }
             }
 
             // generate diagnostic ions
             // TODO: this code is memory-efficient but sort of CPU inefficient; it can be further optimized.
             // however, diagnostic ions are fairly rare so it's probably OK for now
-            foreach (double diagnosticIon in AllModsOneIsNterminus.Where(p => p.Value.DiagnosticIons != null &&
-                p.Value.DiagnosticIons.ContainsKey(dissociationType)).SelectMany(p => p.Value.DiagnosticIons[dissociationType]).Distinct())
+            foreach (double diagnosticIon in AllModsOneIsNterminus
+                .Where(p => p.Value.DiagnosticIons != null)
+                .SelectMany(p => p.Value.DiagnosticIons.Where(v => v.Key == dissociationType || v.Key == DissociationType.AnyActivationType))
+                .SelectMany(p => p.Value)
+                .Distinct())
             {
                 int diagnosticIonLabel = (int)Math.Round(diagnosticIon.ToMz(1), 0);
 
@@ -503,7 +532,6 @@ namespace Proteomics.ProteolyticDigestion
                 products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
             }
         }
-
 
         /// <summary>
         /// Generates theoretical internal fragments for given dissociation type for this peptide. 
@@ -1059,6 +1087,191 @@ namespace Proteomics.ProteolyticDigestion
                 CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, DigestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
+        }
+        
+        private HashSet<double> AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
+        {
+            // add neutral losses specific to this dissociation type
+            if (mod != null
+                && mod.NeutralLosses != null
+                && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod))
+            {
+                foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
+                {
+                    if (allNeutralLossesSoFar == null)
+                    {
+                        allNeutralLossesSoFar = new HashSet<double>();
+                    }
+
+                    allNeutralLossesSoFar.Add(neutralLoss);
+                }
+            }
+
+            // add neutral losses that are generic to any dissociation type
+            if (mod != null
+                && mod.NeutralLosses != null
+                && mod.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out neutralLossesFromMod))
+            {
+                foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
+                {
+                    if (allNeutralLossesSoFar == null)
+                    {
+                        allNeutralLossesSoFar = new HashSet<double>();
+                    }
+
+                    allNeutralLossesSoFar.Add(neutralLoss);
+                }
+            }
+
+            return allNeutralLossesSoFar;
+        }
+
+        //This function maintains the amino acids associated with the protease motif and reverses all other amino acids.
+        //N-terminal modificatons are preserved. Other modifications travel with their respective amino acids. this results
+        //in a decoy peptide composed the same amino acids and modifications as the original. 
+        //Occasionally, this process results in peptide with exactly the same sequence. Therefore, there is a stop-gap measure
+        //the returns the mirror image of the original. N-terminal mods are preserved, but other mods are also reversed. 
+        //this should yield a unique decoy for each target sequence.
+        public PeptideWithSetModifications GetReverseDecoyFromTarget(int[] revisedAminoAcidOrder)
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+            char[] newBase = new char[this.BaseSequence.Length];
+            Array.Fill(newBase, '0');
+            char[] evaporatingBase = this.BaseSequence.ToCharArray();
+            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            if (motifs != null && motifs.Count > 0)
+            {
+                foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
+                {
+                    string cleavingMotif = motif.InducingCleavage;
+                    List<int> cleavageMotifLocations = new List<int>();
+
+                    for (int i = 0; i < BaseSequence.Length; i++)
+                    {
+                        bool fits;
+                        bool prevents;
+                        (fits, prevents) = motif.Fits(BaseSequence, i);
+
+                        if (fits && !prevents)
+                        {
+                            cleavageMotifLocations.Add(i);
+                        }
+                    }
+
+                    foreach (int location in cleavageMotifLocations)
+                    {
+                        char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
+                        
+                        for (int i = 0; i < cleavingMotif.Length; i++)
+                        {
+                            newBase[location + i] = motifArray[i];
+                            revisedAminoAcidOrder[location + i] = location + i;//
+                            //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
+                            if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                            {
+                                newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                            }
+
+                            evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                        }
+                    }
+                }
+            }
+
+            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            int fillPosition = 0;
+            int extractPosition = this.BaseSequence.Length - 1;
+            while (fillPosition < this.BaseSequence.Length && extractPosition >= 0)
+            {
+                if (evaporatingBase[extractPosition] != '0')
+                {
+                    while (newBase[fillPosition] != '0')
+                    {
+                        fillPosition++;
+                    }
+                    newBase[fillPosition] = evaporatingBase[extractPosition];
+                    revisedAminoAcidOrder[fillPosition] = extractPosition;
+                    if (this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
+                    {
+                        newModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
+                    }
+                    fillPosition++;
+                }
+                extractPosition--;
+            }
+
+            string newBaseString = new string(newBase);
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            DigestionParams d = this.DigestionParams;
+
+            //Make the "peptideDescription" store the corresponding target's sequence
+            if (newBaseString != this.BaseSequence)
+            {
+                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+            }
+            else
+            {
+                //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
+                //we retrun the mirror image peptide.
+                return this.GetPeptideMirror(revisedAminoAcidOrder);
+            }
+
+        }
+
+        //Returns a PeptideWithSetModifications mirror image. Used when reverse decoy sequence is same as target sequence
+        public PeptideWithSetModifications GetPeptideMirror(int[] revisedOrderNisOne)
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+
+            //First step is to reverse the position of all modifications except the mod on the peptide N-terminus.
+            if (this.AllModsOneIsNterminus.Any())
+            {
+                foreach (var kvp in this.AllModsOneIsNterminus.Where(p => p.Key != 1).ToList())
+                {
+                    newModificationsDictionary.Add(this.BaseSequence.Length - kvp.Key + 3, kvp.Value);
+                }
+            }
+
+            //Second step is to reverse the sequence.
+            string newBaseString = new string(this.BaseSequence.Reverse().ToArray());
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
+            DigestionParams d = this.DigestionParams;
+
+            //now fill in the revised amino acid order
+            int oldStringPosition = this.BaseSequence.Length - 1;
+            for (int i = 0; i < newBaseString.Length; i++)
+            {
+                revisedOrderNisOne[i] = oldStringPosition;
+                oldStringPosition--;
+            }
+
+            //Make the "peptideDescription" store the corresponding target's sequence
+            return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
         }
     }
 }

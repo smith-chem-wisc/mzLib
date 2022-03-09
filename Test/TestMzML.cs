@@ -623,6 +623,35 @@ namespace Test
         }
 
         [Test]
+        public void EliminateZeroIntensityPeaksFromMzmlOnFileLoad()
+        {
+            //create an mzML file with zero intensity peaks in both MS1 and MS2 scans
+            MzSpectrum spectrum1 = new MzSpectrum(new double[] { 1, 2, 3 }, new double[] { 0, 1, 2 }, false);
+            MzSpectrum spectrum2 = new MzSpectrum(new double[] { 2, 3, 4 }, new double[] { 0, 2, 4 }, false);
+            MsDataScan[] scans = new MsDataScan[2];
+            scans[0] = new MsDataScan(spectrum1, 1, 1, true, Polarity.Positive, 1.0, new MzRange(300, 2000), "scan filter", MZAnalyzerType.Unknown, spectrum1.SumOfAllY, null, null, null);
+            scans[1] = new MsDataScan(spectrum2, 2, 2, true, Polarity.Positive, 1, new MzRange(300, 2000), "scan filter", MZAnalyzerType.Unknown, spectrum2.SumOfAllY, 1, new double[,] { }, "nativeId", 2, 1, 1, 1, 1, DissociationType.Unknown, 1, 2, null);
+
+            MsDataFile testFile = new MsDataFile(scans, new SourceFile("no nativeID format", "mzML format", null, null, null));
+
+            //check that scans have zero intensities
+            Assert.IsTrue(testFile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
+            Assert.IsTrue(testFile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
+
+            //write the mzML file with zero intensity scans
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(testFile, "mzMLWithZeros.mzML", false);
+
+            //read the mzML file. zero intensity peaks should be eliminated during read
+            Mzml readFile = Mzml.LoadAllStaticData("mzMLWithZeros.mzML", null, 1);
+
+            //insure that read scans contain no zero intensity peaks
+            Assert.IsFalse(readFile.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
+            Assert.IsFalse(readFile.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
+
+            File.Delete("mzMLWithZeros.mzML");
+        }
+
+        [Test]
         public void LoadMzmlFromConvertedMGFTest()
         {
             Mzml a = Mzml.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mzML"));
@@ -1490,7 +1519,7 @@ namespace Test
 
             foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
             {
-                if(staticScan.OneBasedScanNumber > 10)
+                if (staticScan.OneBasedScanNumber > 10)
                 {
                     // only the first 10 scans are checked because checking the entire file takes 7min on AppVeyor
                     break;
@@ -1559,6 +1588,76 @@ namespace Test
 
                     Assert.That(dynamicMz == staticMz);
                     Assert.That(dynamicIntensity == staticIntensity);
+                }
+            }
+        }
+
+        [Test]
+        /// This test reads an .mzML file where the intensities and m/z values are encoded in compressed 64-bit, and also an identical
+        /// file that is encoded in mostly uncompressed 32-bit. Scan #73 in the latter file has its intensities encoded in compressed 64-bit.
+        /// The intensities and m/z values for both of these files should be identical (sans rounding issues).
+        /// Additionally, scan 73 has its retention time in seconds, rather than minutes.
+        public static void TestDynamicMzmlWithMixedBits()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
+            string filePath2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast_mixed_bits.mzml");
+
+            Mzml staticMzml = Mzml.LoadAllStaticData(filePath, null);
+            Mzml staticMzml2 = Mzml.LoadAllStaticData(filePath2, null);
+
+            MzmlDynamicData dynamicMzml = new MzmlDynamicData(filePath);
+            MzmlDynamicData dynamicMzml2 = new MzmlDynamicData(filePath2);
+
+            foreach (MsDataScan staticScan in staticMzml.GetAllScansList())
+            {
+                // only the scans 72-74 are checked because checking the entire file takes a long time on AppVeyor
+                if (staticScan.OneBasedScanNumber < 72)
+                {
+                    continue;
+                }
+                if (staticScan.OneBasedScanNumber > 74)
+                {
+                    break;
+                }
+
+                MsDataScan staticScan2 = staticMzml2.GetOneBasedScan(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan1 = dynamicMzml.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan2 = dynamicMzml2.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                Assert.That(staticScan2.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan1.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                Assert.That(dynamicScan2.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+
+                Assert.That(staticScan2.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan1.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                Assert.That(dynamicScan2.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+
+                Assert.That(staticScan2.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+                Assert.That(dynamicScan1.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+                Assert.That(dynamicScan2.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+
+                for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
+                {
+                    double staticMz = staticScan.MassSpectrum.XArray[i];
+                    double staticIntensity = staticScan.MassSpectrum.YArray[i];
+
+                    double staticMz2 = staticScan2.MassSpectrum.XArray[i];
+                    double staticIntensity2 = staticScan2.MassSpectrum.YArray[i];
+
+                    Assert.That(staticMz2 == staticMz);
+                    Assert.That(staticIntensity2 == staticIntensity);
+
+                    double dynamicMz = dynamicScan1.MassSpectrum.XArray[i];
+                    double dynamicIntensity = dynamicScan1.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz == staticMz);
+                    Assert.That(dynamicIntensity == staticIntensity);
+
+                    double dynamicMz2 = dynamicScan2.MassSpectrum.XArray[i];
+                    double dynamicIntensity2 = dynamicScan2.MassSpectrum.YArray[i];
+
+                    Assert.That(dynamicMz2 == staticMz);
+                    Assert.That(dynamicIntensity2 == staticIntensity);
                 }
             }
         }

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using ThermoFisher.CommonCore.Data.Business;
@@ -303,6 +304,20 @@ namespace IO.ThermoRawFileReader
             {
                 xArray = centroidStream.Masses;
                 yArray = centroidStream.Intensities;
+            }
+
+            //Remove Zero Intensity Peaks
+            double zeroEquivalentIntensity = 0.01;
+            int zeroIntensityCount = yArray.Count(i => i < zeroEquivalentIntensity);
+            int intensityValueCount = yArray.Count();
+            if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+            {
+                Array.Sort(yArray, xArray);
+                double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+                double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+                yArray = yArray.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                xArray = xArray.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                Array.Sort(xArray, yArray);
             }
 
             if (filterParams != null

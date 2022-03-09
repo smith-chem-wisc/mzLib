@@ -125,6 +125,22 @@ namespace IO.Mgf
             double[] intensityArray = intensities.ToArray();
 
             Array.Sort(mzArray, intensityArray);
+
+            //Remove Zero Intensity Peaks
+            double zeroEquivalentIntensity = 0.01;
+            int zeroIntensityCount = intensityArray.Count(i => i < zeroEquivalentIntensity);
+            int intensityValueCount = intensityArray.Count();
+            if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+            {
+                Array.Sort(intensityArray, mzArray);
+                double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+                double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+                intensityArray = intensityArray.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                mzArray = mzArray.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                Array.Sort(mzArray, intensityArray);
+            }
+
+
             MzRange scanRange = new MzRange(mzArray[0], mzArray[mzArray.Length - 1]);
 
             // peak filtering
@@ -150,7 +166,7 @@ namespace IO.Mgf
 
         private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)
         {
-            var sArray = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] sArray = line.Split(new Char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 
             mzs.Add(Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture));
             intensities.Add(Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture));
