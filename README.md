@@ -3,12 +3,11 @@
 A library for mass spectrometry projects.
 
 
-
- [![Build status](https://ci.appveyor.com/api/projects/status/s4wix633hmjv0jx4/branch/master?svg=true)](https://ci.appveyor.com/project/smith-chem-wisc/mzlib/branch/master)
- [![codecov](https://codecov.io/gh/smith-chem-wisc/mzLib/branch/master/graph/badge.svg)](https://codecov.io/gh/smith-chem-wisc/mzLib)
- [![Coverity Scan Build Status](https://scan.coverity.com/projects/10000/badge.svg)](https://scan.coverity.com/projects/mzlib)
- [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1047dac2ae8d4d94b104c3cb3ca44926)](https://www.codacy.com/app/solntsev_2/mzLib?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=smith-chem-wisc/mzLib&amp;utm_campaign=Badge_Grade)
- [![NuGet version (mzLib)](https://img.shields.io/nuget/v/mzLib.svg?style=flat-square)](https://www.nuget.org/packages/mzLib/)
+[![GitHub Action Builds](https://github.com/smith-chem-wisc/mzLib/actions/workflows/dotnet.yml/badge.svg)](https://github.com/smith-chem-wisc/mzLib/actions/workflows/dotnet.yml)
+[![codecov](https://codecov.io/gh/smith-chem-wisc/mzLib/branch/master/graph/badge.svg)](https://codecov.io/gh/smith-chem-wisc/mzLib)
+[![Coverity Scan Build Status](https://scan.coverity.com/projects/10000/badge.svg)](https://scan.coverity.com/projects/mzlib)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1047dac2ae8d4d94b104c3cb3ca44926)](https://www.codacy.com/app/solntsev_2/mzLib?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=smith-chem-wisc/mzLib&amp;utm_campaign=Badge_Grade)
+[![NuGet version (mzLib)](https://img.shields.io/nuget/v/mzLib.svg?style=flat-square)](https://www.nuget.org/packages/mzLib/)
 
 
 Releases are here: https://www.nuget.org/packages/mzLib/
@@ -52,3 +51,4 @@ IEnumerable<ModificationWithLocation> ptms = PtmListLoader.ReadMods("ptms.txt")
 ```
 # License
 Code heavily borrowed from https://github.com/dbaileychess/CSMSL and distrubuted under the appropriate license, LGPL.
+
