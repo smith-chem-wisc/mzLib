@@ -34,11 +34,9 @@ jobs:
         cd mzLib;
         dotnet test --no-build --verbosity normal
           --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
-          /p:CoverletOutput='../../coberturatest.xml'
           ./Test/Test.csproj;
         dotnet test --no-build --verbosity normal
           --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura
-          /p:CoverletOutput='../../coberturatestlfq.xml'
           ./TestFlashLFQ/TestFlashLFQ.csproj;
     - name: Directory lists
       run:
@@ -48,4 +46,4 @@ jobs:
       uses: codecov/codecov-action@v2
       with:
         verbose: true
-        files: ./coberturatest.xml,./coberturatestlfq.xml
+        files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
