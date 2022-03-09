@@ -2,9 +2,9 @@ name: Build and Test
 
 on:
   push:
-    branches: [ restructureBaseDir ]
+    branches: [ master ]
   pull_request:
-    branches: [ restructureBaseDir ]
+    branches: [ master ]
 
 jobs:
   build:
