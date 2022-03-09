@@ -21,8 +21,9 @@ jobs:
     - name: Build
       run: cd mzLib; dotnet build --no-restore
     - name: Test
-      run: cd mzLib; dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.msbuild; dotnet add Test/Test.csproj package coverlet.msbuild; dotnet test --no-build --verbosity normal --output .. /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura; ls; ls ..
+      run: cd mzLib; dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.msbuild; dotnet add Test/Test.csproj package coverlet.msbuild; dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura; ls; ls ..
     - name: Codecov
       uses: codecov/codecov-action@v2
       with:
         verbose: true
+        directory: mzLib/mzLib/
