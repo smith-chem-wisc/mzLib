@@ -7,8 +7,7 @@ A library for mass spectrometry projects.
 [![codecov](https://codecov.io/gh/smith-chem-wisc/mzLib/branch/master/graph/badge.svg)](https://codecov.io/gh/smith-chem-wisc/mzLib)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/10000/badge.svg)](https://scan.coverity.com/projects/mzlib)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1047dac2ae8d4d94b104c3cb3ca44926)](https://www.codacy.com/app/solntsev_2/mzLib?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=smith-chem-wisc/mzLib&amp;utm_campaign=Badge_Grade)
-[![NuGet version (mzLib)](https://img.shields.io/nuget/v/mzLib.svg?style=flat-square)](https://www.nuget.org/packages/mzLib/)
-
+[![NuGet Badge](https://buildstats.info/nuget/mzLib)](https://www.nuget.org/packages/mzLib/)
 
 Releases are here: https://www.nuget.org/packages/mzLib/
 
