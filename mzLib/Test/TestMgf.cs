@@ -62,6 +62,27 @@ namespace Test
         }
 
         [Test]
+        public static void TestLoadMgfTabSeparated()
+        {
+
+            Mgf a = Mgf.LoadAllStaticData(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_list.mgf"));
+
+            var ya = a.GetOneBasedScan(2);
+            Assert.AreEqual(19, ya.MassSpectrum.Size);
+            Assert.AreEqual(2, ya.MsnOrder);
+            Assert.AreEqual(2, ya.OneBasedScanNumber);
+            Assert.AreEqual(MassSpectrometry.Polarity.Positive, ya.Polarity);
+            Assert.That(ya.RetentionTime, Is.EqualTo(15.393).Within(0.1));
+            Assert.That(ya.IsolationMz, Is.EqualTo(354.8).Within(0.1));
+            Assert.That(ya.SelectedIonMZ, Is.EqualTo(354.8).Within(0.1));
+            Assert.That(ya.SelectedIonChargeStateGuess, Is.EqualTo(2));
+            Assert.That(ya.SelectedIonMonoisotopicGuessMz, Is.EqualTo(354.8).Within(0.1));
+            Assert.That(ya.TotalIonCurrent, Is.EqualTo(1737).Within(0.1));
+            Assert.That(ya.ScanWindowRange.Minimum, Is.EqualTo(227.787).Within(0.1));
+            Assert.That(ya.ScanWindowRange.Maximum, Is.EqualTo(565.64).Within(0.1));
+        }
+
+        [Test]
         public void EliminateZeroIntensityPeaksFromMgfOnFileLoad()
         {
 
