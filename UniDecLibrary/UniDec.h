@@ -18,8 +18,6 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include "hdf5.h"
-#include "hdf5_hl.h"
 #include <fftw3.h>
 //#include "UD_sg.h"
 

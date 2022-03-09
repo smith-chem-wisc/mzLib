@@ -6,8 +6,12 @@
 //
 
 #include <stdio.h>
-
-
+#include "Config.h"
+#include "Decon.h"
+#include <stdbool.h>
+#include "UD_analysis.h"
+#include "Sorting.h"
+#include "ArrayIndexing.h"
 
 void get_fwhms(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float* peakx, float* fwhmlow, float* fwhmhigh, float* badfwhm)
 {
@@ -526,68 +530,3 @@ float score(Config config, Decon *decon, Input inp, const float threshold)
 
     return uniscore;
 }
-
-int ReadDecon(Config* config, const Input inp, Decon* decon)
-{
-    char outdat[1024];
-    char strval[1024];
-
-    //Import Rsquared
-    decon->rsquared = float_attr(config->file_id, config->dataset, "rsquared", decon->rsquared);
-
-    //Mass Data
-    strjoin(config->dataset, "/mass_data", outdat);
-    //printf("\tReading: %s\n", outdat);
-    decon->mlen = mh5getfilelength(config->file_id, outdat);
-    decon->massaxis = calloc(decon->mlen, sizeof(float));
-    decon->massaxisval = calloc(decon->mlen, sizeof(float));
-    mh5readfile2d(config->file_id, outdat, decon->mlen, decon->massaxis, decon->massaxisval);
-
-    //MZ Grid
-    strjoin(config->dataset, "/mz_grid", outdat);
-    int status = check_group_noexit(config->file_id, outdat);
-    if (status == 0) { return 0; }
-    //printf("\tReading: %s\n", outdat);
-    decon->newblur = calloc(config->lengthmz * config->numz, sizeof(float));
-    mh5readfile1d(config->file_id, outdat, decon->newblur);
-
-    //Mass Grid
-    strjoin(config->dataset, "/mass_grid", outdat);
-    status = check_group_noexit(config->file_id, outdat);
-    if (status == 0) { return 0; }
-    //printf("\tReading: %s\n", outdat);
-    decon->massgrid = calloc(decon->mlen * config->numz, sizeof(float));
-    mh5readfile1d(config->file_id, outdat, decon->massgrid);
-    return 1;
-}
-
-void get_scan_scores(int argc, char* argv[], Config config)
-{
-    config.file_id = H5Fopen(argv[1], H5F_ACC_RDWR, H5P_DEFAULT);
-    int num = 0;
-    num = int_attr(config.file_id, "/ms_dataset", "num", num);
-
-    for (int i = 0; i < num; i++) {
-        config.metamode = i;
-        
-        Decon decon = SetupDecon();
-        Input inp = SetupInputs();
-        ReadInputs(argc, argv, &config, &inp);
-        int status = ReadDecon(&config, inp, &decon);
-
-        if(status ==1){
-            score(config, &decon, inp, 0);
-            WritePeaks(config, &decon);
-        }
-        else
-        {
-            printf("Missing deconvolution outputs. Turn off Fast Profile/Fast Centroid and try deconvolving again.");
-        }
-
-        FreeDecon(decon);
-        FreeInputs(inp);
-    }
-    H5Fclose(config.file_id);
-}
-
-

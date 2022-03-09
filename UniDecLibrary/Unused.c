@@ -221,6 +221,7 @@ void WriteDecon(const Config config, const Decon* decon, const Input* inp)
 
 }
 // This function reads the H5 file and inputs the contents into the config and input structs. This function will be unecessary if directly passing from C# to the .dll.
+// Need to refactor this code to convert mass spectra data to the Input object to pass directly to C. 
 void ReadInputs(int argc, char* argv[], Config* config, Input* inp)
 {
     if (config->filetype == 1) {

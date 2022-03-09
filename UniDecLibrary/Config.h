@@ -56,8 +56,6 @@ struct Config
     int filetype;
     int imflag;
     //IM Parameters
-    // These are ion mobility parameters, so these
-    // may be removable as well.
     float dtsig;
     float csig;
     float ccsub;

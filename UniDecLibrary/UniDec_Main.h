@@ -17,11 +17,23 @@
 #include <math.h>
 #include <time.h>
 #include "UniDec.h"
-#include "UD_H5_IO.h"
 #include "UD_score.h"
+#include "Config.h"
+#include "Decon.h"
+#include "Input.h"
+#include "MathUtilities.h"
+#include "Convolution.h"
+#include "ArgMax.h"
+#include "PointSmoothing.h"
+#include "ErrorFunctions.h"
+#include "Decon.h"
+#include "Convolution.h"
+#include "MZPeak.h"
+#include "Transforms.h"
+#include "Interpolation.h"
+#include "Isotopes.h"
+#include "FitFunctions.h"
+#include "Normalization.h"
+#include "UD_analysis.h"
 
-
-Decon MainDeconvolution(const Config config, const Input inp, const int silent, const int verbose);
-int run_unidec(int argc, char *argv[], Config config);
-void RunAutotune(Config *config, Input *inp, Decon *decon);
 Decon MainDeconvolution(const Config config, const Input inp, const int silent, const int verbose);

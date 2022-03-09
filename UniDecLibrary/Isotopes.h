@@ -9,6 +9,9 @@
 #define Isotopes_h
 
 #include <stdio.h>
+#include "Config.h"
+#include "Input.h"
+#include "ArrayIndexing.h"
 
 void setup_and_make_isotopes(Config* config, Input* inp);
 void test_isotopes(float mass, float* isoparams);
@@ -19,4 +22,5 @@ float isotopebeta(float mass, float* isoparams);
 float isotopealpha(float mass, float* isoparams);
 float isotopesig(float mass, float* isoparams);
 float isotopemid(float mass, float* isoparams); 
+void monotopic_to_average(const int lengthmz, const int numz, float* blur, const char* barr, int isolength, const int* __restrict isotopepos, const float* __restrict isotopeval);
 #endif /* Isotopes_h */

@@ -11,6 +11,7 @@
 //
 //
 #include <stdlib.h>
+#include "Config.h"
 
 #ifndef DATAPROC_HEADER
 #define DATAPROC_HEADER

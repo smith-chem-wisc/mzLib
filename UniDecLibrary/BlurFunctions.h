@@ -12,6 +12,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include "MathUtilities.h"
+#include "Config.h"
+#include "Input.h"
+#include "ArrayIndexing.h"
 
 
 void blur_it(const int lengthmz,

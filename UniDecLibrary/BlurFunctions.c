@@ -6,6 +6,7 @@
 //
 
 #include "BlurFunctions.h"
+#include "Config.h"
 
 
 //Convolution of neighborhood function with gaussian filter.

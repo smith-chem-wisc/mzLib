@@ -117,38 +117,22 @@ float deconvolve_iteration_speedy(const int lengthmz, const int numz, const int 
         //Real Richardson-Lucy Second Convolution
         convolve_simp(lengthmz, maxlength, starttab, endtab, rmzdist, denom, deltas, speedyflag);
         memcpy(denom, deltas, sizeof(float) * lengthmz);
-        /*
-        for (i = 0; i<lengthmz; i++)
-        {
-            deltas[lengthmz - 1 - i] = denom[i];
-        }
-        convolve_simp(lengthmz, maxlength, starttab, endtab, mzdist, deltas, denom, speedyflag);
-        for (i = 0; i<lengthmz; i++)
-        {
-            deltas[lengthmz - 1 - i] = denom[i];
-        }
-        memcpy(denom, deltas, sizeof(float)*lengthmz);*/
     }
 
-    //printf("6\n");
     //Multiply Ratio by prior
     apply_ratios(lengthmz, numz, blur, barr, isolength, isotopepos, isotopeval, denom, blur2);
 
-    //printf("7\n");
     if (aggressiveflag == 1)
     {
-        //memcpy(deltas, denom, sizeof(float)*lengthmz);
         blur_baseline(denom, lengthmz, dataMZ, fabs(mzsig), 0, filterwidth);
-        //blur_baseline(denom, lengthmz, 10);
-        //blur_noise(deltas, lengthmz);
+
 #pragma omp parallel for private(i), schedule(auto)
         for (i = 0; i < lengthmz; i++)
         {
             baseline[i] = baseline[i] * (denom[i]);
-            //noise[i] = noise[i]*(deltas[i]);
         }
     }
-    //printf("8\n");
+
     free(deltas);
     free(denom);
     return 0;
@@ -224,7 +208,7 @@ int SetStartsEnds(const Config config, const Input* inp, int* starttab, int* end
         int start, end;
         if (point < inp->dataMZ[0] && config.speedyflag == 0) {
             //start = (int)((point - inp->dataMZ[0]) / (inp->dataMZ[1] - inp->dataMZ[0]));
-            start = 0 - nearfast(inp->dataMZ, 2 * inp->dataMZ[0] - point, config.lengthmz);
+            start = 0 - nearfast(inp->dataMZ, (float)2 * inp->dataMZ[0] - point, config.lengthmz);
         }
         else {
             start = nearfast(inp->dataMZ, point, config.lengthmz);
@@ -234,7 +218,7 @@ int SetStartsEnds(const Config config, const Input* inp, int* starttab, int* end
         point = inp->dataMZ[i] + threshold;
         if (point > inp->dataMZ[config.lengthmz - 1] && config.speedyflag == 0) {
             //end = config.lengthmz - 1 + (int)((point - inp->dataMZ[config.lengthmz - 1]) / (inp->dataMZ[config.lengthmz - 1] - inp->dataMZ[config.lengthmz - 2]));
-            end = config.lengthmz - 1 + nearfast(inp->dataMZ, 2 * inp->dataMZ[0] - point, config.lengthmz);
+            end = config.lengthmz - 1 + nearfast(inp->dataMZ, (float)2 * inp->dataMZ[0] - point, config.lengthmz);
         }
         else {
             end = nearfast(inp->dataMZ, point, config.lengthmz);
@@ -245,40 +229,6 @@ int SetStartsEnds(const Config config, const Input* inp, int* starttab, int* end
     }
     //printf("Max Length: %d\t", maxlength);
     return maxlength;
-}
-
-
-// Gives convolution of functions a and b. Unused.
-// Use cconv2fast instead
-void cconv2(double* a, double* b, double* c, int length) {
-    double** A = malloc(length * sizeof(double*));    // (a + bi)
-    double** B = malloc(length * sizeof(double*));    // (c + di)
-    double** C = malloc(length * sizeof(double*));
-    for (int i = 0; i < length; i++) {
-        A[i] = calloc(2, sizeof(double));
-        B[i] = calloc(2, sizeof(double));
-        C[i] = calloc(2, sizeof(double));
-    }
-
-    discretefouriertransform(a, A, length);
-    discretefouriertransform(b, B, length);
-    // A * B = (ac - bd) + i(ad + bc)
-    for (int j = 0; j < length; j++) {
-        C[j][0] = (A[j][0] * B[j][0]) - (A[j][1] * B[j][1]);
-        C[j][1] = (A[j][0] * B[j][1]) + (A[j][1] * B[j][0]);
-    }
-    inversefouriertransform(C, c, length);
-    for (int k = 0; k < length; k++) {
-        if (c[k] < 0) {
-            c[k] = c[k] * -1.0;
-        }
-        free(A[k]);
-        free(B[k]);
-        free(C[k]);
-    }
-    free(A);
-    free(B);
-    free(C);
 }
 
 
@@ -414,228 +364,6 @@ void dd_deconv2(double* kernel_y, double* data_y, int length, double* output) {
     fftw_free(estimate_ft);
     fftw_free(conv1_ft);
     fftw_free(product_ft);
-}
-
-void dd_deconv(double* kernel_y, double* data_y, int length, double* output) {
-
-    // Create flipped point spread function kernel_star
-    double* kernel_star = malloc(length * sizeof(double));
-    for (int i = 0; i < length; i++) {
-        kernel_star[i] = kernel_y[length - i - 1];
-    }
-    // Create estimate for solution
-    double* estimate = malloc(length * sizeof(double));
-    for (int i = 0; i < length; i++) {
-        estimate[i] = data_y[i];
-    }
-    // Allocate arrays for convolutions
-    double* conv1 = malloc(length * sizeof(double));
-    double* conv2 = malloc(length * sizeof(double));
-
-    // Perform iterations
-    int j = 0;
-    double diff = 1.0;
-    while (j < 50 && diff > 0.0001) { // Thresholds same as in Python
-        // Find new estimate
-        cconv2fast(kernel_y, estimate, conv1, length);
-        for (int k = 0; k < length; k++) {
-            if (conv1[k] != 0) {
-                conv1[k] = data_y[k] / conv1[k];
-            }
-        }
-        cconv2fast(conv1, kernel_star, conv2, length);
-        for (int k = 0; k < length; k++) {
-            conv2[k] = conv2[k] * estimate[k]; // Store new estimate in conv2
-        }
-        // Find how much the estimate changed
-        double sum_diff = 0.0;
-        double sum_est = 0.0;
-        for (int k = 0; k < length; k++) {
-            sum_diff += pow((estimate[k] - conv2[k]), 2.0);
-            sum_est += estimate[k];
-        }
-        diff = sum_diff / sum_est;
-        // Set new estimate as estimate
-        for (int k = 0; k < length; k++) {
-            estimate[k] = conv2[k];
-        }
-        j++;
-    }
-
-    // estimate now contains our deconvolution
-    // Normalize and "return"
-    double estimate_max = 0.0;
-    for (int i = 0; i < length; i++) {
-        if (estimate_max < estimate[i]) {
-            estimate_max = estimate[i];
-        }
-    }
-    for (int i = 0; i < length; i++) {
-        output[i] = estimate[i] / estimate_max;
-    }
-
-    // Free arrays
-    free(kernel_star);
-    free(estimate);
-    free(conv1);
-    free(conv2);
-
-}
-
-
-void DoubleDecon(const Config* config, Decon* decon) {
-
-    // Get larger length
-    int true_length;
-    int kernel_length = getfilelength(config->kernel);
-    int data_length = decon->mlen;
-    if (kernel_length > data_length) {
-        true_length = kernel_length;
-    } else {
-        true_length = data_length;
-    }
-
-    // Read in kernel file
-    double* kernel_x_init = calloc(true_length, sizeof(double));
-    double* kernel_y_init = calloc(true_length, sizeof(double));
-    readkernel(config->kernel, kernel_length, kernel_x_init, kernel_y_init);
-    // printf("Kernel file read.\n");
-
-    // Enforce the same sampling on the kernel
-    if (kernel_length > 1 && data_length > 1) {
-        double diff = decon->massaxis[1] - decon->massaxis[0]; // kernel sampling needs to match this
-        double kdiff = kernel_x_init[1] - kernel_x_init[0]; // the original kernel sampling
-        if (diff != kdiff) {
-            int newlen = ((kernel_x_init[kernel_length - 1] - kernel_x_init[0]) / diff) + 1;
-            if (newlen > data_length) {
-                true_length = newlen;
-            } else {
-                true_length = data_length;
-            }
-        }
-    }
-
-    // Read in data (i.e. copy from decon struct)
-    double* data_x = calloc(true_length, sizeof(double));
-    double* data_y = calloc(true_length, sizeof(double));
-    double max_data_y = 0.0;
-    for (int i = 0; i < data_length; i++) {
-        data_x[i] = decon->massaxis[i];
-        data_y[i] = decon->massaxisval[i];
-        if (data_y[i] > max_data_y) {
-            max_data_y = data_y[i];
-        }
-    }
-    for (int i = 0; i < data_length; i++) {    // Normalize
-        data_y[i] = data_y[i] / max_data_y;
-    }
-    // printf("Data file copied and normalized.\n");
-
-    // Integrate or interpolate if necessary...
-    double* kernel_x = NULL;
-    double* kernel_y = NULL;
-    int kernel_length2 = true_length;
-    // printf("true length is %d\n", kernel_length2);
-    if (kernel_length > 1 && data_length > 1 &&
-        (data_x[1] - data_x[0]) > (kernel_x_init[1] - kernel_x_init[0])) {
-        // printf("Integrating\n");
-        kernel_length2 = integrate_dd(kernel_x_init, kernel_y_init, kernel_length, data_x, data_y,
-            true_length, &kernel_x, &kernel_y);
-    } else if (kernel_length > 1 && data_length > 1 &&
-        (data_x[1] - data_x[0]) < (kernel_x_init[1] - kernel_x_init[0])) {
-        // printf("Interpolating\n");
-        kernel_length2 = interpolate_dd(kernel_x_init, kernel_y_init, kernel_length, data_x, data_y,
-            true_length, &kernel_x, &kernel_y);
-    } else {
-        // printf("Sampling is OK\n");
-        kernel_x = kernel_x_init;
-        kernel_y = kernel_y_init;
-    }
-    // ...and find max and normalize
-    double max_kernel_y = 0.0;
-    int max_kernel_i = 0;
-    for (int i = 0; i < kernel_length2; i++) {
-        // printf("kernel y for index %d is %f\n", i, kernel_y[i]);
-        if (kernel_y[i] > max_kernel_y) {
-            max_kernel_y = kernel_y[i];
-            max_kernel_i = i;
-        }
-    }
-    // printf("max is %f, out of length %d\n", max_kernel_y, kernel_length2);
-    for (int i = 0; i < kernel_length2; i++) {    // Normalize
-        kernel_y[i] = kernel_y[i] / max_kernel_y;
-        // printf("%f\n", kernel_y[i]);
-    }
-    // printf("Kernel file normalized.\n");
-
-    // Pad x-axis for the shorter one (is padding kernel even necessary???)
-    if (data_length < true_length) { // Pad data_x
-        double diff = data_x[1] - data_x[0];
-        double last = data_x[data_length - 1];
-        for (int i = data_length; i < true_length; i++) {
-            data_x[i] = last + diff;
-            last = data_x[i];
-        }
-    }
-    else if (kernel_length < true_length) { // Pad kernel_x
-        double diff = kernel_x[1] - kernel_x[0];
-        double last = kernel_x[kernel_length - 1];
-        for (int i = kernel_length; i < true_length; i++) {
-            kernel_x[i] = last + diff;
-            last = kernel_x[i];
-        }
-    }
-    // printf("Data padded.\n");
-
-    // Prepare kernel
-    double* real_kernel_y = calloc(true_length, sizeof(double));
-    int part1_length = true_length - max_kernel_i;
-    for (int i = 0; i < part1_length; i++) {
-        real_kernel_y[i] = kernel_y[max_kernel_i + i];
-    }
-    for (int i = 0; i < max_kernel_i; i++) {
-        real_kernel_y[part1_length + i] = kernel_y[i];
-    }
-    // printf("Kernel file prepared.\n");
-
-    // Run Richardson-Lucy deconvolution
-    double* doubledec = calloc(true_length, sizeof(double));
-    // printf("Running dd_deconv2\n");
-    dd_deconv2(real_kernel_y, data_y, true_length, doubledec);
-
-    // printf("Copying results to Decon struct.\n");
-    int lb = nearfast_d(data_x, config->masslb, true_length);
-    if (data_x[lb] < config->masslb) lb++;
-    int ub = nearfast_d(data_x, config->massub, true_length);
-    if (data_x[ub] > config->massub) lb--;
-    int write_length = ub - lb + 1;
-    if (write_length > decon->mlen) {
-        // printf("Warning: new length exceeds previous mlen.\n");
-        free(decon->massaxis);
-        free(decon->massaxisval);
-        decon->massaxis = calloc(write_length, sizeof(float));
-        decon->massaxisval = calloc(write_length, sizeof(float));
-    }
-    // Copy results to the Decon struct
-    for (int i = 0; i < write_length; i++) {
-        decon->massaxis[i] = data_x[i + lb];
-        decon->massaxisval[i] = doubledec[i + lb];
-    }
-    decon->mlen = write_length;
-    // printf("Results copied to Decon.\n");
-
-    // Free memory
-    if (kernel_x != kernel_x_init) {
-        free(kernel_x);
-        free(kernel_y);
-    }
-    free(kernel_x_init);
-    free(kernel_y_init);
-    free(real_kernel_y);
-    free(data_x);
-    free(data_y);
-    free(doubledec);
-
 }
 
 

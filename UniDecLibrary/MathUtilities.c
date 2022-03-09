@@ -26,16 +26,6 @@ int compare_function(const void* a, const void* b)
     return 0;
 }
 
-
-inline int fixk(int k, int lengthmz)
-{
-    k = abs(k);
-    if (k >= lengthmz) { k = 2 * lengthmz - k - 2; }
-    //if (k < 0) { k = 0; }
-    return k;
-}
-
-
 void sum_deltas(const int lengthmz, const int numz, const float* __restrict blur, const char* __restrict barr,
     const int isolength, const int* __restrict isotopepos, const float* __restrict isotopeval, float* deltas)
 {

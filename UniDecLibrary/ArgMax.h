@@ -9,6 +9,11 @@
 #define ArgMax_h
 
 #include <stdio.h>
+#include <stdlib.h>
+#include "ArrayIndexing.h"
+#include "MathUtilities.h"
+#include <math.h>
+#include "Convolution.h"
 
 int argmax(float* blur, int lengthmz); 
 void softargmax_transposed(float* blur, const int lengthmz, const int numz, const float beta, const char* barr, const int maxlength,
