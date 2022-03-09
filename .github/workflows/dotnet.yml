@@ -1,0 +1,51 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+    - name: Restore dependencies
+      run: cd mzLib; dotnet restore
+    - name: Build
+      run:
+        cd mzLib;
+        dotnet build --no-restore;
+        dotnet build --no-restore ./Test/Test.csproj;
+        dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj;
+    - name: Add msbuild
+      run:
+        cd mzLib;
+        dotnet add Test/Test.csproj package coverlet.msbuild;
+        dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.msbuild;
+    - name: Test
+      run:
+        cd mzLib;
+        dotnet test --no-build --verbosity normal
+          /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+          /p:CoverletOutput='../../coberturatest.xml'
+          ./Test/Test.csproj;
+        dotnet test --no-build --verbosity normal
+          /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
+          /p:CoverletOutput='../../coberturatestlfq.xml'
+          ./TestFlashLFQ/TestFlashLFQ.csproj;
+    - name: Directory lists
+      run:
+        ls;
+        ls mzLib;
+    - name: Codecov
+      uses: codecov/codecov-action@v2
+      with:
+        verbose: true
+        files: ./coberturatest.xml,./coberturatestlfq.xml
