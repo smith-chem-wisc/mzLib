@@ -44,6 +44,6 @@ jobs:
         run: |
           $version= &git describe --tags
           cd mzLib
-          dotnet nuget push mzLib/mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
+          dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
         env:
           GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}
