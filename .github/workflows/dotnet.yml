@@ -25,8 +25,8 @@ jobs:
     - name: Test
       run: 
         cd mzLib;
-        dotnet test ./Test/Test.csproj --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput='../../coberturatest.xml';
-        dotnet test ./TestFlashLFQ/TestFlashLFQ.csproj --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput='../../coberturatestlfq.xml'
+        dotnet test --no-build --verbosity normal ./Test/Test.csproj -- /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput='../../coberturatest.xml';
+        dotnet test --no-build --verbosity normal ./TestFlashLFQ/TestFlashLFQ.csproj -- /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput='../../coberturatestlfq.xml'
     - name: Directory lists
       run: ls; ls mzLib
     - name: Codecov
