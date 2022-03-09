@@ -22,3 +22,5 @@ jobs:
       run: cd mzLib; dotnet build --no-restore
     - name: Test
       run: cd mzLib; dotnet test --no-build --verbosity normal
+    - name: Codecov
+      uses: codecov/codecov-actions@v2
