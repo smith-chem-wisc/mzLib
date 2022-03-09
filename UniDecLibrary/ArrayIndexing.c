@@ -6,22 +6,6 @@
 //
 
 #include "ArrayIndexing.h"
-// Array indexing functions:
-inline int index2D(const int ncols, const int r, const int c)
-{
-    return r * ncols + c;
-}
-
-inline int indexmod(int length, int r, int c)
-{
-    return mod((c - r), length);
-}
-
-inline int index3D(const int ncols, const int nrows, const int r, const int c, const int d)
-{
-    return r * ncols * nrows + c * nrows + d;
-}
-
 
 float max1d(float* blur, int lengthmz) {
     float blurmax = blur[0];

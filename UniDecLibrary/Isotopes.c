@@ -205,13 +205,6 @@ void test_isotopes(float mass, float* isoparams)
         isoindex[i] = (isostart + i);
     }
     isotope_dist(mass, isolength, isoindex, isorange, isoparams);
-    printf("Distribution: %f", mass);
-    for (i = 0; i < isolength; i++)
-    {
-        printf("%f ", isorange[i]);
-    }
-    printf("\n");
-    textvectorprint(isorange, isolength);
     free(isorange);
     free(isoindex);
 }
@@ -229,6 +222,29 @@ void setup_and_make_isotopes(Config* config, Input* inp) {
     make_isotopes(inp->isoparams, inp->isotopepos, inp->isotopeval, inp->mtab, inp->nztab, inp->barr, inp->dataMZ, config->lengthmz, config->numz);
 
     printf("Isotopes set up, Length: %d\n", config->isolength);
+}
+void monotopic_to_average(const int lengthmz, const int numz, float* blur, const char* barr, int isolength, const int* __restrict isotopepos, const float* __restrict isotopeval)
+{
+    float* newblur = NULL;
+    newblur = calloc(lengthmz * numz, sizeof(float));
+    unsigned int i, j, k;
+    for (i = 0; i < lengthmz; i++)
+    {
+        for (j = 0; j < numz; j++)
+        {
+            if (barr[index2D(numz, i, j)] == 1) {
+                float topval = blur[index2D(numz, i, j)];
+                for (k = 0; k < isolength; k++)
+                {
+                    int pos = isotopepos[index3D(numz, isolength, i, j, k)];
+                    float val = isotopeval[index3D(numz, isolength, i, j, k)];
+                    newblur[index2D(numz, pos, j)] += topval * (float)val;
+                }
+            }
+        }
+    }
+    memcpy(blur, newblur, sizeof(float) * lengthmz * numz);
+    free(newblur);
 }
 
 // Isotopes //

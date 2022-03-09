@@ -12,6 +12,7 @@
 //
 
 #include "UD_dataproc.h"
+#include "Config.h"
 
 #ifndef ANALYSIS_HEADER
 #define ANALYSIS_HEADER
@@ -25,10 +26,10 @@ float extract_height(Config config, const float peak, const float *xvals, const 
 float extract_localmax(Config config, const float peak, const float *xvals, const float *yvals, const int length);
 float extract_localmax_position(Config config, const float peak, const float *xvals, const float *yvals, const int length);
 float extract_integral(Config config, const float peak, const float *xvals, const float *yvals, const int length, const float thresh);
-float extract_center_of_mass(Config config, const float peak, const float *xvals, const float *yvals, const int length, const float thresh)
+float extract_center_of_mass(Config config, const float peak, const float* xvals, const float* yvals, const int length, const float thresh); 
 float extract_estimated_area(Config config, const float peak, const float* xvals, const float* yvals, const int length);
 float extract_switch(Config config, const float peak, const float* xvals, const float* yvals, const int length);
-void peak_extracts(Config config, const float *peakx, hid_t file_id, const char *dtype, int plen, int ultra);
+void peak_extracts(Config config, const float *peakx, const char *dtype, int plen, int ultra);
 void get_all_peaks(int argc, char *argv[], Config config);
 void get_peaks(int argc, char *argv[], Config config, int ultra);
 

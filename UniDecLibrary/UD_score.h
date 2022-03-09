@@ -12,6 +12,9 @@
 //
 
 #include "UD_analysis.h"
+#include "Config.h"
+#include "Input.h"
+#include "Decon.h"
 //#include "UniDec.h"
 //#include "UD_peak_width.h"
 void get_fwhms(Config config, const int plen, const int mlen, const float* massaxis, const float* masssum, const float* peakx, float* fwhmlow, float* fwhmhigh, float* badfwhm);

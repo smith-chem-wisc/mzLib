@@ -6,6 +6,7 @@
 //
 
 #include <stdio.h>
+#include "Config.h"
 
 void z_slice(const float *ivals, const int mindex, float *zdat, const int zlen, const float thresh)
 {
