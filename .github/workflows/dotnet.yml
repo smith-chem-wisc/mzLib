@@ -21,6 +21,6 @@ jobs:
     - name: Build
       run: cd mzLib; dotnet build --no-restore
     - name: Test
-      run: cd mzLib; dotnet test --no-build --verbosity normal
+      run: cd mzLib; dotnet test --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover 
     - name: Codecov
       uses: codecov/codecov-action@v2
