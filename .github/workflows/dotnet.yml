@@ -32,12 +32,14 @@ jobs:
     - name: Test
       run:
         cd mzLib;
-        dotnet test --no-build --verbosity normal ./Test/Test.csproj --
+        dotnet test --no-build --verbosity normal
           /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
-          /p:CoverletOutput='../../coberturatest.xml';
-        dotnet test --no-build --verbosity normal ./TestFlashLFQ/TestFlashLFQ.csproj --
+          /p:CoverletOutput='../../coberturatest.xml'
+          ./Test/Test.csproj;
+        dotnet test --no-build --verbosity normal
           /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
           /p:CoverletOutput='../../coberturatestlfq.xml'
+          ./TestFlashLFQ/TestFlashLFQ.csproj;
     - name: Directory lists
       run:
         ls;
