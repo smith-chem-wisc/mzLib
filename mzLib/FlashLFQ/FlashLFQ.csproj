@@ -11,6 +11,7 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <PackageReference Include="Accord.Statistics" Version="3.8.0" />
     <PackageReference Include="MathNet.Numerics" Version="4.8.1" />
     <PackageReference Include="NetSerializer" Version="4.1.1" />
     <PackageReference Include="SharpLearning.Optimization" Version="[0.28.0]" />

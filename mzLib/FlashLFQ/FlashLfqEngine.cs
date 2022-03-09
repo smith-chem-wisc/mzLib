@@ -37,7 +37,7 @@ namespace FlashLFQ
 
         // settings for the Bayesian protein quantification engine
         public readonly bool BayesianProteinQuant;
-
+        public readonly bool PermutationProteinQuant;
         public readonly string ProteinQuantBaseCondition;
         public readonly double ProteinQuantFoldChangeCutoff;
         public readonly int McmcSteps;
@@ -73,6 +73,8 @@ namespace FlashLFQ
             double matchBetweenRunsPpmTolerance = 10.0,
             double maxMbrWindow = 2.5,
             bool requireMsmsIdInCondition = false,
+
+            bool permutationProteinQuant = false,
 
             // settings for the Bayesian protein quantification engine
             bool bayesianProteinQuant = false,
@@ -110,6 +112,7 @@ namespace FlashLFQ
             Normalize = normalize;
             MaxThreads = maxThreads;
             BayesianProteinQuant = bayesianProteinQuant;
+            PermutationProteinQuant = permutationProteinQuant;
             PairedSamples = pairedSamples;
             ProteinQuantBaseCondition = proteinQuantBaseCondition;
             ProteinQuantFoldChangeCutoff = proteinQuantFoldChangeCutoff;
@@ -226,6 +229,26 @@ namespace FlashLFQ
 
                     new ProteinQuantificationEngine(_results, MaxThreads, ProteinQuantBaseCondition, UseSharedPeptidesForProteinQuant,
                         ProteinQuantFoldChangeCutoff, RandomSeed, McmcBurninSteps, McmcSteps, PairedSamples).Run();
+                }
+            }
+            // do permutation/t-test protein fold-change analysis
+            else if(PermutationProteinQuant) //TODO bayesian changes protein quant values, might want to use those values. Test with and without
+            {
+                if (_spectraFileInfo.Count == 1 || _spectraFileInfo.Select(p => p.Condition).Distinct().Count() == 1)
+                {
+                    if (!Silent)
+                    {
+                        Console.WriteLine("Can't do permutation testing with only one spectra file or condition. FlashLFQ will still do a top3 protein quant");
+                    }
+                }
+                else
+                {
+                    if (!Silent)
+                    {
+                        Console.WriteLine("Running permutation testing to determine significant proteins");
+                    }
+
+                    new PermutationTestingEngine(_results).Run();
                 }
             }
 

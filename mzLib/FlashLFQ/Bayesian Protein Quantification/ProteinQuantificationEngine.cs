@@ -57,14 +57,14 @@ namespace FlashLFQ
                 throw new MzLibException("Conditions must be defined to run the Bayesian protein quantification");
             }
 
-            this.MaxThreads = maxThreads;
-            this.Results = results;
-            this.UseSharedPeptides = useSharedPeptides;
-            this.ControlCondition = controlCondition;
-            this.FoldChangeCutoff = foldChangeCutoff;
-            this.BurnInSteps = mcmcBurninSteps;
-            this.McmcSteps = mcmcSteps;
-            this.PairedSamples = pairedSamples;
+            MaxThreads = maxThreads;
+            Results = results;
+            UseSharedPeptides = useSharedPeptides;
+            ControlCondition = controlCondition;
+            FoldChangeCutoff = foldChangeCutoff;
+            BurnInSteps = mcmcBurninSteps;
+            McmcSteps = mcmcSteps;
+            PairedSamples = pairedSamples;
 
             if (randomSeed == null)
             {
