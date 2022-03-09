@@ -403,7 +403,7 @@ namespace Test
                 foreach (var ion in matchedIons)
                 {
                     printout = "";
-                    printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.monoistopicMass + " : " + ion.roundedMonoisotopicMass
+                    printout = ion.matchedIonMZ + " : " + ion.chargeState + " : " + ion.monoistopicMass + " : " + Math.Round(ion.roundedMonoisotopicMass,0)
                         + " : " + ion.fragmentationEfficiencyOneIon + " : " + ion.fragmentationEfficiencyTotal;
                     sw.WriteLine(printout);
                 }
@@ -561,13 +561,17 @@ public class MatchedIons
             // removes any matches that are not a part of the above defined sequences
             foreach (var match in matches2)
             {
+                bool matchFound = targets.Any(p => Math.Round(p.MonoisotopicMass, 0) >= Math.Round(match.monoistopicMass, 0) - 10 &&
+                                                   Math.Round(p.MonoisotopicMass, 0) <= Math.Round(match.monoistopicMass, 0) + 10);
+
+
                 if (!targets.Any(p => Math.Round(p.MonoisotopicMass, 0) == Math.Round(match.monoistopicMass, 0)))
                     matches.Remove(match);
             }
         }
 
         int breakpoint = 0;
-        return matches.OrderBy(p => p.monoistopicMass).ToList();
+        return matches.OrderBy(p => p.monoistopicMass).ThenBy(p => p.chargeState).ToList();
     }
 
 
