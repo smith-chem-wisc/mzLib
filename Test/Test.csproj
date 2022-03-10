@@ -30,6 +30,7 @@
     <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\ThermoRawFileReader\ThermoRawFileReader.csproj" />
+    <ProjectReference Include="..\UniDecAPI\UniDecAPI.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 

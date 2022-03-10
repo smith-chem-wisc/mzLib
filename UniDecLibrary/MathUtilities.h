@@ -22,7 +22,7 @@ void apply_ratios(const int lengthmz, const int numz, const float* __restrict bl
 
 void complex_mult(fftw_complex* A, fftw_complex* B, fftw_complex* product_ft, int complen);
 
-float Average(const int length, const float* xarray);
+__declspec(dllexport) float Average(const int length, const float* xarray);
 int mod(int a, int b); 
 float Max(const float* blur, const int length);
 float Sum(const float* blur, int length);
