@@ -8,7 +8,9 @@ A library for mass spectrometry projects.
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/10000/badge.svg)](https://scan.coverity.com/projects/mzlib)
 [![NuGet Badge](https://buildstats.info/nuget/mzLib)](https://www.nuget.org/packages/mzLib/)
 
-Releases are here: https://www.nuget.org/packages/mzLib/
+NuGet packages are released here: https://www.nuget.org/packages/mzLib/
+
+GitHub release tags are recoreded here: https://github.com/smith-chem-wisc/mzLib/releases
 
 ![image](https://user-images.githubusercontent.com/16841846/113908189-df7a6e80-979b-11eb-9a2d-571a53e167ac.png)
 
