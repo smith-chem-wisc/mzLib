@@ -1,4 +1,4 @@
-name: mzLib Release
+name: Release
 
 on:
   push:
