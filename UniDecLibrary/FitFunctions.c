@@ -6,7 +6,10 @@
 //
 
 #include "FitFunctions.h"
-
+#include <stdlib.h>
+#include <stdio.h>
+#include "ArrayIndexing.h"
+#include "Convolution.h"
 // Fit functions
 
 float getfitdatspeedy(float* fitdat, const float* blur, const char* barr, const int lengthmz, const int numz, const int maxlength, const float maxint,

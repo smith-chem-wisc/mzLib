@@ -36,4 +36,4 @@
 #include "Normalization.h"
 #include "UD_analysis.h"
 
-Decon MainDeconvolution(const Config config, const Input inp, const int silent, const int verbose);
+__declspec(dllexport) Decon MainDeconvolution(const Config config, const Input inp, const int silent, const int verbose);

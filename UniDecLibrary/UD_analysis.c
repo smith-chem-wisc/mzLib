@@ -61,6 +61,38 @@ void interpolate_merge(const float *massaxis, float *outint, const float *tempax
 }
 
 
+int is_peak(const float* dataMZ, const float* dataInt, const int lengthmz, const float window, const float thresh, const int index)
+{
+    float xval = dataMZ[index];
+    float yval = dataInt[index];
+    //Check if below threshold
+    if (yval < thresh) { return 0; }
+    //Check if local max
+    for (int i = 0; i < lengthmz; i++)
+    {
+        float temp = dataMZ[i];
+        if (fabs(temp - xval) <= window)
+        {
+            float tempy = dataInt[i];
+            //printf("%f %f %f %f\n", temp, tempy, xval, yval);
+            if (tempy > yval)
+            {
+                return 0;
+            }
+            if (tempy == yval && i < index)
+            {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
+
+
+
+
 int peak_detect(const float *dataMZ, const float *dataInt, const int lengthmz, const float window, const float thresh, float * peakx, float *peaky)
 {
     //printf("Detecting Peaks %d %f %f\n", lengthmz, window, thresh);

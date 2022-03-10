@@ -6,6 +6,7 @@
 //
 
 #include "MathUtilities.h"
+#include <math.h>
 
 // General math //
 

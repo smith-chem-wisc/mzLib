@@ -7,6 +7,7 @@
 
 #include "Confidence.h"
 #include <math.h>
+#include "MathUtilities.h"
 // Confidence //
 
 

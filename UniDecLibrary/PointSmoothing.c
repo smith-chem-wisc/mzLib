@@ -6,6 +6,10 @@
 //
 
 #include "PointSmoothing.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include "ArrayIndexing.h"
+#include "Convolution.h"
 // Point Smoothing //
 
 

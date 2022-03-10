@@ -6,6 +6,8 @@
 //
 
 #include "Integration.h"
+#include <stdlib.h>
+#include "Interpolation.h"
 
 // Integration //
 

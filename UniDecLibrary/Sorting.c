@@ -6,6 +6,7 @@
 //
 
 #include "Sorting.h"
+#include <math.h>
 
 // Sorting functions
 

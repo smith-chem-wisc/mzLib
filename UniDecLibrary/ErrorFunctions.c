@@ -6,7 +6,10 @@
 //
 
 #include "ErrorFunctions.h"
-
+#include "MZPeak.h"
+#include "ArrayIndexing.h"
+#include "MathUtilities.h"
+#include "ErrorFunctions.h"
 
 
 // Error calculations
