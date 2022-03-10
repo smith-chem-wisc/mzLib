@@ -15,6 +15,10 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 5.0.x
+      - name: Set up NuGet
+        uses: nuget/setup-nuget@v1
+        with:
+          nuget-version: '6.x'
       - name: Verify commit exists in origin/master
         run: |
           git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
@@ -35,15 +39,11 @@ jobs:
           $version= &git describe --tags
           cd mzLib
           dotnet test --configuration Release /p:Version=${version} --no-build
-      - name: Pack
+      - name: Pack and Push NuGet Package
         run: |
           $version= &git describe --tags
           cd mzLib
-          dotnet pack --configuration Release /p:Version=${version} --no-build --output .
-      - name: Push
-        run: |
-          $version= &git describe --tags
-          cd mzLib
+          nuget pack mzLib.nuspec -Version ${version} -Properties Configuration=Release
           dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
         env:
           GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}
