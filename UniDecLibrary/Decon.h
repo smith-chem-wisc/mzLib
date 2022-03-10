@@ -14,7 +14,7 @@
 #include "Config.h"
 #include "Input.h"
 
-typedef struct Decon Decon;
+__declspec(dllexport) typedef struct Decon Decon;
 
 struct Decon {
     float* fitdat;
@@ -38,8 +38,8 @@ struct Decon {
     int plen;
 };
 
-Decon SetupDecon(void);
+__declspec(dllexport) Decon SetupDecon(void);
 
-void FreeDecon(Decon decon);
+__declspec(dllexport) void FreeDecon(Decon decon);
 
 #endif /* Decon_h */

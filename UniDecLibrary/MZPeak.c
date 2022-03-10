@@ -6,7 +6,11 @@
 //
 
 #include "MZPeak.h"
-
+#include <stdlib.h>
+#include <stdio.h>
+#include "MathUtilities.h"
+#include "ArrayIndexing.h"
+#include <math.h>
 // MZ Peak
 
 

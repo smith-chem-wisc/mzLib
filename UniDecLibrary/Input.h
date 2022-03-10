@@ -8,7 +8,7 @@
 #ifndef Input_h
 #define Input_h
 
-typedef struct Input Input;
+__declspec(dllexport) typedef struct Input Input;
 
 struct Input {
     float* dataMZ;
@@ -22,7 +22,7 @@ struct Input {
     float isoparams[10];
 };
 
-Input SetupInputs(void);
-void FreeInputs(Input inp);
+__declspec(dllexport) Input SetupInputs(void);
+__declspec(dllexport) void FreeInputs(Input inp);
 
 #endif /* Input_h */

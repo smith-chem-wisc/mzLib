@@ -7,7 +7,8 @@
 
 #include "BlurFunctions.h"
 #include "Config.h"
-
+#include "MZPeak.h"
+#include "Sorting.h"
 
 //Convolution of neighborhood function with gaussian filter.
 void blur_it(const int lengthmz,

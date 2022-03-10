@@ -6,6 +6,10 @@
 //
 
 #include "Transforms.h"
+#include "Sorting.h"
+#include "MathUtilities.h"
+#include "Interpolation.h"
+#include "ArrayIndexing.h"
 
 // Transforms //
 

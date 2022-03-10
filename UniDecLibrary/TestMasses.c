@@ -6,6 +6,9 @@
 //
 
 #include "TestMasses.h"
+#include "Sorting.h"
+#include "ArrayIndexing.h"
+#include "MathUtilities.h"
 
 // Test Masses
 

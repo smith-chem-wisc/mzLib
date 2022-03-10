@@ -6,7 +6,7 @@
 //
 
 #include "Normalization.h"
-
+#include "MathUtilities.h"
 // Normalization //
 
 void simp_norm(const int length, float* data)

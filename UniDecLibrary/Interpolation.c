@@ -6,6 +6,8 @@
 //
 
 #include "Interpolation.h"
+#include <stdlib.h>
+#include "Sorting.h"
 
 
 //Perform a linear interpolation. I've left the code for other interpolation functions below but they don't seem to matter.
