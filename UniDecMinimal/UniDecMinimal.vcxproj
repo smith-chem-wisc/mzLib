@@ -76,27 +76,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
-    <PublicIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(PublicIncludeDirectories)</PublicIncludeDirectories>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
-    <PublicIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(PublicIncludeDirectories)</PublicIncludeDirectories>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
-    <PublicIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(PublicIncludeDirectories)</PublicIncludeDirectories>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB;$(ProjectDir)lib;$(LibraryPath)</LibraryPath>
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
-    <PublicIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB;$(PublicIncludeDirectories)</PublicIncludeDirectories>
+    <PublicIncludeDirectories>$(PublicIncludeDirectories)</PublicIncludeDirectories>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -106,7 +106,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -127,7 +127,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -148,7 +148,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -169,7 +169,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\UniDecMinimal\dependency\FFTW3-LIB</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Austin\Documents\GitHub\mzLib\FFTW3-LIB</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

@@ -7,19 +7,19 @@ namespace UniDecAPI
 	{
 		public static class DeconMethods
 		{
-			[DllImport("UniDecMinimal.dll", EntryPoint = "SetupDecon")]
+			[DllImport("TestDLL.dll", EntryPoint = "SetupDecon")]
 			private static extern Decon _SetUpDecon(); 
 			public static Decon SetupDecon()
 			{
 				return _SetUpDecon(); 
 			}
-			[DllImport("UniDecMinimal.dll", EntryPoint = "FreeDecon")]
+			[DllImport("TestDLL.dll", EntryPoint = "FreeDecon")]
 			private static extern void _FreeDecon(Decon decon); 
 			public static void FreeDecon(Decon decon)
 			{
 				_FreeDecon(decon); 
 			}
-			[DllImport("UniDecMinimal.dll", EntryPoint = "Average")]
+			[DllImport("TestDLL.dll", EntryPoint = "Average")]
 			private static extern float _Average(int length, float[] xarray); 
 			public static float Average(int length, float[] xarray)
 			{

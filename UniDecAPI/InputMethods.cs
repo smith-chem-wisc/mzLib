@@ -11,13 +11,13 @@ namespace UniDecAPI
 	{
 		public static class InputMethods
 		{
-			[DllImport("UniDecMinimal", EntryPoint = "SetupInputs")]
+			[DllImport("TestDLL.dll", EntryPoint = "SetupInputs")]
 			private static extern Input _SetupInputs(); 
 			public static Input SetupInputs()
 			{
 				return _SetupInputs(); 
 			}
-			[DllImport("UniDecMinimal", EntryPoint = "FreeInputs")]
+			[DllImport("TestDLL.dll", EntryPoint = "FreeInputs")]
 			private static extern void _FreeInputs(Input inp); 
 			public static void FreeInputs(Input inp)
 			{

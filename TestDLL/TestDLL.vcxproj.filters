@@ -18,18 +18,171 @@
     <ClInclude Include="framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Average.h">
+    <ClInclude Include="TestFFTW3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TestFFTW3.h">
+    <ClInclude Include="..\UniDecLibrary\MathUtilities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\ArrayIndexing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\ArgMax.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\BlurFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Confidence.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Convolution.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Decon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\ErrorFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\FitFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\GeneralUtility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Header.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Input.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Integration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Interpolation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Isotopes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\MetaUniDec_Main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\MZPeak.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Normalization.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\PointSmoothing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Sorting.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\TestMasses.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\Transforms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\UD_analysis.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\UD_charge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\UD_score.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\UniDec.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UniDecLibrary\UniDec_Main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Average.c">
+    <ClCompile Include="TestFFTW3.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TestFFTW3.c">
+    <ClCompile Include="..\UniDecLibrary\MathUtilities.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\ArrayIndexing.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\ArgMax.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\BlurFunctions.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Confidence.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Config.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Convolution.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Decon.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\ErrorFunctions.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\FitFunctions.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\GeneralUtility.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Input.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Integration.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Interpolation.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Isotopes.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\MZPeak.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Normalization.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\PointSmoothing.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Sorting.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\TestMasses.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\Transforms.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\UD_analysis.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\UD_score.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\UniDec.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UniDecLibrary\UniDec_Main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -21,5 +21,11 @@ namespace UniDecAPI
 		{
 			return _ExecuteTestFFT(); 
 		}
+		[DllImport("TestDLL.dll", EntryPoint = "max1d")]
+		private static extern float _max1d(float[] blur, int lengthmz); 
+		public static float Max1d(float[] blur)
+		{
+			return _max1d(blur, blur.Length); 
+		}
 	}
 }

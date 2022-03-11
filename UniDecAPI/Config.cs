@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 
 namespace UniDecAPI
 {
+    [StructLayout(LayoutKind.Sequential)]
 	public struct Config
 	{
         public int numit;// number iterations
@@ -41,7 +42,55 @@ namespace UniDecAPI
         public float killmass;
         public int fixedmassaxis;
         public int isotopemode;
-        public int filetype;
+
         public int imflag;
+        //IM Parameters
+        public float dtsig;
+        public float csig;
+        public float ccsub;
+        public float ccslb;
+        public float ccsbins;
+        public float temp;
+        public float press;
+        public float volt;
+        public float tcal1;
+        public float tcal2;
+        public float tcal3;
+        public float tcal4;
+        public float twaveflag;
+        public float hmass;
+        public float to;
+        public float len;
+        public float edc;
+        public float nativeccsub;
+        public float nativeccslb;
+        public int baselineflag;
+        public int noiseflag;
+        public int zout;
+        public int metamode;
+        public float minmz;
+        public float maxmz;
+        public int mzbins;
+        public float bsub;
+        public float datareduction;
+        public float peakwin;
+        public float peakthresh;
+        public float exwindow;
+        public int exchoice;
+        public int exchoicez;
+        public float exthresh;
+        public int exnorm;
+        public int exnormz;
+        public int peaknorm;
+        public int orbimode;
+        public int datanorm;
+        //Experimental Parameters
+        public int filterwidth;
+        public float zerolog;
+        public int lengthmz;
+        public int mfilelen;
+        public int isolength;
+        // DoubleDec Parameters
+        public int doubledec;
     }
 }

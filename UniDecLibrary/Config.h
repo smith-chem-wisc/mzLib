@@ -17,8 +17,6 @@ __declspec(dllexport) typedef struct Config Config;
 
 struct Config
 {
-    char infile[500]; // remove infile
-    char outfile[500]; // remove outfile
     int numit;// number iterations
     int numz; // number of charge states
     int endz; // final charge state
@@ -33,8 +31,6 @@ struct Config
     float masslb;
     int psfun;
     float mtabsig;
-    char mfile[500]; // remove mfile
-    char manualfile[500]; // remove manualfile
     int mflag;
     float massbins;
     int limitflag;
@@ -103,11 +99,11 @@ struct Config
     int isolength;
     // DoubleDec Parameters
     int doubledec;
-    char kernel[500];
-    char dataset[1024];
 };
 
 __declspec(dllexport) Config SetDefaultConfig(void);
 // Load config needs to be rewritten so that I can just pass the config struct from the C# calling code.
-Config PostImport(Config config); 
+__declspec(dllexport) Config PostImport(Config config); 
+__declspec(dllexport) Config ReturnModifiedConfigToCS(Config config); 
+__declspec(dllexport) Config ModifyConfigToDefault(Config* config); 
 #endif /* Config_h */

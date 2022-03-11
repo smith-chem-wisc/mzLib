@@ -11,11 +11,25 @@ namespace UniDecAPI
 	{
 		public static class ConfigMethods
 		{
-			[DllImport("UniDecMinimal", EntryPoint = "SetDefaultConfig")]
-			private static extern Config _SetDefaultConfig();
+			[DllImport("TestDLL.dll", EntryPoint = "SetDefaultConfig")]
+			private static extern Config _SetDefaultConfig(Config config);
 			public static Config SetDefaultConfig()
 			{
-				return SetDefaultConfig();
+				Config config = new(); 
+				return _SetDefaultConfig(config);
+			}
+			[DllImport("TestDLL.dll", EntryPoint = "ReturnModifiedConfigToCS")]
+			private static extern Config _ReturnModifiedConfigToCS(Config config); 
+			public static Config ReturnModifiedConfigToCS(Config config)
+			{
+				return _ReturnModifiedConfigToCS(config); 
+			}
+			[DllImport("TestDLL.dll", EntryPoint = "ModifyConfigToDefault")]
+			private static unsafe extern Config _ModifyConfigToDefault(Config* config); 
+			public static unsafe Config ModifyConfigToDefault(Config config)
+			{
+				Config* ptrToConfig = &config; 
+				return _ModifyConfigToDefault(ptrToConfig); 
 			}
 		}
 	}
