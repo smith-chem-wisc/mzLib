@@ -12,8 +12,8 @@ namespace UniDecAPI
 		public static class MainDeconvolutionMethods
 		{
 			[DllImport("UniDecMinimal", EntryPoint = "MainDeconvolution")]
-			private static extern Decon _MainDeconvolution(Config config, Input inp, int silent, int verbose);
-			public static void MainDeconvolution(Config config, Input inp, int silent, int verbose, out Decon decon)
+			private static extern Decon _MainDeconvolution(Config config, InputUnsafe inp, int silent, int verbose);
+			public static void MainDeconvolution(Config config, InputUnsafe inp, int silent, int verbose, out Decon decon)
 			{
 				try
 				{ 

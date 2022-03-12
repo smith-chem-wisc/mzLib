@@ -13,6 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="libfftw3-3.def">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

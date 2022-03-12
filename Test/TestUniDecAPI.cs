@@ -112,7 +112,7 @@ namespace Test
 		[Test]
 		public void TestSetupInputs()
 		{
-			Input inp = new(); 
+			InputUnsafe inp = new(); 
 			try
 			{
 				inp = UniDecAPIMethods.InputMethods.SetupInputs();

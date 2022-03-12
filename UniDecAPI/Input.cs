@@ -8,16 +8,16 @@ using System.Runtime.InteropServices;
 namespace UniDecAPI
 {
 	[StructLayout(LayoutKind.Sequential)]
-	public struct Input
+	public unsafe struct InputUnsafe
 	{
-		public float[] dataMZ;
-		public float[] dataInt;
-		public float[] testmasses;
-		public int[] nztab;
-		public float[] mtab;
-		public string barr;
-		public int[] isotopeops;
-		public float[] isotopeval;
-		public float[] isoparams; 
-	}
+		public float* dataMZ;
+		public float* dataInt;
+		public float* testmasses;
+		public int* nztab;
+		public float* mtab;
+		public char* barr;
+		public int* isotopeops;
+		public float* isotopeval;
+		public fixed float isoparams[10];
+	}	
 }
